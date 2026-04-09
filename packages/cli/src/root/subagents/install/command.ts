@@ -2,14 +2,9 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../../command-meta.js";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleInstall } from "./handler.js";
-import { withWorkspace } from "../../../runtime.js";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -37,7 +32,6 @@ const installConfig = {
     Flag.withDescription("Show what would be installed without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("subagents install", { json: true });
 
 export const installCommand = Command.make(
   "install",
@@ -45,11 +39,10 @@ export const installCommand = Command.make(
   ({ source, scope, subagent, all, yes, force, preview }) =>
     handleInstall({ source, subagents: subagent, all }, { yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("subagents install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Install subagents from a registry, GitHub, or local path"),
   Command.withExamples([
     {
@@ -75,10 +68,6 @@ export const installCommand = Command.make(
     {
       command: "axm subagents install @acme/subagents/researcher --preview",
       description: "See what would be installed before committing",
-    },
-    {
-      command: "",
-      description: "See also: subagents list, subagents update, subagents uninstall",
     },
   ]),
 );

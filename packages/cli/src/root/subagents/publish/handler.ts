@@ -1,15 +1,3 @@
-/**
- * Publish command handler -- Effect-based orchestration for `axm subagents publish`.
- *
- * Publishes a managed subagent from `.axm/extensions/` to a target registry:
- * 1. Resolve extension name (bare name -> owner from settings)
- * 2. Validate managed extension exists
- * 3. Build plan with a single PublishSubagentOperation
- * 4. Execute via resolvePlan
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -27,23 +15,11 @@ import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensi
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the publish command.
- */
 export interface PublishHandlerArgs {
-  /** Extension names, FQNs, or glob patterns. */
   readonly extensions: ReadonlyArray<string>;
-  /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
 
@@ -51,10 +27,6 @@ interface TargetRegistry {
   readonly registryName: string;
   readonly registryUrl: string;
 }
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -138,10 +110,6 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       registryUrl: namedRegistry.value.location.href,
     } satisfies TargetRegistry;
   });
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 /**
  * Handles the `axm subagents publish` command.

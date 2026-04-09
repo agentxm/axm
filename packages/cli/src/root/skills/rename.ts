@@ -1,11 +1,3 @@
-/**
- * Rename command handler - Effect-based orchestration for `axm skills rename`.
- *
- * Validates skill state then builds and resolves a single-step plan.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -20,35 +12,17 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface RenameHandlerArgs {
-  /** Current name of the skill */
   readonly oldName: string;
-  /** New name for the skill */
   readonly newName: string;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHandlerArgs) {
   const ws = yield* Workspace;
@@ -124,10 +98,6 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
   yield* renderer.success("Done");
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const renameConfig = {
   oldName: Argument.string("old-name").pipe(Argument.withDescription("Current name of the skill")),
   newName: Argument.string("new-name").pipe(Argument.withDescription("New name for the skill")),
@@ -142,7 +112,6 @@ const renameConfig = {
     Flag.withDescription("Show what would be renamed without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("skills rename", { json: true });
 
 export const renameCommand = Command.make(
   "rename",
@@ -150,11 +119,10 @@ export const renameCommand = Command.make(
   ({ oldName, newName, scope, yes, force, preview }) =>
     handleRename({ oldName, newName, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("skills rename"),
     ),
 ).pipe(
   withArgvTracking(renameConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Rename a skill"),
   Command.withExamples([
     { command: "axm skills rename old-name new-name", description: "Give a skill a better name" },
@@ -162,6 +130,5 @@ export const renameCommand = Command.make(
       command: "axm skills rename old-name new-name --preview",
       description: "Check what would change first",
     },
-    { command: "", description: "See also: skills list, skills disable" },
   ]),
 );

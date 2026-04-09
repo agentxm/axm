@@ -1,16 +1,3 @@
-/**
- * Publish command handler -- Effect-based orchestration for `axm commands publish`.
- *
- * Publishes a managed command extension from `.axm/extensions/` to a target registry:
- * 1. Resolve extension name (bare name -> owner from settings)
- * 2. Validate managed extension exists (command.json + COMMAND.md)
- * 3. Sync COMMAND.md frontmatter fields to manifest
- * 4. Build plan with a single PublishCommandOperation
- * 5. Execute via resolvePlan
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -22,7 +9,6 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { PublishCommandOperation } from "@axm.sh/core/unstable/commands";
@@ -35,32 +21,16 @@ import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { toJobStepResult } from "./job-step-result.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
 
 const COMMAND_MD_FILENAME = "COMMAND.md";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the commands publish handler.
- */
 export interface CommandsPublishHandlerArgs {
-  /** Extension names, FQNs, or glob patterns. */
   readonly extensions: ReadonlyArray<string>;
-  /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
 
@@ -68,10 +38,6 @@ interface TargetRegistry {
   readonly registryName: string;
   readonly registryUrl: string;
 }
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -155,10 +121,6 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       registryUrl: namedRegistry.value.location.href,
     } satisfies TargetRegistry;
   });
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 /**
  * Handles the `axm commands publish` command.
@@ -354,10 +316,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
   }
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const publishConfig = {
   extensions: Argument.string("extensions").pipe(
     Argument.withDescription(
@@ -375,7 +333,6 @@ const publishConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;
-const commandMeta = authCommandMeta("commands publish", { json: true });
 
 export const publishCommand = Command.make(
   "publish",
@@ -383,11 +340,10 @@ export const publishCommand = Command.make(
   ({ extensions, registry, yes, force, preview }) =>
     handleCommandsPublish({ extensions: [...extensions], registry, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
+      withAuthRuntime("commands publish"),
     ),
 ).pipe(
   withArgvTracking(publishConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Publish command extensions to a registry"),
   Command.withExamples([
     {
@@ -398,6 +354,5 @@ export const publishCommand = Command.make(
       command: "axm commands publish my-cmd --registry local",
       description: "Publish to a specific registry",
     },
-    { command: "", description: "See also: commands new" },
   ]),
 );

@@ -1,40 +1,25 @@
-/**
- * Discover command handler.
- *
- * Wires the discover pipeline to CLI renderer output.
- */
-
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { RegistryUrl } from "@axm.sh/core/unstable/auth";
+import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
+import { makeCommandDocumentSchema } from "@axm.sh/core/unstable/cli-runtime";
 import {
   discover,
-  type DiscoverResult,
   type DiscoverPackageResult,
+  type DiscoverResult,
 } from "@axm.sh/core/unstable/discover";
 import { PackageUrlSchema } from "@axm.sh/core/unstable/packaging";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
-import { RegistryUrl } from "@axm.sh/core/unstable/auth";
-
-import { emitResultDocument } from "../../json-output.js";
 
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
-
-// -----------------------------------------------------------------------------
-// Handler Args
-// -----------------------------------------------------------------------------
 
 export interface DiscoverHandlerArgs {
   readonly path: Option.Option<string>;
 }
 
-// -----------------------------------------------------------------------------
-// JSON Output Schema
-// -----------------------------------------------------------------------------
-
-const DiscoverExtensionResultSchema = Schema.Struct({
+const DiscoverExtensionSchema = Schema.Struct({
   owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
@@ -43,81 +28,50 @@ const DiscoverExtensionResultSchema = Schema.Struct({
   signal: Schema.String,
 });
 
-const DiscoverPackageResultSchema = Schema.Struct({
+const DiscoverPackageItemSchema = Schema.Struct({
   package: Schema.String,
-  extensions: Schema.Array(DiscoverExtensionResultSchema),
+  extensions: Schema.Array(DiscoverExtensionSchema),
 });
 
-const DiscoverResultSchema = Schema.Struct({
+const DiscoverOutputFields = {
+  items: Schema.Array(DiscoverPackageItemSchema),
+  count: Schema.Number,
   totalDetected: Schema.Number,
   registryAvailable: Schema.Boolean,
-  packages: Schema.Array(DiscoverPackageResultSchema),
-});
+} satisfies Schema.Struct.Fields;
 
-// -----------------------------------------------------------------------------
-// Handler
-// -----------------------------------------------------------------------------
+export const DiscoverOutputSchema = makeCommandDocumentSchema("discover", DiscoverOutputFields);
+export type DiscoverOutput = typeof DiscoverOutputSchema.Type;
 
-export const handleDiscover = Effect.fn("Discover.handle")(function* (args: DiscoverHandlerArgs) {
-  const renderer = yield* CliRenderer;
-  const registryUrl = yield* RegistryUrl;
+interface DiscoverTableRow {
+  readonly package: string;
+  readonly extension: string;
+  readonly signal: string;
+  readonly latestVersion: string;
+  readonly description: string;
+}
 
-  // Resolve project directory
-  const projectDir = Option.getOrElse(args.path, () => process.cwd());
+const DiscoverTable = {
+  columns: {
+    package: { header: "Package" },
+    extension: { header: "Extension" },
+    signal: { header: "Signal" },
+    latestVersion: { header: "Latest" },
+    description: { header: "Description" },
+  },
+} as const satisfies TableView<DiscoverTableRow>;
 
-  // Create registry client
-  const registryClient = yield* createRegistryClient(registryUrl);
+const defaultRunDiscover = (projectDir: string) =>
+  Effect.gen(function* () {
+    const registryUrl = yield* RegistryUrl;
+    const registryClient = yield* createRegistryClient(registryUrl);
+    return yield* discover(projectDir, registryClient);
+  });
 
-  // Run discover pipeline
-  const result = yield* discover(projectDir, registryClient);
+export const resolveDiscoverProjectDir = (path: Option.Option<string>): string =>
+  Option.getOrElse(path, () => process.cwd());
 
-  // JSON output
-  const jsonResult = toJsonResult(result);
-  if (yield* emitResultDocument("discover", jsonResult, DiscoverResultSchema)) {
-    return;
-  }
-
-  // Interactive output
-  yield* renderer.info("axm discover");
-
-  if (!result.registryAvailable) {
-    yield* renderer.warn("Registry unavailable. Showing local recommendations only.");
-  }
-
-  if (result.packages.length === 0) {
-    yield* renderer.message("No compatible extensions found.");
-    return;
-  }
-
-  // Render per-package groups
-  for (const pkg of result.packages) {
-    yield* renderer.message("");
-    yield* renderer.step(formatPackageName(pkg));
-
-    for (const entry of pkg.extensions) {
-      const badge = entry.signal === "recommended" ? "[recommended]" : "[compatible]";
-      const fqn = `${entry.extension.owner}/${entry.extension.type}/${entry.extension.name}`;
-      const desc =
-        entry.extension.description.length > 0 ? ` - ${entry.extension.description}` : "";
-      yield* renderer.message(`  ${badge} ${fqn}@${entry.extension.latestVersion}${desc}`);
-    }
-  }
-
-  // Summary
-  const totalExtensions = result.packages.reduce((sum, pkg) => sum + pkg.extensions.length, 0);
-  const packagesWithResults = result.packages.length;
-
-  yield* renderer.message("");
-  yield* renderer.success(
-    `Found ${totalExtensions} compatible extension${totalExtensions === 1 ? "" : "s"} for ${packagesWithResults} of ${result.totalDetected} detected package${result.totalDetected === 1 ? "" : "s"}.`,
-  );
-});
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-const formatPackageName = (pkg: DiscoverPackageResult): string => {
+export const formatPackageName = (pkg: DiscoverPackageResult): string => {
   const parts = pkg.detectedPackage;
   if (parts.namespace !== undefined) {
     return parts.version !== undefined
@@ -127,10 +81,10 @@ const formatPackageName = (pkg: DiscoverPackageResult): string => {
   return parts.version !== undefined ? `${parts.name}@${parts.version}` : parts.name;
 };
 
-const toJsonResult = (result: DiscoverResult) => ({
-  totalDetected: result.totalDetected,
-  registryAvailable: result.registryAvailable,
-  packages: result.packages.map((pkg) => ({
+export const toDiscoverOutput = (
+  result: DiscoverResult,
+): Schema.Struct.Type<typeof DiscoverOutputFields> => ({
+  items: result.packages.map((pkg) => ({
     package: encodePurl(pkg.detectedPackage),
     extensions: pkg.extensions.map((entry) => ({
       owner: entry.extension.owner,
@@ -141,4 +95,58 @@ const toJsonResult = (result: DiscoverResult) => ({
       signal: entry.signal,
     })),
   })),
+  count: result.packages.length,
+  totalDetected: result.totalDetected,
+  registryAvailable: result.registryAvailable,
 });
+
+const toDiscoverTableRows = (result: DiscoverResult): ReadonlyArray<DiscoverTableRow> =>
+  result.packages.flatMap((pkg) =>
+    pkg.extensions.map((entry) => ({
+      package: formatPackageName(pkg),
+      extension: `${entry.extension.owner}/${entry.extension.type}/${entry.extension.name}`,
+      signal: entry.signal,
+      latestVersion: entry.extension.latestVersion,
+      description: entry.extension.description,
+    })),
+  );
+
+const formatSummary = (
+  args: { readonly count: number; readonly totalDetected: number },
+  extensionCount: number,
+): string => {
+  const extensionLabel = extensionCount === 1 ? "extension" : "extensions";
+  const packageLabel = args.totalDetected === 1 ? "package" : "packages";
+  return `Found ${extensionCount} compatible ${extensionLabel} for ${args.count} of ${args.totalDetected} detected ${packageLabel}.`;
+};
+
+export const handleDiscoverWith = <E, R>(
+  args: DiscoverHandlerArgs,
+  runDiscover: (projectDir: string) => Effect.Effect<DiscoverResult, E, R>,
+) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const projectDir = resolveDiscoverProjectDir(args.path);
+    const result = yield* runDiscover(projectDir);
+    const output = toDiscoverOutput(result);
+
+    if (yield* renderer.document("discover", output, DiscoverOutputFields)) {
+      return;
+    }
+
+    if (!result.registryAvailable) {
+      yield* renderer.warn("Registry unavailable. Showing local recommendations only.");
+    }
+
+    if (output.items.length === 0) {
+      yield* renderer.info("No compatible extensions found.");
+      return;
+    }
+
+    const rows = toDiscoverTableRows(result);
+    yield* renderer.table(rows, DiscoverTable, "Compatible extensions");
+    yield* renderer.success(formatSummary(output, rows.length));
+  });
+
+export const handleDiscover = (args: DiscoverHandlerArgs) =>
+  handleDiscoverWith(args, defaultRunDiscover);

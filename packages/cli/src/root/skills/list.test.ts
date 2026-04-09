@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
@@ -64,12 +64,17 @@ describe("list.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+  const makeLayers = (opts?: {
+    readonly machine?: boolean;
+    readonly wsOverrides?: Partial<WorkspaceContextOptions>;
+  }) => {
+    const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+    const rendererLayer = renderer.layer;
+    const rendererState = renderer.state;
     const BaseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      ...wsOverrides,
+      ...opts?.wsOverrides,
     };
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({
@@ -85,7 +90,7 @@ describe("list.handler", () => {
 
     const logs = logsByTag(rendererState);
 
-    return { provide, logs };
+    return { provide, logs, rendererState };
   };
 
   // ---------------------------------------------------------------------------
@@ -93,7 +98,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("displays all installed skills", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-one": makeLockEntry(),
       "skill-two": makeLockEntry(),
@@ -103,8 +108,13 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: [] });
 
-        expect(logs.message.some((m) => m.includes("skill-one"))).toBe(true);
-        expect(logs.message.some((m) => m.includes("skill-two"))).toBe(true);
+        expect(rendererState.tables).toHaveLength(1);
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ name: "skill-one" }),
+            expect.objectContaining({ name: "skill-two" }),
+          ]),
+        );
       }),
     );
   });
@@ -131,7 +141,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("filters skills by single agent", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-claude": makeLockEntry(["claude-code"]),
       "skill-cursor": makeLockEntry(["cursor"]),
@@ -141,8 +151,10 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["claude-code"] });
 
-        expect(logs.message.some((m) => m.includes("skill-claude"))).toBe(true);
-        expect(logs.message.some((m) => m.includes("skill-cursor"))).toBe(false);
+        expect(rendererState.tables).toHaveLength(1);
+        expect(rendererState.tables[0]?.items).toEqual([
+          expect.objectContaining({ name: "skill-claude", agents: ["claude-code"] }),
+        ]);
       }),
     );
   });
@@ -152,7 +164,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("filters by multiple agents using OR logic", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-claude": makeLockEntry(["claude-code"]),
       "skill-cursor": makeLockEntry(["cursor"]),
@@ -163,9 +175,16 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["claude-code", "cursor"] });
 
-        expect(logs.message.some((m) => m.includes("skill-claude"))).toBe(true);
-        expect(logs.message.some((m) => m.includes("skill-cursor"))).toBe(true);
-        expect(logs.message.some((m) => m.includes("skill-other"))).toBe(false);
+        expect(rendererState.tables).toHaveLength(1);
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ name: "skill-claude" }),
+            expect.objectContaining({ name: "skill-cursor" }),
+          ]),
+        );
+        expect(rendererState.tables[0]?.items).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ name: "skill-other" })]),
+        );
       }),
     );
   });
@@ -184,7 +203,32 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["nonexistent-agent"] });
 
-        expect(logs.info.some((m) => m.includes("No skills installed"))).toBe(true);
+        expect(logs.info).toContain("No skills matched the selected agent filter.");
+      }),
+    );
+  });
+
+  it.effect("emits machine-readable items for --json consumers", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      "skill-one": makeLockEntry(),
+      "skill-two": makeLockEntry(["cursor"]),
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ agents: [] });
+
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          _version: 1,
+          command: "skills.list",
+          count: 2,
+          items: [
+            { name: "skill-one", agents: ["claude-code"] },
+            { name: "skill-two", agents: ["cursor"] },
+          ],
+        });
       }),
     );
   });

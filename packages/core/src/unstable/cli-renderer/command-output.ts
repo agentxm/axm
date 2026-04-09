@@ -1,90 +1,64 @@
-import * as Schema from "effect/Schema";
-import * as SchemaAST from "effect/SchemaAST";
+import type {
+  DetailFieldConfig,
+  DetailView,
+  ResolvedDetailField,
+  ResolvedTableColumn,
+  TableColumnConfig,
+  TableView,
+  ViewKey,
+} from "./cli-renderer.js";
 
-import {
-  ColumnHeader,
-  ColumnPriority,
-  ColumnAlign,
-  ColumnWidth,
-  DisplayFormat,
-  Hidden,
-} from "./annotations.js";
-import type { ColumnDef } from "./cli-renderer.js";
-
-// ---------------------------------------------------------------------------
-// columnsFrom — derive column definitions from a Schema's AST annotations.
-//
-// API notes:
-// - SchemaAST.isObjects(ast) narrows to Objects with propertySignatures
-// - SchemaAST.resolve(ast) returns annotations, handling checks-based paths
-// - Annotations on inner types wrapped by Schema.optional are buried inside
-//   Union members. When resolve() on the property type yields no ColumnHeader,
-//   we traverse Union members to find them.
-// ---------------------------------------------------------------------------
-
-/**
- * Attempt to read annotations from the given AST node. If the node is a
- * Union (e.g. from Schema.optional wrapping), traverse its member types
- * and return annotations from the first member that carries a ColumnHeader.
- */
-const resolveAnnotations = (ast: SchemaAST.AST): Readonly<Record<string, unknown>> | undefined => {
-  const direct = SchemaAST.resolve(ast);
-  if (direct?.[ColumnHeader] !== undefined) return direct;
-  if (direct?.[Hidden] === true) return direct;
-
-  // Traverse Union members for optional-wrapped annotations
-  if (SchemaAST.isUnion(ast)) {
-    for (const member of ast.types) {
-      const memberAnn = SchemaAST.resolve(member);
-      if (memberAnn?.[ColumnHeader] !== undefined) return memberAnn;
-      if (memberAnn?.[Hidden] === true) return memberAnn;
-    }
+const defaultRenderValue = (value: unknown): string => {
+  if (value == null) {
+    return "";
   }
 
-  return direct;
+  return String(value);
 };
 
-const isStringRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-/**
- * Derives column definitions from a Schema's AST annotations.
- *
- * Iterates over property signatures of a Struct schema and extracts
- * column metadata from annotations set via `column()` and `hidden()`.
- */
-export const columnsFrom = <S extends Schema.Top>(
-  schema: S,
-): ReadonlyArray<ColumnDef<Schema.Schema.Type<S>>> => {
-  const ast = schema.ast;
-  if (!SchemaAST.isObjects(ast)) return [];
-
-  return ast.propertySignatures
-    .filter((ps) => {
-      const ann = resolveAnnotations(ps.type);
-      return ann?.[Hidden] !== true && ann?.[ColumnHeader] !== undefined;
-    })
-    .map((ps) => {
-      const ann = resolveAnnotations(ps.type) ?? {};
-      const key = String(ps.name);
-      const format = ann[DisplayFormat];
-      const header = ann[ColumnHeader];
-      return {
-        key,
-        header: typeof header === "string" ? header : key,
-        value: (item: Schema.Schema.Type<S>) => {
-          const raw = isStringRecord(item) ? item[key] : undefined;
-          if (typeof format === "function") return format(raw);
-          if (raw == null) return "";
-          return String(raw);
-        },
-        priority: typeof ann[ColumnPriority] === "number" ? ann[ColumnPriority] : 0,
-        align: ann[ColumnAlign] === "right" ? "right" : "left",
-        width: ((): "auto" | "fill" | number => {
-          const w = ann[ColumnWidth];
-          if (w === "fill" || typeof w === "number") return w;
-          return "auto";
-        })(),
-      } satisfies ColumnDef<Schema.Schema.Type<S>>;
-    });
+const typedEntries = <T extends object>(record: T) => {
+  // Assertion needed: Object.entries preserves key/value pairs at runtime but loses
+  // their relationship in the standard library types.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return Object.entries(record) as unknown as ReadonlyArray<
+    {
+      readonly [K in Extract<keyof T, string>]: readonly [K, T[K]];
+    }[Extract<keyof T, string>]
+  >;
 };
+
+const resolveTableColumn = <T extends object, K extends ViewKey<T>>(
+  key: K,
+  config: TableColumnConfig<T, K>,
+): ResolvedTableColumn<T> => ({
+  key,
+  header: config.header,
+  render: (row) => {
+    const rendered = config.render?.(row[key], row);
+    return rendered ?? defaultRenderValue(row[key]);
+  },
+  align: config.align ?? "left",
+  width: config.width ?? "auto",
+});
+
+const resolveDetailField = <T extends object, K extends ViewKey<T>>(
+  key: K,
+  config: DetailFieldConfig<T, K>,
+): ResolvedDetailField<T> => ({
+  key,
+  label: config.label,
+  render: (row) => {
+    const rendered = config.render?.(row[key], row);
+    return rendered ?? defaultRenderValue(row[key]);
+  },
+});
+
+export const resolveTableColumns = <T extends object>(
+  view: TableView<T>,
+): ReadonlyArray<ResolvedTableColumn<T>> =>
+  typedEntries(view.columns).map(([key, config]) => resolveTableColumn(key, config));
+
+export const resolveDetailFields = <T extends object>(
+  view: DetailView<T>,
+): ReadonlyArray<ResolvedDetailField<T>> =>
+  typedEntries(view.fields).map(([key, config]) => resolveDetailField(key, config));

@@ -1,13 +1,3 @@
-/**
- * Disable command handler - Effect-based orchestration for `axm skills disable`.
- *
- * Validates skill state using taxonomy lifecycle views then builds and resolves
- * a single-step plan. The operation handles all paths: configured disable,
- * settings-only disable, and implicit-to-configured promotion.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -22,33 +12,16 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface DisableHandlerArgs {
-  /** Name of the skill to disable */
   readonly name: string;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
   const ws = yield* Workspace;
@@ -132,10 +105,6 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
   yield* renderer.success("Done");
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const disableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill to disable")),
   scope: scopeFlag.pipe(
@@ -145,7 +114,6 @@ const disableConfig = {
   force: forceFlag.pipe(Flag.withDescription("Disable even if other skills depend on it")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
-const commandMeta = registryCommandMeta("skills disable", { json: true });
 
 export const disableCommand = Command.make(
   "disable",
@@ -153,11 +121,10 @@ export const disableCommand = Command.make(
   ({ name, scope, yes, force, preview }) =>
     handleDisable({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("skills disable"),
     ),
 ).pipe(
   withArgvTracking(disableConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Disable a skill without uninstalling it"),
   Command.withExamples([
     {
@@ -168,6 +135,5 @@ export const disableCommand = Command.make(
       command: "axm skills disable code-review --scope user",
       description: "Disable for user-scope configuration",
     },
-    { command: "", description: "See also: skills enable, skills uninstall" },
   ]),
 );

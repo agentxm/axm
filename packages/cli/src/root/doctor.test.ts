@@ -124,7 +124,7 @@ describe("doctor handler", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           _version: 1,
           command: "doctor",
-          result: {
+          data: {
             healthy: false,
             canSync: true,
             failed: 1,
@@ -146,6 +146,26 @@ describe("doctor handler", () => {
             ],
           },
         });
+      }),
+    );
+  });
+
+  it.effect("renders a diagnostics table in human mode", () => {
+    const { provide, rendererState } = makeLayers(makeSourceProviders(["manage-extensions"]));
+    createSkillWorkspace();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleDoctor();
+
+        expect(rendererState.tables).toHaveLength(1);
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ name: "Skills Resolvable", status: "pass" }),
+            expect.objectContaining({ name: "Skills Installed", status: "fail" }),
+            expect.objectContaining({ name: "Skills Enabled", status: "skip" }),
+          ]),
+        );
       }),
     );
   });

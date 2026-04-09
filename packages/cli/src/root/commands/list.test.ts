@@ -10,8 +10,13 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Layer from "effect/Layer";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
-import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleListCommands } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -58,14 +63,35 @@ describe("commands list.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => makeWorkspaceHandlerTestContext();
+  const makeLayers = (opts?: {
+    readonly machine?: boolean;
+    readonly wsOverrides?: Partial<WorkspaceContextOptions>;
+  }) => {
+    const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+    const rendererLayer = renderer.layer;
+    const rendererState = renderer.state;
+    const baseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
+    const wsOptions: WorkspaceContextOptions = {
+      scope: "project",
+      ...opts?.wsOverrides,
+    };
+    const wsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), baseLayer);
+    const fullLayer = Layer.mergeAll(baseLayer, wsLayer);
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides layer variance
+      provide: <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(fullLayer)),
+      logs: logsByTag(rendererState),
+      rendererState,
+    };
+  };
 
   // ---------------------------------------------------------------------------
   // Display all commands
   // ---------------------------------------------------------------------------
 
   it.effect("displays all installed commands", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(
       path.join(tempDir, ".axm"),
       { "cmd-one": "@acme/commands/cmd-one", "cmd-two": "@acme/commands/cmd-two" },
@@ -74,10 +100,15 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ agents: [] });
+        yield* handleListCommands();
 
-        expect(logs.message.some((m) => m.includes("cmd-one"))).toBe(true);
-        expect(logs.message.some((m) => m.includes("cmd-two"))).toBe(true);
+        expect(rendererState.tables).toHaveLength(1);
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ name: "cmd-one" }),
+            expect.objectContaining({ name: "cmd-two" }),
+          ]),
+        );
       }),
     );
   });
@@ -92,7 +123,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ agents: [] });
+        yield* handleListCommands();
 
         expect(logs.info.some((m) => m.includes("No commands installed"))).toBe(true);
       }),
@@ -104,7 +135,7 @@ describe("commands list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("shows enabled status for active commands", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(
       path.join(tempDir, ".axm"),
       { "my-cmd": "@acme/commands/my-cmd" },
@@ -113,15 +144,17 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ agents: [] });
+        yield* handleListCommands();
 
-        expect(logs.message.some((m) => m.includes("my-cmd") && m.includes("enabled"))).toBe(true);
+        expect(rendererState.tables[0]?.items).toEqual([
+          expect.objectContaining({ name: "my-cmd", enabled: true }),
+        ]);
       }),
     );
   });
 
   it.effect("shows disabled status for disabled commands", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(
       path.join(tempDir, ".axm"),
       { "my-cmd": { source: "@acme/commands/my-cmd", enabled: false } },
@@ -130,9 +163,41 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ agents: [] });
+        yield* handleListCommands();
 
-        expect(logs.message.some((m) => m.includes("my-cmd") && m.includes("disabled"))).toBe(true);
+        expect(rendererState.tables[0]?.items).toEqual([
+          expect.objectContaining({ name: "my-cmd", enabled: false }),
+        ]);
+      }),
+    );
+  });
+
+  it.effect("emits machine-readable items for --json consumers", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(
+      path.join(tempDir, ".axm"),
+      { "cmd-one": "@acme/commands/cmd-one" },
+      { "cmd-one": makeLockEntry() },
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListCommands();
+
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          _version: 1,
+          command: "commands.list",
+          count: 1,
+          items: [
+            {
+              name: "cmd-one",
+              lifecycle: "configured",
+              enabled: true,
+              source: "@acme/commands/cmd-one",
+            },
+          ],
+        });
       }),
     );
   });

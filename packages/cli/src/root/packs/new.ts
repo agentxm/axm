@@ -1,10 +1,3 @@
-/**
- * Packs new handler — validates input, resolves owner,
- * builds a single-step plan, and executes via `ws.resolvePlan()`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -26,37 +19,19 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
+import { withRuntime, withWorkspace } from "../../runtime.js";
 
 export interface PacksNewHandlerArgs {
-  /** Name of the pack (without owner). */
   readonly name: ExtensionName;
-  /** Optional profile override. */
   readonly profile: Option.Option<Handle>;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
   const ws = yield* Workspace;
@@ -155,10 +130,6 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   yield* renderer.success(`Created extension pack ${fqn}`);
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const newConfig = {
   name: Argument.string("name").pipe(
     Argument.withDescription("Name of the extension pack (without owner)"),
@@ -175,7 +146,6 @@ const newConfig = {
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("packs new", { json: true });
 
 export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, force, preview }) =>
   handlePacksNew({
@@ -184,10 +154,9 @@ export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, 
     yes,
     force,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withCommandRuntime(commandMeta)),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs new")),
 ).pipe(
   withArgvTracking(newConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Create a new empty extension pack"),
   Command.withExamples([
     {
@@ -197,10 +166,6 @@ export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, 
     {
       command: "axm packs new frontend-tools --profile @co",
       description: "Create under a specific owner",
-    },
-    {
-      command: "",
-      description: "See also: packs add, packs publish",
     },
   ]),
 );

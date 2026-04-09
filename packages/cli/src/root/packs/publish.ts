@@ -1,16 +1,3 @@
-/**
- * Publish command handler -- Effect-based orchestration for `axm packs publish`.
- *
- * Publishes a pack from `.axm/extensions/` to a target registry:
- * 1. Resolve extension name (bare name -> owner from settings)
- * 2. Validate managed pack exists with manifest
- * 3. Discover local dependencies (when --include-dependencies)
- * 4. Build plan (dependency job + pack job, or pack-only)
- * 5. Execute via resolvePlan
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -50,32 +37,18 @@ import {
   type PublishMcpServerOperation,
 } from "@axm.sh/core/unstable/mcp-servers";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the packs publish command.
- */
 export interface PublishPackHandlerArgs {
-  /** Pack name (@owner/name or bare name). */
   readonly pack: string;
-  /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
-  /** Publish locally managed dependency extensions alongside the pack. */
   readonly includeDependencies: boolean;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
 
@@ -144,10 +117,6 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       registryUrl: namedRegistry.value.location.href,
     } satisfies TargetRegistry;
   });
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 /**
  * Handles the `axm packs publish` command.
@@ -392,10 +361,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   yield* renderer.success("Done");
 });
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
 /** Create a per-type publish dependency step from a parsed FQN. */
 const makeDependencyStep = (
   parsed: FullyQualifiedNameParts,
@@ -465,10 +430,6 @@ const makeDependencyStep = (
   }
 };
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const publishConfig = {
   pack: Argument.string("pack").pipe(
     Argument.withDescription("Extension pack name (@owner/name or bare name)"),
@@ -487,7 +448,6 @@ const publishConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;
-const commandMeta = authCommandMeta("packs publish", { json: true });
 
 export const publishCommand = Command.make(
   "publish",
@@ -495,11 +455,10 @@ export const publishCommand = Command.make(
   ({ pack, registry, includeDependencies, yes, force, preview }) =>
     handlePublishPack({ pack, registry, includeDependencies, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
+      withAuthRuntime("packs publish"),
     ),
 ).pipe(
   withArgvTracking(publishConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Publish an extension pack to a registry"),
   Command.withExamples([
     {
@@ -513,10 +472,6 @@ export const publishCommand = Command.make(
     {
       command: "axm packs publish @acme/frontend-tools --include-dependencies",
       description: "Also publish the extension pack's local dependency extensions",
-    },
-    {
-      command: "",
-      description: "See also: packs new, packs add",
     },
   ]),
 );

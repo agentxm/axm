@@ -1,13 +1,3 @@
-/**
- * Disable command handler - Effect-based orchestration for `axm subagents disable`.
- *
- * Validates subagent state using taxonomy lifecycle views then builds and resolves
- * a single-step plan. The operation handles all paths: configured disable,
- * settings-only disable, and implicit-to-configured promotion.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -22,24 +12,12 @@ import type { DisableSubagentOperation } from "@axm.sh/core/unstable/subagents";
 import { disableSubagent } from "@axm.sh/core/unstable/subagents";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface DisableSubagentHandlerArgs {
-  /** Name of the subagent to disable */
   readonly name: string;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(function* (
   args: DisableSubagentHandlerArgs,

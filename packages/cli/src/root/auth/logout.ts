@@ -1,16 +1,3 @@
-/**
- * Logout command handler -- Effect-based token revocation and credential clearing.
- *
- * Flow:
- * 1. Load credentials from store
- * 2. If no credentials: display "Not logged in." and return
- * 3. Revoke token via AuthClient (tolerate failure)
- * 4. Clear local credentials
- * 5. Display result
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command } from "effect/unstable/cli";
@@ -19,19 +6,16 @@ import { AuthClient, RegistryUrl, CredentialStore } from "@axm.sh/core/unstable/
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import * as Schema from "effect/Schema";
-
-import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
-import { emitResultDocument } from "../../json-output.js";
+import { withAuthRuntime } from "../../runtime.js";
 
 const LogoutResultSchema = Schema.Struct({
   status: Schema.Literals(["not-logged-in", "logged-out", "logged-out-local-only"] as const),
   registryHost: Schema.String,
   handle: Schema.optional(Schema.String),
 });
-
-// -----------------------------------------------------------------------------
-// Handler
-// -----------------------------------------------------------------------------
+const LogoutDocumentFields = {
+  result: LogoutResultSchema,
+} satisfies Schema.Struct.Fields;
 
 export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const authClient = yield* AuthClient;
@@ -45,10 +29,10 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 
   if (Option.isNone(existing)) {
     if (
-      yield* emitResultDocument(
+      yield* renderer.document(
         "auth.logout",
-        { status: "not-logged-in", registryHost },
-        LogoutResultSchema,
+        { result: { status: "not-logged-in", registryHost } },
+        LogoutDocumentFields,
       )
     ) {
       return;
@@ -73,7 +57,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const status = Option.isSome(revokeResult) ? "logged-out" : "logged-out-local-only";
   const result = { status, registryHost, ...optionalHandle } as const;
 
-  if (yield* emitResultDocument("auth.logout", result, LogoutResultSchema)) {
+  if (yield* renderer.document("auth.logout", { result }, LogoutDocumentFields)) {
     return;
   }
 
@@ -86,22 +70,15 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   }
 }, Effect.asVoid);
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const logoutConfig = {} as const;
-const commandMeta = authCommandMeta("auth logout", { json: true });
 
 export const logoutCommand = Command.make("logout", logoutConfig, () =>
-  handleLogout().pipe(withCommandRuntime(commandMeta)),
+  handleLogout().pipe(withAuthRuntime("auth logout")),
 ).pipe(
   withArgvTracking(logoutConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Sign out of a registry"),
   Command.withExamples([
     { command: "axm auth logout", description: "Sign out of the current registry" },
     { command: "axm logout", description: "Same command via shortcut" },
-    { command: "", description: "See also: auth login" },
   ]),
 );

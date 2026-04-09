@@ -1,10 +1,3 @@
-/**
- * Commands new handler -- validates input, resolves owner,
- * builds a single-step plan, and executes via `resolvePlan()`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -25,47 +18,23 @@ import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { toJobStepResult } from "./job-step-result.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
 
 export interface CommandsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly description: string;
   readonly profile: Option.Option<string>;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   args: CommandsNewHandlerArgs,
@@ -162,10 +131,6 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   }
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the command")),
   description: Flag.string("description").pipe(
@@ -182,7 +147,6 @@ const newConfig = {
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("commands new", { json: true });
 
 export const newCommand = Command.make(
   "new",
@@ -195,10 +159,9 @@ export const newCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withCommandRuntime(commandMeta)),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("commands new")),
 ).pipe(
   withArgvTracking(newConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Create a new command"),
   Command.withExamples([
     { command: "axm commands new my-command", description: "Scaffold a new command" },
@@ -206,6 +169,5 @@ export const newCommand = Command.make(
       command: "axm commands new my-command --profile @acme",
       description: "Create under a specific owner",
     },
-    { command: "", description: "See also: commands publish" },
   ]),
 );

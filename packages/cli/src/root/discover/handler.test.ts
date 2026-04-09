@@ -1,38 +1,41 @@
-/**
- * Tests for the discover command handler helpers and JSON output shape.
- */
-
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { decodeExtensionNameSync, decodeHandleSync } from "@axm.sh/core/unstable/extensions";
 import { PackageTypeSchema } from "@axm.sh/core/unstable/packaging";
 import type { DiscoverExtensionEntry } from "@axm.sh/core/unstable/registry";
 import type { DiscoverPackageResult, DiscoverResult } from "@axm.sh/core/unstable/discover";
+import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
 
-// Re-export the helpers for testing by importing the module and accessing
-// the non-exported helpers through `toJsonResult` / `formatPackageName`.
-// Since these are not exported, we replicate them here from the handler source
-// to verify the logic in isolation.
-
-// ---------------------------------------------------------------------------
-// Inline copies of pure helpers under test (they are module-private in handler)
-// ---------------------------------------------------------------------------
-
-const formatPackageName = (pkg: DiscoverPackageResult): string => {
-  const parts = pkg.detectedPackage;
-  if (parts.namespace !== undefined) {
-    return parts.version !== undefined
-      ? `${parts.namespace}/${parts.name}@${parts.version}`
-      : `${parts.namespace}/${parts.name}`;
-  }
-  return parts.version !== undefined ? `${parts.name}@${parts.version}` : parts.name;
-};
+import { makeCliTestContext } from "../../test-helpers.js";
+import { formatPackageName, handleDiscoverWith, toDiscoverOutput } from "./handler.js";
 
 const packageType = Schema.decodeUnknownSync(PackageTypeSchema);
 
-// ---------------------------------------------------------------------------
-// formatPackageName
-// ---------------------------------------------------------------------------
+const makeEntry = (name: string): DiscoverExtensionEntry => ({
+  type: "skill",
+  name: decodeExtensionNameSync(name),
+  owner: decodeHandleSync("@acme"),
+  description: `${name} description`,
+  latestVersion: decodeExactSemverVersionSync("1.0.0"),
+});
+
+const sampleResult: DiscoverResult = {
+  totalDetected: 2,
+  registryAvailable: true,
+  packages: [
+    {
+      detectedPackage: { type: packageType("npm"), name: "react" },
+      extensions: [{ extension: makeEntry("react-testing"), signal: "recommended" }],
+    },
+    {
+      detectedPackage: { type: packageType("npm"), name: "vitest", version: "3.2.1" },
+      extensions: [{ extension: makeEntry("effect-testing"), signal: "compatible" }],
+    },
+  ],
+};
 
 describe("formatPackageName", () => {
   it("formats name only", () => {
@@ -73,72 +76,83 @@ describe("formatPackageName", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// toJsonResult shape
-// ---------------------------------------------------------------------------
-
-describe("toJsonResult shape", () => {
-  // The DiscoverResultSchema is internal, so we verify the shape produced by
-  // the handler's toJsonResult mapping (replicated here) conforms to the
-  // expected JSON structure.
-
-  const makeEntry = (name: string): DiscoverExtensionEntry =>
-    ({
-      type: "skill",
-      name,
-      owner: "@acme",
-      description: `${name} description`,
-      latestVersion: "1.0.0",
-    }) as unknown as DiscoverExtensionEntry;
-
-  const toJsonResult = (result: DiscoverResult) => ({
-    totalDetected: result.totalDetected,
-    registryAvailable: result.registryAvailable,
-    packages: result.packages.map((pkg) => ({
-      package: `pkg:${pkg.detectedPackage.type}/${pkg.detectedPackage.name}`,
-      extensions: pkg.extensions.map((entry) => ({
-        owner: entry.extension.owner,
-        type: entry.extension.type,
-        name: entry.extension.name,
-        description: entry.extension.description,
-        latestVersion: entry.extension.latestVersion,
-        signal: entry.signal,
-      })),
-    })),
-  });
-
-  it("maps a discover result to the JSON output shape", () => {
-    const result: DiscoverResult = {
+describe("toDiscoverOutput", () => {
+  it("maps a discover result to the machine output shape", () => {
+    expect(toDiscoverOutput(sampleResult)).toMatchObject({
+      count: 2,
       totalDetected: 2,
       registryAvailable: true,
-      packages: [
+      items: [
         {
-          detectedPackage: { type: packageType("npm"), name: "react" },
-          extensions: [{ extension: makeEntry("react-testing"), signal: "recommended" }],
+          package: "pkg:npm/react",
+          extensions: [{ name: "react-testing", signal: "recommended" }],
+        },
+        {
+          package: "pkg:npm/vitest@3.2.1",
+          extensions: [{ name: "effect-testing", signal: "compatible" }],
         },
       ],
-    };
+    });
+  });
+});
 
-    const json = toJsonResult(result);
+describe("discover handler", () => {
+  it.effect("renders compatible extensions as a table in human mode", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
 
-    expect(json.totalDetected).toBe(2);
-    expect(json.registryAvailable).toBe(true);
-    expect(json.packages).toHaveLength(1);
-    expect(json.packages[0]?.extensions[0]?.signal).toBe("recommended");
-    expect(json.packages[0]?.extensions[0]?.name).toBe("react-testing");
+    return handleDiscoverWith({ path: Option.none() }, () => Effect.succeed(sampleResult)).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.tables).toHaveLength(1);
+          expect(rendererState.tables[0]?.items).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                package: "react",
+                extension: "@acme/skill/react-testing",
+                signal: "recommended",
+              }),
+              expect.objectContaining({
+                package: "vitest@3.2.1",
+                extension: "@acme/skill/effect-testing",
+                signal: "compatible",
+              }),
+            ]),
+          );
+        }),
+      ),
+    );
   });
 
-  it("returns empty packages array when no results", () => {
-    const result: DiscoverResult = {
-      totalDetected: 0,
-      registryAvailable: false,
-      packages: [],
-    };
+  it.effect("emits machine-readable items in machine mode", () => {
+    const { baseLayer, rendererState } = makeCliTestContext({ machine: true });
 
-    const json = toJsonResult(result);
-
-    expect(json.totalDetected).toBe(0);
-    expect(json.registryAvailable).toBe(false);
-    expect(json.packages).toEqual([]);
+    return handleDiscoverWith({ path: Option.none() }, () => Effect.succeed(sampleResult)).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.results).toHaveLength(1);
+          expect(rendererState.results[0]?.data).toMatchObject({
+            _version: 1,
+            command: "discover",
+            count: 2,
+            totalDetected: 2,
+            registryAvailable: true,
+          });
+          expect(rendererState.results[0]?.data).toEqual(
+            expect.objectContaining({
+              items: expect.arrayContaining([
+                expect.objectContaining({
+                  package: "pkg:npm/react",
+                  extensions: expect.arrayContaining([
+                    expect.objectContaining({ name: "react-testing" }),
+                  ]),
+                }),
+              ]),
+            }),
+          );
+        }),
+      ),
+    );
   });
 });

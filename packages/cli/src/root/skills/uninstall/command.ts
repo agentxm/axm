@@ -2,14 +2,9 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../../command-meta.js";
 import { handleUninstall } from "./handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withWorkspace } from "../../../runtime.js";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
   skill: Argument.string("skill").pipe(Argument.withDescription("Name of the skill to uninstall")),
@@ -21,7 +16,6 @@ const uninstallConfig = {
     Flag.withDescription("Show what would be removed without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("skills uninstall", { json: true });
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -29,11 +23,10 @@ export const uninstallCommand = Command.make(
   ({ skill, yes, force, preview }) =>
     handleUninstall({ skill }, { yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
+      withRuntime("skills uninstall"),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Uninstall a skill from agents"),
   Command.withExamples([
     { command: "axm skills uninstall my-skill", description: "Remove a skill you no longer need" },
@@ -45,6 +38,5 @@ export const uninstallCommand = Command.make(
       command: "axm skills uninstall my-skill --yes",
       description: "Remove without confirmation (scripts/CI)",
     },
-    { command: "", description: "See also: skills install, skills disable, skills list" },
   ]),
 );

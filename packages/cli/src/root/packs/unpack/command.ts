@@ -3,14 +3,9 @@ import * as Option from "effect/Option";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../../command-meta.js";
 import { handleUnpack } from "./handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withWorkspace } from "../../../runtime.js";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const unpackConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Extension pack name to unpack")),
@@ -25,7 +20,6 @@ const unpackConfig = {
     Flag.withDescription("Show what would change in settings without modifying them"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("packs unpack", { json: true });
 
 export const unpackCommand = Command.make(
   "unpack",
@@ -37,10 +31,9 @@ export const unpackCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withCommandRuntime(commandMeta)),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs unpack")),
 ).pipe(
   withArgvTracking(unpackConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Eject extension pack into individual entries"),
   Command.withExamples([
     {
@@ -50,10 +43,6 @@ export const unpackCommand = Command.make(
     {
       command: "axm packs unpack @acme/frontend-tools --preview",
       description: "See what settings would change first",
-    },
-    {
-      command: "",
-      description: "See also: packs install, packs uninstall",
     },
   ]),
 );

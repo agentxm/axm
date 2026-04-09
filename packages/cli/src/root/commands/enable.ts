@@ -1,12 +1,3 @@
-/**
- * Enable command handler - Effect-based orchestration for `axm commands enable`.
- *
- * Validates command state using taxonomy lifecycle views then builds and resolves
- * a single-step plan. Enable only works for installed commands (configured or implicit).
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -18,39 +9,22 @@ import { decodeExtensionNameSync, type ExtensionName } from "@axm.sh/core/unstab
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { EnableCommandOperation } from "@axm.sh/core/unstable/commands";
-import { enableCommand } from "@axm.sh/core/unstable/commands";
+import { enableCommand as runEnableCommand } from "@axm.sh/core/unstable/commands";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { toJobStepResult } from "./job-step-result.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface EnableCommandHandlerArgs {
-  /** Name of the command to enable */
   readonly name: ExtensionName;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   args: EnableCommandHandlerArgs,
@@ -118,7 +92,7 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.name,
-    run: enableCommand(op).pipe(
+    run: runEnableCommand(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(Workspace, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
@@ -146,10 +120,6 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   }
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const enableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the command to enable")),
   scope: scopeFlag.pipe(
@@ -161,19 +131,17 @@ const enableConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
-const commandMeta = registryCommandMeta("commands enable", { json: true });
 
-export const enableCommand_ = Command.make(
+export const enableCommand = Command.make(
   "enable",
   enableConfig,
   ({ name, scope, yes, force, preview }) =>
     handleEnableCommand({ name: decodeExtensionNameSync(name), yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("commands enable"),
     ),
 ).pipe(
   withArgvTracking(enableConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Enable a previously disabled command"),
   Command.withExamples([
     {
@@ -184,6 +152,5 @@ export const enableCommand_ = Command.make(
       command: "axm commands enable my-cmd --preview",
       description: "Preview the change before enabling",
     },
-    { command: "", description: "See also: commands disable, commands list" },
   ]),
 );

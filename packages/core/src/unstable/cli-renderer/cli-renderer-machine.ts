@@ -6,15 +6,18 @@ import * as Stream from "effect/Stream";
 
 import {
   CliRenderer,
+  type DetailView,
   type LogLevel,
   type ProgressConfig,
   type ProgressHandle,
   type SpinnerHandle,
   type SpinnerOptions,
+  type TableView,
   type TaskLogConfig,
   type TaskLogGroupHandle,
   type TaskLogHandle,
 } from "./cli-renderer.js";
+import { makeCommandDocument, makeCommandDocumentSchema } from "../cli-runtime/command-document.js";
 import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
 
 // ---------------------------------------------------------------------------
@@ -144,6 +147,9 @@ const writeStdoutLine = (content: string) =>
 
 const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
   Schema.encodeEffect(schema)(data).pipe(Effect.orDie);
+
+const encodeUnknownJson = <S extends Schema.Top>(data: unknown, schema: S) =>
+  Schema.encodeUnknownEffect(schema)(data).pipe(Effect.orDie);
 
 // ---------------------------------------------------------------------------
 // MachineRenderer — NDJSON chrome on stderr, JSON data on stdout
@@ -307,16 +313,24 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       ).pipe(Effect.asVoid),
 
     // Data display — no-ops in machine mode
-    table: <S extends Schema.Top>(
-      _items: ReadonlyArray<Schema.Schema.Type<S>>,
-      _schema: S,
-      _caption?: string,
-    ) => Effect.void,
-    detail: <S extends Schema.Top>(_item: Schema.Schema.Type<S>, _schema: S, _title?: string) =>
+    table: <T extends object>(_items: ReadonlyArray<T>, _view: TableView<T>, _caption?: string) =>
       Effect.void,
+    detail: <T extends object>(_item: T, _view: DetailView<T>, _title?: string) => Effect.void,
     tree: () => Effect.void,
 
     // Machine data output (stdout)
+    document: <TCommand extends string, const Fields extends Schema.Struct.Fields>(
+      command: TCommand,
+      body: Schema.Struct.Type<Fields>,
+      fields: Fields,
+    ) =>
+      encodeUnknownJson(
+        makeCommandDocument(command, body),
+        makeCommandDocumentSchema(command, fields),
+      ).pipe(
+        Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
+        Effect.as(true),
+      ),
     result: <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
       encodeJson(data, schema).pipe(
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),

@@ -1,11 +1,3 @@
-/**
- * Subagents new handler - validates input, resolves owner and agents,
- * scaffolds subagent.json + src/SUBAGENT.md, renders to configured agents,
- * and updates settings + lockfile.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -33,17 +25,9 @@ import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
 
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
 const INITIAL_VERSION = decodeExactSemverVersionSync("0.0.1");
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
 
 export interface SubagentsNewHandlerArgs {
   readonly name: ExtensionName;
@@ -52,17 +36,10 @@ export interface SubagentsNewHandlerArgs {
   readonly model: Option.Option<string>;
   readonly toolAccess: Option.Option<string>;
   readonly background: boolean;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
@@ -92,10 +69,6 @@ const makeSubagentMd = (args: {
 };
 
 const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   args: SubagentsNewHandlerArgs,

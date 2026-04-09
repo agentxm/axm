@@ -1,30 +1,12 @@
-/**
- * Whoami command handler -- identity resolution via /v1/auth/me.
- *
- * Flow:
- * 1. Resolve token via shared auth resolution
- * 2. If no token: fail with the environment-appropriate auth error
- * 3. Call AuthClient.getMe
- * 4. Display identity
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
 import { AuthClient, RegistryUrl, resolveRequiredToken } from "@axm.sh/core/unstable/auth";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, type DetailView } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-
-import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
-import { emitDataResult } from "../../json-output.js";
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
+import { withAuthRuntime } from "../../runtime.js";
 
 const WhoamiDataSchema = Schema.Struct({
   userId: Schema.String,
@@ -39,10 +21,27 @@ const WhoamiDataSchema = Schema.Struct({
     }),
   ),
 });
+const WhoamiDocumentFields = {
+  data: WhoamiDataSchema,
+} satisfies Schema.Struct.Fields;
 
-// -----------------------------------------------------------------------------
-// Handler
-// -----------------------------------------------------------------------------
+interface WhoamiDetailItem {
+  readonly handle: string;
+  readonly email: string;
+  readonly tokenType: string;
+  readonly scopes: string;
+  readonly organizations: string;
+}
+
+const WhoamiDetail = {
+  fields: {
+    handle: { label: "Handle" },
+    email: { label: "Email" },
+    tokenType: { label: "Token type" },
+    scopes: { label: "Scopes" },
+    organizations: { label: "Organizations" },
+  },
+} as const satisfies DetailView<WhoamiDetailItem>;
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   const authClient = yield* AuthClient;
@@ -70,32 +69,31 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   };
 
   // Step 3: Display result
-  if (yield* emitDataResult("auth.whoami", identity, WhoamiDataSchema)) {
+  if (yield* renderer.document("auth.whoami", { data: identity }, WhoamiDocumentFields)) {
     return;
   }
 
-  yield* renderer.info(`Handle:     ${me.userHandle}`);
-  yield* renderer.info(`Email:      ${me.email}`);
-  yield* renderer.info(`Token type: ${me.tokenType}`);
+  const detail: WhoamiDetailItem = {
+    handle: me.userHandle,
+    email: me.email,
+    tokenType: me.tokenType,
+    scopes: me.scopes.join(", "),
+    organizations: me.orgs.map((org) => org.handle).join(", "),
+  };
+
+  yield* renderer.detail(detail, WhoamiDetail, "Authenticated identity");
 }, Effect.asVoid);
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const whoamiConfig = {} as const;
-const commandMeta = authCommandMeta("auth whoami", { json: true });
 
 export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
-  handleWhoami().pipe(withCommandRuntime(commandMeta)),
+  handleWhoami().pipe(withAuthRuntime("auth whoami")),
 ).pipe(
   withArgvTracking(whoamiConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Show current authenticated identity"),
   Command.withExamples([
     { command: "axm auth whoami", description: "Check who you're authenticated as" },
     { command: "axm whoami", description: "Same command via shortcut" },
     { command: "axm auth whoami --json", description: "Get identity as JSON for scripts" },
-    { command: "", description: "See also: auth login, auth token" },
   ]),
 );

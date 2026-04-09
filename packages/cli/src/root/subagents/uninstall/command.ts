@@ -2,14 +2,9 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../../command-meta.js";
 import { handleUninstall } from "./handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withWorkspace } from "../../../runtime.js";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
   subagent: Argument.string("subagent").pipe(
@@ -23,7 +18,6 @@ const uninstallConfig = {
     Flag.withDescription("Show what would be removed without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("subagents uninstall", { json: true });
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -31,11 +25,10 @@ export const uninstallCommand = Command.make(
   ({ subagent, yes, force, preview }) =>
     handleUninstall({ subagent }, { yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
+      withRuntime("subagents uninstall"),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Uninstall a subagent from agents"),
   Command.withExamples([
     {
@@ -49,10 +42,6 @@ export const uninstallCommand = Command.make(
     {
       command: "axm subagents uninstall my-subagent --yes",
       description: "Remove without confirmation (scripts/CI)",
-    },
-    {
-      command: "",
-      description: "See also: subagents install, subagents list",
     },
   ]),
 );

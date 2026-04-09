@@ -11,7 +11,7 @@ import * as Option from "effect/Option";
 import { AppError } from "@axm.sh/core/unstable/app-error";
 import { AuthGuardInteractionTest } from "@axm.sh/core/unstable/auth";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
@@ -158,8 +158,11 @@ export const getErrorResult = (result: unknown): AppErrorResult => {
 export const makeCliTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
   readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
+  readonly machine?: boolean | undefined;
 }) => {
-  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const rendererLayer = renderer.layer;
+  const rendererState = renderer.state;
   const promptState: TestPromptState = {
     confirmCalls: [],
     multiselectCalls: [],
@@ -228,6 +231,7 @@ export const makeCliTestContext = (opts?: {
 export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
   readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
+  readonly machine?: boolean | undefined;
   readonly wsOptions?: Partial<WorkspaceContextOptions> | undefined;
 }) => {
   const cliTestContext = makeCliTestContext(opts);

@@ -1,13 +1,3 @@
-/**
- * Disable command handler - Effect-based orchestration for `axm commands disable`.
- *
- * Validates command state using taxonomy lifecycle views then builds and resolves
- * a single-step plan. The operation handles all paths: configured disable,
- * settings-only disable, and implicit-to-configured promotion.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -19,39 +9,22 @@ import { decodeExtensionNameSync, type ExtensionName } from "@axm.sh/core/unstab
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { DisableCommandOperation } from "@axm.sh/core/unstable/commands";
-import { disableCommand } from "@axm.sh/core/unstable/commands";
+import { disableCommand as runDisableCommand } from "@axm.sh/core/unstable/commands";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { toJobStepResult } from "./job-step-result.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface DisableCommandHandlerArgs {
-  /** Name of the command to disable */
   readonly name: ExtensionName;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function* (
   args: DisableCommandHandlerArgs,
@@ -127,7 +100,7 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.name,
-    run: disableCommand(op).pipe(
+    run: runDisableCommand(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(Workspace, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
@@ -155,10 +128,6 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   }
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const disableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the command to disable")),
   scope: scopeFlag.pipe(
@@ -168,19 +137,17 @@ const disableConfig = {
   force: forceFlag.pipe(Flag.withDescription("Disable even if other commands depend on it")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
-const commandMeta = registryCommandMeta("commands disable", { json: true });
 
-export const disableCommand_ = Command.make(
+export const disableCommand = Command.make(
   "disable",
   disableConfig,
   ({ name, scope, yes, force, preview }) =>
     handleDisableCommand({ name: decodeExtensionNameSync(name), yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("commands disable"),
     ),
 ).pipe(
   withArgvTracking(disableConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Disable a command without uninstalling it"),
   Command.withExamples([
     {
@@ -191,6 +158,5 @@ export const disableCommand_ = Command.make(
       command: "axm commands disable my-cmd --scope user",
       description: "Disable for user-scope configuration",
     },
-    { command: "", description: "See also: commands enable, commands uninstall" },
   ]),
 );

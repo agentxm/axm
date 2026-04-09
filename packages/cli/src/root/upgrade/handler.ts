@@ -1,12 +1,3 @@
-/**
- * Upgrade handler — self-update flow for `axm upgrade`.
- *
- * Detects the install method and either performs a self-update (script installs)
- * or prints delegation instructions (homebrew, npm, unknown).
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -22,13 +13,7 @@ import {
   resolveLatestVersion,
   DEFAULT_GITHUB_REPO,
 } from "@axm.sh/core/unstable/version-resolution";
-
-import { emitResultDocument } from "../../json-output.js";
 import { loadVersion } from "../../version.js";
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
 
 export interface UpgradeHandlerArgs {
   readonly force: boolean;
@@ -44,9 +29,9 @@ const UpgradeResultSchema = Schema.Struct({
 });
 type UpgradeResult = typeof UpgradeResultSchema.Type;
 
-// -----------------------------------------------------------------------------
-// Platform binary mapping
-// -----------------------------------------------------------------------------
+const UpgradeDocumentFields = {
+  result: UpgradeResultSchema,
+} satisfies Schema.Struct.Fields;
 
 interface PlatformBinaryInfo {
   readonly binaryName: string;
@@ -70,16 +55,8 @@ export const resolvePlatformBinary = (platform: string, arch: string) => {
   return Option.some(target);
 };
 
-// -----------------------------------------------------------------------------
-// Download URL
-// -----------------------------------------------------------------------------
-
 export const makeDownloadUrl = (repo: string, version: string, binaryName: string) =>
   `https://github.com/${repo}/releases/download/cli-v${version}/${binaryName}`;
-
-// -----------------------------------------------------------------------------
-// Self-update helpers
-// -----------------------------------------------------------------------------
 
 const resolveGithubRepo = () =>
   // eslint-disable-next-line no-restricted-properties -- Centralized env var access for GitHub repo override
@@ -236,10 +213,6 @@ const cleanupWindowsOld = (targetPath: string) =>
     yield* fs.remove(oldPath).pipe(Effect.catch(() => Effect.void));
   });
 
-// -----------------------------------------------------------------------------
-// Delegation messages
-// -----------------------------------------------------------------------------
-
 const handleHomebrew = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -294,10 +267,6 @@ const handleUnknown = (force: boolean) =>
       force,
     } satisfies UpgradeResult;
   });
-
-// -----------------------------------------------------------------------------
-// Self-update flow
-// -----------------------------------------------------------------------------
 
 const handleScript = (method: { readonly execPath: string }, force: boolean) =>
   Effect.gen(function* () {
@@ -408,10 +377,6 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     }
   });
 
-// -----------------------------------------------------------------------------
-// Handler
-// -----------------------------------------------------------------------------
-
 export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: UpgradeHandlerArgs) {
   const installMethod = yield* InstallMethod;
   const renderer = yield* CliRenderer;
@@ -430,7 +395,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     }
   })();
 
-  if (yield* emitResultDocument("upgrade", result, UpgradeResultSchema)) {
+  if (yield* renderer.document("upgrade", { result }, UpgradeDocumentFields)) {
     return;
   }
 

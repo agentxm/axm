@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
 import { isNonInteractive, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -21,11 +22,10 @@ import {
   type PlannedJobStep,
   Workspace,
 } from "@axm.sh/core/unstable/workspace";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { annotateCommandMeta, registryCommandMeta, withCommandRuntime } from "../command-meta.js";
+
 import { emitPlanResolutionResult } from "../json-output.js";
 import { scopeFlag } from "../cli-flags.js";
-import { withWorkspace } from "../runtime.js";
+import { withRuntime, withWorkspace } from "../runtime.js";
 
 export interface SyncHandlerArgs {
   readonly yes: boolean;
@@ -147,13 +147,10 @@ const syncConfig = {
   ),
 } as const;
 
-const commandMeta = registryCommandMeta("sync", { json: true });
-
 export const syncCommand = Command.make("sync", syncConfig, ({ scope, yes, preview }) =>
-  handleSync({ yes, preview }).pipe(withWorkspace(scope), withCommandRuntime(commandMeta)),
+  handleSync({ yes, preview }).pipe(withWorkspace(scope), withRuntime("sync")),
 ).pipe(
   withArgvTracking(syncConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Synchronize managed workspace state from settings.json"),
   Command.withExamples([
     { command: "axm sync", description: "Synchronize managed workspace state from settings.json" },

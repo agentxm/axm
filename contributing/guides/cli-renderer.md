@@ -80,8 +80,10 @@ clearly deserve JSON before its output schema has been designed.
 
 ### Shipping Gate
 
-Once a command is deemed JSON-worthy, expose `--json` only when all of the
-following are true:
+`--json` is a global CLI mode and should parse on every command. The shipping
+gate applies to whether a command publishes a structured stdout result
+document. A command should emit a schema-backed stdout result only when all of
+the following are true:
 
 - the result shape is defined with a published Effect Schema v4 schema
 - help can describe the payload keys and major fields
@@ -89,8 +91,9 @@ following are true:
 - machine output is encoded from the schema-backed result shape
 - machine-output tests cover the contract
 
-These are release gates for `--json`, not the criteria for whether the command
-is suitable for JSON in the first place.
+These are release gates for publishing a structured stdout contract, not for
+parsing `--json` itself. Commands that do not yet publish a result document may
+still run in machine mode and emit diagnostics on stderr only.
 
 ---
 

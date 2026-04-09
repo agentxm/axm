@@ -1,13 +1,3 @@
-/**
- * Packs add handler — computes manifest delta at plan time,
- * builds a single-step plan, and executes via `ws.resolvePlan()`.
- *
- * Supports glob expansion against managed, registry-sourced workspace extensions.
- * Infers extension type from lockfile. Derives version range from installed version.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as crypto from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -34,37 +24,19 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
+import { withRuntime, withWorkspace } from "../../runtime.js";
 
 export interface PacksAddHandlerArgs {
-  /** Pack name (without owner). */
   readonly pack: string;
-  /** Extension name or glob pattern. */
   readonly extension: string;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
@@ -73,10 +45,6 @@ const hashContent = (content: string) => crypto.createHash("sha256").update(cont
  * e.g., "1.2.3" -> "^1.2.3"
  */
 const toVersionRange = (version: string): string => `^${version}`;
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
   const ws = yield* Workspace;
@@ -285,10 +253,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   yield* renderer.success("Done");
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const addConfig = {
   pack: Argument.string("pack").pipe(Argument.withDescription("Name of the pack")),
   extension: Argument.string("extension").pipe(
@@ -302,7 +266,6 @@ const addConfig = {
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("packs add", { json: true });
 
 export const addCommand = Command.make(
   "add",
@@ -310,11 +273,10 @@ export const addCommand = Command.make(
   ({ pack, extension, yes, force, preview }) =>
     handlePacksAdd({ pack, extension, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
+      withRuntime("packs add"),
     ),
 ).pipe(
   withArgvTracking(addConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Add an extension to an extension pack manifest"),
   Command.withExamples([
     {
@@ -324,10 +286,6 @@ export const addCommand = Command.make(
     {
       command: 'axm packs add my-pack "effect-*"',
       description: "Add multiple extensions by pattern",
-    },
-    {
-      command: "",
-      description: "See also: packs remove, packs publish",
     },
   ]),
 );

@@ -1,11 +1,3 @@
-/**
- * Uninstall MCP server handler - Effect-based orchestration for `axm mcp-servers uninstall`.
- *
- * Delegates to shared uninstall command workflow via UninstallMcpServerCommandWorkflowActions.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
 
@@ -15,11 +7,6 @@ import {
   type UninstallMcpServerHandlerArgs,
 } from "./command-actions.js";
 
-/**
- * Handles the `axm mcp-servers uninstall` command.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export const handleUninstallMcpServer = (
   args: UninstallMcpServerHandlerArgs,
   flags: { yes: boolean; force: boolean; preview: boolean },

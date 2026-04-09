@@ -1,13 +1,3 @@
-/**
- * Install command handler - Effect-based orchestration for `axm commands install`.
- *
- * Delegates to shared install command workflow via InstallCommandCommandWorkflowActions.
- * When `--preview` is active, displays which agents would receive rendered files
- * and any lossy-rendering warnings before showing the plan.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
@@ -74,11 +64,6 @@ const displayInstallPreviewInfo = (commandName: string) =>
     }
   });
 
-/**
- * Handles the `axm commands install` command.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export const handleInstallCommand = Effect.fn("InstallCommand.handle")(function* (
   args: InstallCommandHandlerArgs,
 ) {

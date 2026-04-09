@@ -1,12 +1,3 @@
-/**
- * Uninstall command handler - Effect-based orchestration for `axm commands uninstall`.
- *
- * Delegates to shared uninstall command workflow via UninstallCommandCommandWorkflowActions.
- * When `--preview` is active, displays which rendered files per agent would be removed.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { runUninstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
@@ -57,11 +48,6 @@ const displayUninstallPreviewInfo = (commandName: string) =>
     }
   });
 
-/**
- * Handles the `axm commands uninstall` command.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export const handleUninstallCommand = (
   args: UninstallCommandHandlerArgs,
   flags: { yes: boolean; force: boolean; preview: boolean },

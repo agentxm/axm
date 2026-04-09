@@ -1,12 +1,3 @@
-/**
- * Init command - Thin wrapper that triggers WorkspaceContext initialization.
- *
- * Yields WorkspaceContext (which auto-initializes if needed) and displays result.
- * All initialization logic lives in the WorkspaceContext layer (provided by runtime).
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import { getAgentById, scanAllSubagentFiles } from "@axm.sh/core/unstable/agents";
 import type { AgentSubagentSummary } from "@axm.sh/core/unstable/agents";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
@@ -21,10 +12,8 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { annotateCommandMeta, registryCommandMeta, withCommandRuntime } from "../command-meta.js";
 import { scopeFlag } from "../cli-flags.js";
-import { emitResultDocument } from "../json-output.js";
-import { withWorkspace } from "../runtime.js";
+import { withRuntime, withWorkspace } from "../runtime.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,
@@ -51,9 +40,9 @@ const InitResultSchema = Schema.Struct({
   subagentFiles: Schema.optional(Schema.Array(SubagentSummarySchema)),
 });
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+const InitDocumentFields = {
+  result: InitResultSchema,
+} satisfies Schema.Struct.Fields;
 
 /**
  * Render subagent file summary to the CLI output.
@@ -84,20 +73,6 @@ const renderSubagentSummary = (
       }
     }
   });
-
-// -----------------------------------------------------------------------------
-// Handler
-// -----------------------------------------------------------------------------
-
-/**
- * Handles the `axm init` command.
- *
- * Thin wrapper that:
- * 1. Yields WorkspaceContext (triggers auto-initialization via runtime layer)
- * 2. Displays success message with initialized agents
- *
- * @experimental This API is unstable and may change without notice.
- */
 export const handleInit = Effect.fn("Init.handle")(function* () {
   const renderer = yield* CliRenderer;
   const context = yield* Workspace;
@@ -132,16 +107,18 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
       : [];
 
   if (
-    yield* emitResultDocument(
+    yield* renderer.document(
       "init",
       {
-        scope: context.scope,
-        agents: allAgents,
-        settingsPath,
-        telemetryEnabled,
-        ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
+        result: {
+          scope: context.scope,
+          agents: allAgents,
+          settingsPath,
+          telemetryEnabled,
+          ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
+        },
       },
-      InitResultSchema,
+      InitDocumentFields,
     )
   ) {
     return;
@@ -169,10 +146,6 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
   }
 }, Effect.asVoid);
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const initConfig = {
   scope: scopeFlag,
   agent: Flag.string("agent").pipe(
@@ -183,16 +156,14 @@ const initConfig = {
   force: forceFlag,
   preview: previewFlag,
 } as const;
-const commandMeta = registryCommandMeta("init", { json: true });
 
 export const initCommand = Command.make("init", initConfig, ({ scope, agent }) =>
   handleInit().pipe(
     withWorkspace(agent.length > 0 ? { scope, agents: agent } : scope),
-    withCommandRuntime(commandMeta),
+    withRuntime("init"),
   ),
 ).pipe(
   withArgvTracking(initConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Set up axm in the current project"),
   Command.withExamples([
     { command: "axm init", description: "Detect installed agents and create .axm/settings.json" },

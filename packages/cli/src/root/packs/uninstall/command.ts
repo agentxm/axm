@@ -2,14 +2,9 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../../command-meta.js";
 import { handleUninstallPack } from "./handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withWorkspace } from "../../../runtime.js";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
   name: Argument.string("name").pipe(
@@ -23,7 +18,6 @@ const uninstallConfig = {
     Flag.withDescription("Show what would be removed without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("packs uninstall", { json: true });
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -31,11 +25,10 @@ export const uninstallCommand = Command.make(
   ({ name, yes, force, preview }) =>
     handleUninstallPack({ name }, { yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
+      withRuntime("packs uninstall"),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Uninstall an extension pack"),
   Command.withExamples([
     {
@@ -53,10 +46,6 @@ export const uninstallCommand = Command.make(
     {
       command: "axm packs uninstall acme-*",
       description: "Remove all extension packs matching a pattern",
-    },
-    {
-      command: "",
-      description: "See also: packs install",
     },
   ]),
 );

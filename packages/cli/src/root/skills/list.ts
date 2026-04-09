@@ -1,35 +1,13 @@
-/**
- * List command handler - Effect-based orchestration for `axm skills list`.
- *
- * Reads the lockfile and displays installed skills, optionally filtered by agent.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { scopeFlag } from "../../cli-flags.js";
-import { emitItemsResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the list handler.
- */
 export interface ListHandlerArgs {
-  /** Agent names to filter by (empty = show all) */
   readonly agents: readonly string[];
 }
 
@@ -38,21 +16,24 @@ const SkillListItemSchema = Schema.Struct({
   type: Schema.String,
   agents: Schema.Array(Schema.String),
 });
+type SkillListItem = typeof SkillListItemSchema.Type;
 
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
+const SkillListDocumentFields = {
+  items: Schema.Array(SkillListItemSchema),
+  count: Schema.Number,
+} satisfies Schema.Struct.Fields;
 
-/**
- * Handles the `axm skills list` command.
- *
- * Flow:
- * 1. Read lockfile skills map
- * 2. Filter by agents if specified (OR logic)
- * 3. Display results or "No skills installed"
- *
- * @experimental This API is unstable and may change without notice.
- */
+const SkillListTable = {
+  columns: {
+    name: { header: "Name" },
+    type: { header: "Type" },
+    agents: {
+      header: "Agents",
+      render: (value: ReadonlyArray<string>) => (value.length === 0 ? "none" : value.join(", ")),
+    },
+  },
+} as const satisfies TableView<SkillListItem>;
+
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
   const renderer = yield* CliRenderer;
   const ws = yield* Workspace;
@@ -71,29 +52,23 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     agents: entry.agents,
   }));
 
-  if (yield* emitItemsResult("skills.list", items, SkillListItemSchema)) {
+  if (
+    yield* renderer.document("skills.list", { items, count: items.length }, SkillListDocumentFields)
+  ) {
     return;
   }
 
   if (filtered.length === 0) {
-    yield* renderer.info("No skills installed");
+    yield* renderer.info(
+      args.agents.length === 0
+        ? "No skills installed"
+        : "No skills matched the selected agent filter.",
+    );
     return;
   }
 
-  // Display each skill
-  yield* Effect.forEach(
-    filtered,
-    ([name, entry]) => {
-      const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
-      return renderer.message(`${name}  (${entry.type})  [${agents}]`);
-    },
-    { discard: true },
-  );
+  yield* renderer.table(items, SkillListTable, "Installed skills");
 });
-
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
 
 const listConfig = {
   scope: scopeFlag.pipe(
@@ -104,13 +79,11 @@ const listConfig = {
     Flag.atLeast(0),
   ),
 } as const;
-const commandMeta = registryCommandMeta("skills list", { json: true });
 
 export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
-  handleList({ agents: agent }).pipe(withWorkspace(scope), withCommandRuntime(commandMeta)),
+  handleList({ agents: agent }).pipe(withWorkspace(scope), withRuntime("skills list")),
 ).pipe(
   withArgvTracking(listConfig),
-  annotateCommandMeta(commandMeta),
   Command.withAlias("ls"),
   Command.withDescription("List installed skills"),
   Command.withExamples([
@@ -123,6 +96,5 @@ export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =
       command: "axm skills list --agent claude-code",
       description: "See skills for a specific agent",
     },
-    { command: "", description: "See also: skills install, skills update" },
   ]),
 );

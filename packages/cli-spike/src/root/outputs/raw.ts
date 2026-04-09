@@ -4,10 +4,9 @@ import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { makeDataDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 export const RawOutputDataSchema = Schema.Struct({
@@ -16,7 +15,14 @@ export const RawOutputDataSchema = Schema.Struct({
 });
 
 export type RawOutputData = typeof RawOutputDataSchema.Type;
-export const OutputsRawOutputSchema = makeDataDocumentSchema("outputs.raw", RawOutputDataSchema);
+const OutputsRawDocumentFields = {
+  data: RawOutputDataSchema,
+} satisfies Schema.Struct.Fields;
+
+export const OutputsRawOutputSchema = makeCommandDocumentSchema(
+  "outputs.raw",
+  OutputsRawDocumentFields,
+);
 export type OutputsRawOutput = typeof OutputsRawOutputSchema.Type;
 
 const rawConfig = {
@@ -40,13 +46,8 @@ export const handleRaw = (args: { readonly content: Option.Option<string> }) =>
       content,
       lines: content.split("\n"),
     };
-    const document: OutputsRawOutput = {
-      _version: JsonSchemaVersion,
-      command: "outputs.raw",
-      data,
-    };
 
-    if (yield* renderer.result(document, OutputsRawOutputSchema)) {
+    if (yield* renderer.document("outputs.raw", { data }, OutputsRawDocumentFields)) {
       return;
     }
 

@@ -1,18 +1,3 @@
-/**
- * Login command handler -- Effect-based device code flow for `axm auth login`.
- *
- * Flow:
- * 1. Check existing auth → offer re-login
- * 2. Reject in non-interactive mode
- * 3. Initiate device flow via AuthClient
- * 4. Display URL and code for manual browser entry
- * 5. Poll with spinner
- * 6. Persist credentials
- * 7. Fetch identity and display "Logged in to <registry> as <handle>"
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
@@ -30,12 +15,7 @@ import { isNonInteractive, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
-
-import { authCommandMeta, withCommandRuntime } from "../../command-meta.js";
-
-// -----------------------------------------------------------------------------
-// Handler
-// -----------------------------------------------------------------------------
+import { withAuthRuntime } from "../../runtime.js";
 
 interface LoginInteractions {
   readonly confirmRelogin?: (message: string) => Effect.Effect<boolean, PromptCancelled | AppError>;
@@ -89,19 +69,14 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   yield* runDeviceLogin(registryUrl);
 }, Effect.asVoid);
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const loginConfig = {
   yes: yesFlag.pipe(
     Flag.withDescription("Skip the browser-open confirmation and launch immediately"),
   ),
 } as const;
-const commandMeta = authCommandMeta("auth login");
 
 export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
-  handleLogin({ yes }).pipe(withCommandRuntime(commandMeta)),
+  handleLogin({ yes }).pipe(withAuthRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),
@@ -109,6 +84,5 @@ export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
     { command: "axm auth login", description: "Sign in to the default registry" },
     { command: "axm login", description: "Same command via shortcut" },
     { command: "axm auth login --yes", description: "Skip the browser confirmation" },
-    { command: "", description: "See also: auth whoami, auth logout" },
   ]),
 );

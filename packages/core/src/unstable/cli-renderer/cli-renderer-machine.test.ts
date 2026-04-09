@@ -4,8 +4,7 @@ import * as Stream from "effect/Stream";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 
 import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
-import { column } from "./annotations.js";
-import { CliRenderer } from "./cli-renderer.js";
+import { CliRenderer, type DetailView, type TableView } from "./cli-renderer.js";
 import { MachineRenderer } from "./cli-renderer-machine.js";
 
 // ---------------------------------------------------------------------------
@@ -340,14 +339,16 @@ describe("MachineRenderer", () => {
   describe("data display methods are no-ops", () => {
     it.effect("table produces no output", () =>
       Effect.gen(function* () {
-        const TableSchema = Schema.Struct({
-          name: Schema.String.pipe(column({ header: "Name" })),
-        });
+        const Table = {
+          columns: {
+            name: { header: "Name" },
+          },
+        } as const satisfies TableView<{ readonly name: string }>;
 
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.table([{ name: "a" }], TableSchema);
+            yield* r.table([{ name: "a" }], Table);
           }),
         );
         expect(stdoutWrites).toHaveLength(0);
@@ -357,14 +358,16 @@ describe("MachineRenderer", () => {
 
     it.effect("detail produces no output", () =>
       Effect.gen(function* () {
-        const DetailSchema = Schema.Struct({
-          name: Schema.String.pipe(column({ header: "Name" })),
-        });
+        const Detail = {
+          fields: {
+            name: { label: "Name" },
+          },
+        } as const satisfies DetailView<{ readonly name: string }>;
 
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.detail({ name: "test" }, DetailSchema);
+            yield* r.detail({ name: "test" }, Detail);
           }),
         );
         expect(stdoutWrites).toHaveLength(0);
@@ -380,6 +383,51 @@ describe("MachineRenderer", () => {
           }),
         );
         expect(stdoutWrites).toHaveLength(0);
+      }),
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // document() — standard command document output
+  // -------------------------------------------------------------------------
+
+  describe("document()", () => {
+    it.effect("returns true", () =>
+      Effect.gen(function* () {
+        const result = yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            return yield* r.document(
+              "skills.list",
+              { items: [{ name: "test" }], count: 1 },
+              { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
+            );
+          }),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("writes the standard command document to stdout", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.document(
+              "skills.list",
+              { items: [{ name: "my-skill" }], count: 1 },
+              { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
+            );
+          }),
+        );
+        expect(stdoutWrites).toHaveLength(1);
+        const parsed = parseStdout();
+        expect(parsed[0]).toEqual({
+          _version: 1,
+          command: "skills.list",
+          items: [{ name: "my-skill" }],
+          count: 1,
+        });
       }),
     );
   });

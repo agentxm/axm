@@ -212,11 +212,14 @@ design. Scale effort to command complexity.
 ### Runtime Provision
 
 The cli-spike uses a single `withRuntime()` wrapper that provides all services
-and error handling. The production CLI has evolved to a two-layer model:
+and error handling. The production CLI follows the same default model, with one
+additional auth-specific wrapper:
 
-- **`withCommandRuntime(commandMeta)`** — provides foundation services
-  (`CliRenderer`, telemetry, error handling), checks `--json` capability, and
-  selects the output format. Every command uses this.
+- **`withRuntime(command)`** — provides foundation services
+  (`CliRenderer`, telemetry, error handling), selects the output format, and
+  adds the registry/platform infrastructure used by most commands.
+- **`withAuthRuntime(command)`** — same runtime boundary plus auth services for
+  auth-only commands.
 - **`withWorkspace(scope)`** — provides workspace context, extension managers,
   and source resolution. Only commands that operate on a workspace use this.
 
@@ -226,14 +229,13 @@ Commands compose them in their handler callback:
 (config) =>
   handleInstall(config).pipe(
     withWorkspace(config.scope),
-    withCommandRuntime(commandMeta),
+    withRuntime("skills install"),
   ),
 ```
 
-Auth-only commands (login, whoami) use `withAuthRuntime` instead of
-`withWorkspace`. The spike's single `withRuntime()` is the simpler teaching
-model; production uses the split model because workspace services are expensive
-and not every command needs them.
+Auth-only commands omit `withWorkspace` and use `withAuthRuntime("auth whoami")`
+directly. Workspace services remain separate because they are materially more
+expensive and not every command needs them.
 
 ### Shared Flags vs Global Flag Settings
 

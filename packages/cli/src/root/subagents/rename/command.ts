@@ -1,24 +1,9 @@
-/**
- * Rename command definition for `axm subagents rename`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../../command-meta.js";
-import { withWorkspace } from "../../../runtime.js";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleRenameSubagent } from "./handler.js";
-
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
 
 const renameConfig = {
   oldName: Argument.string("old-name").pipe(
@@ -36,7 +21,6 @@ const renameConfig = {
     Flag.withDescription("Show what would be renamed without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("subagents rename", { json: true });
 
 export const renameCommand = Command.make(
   "rename",
@@ -44,11 +28,10 @@ export const renameCommand = Command.make(
   ({ oldName, newName, scope, yes, force, preview }) =>
     handleRenameSubagent({ oldName, newName, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("subagents rename"),
     ),
 ).pipe(
   withArgvTracking(renameConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Rename a locally-authored subagent"),
   Command.withExamples([
     {
@@ -59,6 +42,5 @@ export const renameCommand = Command.make(
       command: "axm subagents rename old-name new-name --preview",
       description: "Check what would change first",
     },
-    { command: "", description: "See also: subagents list, subagents disable" },
   ]),
 );

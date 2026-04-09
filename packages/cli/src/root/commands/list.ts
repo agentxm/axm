@@ -1,61 +1,41 @@
-/**
- * List command handler - Effect-based orchestration for `axm commands list`.
- *
- * Reads the workspace service and displays installed commands with lifecycle info.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { scopeFlag } from "../../cli-flags.js";
-import { emitItemsResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the list handler.
- */
-export interface ListCommandsHandlerArgs {
-  /** Agent names to filter by (empty = show all) */
-  readonly agents: ReadonlyArray<string>;
-}
+import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const CommandListItemSchema = Schema.Struct({
   name: Schema.String,
-  source: Schema.String,
-  enabled: Schema.Boolean,
   lifecycle: Schema.String,
+  enabled: Schema.Boolean,
+  source: Schema.String,
 });
+type CommandListItem = typeof CommandListItemSchema.Type;
 
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
+const CommandListDocumentFields = {
+  items: Schema.Array(CommandListItemSchema),
+  count: Schema.Number,
+} satisfies Schema.Struct.Fields;
 
-/**
- * Handles the `axm commands list` command.
- *
- * Flow:
- * 1. Read classified commands map
- * 2. Display results or "No commands installed"
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const handleListCommands = Effect.fn("ListCommands.handle")(function* (
-  _args: ListCommandsHandlerArgs,
-) {
+const CommandListTable = {
+  columns: {
+    name: { header: "Name" },
+    lifecycle: { header: "Lifecycle" },
+    enabled: {
+      header: "Status",
+      render: (value: boolean) => (value ? "enabled" : "disabled"),
+    },
+    source: {
+      header: "Source",
+      render: (value: string) => (value.length > 0 ? value : "n/a"),
+    },
+  },
+} as const satisfies TableView<CommandListItem>;
+
+export const handleListCommands = Effect.fn("ListCommands.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* Workspace;
   const commands = yield* ws.getClassifiedCommands();
@@ -69,7 +49,13 @@ export const handleListCommands = Effect.fn("ListCommands.handle")(function* (
     lifecycle: entry.lifecycle,
   }));
 
-  if (yield* emitItemsResult("commands.list", items, CommandListItemSchema)) {
+  if (
+    yield* renderer.document(
+      "commands.list",
+      { items, count: items.length },
+      CommandListDocumentFields,
+    )
+  ) {
     return;
   }
 
@@ -78,34 +64,19 @@ export const handleListCommands = Effect.fn("ListCommands.handle")(function* (
     return;
   }
 
-  // Display each command
-  yield* Effect.forEach(
-    entries,
-    ([name, entry]) => {
-      const source = typeof entry.source === "string" ? entry.source : "";
-      const status = entry.enabled ? "enabled" : "disabled";
-      return renderer.message(`${name}  (${entry.lifecycle})  [${status}]  ${source}`);
-    },
-    { discard: true },
-  );
+  yield* renderer.table(items, CommandListTable, "Installed commands");
 });
-
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
 
 const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List commands from project (default) or user-level configuration"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("commands list", { json: true });
 
 export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleListCommands({ agents: [] }).pipe(withWorkspace(scope), withCommandRuntime(commandMeta)),
+  handleListCommands().pipe(withWorkspace(scope), withRuntime("commands list")),
 ).pipe(
   withArgvTracking(listConfig),
-  annotateCommandMeta(commandMeta),
   Command.withAlias("ls"),
   Command.withDescription("List installed commands"),
   Command.withExamples([
@@ -114,6 +85,5 @@ export const listCommand = Command.make("list", listConfig, ({ scope }) =>
       command: "axm commands list --scope user",
       description: "Check user-level commands",
     },
-    { command: "", description: "See also: commands install, commands update" },
   ]),
 );

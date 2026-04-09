@@ -67,7 +67,7 @@ describe("subagents list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("displays all installed subagents", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       subagents: {
         "subagent-one": "@acme/subagents/subagent-one",
@@ -83,8 +83,13 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(logs.message.some((m) => m.includes("subagent-one"))).toBe(true);
-        expect(logs.message.some((m) => m.includes("subagent-two"))).toBe(true);
+        expect(rendererState.tables).toHaveLength(1);
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ name: "subagent-one" }),
+            expect.objectContaining({ name: "subagent-two" }),
+          ]),
+        );
       }),
     );
   });
@@ -111,7 +116,7 @@ describe("subagents list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("shows configured lifecycle for settings-declared subagents", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       subagents: {
         "my-subagent": "@acme/subagents/my-subagent",
@@ -125,9 +130,9 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(
-          logs.message.some((m) => m.includes("my-subagent") && m.includes("configured")),
-        ).toBe(true);
+        expect(rendererState.tables[0]?.items).toEqual([
+          expect.objectContaining({ name: "my-subagent", lifecycle: "configured" }),
+        ]);
       }),
     );
   });
@@ -137,7 +142,7 @@ describe("subagents list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("shows disabled status for disabled subagents", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       subagents: {
         "my-subagent": { source: "@acme/subagents/my-subagent", enabled: false },
@@ -151,9 +156,9 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(logs.message.some((m) => m.includes("my-subagent") && m.includes("disabled"))).toBe(
-          true,
-        );
+        expect(rendererState.tables[0]?.items).toEqual([
+          expect.objectContaining({ name: "my-subagent", enabled: false }),
+        ]);
       }),
     );
   });
@@ -163,7 +168,7 @@ describe("subagents list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("displays all configured subagents", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       subagents: {
         "subagent-a": "@acme/subagents/subagent-a",
@@ -179,8 +184,90 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(logs.message.some((m) => m.includes("subagent-a"))).toBe(true);
-        expect(logs.message.some((m) => m.includes("subagent-b"))).toBe(true);
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ name: "subagent-a" }),
+            expect.objectContaining({ name: "subagent-b" }),
+          ]),
+        );
+      }),
+    );
+  });
+
+  it.effect("filters subagents by agent", () => {
+    const { provide, rendererState } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), {
+      subagents: {
+        "subagent-claude": "@acme/subagents/subagent-claude",
+        "subagent-cursor": "@acme/subagents/subagent-cursor",
+      },
+      lockfileSubagents: {
+        "subagent-claude": makeLockEntry(["claude-code"]),
+        "subagent-cursor": makeLockEntry(["cursor"]),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListSubagents({ agents: ["claude-code"] });
+
+        expect(rendererState.tables).toHaveLength(1);
+        expect(rendererState.tables[0]?.items).toEqual([
+          expect.objectContaining({ name: "subagent-claude", agents: ["claude-code"] }),
+        ]);
+      }),
+    );
+  });
+
+  it.effect("shows a filter-specific empty state when no subagents match the agent filter", () => {
+    const { provide, logs } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), {
+      subagents: {
+        "subagent-claude": "@acme/subagents/subagent-claude",
+      },
+      lockfileSubagents: {
+        "subagent-claude": makeLockEntry(["claude-code"]),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListSubagents({ agents: ["cursor"] });
+
+        expect(logs.info).toContain("No subagents matched the selected agent filter.");
+      }),
+    );
+  });
+
+  it.effect("emits machine-readable items for --json consumers", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      subagents: {
+        "subagent-one": "@acme/subagents/subagent-one",
+      },
+      lockfileSubagents: {
+        "subagent-one": makeLockEntry(["claude-code"]),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListSubagents({ agents: [] });
+
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          _version: 1,
+          command: "subagents.list",
+          count: 1,
+          items: [
+            {
+              name: "subagent-one",
+              lifecycle: "configured",
+              enabled: true,
+              agents: ["claude-code"],
+            },
+          ],
+        });
       }),
     );
   });

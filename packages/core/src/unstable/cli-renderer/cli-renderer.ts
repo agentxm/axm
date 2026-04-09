@@ -67,13 +67,48 @@ export interface Task<E, R> {
   readonly enabled?: boolean;
 }
 
-export interface ColumnDef<T> {
-  readonly key: string;
+export type ViewKey<T extends object> = Extract<keyof T, string>;
+
+export type TableAlign = "left" | "right";
+
+export type TableWidth = "auto" | "fill" | number;
+
+export interface TableColumnConfig<T extends object, K extends ViewKey<T>> {
   readonly header: string;
-  readonly value: (item: T) => string;
-  readonly priority: number;
-  readonly align: "left" | "right";
-  readonly width: "auto" | "fill" | number;
+  readonly render?: (value: T[K], row: T) => string;
+  readonly align?: TableAlign;
+  readonly width?: TableWidth;
+}
+
+export interface TableView<T extends object> {
+  readonly columns: {
+    readonly [K in ViewKey<T>]: TableColumnConfig<T, K>;
+  };
+}
+
+export interface DetailFieldConfig<T extends object, K extends ViewKey<T>> {
+  readonly label: string;
+  readonly render?: (value: T[K], row: T) => string;
+}
+
+export interface DetailView<T extends object> {
+  readonly fields: {
+    readonly [K in ViewKey<T>]: DetailFieldConfig<T, K>;
+  };
+}
+
+export interface ResolvedTableColumn<T extends object> {
+  readonly key: ViewKey<T>;
+  readonly header: string;
+  readonly render: (row: T) => string;
+  readonly align: TableAlign;
+  readonly width: TableWidth;
+}
+
+export interface ResolvedDetailField<T extends object> {
+  readonly key: ViewKey<T>;
+  readonly label: string;
+  readonly render: (row: T) => string;
 }
 
 export interface TreeNode<T> {
@@ -139,14 +174,14 @@ export class CliRenderer extends ServiceMap.Service<
     readonly runTasks: <E, R>(tasks: ReadonlyArray<Task<E, R>>) => Effect.Effect<void, E, R>;
 
     // Data display (stdout)
-    readonly table: <S extends Schema.Top>(
-      items: ReadonlyArray<Schema.Schema.Type<S>>,
-      schema: S,
+    readonly table: <T extends object>(
+      items: ReadonlyArray<T>,
+      view: TableView<T>,
       caption?: string,
     ) => Effect.Effect<void>;
-    readonly detail: <S extends Schema.Top>(
-      item: Schema.Schema.Type<S>,
-      schema: S,
+    readonly detail: <T extends object>(
+      item: T,
+      view: DetailView<T>,
       title?: string,
     ) => Effect.Effect<void>;
     readonly tree: <T>(
@@ -156,6 +191,11 @@ export class CliRenderer extends ServiceMap.Service<
     ) => Effect.Effect<void>;
 
     // Machine data output (stdout)
+    readonly document: <TCommand extends string, const Fields extends Schema.Struct.Fields>(
+      command: TCommand,
+      body: Schema.Struct.Type<Fields>,
+      fields: Fields,
+    ) => Effect.Effect<boolean, never, Schema.Struct.EncodingServices<Fields>>;
     readonly result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,

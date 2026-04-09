@@ -1,20 +1,22 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import type * as Schema from "effect/Schema";
 
 import {
   CliRenderer,
-  type ColumnDef,
+  type DetailView,
+  type ResolvedDetailField,
   type ProgressConfig,
   type ProgressHandle,
+  type ResolvedTableColumn,
   type SpinnerHandle,
   type SpinnerOptions,
+  type TableView,
   type TreeDef,
   type TreeNode,
 } from "./cli-renderer.js";
 import * as chrome from "./ansi-chrome.js";
-import { columnsFrom } from "./command-output.js";
+import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 
 // ---------------------------------------------------------------------------
 // Stdout helpers
@@ -51,9 +53,9 @@ const pad = (str: string, width: number, align: "left" | "right"): string => {
 const getWidthAt = (widths: ReadonlyArray<number>, index: number, fallback: number): number =>
   widths[index] ?? fallback;
 
-const formatTable = <T>(
+const formatTable = <T extends object>(
   items: ReadonlyArray<T>,
-  columns: ReadonlyArray<ColumnDef<T>>,
+  columns: ReadonlyArray<ResolvedTableColumn<T>>,
   caption?: string,
 ): string => {
   if (items.length === 0 || columns.length === 0) return "";
@@ -66,7 +68,7 @@ const formatTable = <T>(
   const contentWidths: Array<number> = columns.map((col) => {
     let maxW = col.header.length;
     for (const item of items) {
-      const val = col.value(item);
+      const val = col.render(item);
       if (val.length > maxW) maxW = val.length;
     }
     return maxW;
@@ -127,7 +129,7 @@ const formatTable = <T>(
 
   for (const item of items) {
     const cells = columns.map((col, i) => {
-      const val = col.value(item);
+      const val = col.render(item);
       const width = getWidthAt(colWidths, i, col.header.length);
       return pad(truncate(val, width), width, col.align);
     });
@@ -141,8 +143,12 @@ const formatTable = <T>(
 // Detail formatter
 // ---------------------------------------------------------------------------
 
-const formatDetail = <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string): string => {
-  if (columns.length === 0) return "";
+const formatDetail = <T extends object>(
+  item: T,
+  fields: ReadonlyArray<ResolvedDetailField<T>>,
+  title?: string,
+): string => {
+  if (fields.length === 0) return "";
 
   const lines: Array<string> = [];
 
@@ -150,11 +156,11 @@ const formatDetail = <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: 
     lines.push(title);
   }
 
-  const maxLabelWidth = Math.max(...columns.map((c) => c.header.length));
+  const maxLabelWidth = Math.max(...fields.map((field) => field.label.length));
 
-  for (const col of columns) {
-    const label = pad(col.header, maxLabelWidth, "left");
-    const value = col.value(item);
+  for (const field of fields) {
+    const label = pad(field.label, maxLabelWidth, "left");
+    const value = field.render(item);
     lines.push(`${label}  ${value}`);
   }
 
@@ -324,19 +330,15 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
       ).pipe(Effect.asVoid),
 
     // Data display (stdout)
-    table: <S extends Schema.Top>(
-      items: ReadonlyArray<Schema.Schema.Type<S>>,
-      schema: S,
-      caption?: string,
-    ) => {
-      const columns = columnsFrom(schema);
+    table: <T extends object>(items: ReadonlyArray<T>, view: TableView<T>, caption?: string) => {
+      const columns = resolveTableColumns(view);
       const output = formatTable(items, columns, caption);
       if (output) return writeStdoutLine(output);
       return Effect.void;
     },
-    detail: <S extends Schema.Top>(item: Schema.Schema.Type<S>, schema: S, title?: string) => {
-      const columns = columnsFrom(schema);
-      const output = formatDetail(item, columns, title);
+    detail: <T extends object>(item: T, view: DetailView<T>, title?: string) => {
+      const fields = resolveDetailFields(view);
+      const output = formatDetail(item, fields, title);
       if (output) return writeStdoutLine(output);
       return Effect.void;
     },
@@ -347,6 +349,7 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
     },
 
     // Machine data output
+    document: () => Effect.succeed(false),
     result: () => Effect.succeed(false),
     resultStream: () => Effect.succeed(false),
 

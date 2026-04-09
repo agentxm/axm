@@ -11,8 +11,6 @@ import { CliOutput } from "effect/unstable/cli";
 
 import { JsonSchemaVersion, JsonSchemaVersionSchema } from "@axm.sh/core/unstable/cli-runtime";
 
-import { JsonOutputSupported } from "./json-output.js";
-
 /**
  * Annotation key for "learn more" footer text.
  * Attach to commands via `Command.annotate(LearnMore, "...")`.
@@ -40,10 +38,7 @@ const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
     return doc.globalFlags;
   }
 
-  const supportsJsonOutput = ServiceMap.getReferenceUnsafe(doc.annotations, JsonOutputSupported);
-  const globalFlags = supportsJsonOutput
-    ? doc.globalFlags?.filter((flag) => flag.name === "json")
-    : undefined;
+  const globalFlags = doc.globalFlags?.filter((flag) => flag.name === "json");
   return globalFlags !== undefined && globalFlags.length > 0 ? globalFlags : undefined;
 };
 

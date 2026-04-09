@@ -1,12 +1,3 @@
-/**
- * Upgrade command definition for `axm upgrade`.
- *
- * Downloads and installs the latest CLI version for script installs,
- * or prints delegation instructions for other install methods.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { forceFlag } from "@axm.sh/core/unstable/cli-flags";
@@ -14,36 +5,22 @@ import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { InstallMethodLive } from "@axm.sh/core/unstable/install-method";
 import { InstallMetaLive } from "@axm.sh/core/unstable/install-meta";
 import { Command, Flag } from "effect/unstable/cli";
+import { withRuntime } from "../../runtime.js";
 
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { handleUpgrade } from "./handler.js";
 
-// -----------------------------------------------------------------------------
-// Layer
-// -----------------------------------------------------------------------------
-
 const upgradeLayer = Layer.mergeAll(InstallMethodLive, InstallMetaLive);
-
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
 
 const upgradeConfig = {
   force: forceFlag.pipe(
     Flag.withDescription("Re-download even if already up to date (script installs only)"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("upgrade", { json: true });
 
 export const upgradeCommand = Command.make("upgrade", upgradeConfig, ({ force }) =>
-  Effect.provide(handleUpgrade({ force }), upgradeLayer).pipe(withCommandRuntime(commandMeta)),
+  Effect.provide(handleUpgrade({ force }), upgradeLayer).pipe(withRuntime("upgrade")),
 ).pipe(
   withArgvTracking(upgradeConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Update axm to the latest version"),
   Command.withExamples([
     { command: "axm upgrade", description: "Download and install the latest version" },

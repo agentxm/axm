@@ -1,14 +1,3 @@
-/**
- * Token command handler -- outputs current resolved token to stdout.
- *
- * Flow:
- * 1. Resolve token via shared auth resolution (no interactive fallback)
- * 2. If no token: fail with the environment-appropriate auth error
- * 3. Output raw token to stdout, or JSON when explicitly requested
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -19,17 +8,14 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-
-import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
-import { emitDataResult } from "../../json-output.js";
-
-// -----------------------------------------------------------------------------
-// Handler
-// -----------------------------------------------------------------------------
+import { withAuthRuntime } from "../../runtime.js";
 
 const TokenDataSchema = Schema.Struct({
   token: Schema.String,
 });
+const TokenDocumentFields = {
+  data: TokenDataSchema,
+} satisfies Schema.Struct.Fields;
 
 export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   const registryUrl = yield* RegistryUrl;
@@ -47,25 +33,19 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested
   if (json) {
-    yield* emitDataResult("auth.token", { token: token.token }, TokenDataSchema);
+    yield* renderer.document("auth.token", { data: { token: token.token } }, TokenDocumentFields);
     return;
   }
 
   yield* renderer.raw(token.token + "\n");
 }, Effect.asVoid);
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const tokenConfig = {} as const;
-const commandMeta = authCommandMeta("auth token", { json: true });
 
 export const tokenCommand = Command.make("token", tokenConfig, () =>
-  handleToken().pipe(withCommandRuntime(commandMeta)),
+  handleToken().pipe(withAuthRuntime("auth token")),
 ).pipe(
   withArgvTracking(tokenConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Output current auth token to stdout"),
   Command.withExamples([
     {
@@ -74,6 +54,5 @@ export const tokenCommand = Command.make("token", tokenConfig, () =>
     },
     { command: "axm token", description: "Same command via shortcut" },
     { command: "axm auth token --json", description: "Get the token as structured JSON" },
-    { command: "", description: "See also: auth login, auth whoami" },
   ]),
 );

@@ -1,10 +1,3 @@
-/**
- * Skills new handler — validates input, resolves owner and agents,
- * builds a single-step plan, and executes via `ws.resolvePlan()`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -25,46 +18,22 @@ import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
+import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
 
 export interface SkillsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly profile: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   args: SkillsNewHandlerArgs,
@@ -172,10 +141,6 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   yield* renderer.success(`Created skill ${fqn}`);
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill (without owner)")),
   profile: Flag.string("profile").pipe(
@@ -193,7 +158,6 @@ const newConfig = {
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("skills new", { json: true });
 
 export const newCommand = Command.make(
   "new",
@@ -206,10 +170,9 @@ export const newCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withCommandRuntime(commandMeta)),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("skills new")),
 ).pipe(
   withArgvTracking(newConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Create a new skill"),
   Command.withExamples([
     { command: "axm skills new my-skill", description: "Scaffold a new skill" },
@@ -217,6 +180,5 @@ export const newCommand = Command.make(
       command: "axm skills new my-skill --profile @acme",
       description: "Create under a specific owner",
     },
-    { command: "", description: "See also: skills fork, skills publish" },
   ]),
 );

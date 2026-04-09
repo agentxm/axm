@@ -3,28 +3,41 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliRenderer, column } from "@axm.sh/core/unstable/cli-renderer";
-import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
+import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { makeItemsDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 export const SamplePetSchema = Schema.Struct({
-  name: Schema.String.pipe(column({ header: "Name", priority: 1 })),
-  species: Schema.String.pipe(column({ header: "Species", priority: 2 })),
-  age: Schema.String.pipe(column({ header: "Age", priority: 3 })),
-  adoptable: Schema.Boolean.pipe(
-    column({
-      header: "Adoptable",
-      priority: 4,
-      format: (value) => (value === true ? "yes" : "no"),
-    }),
-  ),
+  name: Schema.String,
+  species: Schema.String,
+  age: Schema.String,
+  adoptable: Schema.Boolean,
 });
 
 type SamplePet = typeof SamplePetSchema.Type;
-export const OutputsTableOutputSchema = makeItemsDocumentSchema("outputs.table", SamplePetSchema);
+const SamplePetTable = {
+  columns: {
+    name: { header: "Name" },
+    species: { header: "Species" },
+    age: { header: "Age" },
+    adoptable: {
+      header: "Adoptable",
+      render: (value: boolean) => (value ? "yes" : "no"),
+    },
+  },
+} as const satisfies TableView<SamplePet>;
+
+const OutputsTableDocumentFields = {
+  items: Schema.Array(SamplePetSchema),
+  count: Schema.Number,
+} satisfies Schema.Struct.Fields;
+
+export const OutputsTableOutputSchema = makeCommandDocumentSchema(
+  "outputs.table",
+  OutputsTableDocumentFields,
+);
 export type OutputsTableOutput = typeof OutputsTableOutputSchema.Type;
 
 const samplePets: ReadonlyArray<SamplePet> = [
@@ -43,18 +56,18 @@ const commandMeta = spikeCommandMeta("outputs table", { json: true });
 export const handleTable = (args: { readonly caption: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const document: OutputsTableOutput = {
-      _version: JsonSchemaVersion,
-      command: "outputs.table",
-      items: samplePets,
-      count: samplePets.length,
-    };
 
-    if (yield* renderer.result(document, OutputsTableOutputSchema)) {
+    if (
+      yield* renderer.document(
+        "outputs.table",
+        { items: samplePets, count: samplePets.length },
+        OutputsTableDocumentFields,
+      )
+    ) {
       return;
     }
 
-    yield* renderer.table(samplePets, SamplePetSchema, Option.getOrUndefined(args.caption));
+    yield* renderer.table(samplePets, SamplePetTable, Option.getOrUndefined(args.caption));
   });
 
 export const tableCommand = Command.make("table", tableConfig, ({ caption }) =>

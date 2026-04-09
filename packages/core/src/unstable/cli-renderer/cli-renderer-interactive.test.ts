@@ -5,8 +5,7 @@ import * as Stream from "effect/Stream";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { type MockInstance, vi } from "vitest";
 
-import { column } from "./annotations.js";
-import { CliRenderer } from "./cli-renderer.js";
+import { CliRenderer, type DetailView, type TableView } from "./cli-renderer.js";
 import { InteractiveRenderer } from "./cli-renderer-interactive.js";
 import { expectRecord } from "../test-helpers.js";
 
@@ -271,10 +270,15 @@ describe("InteractiveRenderer", () => {
   describe("table formatting", () => {
     it.effect("writes a table to stdout without the guide prefix", () =>
       Effect.gen(function* () {
-        const SkillTableSchema = Schema.Struct({
-          name: Schema.String.pipe(column({ header: "Name" })),
-          version: Schema.String.pipe(column({ header: "Version", align: "right" })),
-        });
+        const SkillTable = {
+          columns: {
+            name: { header: "Name" },
+            version: { header: "Version", align: "right" },
+          },
+        } as const satisfies TableView<{
+          readonly name: string;
+          readonly version: string;
+        }>;
 
         yield* run(
           Effect.gen(function* () {
@@ -284,7 +288,7 @@ describe("InteractiveRenderer", () => {
                 { name: "alpha", version: "1.0.0" },
                 { name: "beta", version: "2.0.0" },
               ],
-              SkillTableSchema,
+              SkillTable,
               "Skills",
             );
           }),
@@ -305,17 +309,22 @@ describe("InteractiveRenderer", () => {
   describe("detail formatting", () => {
     it.effect("writes vertical key-value pairs without the guide prefix", () =>
       Effect.gen(function* () {
-        const SkillDetailSchema = Schema.Struct({
-          name: Schema.String.pipe(column({ header: "Name" })),
-          version: Schema.String.pipe(column({ header: "Version" })),
-        });
+        const SkillDetail = {
+          fields: {
+            name: { label: "Name" },
+            version: { label: "Version" },
+          },
+        } as const satisfies DetailView<{
+          readonly name: string;
+          readonly version: string;
+        }>;
 
         yield* run(
           Effect.gen(function* () {
             const renderer = yield* CliRenderer;
             yield* renderer.detail(
               { name: "my-skill", version: "2.1.0" },
-              SkillDetailSchema,
+              SkillDetail,
               "Skill Info",
             );
           }),

@@ -3,32 +3,43 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliRenderer, column } from "@axm.sh/core/unstable/cli-renderer";
-import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { CliRenderer, type DetailView } from "@axm.sh/core/unstable/cli-renderer";
+import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { makeDataDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 export const SamplePetDetailSchema = Schema.Struct({
-  name: Schema.String.pipe(column({ header: "Name", priority: 1 })),
-  species: Schema.String.pipe(column({ header: "Species", priority: 2 })),
-  age: Schema.String.pipe(column({ header: "Age", priority: 3 })),
-  adoptable: Schema.Boolean.pipe(
-    column({
-      header: "Adoptable",
-      priority: 4,
-      format: (value) => (value === true ? "yes" : "no"),
-    }),
-  ),
-  intakeDate: Schema.String.pipe(column({ header: "Intake Date", priority: 5 })),
-  habitat: Schema.String.pipe(column({ header: "Habitat", priority: 6 })),
+  name: Schema.String,
+  species: Schema.String,
+  age: Schema.String,
+  adoptable: Schema.Boolean,
+  intakeDate: Schema.String,
+  habitat: Schema.String,
 });
 
 type SamplePetDetail = typeof SamplePetDetailSchema.Type;
-export const OutputsDetailOutputSchema = makeDataDocumentSchema(
+const SamplePetDetailView = {
+  fields: {
+    name: { label: "Name" },
+    species: { label: "Species" },
+    age: { label: "Age" },
+    adoptable: {
+      label: "Adoptable",
+      render: (value: boolean) => (value ? "yes" : "no"),
+    },
+    intakeDate: { label: "Intake Date" },
+    habitat: { label: "Habitat" },
+  },
+} as const satisfies DetailView<SamplePetDetail>;
+
+const OutputsDetailDocumentFields = {
+  data: SamplePetDetailSchema,
+} satisfies Schema.Struct.Fields;
+
+export const OutputsDetailOutputSchema = makeCommandDocumentSchema(
   "outputs.detail",
-  SamplePetDetailSchema,
+  OutputsDetailDocumentFields,
 );
 export type OutputsDetailOutput = typeof OutputsDetailOutputSchema.Type;
 
@@ -50,17 +61,14 @@ const commandMeta = spikeCommandMeta("outputs detail", { json: true });
 export const handleDetail = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const document: OutputsDetailOutput = {
-      _version: JsonSchemaVersion,
-      command: "outputs.detail",
-      data: sampleItem,
-    };
 
-    if (yield* renderer.result(document, OutputsDetailOutputSchema)) {
+    if (
+      yield* renderer.document("outputs.detail", { data: sampleItem }, OutputsDetailDocumentFields)
+    ) {
       return;
     }
 
-    yield* renderer.detail(sampleItem, SamplePetDetailSchema, Option.getOrUndefined(args.title));
+    yield* renderer.detail(sampleItem, SamplePetDetailView, Option.getOrUndefined(args.title));
   });
 
 export const detailCommand = Command.make("detail", detailConfig, ({ title }) =>

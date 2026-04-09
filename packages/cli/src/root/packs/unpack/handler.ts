@@ -1,17 +1,3 @@
-/**
- * Unpack command handler -- Effect-based orchestration for `axm packs unpack`.
- *
- * Flattens a pack's resolved extensions into settings.json as direct entries,
- * preserves existing direct entries, and removes the pack entry from settings
- * and lockfile.
- *
- * Uses plan-based approach: emits install-skill, install-command,
- * install-mcp-server ops (with skipSettings: false) to promote extensions,
- * then an uninstall-pack op to remove the pack.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
@@ -33,29 +19,13 @@ import { buildUnpackPlan } from "./plan.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the packs unpack command.
- */
 export interface UnpackHandlerArgs {
-  /** Pack name (FQN like @owner/name). */
   readonly name: string;
-  /** Enforce strict MCP agent-sync outcomes while promoting pack MCP servers. */
   readonly strictAgentSync: Option.Option<boolean>;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 /**
  * Handles the `axm packs unpack` command.

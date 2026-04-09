@@ -1,12 +1,3 @@
-/**
- * Update command handler - Effect-based orchestration for `axm commands update`.
- *
- * Re-resolves installed commands from their sources and updates those that have
- * changed.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -23,35 +14,18 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
-import { withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import type { CommandExtensionRef } from "@axm.sh/core/unstable/commands";
 import { toJobStepResult } from "./job-step-result.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface UpdateCommandHandlerArgs {
-  /** Optional name to filter to a specific command */
   readonly name: Option.Option<string>;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   args: UpdateCommandHandlerArgs,
@@ -223,10 +197,6 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   }
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const updateConfig = {
   name: Argument.string("name").pipe(
     Argument.withDescription("Name of the command to update (updates all if omitted)"),
@@ -241,7 +211,6 @@ const updateConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
 } as const;
-const commandMeta = registryCommandMeta("commands update", { json: true });
 
 export const updateCommand = Command.make(
   "update",
@@ -249,11 +218,10 @@ export const updateCommand = Command.make(
   ({ name, scope, yes, force, preview }) =>
     handleUpdateCommand({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("commands update"),
     ),
 ).pipe(
   withArgvTracking(updateConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Update installed commands to latest versions"),
   Command.withExamples([
     {
@@ -268,6 +236,5 @@ export const updateCommand = Command.make(
       command: "axm commands update --preview",
       description: "Preview available updates",
     },
-    { command: "", description: "See also: commands install, commands list" },
   ]),
 );

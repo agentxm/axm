@@ -3,8 +3,8 @@ import { Command } from "effect/unstable/cli";
 import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { listCommand } from "./list.js";
-import { enableCommand_ } from "./enable.js";
-import { disableCommand_ } from "./disable.js";
+import { enableCommand } from "./enable.js";
+import { disableCommand } from "./disable.js";
 import { updateCommand } from "./update.js";
 import { newCommand } from "./new.js";
 import { publishCommand } from "./publish.js";
@@ -41,8 +41,8 @@ export const commandsCommand = Command.make("commands").pipe(
     installCommand,
     uninstallCommand,
     listCommand,
-    enableCommand_,
-    disableCommand_,
+    enableCommand,
+    disableCommand,
     updateCommand,
     newCommand,
     publishCommand,

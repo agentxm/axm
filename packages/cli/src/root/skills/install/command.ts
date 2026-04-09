@@ -2,14 +2,9 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../../command-meta.js";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleInstall } from "./handler.js";
-import { withWorkspace } from "../../../runtime.js";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -33,7 +28,6 @@ const installConfig = {
     Flag.withDescription("Show what would be installed without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("skills install", { json: true });
 
 export const installCommand = Command.make(
   "install",
@@ -41,11 +35,10 @@ export const installCommand = Command.make(
   ({ source, scope, skill, all, yes, force, preview }) =>
     handleInstall({ source, skills: skill, all }, { yes, force, preview }).pipe(
       withWorkspace(scope),
-      withCommandRuntime(commandMeta),
+      withRuntime("skills install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Install skills from a registry, GitHub, or local path"),
   Command.withExamples([
     {
@@ -72,6 +65,5 @@ export const installCommand = Command.make(
       command: "axm skills install @acme/skills/code-review --preview",
       description: "See what would be installed before committing",
     },
-    { command: "", description: "See also: skills list, skills update, skills uninstall" },
   ]),
 );

@@ -3,11 +3,10 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer, column } from "@axm.sh/core/unstable/cli-renderer";
-import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { CliRenderer, type DetailView, type TableView } from "@axm.sh/core/unstable/cli-renderer";
+import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { makeItemsDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
@@ -15,20 +14,46 @@ import { withRuntime } from "../../runtime.js";
 // ---------------------------------------------------------------------------
 
 export const SinkPetSchema = Schema.Struct({
-  name: Schema.String.pipe(column({ header: "Name", priority: 1 })),
-  species: Schema.String.pipe(column({ header: "Species", priority: 2 })),
-  age: Schema.String.pipe(column({ header: "Age", priority: 3 })),
-  adoptable: Schema.Boolean.pipe(
-    column({
-      header: "Adoptable",
-      priority: 4,
-      format: (value) => (value === true ? "yes" : "no"),
-    }),
-  ),
+  name: Schema.String,
+  species: Schema.String,
+  age: Schema.String,
+  adoptable: Schema.Boolean,
 });
 
 type Pet = typeof SinkPetSchema.Type;
-export const OutputsSinkOutputSchema = makeItemsDocumentSchema("outputs.sink", SinkPetSchema);
+const SinkPetTable = {
+  columns: {
+    name: { header: "Name" },
+    species: { header: "Species" },
+    age: { header: "Age" },
+    adoptable: {
+      header: "Adoptable",
+      render: (value: boolean) => (value ? "yes" : "no"),
+    },
+  },
+} as const satisfies TableView<Pet>;
+
+const SinkPetDetail = {
+  fields: {
+    name: { label: "Name" },
+    species: { label: "Species" },
+    age: { label: "Age" },
+    adoptable: {
+      label: "Adoptable",
+      render: (value: boolean) => (value ? "yes" : "no"),
+    },
+  },
+} as const satisfies DetailView<Pet>;
+
+const OutputsSinkDocumentFields = {
+  items: Schema.Array(SinkPetSchema),
+  count: Schema.Number,
+} satisfies Schema.Struct.Fields;
+
+export const OutputsSinkOutputSchema = makeCommandDocumentSchema(
+  "outputs.sink",
+  OutputsSinkDocumentFields,
+);
 export type OutputsSinkOutput = typeof OutputsSinkOutputSchema.Type;
 
 const samplePets: ReadonlyArray<Pet> = [
@@ -66,15 +91,15 @@ const commandMeta = spikeCommandMeta("outputs sink", { json: true });
 
 export const handleSink = Effect.gen(function* () {
   const renderer = yield* CliRenderer;
-  const document: OutputsSinkOutput = {
-    _version: JsonSchemaVersion,
-    command: "outputs.sink",
-    items: samplePets,
-    count: samplePets.length,
-  };
 
   // --- JSON path: emit structured data and return early ---
-  if (yield* renderer.result(document, OutputsSinkOutputSchema)) {
+  if (
+    yield* renderer.document(
+      "outputs.sink",
+      { items: samplePets, count: samplePets.length },
+      OutputsSinkDocumentFields,
+    )
+  ) {
     return;
   }
 
@@ -154,12 +179,12 @@ export const handleSink = Effect.gen(function* () {
   ]);
 
   // Table
-  yield* renderer.table(samplePets, SinkPetSchema, "Adoptable Pets");
+  yield* renderer.table(samplePets, SinkPetTable, "Adoptable Pets");
 
   // Detail
   const firstPet = samplePets[0];
   if (firstPet) {
-    yield* renderer.detail(firstPet, SinkPetSchema, "Featured Pet");
+    yield* renderer.detail(firstPet, SinkPetDetail, "Featured Pet");
   }
 
   // Tree

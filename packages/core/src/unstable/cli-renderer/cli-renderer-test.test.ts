@@ -5,8 +5,13 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { describe, expect, it } from "@effect/vitest";
 
-import { column } from "./annotations.js";
-import { CliRenderer, type TreeDef, type TreeNode } from "./cli-renderer.js";
+import {
+  CliRenderer,
+  type DetailView,
+  type TableView,
+  type TreeDef,
+  type TreeNode,
+} from "./cli-renderer.js";
 import { TestRenderer, TestMachineRenderer } from "./cli-renderer-test.js";
 
 // ---------------------------------------------------------------------------
@@ -342,19 +347,21 @@ describe("TestRenderer", () => {
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
         const items = [{ name: "alpha" }, { name: "beta" }];
-        const tableSchema = Schema.Struct({
-          name: Schema.String.pipe(column({ header: "Name" })),
-        });
+        const tableView = {
+          columns: {
+            name: { header: "Name" },
+          },
+        } as const satisfies TableView<{ readonly name: string }>;
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.table(items, tableSchema, "Skills");
+            yield* r.table(items, tableView, "Skills");
           }),
           layer,
         );
         expect(state.tables).toHaveLength(1);
         expect(state.tables[0]?.items).toEqual(items);
-        expect(state.tables[0]?.schema).toBe(tableSchema);
+        expect(state.tables[0]?.view).toBe(tableView);
         expect(state.tables[0]?.caption).toBe("Skills");
       }),
     );
@@ -363,20 +370,25 @@ describe("TestRenderer", () => {
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
         const item = { name: "my-skill", version: "1.0.0" };
-        const detailSchema = Schema.Struct({
-          name: Schema.String.pipe(column({ header: "Name" })),
-          version: Schema.String.pipe(column({ header: "Version" })),
-        });
+        const detailView = {
+          fields: {
+            name: { label: "Name" },
+            version: { label: "Version" },
+          },
+        } as const satisfies DetailView<{
+          readonly name: string;
+          readonly version: string;
+        }>;
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.detail(item, detailSchema, "Skill Info");
+            yield* r.detail(item, detailView, "Skill Info");
           }),
           layer,
         );
         expect(state.details).toHaveLength(1);
         expect(state.details[0]?.item).toEqual(item);
-        expect(state.details[0]?.schema).toBe(detailSchema);
+        expect(state.details[0]?.view).toBe(detailView);
         expect(state.details[0]?.title).toBe("Skill Info");
       }),
     );
@@ -404,7 +416,29 @@ describe("TestRenderer", () => {
     );
   });
 
-  describe("result() and resultStream()", () => {
+  describe("document(), result(), and resultStream()", () => {
+    it.effect("document() returns false (interactive mode)", () =>
+      Effect.gen(function* () {
+        const { layer, state } = TestRenderer.make();
+        const result = yield* Effect.gen(function* () {
+          const r = yield* CliRenderer;
+          return yield* r.document(
+            "skills.list",
+            { items: [{ name: "test" }], count: 1 },
+            { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
+          );
+        }).pipe(Effect.provide(layer));
+        expect(result).toBe(false);
+        expect(state.results).toHaveLength(1);
+        expect(state.results[0]?.data).toEqual({
+          _version: 1,
+          command: "skills.list",
+          items: [{ name: "test" }],
+          count: 1,
+        });
+      }),
+    );
+
     it.effect("result() returns false (interactive mode)", () =>
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
@@ -430,6 +464,32 @@ describe("TestRenderer", () => {
         }).pipe(Effect.provide(layer));
         expect(result).toBe(false);
         expect(state.results).toHaveLength(2);
+      }),
+    );
+
+    it.effect("document() captures the derived schema", () =>
+      Effect.gen(function* () {
+        const { layer, state } = TestRenderer.make();
+        const fields = {
+          items: Schema.Array(Schema.Struct({ name: Schema.String })),
+          count: Schema.Number,
+        } satisfies Schema.Struct.Fields;
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.document("skills.list", { items: [{ name: "test" }], count: 1 }, fields);
+          }),
+          layer,
+        );
+        const firstResult = state.results[0];
+        assertDefined(firstResult, "Expected document result entry");
+        expect(firstResult.data).toEqual({
+          _version: 1,
+          command: "skills.list",
+          items: [{ name: "test" }],
+          count: 1,
+        });
+        expect(Option.isSome(firstResult.schema)).toBe(true);
       }),
     );
 
@@ -505,6 +565,27 @@ describe("TestRenderer", () => {
 // ---------------------------------------------------------------------------
 
 describe("TestMachineRenderer", () => {
+  it.effect("document() returns true (machine mode)", () =>
+    Effect.gen(function* () {
+      const { layer, state } = TestMachineRenderer.make();
+      const result = yield* Effect.gen(function* () {
+        const r = yield* CliRenderer;
+        return yield* r.document(
+          "skills.list",
+          { items: [{ name: "test" }], count: 1 },
+          { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
+        );
+      }).pipe(Effect.provide(layer));
+      expect(result).toBe(true);
+      expect(state.results[0]?.data).toEqual({
+        _version: 1,
+        command: "skills.list",
+        items: [{ name: "test" }],
+        count: 1,
+      });
+    }),
+  );
+
   it.effect("result() returns true (machine mode)", () =>
     Effect.gen(function* () {
       const { layer, state } = TestMachineRenderer.make();
@@ -535,20 +616,22 @@ describe("TestMachineRenderer", () => {
   it.effect("still captures all calls like TestRenderer", () =>
     Effect.gen(function* () {
       const { layer, state } = TestMachineRenderer.make();
-      const tableSchema = Schema.Struct({
-        name: Schema.String.pipe(column({ header: "Name" })),
-      });
+      const tableView = {
+        columns: {
+          name: { header: "Name" },
+        },
+      } as const satisfies TableView<{ readonly name: string }>;
       yield* Effect.gen(function* () {
         const r = yield* CliRenderer;
         yield* r.intro("App");
         yield* r.info("Processing");
-        yield* r.table([{ name: "x" }], tableSchema);
+        yield* r.table([{ name: "x" }], tableView);
         yield* r.note("msg", "title");
       }).pipe(Effect.provide(layer));
       expect(state.introTitles).toEqual(["App"]);
       expect(state.logs).toEqual([{ _tag: "info", message: "Processing" }]);
       expect(state.tables).toHaveLength(1);
-      expect(state.tables[0]?.schema).toBe(tableSchema);
+      expect(state.tables[0]?.view).toBe(tableView);
       expect(state.notes).toEqual([{ message: "msg", title: "title" }]);
     }),
   );

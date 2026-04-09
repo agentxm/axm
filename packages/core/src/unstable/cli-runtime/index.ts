@@ -14,6 +14,11 @@ export {
   makeJsonErrorEnvelopeFromAppError,
   type JsonErrorEnvelope,
 } from "./json-envelope.js";
+export {
+  makeCommandDocument,
+  makeCommandDocumentSchema,
+  type CommandDocument,
+} from "./command-document.js";
 export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
 export { handleError, classifyError, type ErrorClassification } from "./handle-error.js";

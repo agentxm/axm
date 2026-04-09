@@ -1,12 +1,3 @@
-/**
- * Update command handler - Effect-based orchestration for `axm subagents update`.
- *
- * Re-resolves installed subagents from their sources and updates those that have
- * changed. Uses buildUpdatePlan to diff current vs re-resolved state.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
 import { SubagentManager } from "@axm.sh/core/unstable/subagents";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
@@ -26,25 +17,12 @@ import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the update command.
- */
 export interface UpdateHandlerArgs {
-  /** Optional source to filter subagents by */
   readonly source: Option.Option<string>;
-  /** Target agent(s) */
   readonly agents: readonly string[];
-  /** Specific subagent(s) to update (by name/glob) */
   readonly subagents: readonly string[];
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
 
@@ -57,25 +35,6 @@ const toRegistrySubagentPattern = (source: string) => {
   return Option.some(parsed);
 };
 
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
-
-/**
- * Handles the `axm subagents update` command.
- *
- * Flow:
- * 1. Load configured subagents from settings and filter to enabled
- * 2. If no eligible subagents, log info and return
- * 3. Filter by source argument if provided
- * 4. Filter by --subagent glob patterns
- * 5. Re-resolve each source and discover subagents
- * 6. Build operations
- * 7. Build update plan
- * 8. Resolve plan via workspace
- *
- * @experimental This API is unstable and may change without notice.
- */
 export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   args: UpdateHandlerArgs,
 ) {

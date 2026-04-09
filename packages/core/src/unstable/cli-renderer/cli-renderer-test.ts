@@ -5,14 +5,17 @@ import * as Option from "effect/Option";
 import type * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
+import { makeCommandDocument, makeCommandDocumentSchema } from "../cli-runtime/command-document.js";
 import {
   CliRenderer,
   type BoxOptions,
+  type DetailView,
   type LogMessage,
   type ProgressConfig,
   type ProgressHandle,
   type SpinnerHandle,
   type SpinnerOptions,
+  type TableView,
   type TaskLogConfig,
   type TaskLogGroupHandle,
   type TaskLogHandle,
@@ -28,12 +31,12 @@ export interface TestRendererState {
   readonly logs: Array<LogMessage>;
   readonly tables: Array<{
     items: ReadonlyArray<unknown>;
-    schema: unknown;
+    view: unknown;
     caption?: string;
   }>;
   readonly details: Array<{
     item: unknown;
-    schema: unknown;
+    view: unknown;
     title?: string;
   }>;
   readonly trees: Array<{
@@ -41,7 +44,7 @@ export interface TestRendererState {
     def: unknown;
     title?: string;
   }>;
-  readonly results: Array<{ data: unknown; schema: Option.Option<unknown> }>;
+  readonly results: Array<{ data: unknown; schema: Option.Option<Schema.Top> }>;
   readonly spinnerMessages: Array<string>;
   readonly notes: Array<{ message: string; title?: string }>;
   readonly boxes: Array<{ message: string; title?: string; opts?: BoxOptions }>;
@@ -364,23 +367,19 @@ const makeTestRendererService = (
       ).pipe(Effect.asVoid),
 
     // Data display (stdout)
-    table: <S extends Schema.Top>(
-      items: ReadonlyArray<Schema.Schema.Type<S>>,
-      schema: S,
-      caption?: string,
-    ) =>
+    table: <T extends object>(items: ReadonlyArray<T>, view: TableView<T>, caption?: string) =>
       Effect.sync(() => {
         state.tables.push({
           items: Array.from(items),
-          schema,
+          view,
           ...(caption !== undefined && { caption }),
         });
       }),
-    detail: <S extends Schema.Top>(item: Schema.Schema.Type<S>, schema: S, title?: string) =>
+    detail: <T extends object>(item: T, view: DetailView<T>, title?: string) =>
       Effect.sync(() => {
         state.details.push({
           item,
-          schema,
+          view,
           ...(title !== undefined && { title }),
         });
       }),
@@ -394,6 +393,18 @@ const makeTestRendererService = (
       }),
 
     // Machine data output (stdout)
+    document: <TCommand extends string, const Fields extends Schema.Struct.Fields>(
+      command: TCommand,
+      body: Schema.Struct.Type<Fields>,
+      fields: Fields,
+    ) =>
+      Effect.sync(() => {
+        state.results.push({
+          data: makeCommandDocument(command, body),
+          schema: Option.some(makeCommandDocumentSchema(command, fields)),
+        });
+        return resultReturnValue;
+      }),
     result: <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
       Effect.sync(() => {
         state.results.push({

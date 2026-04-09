@@ -117,17 +117,15 @@ describe("auth whoami handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleWhoami();
-        expect(
-          rendererState.logs.some((l) => l._tag === "info" && l.message.includes("alice")),
-        ).toBe(true);
-        expect(
-          rendererState.logs.some(
-            (l) => l._tag === "info" && l.message.includes("alice@example.com"),
-          ),
-        ).toBe(true);
-        expect(
-          rendererState.logs.some((l) => l._tag === "info" && l.message.includes("session")),
-        ).toBe(true);
+
+        expect(rendererState.details).toHaveLength(1);
+        expect(rendererState.details[0]?.item).toMatchObject({
+          handle: ALICE,
+          email: "alice@example.com",
+          tokenType: "session",
+          scopes: "extensions:read, account:read",
+          organizations: ACME,
+        });
       }),
     );
   });

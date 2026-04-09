@@ -1,13 +1,11 @@
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { pipe } from "effect/Function";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
 import { JsonSchemaVersion } from "@axm.sh/core/unstable/cli-runtime";
 
 import { LearnMore, makeAxmFormatter } from "./formatter.js";
-import { JsonOutputSupported } from "./json-output.js";
 
 const makeHelpDoc = (overrides: Partial<HelpDoc> = {}): HelpDoc => ({
   description: "",
@@ -47,20 +45,10 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("GLOBAL FLAGS");
     });
 
-    it("suppresses non-json global flags on subcommand help", () => {
+    it("preserves only --json on subcommand help", () => {
       const doc = makeHelpDoc({
         usage: "axm init [flags]",
         globalFlags,
-      });
-      const output = formatter.formatHelpDoc(doc);
-      expect(output).not.toContain("GLOBAL FLAGS");
-    });
-
-    it("preserves --json on supported subcommand help", () => {
-      const doc = makeHelpDoc({
-        usage: "axm init [flags]",
-        globalFlags,
-        annotations: ServiceMap.make(JsonOutputSupported, true),
       });
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("GLOBAL FLAGS");
@@ -68,11 +56,10 @@ describe("makeAxmFormatter", () => {
       expect(output).not.toContain("--verbose");
     });
 
-    it("preserves --json on nested subcommand help", () => {
+    it("preserves only --json on nested subcommand help", () => {
       const doc = makeHelpDoc({
         usage: "axm skills install [flags]",
         globalFlags,
-        annotations: ServiceMap.make(JsonOutputSupported, true),
       });
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("GLOBAL FLAGS");
@@ -114,10 +101,7 @@ describe("makeAxmFormatter", () => {
 
     it("serializes help docs as plain JSON", () => {
       const footerText = "LEARN MORE\n  Visit https://example.com for docs.";
-      const annotations = pipe(
-        ServiceMap.make(LearnMore, footerText),
-        ServiceMap.add(JsonOutputSupported, true),
-      );
+      const annotations = ServiceMap.make(LearnMore, footerText);
       const doc = makeHelpDoc({
         usage: "axm skills install [flags]",
         annotations,

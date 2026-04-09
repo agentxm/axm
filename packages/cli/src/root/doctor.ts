@@ -1,17 +1,16 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import {
   diagnoseWorkspaceDoctor,
   type WorkspaceDoctorCheck,
   Workspace,
 } from "@axm.sh/core/unstable/workspace";
-import { annotateCommandMeta, registryCommandMeta, withCommandRuntime } from "../command-meta.js";
+
 import { scopeFlag } from "../cli-flags.js";
-import { emitResultDocument } from "../json-output.js";
-import { withWorkspace } from "../runtime.js";
+import { withRuntime, withWorkspace } from "../runtime.js";
 
 const DoctorCheckStatusSchema = Schema.Literals(["pass", "warn", "fail", "skip"] as const);
 
@@ -21,8 +20,9 @@ const DoctorCheckSchema = Schema.Struct({
   message: Schema.String,
   hint: Schema.optional(Schema.String),
 });
+type DoctorCheckStatus = typeof DoctorCheckStatusSchema.Type;
 
-const DoctorResultSchema = Schema.Struct({
+const DoctorDataSchema = Schema.Struct({
   scope: Schema.String,
   workspacePath: Schema.String,
   healthy: Schema.Boolean,
@@ -33,6 +33,25 @@ const DoctorResultSchema = Schema.Struct({
   skipped: Schema.Number,
   checks: Schema.Array(DoctorCheckSchema),
 });
+const DoctorDocumentFields = {
+  data: DoctorDataSchema,
+} satisfies Schema.Struct.Fields;
+
+interface DoctorCheckRow {
+  readonly name: string;
+  readonly status: DoctorCheckStatus;
+  readonly message: string;
+  readonly hint: string;
+}
+
+const DoctorCheckTable = {
+  columns: {
+    name: { header: "Check" },
+    status: { header: "Status" },
+    message: { header: "Message" },
+    hint: { header: "Hint" },
+  },
+} as const satisfies TableView<DoctorCheckRow>;
 
 const checkToResult = (check: WorkspaceDoctorCheck) => ({
   name: check.name,
@@ -66,36 +85,18 @@ export const handleDoctor = Effect.fn("Doctor.handle")(function* () {
     checks: diagnosis.checks.map(checkToResult),
   };
 
-  if (yield* emitResultDocument("doctor", result, DoctorResultSchema)) {
+  if (yield* renderer.document("doctor", { data: result }, DoctorDocumentFields)) {
     return;
   }
 
-  yield* Effect.forEach(
-    diagnosis.checks,
-    (check) =>
-      Effect.gen(function* () {
-        const prefix = `[${check.status.toUpperCase()}]`;
-        switch (check.status) {
-          case "pass":
-            yield* renderer.message(`${prefix} ${check.name}: ${check.message}`);
-            break;
-          case "warn":
-            yield* renderer.warn(`${check.name}: ${check.message}`);
-            break;
-          case "fail":
-            yield* renderer.warn(`${check.name}: ${check.message}`);
-            break;
-          case "skip":
-            yield* renderer.info(`${check.name}: ${check.message}`);
-            break;
-        }
+  const rows: ReadonlyArray<DoctorCheckRow> = diagnosis.checks.map((check) => ({
+    name: check.name,
+    status: check.status,
+    message: check.message,
+    hint: check.hint ?? "",
+  }));
 
-        if (check.hint !== undefined) {
-          yield* renderer.info(`Hint: ${check.hint}`);
-        }
-      }),
-    { discard: true },
-  );
+  yield* renderer.table(rows, DoctorCheckTable, "Workspace diagnostics");
 
   if (diagnosis.failed > 0 && diagnosis.canSync) {
     yield* renderer.info("Run `axm sync` to reconcile workspace state from settings.json.");
@@ -115,13 +116,16 @@ const doctorConfig = {
   ),
 } as const;
 
-const commandMeta = registryCommandMeta("doctor", { json: true });
-
 export const doctorCommand = Command.make("doctor", doctorConfig, ({ scope }) =>
-  handleDoctor().pipe(withWorkspace(scope), withCommandRuntime(commandMeta)),
+  handleDoctor().pipe(withWorkspace(scope), withRuntime("doctor")),
 ).pipe(
   withArgvTracking(doctorConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Run workspace diagnostics"),
-  Command.withExamples([{ command: "axm doctor", description: "Show workspace diagnostics" }]),
+  Command.withExamples([
+    { command: "axm doctor", description: "Show workspace diagnostics" },
+    {
+      command: "axm doctor --json",
+      description: "Emit { _version, command, data } with checks[] and summary counts",
+    },
+  ]),
 );

@@ -1,16 +1,3 @@
-/**
- * Rename command handler - Effect-based orchestration for `axm subagents rename`.
- *
- * Validates subagent state then builds and resolves a single-step plan.
- * Rename is restricted to locally-authored subagents; registry and
- * pack-installed subagents are rejected.
- *
- * Pipeline: validate -> rename canonical dir -> update SUBAGENT.md frontmatter ->
- * remove old rendered files -> render new ones -> update settings + lockfile keys.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -35,26 +22,13 @@ import { sanitizeName } from "@axm.sh/core/unstable/extensions";
 import { computeSourceHash, RenderedFilesMapSchema } from "@axm.sh/core/unstable/extensions";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface RenameSubagentHandlerArgs {
-  /** Current name of the subagent */
   readonly oldName: string;
-  /** New name for the subagent */
   readonly newName: string;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 /** Derive a SubagentPathSource from a lock entry type (non-registry only). */
 const lockEntryToPathSource = (lockEntry: SubagentLockEntry): SubagentPathSource =>
@@ -69,10 +43,6 @@ const updateSubagentMdName = (fs: FileSystem.FileSystem, subagentMdPath: string,
     parsed.data["name"] = newName;
     yield* fs.writeFileString(subagentMdPath, matter.stringify(parsed.content, parsed.data));
   });
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function* (
   args: RenameSubagentHandlerArgs,

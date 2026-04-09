@@ -1,20 +1,3 @@
-/**
- * Fork command handler — Effect-based orchestration for `axm skills fork`.
- *
- * Converts an unmanaged skill into a managed extension:
- * 1. Parse source via resolveSource
- * 2. Profile resolution
- * 3. Discover skills via SourceHostProviders
- * 4. Filter by --skill globs (if provided)
- * 5. Build plan: fork → publish → install (sequential)
- * 6. Execute via resolvePlan
- *
- * The install step queries the registry at execution time to obtain the
- * integrity hash computed during publish, avoiding stale empty-string integrity.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { SkillExtensionRef, RegistrySkillRef } from "@axm.sh/core/unstable/skills";
@@ -32,8 +15,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { annotateCommandMeta, authCommandMeta, withCommandRuntime } from "../../command-meta.js";
-import { withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { CopySkillOperation } from "@axm.sh/core/unstable/skills";
@@ -50,29 +32,13 @@ import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-cons
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Arguments for the fork command.
- */
 export interface ForkHandlerArgs {
-  /** Source string or glob pattern (installed skill name, local path, github:owner/repo, etc.). */
   readonly source: string;
-  /** Fork only specified skill(s) by name or glob pattern. */
   readonly skills: readonly string[];
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 const filterBySkillGlobs = (
   discoveredSkills: ReadonlyArray<SkillExtensionRef>,
@@ -137,10 +103,6 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
     : "Verify the source path contains directories with SKILL.md files.";
 
 const FALLBACK_PUBLISHED_VERSION = decodeExactSemverVersionSync("0.1.0");
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 /**
  * Handles the `axm skills fork` command.
@@ -398,10 +360,6 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   yield* renderer.success("Done");
 });
 
-// -----------------------------------------------------------------------------
-// Command
-// -----------------------------------------------------------------------------
-
 const forkConfig = {
   source: Argument.string("source").pipe(
     Argument.withDescription(
@@ -418,7 +376,6 @@ const forkConfig = {
     Flag.withDescription("Show what would be forked without making changes"),
   ),
 } as const;
-const commandMeta = authCommandMeta("skills fork", { json: true });
 
 export const forkCommand = Command.make(
   "fork",
@@ -426,11 +383,10 @@ export const forkCommand = Command.make(
   ({ source, skill, yes, force, preview }) =>
     handleFork({ source, skills: [...skill], yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
+      withAuthRuntime("skills fork"),
     ),
 ).pipe(
   withArgvTracking(forkConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Fork a skill for customization"),
   Command.withExamples([
     {
@@ -449,6 +405,5 @@ export const forkCommand = Command.make(
       command: 'axm skills fork ./local/path --skill "effect-*"',
       description: "Fork specific skills from a local directory",
     },
-    { command: "", description: "See also: skills new, skills publish, skills install" },
   ]),
 );

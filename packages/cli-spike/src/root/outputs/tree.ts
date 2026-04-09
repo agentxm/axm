@@ -4,10 +4,9 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { makeDataDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 interface FileEntry {
@@ -66,9 +65,14 @@ export const FileNodeSchema: Schema.Codec<FileNode> = Schema.Struct({
 const OutputsTreeDataSchema = Schema.Struct({
   roots: Schema.Array(FileNodeSchema),
 });
-export const OutputsTreeOutputSchema = makeDataDocumentSchema(
+
+const OutputsTreeDocumentFields = {
+  data: OutputsTreeDataSchema,
+} satisfies Schema.Struct.Fields;
+
+export const OutputsTreeOutputSchema = makeCommandDocumentSchema(
   "outputs.tree",
-  OutputsTreeDataSchema,
+  OutputsTreeDocumentFields,
 );
 export type OutputsTreeOutput = typeof OutputsTreeOutputSchema.Type;
 
@@ -87,15 +91,17 @@ const toFileNodes = (tree: ReadonlyArray<TreeInput>): ReadonlyArray<FileNode> =>
 export const handleTree = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const document: OutputsTreeOutput = {
-      _version: JsonSchemaVersion,
-      command: "outputs.tree",
-      data: {
-        roots: toFileNodes(sampleTree),
-      },
-    };
-
-    if (yield* renderer.result(document, OutputsTreeOutputSchema)) {
+    if (
+      yield* renderer.document(
+        "outputs.tree",
+        {
+          data: {
+            roots: toFileNodes(sampleTree),
+          },
+        },
+        OutputsTreeDocumentFields,
+      )
+    ) {
       return;
     }
 

@@ -1,12 +1,3 @@
-/**
- * Enable command handler - Effect-based orchestration for `axm subagents enable`.
- *
- * Validates subagent state using taxonomy lifecycle views then builds and resolves
- * a single-step plan. Enable only works for installed subagents (configured or implicit).
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -21,24 +12,12 @@ import type { EnableSubagentOperation } from "@axm.sh/core/unstable/subagents";
 import { enableSubagent } from "@axm.sh/core/unstable/subagents";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
 export interface EnableSubagentHandlerArgs {
-  /** Name of the subagent to enable */
   readonly name: string;
-  /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
-  /** Override constraints that would cause failure. */
   readonly force: boolean;
-  /** Display plan without applying. */
   readonly preview: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Main Handler
-// -----------------------------------------------------------------------------
 
 export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function* (
   args: EnableSubagentHandlerArgs,

@@ -1040,29 +1040,6 @@
                               { "type": "null" }
                             ]
                           },
-                          "capabilities": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "required": {
-                                    "anyOf": [
-                                      { "type": "array", "items": { "type": "string" } },
-                                      { "type": "null" }
-                                    ]
-                                  },
-                                  "optional": {
-                                    "anyOf": [
-                                      { "type": "array", "items": { "type": "string" } },
-                                      { "type": "null" }
-                                    ]
-                                  }
-                                },
-                                "additionalProperties": false
-                              },
-                              { "type": "null" }
-                            ]
-                          },
                           "yanked_at": {
                             "anyOf": [
                               { "type": "string", "readOnly": true, "format": "date-time" },
@@ -1295,29 +1272,6 @@
                             },
                             "additionalProperties": false
                           }
-                        },
-                        { "type": "null" }
-                      ]
-                    },
-                    "capabilities": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "required": {
-                              "anyOf": [
-                                { "type": "array", "items": { "type": "string" } },
-                                { "type": "null" }
-                              ]
-                            },
-                            "optional": {
-                              "anyOf": [
-                                { "type": "array", "items": { "type": "string" } },
-                                { "type": "null" }
-                              ]
-                            }
-                          },
-                          "additionalProperties": false
                         },
                         { "type": "null" }
                       ]

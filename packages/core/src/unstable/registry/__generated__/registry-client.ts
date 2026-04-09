@@ -935,10 +935,6 @@ export type ExtensionsGet200 = {
     readonly published: string;
     readonly integrity: string;
     readonly dependencies?: { readonly [x: string]: string } | null;
-    readonly capabilities?: {
-      readonly required?: ReadonlyArray<string> | null;
-      readonly optional?: ReadonlyArray<string> | null;
-    } | null;
     readonly yanked_at?: string | null;
   }>;
   readonly visibility?: "public" | "unlisted" | "private" | null;
@@ -971,15 +967,6 @@ export const ExtensionsGet200 = Schema.Struct({
       integrity: Schema.String.annotate({ readOnly: true }),
       dependencies: Schema.optionalKey(
         Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Null]),
-      ),
-      capabilities: Schema.optionalKey(
-        Schema.Union([
-          Schema.Struct({
-            required: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
-            optional: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
-          }),
-          Schema.Null,
-        ]),
       ),
       yanked_at: Schema.optionalKey(
         Schema.Union([
@@ -1055,10 +1042,6 @@ export type ExtensionsGetVersion200 = {
     readonly email?: string | null;
     readonly url?: string | null;
   }> | null;
-  readonly capabilities?: {
-    readonly required?: ReadonlyArray<string> | null;
-    readonly optional?: ReadonlyArray<string> | null;
-  } | null;
   readonly dependencies?: { readonly [x: string]: string } | null;
   readonly yanked_at?: string | null;
   readonly deleted_at?: string | null;
@@ -1083,15 +1066,6 @@ export const ExtensionsGetVersion200 = Schema.Struct({
           url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
         }),
       ),
-      Schema.Null,
-    ]),
-  ),
-  capabilities: Schema.optionalKey(
-    Schema.Union([
-      Schema.Struct({
-        required: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
-        optional: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
-      }),
       Schema.Null,
     ]),
   ),

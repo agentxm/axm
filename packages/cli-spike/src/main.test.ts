@@ -199,6 +199,9 @@ describe("axm-spike source smoke", () => {
     expect(output).toContain("prompts");
     expect(output).toContain("outputs");
     expect(output).toContain("telemetry");
+    expect(output).toContain("--json");
+    expect(output).not.toContain("--completions");
+    expect(output).not.toContain("--log-level");
   });
 
   it("keeps only --json visible on supported leaf help", async () => {

@@ -4,10 +4,10 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliOutput, Command } from "effect/unstable/cli";
+import { CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 
 import { InteractiveRenderer, MachineRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+import { removeBuiltInFlag, runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 import { InstallMethodLive } from "@axm.sh/core/unstable/install-method";
 import { UpdateCheckLive } from "@axm.sh/core/unstable/update-check";
 
@@ -37,6 +37,9 @@ const ROOT_COMMAND = "axm";
 const version = loadVersion();
 const LEARN_MORE_FOOTER =
   "LEARN MORE\n  Use 'axm <command> --help' for more information about a command.";
+
+removeBuiltInFlag(GlobalFlag.Completions);
+removeBuiltInFlag(GlobalFlag.LogLevel);
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(

@@ -8,7 +8,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Layer from "effect/Layer";
-import { CliOutput, Command } from "effect/unstable/cli";
+import { CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 
 import {
   nonInteractiveFlag,
@@ -17,7 +17,7 @@ import {
   debugFlag,
   quietFlag,
 } from "@axm.sh/core/unstable/cli-flags";
-import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+import { removeBuiltInFlag, runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 
 import { makeSpikeFormatter } from "./formatter.js";
 import { ROOT_COMMAND, VERSION } from "./runtime.js";
@@ -29,6 +29,9 @@ import { promptsCommand } from "./root/prompts/_prompts.js";
 const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, quietFlag, jsonFlag] as const;
 const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
   args.includes("--json") || args.includes("-j");
+
+removeBuiltInFlag(GlobalFlag.Completions);
+removeBuiltInFlag(GlobalFlag.LogLevel);
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(

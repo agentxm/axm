@@ -48,10 +48,10 @@ const parseStderrEvents = () =>
     if (typeof event !== "object" || event === null || Array.isArray(event)) {
       throw new Error("Expected stderr event record");
     }
-    if (event.schemaVersion !== JsonSchemaVersion) {
-      throw new Error("Expected stderr event schemaVersion");
+    if (event._version !== JsonSchemaVersion) {
+      throw new Error("Expected stderr event _version");
     }
-    const { schemaVersion: _schemaVersion, ...rest } = event;
+    const { _version: _eventVersion, ...rest } = event;
     return rest;
   });
 

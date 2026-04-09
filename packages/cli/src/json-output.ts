@@ -72,20 +72,20 @@ export const PlanResolutionResultSchema = Schema.Struct({
 export type PlanResolutionResult = typeof PlanResolutionResultSchema.Type;
 
 type DataDocument<S extends Schema.Top, TCommand extends string> = {
-  readonly schemaVersion: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
   readonly data: Schema.Schema.Type<S>;
 };
 
 type ItemsDocument<S extends Schema.Top, TCommand extends string> = {
-  readonly schemaVersion: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
   readonly items: ReadonlyArray<Schema.Schema.Type<S>>;
   readonly count: number;
 };
 
 type ResultDocument<S extends Schema.Top, TCommand extends string> = {
-  readonly schemaVersion: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
   readonly result: Schema.Schema.Type<S>;
 };
@@ -95,7 +95,7 @@ const makeDataDocumentSchema = <S extends Schema.Top, TCommand extends string>(
   dataSchema: S,
 ) =>
   Schema.Struct({
-    schemaVersion: JsonSchemaVersionSchema,
+    _version: JsonSchemaVersionSchema,
     command: Schema.Literal(command),
     data: dataSchema,
   });
@@ -105,7 +105,7 @@ const makeItemsDocumentSchema = <S extends Schema.Top, TCommand extends string>(
   itemSchema: S,
 ) =>
   Schema.Struct({
-    schemaVersion: JsonSchemaVersionSchema,
+    _version: JsonSchemaVersionSchema,
     command: Schema.Literal(command),
     items: Schema.Array(itemSchema),
     count: Schema.Number,
@@ -116,7 +116,7 @@ const makeResultDocumentSchema = <S extends Schema.Top, TCommand extends string>
   resultSchema: S,
 ) =>
   Schema.Struct({
-    schemaVersion: JsonSchemaVersionSchema,
+    _version: JsonSchemaVersionSchema,
     command: Schema.Literal(command),
     result: resultSchema,
   });
@@ -129,7 +129,7 @@ export const emitDataResult = <S extends Schema.Top, TCommand extends string>(
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const document: DataDocument<S, TCommand> = {
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       command,
       data,
     };
@@ -144,7 +144,7 @@ export const emitItemsResult = <S extends Schema.Top, TCommand extends string>(
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const document: ItemsDocument<S, TCommand> = {
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       command,
       items,
       count: items.length,
@@ -160,7 +160,7 @@ export const emitResultDocument = <S extends Schema.Top, TCommand extends string
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const document: ResultDocument<S, TCommand> = {
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       command,
       result,
     };

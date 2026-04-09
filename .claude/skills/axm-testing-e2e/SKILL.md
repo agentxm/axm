@@ -1,35 +1,30 @@
 ---
 name: axm-testing-e2e
-description: E2E test patterns for CLI subprocess tests. Covers both co-located (dev-time) and distribution (built artifact) E2E tests.
+description: E2E test patterns for built CLI artifacts, plus when a reference spike may keep a local subprocess smoke test.
 user-invocable: false
 ---
 
 # E2E Testing Patterns
 
-Two levels of E2E testing:
+Default to distribution E2E tests for shipped CLIs. The only local subprocess
+exception is the reference spike, which keeps `packages/cli-spike/src/main.test.ts`
+as a teaching/smoke test.
 
-| Level            | Location                            | Tests what                       | Runs when                   |
-| ---------------- | ----------------------------------- | -------------------------------- | --------------------------- |
-| **Co-located**   | `packages/cli/src/**/*.e2e.test.ts` | Source via `bun run src/main.ts` | Every PR                    |
-| **Distribution** | `packages/<cli>-e2e/`               | Built artifact via `dist/`       | After build, before release |
+| Level            | Location                              | Tests what                       | Runs when                       |
+| ---------------- | ------------------------------------- | -------------------------------- | ------------------------------- |
+| **Spike smoke**  | `packages/cli-spike/src/main.test.ts` | Source via `bun run src/main.ts` | Reference-app regression checks |
+| **Distribution** | `packages/<cli>-e2e/`                 | Built artifact via `dist/`       | CI / release validation         |
 
 ---
 
-## Co-located E2E Tests
+## Spike Smoke Test
 
-Dev-time regression tests co-located with command handlers.
+Use this only for the reference spike. Keep it focused on CLI behavior the
+spike is explicitly teaching: help output, non-interactive paths, JSON support,
+and telemetry/error routing.
 
-Import from `./utils.js`:
-
-```typescript
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./utils.js";
-```
-
-| Helper                | Purpose                                         |
-| --------------------- | ----------------------------------------------- |
-| `runCli(args, opts)`  | Run CLI, returns `{ exitCode, stdout, stderr }` |
-| `createTempDir()`     | Create temp dir, returns `{ path, cleanup }`    |
-| `SKILLS_REPO_FIXTURE` | Path to test fixture with sample skills         |
+Do not copy this pattern into shipped CLI packages. Those belong in
+`packages/<cli>-e2e/`.
 
 ---
 
@@ -41,8 +36,8 @@ Separate Nx project that tests the **built artifact** — no source imports.
 
 ```
 packages/
-  cli-spike-e2e/          # type:e2e — depends on cli-spike:build
-    project.json          # e2e target with dependsOn: [cli-spike:build]
+  cli-spike-e2e/          # type:e2e — depends on cli-spike:compile
+    project.json          # e2e target with dependsOn: [cli-spike:compile]
     vitest.config.ts      # 30s timeout, *.e2e.test.ts pattern
     src/
       utils.ts            # Spawns dist/src/main.js, not source
@@ -52,7 +47,7 @@ packages/
 ### Running
 
 ```bash
-pnpm nx e2e cli-spike-e2e    # Builds cli-spike first, then runs tests
+pnpm nx run cli-spike-e2e:e2e
 ```
 
 ### Utilities
@@ -89,7 +84,7 @@ describe("cli-spike skills", () => {
 });
 ```
 
-### What distribution E2E catches that co-located can't
+### What distribution E2E catches that spike smoke tests cannot
 
 - Build/bundle strips a dependency or tree-shakes needed code
 - `bin` entry or `files` field misconfigured in package.json
@@ -105,4 +100,4 @@ describe("cli-spike skills", () => {
 - [ ] **stdout/stderr checked** — Verify user-facing output
 - [ ] **File system verified** — Check files created/modified after command
 - [ ] **No source imports** — Distribution tests must not import from the CLI package
-- [ ] **Nx dependency** — Distribution `e2e` target uses `dependsOn: ["<cli>:build"]`
+- [ ] **Nx dependency** — Distribution `e2e` target uses `dependsOn: ["<cli>:compile"]` or the package's real build prerequisite

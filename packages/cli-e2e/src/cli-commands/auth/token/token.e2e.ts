@@ -23,7 +23,7 @@ describe("axm token", () => {
     });
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
-      schemaVersion: 1,
+      _version: 1,
       command: "auth.token",
       data: { token: "test-token-value" },
     });

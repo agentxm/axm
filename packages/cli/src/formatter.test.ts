@@ -135,7 +135,7 @@ describe("makeAxmFormatter", () => {
 
       const output = JSON.parse(jsonFormatter.formatHelpDoc(doc));
       expect(output).toMatchObject({
-        schemaVersion: JsonSchemaVersion,
+        _version: JsonSchemaVersion,
         type: "help",
         usage: "axm skills install [flags]",
         learnMore: footerText,
@@ -161,7 +161,7 @@ describe("makeAxmFormatter", () => {
 
     it("serializes version output as JSON", () => {
       expect(JSON.parse(jsonFormatter.formatVersion("axm", "1.2.3"))).toEqual({
-        schemaVersion: JsonSchemaVersion,
+        _version: JsonSchemaVersion,
         type: "version",
         name: "axm",
         version: "1.2.3",

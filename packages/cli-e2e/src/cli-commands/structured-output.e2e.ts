@@ -28,7 +28,7 @@ describe("structured output (--json)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
-        schemaVersion: 1,
+        _version: 1,
         command: "auth.logout",
         result: {
           status: "not-logged-in",
@@ -51,7 +51,7 @@ describe("structured output (--json)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
-        schemaVersion: 1,
+        _version: 1,
         command: "auth.token",
         data: { token: "test-json-token" },
       });
@@ -92,7 +92,7 @@ describe("structured output (--json)", () => {
         expect(result.exitCode).toBe(1);
         expect(parseJson(result.stdout)).toMatchObject({
           type: "error",
-          schemaVersion: 1,
+          _version: 1,
           code: "AUTH_TOKEN_REQUIRED",
         });
         expect(result.stderr).toContain("Persisted credentials are disabled");
@@ -134,7 +134,7 @@ describe("structured output (--json)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
-        schemaVersion: 1,
+        _version: 1,
         command: "auth.token",
         data: { token: "ci-json-token" },
       });

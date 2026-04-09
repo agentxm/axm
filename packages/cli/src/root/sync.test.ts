@@ -11,7 +11,6 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
@@ -61,13 +60,11 @@ describe("sync handler", () => {
 
   const makeLayers = (opts?: { machine?: boolean; nonInteractive?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
-    const [promptLayer] = makeTestPrompt({ confirmResponses: [true] });
     const flagConfig =
       opts?.nonInteractive === undefined ? {} : { nonInteractive: opts.nonInteractive };
     const baseLayer = Layer.mergeAll(
       NodeServices.layer,
       renderer.layer,
-      promptLayer,
       TestFlagsLayer(flagConfig),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -160,7 +157,7 @@ describe("sync handler", () => {
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          schemaVersion: 1,
+          _version: 1,
           command: "sync",
           result: {
             outcome: "previewed",

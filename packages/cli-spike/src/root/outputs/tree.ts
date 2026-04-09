@@ -75,9 +75,9 @@ const handleTree = (args: { readonly title: Option.Option<string> }) =>
 
     if (
       yield* renderer.result(
-        { schemaVersion: 1, command: "outputs.tree", data: { roots: toFileNodes(sampleTree) } },
+        { _version: 1, command: "outputs.tree", data: { roots: toFileNodes(sampleTree) } },
         Schema.Struct({
-          schemaVersion: Schema.Number,
+          _version: Schema.Number,
           command: Schema.Literal("outputs.tree"),
           data: Schema.Struct({
             roots: Schema.Array(Schema.Any),

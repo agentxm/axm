@@ -122,7 +122,7 @@ describe("doctor handler", () => {
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          schemaVersion: 1,
+          _version: 1,
           command: "doctor",
           result: {
             healthy: false,

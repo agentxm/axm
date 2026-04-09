@@ -72,7 +72,7 @@ describe("classifyError — CliError (non-ShowHelp)", () => {
     expect(result.output?.channel).toBe("stdout");
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       type: "error",
       code: "USAGE_ERROR",
       exitCode: 2,
@@ -109,7 +109,7 @@ describe("classifyError — generic errors", () => {
     expect(result.output?.channel).toBe("stdout");
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       type: "error",
       code: "UNKNOWN_ERROR",
       message: "boom",

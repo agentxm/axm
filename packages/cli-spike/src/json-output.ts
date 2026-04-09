@@ -13,20 +13,20 @@ export const JsonOutputSupported: ServiceMap.Reference<boolean> = ServiceMap.Ref
 );
 
 type DataDocument<S extends Schema.Encoder<unknown, never>, TCommand extends string> = {
-  readonly schemaVersion: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
   readonly data: S["Type"];
 };
 
 type ItemsDocument<S extends Schema.Encoder<unknown, never>, TCommand extends string> = {
-  readonly schemaVersion: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
   readonly items: ReadonlyArray<S["Type"]>;
   readonly count: number;
 };
 
 type ResultDocument<S extends Schema.Encoder<unknown, never>, TCommand extends string> = {
-  readonly schemaVersion: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
   readonly result: S["Type"];
 };
@@ -36,7 +36,7 @@ const makeDataDocumentSchema = <S extends Schema.Encoder<unknown, never>, TComma
   dataSchema: S,
 ) =>
   Schema.Struct({
-    schemaVersion: JsonSchemaVersionSchema,
+    _version: JsonSchemaVersionSchema,
     command: Schema.Literal(command),
     data: dataSchema,
   });
@@ -46,7 +46,7 @@ const makeItemsDocumentSchema = <S extends Schema.Encoder<unknown, never>, TComm
   itemSchema: S,
 ) =>
   Schema.Struct({
-    schemaVersion: JsonSchemaVersionSchema,
+    _version: JsonSchemaVersionSchema,
     command: Schema.Literal(command),
     items: Schema.Array(itemSchema),
     count: Schema.Number,
@@ -60,7 +60,7 @@ const makeResultDocumentSchema = <
   resultSchema: S,
 ) =>
   Schema.Struct({
-    schemaVersion: JsonSchemaVersionSchema,
+    _version: JsonSchemaVersionSchema,
     command: Schema.Literal(command),
     result: resultSchema,
   });
@@ -73,7 +73,7 @@ export const emitDataResult = <S extends Schema.Encoder<unknown, never>, TComman
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const document: DataDocument<S, TCommand> = {
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       command,
       data,
     };
@@ -89,7 +89,7 @@ export const emitItemsResult = <S extends Schema.Encoder<unknown, never>, TComma
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const document: ItemsDocument<S, TCommand> = {
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       command,
       items,
       count: items.length,
@@ -109,7 +109,7 @@ export const emitResultDocument = <
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const document: ResultDocument<S, TCommand> = {
-      schemaVersion: JsonSchemaVersion,
+      _version: JsonSchemaVersion,
       command,
       result,
     };

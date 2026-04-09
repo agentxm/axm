@@ -94,7 +94,7 @@ type JsonExampleDoc = {
 };
 
 type JsonHelpDoc = {
-  readonly schemaVersion: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonSchemaVersion;
   readonly type: "help";
   readonly description: string;
   readonly usage: string;
@@ -140,7 +140,7 @@ const JsonExampleDocSchema = Schema.Struct({
 });
 
 const JsonHelpDocSchema = Schema.Struct({
-  schemaVersion: JsonSchemaVersionSchema,
+  _version: JsonSchemaVersionSchema,
   type: Schema.Literal("help"),
   description: Schema.String,
   usage: Schema.String,
@@ -153,7 +153,7 @@ const JsonHelpDocSchema = Schema.Struct({
 });
 
 const JsonVersionDocSchema = Schema.Struct({
-  schemaVersion: JsonSchemaVersionSchema,
+  _version: JsonSchemaVersionSchema,
   type: Schema.Literal("version"),
   name: Schema.String,
   version: Schema.String,
@@ -172,7 +172,7 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   const learnMore = getLearnMore(doc);
 
   return {
-    schemaVersion: JsonSchemaVersion,
+    _version: JsonSchemaVersion,
     type: "help",
     description: adjusted.description,
     usage: adjusted.usage,
@@ -239,7 +239,7 @@ export const makeAxmFormatter = (options?: {
       json
         ? JSON.stringify(
             Schema.encodeSync(JsonVersionDocSchema)({
-              schemaVersion: JsonSchemaVersion,
+              _version: JsonSchemaVersion,
               type: "version",
               name,
               version,

@@ -23,7 +23,7 @@ export type OutputFormat = "text" | "json";
 // ---------------------------------------------------------------------------
 
 export const ProgressEventSchema = Schema.Struct({
-  schemaVersion: JsonSchemaVersionSchema,
+  _version: JsonSchemaVersionSchema,
   type: Schema.Literal("progress"),
   phase: Schema.String,
   percent: Schema.Number,
@@ -36,7 +36,7 @@ export const ProgressEventSchema = Schema.Struct({
 export type ProgressEvent = typeof ProgressEventSchema.Type;
 
 export const LogEventSchema = Schema.Struct({
-  schemaVersion: JsonSchemaVersionSchema,
+  _version: JsonSchemaVersionSchema,
   type: Schema.Literal("log"),
   level: Schema.Literals(["info", "warn", "error"] as const).annotate({
     identifier: "LogLevel",
@@ -52,7 +52,7 @@ export const LogEventSchema = Schema.Struct({
 export type LogEvent = typeof LogEventSchema.Type;
 
 export const ErrorEventSchema = Schema.Struct({
-  schemaVersion: JsonSchemaVersionSchema,
+  _version: JsonSchemaVersionSchema,
   type: Schema.Literal("error"),
   code: Schema.String,
   message: Schema.String,

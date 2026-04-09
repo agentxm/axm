@@ -11,7 +11,8 @@ Apply these conventions when working on CLI commands.
 > **Reference implementation:** `packages/cli-spike` — a self-documented
 > working spike proving out idiomatic `effect/unstable/cli` patterns.
 > Explanatory code comments cover architecture decisions, design rationale,
-> and patterns. Start with `src/main.ts` for the entry point overview.
+> and patterns. Start with `src/app.ts` for root composition and
+> `src/runtime.ts` for runtime wiring. `src/main.ts` stays intentionally trivial.
 
 ---
 
@@ -355,10 +356,12 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
 ```
 
 The entry point file uses `#!/usr/bin/env bun` shebang and `void run()` to
-invoke the async function without awaiting at top level.
+invoke the async function without awaiting at top level. Keep that file
+trivial. Put root composition in `app.ts` and runtime/error wiring in
+`runtime.ts`.
 
-See `packages/cli-spike/src/main.ts` for the full three-channel error handler
-implementation with format-aware routing.
+See `packages/cli-spike/src/app.ts` and `packages/cli-spike/src/runtime.ts`
+for the current format-aware run boundary and runtime wiring.
 
 Format errors with recovery guidance:
 
@@ -414,27 +417,32 @@ For commands that support `--json` output with structured result data:
 
 ```typescript
 const renderer = yield * CliRenderer;
-const json = Option.getOrElse(yield * jsonFlag, () => false);
+const document = {
+  _version: 1,
+  command: "skills.list",
+  items,
+  count: items.length,
+};
 
-if (json) {
-  yield * renderer.result(data, OutputSchema);
-} else {
-  yield * renderer.success(`Pet: ${data.name}`);
-  yield * renderer.info(`Species: ${data.species}`);
+if (yield * renderer.result(document, SkillsListOutputSchema)) {
+  return;
 }
+
+yield * renderer.table(items, columns, "Installed skills");
 ```
 
 ### Output Schema Convention
 
-Every JSON output includes `_version: 1` for schema evolution. Use
-`Schema.NullOr()` instead of optional properties — always-present keys give
-consumers a stable shape.
+Every CLI transport envelope includes `_version: 1` for schema evolution. Use
+`Schema.NullOr()` instead of optional properties when you want an always-present
+payload key.
 
 ```typescript
-export const SkillInfoSchema = Schema.Struct({
+export const SkillsListOutputSchema = Schema.Struct({
   _version: Schema.Literal(1),
-  name: Schema.String,
-  version: Schema.NullOr(Schema.String), // null, not omitted
+  command: Schema.Literal("skills.list"),
+  items: Schema.Array(SkillInfoSchema),
+  count: Schema.Number,
 });
 ```
 
@@ -456,13 +464,13 @@ resolution):
 import * as Console from "effect/Console";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-// main.ts
-#!/usr/bin/env bun
+// app.ts
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
-import { CliError, Command, Flag, GlobalFlag } from "effect/unstable/cli";
+import { CliOutput, Command } from "effect/unstable/cli";
 
-import { skillsCommand } from "./commands/skills/command.js";
+import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+import { makeAxmFormatter } from "./formatter.js";
 ```
 
 ---
@@ -489,36 +497,52 @@ it.effect("installs skill", () =>
 );
 ```
 
-Use `it.effect` for handler unit tests and subprocess spawning for CLI E2E
-tests. These are distinct test levels — handler tests exercise domain logic
-with test layers; E2E tests exercise the full CLI binary.
+Use `it.effect` for handler unit tests. For end-to-end coverage, distinguish
+between spike-only subprocess smoke tests and shipped CLI distribution E2E
+tests. The spike keeps a colocated subprocess test in `src/main.test.ts`
+because it is a reference app. Shipping CLIs keep built-artifact E2E tests in
+`packages/<cli>-e2e/`.
 
 ### Testing Checklist
 
 - [ ] **Handler unit tests** — Effect handlers tested via `it.effect` from
       `@effect/vitest`, independently of CLI parsing
 - [ ] **Test layers provided** — Handler tests provide test layers
-- [ ] **Co-located E2E tests** — CLI tested via subprocess for user-visible behavior (`*.e2e.test.ts`)
+- [ ] **Spike smoke tests** — Reference-app subprocess coverage stays near the
+      spike when it teaches CLI behavior
 - [ ] **Distribution E2E tests** — Built artifact tested in `packages/<cli>-e2e/` (zero internal deps)
 
 ## Prompt Approaches
 
 Two prompt approaches coexist. Match the approach of the package you're working in.
 
-|                    | Primary CLI (`packages/cli/`)                               | CLI Spike (`packages/cli-spike/`)                      |
-| ------------------ | ----------------------------------------------------------- | ------------------------------------------------------ |
-| **Module**         | `CliPrompt` service from `@axm.sh/core/unstable/cli-prompt` | `Prompt` from `effect/unstable/cli`                    |
-| **Usage**          | `const prompt = yield* CliPrompt; yield* prompt.text(...)`  | `yield* Prompt.text(...)`                              |
-| **Flag bypass**    | `fromFlagOrPrompt(value, () => prompt.text(...))`           | `Prompt.text(...).pipe(AxmPrompt.unless(value))`       |
-| **Auto-confirm**   | `autoConfirm(yes, () => prompt.confirm(...))`               | `Prompt.confirm(...).pipe(AxmPrompt.autoConfirm(yes))` |
-| **Custom prompts** | `prompt.selectKey(...)`                                     | `AxmPrompt.selectKey(...)`                             |
-| **Cancellation**   | `PromptCancelled`                                           | `Terminal.QuitError` (mapped at runtime)               |
+|                    | Primary CLI (`packages/cli/`)                                                        | CLI Spike (`packages/cli-spike/`)                           |
+| ------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| **Core surface**   | `@axm.sh/core/unstable/cli/prompt` helpers for command-local prompt flows            | Same helpers plus native `Prompt` composition               |
+| **Legacy/test**    | `CliPrompt` from `@axm.sh/core/unstable/cli-prompt` for shared adapters/tests        | Not used for normal spike commands                          |
+| **Flag bypass**    | `fromFlagOrInteractivePrompt(value, Prompt.text(...), { message })`                  | Same                                                        |
+| **Auto-confirm**   | `fromInteractivePrompt(Prompt.confirm(...), { message })` or `AxmPrompt.autoConfirm` | Same                                                        |
+| **Custom prompts** | `AxmPrompt.selectKey(...)`                                                           | `AxmPrompt.selectKey(...)`                                  |
+| **Cancellation**   | `PromptCancelled`                                                                    | `PromptCancelled` via `runPrompt` / `fromInteractivePrompt` |
 
 ```typescript
-// CLI Spike — Effect v4 native prompts
+// CLI Spike / command-local prompt flow
 import { Prompt } from "effect/unstable/cli";
-import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
+import {
+  AxmPrompt,
+  fromFlagOrInteractivePrompt,
+  fromInteractivePrompt,
+} from "@axm.sh/core/unstable/cli/prompt";
 
-const name = yield * Prompt.text({ message: "Pet name:" }).pipe(AxmPrompt.unless(args.name));
-const ok = yield * Prompt.confirm({ message: "Proceed?" }).pipe(AxmPrompt.autoConfirm(args.yes));
+const name =
+  yield *
+  fromFlagOrInteractivePrompt(args.name, Prompt.text({ message: "Pet name:" }), {
+    message: "Pet name:",
+  });
+const ok =
+  yield *
+  fromInteractivePrompt(
+    Prompt.confirm({ message: "Proceed?" }).pipe(AxmPrompt.autoConfirm(args.yes)),
+    { message: "Proceed?" },
+  );
 ```

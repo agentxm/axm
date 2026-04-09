@@ -8,7 +8,7 @@ export const JsonSchemaVersion = 1;
 export const JsonSchemaVersionSchema = Schema.Literal(JsonSchemaVersion);
 
 export const JsonErrorEnvelopeSchema = Schema.Struct({
-  schemaVersion: JsonSchemaVersionSchema,
+  _version: JsonSchemaVersionSchema,
   type: Schema.Literal("error"),
   code: Schema.String,
   message: Schema.String,
@@ -29,7 +29,7 @@ export const makeJsonErrorEnvelope = (args: {
   readonly howToFix?: string;
   readonly exitCode: number;
 }): JsonErrorEnvelope => ({
-  schemaVersion: JsonSchemaVersion,
+  _version: JsonSchemaVersion,
   type: "error",
   code: args.code,
   message: args.message,

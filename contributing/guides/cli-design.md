@@ -557,10 +557,15 @@ Use prompts to resolve missing choices, not to hide essential command behavior.
 ### Effect v4 Native Prompts (CLI Spike)
 
 The CLI spike uses Effect v4 native `Prompt` from `effect/unstable/cli`
-directly. `Prompt` is `Yieldable` — no service indirection needed.
+directly. `Prompt` is `Yieldable`, but command-local flows should still prefer
+the helper wrappers in `@axm.sh/core/unstable/cli/prompt` when they need
+non-interactive guards, prompt environment provisioning, or flag bypasses.
 
-> **Note:** `CliPrompt` remains canonical for the primary CLI. The spike uses
-> Effect v4 prompts directly as a proving ground.
+> **Note:** `CliPrompt` still exists for shared interaction adapters and test
+> harnesses in the primary CLI. New command-local prompt flows in both
+> `packages/cli/` and `packages/cli-spike/` should usually use
+> `fromInteractivePrompt`, `fromFlagOrInteractivePrompt`, or
+> `fromValuesOrInteractivePrompt` from `@axm.sh/core/unstable/cli/prompt`.
 
 **Direct `yield* Prompt.xxx()`:**
 
@@ -572,14 +577,28 @@ const name = yield * Prompt.text({ message: "Pet name:" });
 **Non-interactive guard at call site:**
 
 ```typescript
-const name = Option.isSome(args.name)
-  ? args.name.value
-  : nonInteractive
-    ? yield* makeAppError({ code: "PROMPT_REQUIRED", ... })
-    : yield* Prompt.text({ message: "Pet name:" });
+import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+
+const name =
+  yield *
+  fromInteractivePrompt(Prompt.text({ message: "Pet name:" }), {
+    message: "Pet name:",
+  });
 ```
 
-**Flag bypass with `AxmPrompt.unless`** (pipe style):
+**Flag bypass with helper wrappers:**
+
+```typescript
+import { fromFlagOrInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+
+const name =
+  yield *
+  fromFlagOrInteractivePrompt(args.name, Prompt.text({ message: "Pet name:" }), {
+    message: "Pet name:",
+  });
+```
+
+**Lower-level flag bypass with `AxmPrompt.unless`** (pipe style):
 
 ```typescript
 import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";

@@ -120,6 +120,10 @@ export const SkillsListOutputSchema = Schema.Struct({
 export type SkillsListOutput = typeof SkillsListOutputSchema.Type;
 ```
 
+Use `_version` for CLI transport envelopes. If a nested resource payload also
+has its own version field, keep that nested version local to the resource
+schema instead of inventing a second top-level transport key.
+
 ### Preferred Schema Forms
 
 For CLI wire contracts, prefer simple data schemas:
@@ -319,8 +323,8 @@ own contract and version.
 Recommended stderr event shape:
 
 ```json
-{"eventVersion":1,"type":"progress","phase":"download","percent":25,"message":"Downloading"}
-{"eventVersion":1,"type":"log","level":"info","message":"Resolved 3 skills"}
+{"_version":1,"type":"progress","phase":"download","percent":25,"message":"Downloading"}
+{"_version":1,"type":"log","level":"info","message":"Resolved 3 skills"}
 ```
 
 ---

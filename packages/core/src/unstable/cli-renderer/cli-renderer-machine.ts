@@ -23,7 +23,7 @@ import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
 
 const emitStderrEvent = (event: Record<string, unknown>) =>
   Effect.sync(() => {
-    process.stderr.write(JSON.stringify({ schemaVersion: JsonSchemaVersion, ...event }) + "\n");
+    process.stderr.write(JSON.stringify({ _version: JsonSchemaVersion, ...event }) + "\n");
   });
 
 const emitLogEvent = (level: "info" | "warn" | "error", message: string) =>

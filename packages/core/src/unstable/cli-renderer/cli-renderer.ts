@@ -139,14 +139,14 @@ export class CliRenderer extends ServiceMap.Service<
     readonly runTasks: <E, R>(tasks: ReadonlyArray<Task<E, R>>) => Effect.Effect<void, E, R>;
 
     // Data display (stdout)
-    readonly table: <T>(
-      items: ReadonlyArray<T>,
-      columns: ReadonlyArray<ColumnDef<T>>,
+    readonly table: <S extends Schema.Top>(
+      items: ReadonlyArray<Schema.Schema.Type<S>>,
+      schema: S,
       caption?: string,
     ) => Effect.Effect<void>;
-    readonly detail: <T>(
-      item: T,
-      columns: ReadonlyArray<ColumnDef<T>>,
+    readonly detail: <S extends Schema.Top>(
+      item: Schema.Schema.Type<S>,
+      schema: S,
       title?: string,
     ) => Effect.Effect<void>;
     readonly tree: <T>(

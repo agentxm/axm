@@ -307,8 +307,13 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       ).pipe(Effect.asVoid),
 
     // Data display — no-ops in machine mode
-    table: () => Effect.void,
-    detail: () => Effect.void,
+    table: <S extends Schema.Top>(
+      _items: ReadonlyArray<Schema.Schema.Type<S>>,
+      _schema: S,
+      _caption?: string,
+    ) => Effect.void,
+    detail: <S extends Schema.Top>(_item: Schema.Schema.Type<S>, _schema: S, _title?: string) =>
+      Effect.void,
     tree: () => Effect.void,
 
     // Machine data output (stdout)

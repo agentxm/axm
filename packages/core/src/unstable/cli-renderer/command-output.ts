@@ -1,4 +1,3 @@
-import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaAST from "effect/SchemaAST";
 
@@ -10,7 +9,7 @@ import {
   DisplayFormat,
   Hidden,
 } from "./annotations.js";
-import { CliRenderer, type ColumnDef } from "./cli-renderer.js";
+import type { ColumnDef } from "./cli-renderer.js";
 
 // ---------------------------------------------------------------------------
 // columnsFrom — derive column definitions from a Schema's AST annotations.
@@ -89,40 +88,3 @@ export const columnsFrom = <S extends Schema.Top>(
       } satisfies ColumnDef<Schema.Schema.Type<S>>;
     });
 };
-
-// ---------------------------------------------------------------------------
-// Command output helpers
-// ---------------------------------------------------------------------------
-
-export interface CommandOutputOpts<S extends Schema.Top> {
-  readonly schema: S;
-  readonly title?: string;
-}
-
-/**
- * Emit a collection of items. In machine mode (result returns true),
- * outputs JSON. In interactive mode, renders a table.
- */
-export const emitMany = <S extends Schema.Top>(
-  items: ReadonlyArray<Schema.Schema.Type<S>>,
-  opts: CommandOutputOpts<S>,
-) =>
-  Effect.gen(function* () {
-    const out = yield* CliRenderer;
-    if (yield* out.result(items, Schema.Array(opts.schema))) return;
-    yield* out.table(items, columnsFrom(opts.schema), opts.title);
-  });
-
-/**
- * Emit a single item. In machine mode (result returns true),
- * outputs JSON. In interactive mode, renders a detail view.
- */
-export const emitOne = <S extends Schema.Top>(
-  data: Schema.Schema.Type<S>,
-  opts: CommandOutputOpts<S>,
-) =>
-  Effect.gen(function* () {
-    const out = yield* CliRenderer;
-    if (yield* out.result(data, opts.schema)) return;
-    yield* out.detail(data, columnsFrom(opts.schema), opts.title);
-  });

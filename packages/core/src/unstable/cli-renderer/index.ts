@@ -25,7 +25,7 @@ export {
   DisplayFormat,
   Hidden,
 } from "./annotations.js";
-export { columnsFrom, emitMany, emitOne, type CommandOutputOpts } from "./command-output.js";
+export { columnsFrom } from "./command-output.js";
 export { InteractiveRenderer } from "./cli-renderer-interactive.js";
 export { MachineRenderer } from "./cli-renderer-machine.js";
 export {

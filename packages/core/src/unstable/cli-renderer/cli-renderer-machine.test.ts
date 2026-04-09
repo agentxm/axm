@@ -4,6 +4,7 @@ import * as Stream from "effect/Stream";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 
 import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
+import { column } from "./annotations.js";
 import { CliRenderer } from "./cli-renderer.js";
 import { MachineRenderer } from "./cli-renderer-machine.js";
 
@@ -339,22 +340,14 @@ describe("MachineRenderer", () => {
   describe("data display methods are no-ops", () => {
     it.effect("table produces no output", () =>
       Effect.gen(function* () {
+        const TableSchema = Schema.Struct({
+          name: Schema.String.pipe(column({ header: "Name" })),
+        });
+
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.table(
-              [{ name: "a" }],
-              [
-                {
-                  key: "name",
-                  header: "Name",
-                  value: (i: { name: string }) => i.name,
-                  priority: 0,
-                  align: "left" as const,
-                  width: "auto" as const,
-                },
-              ],
-            );
+            yield* r.table([{ name: "a" }], TableSchema);
           }),
         );
         expect(stdoutWrites).toHaveLength(0);
@@ -364,19 +357,14 @@ describe("MachineRenderer", () => {
 
     it.effect("detail produces no output", () =>
       Effect.gen(function* () {
+        const DetailSchema = Schema.Struct({
+          name: Schema.String.pipe(column({ header: "Name" })),
+        });
+
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.detail({ name: "test" }, [
-              {
-                key: "name",
-                header: "Name",
-                value: (i: { name: string }) => i.name,
-                priority: 0,
-                align: "left" as const,
-                width: "auto" as const,
-              },
-            ]);
+            yield* r.detail({ name: "test" }, DetailSchema);
           }),
         );
         expect(stdoutWrites).toHaveLength(0);

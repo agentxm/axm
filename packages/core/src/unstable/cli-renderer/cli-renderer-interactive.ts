@@ -1,6 +1,7 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import type * as Schema from "effect/Schema";
 
 import {
   CliRenderer,
@@ -13,6 +14,7 @@ import {
   type TreeNode,
 } from "./cli-renderer.js";
 import * as chrome from "./ansi-chrome.js";
+import { columnsFrom } from "./command-output.js";
 
 // ---------------------------------------------------------------------------
 // Stdout helpers
@@ -322,12 +324,18 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
       ).pipe(Effect.asVoid),
 
     // Data display (stdout)
-    table: <T>(items: ReadonlyArray<T>, columns: ReadonlyArray<ColumnDef<T>>, caption?: string) => {
+    table: <S extends Schema.Top>(
+      items: ReadonlyArray<Schema.Schema.Type<S>>,
+      schema: S,
+      caption?: string,
+    ) => {
+      const columns = columnsFrom(schema);
       const output = formatTable(items, columns, caption);
       if (output) return writeStdoutLine(output);
       return Effect.void;
     },
-    detail: <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string) => {
+    detail: <S extends Schema.Top>(item: Schema.Schema.Type<S>, schema: S, title?: string) => {
+      const columns = columnsFrom(schema);
       const output = formatDetail(item, columns, title);
       if (output) return writeStdoutLine(output);
       return Effect.void;

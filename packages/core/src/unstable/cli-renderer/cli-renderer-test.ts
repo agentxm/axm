@@ -8,7 +8,6 @@ import * as Stream from "effect/Stream";
 import {
   CliRenderer,
   type BoxOptions,
-  type ColumnDef,
   type LogMessage,
   type ProgressConfig,
   type ProgressHandle,
@@ -29,12 +28,12 @@ export interface TestRendererState {
   readonly logs: Array<LogMessage>;
   readonly tables: Array<{
     items: ReadonlyArray<unknown>;
-    columns: ReadonlyArray<unknown>;
+    schema: unknown;
     caption?: string;
   }>;
   readonly details: Array<{
     item: unknown;
-    columns: ReadonlyArray<unknown>;
+    schema: unknown;
     title?: string;
   }>;
   readonly trees: Array<{
@@ -365,19 +364,23 @@ const makeTestRendererService = (
       ).pipe(Effect.asVoid),
 
     // Data display (stdout)
-    table: <T>(items: ReadonlyArray<T>, columns: ReadonlyArray<ColumnDef<T>>, caption?: string) =>
+    table: <S extends Schema.Top>(
+      items: ReadonlyArray<Schema.Schema.Type<S>>,
+      schema: S,
+      caption?: string,
+    ) =>
       Effect.sync(() => {
         state.tables.push({
           items: Array.from(items),
-          columns: Array.from(columns),
+          schema,
           ...(caption !== undefined && { caption }),
         });
       }),
-    detail: <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string) =>
+    detail: <S extends Schema.Top>(item: Schema.Schema.Type<S>, schema: S, title?: string) =>
       Effect.sync(() => {
         state.details.push({
           item,
-          columns: Array.from(columns),
+          schema,
           ...(title !== undefined && { title }),
         });
       }),

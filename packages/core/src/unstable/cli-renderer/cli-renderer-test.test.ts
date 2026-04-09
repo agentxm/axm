@@ -5,7 +5,8 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { describe, expect, it } from "@effect/vitest";
 
-import { CliRenderer, type ColumnDef, type TreeDef, type TreeNode } from "./cli-renderer.js";
+import { column } from "./annotations.js";
+import { CliRenderer, type TreeDef, type TreeNode } from "./cli-renderer.js";
 import { TestRenderer, TestMachineRenderer } from "./cli-renderer-test.js";
 
 // ---------------------------------------------------------------------------
@@ -341,25 +342,19 @@ describe("TestRenderer", () => {
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
         const items = [{ name: "alpha" }, { name: "beta" }];
-        const columns: ReadonlyArray<ColumnDef<{ name: string }>> = [
-          {
-            key: "name",
-            header: "Name",
-            value: (i) => i.name,
-            priority: 0,
-            align: "left",
-            width: "auto",
-          },
-        ];
+        const tableSchema = Schema.Struct({
+          name: Schema.String.pipe(column({ header: "Name" })),
+        });
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.table(items, columns, "Skills");
+            yield* r.table(items, tableSchema, "Skills");
           }),
           layer,
         );
         expect(state.tables).toHaveLength(1);
         expect(state.tables[0]?.items).toEqual(items);
+        expect(state.tables[0]?.schema).toBe(tableSchema);
         expect(state.tables[0]?.caption).toBe("Skills");
       }),
     );
@@ -368,33 +363,20 @@ describe("TestRenderer", () => {
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
         const item = { name: "my-skill", version: "1.0.0" };
-        const columns: ReadonlyArray<ColumnDef<typeof item>> = [
-          {
-            key: "name",
-            header: "Name",
-            value: (i) => i.name,
-            priority: 0,
-            align: "left",
-            width: "auto",
-          },
-          {
-            key: "version",
-            header: "Version",
-            value: (i) => i.version,
-            priority: 0,
-            align: "left",
-            width: "auto",
-          },
-        ];
+        const detailSchema = Schema.Struct({
+          name: Schema.String.pipe(column({ header: "Name" })),
+          version: Schema.String.pipe(column({ header: "Version" })),
+        });
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.detail(item, columns, "Skill Info");
+            yield* r.detail(item, detailSchema, "Skill Info");
           }),
           layer,
         );
         expect(state.details).toHaveLength(1);
         expect(state.details[0]?.item).toEqual(item);
+        expect(state.details[0]?.schema).toBe(detailSchema);
         expect(state.details[0]?.title).toBe("Skill Info");
       }),
     );
@@ -553,28 +535,20 @@ describe("TestMachineRenderer", () => {
   it.effect("still captures all calls like TestRenderer", () =>
     Effect.gen(function* () {
       const { layer, state } = TestMachineRenderer.make();
+      const tableSchema = Schema.Struct({
+        name: Schema.String.pipe(column({ header: "Name" })),
+      });
       yield* Effect.gen(function* () {
         const r = yield* CliRenderer;
         yield* r.intro("App");
         yield* r.info("Processing");
-        yield* r.table(
-          [{ name: "x" }],
-          [
-            {
-              key: "name",
-              header: "Name",
-              value: (i: { name: string }) => i.name,
-              priority: 0,
-              align: "left" as const,
-              width: "auto" as const,
-            },
-          ],
-        );
+        yield* r.table([{ name: "x" }], tableSchema);
         yield* r.note("msg", "title");
       }).pipe(Effect.provide(layer));
       expect(state.introTitles).toEqual(["App"]);
       expect(state.logs).toEqual([{ _tag: "info", message: "Processing" }]);
       expect(state.tables).toHaveLength(1);
+      expect(state.tables[0]?.schema).toBe(tableSchema);
       expect(state.notes).toEqual([{ message: "msg", title: "title" }]);
     }),
   );

@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, column } from "@axm.sh/core/unstable/cli-renderer";
 import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
@@ -11,12 +11,18 @@ import { makeDataDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 export const SamplePetDetailSchema = Schema.Struct({
-  name: Schema.String,
-  species: Schema.String,
-  age: Schema.String,
-  adoptable: Schema.Boolean,
-  intakeDate: Schema.String,
-  habitat: Schema.String,
+  name: Schema.String.pipe(column({ header: "Name", priority: 1 })),
+  species: Schema.String.pipe(column({ header: "Species", priority: 2 })),
+  age: Schema.String.pipe(column({ header: "Age", priority: 3 })),
+  adoptable: Schema.Boolean.pipe(
+    column({
+      header: "Adoptable",
+      priority: 4,
+      format: (value) => (value === true ? "yes" : "no"),
+    }),
+  ),
+  intakeDate: Schema.String.pipe(column({ header: "Intake Date", priority: 5 })),
+  habitat: Schema.String.pipe(column({ header: "Habitat", priority: 6 })),
 });
 
 type SamplePetDetail = typeof SamplePetDetailSchema.Type;
@@ -34,57 +40,6 @@ const sampleItem: SamplePetDetail = {
   intakeDate: "2026-03-20T10:30:00Z",
   habitat: "showroom",
 };
-
-const detailColumns = [
-  {
-    key: "name",
-    header: "Name",
-    value: (pet: SamplePetDetail) => pet.name,
-    priority: 1,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "species",
-    header: "Species",
-    value: (pet: SamplePetDetail) => pet.species,
-    priority: 2,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "age",
-    header: "Age",
-    value: (pet: SamplePetDetail) => pet.age,
-    priority: 3,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "adoptable",
-    header: "Adoptable",
-    value: (pet: SamplePetDetail) => (pet.adoptable ? "yes" : "no"),
-    priority: 4,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "intakeDate",
-    header: "Intake Date",
-    value: (pet: SamplePetDetail) => pet.intakeDate,
-    priority: 5,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "habitat",
-    header: "Habitat",
-    value: (pet: SamplePetDetail) => pet.habitat,
-    priority: 6,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-] as const;
 
 const detailConfig = {
   title: Flag.string("title").pipe(Flag.withDescription("Detail view title"), Flag.optional),
@@ -105,7 +60,7 @@ export const handleDetail = (args: { readonly title: Option.Option<string> }) =>
       return;
     }
 
-    yield* renderer.detail(sampleItem, detailColumns, Option.getOrUndefined(args.title));
+    yield* renderer.detail(sampleItem, SamplePetDetailSchema, Option.getOrUndefined(args.title));
   });
 
 export const detailCommand = Command.make("detail", detailConfig, ({ title }) =>

@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, column } from "@axm.sh/core/unstable/cli-renderer";
 import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
@@ -11,10 +11,16 @@ import { makeItemsDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 export const SamplePetSchema = Schema.Struct({
-  name: Schema.String,
-  species: Schema.String,
-  age: Schema.String,
-  adoptable: Schema.Boolean,
+  name: Schema.String.pipe(column({ header: "Name", priority: 1 })),
+  species: Schema.String.pipe(column({ header: "Species", priority: 2 })),
+  age: Schema.String.pipe(column({ header: "Age", priority: 3 })),
+  adoptable: Schema.Boolean.pipe(
+    column({
+      header: "Adoptable",
+      priority: 4,
+      format: (value) => (value === true ? "yes" : "no"),
+    }),
+  ),
 });
 
 type SamplePet = typeof SamplePetSchema.Type;
@@ -32,41 +38,6 @@ const tableConfig = {
   caption: Flag.string("caption").pipe(Flag.withDescription("Table caption"), Flag.optional),
 } as const;
 
-const tableColumns = [
-  {
-    key: "name",
-    header: "Name",
-    value: (pet: SamplePet) => pet.name,
-    priority: 1,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "species",
-    header: "Species",
-    value: (pet: SamplePet) => pet.species,
-    priority: 2,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "age",
-    header: "Age",
-    value: (pet: SamplePet) => pet.age,
-    priority: 3,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "adoptable",
-    header: "Adoptable",
-    value: (pet: SamplePet) => (pet.adoptable ? "yes" : "no"),
-    priority: 4,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-] as const;
-
 const commandMeta = spikeCommandMeta("outputs table", { json: true });
 
 export const handleTable = (args: { readonly caption: Option.Option<string> }) =>
@@ -83,7 +54,7 @@ export const handleTable = (args: { readonly caption: Option.Option<string> }) =
       return;
     }
 
-    yield* renderer.table(samplePets, tableColumns, Option.getOrUndefined(args.caption));
+    yield* renderer.table(samplePets, SamplePetSchema, Option.getOrUndefined(args.caption));
   });
 
 export const tableCommand = Command.make("table", tableConfig, ({ caption }) =>

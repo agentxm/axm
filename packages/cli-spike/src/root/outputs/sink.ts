@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, column } from "@axm.sh/core/unstable/cli-renderer";
 import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
@@ -15,10 +15,16 @@ import { withRuntime } from "../../runtime.js";
 // ---------------------------------------------------------------------------
 
 export const SinkPetSchema = Schema.Struct({
-  name: Schema.String,
-  species: Schema.String,
-  age: Schema.String,
-  adoptable: Schema.Boolean,
+  name: Schema.String.pipe(column({ header: "Name", priority: 1 })),
+  species: Schema.String.pipe(column({ header: "Species", priority: 2 })),
+  age: Schema.String.pipe(column({ header: "Age", priority: 3 })),
+  adoptable: Schema.Boolean.pipe(
+    column({
+      header: "Adoptable",
+      priority: 4,
+      format: (value) => (value === true ? "yes" : "no"),
+    }),
+  ),
 });
 
 type Pet = typeof SinkPetSchema.Type;
@@ -30,41 +36,6 @@ const samplePets: ReadonlyArray<Pet> = [
   { name: "Pickles", species: "dog", age: "4 months", adoptable: true },
   { name: "Juniper", species: "rabbit", age: "1 year", adoptable: false },
 ];
-
-const petColumns = [
-  {
-    key: "name",
-    header: "Name",
-    value: (pet: Pet) => pet.name,
-    priority: 1,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "species",
-    header: "Species",
-    value: (pet: Pet) => pet.species,
-    priority: 2,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "age",
-    header: "Age",
-    value: (pet: Pet) => pet.age,
-    priority: 3,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-  {
-    key: "adoptable",
-    header: "Adoptable",
-    value: (pet: Pet) => (pet.adoptable ? "yes" : "no"),
-    priority: 4,
-    align: "left" as const,
-    width: "auto" as const,
-  },
-] as const;
 
 interface FileEntry {
   readonly name: string;
@@ -183,12 +154,12 @@ export const handleSink = Effect.gen(function* () {
   ]);
 
   // Table
-  yield* renderer.table(samplePets, petColumns, "Adoptable Pets");
+  yield* renderer.table(samplePets, SinkPetSchema, "Adoptable Pets");
 
   // Detail
   const firstPet = samplePets[0];
   if (firstPet) {
-    yield* renderer.detail(firstPet, petColumns, "Featured Pet");
+    yield* renderer.detail(firstPet, SinkPetSchema, "Featured Pet");
   }
 
   // Tree

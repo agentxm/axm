@@ -5,6 +5,7 @@ import * as Stream from "effect/Stream";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { type MockInstance, vi } from "vitest";
 
+import { column } from "./annotations.js";
 import { CliRenderer } from "./cli-renderer.js";
 import { InteractiveRenderer } from "./cli-renderer-interactive.js";
 import { expectRecord } from "../test-helpers.js";
@@ -270,6 +271,11 @@ describe("InteractiveRenderer", () => {
   describe("table formatting", () => {
     it.effect("writes a table to stdout without the guide prefix", () =>
       Effect.gen(function* () {
+        const SkillTableSchema = Schema.Struct({
+          name: Schema.String.pipe(column({ header: "Name" })),
+          version: Schema.String.pipe(column({ header: "Version", align: "right" })),
+        });
+
         yield* run(
           Effect.gen(function* () {
             const renderer = yield* CliRenderer;
@@ -278,24 +284,7 @@ describe("InteractiveRenderer", () => {
                 { name: "alpha", version: "1.0.0" },
                 { name: "beta", version: "2.0.0" },
               ],
-              [
-                {
-                  key: "name",
-                  header: "Name",
-                  value: (item: { name: string; version: string }) => item.name,
-                  priority: 0,
-                  align: "left" as const,
-                  width: "auto" as const,
-                },
-                {
-                  key: "version",
-                  header: "Version",
-                  value: (item: { name: string; version: string }) => item.version,
-                  priority: 0,
-                  align: "right" as const,
-                  width: "auto" as const,
-                },
-              ],
+              SkillTableSchema,
               "Skills",
             );
           }),
@@ -316,29 +305,17 @@ describe("InteractiveRenderer", () => {
   describe("detail formatting", () => {
     it.effect("writes vertical key-value pairs without the guide prefix", () =>
       Effect.gen(function* () {
+        const SkillDetailSchema = Schema.Struct({
+          name: Schema.String.pipe(column({ header: "Name" })),
+          version: Schema.String.pipe(column({ header: "Version" })),
+        });
+
         yield* run(
           Effect.gen(function* () {
             const renderer = yield* CliRenderer;
             yield* renderer.detail(
               { name: "my-skill", version: "2.1.0" },
-              [
-                {
-                  key: "name",
-                  header: "Name",
-                  value: (item: { name: string; version: string }) => item.name,
-                  priority: 0,
-                  align: "left" as const,
-                  width: "auto" as const,
-                },
-                {
-                  key: "version",
-                  header: "Version",
-                  value: (item: { name: string; version: string }) => item.version,
-                  priority: 0,
-                  align: "left" as const,
-                  width: "auto" as const,
-                },
-              ],
+              SkillDetailSchema,
               "Skill Info",
             );
           }),

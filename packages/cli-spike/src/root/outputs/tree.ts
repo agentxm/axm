@@ -4,9 +4,10 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
+import { makeDataDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 interface FileEntry {
@@ -54,8 +55,22 @@ const commandMeta = spikeCommandMeta("outputs tree", { json: true });
 interface FileNode {
   readonly name: string;
   readonly kind: "file" | "directory";
-  readonly children?: ReadonlyArray<FileNode>;
+  readonly children?: ReadonlyArray<FileNode> | undefined;
 }
+
+export const FileNodeSchema: Schema.Codec<FileNode> = Schema.Struct({
+  name: Schema.String,
+  kind: Schema.Literals(["file", "directory"] as const),
+  children: Schema.optional(Schema.Array(Schema.suspend(() => FileNodeSchema))),
+});
+const OutputsTreeDataSchema = Schema.Struct({
+  roots: Schema.Array(FileNodeSchema),
+});
+export const OutputsTreeOutputSchema = makeDataDocumentSchema(
+  "outputs.tree",
+  OutputsTreeDataSchema,
+);
+export type OutputsTreeOutput = typeof OutputsTreeOutputSchema.Type;
 
 interface TreeInput {
   readonly data: FileEntry;
@@ -69,22 +84,18 @@ const toFileNodes = (tree: ReadonlyArray<TreeInput>): ReadonlyArray<FileNode> =>
     ...(node.children && node.children.length > 0 ? { children: toFileNodes(node.children) } : {}),
   }));
 
-const handleTree = (args: { readonly title: Option.Option<string> }) =>
+export const handleTree = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const document: OutputsTreeOutput = {
+      _version: JsonSchemaVersion,
+      command: "outputs.tree",
+      data: {
+        roots: toFileNodes(sampleTree),
+      },
+    };
 
-    if (
-      yield* renderer.result(
-        { _version: 1, command: "outputs.tree", data: { roots: toFileNodes(sampleTree) } },
-        Schema.Struct({
-          _version: Schema.Number,
-          command: Schema.Literal("outputs.tree"),
-          data: Schema.Struct({
-            roots: Schema.Array(Schema.Any),
-          }),
-        }),
-      )
-    ) {
+    if (yield* renderer.result(document, OutputsTreeOutputSchema)) {
       return;
     }
 
@@ -104,11 +115,17 @@ export const treeCommand = Command.make("tree", treeConfig, ({ title }) =>
 ).pipe(
   withArgvTracking(treeConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Render tree hierarchy output"),
+  Command.withDescription(
+    "Render tree hierarchy output. JSON output includes data.roots[] with name, kind, and recursive children.",
+  ),
   Command.withExamples([
     {
       command: "axm-spike outputs tree --title Workspace",
       description: "Render a titled tree view",
+    },
+    {
+      command: "axm-spike outputs tree --json",
+      description: "Emit { _version, command, data: { roots } }",
     },
   ]),
 );

@@ -42,14 +42,14 @@ describe("axm-spike prompts", () => {
     const output = getOutput(result);
 
     expectExitCode(result, 0);
+    expect(output).toContain("value");
     expect(output).toContain("placeholder");
     expect(output).toContain("default");
-    expect(output).toContain("initial");
     expect(output).toContain("validate");
   });
 
-  it("prompts text --non-interactive --default 'hi' succeeds", async () => {
-    await expectNonInteractiveSuccess(runCli, ["prompts", "text", "--default", "hi"]);
+  it("prompts text --non-interactive --default 'hi' still fails without explicit value", async () => {
+    await expectNonInteractiveFailure(runCli, ["prompts", "text", "--default", "hi"]);
   });
 
   it("prompts text --non-interactive (no default) fails with non-zero exit", async () => {
@@ -61,7 +61,7 @@ describe("axm-spike prompts", () => {
   });
 
   it("prompts select --non-interactive succeeds with explicit value", async () => {
-    await expectNonInteractiveSuccess(runCli, ["prompts", "select", "--value", "red"]);
+    await expectNonInteractiveSuccess(runCli, ["prompts", "select", "--value", "cat"]);
   });
 
   for (const sub of promptSubcommands) {

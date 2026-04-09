@@ -53,8 +53,9 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
   await runCliMain(
     (argv) => {
       const isJson = hasExplicitJsonFlag(argv);
+      const commandProgram = Command.runWith(rootCommand, { version: VERSION })(argv);
 
-      return Command.runWith(rootCommand, { version: VERSION })(argv).pipe(
+      return commandProgram.pipe(
         Effect.provide(
           Layer.mergeAll(
             NodeServices.layer,

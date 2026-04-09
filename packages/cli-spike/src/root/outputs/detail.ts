@@ -4,13 +4,13 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { emitDataResult } from "../../json-output.js";
+import { makeDataDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
-const SamplePetDetailSchema = Schema.Struct({
+export const SamplePetDetailSchema = Schema.Struct({
   name: Schema.String,
   species: Schema.String,
   age: Schema.String,
@@ -20,6 +20,11 @@ const SamplePetDetailSchema = Schema.Struct({
 });
 
 type SamplePetDetail = typeof SamplePetDetailSchema.Type;
+export const OutputsDetailOutputSchema = makeDataDocumentSchema(
+  "outputs.detail",
+  SamplePetDetailSchema,
+);
+export type OutputsDetailOutput = typeof OutputsDetailOutputSchema.Type;
 
 const sampleItem: SamplePetDetail = {
   name: "Mochi",
@@ -87,11 +92,16 @@ const detailConfig = {
 
 const commandMeta = spikeCommandMeta("outputs detail", { json: true });
 
-const handleDetail = (args: { readonly title: Option.Option<string> }) =>
+export const handleDetail = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const document: OutputsDetailOutput = {
+      _version: JsonSchemaVersion,
+      command: "outputs.detail",
+      data: sampleItem,
+    };
 
-    if (yield* emitDataResult("outputs.detail", sampleItem, SamplePetDetailSchema)) {
+    if (yield* renderer.result(document, OutputsDetailOutputSchema)) {
       return;
     }
 
@@ -103,11 +113,17 @@ export const detailCommand = Command.make("detail", detailConfig, ({ title }) =>
 ).pipe(
   withArgvTracking(detailConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Render detail key-value output"),
+  Command.withDescription(
+    "Render detail key-value output. JSON output includes data.name, data.species, data.intakeDate, and data.habitat.",
+  ),
   Command.withExamples([
     {
       command: 'axm-spike outputs detail --title "Featured pet"',
       description: "Render a titled detail view",
+    },
+    {
+      command: "axm-spike outputs detail --json",
+      description: "Emit { _version, command, data } for one sample pet",
     },
   ]),
 );

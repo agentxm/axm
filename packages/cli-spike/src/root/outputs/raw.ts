@@ -4,16 +4,20 @@ import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { emitDataResult } from "../../json-output.js";
+import { makeDataDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
-const RawOutputSchema = Schema.Struct({
+export const RawOutputDataSchema = Schema.Struct({
   content: Schema.String,
   lines: Schema.Array(Schema.String),
 });
+
+export type RawOutputData = typeof RawOutputDataSchema.Type;
+export const OutputsRawOutputSchema = makeDataDocumentSchema("outputs.raw", RawOutputDataSchema);
+export type OutputsRawOutput = typeof OutputsRawOutputSchema.Type;
 
 const rawConfig = {
   content: Argument.string("content").pipe(
@@ -28,16 +32,21 @@ const defaultContent = ["Name: axm-spike", "Version: 0.0.1", "Pets: Mochi, Pickl
   "\n",
 );
 
-const handleRaw = (args: { readonly content: Option.Option<string> }) =>
+export const handleRaw = (args: { readonly content: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const content = Option.getOrElse(args.content, () => defaultContent);
-    const data = {
+    const data: RawOutputData = {
       content,
       lines: content.split("\n"),
     };
+    const document: OutputsRawOutput = {
+      _version: JsonSchemaVersion,
+      command: "outputs.raw",
+      data,
+    };
 
-    if (yield* emitDataResult("outputs.raw", data, RawOutputSchema)) {
+    if (yield* renderer.result(document, OutputsRawOutputSchema)) {
       return;
     }
 
@@ -49,7 +58,7 @@ export const rawCommand = Command.make("raw", rawConfig, ({ content }) =>
 ).pipe(
   withArgvTracking(rawConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Render raw text with a structured JSON fallback"),
+  Command.withDescription("Render raw text. JSON output includes data.content and data.lines."),
   Command.withExamples([
     {
       command: "axm-spike outputs raw",
@@ -61,7 +70,7 @@ export const rawCommand = Command.make("raw", rawConfig, ({ content }) =>
     },
     {
       command: "axm-spike outputs raw --json",
-      description: "Inspect the JSON document for the raw output",
+      description: "Emit { _version, command, data: { content, lines } }",
     },
   ]),
 );

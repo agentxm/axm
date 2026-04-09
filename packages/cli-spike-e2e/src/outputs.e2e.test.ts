@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { expectExitCode, expectStdout, getOutput, parseJsonOutput } from "@axm.sh/e2e-utils";
+import {
+  expectExitCode,
+  expectStderr,
+  expectStdout,
+  getOutput,
+  parseJsonOutput,
+} from "@axm.sh/e2e-utils";
 
 import { runCli } from "./utils.js";
 
 // NOTE: E2E tests run the compiled binary in default text mode.
-// Human-readable output goes to stdout unless --json is requested.
+// Human-readable renderer output goes to stderr; --json payloads go to stdout.
 
 describe("outputs commands", () => {
-  it("outputs --help lists all 14 subcommands", async () => {
+  it("outputs --help lists all renderer demo subcommands", async () => {
     const result = await runCli(["outputs", "--help"]);
     expectExitCode(result, 0);
     const output = getOutput(result);
@@ -27,6 +33,7 @@ describe("outputs commands", () => {
       "stream-log",
       "result",
       "raw",
+      "sink",
     ]) {
       expect(output).toContain(sub);
     }
@@ -35,13 +42,13 @@ describe("outputs commands", () => {
   it("outputs log renders the requested log message", async () => {
     const result = await runCli(["outputs", "log", "Build succeeded", "--level", "success"]);
     expectExitCode(result, 0);
-    expectStdout(result, "Build succeeded");
+    expectStderr(result, "Build succeeded");
   });
 
   it("outputs intro renders intro framing", async () => {
     const result = await runCli(["outputs", "intro"]);
     expectExitCode(result, 0);
-    expectStdout(result, "Welcome to axm-spike");
+    expectStderr(result, "Welcome to axm-spike");
   });
 
   it("outputs note renders boxed note", async () => {
@@ -53,20 +60,20 @@ describe("outputs commands", () => {
       "Reminder",
     ]);
     expectExitCode(result, 0);
-    expectStdout(result, "Read the deploy checklist");
-    expectStdout(result, "Reminder");
+    expectStderr(result, "Read the deploy checklist");
+    expectStderr(result, "Reminder");
   });
 
   it("outputs box renders default box", async () => {
     const result = await runCli(["outputs", "box"]);
     expectExitCode(result, 0);
-    expectStdout(result, "This box renders one message at a time.");
+    expectStderr(result, "This box renders one message at a time.");
   });
 
   it("outputs box --rounded --width 40 renders with options", async () => {
     const result = await runCli(["outputs", "box", "--rounded", "--width", "40"]);
     expectExitCode(result, 0);
-    expectStdout(result, "This box renders one message at a time.");
+    expectStderr(result, "This box renders one message at a time.");
   });
 
   it("outputs spinner completes with success", async () => {
@@ -82,7 +89,7 @@ describe("outputs commands", () => {
   it("outputs task-log --retain-log retains output", async () => {
     const result = await runCli(["outputs", "task-log", "--retain-log"], { timeout: 15000 });
     expectExitCode(result, 0);
-    expectStdout(result, "Building project");
+    expectStderr(result, "Building project");
   }, 15000);
 
   it("outputs run-tasks shows task status", async () => {
@@ -132,9 +139,32 @@ describe("outputs commands", () => {
     expect(parsed).toEqual(
       expect.objectContaining({
         command: "outputs.result",
+        count: 1,
         data: expect.objectContaining({
-          name: "Mochi",
-          species: "cat",
+          kind: "single",
+          item: expect.objectContaining({
+            name: "Mochi",
+            species: "cat",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("outputs result --stream --json emits the list variant of the published document", async () => {
+    const result = await runCli(["outputs", "result", "--stream", "--json"]);
+    expectExitCode(result, 0);
+    const parsed = parseJsonOutput(result);
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        command: "outputs.result",
+        count: 3,
+        data: expect.objectContaining({
+          kind: "list",
+          items: expect.arrayContaining([
+            expect.objectContaining({ name: "Mochi" }),
+            expect.objectContaining({ name: "Juniper" }),
+          ]),
         }),
       }),
     );
@@ -156,6 +186,28 @@ describe("outputs commands", () => {
         command: "outputs.raw",
         data: expect.objectContaining({
           lines: ["Name: axm-spike", "Version: 0.0.1", "Pets: Mochi, Pickles, Juniper"],
+        }),
+      }),
+    );
+  });
+
+  it("outputs tree --json emits recursive tree data", async () => {
+    const result = await runCli(["outputs", "tree", "--json"]);
+    expectExitCode(result, 0);
+    const parsed = parseJsonOutput(result);
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        command: "outputs.tree",
+        data: expect.objectContaining({
+          roots: expect.arrayContaining([
+            expect.objectContaining({
+              name: "packages",
+              children: expect.arrayContaining([
+                expect.objectContaining({ name: "core" }),
+                expect.objectContaining({ name: "cli-spike" }),
+              ]),
+            }),
+          ]),
         }),
       }),
     );

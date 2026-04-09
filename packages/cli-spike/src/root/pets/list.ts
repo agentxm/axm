@@ -3,20 +3,24 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { type FakePetHabitat, type FakePetRecord, FakePetStore } from "../../fake-pet-store.js";
-import { emitItemsResult } from "../../json-output.js";
+import { makeItemsDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
-const petListItemSchema = Schema.Struct({
+export const PetListItemSchema = Schema.Struct({
   name: Schema.String,
   species: Schema.String,
   age: Schema.String,
   adoptable: Schema.Boolean,
   habitat: Schema.Literals(["showroom", "foster"] as const),
 });
+
+export type PetListItem = typeof PetListItemSchema.Type;
+export const PetsListOutputSchema = makeItemsDocumentSchema("pets.list", PetListItemSchema);
+export type PetsListOutput = typeof PetsListOutputSchema.Type;
 
 const petColumns = [
   {
@@ -63,7 +67,7 @@ const listConfig = {
 
 const commandMeta = spikeCommandMeta("pets list", { json: true });
 
-const handleList = (args: {
+export const handleList = (args: {
   readonly habitat: FakePetHabitat;
   readonly species: ReadonlyArray<string>;
 }) =>
@@ -73,8 +77,14 @@ const handleList = (args: {
     const pets = yield* fakePetStore.listPets(args.habitat);
     const filteredPets =
       args.species.length === 0 ? pets : pets.filter((pet) => args.species.includes(pet.species));
+    const document: PetsListOutput = {
+      _version: JsonSchemaVersion,
+      command: "pets.list",
+      items: filteredPets,
+      count: filteredPets.length,
+    };
 
-    if (yield* emitItemsResult("pets.list", filteredPets, petListItemSchema)) {
+    if (yield* renderer.result(document, PetsListOutputSchema)) {
       return;
     }
 
@@ -92,7 +102,7 @@ export const listCommand = Command.make("list", listConfig, ({ habitat, species 
   withArgvTracking(listConfig),
   annotateCommandMeta(commandMeta),
   Command.withAlias("ls"),
-  Command.withDescription("List sample pets"),
+  Command.withDescription("List sample pets. JSON output includes items[] and count."),
   Command.withExamples([
     { command: "axm-spike pets list", description: "List showroom pets" },
     {
@@ -105,7 +115,7 @@ export const listCommand = Command.make("list", listConfig, ({ habitat, species 
     },
     {
       command: "axm-spike pets list --json",
-      description: "Emit a structured machine-readable result document",
+      description: "Emit { _version, command, items, count }",
     },
   ]),
 );

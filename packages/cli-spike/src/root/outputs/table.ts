@@ -4,13 +4,13 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { emitItemsResult } from "../../json-output.js";
+import { makeItemsDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
-const SamplePetSchema = Schema.Struct({
+export const SamplePetSchema = Schema.Struct({
   name: Schema.String,
   species: Schema.String,
   age: Schema.String,
@@ -18,6 +18,8 @@ const SamplePetSchema = Schema.Struct({
 });
 
 type SamplePet = typeof SamplePetSchema.Type;
+export const OutputsTableOutputSchema = makeItemsDocumentSchema("outputs.table", SamplePetSchema);
+export type OutputsTableOutput = typeof OutputsTableOutputSchema.Type;
 
 const samplePets: ReadonlyArray<SamplePet> = [
   { name: "Mochi", species: "cat", age: "2 years", adoptable: true },
@@ -67,11 +69,17 @@ const tableColumns = [
 
 const commandMeta = spikeCommandMeta("outputs table", { json: true });
 
-const handleTable = (args: { readonly caption: Option.Option<string> }) =>
+export const handleTable = (args: { readonly caption: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const document: OutputsTableOutput = {
+      _version: JsonSchemaVersion,
+      command: "outputs.table",
+      items: samplePets,
+      count: samplePets.length,
+    };
 
-    if (yield* emitItemsResult("outputs.table", samplePets, SamplePetSchema)) {
+    if (yield* renderer.result(document, OutputsTableOutputSchema)) {
       return;
     }
 
@@ -83,11 +91,15 @@ export const tableCommand = Command.make("table", tableConfig, ({ caption }) =>
 ).pipe(
   withArgvTracking(tableConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Render table data"),
+  Command.withDescription("Render table data. JSON output includes items[] and count."),
   Command.withExamples([
     {
       command: 'axm-spike outputs table --caption "Adoptable pets"',
       description: "Render a table with a caption",
+    },
+    {
+      command: "axm-spike outputs table --json",
+      description: "Emit { _version, command, items, count }",
     },
   ]),
 );

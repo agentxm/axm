@@ -20,9 +20,7 @@ const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
   }
 
   const supportsJsonOutput = ServiceMap.getReferenceUnsafe(doc.annotations, JsonOutputSupported);
-  const globalFlags = supportsJsonOutput
-    ? doc.globalFlags?.filter((flag) => flag.name === "json")
-    : undefined;
+  const globalFlags = doc.globalFlags?.filter((flag) => supportsJsonOutput || flag.name !== "json");
 
   return globalFlags !== undefined && globalFlags.length > 0 ? globalFlags : undefined;
 };
@@ -70,7 +68,7 @@ type JsonExampleDoc = {
   readonly description?: string | undefined;
 };
 
-type JsonHelpDoc = {
+export type JsonHelpDoc = {
   readonly _version: typeof JsonSchemaVersion;
   readonly type: "help";
   readonly description: string;
@@ -115,7 +113,7 @@ const JsonExampleDocSchema = Schema.Struct({
   description: Schema.optional(Schema.String),
 });
 
-const JsonHelpDocSchema = Schema.Struct({
+export const JsonHelpDocSchema = Schema.Struct({
   _version: JsonSchemaVersionSchema,
   type: Schema.Literal("help"),
   description: Schema.String,
@@ -127,12 +125,14 @@ const JsonHelpDocSchema = Schema.Struct({
   examples: Schema.optional(Schema.Array(JsonExampleDocSchema)),
 });
 
-const JsonVersionDocSchema = Schema.Struct({
+export const JsonVersionDocSchema = Schema.Struct({
   _version: JsonSchemaVersionSchema,
   type: Schema.Literal("version"),
   name: Schema.String,
   version: Schema.String,
 });
+
+export type JsonVersionDoc = typeof JsonVersionDocSchema.Type;
 
 const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   name: flag.name,

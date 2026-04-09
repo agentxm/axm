@@ -4,24 +4,26 @@ import * as Stream from "effect/Stream";
 import { Command } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { emitItemsResult } from "../../json-output.js";
+import { makeItemsDocumentSchema } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
 // Sample data
 // ---------------------------------------------------------------------------
 
-const PetSchema = Schema.Struct({
+export const SinkPetSchema = Schema.Struct({
   name: Schema.String,
   species: Schema.String,
   age: Schema.String,
   adoptable: Schema.Boolean,
 });
 
-type Pet = typeof PetSchema.Type;
+type Pet = typeof SinkPetSchema.Type;
+export const OutputsSinkOutputSchema = makeItemsDocumentSchema("outputs.sink", SinkPetSchema);
+export type OutputsSinkOutput = typeof OutputsSinkOutputSchema.Type;
 
 const samplePets: ReadonlyArray<Pet> = [
   { name: "Mochi", species: "cat", age: "2 years", adoptable: true },
@@ -91,11 +93,17 @@ const sinkConfig = {} as const;
 
 const commandMeta = spikeCommandMeta("outputs sink", { json: true });
 
-const handleSink = Effect.gen(function* () {
+export const handleSink = Effect.gen(function* () {
   const renderer = yield* CliRenderer;
+  const document: OutputsSinkOutput = {
+    _version: JsonSchemaVersion,
+    command: "outputs.sink",
+    items: samplePets,
+    count: samplePets.length,
+  };
 
   // --- JSON path: emit structured data and return early ---
-  if (yield* emitItemsResult("outputs.sink", samplePets, PetSchema)) {
+  if (yield* renderer.result(document, OutputsSinkOutputSchema)) {
     return;
   }
 
@@ -207,7 +215,9 @@ export const sinkCommand = Command.make("sink", sinkConfig, () =>
 ).pipe(
   withArgvTracking(sinkConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Kitchen sink demo of all output renderer methods"),
+  Command.withDescription(
+    "Kitchen sink demo of all output renderer methods. JSON output includes items[] and count.",
+  ),
   Command.withExamples([
     {
       command: "axm-spike outputs sink",
@@ -215,7 +225,7 @@ export const sinkCommand = Command.make("sink", sinkConfig, () =>
     },
     {
       command: "axm-spike outputs sink --json",
-      description: "Inspect the JSON contract for the sink demo",
+      description: "Emit { _version, command, items, count }",
     },
   ]),
 );

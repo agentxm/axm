@@ -3,13 +3,12 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
-import { emitDataResult, emitItemsResult } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
-const PetResultSchema = Schema.Struct({
+export const PetResultSchema = Schema.Struct({
   name: Schema.String,
   species: Schema.String,
   age: Schema.String,
@@ -17,6 +16,25 @@ const PetResultSchema = Schema.Struct({
 });
 
 type PetResult = typeof PetResultSchema.Type;
+export const OutputsResultSingleDataSchema = Schema.Struct({
+  kind: Schema.Literal("single"),
+  item: PetResultSchema,
+});
+export const OutputsResultListDataSchema = Schema.Struct({
+  kind: Schema.Literal("list"),
+  items: Schema.Array(PetResultSchema),
+});
+export const OutputsResultDataSchema = Schema.Union([
+  OutputsResultSingleDataSchema,
+  OutputsResultListDataSchema,
+]);
+export const OutputsResultOutputSchema = Schema.Struct({
+  _version: Schema.Literal(JsonSchemaVersion),
+  command: Schema.Literal("outputs.result"),
+  data: OutputsResultDataSchema,
+  count: Schema.Number,
+});
+export type OutputsResultOutput = typeof OutputsResultOutputSchema.Type;
 
 const sampleData: PetResult = {
   name: "Mochi",
@@ -74,20 +92,35 @@ const resultConfig = {
 
 const commandMeta = spikeCommandMeta("outputs result", { json: true });
 
-const handleResult = (args: { readonly stream: boolean }) =>
+export const handleResult = (args: { readonly stream: boolean }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const document: OutputsResultOutput = args.stream
+      ? {
+          _version: JsonSchemaVersion,
+          command: "outputs.result",
+          data: {
+            kind: "list",
+            items: sampleStreamData,
+          },
+          count: sampleStreamData.length,
+        }
+      : {
+          _version: JsonSchemaVersion,
+          command: "outputs.result",
+          data: {
+            kind: "single",
+            item: sampleData,
+          },
+          count: 1,
+        };
 
-    if (args.stream) {
-      if (yield* emitItemsResult("outputs.result", sampleStreamData, PetResultSchema)) {
-        return;
-      }
-
-      yield* renderer.table(sampleStreamData, petColumns, "Sample pets");
+    if (yield* renderer.result(document, OutputsResultOutputSchema)) {
       return;
     }
 
-    if (yield* emitDataResult("outputs.result", sampleData, PetResultSchema)) {
+    if (args.stream) {
+      yield* renderer.table(sampleStreamData, petColumns, "Sample pets");
       return;
     }
 
@@ -99,7 +132,9 @@ export const resultCommand = Command.make("result", resultConfig, ({ stream }) =
 ).pipe(
   withArgvTracking(resultConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Render structured result output"),
+  Command.withDescription(
+    "Render structured result output. JSON output always includes count and data.kind (single or list).",
+  ),
   Command.withExamples([
     {
       command: "axm-spike outputs result",
@@ -111,7 +146,11 @@ export const resultCommand = Command.make("result", resultConfig, ({ stream }) =
     },
     {
       command: "axm-spike outputs result --json",
-      description: "Inspect the published JSON contract",
+      description: "Emit count plus data.kind=single with data.item",
+    },
+    {
+      command: "axm-spike outputs result --stream --json",
+      description: "Emit count plus data.kind=list with data.items[]",
     },
   ]),
 );

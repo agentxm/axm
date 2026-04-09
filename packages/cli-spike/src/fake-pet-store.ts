@@ -111,26 +111,25 @@ const planAdoption = (petName: string) =>
     } satisfies AdoptionPlan;
   });
 
-export interface FakePetStoreService {
-  readonly listPets: (habitat: FakePetHabitat) => Effect.Effect<ReadonlyArray<FakePetRecord>>;
-  readonly resolveIntake: (
-    request: ResolveIntakeRequest,
-  ) => Effect.Effect<ReadonlyArray<string>, ReturnType<typeof makeAppError>>;
-  readonly registerPet: (
-    request: RegisterPetRequest,
-  ) => Effect.Effect<RegisteredPet, ReturnType<typeof makeAppError>>;
-  readonly planAdoption: (
-    petName: string,
-  ) => Effect.Effect<AdoptionPlan, ReturnType<typeof makeAppError>>;
-  readonly adoptPet: (
-    petName: string,
-    force: boolean,
-  ) => Effect.Effect<AdoptionOutcome, ReturnType<typeof makeAppError>>;
-}
-
-export class FakePetStore extends ServiceMap.Service<FakePetStore, FakePetStoreService>()(
-  "@axm.sh/cli-spike/FakePetStore",
-) {}
+export class FakePetStore extends ServiceMap.Service<
+  FakePetStore,
+  {
+    readonly listPets: (habitat: FakePetHabitat) => Effect.Effect<ReadonlyArray<FakePetRecord>>;
+    readonly resolveIntake: (
+      request: ResolveIntakeRequest,
+    ) => Effect.Effect<ReadonlyArray<string>, ReturnType<typeof makeAppError>>;
+    readonly registerPet: (
+      request: RegisterPetRequest,
+    ) => Effect.Effect<RegisteredPet, ReturnType<typeof makeAppError>>;
+    readonly planAdoption: (
+      petName: string,
+    ) => Effect.Effect<AdoptionPlan, ReturnType<typeof makeAppError>>;
+    readonly adoptPet: (
+      petName: string,
+      force: boolean,
+    ) => Effect.Effect<AdoptionOutcome, ReturnType<typeof makeAppError>>;
+  }
+>()("@axm.sh/cli-spike/FakePetStore") {}
 
 export const FakePetStoreLive = Layer.succeed(FakePetStore, {
   listPets: (habitat) => Effect.succeed(petsInHabitat(habitat)),

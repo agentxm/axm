@@ -12,26 +12,26 @@ export const JsonOutputSupported: ServiceMap.Reference<boolean> = ServiceMap.Ref
   },
 );
 
-type DataDocument<S extends Schema.Encoder<unknown, never>, TCommand extends string> = {
+export type DataDocument<S extends Schema.Top, TCommand extends string> = {
   readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
-  readonly data: S["Type"];
+  readonly data: Schema.Schema.Type<S>;
 };
 
-type ItemsDocument<S extends Schema.Encoder<unknown, never>, TCommand extends string> = {
+export type ItemsDocument<S extends Schema.Top, TCommand extends string> = {
   readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
-  readonly items: ReadonlyArray<S["Type"]>;
+  readonly items: ReadonlyArray<Schema.Schema.Type<S>>;
   readonly count: number;
 };
 
-type ResultDocument<S extends Schema.Encoder<unknown, never>, TCommand extends string> = {
+export type ResultDocument<S extends Schema.Top, TCommand extends string> = {
   readonly _version: typeof JsonSchemaVersion;
   readonly command: TCommand;
-  readonly result: S["Type"];
+  readonly result: Schema.Schema.Type<S>;
 };
 
-const makeDataDocumentSchema = <S extends Schema.Encoder<unknown, never>, TCommand extends string>(
+export const makeDataDocumentSchema = <S extends Schema.Top, TCommand extends string>(
   command: TCommand,
   dataSchema: S,
 ) =>
@@ -41,7 +41,7 @@ const makeDataDocumentSchema = <S extends Schema.Encoder<unknown, never>, TComma
     data: dataSchema,
   });
 
-const makeItemsDocumentSchema = <S extends Schema.Encoder<unknown, never>, TCommand extends string>(
+export const makeItemsDocumentSchema = <S extends Schema.Top, TCommand extends string>(
   command: TCommand,
   itemSchema: S,
 ) =>
@@ -52,10 +52,7 @@ const makeItemsDocumentSchema = <S extends Schema.Encoder<unknown, never>, TComm
     count: Schema.Number,
   });
 
-const makeResultDocumentSchema = <
-  S extends Schema.Encoder<unknown, never>,
-  TCommand extends string,
->(
+export const makeResultDocumentSchema = <S extends Schema.Top, TCommand extends string>(
   command: TCommand,
   resultSchema: S,
 ) =>
@@ -65,9 +62,9 @@ const makeResultDocumentSchema = <
     result: resultSchema,
   });
 
-export const emitDataResult = <S extends Schema.Encoder<unknown, never>, TCommand extends string>(
+export const emitDataResult = <S extends Schema.Top, TCommand extends string>(
   command: TCommand,
-  data: S["Type"],
+  data: Schema.Schema.Type<S>,
   schema: S,
 ) =>
   Effect.gen(function* () {
@@ -81,9 +78,9 @@ export const emitDataResult = <S extends Schema.Encoder<unknown, never>, TComman
     return yield* renderer.result(document, makeDataDocumentSchema(command, schema));
   });
 
-export const emitItemsResult = <S extends Schema.Encoder<unknown, never>, TCommand extends string>(
+export const emitItemsResult = <S extends Schema.Top, TCommand extends string>(
   command: TCommand,
-  items: ReadonlyArray<S["Type"]>,
+  items: ReadonlyArray<Schema.Schema.Type<S>>,
   itemSchema: S,
 ) =>
   Effect.gen(function* () {
@@ -98,12 +95,9 @@ export const emitItemsResult = <S extends Schema.Encoder<unknown, never>, TComma
     return yield* renderer.result(document, makeItemsDocumentSchema(command, itemSchema));
   });
 
-export const emitResultDocument = <
-  S extends Schema.Encoder<unknown, never>,
-  TCommand extends string,
->(
+export const emitResultDocument = <S extends Schema.Top, TCommand extends string>(
   command: TCommand,
-  result: S["Type"],
+  result: Schema.Schema.Type<S>,
   schema: S,
 ) =>
   Effect.gen(function* () {

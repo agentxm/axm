@@ -27,7 +27,7 @@ const handleDate = (args: { readonly value: Option.Option<Date> }) =>
   });
 
 export const dateCommand = Command.make("date", dateConfig, ({ value }) =>
-  handleDate({ value }).pipe(withRuntime({ command: "prompts date" })),
+  handleDate({ value }).pipe(withRuntime("prompts date")),
 ).pipe(
   withArgvTracking(dateConfig),
   Command.withDescription("Demo date input prompt"),

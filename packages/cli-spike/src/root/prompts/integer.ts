@@ -33,7 +33,7 @@ const handleInteger = (args: { readonly value: Option.Option<number> }) =>
   });
 
 export const integerCommand = Command.make("integer", integerConfig, ({ value }) =>
-  handleInteger({ value }).pipe(withRuntime({ command: "prompts integer" })),
+  handleInteger({ value }).pipe(withRuntime("prompts integer")),
 ).pipe(
   withArgvTracking(integerConfig),
   Command.withDescription("Demo integer input prompt"),

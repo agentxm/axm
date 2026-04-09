@@ -17,7 +17,7 @@ const handleHandledTelemetry = Effect.fail(
 );
 
 export const handledCommand = Command.make("handled", handledConfig, () =>
-  handleHandledTelemetry.pipe(withRuntime({ command: "telemetry handled" })),
+  handleHandledTelemetry.pipe(withRuntime("telemetry handled")),
 ).pipe(
   withArgvTracking(handledConfig),
   Command.withDescription("Emit a handled AppError and report it to telemetry"),

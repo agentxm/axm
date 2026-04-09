@@ -5,10 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { type TaskLogConfig, CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
-
-const commandMeta = spikeCommandMeta("outputs task-log", { json: true });
 
 const taskLogConfig = {
   title: Argument.string("title").pipe(
@@ -56,10 +53,9 @@ export const taskLogCommand = Command.make(
   "task-log",
   taskLogConfig,
   ({ title, limit, retainLog }) =>
-    handleTaskLog({ title, limit, retainLog }).pipe(withRuntime(commandMeta)),
+    handleTaskLog({ title, limit, retainLog }).pipe(withRuntime("outputs task-log")),
 ).pipe(
   withArgvTracking(taskLogConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Render a task log"),
   Command.withExamples([
     {

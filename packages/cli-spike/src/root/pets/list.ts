@@ -5,7 +5,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
 import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { type FakePetHabitat, FakePetStore } from "../../fake-pet-store.js";
 import { withRuntime } from "../../runtime.js";
 
@@ -53,8 +52,6 @@ const listConfig = {
   species: Flag.string("species").pipe(Flag.withDescription("Filter by species"), Flag.atLeast(0)),
 } as const;
 
-const commandMeta = spikeCommandMeta("pets list", { json: true });
-
 export const handleList = (args: {
   readonly habitat: FakePetHabitat;
   readonly species: ReadonlyArray<string>;
@@ -92,10 +89,9 @@ export const handleList = (args: {
   });
 
 export const listCommand = Command.make("list", listConfig, ({ habitat, species }) =>
-  handleList({ habitat, species }).pipe(withRuntime(commandMeta)),
+  handleList({ habitat, species }).pipe(withRuntime("pets list")),
 ).pipe(
   withArgvTracking(listConfig),
-  annotateCommandMeta(commandMeta),
   Command.withAlias("ls"),
   Command.withDescription("List sample pets. JSON output includes items[] and count."),
   Command.withExamples([

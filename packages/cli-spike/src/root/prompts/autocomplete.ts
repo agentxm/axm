@@ -75,9 +75,7 @@ export const autocompleteCommand = Command.make(
   "autocomplete",
   autocompleteConfig,
   ({ value, ["max-items"]: maxItems, placeholder }) =>
-    handleAutocomplete({ value, maxItems, placeholder }).pipe(
-      withRuntime({ command: "prompts autocomplete" }),
-    ),
+    handleAutocomplete({ value, maxItems, placeholder }).pipe(withRuntime("prompts autocomplete")),
 ).pipe(
   withArgvTracking(autocompleteConfig),
   Command.withDescription("Demo autocomplete prompt"),

@@ -83,7 +83,7 @@ export const groupMultiselectCommand = Command.make(
   groupMultiselectConfig,
   ({ value, ["selectable-groups"]: selectableGroups, required }) =>
     handleGroupMultiselect({ value, selectableGroups, required }).pipe(
-      withRuntime({ command: "prompts group-multiselect" }),
+      withRuntime("prompts group-multiselect"),
     ),
 ).pipe(
   withArgvTracking(groupMultiselectConfig),

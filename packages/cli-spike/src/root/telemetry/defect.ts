@@ -9,7 +9,7 @@ const defectConfig = {} as const;
 const handleDefectTelemetry = Effect.die(new Error("Simulated defect telemetry failure"));
 
 export const defectCommand = Command.make("defect", defectConfig, () =>
-  handleDefectTelemetry.pipe(withRuntime({ command: "telemetry defect" })),
+  handleDefectTelemetry.pipe(withRuntime("telemetry defect")),
 ).pipe(
   withArgvTracking(defectConfig),
   Command.withDescription("Emit an unhandled defect and report it to telemetry"),

@@ -6,7 +6,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer, type DetailView } from "@axm.sh/core/unstable/cli-renderer";
 import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 export const SamplePetDetailSchema = Schema.Struct({
@@ -56,8 +55,6 @@ const detailConfig = {
   title: Flag.string("title").pipe(Flag.withDescription("Detail view title"), Flag.optional),
 } as const;
 
-const commandMeta = spikeCommandMeta("outputs detail", { json: true });
-
 export const handleDetail = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -72,10 +69,9 @@ export const handleDetail = (args: { readonly title: Option.Option<string> }) =>
   });
 
 export const detailCommand = Command.make("detail", detailConfig, ({ title }) =>
-  handleDetail({ title }).pipe(withRuntime(commandMeta)),
+  handleDetail({ title }).pipe(withRuntime("outputs detail")),
 ).pipe(
   withArgvTracking(detailConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription(
     "Render detail key-value output. JSON output includes data.name, data.species, data.intakeDate, and data.habitat.",
   ),

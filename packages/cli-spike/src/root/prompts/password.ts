@@ -30,7 +30,7 @@ const handlePassword = (args: { readonly value: Option.Option<string> }) =>
   });
 
 export const passwordCommand = Command.make("password", passwordConfig, ({ value }) =>
-  handlePassword({ value }).pipe(withRuntime({ command: "prompts password" })),
+  handlePassword({ value }).pipe(withRuntime("prompts password")),
 ).pipe(
   withArgvTracking(passwordConfig),
   Command.withDescription("Demo password input prompt"),

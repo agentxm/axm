@@ -6,7 +6,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 interface FileEntry {
@@ -48,8 +47,6 @@ const sampleTree = [
 const treeConfig = {
   title: Flag.string("title").pipe(Flag.withDescription("Tree view title"), Flag.optional),
 } as const;
-
-const commandMeta = spikeCommandMeta("outputs tree", { json: true });
 
 interface FileNode {
   readonly name: string;
@@ -117,10 +114,9 @@ export const handleTree = (args: { readonly title: Option.Option<string> }) =>
   });
 
 export const treeCommand = Command.make("tree", treeConfig, ({ title }) =>
-  handleTree({ title }).pipe(withRuntime(commandMeta)),
+  handleTree({ title }).pipe(withRuntime("outputs tree")),
 ).pipe(
   withArgvTracking(treeConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription(
     "Render tree hierarchy output. JSON output includes data.roots[] with name, kind, and recursive children.",
   ),

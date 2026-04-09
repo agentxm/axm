@@ -6,7 +6,6 @@ import { Argument, Command } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 export const RawOutputDataSchema = Schema.Struct({
@@ -32,8 +31,6 @@ const rawConfig = {
   ),
 } as const;
 
-const commandMeta = spikeCommandMeta("outputs raw", { json: true });
-
 const defaultContent = ["Name: axm-spike", "Version: 0.0.1", "Pets: Mochi, Pickles, Juniper"].join(
   "\n",
 );
@@ -55,10 +52,9 @@ export const handleRaw = (args: { readonly content: Option.Option<string> }) =>
   });
 
 export const rawCommand = Command.make("raw", rawConfig, ({ content }) =>
-  handleRaw({ content }).pipe(withRuntime(commandMeta)),
+  handleRaw({ content }).pipe(withRuntime("outputs raw")),
 ).pipe(
   withArgvTracking(rawConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Render raw text. JSON output includes data.content and data.lines."),
   Command.withExamples([
     {

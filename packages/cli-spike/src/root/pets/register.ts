@@ -50,7 +50,7 @@ const handleRegister = (args: {
   });
 
 export const registerCommand = Command.make("register", registerConfig, ({ name, species, tag }) =>
-  handleRegister({ name, species, tag }).pipe(withRuntime({ command: "pets register" })),
+  handleRegister({ name, species, tag }).pipe(withRuntime("pets register")),
 ).pipe(
   withArgvTracking(registerConfig),
   Command.withDescription("Register a sample pet"),

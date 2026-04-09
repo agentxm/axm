@@ -140,7 +140,7 @@ export const compositionCommand = Command.make(
   compositionConfig,
   ({ name, species, age, adoptable, habitat }) =>
     handleComposition({ name, species, age, adoptable, habitat }).pipe(
-      withRuntime({ command: "prompts composition" }),
+      withRuntime("prompts composition"),
     ),
 ).pipe(
   withArgvTracking(compositionConfig),

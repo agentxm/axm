@@ -5,10 +5,7 @@ import { Argument, Command } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
-
-const commandMeta = spikeCommandMeta("outputs intro", { json: true });
 
 const introConfig = {
   title: Argument.string("title").pipe(
@@ -24,10 +21,9 @@ const handleIntro = (args: { readonly title: Option.Option<string> }) =>
   });
 
 export const introCommand = Command.make("intro", introConfig, ({ title }) =>
-  handleIntro({ title }).pipe(withRuntime(commandMeta)),
+  handleIntro({ title }).pipe(withRuntime("outputs intro")),
 ).pipe(
   withArgvTracking(introConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Render intro framing"),
   Command.withExamples([
     {

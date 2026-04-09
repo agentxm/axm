@@ -5,7 +5,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer, type DetailView, type TableView } from "@axm.sh/core/unstable/cli-renderer";
 import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 export const PetResultSchema = Schema.Struct({
@@ -83,8 +82,6 @@ const resultConfig = {
   ),
 } as const;
 
-const commandMeta = spikeCommandMeta("outputs result", { json: true });
-
 export const handleResult = (args: { readonly stream: boolean }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -117,10 +114,9 @@ export const handleResult = (args: { readonly stream: boolean }) =>
   });
 
 export const resultCommand = Command.make("result", resultConfig, ({ stream }) =>
-  handleResult({ stream }).pipe(withRuntime(commandMeta)),
+  handleResult({ stream }).pipe(withRuntime("outputs result")),
 ).pipe(
   withArgvTracking(resultConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription(
     "Render structured result output. JSON output always includes count and data.kind (single or list).",
   ),

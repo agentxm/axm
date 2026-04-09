@@ -5,10 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { type SpinnerOptions, CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
-
-const commandMeta = spikeCommandMeta("outputs spinner", { json: true });
 
 const spinnerConfig = {
   message: Argument.string("message").pipe(
@@ -50,10 +47,9 @@ export const spinnerCommand = Command.make(
   "spinner",
   spinnerConfig,
   ({ message, successMessage, failureMessage }) =>
-    handleSpinner({ message, successMessage, failureMessage }).pipe(withRuntime(commandMeta)),
+    handleSpinner({ message, successMessage, failureMessage }).pipe(withRuntime("outputs spinner")),
 ).pipe(
   withArgvTracking(spinnerConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Render spinner progress"),
   Command.withExamples([
     {

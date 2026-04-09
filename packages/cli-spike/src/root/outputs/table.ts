@@ -6,7 +6,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
 import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 export const SamplePetSchema = Schema.Struct({
@@ -51,8 +50,6 @@ const tableConfig = {
   caption: Flag.string("caption").pipe(Flag.withDescription("Table caption"), Flag.optional),
 } as const;
 
-const commandMeta = spikeCommandMeta("outputs table", { json: true });
-
 export const handleTable = (args: { readonly caption: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -71,10 +68,9 @@ export const handleTable = (args: { readonly caption: Option.Option<string> }) =
   });
 
 export const tableCommand = Command.make("table", tableConfig, ({ caption }) =>
-  handleTable({ caption }).pipe(withRuntime(commandMeta)),
+  handleTable({ caption }).pipe(withRuntime("outputs table")),
 ).pipe(
   withArgvTracking(tableConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription("Render table data. JSON output includes items[] and count."),
   Command.withExamples([
     {

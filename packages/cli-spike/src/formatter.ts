@@ -1,12 +1,9 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
 import { JsonSchemaVersion, JsonSchemaVersionSchema } from "@axm.sh/core/unstable/cli-runtime";
-
-import { JsonOutputSupported } from "./json-output.js";
 
 const isSubcommandDoc = (doc: HelpDoc): boolean => {
   const beforeBrackets = doc.usage.replace(/\s*[[<].*$/, "").trim();
@@ -19,9 +16,7 @@ const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
     return doc.globalFlags;
   }
 
-  const supportsJsonOutput = ServiceMap.getReferenceUnsafe(doc.annotations, JsonOutputSupported);
-  const globalFlags = doc.globalFlags?.filter((flag) => supportsJsonOutput || flag.name !== "json");
-
+  const globalFlags = doc.globalFlags?.filter((flag) => flag.name === "json");
   return globalFlags !== undefined && globalFlags.length > 0 ? globalFlags : undefined;
 };
 

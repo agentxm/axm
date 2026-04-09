@@ -63,7 +63,7 @@ export const autocompleteMultiselectCommand = Command.make(
   autocompleteMultiselectConfig,
   ({ value, required }) =>
     handleAutocompleteMultiselect({ value, required }).pipe(
-      withRuntime({ command: "prompts autocomplete-multiselect" }),
+      withRuntime("prompts autocomplete-multiselect"),
     ),
 ).pipe(
   withArgvTracking(autocompleteMultiselectConfig),

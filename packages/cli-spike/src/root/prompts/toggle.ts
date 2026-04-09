@@ -35,7 +35,7 @@ const handleToggle = (args: { readonly value: Option.Option<"yes" | "no"> }) =>
   });
 
 export const toggleCommand = Command.make("toggle", toggleConfig, ({ value }) =>
-  handleToggle({ value }).pipe(withRuntime({ command: "prompts toggle" })),
+  handleToggle({ value }).pipe(withRuntime("prompts toggle")),
 ).pipe(
   withArgvTracking(toggleConfig),
   Command.withDescription("Demo toggle prompt"),

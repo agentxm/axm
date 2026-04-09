@@ -87,7 +87,7 @@ const handleAdopt = (args: {
   });
 
 export const adoptCommand = Command.make("adopt", adoptConfig, ({ pet, yes, force, preview }) =>
-  handleAdopt({ pet, yes, force, preview }).pipe(withRuntime({ command: "pets adopt" })),
+  handleAdopt({ pet, yes, force, preview }).pipe(withRuntime("pets adopt")),
 ).pipe(
   withArgvTracking(adoptConfig),
   Command.withDescription("Adopt out a sample pet"),

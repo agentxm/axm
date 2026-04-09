@@ -6,7 +6,6 @@ import { Command } from "effect/unstable/cli";
 import { CliRenderer, type DetailView, type TableView } from "@axm.sh/core/unstable/cli-renderer";
 import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
@@ -86,8 +85,6 @@ const sampleTree: ReadonlyArray<{
 // ---------------------------------------------------------------------------
 
 const sinkConfig = {} as const;
-
-const commandMeta = spikeCommandMeta("outputs sink", { json: true });
 
 export const handleSink = Effect.gen(function* () {
   const renderer = yield* CliRenderer;
@@ -207,10 +204,9 @@ export const handleSink = Effect.gen(function* () {
 // ---------------------------------------------------------------------------
 
 export const sinkCommand = Command.make("sink", sinkConfig, () =>
-  handleSink.pipe(withRuntime(commandMeta)),
+  handleSink.pipe(withRuntime("outputs sink")),
 ).pipe(
   withArgvTracking(sinkConfig),
-  annotateCommandMeta(commandMeta),
   Command.withDescription(
     "Kitchen sink demo of all output renderer methods. JSON output includes items[] and count.",
   ),

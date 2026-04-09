@@ -30,7 +30,7 @@ const handleHidden = (args: { readonly value: Option.Option<string> }) =>
   });
 
 export const hiddenCommand = Command.make("hidden", hiddenConfig, ({ value }) =>
-  handleHidden({ value }).pipe(withRuntime({ command: "prompts hidden" })),
+  handleHidden({ value }).pipe(withRuntime("prompts hidden")),
 ).pipe(
   withArgvTracking(hiddenConfig),
   Command.withDescription("Demo hidden input prompt"),

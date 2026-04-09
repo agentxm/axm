@@ -61,7 +61,7 @@ export const selectCommand = Command.make(
   "select",
   selectConfig,
   ({ value, ["max-items"]: maxItems, initial }) =>
-    handleSelect({ value, maxItems, initial }).pipe(withRuntime({ command: "prompts select" })),
+    handleSelect({ value, maxItems, initial }).pipe(withRuntime("prompts select")),
 ).pipe(
   withArgvTracking(selectConfig),
   Command.withDescription("Demo select prompt"),

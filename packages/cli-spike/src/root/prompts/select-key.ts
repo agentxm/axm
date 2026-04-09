@@ -52,7 +52,7 @@ export const selectKeyCommand = Command.make(
   "select-key",
   selectKeyConfig,
   ({ value, ["case-sensitive"]: caseSensitive }) =>
-    handleSelectKey({ value, caseSensitive }).pipe(withRuntime({ command: "prompts select-key" })),
+    handleSelectKey({ value, caseSensitive }).pipe(withRuntime("prompts select-key")),
 ).pipe(
   withArgvTracking(selectKeyConfig),
   Command.withDescription("Demo select-key prompt"),

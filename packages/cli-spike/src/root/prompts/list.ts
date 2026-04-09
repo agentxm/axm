@@ -26,7 +26,7 @@ const handleList = (args: { readonly value: ReadonlyArray<string> }) =>
   });
 
 export const listCommand = Command.make("list", listConfig, ({ value }) =>
-  handleList({ value }).pipe(withRuntime({ command: "prompts list" })),
+  handleList({ value }).pipe(withRuntime("prompts list")),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withDescription("Demo list input prompt"),

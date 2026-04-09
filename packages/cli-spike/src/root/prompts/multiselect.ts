@@ -66,9 +66,7 @@ export const multiselectCommand = Command.make(
   "multiselect",
   multiselectConfig,
   ({ value, ["max-items"]: maxItems, required }) =>
-    handleMultiselect({ value, maxItems, required }).pipe(
-      withRuntime({ command: "prompts multiselect" }),
-    ),
+    handleMultiselect({ value, maxItems, required }).pipe(withRuntime("prompts multiselect")),
 ).pipe(
   withArgvTracking(multiselectConfig),
   Command.withDescription("Demo multiselect prompt"),

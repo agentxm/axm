@@ -65,9 +65,7 @@ export const textCommand = Command.make(
   "text",
   textConfig,
   ({ value, placeholder, default: defaultValue, validate }) =>
-    handleText({ value, placeholder, defaultValue, validate }).pipe(
-      withRuntime({ command: "prompts text" }),
-    ),
+    handleText({ value, placeholder, defaultValue, validate }).pipe(withRuntime("prompts text")),
 ).pipe(
   withArgvTracking(textConfig),
   Command.withDescription("Demo text input prompt"),

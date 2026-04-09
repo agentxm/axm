@@ -201,30 +201,22 @@ describe("axm-spike source smoke", () => {
     expect(output).toContain("telemetry");
   });
 
-  it("shows all applicable global flags on supported leaf help", async () => {
+  it("keeps only --json visible on supported leaf help", async () => {
     const result = await runSpike(["pets", "list", "--help"]);
     const output = combinedOutput(result);
 
     expect(result.exitCode).toBe(0);
-    expect(output).toContain("--non-interactive");
-    expect(output).toContain("--verbose");
-    expect(output).toContain("--debug");
-    expect(output).toContain("--quiet");
     expect(output).toContain("--json");
     expect(output).toContain("items[]");
     expect(output).toContain("count");
   });
 
-  it("keeps non-json global flags visible on unsupported leaf help", async () => {
+  it("keeps only --json visible on unsupported leaf help", async () => {
     const result = await runSpike(["pets", "intake", "--help"]);
     const output = combinedOutput(result);
 
     expect(result.exitCode).toBe(0);
-    expect(output).toContain("--non-interactive");
-    expect(output).toContain("--verbose");
-    expect(output).toContain("--debug");
-    expect(output).toContain("--quiet");
-    expect(output).not.toContain("--json");
+    expect(output).toContain("--json");
   });
 
   it("formats help as JSON before Effect runs", async () => {
@@ -233,9 +225,15 @@ describe("axm-spike source smoke", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output.usage).toContain("axm-spike pets list");
-    expect(output.globalFlags?.map((flag) => flag.name)).toEqual(
-      expect.arrayContaining(["non-interactive", "verbose", "debug", "quiet", "json"]),
-    );
+    expect(output.globalFlags?.map((flag) => flag.name)).toEqual(["json"]);
+  });
+
+  it("allows --json on non-document commands without emitting stdout data", async () => {
+    const result = await runSpike(["outputs", "box", "--json"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("This box renders one message at a time.");
   });
 
   it("emits the published items document for pets list", async () => {

@@ -42,7 +42,7 @@ const handlePath = (args: {
   });
 
 export const pathCommand = Command.make("path", pathConfig, ({ value, root, directory }) =>
-  handlePath({ value, root, directory }).pipe(withRuntime({ command: "prompts path" })),
+  handlePath({ value, root, directory }).pipe(withRuntime("prompts path")),
 ).pipe(
   withArgvTracking(pathConfig),
   Command.withDescription("Demo path input prompt"),

@@ -82,7 +82,7 @@ export const intakeCommand = Command.make(
   "intake",
   intakeConfig,
   ({ source, habitat, pet, all, yes }) =>
-    handleIntake({ source, habitat, pet, all, yes }).pipe(withRuntime({ command: "pets intake" })),
+    handleIntake({ source, habitat, pet, all, yes }).pipe(withRuntime("pets intake")),
 ).pipe(
   withArgvTracking(intakeConfig),
   Command.withDescription("Intake sample pets from a feed or file"),

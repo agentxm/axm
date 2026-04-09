@@ -66,9 +66,7 @@ export const confirmCommand = Command.make(
   "confirm",
   confirmConfig,
   ({ answer, active, inactive, initial }) =>
-    handleConfirm({ answer, active, inactive, initial }).pipe(
-      withRuntime({ command: "prompts confirm" }),
-    ),
+    handleConfirm({ answer, active, inactive, initial }).pipe(withRuntime("prompts confirm")),
 ).pipe(
   withArgvTracking(confirmConfig),
   Command.withDescription("Demo confirm prompt"),

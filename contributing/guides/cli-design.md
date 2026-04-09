@@ -331,14 +331,15 @@ Command.withExamples([
 One file per leaf command makes commands discoverable in the file system, reduces
 merge conflicts during parallel work, and keeps tests colocated with the code
 they exercise. Start with a flat file; promote to a directory only when
-complexity demands it.
+complexity demands it. Parent/group commands use `_<command>.ts` so they stand
+out from leaf `command.ts` files inside promoted directories.
 
 ### Default: flat files
 
 ```text
 src/root/
   pets/
-    command.ts        # parent/group command
+    _pets.ts          # parent/group command
     intake.ts         # leaf: config + handler + helpers
     intake.test.ts
     list.ts
@@ -357,7 +358,7 @@ its own test file.
 ```text
 src/root/
   pets/
-    command.ts
+    _pets.ts
     intake/
       command.ts                       # config + wiring only
       handler.ts                       # orchestration
@@ -393,7 +394,7 @@ A directory is not justified by:
 ### File Organization Checklist
 
 - [ ] **One file per leaf** — Each leaf command defaults to a single file
-- [ ] **Group uses command.ts** — Parent/group command lives in `command.ts`
+- [ ] **Group uses \_name.ts** — Parent/group command lives in `_<command>.ts`
 - [ ] **Single export** — Leaf files export one command
 - [ ] **Colocated tests** — Tests live next to the command file
 - [ ] **Local helpers** — Shared helpers stay inside the feature folder

@@ -18,12 +18,12 @@ import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
 import { initCommand } from "./root/init.js";
-import { skillsCommand } from "./root/skills/command.js";
-import { packsCommand } from "./root/packs/command.js";
-import { commandsCommand } from "./root/commands/command.js";
-import { mcpServersCommand } from "./root/mcp-servers/command.js";
-import { subagentsCommand } from "./root/subagents/command.js";
-import { authCommand } from "./root/auth/command.js";
+import { skillsCommand } from "./root/skills/_skills.js";
+import { packsCommand } from "./root/packs/_packs.js";
+import { commandsCommand } from "./root/commands/_commands.js";
+import { mcpServersCommand } from "./root/mcp-servers/_mcp-servers.js";
+import { subagentsCommand } from "./root/subagents/_subagents.js";
+import { authCommand } from "./root/auth/_auth.js";
 import { loginCommand } from "./root/auth/login.js";
 import { logoutCommand } from "./root/auth/logout.js";
 import { whoamiCommand } from "./root/auth/whoami.js";

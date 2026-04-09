@@ -21,10 +21,10 @@ import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 
 import { makeSpikeFormatter } from "./formatter.js";
 import { ROOT_COMMAND, VERSION } from "./runtime.js";
-import { petsCommand } from "./root/pets/command.js";
-import { telemetryCommand } from "./root/telemetry/command.js";
-import { outputsCommand } from "./root/outputs/command.js";
-import { promptsCommand } from "./root/prompts/command.js";
+import { petsCommand } from "./root/pets/_pets.js";
+import { telemetryCommand } from "./root/telemetry/_telemetry.js";
+import { outputsCommand } from "./root/outputs/_outputs.js";
+import { promptsCommand } from "./root/prompts/_prompts.js";
 
 const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, quietFlag, jsonFlag] as const;
 const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>

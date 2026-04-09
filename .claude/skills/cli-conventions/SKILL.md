@@ -188,7 +188,7 @@ src/
 ├── runtime.ts                  # withRuntime() + service provisioning
 └── root/
     └── skills/
-        ├── command.ts           # Parent command — composes subcommands
+        ├── _skills.ts           # Parent command — composes subcommands
         ├── install.ts           # Required arg + choice flag + multi-value flag + boolean flag
         ├── uninstall.ts         # Required arg only
         ├── list.ts              # Flags only + Command.withAlias("ls")

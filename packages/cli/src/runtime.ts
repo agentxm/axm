@@ -32,6 +32,7 @@ import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import {
   AuthClientLive,
+  AuthGuardInteractionLive,
   AuthLoginInteractionLive,
   AuthMiddlewareLive,
   CredentialStoreLive,
@@ -49,7 +50,12 @@ import { InstallSubagentCommandWorkflowActionsLive } from "./root/subagents/inst
 import { UninstallSubagentCommandWorkflowActionsLive } from "./root/subagents/uninstall/command-actions.js";
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import type { WorkspaceContextOptions, WorkspaceScope } from "@axm.sh/core/unstable/workspace";
-import { getBuiltInSources, layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import {
+  getBuiltInSources,
+  layer as coreWorkspaceLayer,
+  ResolvePlanInteractionLive,
+  WorkspaceInitializationInteractionLive,
+} from "@axm.sh/core/unstable/workspace";
 import { loadVersion } from "./version.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
@@ -266,7 +272,15 @@ export const withRuntime =
         envVerbose: config.envVerbose,
         envDebug: config.envDebug,
       });
-      const appLayer = Layer.provideMerge(debugLoggerLayer, foundationLayer);
+      const interactionLayer = Layer.mergeAll(
+        AuthGuardInteractionLive,
+        ResolvePlanInteractionLive,
+        WorkspaceInitializationInteractionLive,
+      );
+      const appLayer = Layer.provideMerge(
+        debugLoggerLayer,
+        Layer.mergeAll(foundationLayer, interactionLayer),
+      );
       const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
 
       return yield* withCliErrorHandling(provided, {

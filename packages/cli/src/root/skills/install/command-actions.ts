@@ -25,7 +25,6 @@ import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { Source, InputParseResult } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
@@ -243,7 +242,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
     const renderer = yield* CliRenderer;
-    const prompt = yield* CliPrompt;
     const skillMgr = yield* SkillManager;
     const ws = yield* Workspace;
     const pathSvc = yield* Path.Path;
@@ -255,7 +253,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(CliRenderer, renderer),
-      Layer.succeed(CliPrompt, prompt),
       Layer.succeed(Workspace, ws),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),

@@ -15,7 +15,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../cli-renderer/index.js";
-import { makeTestPrompt, type TestPromptState } from "../cli-prompt/index.js";
 import YAML from "yaml";
 import { AppError } from "../app-error/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
@@ -40,6 +39,7 @@ import {
   type SetExtensionPackArgs,
   type WorkspaceContextOptions,
 } from "./service-interface.js";
+import { WorkspaceInitializationInteractionTest } from "./index.js";
 
 describe("WorkspaceContextService", () => {
   let tempDir: string;
@@ -83,34 +83,13 @@ describe("WorkspaceContextService", () => {
   });
 
   const { layer: testLogLayer } = TestRenderer.make();
-  const [testPromptLayer] = makeTestPrompt({
-    confirmResponses: [true],
-    multiselectResponses: [[]],
-  });
-  const BaseLayer = Layer.mergeAll(
-    NodeServices.layer,
-    testLogLayer,
-    testPromptLayer,
-    TestFlagsLayer(),
-  );
+  const BaseLayer = Layer.mergeAll(NodeServices.layer, testLogLayer, TestFlagsLayer());
 
   const makeWsLayer = (options: WorkspaceContextOptions) =>
     Layer.provide(workspaceLayer(options), BaseLayer);
 
   const getService = (options: WorkspaceContextOptions) =>
     Workspace.asEffect().pipe(Effect.provide(makeWsLayer(options)));
-
-  const promptConfigs = (
-    state: TestPromptState,
-    method: "confirm" | "multiselect",
-  ): ReadonlyArray<unknown> => {
-    switch (method) {
-      case "confirm":
-        return state.confirmCalls;
-      case "multiselect":
-        return state.multiselectCalls;
-    }
-  };
 
   describe("baseDir", () => {
     it.effect("returns the parent of path", () =>
@@ -1096,17 +1075,21 @@ describe("WorkspaceContextService", () => {
       nonInteractive?: boolean;
     }) => {
       const { layer: logLayer } = TestRenderer.make();
-      const [promptLayer, promptState] = makeTestPrompt({
-        confirmResponses: [true],
-        multiselectResponses: [[]],
+      const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed([]),
       });
       const flagsLayer = TestFlagsLayer(flags);
+      const base = Layer.mergeAll(
+        NodeServices.layer,
+        logLayer,
+        workspaceInitInteraction.layer,
+        flagsLayer,
+      );
       const wsOptions: WorkspaceContextOptions = { scope: "project" };
-      const base = Layer.mergeAll(NodeServices.layer, logLayer, promptLayer, flagsLayer);
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
         run: Workspace.asEffect().pipe(Effect.provide(wsLayer)),
-        promptState,
+        promptState: workspaceInitInteraction.state,
       };
     };
 
@@ -1120,10 +1103,11 @@ describe("WorkspaceContextService", () => {
         yield* run;
 
         // Should have called multiselect once (no select prompt)
-        const multiselectCalls = promptConfigs(promptState, "multiselect");
-        expect(multiselectCalls).toHaveLength(1);
-        expect(multiselectCalls[0]).toEqual(
-          expect.objectContaining({ message: "Select agents to configure" }),
+        expect(promptState.selectAgentsCalls).toHaveLength(1);
+        expect(promptState.selectAgentsCalls[0]).toEqual(
+          expect.objectContaining({
+            detectedIds: expect.any(Array),
+          }),
         );
       }),
     );
@@ -1142,7 +1126,7 @@ describe("WorkspaceContextService", () => {
         const agents = yield* ws.getConfiguredAgents();
 
         // --non-interactive skips prompting entirely
-        expect(promptConfigs(promptState, "multiselect")).toHaveLength(0);
+        expect(promptState.selectAgentsCalls).toHaveLength(0);
         // claude-code should be auto-selected via project-level detection
         expect(agents).toContain("claude-code");
       }),
@@ -1161,7 +1145,7 @@ describe("WorkspaceContextService", () => {
         yield* run;
 
         // --yes alone does not skip selection prompts
-        expect(promptConfigs(promptState, "multiselect")).toHaveLength(1);
+        expect(promptState.selectAgentsCalls).toHaveLength(1);
       }),
     );
   });

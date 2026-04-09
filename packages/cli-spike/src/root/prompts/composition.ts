@@ -8,7 +8,7 @@ import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 
-import { promptOrValue, promptRequired } from "./helpers.js";
+import { promptOrValue, promptRequired, runPrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const speciesValues = ["cat", "dog", "rabbit", "bird", "hamster"] as const;
@@ -97,27 +97,32 @@ const handleComposition = (args: {
           ).pipe(Prompt.map((habitat) => ({ ...petInfo, habitat }) satisfies Registration))
         : Prompt.succeed({ ...petInfo, habitat: "pending" } satisfies Registration);
 
-    const registration = yield* Prompt.all({
-      name: promptOrValue(args.name, Prompt.text({ message: "Pet name:" })),
-      species: promptOrValue(
-        args.species,
-        Prompt.select({
-          message: "Species:",
-          choices: [
-            { title: "Cat", value: "cat" as const },
-            { title: "Dog", value: "dog" as const },
-            { title: "Rabbit", value: "rabbit" as const },
-            { title: "Bird", value: "bird" as const },
-            { title: "Hamster", value: "hamster" as const },
-          ],
-        }),
-      ),
-      age: promptOrValue(args.age, Prompt.integer({ message: "Age in months:", min: 1, max: 360 })),
-      adoptable: promptOrValue(
-        Option.map(args.adoptable, toBoolean),
-        Prompt.toggle({ message: "Adoptable?", active: "yes", inactive: "no" }),
-      ),
-    }).pipe(Prompt.flatMap(finalizeRegistration));
+    const registration = yield* runPrompt(
+      Prompt.all({
+        name: promptOrValue(args.name, Prompt.text({ message: "Pet name:" })),
+        species: promptOrValue(
+          args.species,
+          Prompt.select({
+            message: "Species:",
+            choices: [
+              { title: "Cat", value: "cat" as const },
+              { title: "Dog", value: "dog" as const },
+              { title: "Rabbit", value: "rabbit" as const },
+              { title: "Bird", value: "bird" as const },
+              { title: "Hamster", value: "hamster" as const },
+            ],
+          }),
+        ),
+        age: promptOrValue(
+          args.age,
+          Prompt.integer({ message: "Age in months:", min: 1, max: 360 }),
+        ),
+        adoptable: promptOrValue(
+          Option.map(args.adoptable, toBoolean),
+          Prompt.toggle({ message: "Adoptable?", active: "yes", inactive: "no" }),
+        ),
+      }).pipe(Prompt.flatMap(finalizeRegistration)),
+    );
 
     yield* renderer.success(
       [

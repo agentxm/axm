@@ -15,7 +15,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 
 import {
   AuthClient,
@@ -24,11 +24,12 @@ import {
   makePersistedCredentialsUnsupportedError,
   runDeviceLogin,
 } from "@axm.sh/core/unstable/auth";
+import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import { authCommandMeta, withCommandRuntime } from "../../command-meta.js";
 
@@ -36,10 +37,19 @@ import { authCommandMeta, withCommandRuntime } from "../../command-meta.js";
 // Handler
 // -----------------------------------------------------------------------------
 
-export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { yes: boolean }) {
+interface LoginInteractions {
+  readonly confirmRelogin?: (message: string) => Effect.Effect<boolean, PromptCancelled | AppError>;
+}
+
+const confirmRelogin = (message: string) =>
+  fromInteractivePrompt(Prompt.confirm({ message }), { message });
+
+export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
+  options: { yes: boolean },
+  interactions?: LoginInteractions,
+) {
   const credStore = yield* CredentialStore;
   const renderer = yield* CliRenderer;
-  const prompt = yield* CliPrompt;
   const registryUrl = yield* RegistryUrl;
 
   if (!credStore.allowsPersistedCredentials) {
@@ -66,9 +76,9 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { y
     if (Option.isSome(meResult)) {
       yield* renderer.info(`Already logged in as ${meResult.value.userHandle}.`);
       if (!options.yes) {
-        const shouldContinue = yield* prompt.confirm({
-          message: "Log in with a different account?",
-        });
+        const message = "Log in with a different account?";
+        const shouldContinue = yield* interactions?.confirmRelogin?.(message) ??
+          confirmRelogin(message);
         if (!shouldContinue) {
           return;
         }

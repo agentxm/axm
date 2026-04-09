@@ -7,7 +7,6 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Terminal from "effect/Terminal";
 
 import {
   type CliTelemetryConfigService,
@@ -47,7 +46,7 @@ interface RuntimeOptions {
 
 export const withRuntime =
   (options?: RuntimeOptions) =>
-  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled | Terminal.QuitError, R>) =>
+  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
     Effect.gen(function* () {
       const explicitJson = yield* jsonFlag;
       const jsonRequested = Option.getOrElse(explicitJson, () => false);
@@ -63,12 +62,7 @@ export const withRuntime =
       const format = yield* resolveCliFormat;
       const foundationLayer = makeFoundationLayer(format);
       const appLayer = Layer.provideMerge(FakePetStoreLive, foundationLayer);
-      const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
-      const handled = provided.pipe(
-        Effect.catchTag("QuitError", () =>
-          Effect.fail(new PromptCancelled({ message: "Operation cancelled." })),
-        ),
-      );
+      const handled = program.pipe(Effect.provide(appLayer), Effect.scoped);
 
       return yield* withCliErrorHandling(handled, {
         command: options?.command,

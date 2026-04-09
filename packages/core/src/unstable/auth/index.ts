@@ -88,4 +88,13 @@ export {
 } from "./login-interaction.js";
 
 // Auth guard combinator
+export type {
+  AuthGuardInteractionService,
+  AuthGuardInteractionTestState,
+} from "./guard-interaction.js";
+export {
+  AuthGuardInteraction,
+  AuthGuardInteractionLive,
+  AuthGuardInteractionTest,
+} from "./guard-interaction.js";
 export { withAuthGuard } from "./guard.js";

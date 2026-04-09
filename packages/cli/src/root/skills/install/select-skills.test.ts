@@ -10,7 +10,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import { extensionName } from "../../../test-stubs.js";
@@ -30,24 +29,16 @@ const makeSkill = (name: string): SkillExtensionRef => ({
 });
 
 const { layer: rendererLayer } = TestRenderer.make();
-const makeTestLayer = (
-  promptConfig: Parameters<typeof makeTestPrompt>[0] = {},
-  envOverrides: Parameters<typeof TestFlagsLayer>[0] = {},
-) => {
-  const [promptLayer] = makeTestPrompt(promptConfig);
-  return Layer.mergeAll(rendererLayer, promptLayer, TestFlagsLayer(envOverrides));
-};
+const makeTestLayer = (envOverrides: Parameters<typeof TestFlagsLayer>[0] = {}) =>
+  Layer.mergeAll(rendererLayer, TestFlagsLayer(envOverrides));
 
 type TestR = Layer.Success<ReturnType<typeof makeTestLayer>>;
 
 const provide = <A, E>(effect: Effect.Effect<A, E, TestR>) =>
   effect.pipe(Effect.provide(makeTestLayer()));
 
-const provideWith = (
-  promptConfig: Parameters<typeof makeTestPrompt>[0],
-  envOverrides: Parameters<typeof TestFlagsLayer>[0] = {},
-) => {
-  const layer = makeTestLayer(promptConfig, envOverrides);
+const provideWith = (envOverrides: Parameters<typeof TestFlagsLayer>[0] = {}) => {
+  const layer = makeTestLayer(envOverrides);
   return <A, E>(effect: Effect.Effect<A, E, TestR>) => effect.pipe(Effect.provide(layer));
 };
 
@@ -197,10 +188,7 @@ describe("determineSkillsToInstall", () => {
     );
 
     it.effect("returns all skills with --non-interactive", () =>
-      provideWith(
-        {},
-        { nonInteractive: true },
-      )(
+      provideWith({ nonInteractive: true })(
         Effect.gen(function* () {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
@@ -214,23 +202,25 @@ describe("determineSkillsToInstall", () => {
 
     it.effect("--yes with multiple skills still prompts for selection", () => {
       const availableSkills = skills("commit", "review-pr");
+      const selectCalls: Array<ReadonlyArray<string>> = [];
       return Effect.gen(function* () {
-        const result = yield* determineSkillsToInstall(availableSkills, {
-          requestedSkills: [],
-          all: false,
-        });
+        const result = yield* determineSkillsToInstall(
+          availableSkills,
+          {
+            requestedSkills: [],
+            all: false,
+          },
+          {
+            selectSkills: (skills) => {
+              selectCalls.push(skills.map((skill) => skill.skill.name));
+              return Effect.succeed(skills);
+            },
+          },
+        );
 
         expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
-      }).pipe(
-        Effect.provide(
-          makeTestLayer(
-            {
-              multiselectResponses: [[...availableSkills]],
-            },
-            { nonInteractive: false },
-          ),
-        ),
-      );
+        expect(selectCalls).toEqual([["commit", "review-pr"]]);
+      }).pipe(Effect.provide(makeTestLayer({ nonInteractive: false })));
     });
   });
 
@@ -252,20 +242,25 @@ describe("determineSkillsToInstall", () => {
   describe("multiple skills (rule 4)", () => {
     it.effect("prompts multiselect for multiple skills", () => {
       const availableSkills = skills("commit", "review-pr");
+      const selectCalls: Array<ReadonlyArray<string>> = [];
       return Effect.gen(function* () {
-        const result = yield* determineSkillsToInstall(availableSkills, {
-          requestedSkills: [],
-          all: false,
-        });
+        const result = yield* determineSkillsToInstall(
+          availableSkills,
+          {
+            requestedSkills: [],
+            all: false,
+          },
+          {
+            selectSkills: (skills) => {
+              selectCalls.push(skills.map((skill) => skill.skill.name));
+              return Effect.succeed(skills);
+            },
+          },
+        );
 
         expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
-      }).pipe(
-        Effect.provide(
-          makeTestLayer({
-            multiselectResponses: [[...availableSkills]],
-          }),
-        ),
-      );
+        expect(selectCalls).toEqual([["commit", "review-pr"]]);
+      }).pipe(Effect.provide(makeTestLayer({ nonInteractive: false })));
     });
   });
 });

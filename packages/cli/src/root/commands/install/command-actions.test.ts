@@ -14,7 +14,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
@@ -47,16 +46,10 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } satisfies ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
-const [promptLayer] = makeTestPrompt({
-  confirmResponses: [true],
-  textResponses: [""],
-});
-
 const testLayer = Layer.mergeAll(
   Layer.succeed(Workspace, mockWorkspace),
   Layer.succeed(CommandManager, mockCommandManager),
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
-  promptLayer,
   NodeServices.layer,
   TestFlagsLayer(),
 );
@@ -151,7 +144,6 @@ describe("parseCommandInstallArgs", () => {
           Layer.succeed(Workspace, mockWorkspace),
           Layer.succeed(CommandManager, mockCommandManager),
           Layer.succeed(SourceHostProviders, mockSourceHostProviders),
-          promptLayer,
           NodeServices.layer,
           TestFlagsLayer(),
         ),

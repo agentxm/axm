@@ -21,9 +21,7 @@ import {
 import { CommandArgv, serializeArgv } from "./command-argv.js";
 
 import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
-import { makeInteractivePrompt, type CliPrompt } from "../cli-prompt/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
-import { isNonInteractive } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 
 const writeStderr = (message: string): void => {
@@ -31,7 +29,7 @@ const writeStderr = (message: string): void => {
 };
 
 export type ExpectedCliError = AppError | PromptCancelled;
-export type CliRuntimeFoundation = CliRenderer | CliPrompt | Verbosity;
+export type CliRuntimeFoundation = CliRenderer | Verbosity;
 
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
   error._tag === "PromptCancelled" ? 0 : 1;
@@ -72,10 +70,10 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Build the foundation layer: CliRenderer + CliPrompt + Verbosity.
+ * Build the foundation layer: CliRenderer + Verbosity.
  *
- * The returned layer requires the `nonInteractiveFlag` global flag setting
- * in its context (resolved by the Effect CLI framework at command dispatch).
+ * The returned layer requires the global verbosity flag settings in its
+ * context when no explicit verbosity level is supplied.
  */
 export const makeFoundationLayer = (
   format: OutputFormat,
@@ -88,10 +86,6 @@ export const makeFoundationLayer = (
   // Json mode uses machine-readable output.
   const rendererLayer: Layer.Layer<CliRenderer> =
     format !== "text" ? MachineRenderer() : InteractiveRenderer();
-
-  const promptLayer = Layer.unwrap(
-    isNonInteractive.pipe(Effect.map((nonInteractive) => makeInteractivePrompt(nonInteractive))),
-  );
 
   // Verbosity: use explicit level if provided, otherwise derive from flags + env vars
   const verbosityLayer = options?.verbosityLevel
@@ -117,7 +111,7 @@ export const makeFoundationLayer = (
         }),
       );
 
-  return Layer.mergeAll(rendererLayer, promptLayer, verbosityLayer);
+  return Layer.mergeAll(rendererLayer, verbosityLayer);
 };
 
 /**

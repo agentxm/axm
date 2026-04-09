@@ -2,10 +2,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
+import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
 import { isNonInteractive, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
@@ -47,7 +47,6 @@ const resolveSyncPlan = Effect.fn("Sync.resolvePlan")(function* (
   args: SyncHandlerArgs,
 ) {
   const renderer = yield* CliRenderer;
-  const prompt = yield* CliPrompt;
   const nonInteractive = yield* isNonInteractive;
   const resolvedYes = args.yes || nonInteractive;
   const readiness = scanPlanReadiness(plan);
@@ -76,7 +75,8 @@ const resolveSyncPlan = Effect.fn("Sync.resolvePlan")(function* (
     }
 
     if (!resolvedYes) {
-      const confirmed = yield* prompt.confirm({ message: "Apply changes?" });
+      const message = "Apply changes?";
+      const confirmed = yield* fromInteractivePrompt(Prompt.confirm({ message }), { message });
       if (!confirmed) {
         yield* renderer.success("Cancelled.");
         return {

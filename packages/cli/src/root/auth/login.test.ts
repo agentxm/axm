@@ -15,7 +15,6 @@ import {
   CredentialStoreTest,
 } from "@axm.sh/core/unstable/auth";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
@@ -35,9 +34,6 @@ const makeLayers = (opts?: {
   allowsPersistedCredentials?: boolean;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-  const [promptLayer, promptState] = makeTestPrompt({
-    confirmResponses: [opts?.confirmValue ?? true],
-  });
   const interactionLayer = AuthLoginInteractionTest().layer;
 
   const flagsLayer = TestFlagsLayer({
@@ -99,7 +95,6 @@ const makeLayers = (opts?: {
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
-    promptLayer,
     interactionLayer,
     flagsLayer,
     credStoreLayer,
@@ -111,7 +106,7 @@ const makeLayers = (opts?: {
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(FullLayer));
 
-  return { provide, rendererState, promptState };
+  return { provide, rendererState };
 };
 
 describe("auth login handler", () => {
@@ -170,19 +165,27 @@ describe("auth login handler", () => {
   });
 
   it.effect("prompts when already logged in", () => {
-    const { provide, rendererState, promptState } = makeLayers({
+    const { provide, rendererState } = makeLayers({
       existingCredentials: true,
-      confirmValue: true,
     });
+    const confirmCalls: Array<string> = [];
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false });
+        yield* handleLogin(
+          { yes: false },
+          {
+            confirmRelogin: (message) => {
+              confirmCalls.push(message);
+              return Effect.succeed(true);
+            },
+          },
+        );
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
           ),
         ).toBe(true);
-        expect(promptState.confirmCalls.length > 0).toBe(true);
+        expect(confirmCalls).toEqual(["Log in with a different account?"]);
         expect(
           rendererState.logs.some(
             (l) =>
@@ -195,7 +198,7 @@ describe("auth login handler", () => {
   });
 
   it.effect("skips prompt when already logged in with --yes", () => {
-    const { provide, rendererState, promptState } = makeLayers({
+    const { provide, rendererState } = makeLayers({
       existingCredentials: true,
       yes: true,
     });
@@ -207,7 +210,6 @@ describe("auth login handler", () => {
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
           ),
         ).toBe(true);
-        expect(promptState.confirmCalls).toHaveLength(0);
         expect(
           rendererState.logs.some(
             (l) =>
@@ -222,11 +224,20 @@ describe("auth login handler", () => {
   it.effect("returns early when user declines re-login", () => {
     const { provide, rendererState } = makeLayers({
       existingCredentials: true,
-      confirmValue: false,
     });
+    const confirmCalls: Array<string> = [];
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false });
+        yield* handleLogin(
+          { yes: false },
+          {
+            confirmRelogin: (message) => {
+              confirmCalls.push(message);
+              return Effect.succeed(false);
+            },
+          },
+        );
+        expect(confirmCalls).toEqual(["Log in with a different account?"]);
         expect(
           rendererState.logs.filter(
             (l) => l._tag === "success" && l.message.includes("Logged in to"),
@@ -237,7 +248,7 @@ describe("auth login handler", () => {
   });
 
   it.effect("proceeds directly to login when stored token is invalid", () => {
-    const { provide, rendererState, promptState } = makeLayers({
+    const { provide, rendererState } = makeLayers({
       existingCredentials: true,
       getMeFails: true,
     });
@@ -249,7 +260,6 @@ describe("auth login handler", () => {
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
           ),
         ).toBe(false);
-        expect(promptState.confirmCalls).toHaveLength(0);
       }),
     );
   });
@@ -281,14 +291,10 @@ describe("auth login handler", () => {
     });
 
     const { layer: rendererLayer2, state: rendererState2 } = TestRenderer.make();
-    const [promptLayer2] = makeTestPrompt({
-      confirmResponses: [true],
-    });
     const interactionLayer2 = AuthLoginInteractionTest().layer;
 
     const layer = Layer.mergeAll(
       rendererLayer2,
-      promptLayer2,
       interactionLayer2,
       TestFlagsLayer({ nonInteractive: false }),
       CredentialStoreTest(),

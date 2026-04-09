@@ -14,7 +14,6 @@ import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
@@ -67,13 +66,7 @@ describe("list.handler", () => {
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    const [promptLayer] = makeTestPrompt();
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      TestFlagsLayer(),
-    );
+    const BaseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
       ...wsOverrides,

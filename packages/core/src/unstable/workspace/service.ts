@@ -170,7 +170,7 @@ export type WorkspaceLayerOptions = WorkspaceContextOptions;
  *   runs initialization flow if local settings don't exist
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * CliPrompt service is required for agent selection.
+ * provide `WorkspaceInitializationInteraction` for agent selection.
  *
  * @param options - Workspace layer options
  * @returns Effect yielding WorkspaceContextService
@@ -1620,7 +1620,7 @@ const make = (options: WorkspaceLayerOptions) =>
  * Create a layer that loads workspace context from disk.
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * CliPrompt service is required for agent selection.
+ * provide `WorkspaceInitializationInteraction` for agent selection.
  *
  * @param options - Workspace layer options
  * @returns Layer providing WorkspaceContext

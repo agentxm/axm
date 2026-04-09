@@ -14,7 +14,16 @@ export {
   type GroupMultiselectGroup,
   type GroupMultiselectOptions,
 } from "./group-multiselect.js";
-export { autoConfirm, unless } from "./helpers.js";
+export {
+  autoConfirm,
+  fromFlagOrInteractivePrompt,
+  fromInteractivePrompt,
+  fromValuesOrInteractivePrompt,
+  promptOrValue,
+  promptRequired,
+  runPrompt,
+  unless,
+} from "./helpers.js";
 export { selectKey, type SelectKeyChoice, type SelectKeyOptions } from "./select-key.js";
 
 export const AxmPrompt = {

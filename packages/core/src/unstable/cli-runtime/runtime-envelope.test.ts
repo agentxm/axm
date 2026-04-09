@@ -5,7 +5,6 @@ import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
 import { CliRenderer } from "../cli-renderer/index.js";
-import { CliPrompt } from "../cli-prompt/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
@@ -64,15 +63,6 @@ describe("makeFoundationLayer", () => {
     }),
   );
 
-  it.effect("provides CliPrompt service", () =>
-    Effect.gen(function* () {
-      const prompt = yield* CliPrompt.asEffect().pipe(Effect.provide(testLayer("text")));
-      expect(prompt).toBeDefined();
-      expect(prompt.text).toBeDefined();
-      expect(prompt.confirm).toBeDefined();
-    }),
-  );
-
   it.effect("provides Verbosity service with default level", () =>
     Effect.gen(function* () {
       const v = yield* Verbosity.asEffect().pipe(Effect.provide(testLayer("text")));
@@ -108,11 +98,9 @@ describe("makeFoundationLayer", () => {
       const layer = testLayer("text", { verbosityLevel: "verbose" });
 
       const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(layer));
-      const prompt = yield* CliPrompt.asEffect().pipe(Effect.provide(layer));
       const verbosity = yield* Verbosity.asEffect().pipe(Effect.provide(layer));
 
       expect(renderer).toBeDefined();
-      expect(prompt).toBeDefined();
       expect(verbosity.level).toBe("verbose");
     }),
   );

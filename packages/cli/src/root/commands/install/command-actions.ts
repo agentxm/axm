@@ -22,12 +22,10 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { ExtensionName, Handle } from "@axm.sh/core/unstable/extensions";
 import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
-import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -106,7 +104,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const commandMgr = yield* CommandManager;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const prompt = yield* CliPrompt;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. resolveSource).
@@ -115,7 +112,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Workspace, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(CliPrompt, prompt),
     );
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
@@ -178,7 +174,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const resolveSourceRequests = (
       parsed: ParsedCommandInstallArgs,
-    ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, AppError | PromptCancelled> =>
+    ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, AppError> =>
       provide(
         Effect.gen(function* () {
           const source = yield* resolveSource(parsed.resolvedInput).pipe(

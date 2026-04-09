@@ -9,13 +9,15 @@
 
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { Prompt } from "effect/unstable/cli";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -24,6 +26,12 @@ import * as Option from "effect/Option";
 interface SelectSkillsArgs {
   readonly requestedSkills: readonly string[];
   readonly all: boolean;
+}
+
+interface SelectSkillsInteractions {
+  readonly selectSkills?: (
+    skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>,
+  ) => Effect.Effect<ReadonlyArray<SkillExtensionRef>, PromptCancelled | AppError>;
 }
 
 // -----------------------------------------------------------------------------
@@ -42,6 +50,7 @@ interface SelectSkillsArgs {
 export const determineSkillsToInstall = (
   skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>,
   args: SelectSkillsArgs,
+  interactions?: SelectSkillsInteractions,
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -76,7 +85,7 @@ export const determineSkillsToInstall = (
     }
 
     // 4. Multiple skills -> multiselect prompt
-    return yield* confirmSkillsToInstall(skills);
+    return yield* confirmSkillsToInstall(skills, interactions?.selectSkills);
   });
 
 /**
@@ -85,30 +94,25 @@ export const determineSkillsToInstall = (
  * Shows a multiselect prompt with no skills pre-selected.
  * PromptCancelled bubbles up to the runtime; other errors become AppError.
  */
-export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
-  Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
+const selectSkillsPrompt = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>) => {
+  const message = "Select skills to install";
+  return fromInteractivePrompt(
+    Prompt.multiSelect({
+      message,
+      choices: skills.map((skill) => ({
+        title: skill.skill.name,
+        value: skill,
+        ...(Option.isSome(skill.skill.description)
+          ? { description: skill.skill.description.value }
+          : {}),
+      })),
+      min: 1,
+    }),
+    { message },
+  );
+};
 
-    return yield* prompt
-      .multiselect({
-        message: "Select skills to install",
-        options: skills.map((s) => {
-          const base = { value: s, label: s.skill.name };
-          return Option.isSome(s.skill.description)
-            ? { ...base, hint: s.skill.description.value }
-            : base;
-        }),
-        required: true,
-      })
-      .pipe(
-        Effect.mapError((error) =>
-          error._tag === "PromptCancelled"
-            ? error
-            : makeAppError({
-                code: "PROMPT_FAILED",
-                what: "Failed to prompt for skill selection",
-                cause: error,
-              }),
-        ),
-      );
-  });
+export const confirmSkillsToInstall = (
+  skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>,
+  selectSkills: SelectSkillsInteractions["selectSkills"] = selectSkillsPrompt,
+) => selectSkills(skills);

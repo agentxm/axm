@@ -179,8 +179,26 @@ export {
   ensureGlobalWorkspaceInitialized,
   ensureProjectWorkspaceInitialized,
 } from "./initialization.js";
+export type {
+  WorkspaceInitializationInteractionService,
+  WorkspaceInitializationInteractionTestState,
+} from "./initialization-interaction.js";
+export {
+  WorkspaceInitializationInteraction,
+  WorkspaceInitializationInteractionLive,
+  WorkspaceInitializationInteractionTest,
+} from "./initialization-interaction.js";
 
 // Plan resolution
+export type {
+  ResolvePlanInteractionService,
+  ResolvePlanInteractionTestState,
+} from "./resolve-plan-interaction.js";
+export {
+  ResolvePlanInteraction,
+  ResolvePlanInteractionLive,
+  ResolvePlanInteractionTest,
+} from "./resolve-plan-interaction.js";
 export { resolvePlan } from "./resolve-plan.js";
 
 // Plan display

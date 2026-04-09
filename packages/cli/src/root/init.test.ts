@@ -19,11 +19,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import {
+  layer as coreWorkspaceLayer,
+  WorkspaceInitializationInteractionTest,
+} from "@axm.sh/core/unstable/workspace";
 import { expectDefined } from "../test-helpers.js";
 import { handleInit } from "./init.js";
 
@@ -45,16 +47,14 @@ describe("init.handler", () => {
 
   // Create individual TUI test layers
   const { layer: rendererLayer } = TestRenderer.make();
-  const [promptLayer] = makeTestPrompt({
-    confirmResponses: [true],
-    selectResponses: [undefined],
-    multiselectResponses: [[]],
+  const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+    selectAgents: () => Effect.succeed([]),
   });
 
   const TestLayer = Layer.mergeAll(
     NodeServices.layer,
     rendererLayer,
-    promptLayer,
+    workspaceInitInteraction.layer,
     TestFlagsLayer(),
   );
 
@@ -340,14 +340,13 @@ describe("init.handler", () => {
       },
     ) => {
       const { layer: iRendererLayer } = TestRenderer.make();
-      const [iPromptLayer] = makeTestPrompt({
-        confirmResponses: [true],
-        multiselectResponses: [tuiConfig.multiselectValues ?? []],
+      const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed(tuiConfig.multiselectValues ?? []),
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
         iRendererLayer,
-        iPromptLayer,
+        workspaceInitInteraction.layer,
         TestFlagsLayer({ nonInteractive: false }),
       );
       const WsLayer = Layer.provide(
@@ -415,14 +414,13 @@ describe("init.handler", () => {
   describe("telemetry notice", () => {
     it.effect("displays telemetry notice after successful init", () => {
       const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
-      const [iPromptLayer] = makeTestPrompt({
-        confirmResponses: [true],
-        multiselectResponses: [[]],
+      const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed([]),
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
         iRendererLayer,
-        iPromptLayer,
+        workspaceInitInteraction.layer,
         TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
@@ -445,14 +443,13 @@ describe("init.handler", () => {
       const origTelemetry = process.env["AXM_TELEMETRY"];
       process.env["AXM_TELEMETRY"] = "0";
       const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
-      const [iPromptLayer] = makeTestPrompt({
-        confirmResponses: [true],
-        multiselectResponses: [[]],
+      const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed([]),
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
         iRendererLayer,
-        iPromptLayer,
+        workspaceInitInteraction.layer,
         TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
@@ -487,14 +484,13 @@ describe("init.handler", () => {
   describe("subagent detection in init", () => {
     it.effect("notes unmanaged subagent files", () => {
       const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
-      const [iPromptLayer] = makeTestPrompt({
-        confirmResponses: [true],
-        multiselectResponses: [[]],
+      const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed([]),
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
         iRendererLayer,
-        iPromptLayer,
+        workspaceInitInteraction.layer,
         TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
@@ -522,14 +518,13 @@ describe("init.handler", () => {
 
     it.effect("notes managed subagent files", () => {
       const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
-      const [iPromptLayer] = makeTestPrompt({
-        confirmResponses: [true],
-        multiselectResponses: [[]],
+      const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed([]),
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
         iRendererLayer,
-        iPromptLayer,
+        workspaceInitInteraction.layer,
         TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
@@ -560,14 +555,13 @@ describe("init.handler", () => {
 
     it.effect("does not show subagent messages when no subagent files found", () => {
       const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
-      const [iPromptLayer] = makeTestPrompt({
-        confirmResponses: [true],
-        multiselectResponses: [[]],
+      const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed([]),
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
         iRendererLayer,
-        iPromptLayer,
+        workspaceInitInteraction.layer,
         TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(

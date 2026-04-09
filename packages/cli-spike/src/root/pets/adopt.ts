@@ -1,13 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Prompt } from "effect/unstable/cli";
 
 import { forceFlag, isNonInteractive, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { autoConfirm, CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { type AdoptionOutcome, FakePetStore } from "../../fake-pet-store.js";
+import { fromInteractivePrompt } from "../prompts/helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const renderPreview = (args: {
@@ -48,7 +48,6 @@ const handleAdopt = (args: {
   readonly preview: boolean;
 }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
     const nonInteractive = yield* isNonInteractive;
     const fakePetStore = yield* FakePetStore;
@@ -72,11 +71,11 @@ const handleAdopt = (args: {
           onSome: (blocker) => `Adopt ${plan.pet.name}? ${blocker}`,
         });
 
-    const confirmed = yield* autoConfirm(args.yes, () =>
-      prompt.confirm({
-        message: confirmationMessage,
-      }),
-    );
+    const confirmed = args.yes
+      ? true
+      : yield* fromInteractivePrompt(Prompt.confirm({ message: confirmationMessage }), {
+          message: confirmationMessage,
+        });
 
     if (!confirmed) {
       yield* renderer.info(args.preview ? "Preview kept unchanged" : "Adoption cancelled");

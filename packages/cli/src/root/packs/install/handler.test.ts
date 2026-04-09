@@ -16,10 +16,12 @@ import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import {
+  layer as coreWorkspaceLayer,
+  ResolvePlanInteractionTest,
+} from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import type { ExtensionPackRef } from "@axm.sh/core/unstable/packs";
 import type { ExtensionFiles } from "@axm.sh/core/unstable/sources";
@@ -126,14 +128,13 @@ describe("packs install handler", () => {
     flagsOverrides?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean },
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-
-    const [promptLayer] = makeTestPrompt({
-      confirmResponses: [tuiConfig?.confirmValue ?? true],
+    const resolvePlanInteraction = ResolvePlanInteractionTest({
+      confirmApplyChanges: () => Effect.succeed(tuiConfig?.confirmValue ?? true),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
       rendererLayer,
-      promptLayer,
+      resolvePlanInteraction.layer,
       TestFlagsLayer(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -175,14 +176,13 @@ describe("packs install handler", () => {
     flagsOverrides?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean },
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-
-    const [promptLayer] = makeTestPrompt({
-      confirmResponses: [true],
+    const resolvePlanInteraction = ResolvePlanInteractionTest({
+      confirmApplyChanges: () => Effect.succeed(true),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
       rendererLayer,
-      promptLayer,
+      resolvePlanInteraction.layer,
       TestFlagsLayer(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {

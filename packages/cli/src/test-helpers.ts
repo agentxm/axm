@@ -9,11 +9,34 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { AppError } from "@axm.sh/core/unstable/app-error";
+import { AuthGuardInteractionTest } from "@axm.sh/core/unstable/auth";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { makeTestPrompt, type TestPromptConfig } from "@axm.sh/core/unstable/cli-prompt";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import {
+  layer as coreWorkspaceLayer,
+  ResolvePlanInteractionTest,
+  WorkspaceInitializationInteractionTest,
+} from "@axm.sh/core/unstable/workspace";
+
+export interface TestPromptConfig {
+  readonly confirmResponses?: ReadonlyArray<boolean>;
+  readonly multiselectResponses?: ReadonlyArray<ReadonlyArray<string>>;
+}
+
+export interface TestPromptState {
+  readonly confirmCalls: Array<{ readonly kind: "auth-guard" | "resolve-plan" }>;
+  readonly multiselectCalls: Array<{
+    readonly message: string;
+    readonly options: ReadonlyArray<{
+      readonly value: string;
+      readonly label: string;
+      readonly hint?: string;
+    }>;
+    readonly initialValues: ReadonlyArray<string>;
+    readonly required: boolean;
+  }>;
+}
 
 export interface AppErrorResult {
   readonly error: true;
@@ -137,11 +160,57 @@ export const makeCliTestContext = (opts?: {
   readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-  const [promptLayer, promptState] = makeTestPrompt(opts?.prompt);
+  const promptState: TestPromptState = {
+    confirmCalls: [],
+    multiselectCalls: [],
+  };
+  const confirmQueue = Array.from(opts?.prompt?.confirmResponses ?? []);
+  const multiselectQueue = Array.from(opts?.prompt?.multiselectResponses ?? []);
+
+  const nextConfirm = (kind: "auth-guard" | "resolve-plan") =>
+    Effect.gen(function* () {
+      promptState.confirmCalls.push({ kind });
+      const response = confirmQueue.shift();
+      if (response === undefined) {
+        return yield* Effect.die(new Error(`Test prompt: no canned confirm response for ${kind}.`));
+      }
+      return response;
+    });
+
+  const authGuardTest = AuthGuardInteractionTest({
+    confirmLogin: () => nextConfirm("auth-guard"),
+  });
+  const resolvePlanTest = ResolvePlanInteractionTest({
+    confirmApplyChanges: () => nextConfirm("resolve-plan"),
+  });
+  const workspaceInitializationTest = WorkspaceInitializationInteractionTest({
+    selectAgents: ({ allAgents, detectedIds }) =>
+      Effect.gen(function* () {
+        promptState.multiselectCalls.push({
+          message: "Select agents to configure",
+          options: allAgents.map((agent) => ({
+            value: agent.id,
+            label: agent.name,
+            hint: `skills: ${agent.skills.dir}`,
+          })),
+          initialValues: detectedIds,
+          required: false,
+        });
+        const response = multiselectQueue.shift();
+        if (response === undefined) {
+          return yield* Effect.die(
+            new Error("Test prompt: no canned multiselect response for workspace initialization."),
+          );
+        }
+        return response;
+      }),
+  });
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
     rendererLayer,
-    promptLayer,
+    authGuardTest.layer,
+    resolvePlanTest.layer,
+    workspaceInitializationTest.layer,
     TestFlagsLayer(opts?.flags),
   );
 
@@ -150,6 +219,9 @@ export const makeCliTestContext = (opts?: {
     logs: logsByTag(rendererState),
     promptState,
     rendererState,
+    authGuardState: authGuardTest.state,
+    resolvePlanState: resolvePlanTest.state,
+    workspaceInitializationState: workspaceInitializationTest.state,
   };
 };
 

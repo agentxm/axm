@@ -11,7 +11,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { makeTestPrompt } from "../../cli-prompt/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../workspace/index.js";
@@ -38,14 +37,9 @@ const makeMockWorkspace = () => makeBaseWorkspaceMock("/tmp/test/.axm");
 
 const makeTestLayer = () => {
   const { layer: rendererLayer } = TestRenderer.make();
-  const [promptLayer] = makeTestPrompt({
-    confirmResponses: [true],
-    multiselectResponses: [[]],
-  });
   return Layer.mergeAll(
     NodeServices.layer,
     rendererLayer,
-    promptLayer,
     Workspace.layer(makeMockWorkspace()),
     TestFlagsLayer(),
   );

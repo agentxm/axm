@@ -79,7 +79,6 @@
   "dependencies": {
     "@axm.sh/core": "workspace:*",
     "@axm.sh/utils": "workspace:*",
-    "@clack/prompts": "^1.1.0",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "gray-matter": "^4.0.3",

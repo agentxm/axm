@@ -14,10 +14,12 @@ import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import {
+  layer as coreWorkspaceLayer,
+  ResolvePlanInteractionTest,
+} from "@axm.sh/core/unstable/workspace";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
 import {
@@ -118,14 +120,13 @@ describe("packs uninstall handler", () => {
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-
-    const [promptLayer] = makeTestPrompt({
-      confirmResponses: [tuiConfig?.confirmValue ?? true],
+    const resolvePlanInteraction = ResolvePlanInteractionTest({
+      confirmApplyChanges: () => Effect.succeed(tuiConfig?.confirmValue ?? true),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
       rendererLayer,
-      promptLayer,
+      resolvePlanInteraction.layer,
       TestFlagsLayer(),
     );
     const wsOptions: WorkspaceContextOptions = {

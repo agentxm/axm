@@ -13,10 +13,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
+import { AuthGuardInteractionTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { RegistryUrl } from "@axm.sh/core/unstable/auth";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
@@ -94,14 +93,13 @@ describe("fork.handler", () => {
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-
-    const [promptLayer] = makeTestPrompt({
-      confirmResponses: [true],
+    const authGuardInteraction = AuthGuardInteractionTest({
+      confirmLogin: () => Effect.succeed(true),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
       rendererLayer,
-      promptLayer,
+      authGuardInteraction.layer,
       TestFlagsLayer(),
       Layer.succeed(RegistryUrl, "https://registry.example.com"),
     );

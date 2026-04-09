@@ -7,10 +7,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "./index.js";
+import {
+  AuthClientTest,
+  AuthGuardInteractionTest,
+  CredentialStoreTest,
+  RegistryUrl,
+} from "./index.js";
 import { AuthLoginInteractionTest } from "./login-interaction.js";
 import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
-import { makeTestPrompt } from "../cli-prompt/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "../app-error/index.js";
@@ -38,8 +42,8 @@ const makeLayers = (opts?: {
   allowsPersistedCredentials?: boolean;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-  const [promptLayer, promptState] = makeTestPrompt({
-    confirmResponses: [opts?.confirmValue ?? true],
+  const authGuardInteraction = AuthGuardInteractionTest({
+    confirmLogin: () => Effect.succeed(opts?.confirmValue ?? true),
   });
   const interactionLayer = AuthLoginInteractionTest().layer;
 
@@ -94,7 +98,7 @@ const makeLayers = (opts?: {
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
-    promptLayer,
+    authGuardInteraction.layer,
     interactionLayer,
     flagsLayer,
     credStoreLayer,
@@ -103,7 +107,7 @@ const makeLayers = (opts?: {
   );
 
   const logs = logsByTag(rendererState);
-  return { FullLayer, rendererState, promptState, logs };
+  return { FullLayer, rendererState, promptState: authGuardInteraction.state, logs };
 };
 
 describe("withAuthGuard", () => {
@@ -140,7 +144,7 @@ describe("withAuthGuard", () => {
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
-        expect(promptState.confirmCalls).toHaveLength(0);
+        expect(promptState.confirmLoginCalls).toHaveLength(0);
       }),
     );
   });
@@ -166,7 +170,7 @@ describe("withAuthGuard", () => {
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "AUTH_TOKEN_REQUIRED" });
-        expect(promptState.confirmCalls).toHaveLength(0);
+        expect(promptState.confirmLoginCalls).toHaveLength(0);
       }),
     );
   });
@@ -202,7 +206,7 @@ describe("withAuthGuard", () => {
       Effect.map((result) => {
         expect(result).toBe("publish-result");
         // Should not have prompted (--yes auto-accepts)
-        expect(promptState.confirmCalls).toHaveLength(0);
+        expect(promptState.confirmLoginCalls).toHaveLength(0);
       }),
     );
   });

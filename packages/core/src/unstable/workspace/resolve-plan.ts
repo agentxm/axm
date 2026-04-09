@@ -16,7 +16,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { isNonInteractive } from "../cli-flags/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
-import { CliPrompt } from "../cli-prompt/index.js";
 import { makeAppError } from "../app-error/index.js";
 import type { AppError } from "../app-error/index.js";
 import { createDefaultSettings, readSettings, type Settings } from "../settings/index.js";
@@ -32,6 +31,13 @@ import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-ad
 import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "./display-plan.js";
+import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
+
+const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
+  code: "PROMPT_REQUIRED",
+  what: "Interactive prompt required: Apply changes?",
+  howToFix: "Provide ResolvePlanInteraction in the runtime.",
+});
 
 // Register reconciliation adapters with core
 setReconciliationAdapters([
@@ -58,7 +64,7 @@ export const resolvePlan = Effect.fn("resolvePlan")(function* (
 ) {
   const ws = yield* Workspace;
   const renderer = yield* CliRenderer;
-  const prompt = yield* CliPrompt;
+  const interaction = yield* Effect.serviceOption(ResolvePlanInteraction);
   const nonInteractive = yield* isNonInteractive;
   const resolvedYes = flags.yes || nonInteractive;
 
@@ -136,7 +142,10 @@ export const resolvePlan = Effect.fn("resolvePlan")(function* (
     }
 
     if (!resolvedYes) {
-      const confirmed = yield* prompt.confirm({ message: "Apply changes?" });
+      const confirmed =
+        interaction._tag === "Some"
+          ? yield* interaction.value.confirmApplyChanges()
+          : yield* APPLY_CHANGES_PROMPT_MISSING;
       if (!confirmed) {
         yield* renderer.success("Cancelled.");
         return {

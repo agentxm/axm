@@ -13,9 +13,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { CliPrompt } from "../cli-prompt/index.js";
 import { isNonInteractive } from "../cli-flags/index.js";
 import {
+  AuthGuardInteraction,
   CredentialStore,
   RegistryUrl,
   makePersistedCredentialsUnsupportedError,
@@ -37,6 +37,12 @@ const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
   code: "AUTH_LOGIN_REQUIRED",
   what: "Authentication required",
   howToFix: "Run `axm login` to sign in.",
+});
+
+const AUTH_LOGIN_PROMPT_MISSING = makeAppError({
+  code: "PROMPT_REQUIRED",
+  what: "Interactive prompt required: You need to sign in to publish. Sign in now?",
+  howToFix: "Provide AuthGuardInteraction in the runtime.",
 });
 
 // -----------------------------------------------------------------------------
@@ -103,10 +109,10 @@ export const withAuthGuard = <A, E, R>(
 
     // Interactive: prompt (auto-accept with --yes)
     if (!options.yes) {
-      const prompt = yield* CliPrompt;
-      const shouldLogin = yield* prompt.confirm({
-        message: "You need to sign in to publish. Sign in now?",
-      });
+      const interaction = yield* Effect.serviceOption(AuthGuardInteraction);
+      const shouldLogin = Option.isSome(interaction)
+        ? yield* interaction.value.confirmLogin()
+        : yield* AUTH_LOGIN_PROMPT_MISSING;
       if (!shouldLogin) {
         return yield* AUTH_LOGIN_REQUIRED_DECLINED;
       }

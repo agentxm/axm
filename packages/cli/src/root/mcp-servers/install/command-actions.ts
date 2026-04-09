@@ -16,11 +16,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { ExtensionName, Handle } from "@axm.sh/core/unstable/extensions";
-import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -93,7 +91,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const mcpServerMgr = yield* McpServerManager;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const prompt = yield* CliPrompt;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. resolveSource).
@@ -102,7 +99,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Workspace, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(CliPrompt, prompt),
     );
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
@@ -165,7 +161,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const resolveSourceRequests = (
       parsed: ParsedMcpServerInstallArgs,
-    ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, AppError | PromptCancelled> =>
+    ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, AppError> =>
       provide(
         Effect.gen(function* () {
           const source = yield* resolveSource(parsed.resolvedInput).pipe(

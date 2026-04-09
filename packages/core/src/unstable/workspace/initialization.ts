@@ -17,7 +17,6 @@ import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "
 import { isNonInteractive } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
-import { CliPrompt } from "../cli-prompt/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import {
   createDefaultSettings,
@@ -27,6 +26,13 @@ import {
   writeSettings,
 } from "../settings/index.js";
 import type { WorkspaceContextOptions } from "./service-interface.js";
+import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
+
+const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
+  code: "PROMPT_REQUIRED",
+  what: "Interactive prompt required: Select agents to configure",
+  howToFix: "Provide WorkspaceInitializationInteraction in the runtime.",
+});
 
 /**
  * Initialize project workspace by detecting and selecting agents.
@@ -74,20 +80,16 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
         selectedAgents = detectedAgents;
       } else {
         // Interactive mode — single multiselect with detected agents pre-selected
-        const prompt = yield* CliPrompt;
+        const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
         const allAgents = getAllAgents();
         const detectedIds = Array.map(detectedAgents, (a) => a.id);
 
-        const selectedIds = yield* prompt.multiselect<string>({
-          message: "Select agents to configure",
-          options: allAgents.map((agent) => ({
-            value: agent.id,
-            label: agent.name,
-            hint: `skills: ${agent.skills.dir}`,
-          })),
-          initialValues: detectedIds,
-          required: false,
-        });
+        const selectedIds = Option.isSome(interaction)
+          ? yield* interaction.value.selectAgents({
+              allAgents,
+              detectedIds,
+            })
+          : yield* SELECT_AGENTS_PROMPT_MISSING;
 
         selectedAgents = [...selectedIds].flatMap((id) => {
           const agent = getAgentById(id);

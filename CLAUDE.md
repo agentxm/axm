@@ -174,7 +174,7 @@ packages/
       app-error/
       auth/
       cli-flags/
-      cli-prompt/
+      cli/
       cli-renderer/
       cli-runtime/
       commands/
@@ -261,7 +261,6 @@ dependency version so the source you read matches the code you run.
 | Package                  | Version         | Local path                          | Upstream                                                          | Tag                    |
 | ------------------------ | --------------- | ----------------------------------- | ----------------------------------------------------------------- | ---------------------- |
 | `effect` (+ `@effect/*`) | `4.0.0-beta.42` | `../external/Effect-TS/effect-smol` | [Effect-TS/effect-smol](https://github.com/Effect-TS/effect-smol) | `effect@4.0.0-beta.42` |
-| `@clack/prompts`         | `^1.1.0`        | `../external/bombshell-dev/clack`   | [bombshell-dev/clack](https://github.com/bombshell-dev/clack)     | `@clack/prompts@1.1.0` |
 
 Setup and sync instructions are in the
 [agentxm-internal CLAUDE.md](../agentxm-internal/CLAUDE.md#external-dependency-sources).

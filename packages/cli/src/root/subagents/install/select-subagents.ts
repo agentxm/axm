@@ -9,13 +9,15 @@
 
 import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { Prompt } from "effect/unstable/cli";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -24,6 +26,12 @@ import * as Option from "effect/Option";
 interface SelectSubagentsArgs {
   readonly requestedSubagents: readonly string[];
   readonly all: boolean;
+}
+
+interface SelectSubagentsInteractions {
+  readonly selectSubagents?: (
+    subagents: Array.NonEmptyReadonlyArray<SubagentExtensionRef>,
+  ) => Effect.Effect<ReadonlyArray<SubagentExtensionRef>, PromptCancelled | AppError>;
 }
 
 // -----------------------------------------------------------------------------
@@ -42,6 +50,7 @@ interface SelectSubagentsArgs {
 export const determineSubagentsToInstall = (
   subagents: Array.NonEmptyReadonlyArray<SubagentExtensionRef>,
   args: SelectSubagentsArgs,
+  interactions?: SelectSubagentsInteractions,
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -76,7 +85,7 @@ export const determineSubagentsToInstall = (
     }
 
     // 4. Multiple subagents -> multiselect prompt
-    return yield* confirmSubagentsToInstall(subagents);
+    return yield* confirmSubagentsToInstall(subagents, interactions?.selectSubagents);
   });
 
 /**
@@ -87,30 +96,21 @@ export const determineSubagentsToInstall = (
  */
 export const confirmSubagentsToInstall = (
   subagents: Array.NonEmptyReadonlyArray<SubagentExtensionRef>,
-) =>
-  Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
-
-    return yield* prompt
-      .multiselect({
-        message: "Select subagents to install",
-        options: subagents.map((s) => {
-          const base = { value: s, label: s.subagent.name };
-          return Option.isSome(s.subagent.description)
-            ? { ...base, hint: s.subagent.description.value }
-            : base;
-        }),
-        required: true,
-      })
-      .pipe(
-        Effect.mapError((error) =>
-          error._tag === "PromptCancelled"
-            ? error
-            : makeAppError({
-                code: "PROMPT_FAILED",
-                what: "Failed to prompt for subagent selection",
-                cause: error,
-              }),
-        ),
-      );
-  });
+  selectSubagents: SelectSubagentsInteractions["selectSubagents"] = (availableSubagents) => {
+    const message = "Select subagents to install";
+    return fromInteractivePrompt(
+      Prompt.multiSelect({
+        message,
+        choices: availableSubagents.map((subagent) => ({
+          title: subagent.subagent.name,
+          value: subagent,
+          ...(Option.isSome(subagent.subagent.description)
+            ? { description: subagent.subagent.description.value }
+            : {}),
+        })),
+        min: 1,
+      }),
+      { message },
+    );
+  },
+) => selectSubagents(subagents);

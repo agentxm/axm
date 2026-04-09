@@ -42,12 +42,19 @@ export const TelemetryClientTest = Layer.succeed(TelemetryClient, {
 });
 
 const DEFAULT_BASE_URL = "https://t.agentxm.ai";
+export const TELEMETRY_EVENT_TIMEOUT = "250 millis";
 
 const swallowFailure = (effect: Effect.Effect<unknown, unknown, never>) =>
   effect.pipe(Effect.catchCause(() => Effect.void));
 
 const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
-  effect.pipe(swallowFailure, Effect.forkDetach, Effect.asVoid);
+  effect.pipe(
+    Effect.timeoutOption(TELEMETRY_EVENT_TIMEOUT),
+    swallowFailure,
+    Effect.asVoid,
+    Effect.forkDetach,
+    Effect.asVoid,
+  );
 
 const isTest = Effect.gen(function* () {
   const vitest = yield* envWithDefault("VITEST", "");

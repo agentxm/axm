@@ -2,9 +2,11 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { TelemetryClient, TelemetryClientLive } from "./client.js";
+import * as TestClock from "effect/testing/TestClock";
+import { TELEMETRY_EVENT_TIMEOUT, TelemetryClient, TelemetryClientLive } from "./client.js";
 import { at, expectRecord, property } from "../test-helpers.js";
 
 interface CapturedRequest {
@@ -254,6 +256,34 @@ describe("TelemetryClientLive", () => {
   });
 
   describe("API failure resilience", () => {
+    it.effect("times out hung usage events", () =>
+      Effect.gen(function* () {
+        const interrupted = yield* Deferred.make<void>();
+        const hangingClient = HttpClient.make(() =>
+          Effect.never.pipe(
+            Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined).pipe(Effect.asVoid)),
+          ),
+        );
+        const telemetryLayer = Layer.provide(
+          TelemetryClientLive({
+            mode: "all",
+            command: "init",
+            client: { name: "cli", version: "1.2.3" },
+          }),
+          Layer.succeed(HttpClient.HttpClient, hangingClient),
+        );
+        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+
+        yield* telemetry.trackEvent("command:start");
+        yield* Effect.yieldNow;
+        expect(yield* Deferred.isDone(interrupted)).toBe(false);
+
+        yield* TestClock.adjust(TELEMETRY_EVENT_TIMEOUT);
+        yield* Effect.yieldNow;
+        expect(yield* Deferred.isDone(interrupted)).toBe(true);
+      }),
+    );
+
     it.effect("silently swallows HTTP defects", () =>
       Effect.gen(function* () {
         const failingClient = HttpClient.make(() => Effect.die("network failure"));

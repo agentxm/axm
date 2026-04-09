@@ -19,7 +19,7 @@ Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md in
 - **Monorepo**: Nx (task orchestration, caching, affected commands)
 - **Package manager**: pnpm (workspaces)
 - **CLI parsing**: `effect/unstable/cli`
-- **CLI UI**: `@clack/prompts` with repo-local prompt and renderer adapters
+- **CLI UI**: Repo-local prompt adapters plus a custom stderr renderer built on Effect ANSI primitives
 - **Testing**: Vitest
 - **Linting**: ESLint with @effect/eslint-plugin
 - **Formatting**: Prettier

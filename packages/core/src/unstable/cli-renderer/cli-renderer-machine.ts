@@ -72,21 +72,32 @@ const makeStreamSpinnerHandle = (phase: string): SpinnerHandle => ({
   clear: () => Effect.void,
 });
 
-const makeStreamProgressHandle = (phase: string, rawMax: number): ProgressHandle => {
+const makeStreamProgressHandle = (
+  phase: string,
+  rawMax: number,
+  initialMessage?: string,
+): ProgressHandle => {
   const max = Math.max(rawMax, 1);
   let current = 0;
+  let currentMessage = initialMessage ?? "";
   return {
-    stop: (message) =>
-      message ? emitStderrEvent({ type: "progress", phase, percent: 100, message }) : Effect.void,
-    update: (message) =>
-      message
+    stop: (message) => {
+      currentMessage = message ?? currentMessage;
+      return currentMessage
+        ? emitStderrEvent({ type: "progress", phase, percent: 100, message: currentMessage })
+        : Effect.void;
+    },
+    update: (message) => (
+      (currentMessage = message ?? currentMessage),
+      currentMessage
         ? emitStderrEvent({
             type: "progress",
             phase,
             percent: Math.round((current / max) * 100),
-            message,
+            message: currentMessage,
           })
-        : Effect.void,
+        : Effect.void
+    ),
     cancel: (message) =>
       emitStderrEvent({
         type: "progress",
@@ -98,10 +109,23 @@ const makeStreamProgressHandle = (phase: string, rawMax: number): ProgressHandle
     clear: () => Effect.void,
     advance: (step, message) => {
       current = Math.min(current + (step ?? 1), max);
+      currentMessage = message ?? currentMessage;
       const percent = Math.round((current / max) * 100);
-      return message ? emitStderrEvent({ type: "progress", phase, percent, message }) : Effect.void;
+      return currentMessage
+        ? emitStderrEvent({ type: "progress", phase, percent, message: currentMessage })
+        : Effect.void;
     },
   };
+};
+
+const taskCompletionMessage = (title: string, result: string | void): string => {
+  if (result === undefined || result.length === 0 || result === title) {
+    return title;
+  }
+  if (result.startsWith(`${title}:`) || result.startsWith(`${title} `)) {
+    return result;
+  }
+  return `${title}: ${result}`;
 };
 
 // ---------------------------------------------------------------------------
@@ -213,7 +237,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
           phase: "progress",
           percent: 0,
           message,
-        }).pipe(Effect.as(makeStreamProgressHandle("progress", max)));
+        }).pipe(Effect.as(makeStreamProgressHandle("progress", max, message)));
       }
       return Effect.succeed(noopProgressHandle);
     },
@@ -224,7 +248,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       stopMessage?: string,
     ): Effect.Effect<A, E, R> => {
       const max = config.max ?? 100;
-      const handle = makeStreamProgressHandle("progress", max);
+      const handle = makeStreamProgressHandle("progress", max, message);
       return emitStderrEvent({
         type: "progress",
         phase: "progress",
@@ -232,14 +256,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
         message,
       }).pipe(
         Effect.andThen(f(handle)),
-        Effect.tap(() =>
-          emitStderrEvent({
-            type: "progress",
-            phase: "progress",
-            percent: 100,
-            message: stopMessage ?? message,
-          }),
-        ),
+        Effect.tap(() => handle.stop(stopMessage)),
       );
     },
     taskLog: (config: TaskLogConfig) =>
@@ -283,12 +300,9 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       Effect.forEach(
         tasks.filter((t) => t.enabled !== false),
         (task) =>
-          machineWithSpinner(task.title, (handle) =>
-            Effect.map(
-              task.task((msg) => handle.update(msg)),
-              (result) => result ?? task.title,
-            ),
-          ),
+          machineWithSpinner(task.title, (handle) => task.task((msg) => handle.update(msg)), {
+            successMessage: (result) => taskCompletionMessage(task.title, result),
+          }),
         { concurrency: 1 },
       ).pipe(Effect.asVoid),
 

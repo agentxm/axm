@@ -47,6 +47,7 @@ const handleStreamLog = (args: {
           return line;
         }),
       ),
+      Stream.intersperse("\n"),
     );
 
     yield* renderer.streamLog(args.level, logStream);

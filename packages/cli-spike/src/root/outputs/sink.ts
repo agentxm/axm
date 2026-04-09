@@ -124,7 +124,7 @@ const handleSink = Effect.gen(function* () {
     "Resolving packages...",
     "Fetching packages...",
     "Done in 1.2s",
-  ]);
+  ]).pipe(Stream.intersperse("\n"));
   yield* renderer.streamLog("info", logStream);
 
   // Spinner
@@ -139,7 +139,7 @@ const handleSink = Effect.gen(function* () {
       (i) =>
         Effect.gen(function* () {
           yield* Effect.sleep("200 millis");
-          yield* handle.advance(1, `Item ${i}/5`);
+          yield* handle.advance(1, `Processed ${i}/5 items`);
         }),
       { concurrency: 1 },
     ),
@@ -188,7 +188,6 @@ const handleSink = Effect.gen(function* () {
     sampleTree,
     {
       label: (item: FileEntry) => item.name,
-      detail: (item: FileEntry) => (item.kind === "directory" ? "dir" : undefined),
       icon: (item: FileEntry) => (item.kind === "directory" ? "\uD83D\uDCC1" : "\uD83D\uDCC4"),
     },
     "Project Structure",

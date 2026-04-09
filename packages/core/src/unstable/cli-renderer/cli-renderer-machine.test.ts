@@ -287,6 +287,49 @@ describe("MachineRenderer", () => {
         });
       }),
     );
+
+    it.effect("withProgress reuses the latest progress message on completion", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.withProgress({ max: 2 }, "Downloading", (handle) =>
+              Effect.gen(function* () {
+                yield* handle.advance(1, "Halfway");
+                yield* handle.advance(1, "Done");
+              }),
+            );
+          }),
+        );
+        const events = parseStderrEvents();
+        const last = events[events.length - 1];
+        expect(last).toEqual({
+          type: "progress",
+          phase: "progress",
+          percent: 100,
+          message: "Done",
+        });
+      }),
+    );
+
+    it.effect("runTasks prefixes completion messages with the task title", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.runTasks([
+              { title: "Lint", task: () => Effect.succeed("No issues") },
+              { title: "Test", task: () => Effect.succeed("All passed") },
+            ]);
+          }),
+        );
+        const messages = parseStderrEvents()
+          .filter((event) => event.type === "progress" && event.percent === 100)
+          .map((event) => event.message);
+        expect(messages).toContain("Lint: No issues");
+        expect(messages).toContain("Test: All passed");
+      }),
+    );
   });
 
   // -------------------------------------------------------------------------

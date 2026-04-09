@@ -1,72 +1,18 @@
-import * as p from "@clack/prompts";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Stream from "effect/Stream";
 
 import {
   CliRenderer,
   type ColumnDef,
-  type LogLevel,
   type ProgressConfig,
   type ProgressHandle,
   type SpinnerHandle,
   type SpinnerOptions,
-  type TaskLogConfig,
-  type TaskLogGroupHandle,
-  type TaskLogHandle,
   type TreeDef,
   type TreeNode,
 } from "./cli-renderer.js";
-
-// ---------------------------------------------------------------------------
-// Clack stream method map
-// ---------------------------------------------------------------------------
-
-const streamMethodMap: Record<LogLevel, (iter: Iterable<string>) => Promise<void>> = {
-  message: (iter) => p.stream.message(iter),
-  info: (iter) => p.stream.info(iter),
-  success: (iter) => p.stream.success(iter),
-  step: (iter) => p.stream.step(iter),
-  warn: (iter) => p.stream.warn(iter),
-  error: (iter) => p.stream.error(iter),
-};
-
-// ---------------------------------------------------------------------------
-// Clack handle wrappers
-// ---------------------------------------------------------------------------
-
-const makeSpinnerHandle = (s: p.SpinnerResult): SpinnerHandle => ({
-  stop: (message) => Effect.sync(() => s.stop(message)),
-  update: (message) => Effect.sync(() => s.message(message)),
-  cancel: (message) => Effect.sync(() => s.cancel(message)),
-  error: (message) => Effect.sync(() => s.error(message)),
-  clear: () => Effect.sync(() => s.clear()),
-});
-
-const makeProgressHandle = (pr: p.ProgressResult): ProgressHandle => ({
-  stop: (message) => Effect.sync(() => pr.stop(message)),
-  update: (message) => Effect.sync(() => pr.message(message)),
-  cancel: (message) => Effect.sync(() => pr.cancel(message)),
-  error: (message) => Effect.sync(() => pr.error(message)),
-  clear: () => Effect.sync(() => pr.clear()),
-  advance: (step, message) => Effect.sync(() => pr.advance(step, message)),
-});
-
-const wrapGroupHandle = (
-  group: ReturnType<ReturnType<typeof p.taskLog>["group"]>,
-): TaskLogGroupHandle => ({
-  message: (msg) => Effect.sync(() => group.message(msg)),
-  error: (message) => Effect.sync(() => group.error(message)),
-  success: (message) => Effect.sync(() => group.success(message)),
-});
-
-const wrapTaskLogHandle = (handle: ReturnType<typeof p.taskLog>): TaskLogHandle => ({
-  message: (msg) => Effect.sync(() => handle.message(msg)),
-  group: (name) => Effect.sync(() => wrapGroupHandle(handle.group(name))),
-  error: (message) => Effect.sync(() => handle.error(message)),
-  success: (message) => Effect.sync(() => handle.success(message)),
-});
+import * as chrome from "./ansi-chrome.js";
 
 // ---------------------------------------------------------------------------
 // Stdout helpers
@@ -83,7 +29,7 @@ const writeStdoutLine = (content: string) =>
   });
 
 // ---------------------------------------------------------------------------
-// Table formatter — Clack-styled with guide lines
+// Table formatter
 // ---------------------------------------------------------------------------
 
 const getTerminalWidth = (): number => process.stdout.columns ?? 80;
@@ -111,10 +57,8 @@ const formatTable = <T>(
   if (items.length === 0 || columns.length === 0) return "";
 
   const termWidth = getTerminalWidth();
-  const guidePrefix = "\u2502  "; // "│  "
-  const guidePrefixWidth = 3;
   const colGap = 2;
-  const availableWidth = termWidth - guidePrefixWidth;
+  const availableWidth = termWidth;
 
   // Compute content widths
   const contentWidths: Array<number> = columns.map((col) => {
@@ -164,65 +108,59 @@ const formatTable = <T>(
 
   const lines: Array<string> = [];
 
-  // Caption
   if (caption) {
-    lines.push(`\u2502  ${caption}`);
+    lines.push(caption);
   }
 
-  // Header row
   const headerCells = columns.map((col, i) => {
     const width = getWidthAt(colWidths, i, col.header.length);
     return pad(truncate(col.header, width), width, col.align);
   });
-  lines.push(guidePrefix + headerCells.join(" ".repeat(colGap)));
+  lines.push(headerCells.join(" ".repeat(colGap)));
 
-  // Separator
   const sepCells = columns.map((col, i) =>
     "\u2500".repeat(getWidthAt(colWidths, i, col.header.length)),
   );
-  lines.push(guidePrefix + sepCells.join(" ".repeat(colGap)));
+  lines.push(sepCells.join(" ".repeat(colGap)));
 
-  // Data rows
   for (const item of items) {
     const cells = columns.map((col, i) => {
       const val = col.value(item);
       const width = getWidthAt(colWidths, i, col.header.length);
       return pad(truncate(val, width), width, col.align);
     });
-    lines.push(guidePrefix + cells.join(" ".repeat(colGap)));
+    lines.push(cells.join(" ".repeat(colGap)));
   }
 
   return lines.join("\n");
 };
 
 // ---------------------------------------------------------------------------
-// Detail formatter — vertical key-value
+// Detail formatter
 // ---------------------------------------------------------------------------
 
 const formatDetail = <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string): string => {
   if (columns.length === 0) return "";
 
   const lines: Array<string> = [];
-  const guidePrefix = "\u2502  "; // "│  "
 
   if (title) {
-    lines.push(`\u2502  ${title}`);
+    lines.push(title);
   }
 
-  // Find max label width for alignment
   const maxLabelWidth = Math.max(...columns.map((c) => c.header.length));
 
   for (const col of columns) {
     const label = pad(col.header, maxLabelWidth, "left");
     const value = col.value(item);
-    lines.push(`${guidePrefix}${label}  ${value}`);
+    lines.push(`${label}  ${value}`);
   }
 
   return lines.join("\n");
 };
 
 // ---------------------------------------------------------------------------
-// Tree formatter — recursive with Clack-style connectors
+// Tree formatter
 // ---------------------------------------------------------------------------
 
 const formatTree = <T>(
@@ -233,10 +171,9 @@ const formatTree = <T>(
   if (roots.length === 0) return "";
 
   const lines: Array<string> = [];
-  const guidePrefix = "\u2502  "; // "│  "
 
   if (title) {
-    lines.push(`${guidePrefix}${title}`);
+    lines.push(title);
   }
 
   const renderNode = (node: TreeNode<T>, prefix: string, isLast: boolean) => {
@@ -245,14 +182,14 @@ const formatTree = <T>(
     const label = def.label(node.data);
     const detail = def.detail?.(node.data);
 
-    let line = `${guidePrefix}${prefix}${connector}`;
+    let line = `${prefix}${connector}`;
     if (icon) line += `${icon} `;
     line += label;
     if (detail) line += `  ${detail}`;
     lines.push(line);
 
     const children = node.children ?? [];
-    const childPrefix = prefix + (isLast ? "   " : "\u2502  "); // "│  "
+    const childPrefix = prefix + (isLast ? "   " : "\u2502  ");
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       if (child !== undefined) {
@@ -272,8 +209,18 @@ const formatTree = <T>(
 };
 
 // ---------------------------------------------------------------------------
-// InteractiveRenderer layer — Clack chrome on stderr, formatters on stdout
+// InteractiveRenderer layer
 // ---------------------------------------------------------------------------
+
+const taskCompletionMessage = (title: string, result: string | void): string => {
+  if (result === undefined || result.length === 0 || result === title) {
+    return title;
+  }
+  if (result.startsWith(`${title}:`) || result.startsWith(`${title} `)) {
+    return result;
+  }
+  return `${title}: ${result}`;
+};
 
 export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
   const liveWithSpinner = <A, E, R>(
@@ -282,104 +229,80 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
     options?: SpinnerOptions<A>,
   ): Effect.Effect<A, E, R> =>
     Effect.suspend(() => {
-      const s = p.spinner();
-      s.start(message);
-      const handle = makeSpinnerHandle(s);
       const successMessage =
         typeof options?.successMessage === "string" ? options.successMessage : undefined;
       const successMessageFn =
         typeof options?.successMessage === "function" ? options.successMessage : undefined;
       const failureMessage = options?.failureMessage;
 
-      return Effect.interruptible(f(handle)).pipe(
-        Effect.matchCauseEffect({
-          onFailure: (cause) => {
-            if (Cause.hasInterruptsOnly(cause)) {
-              s.cancel();
-            } else {
-              s.error(failureMessage ?? message);
-            }
-            return Effect.failCause(cause);
-          },
-          onSuccess: (a) => {
-            s.stop(successMessageFn?.(a) ?? successMessage ?? message);
-            return Effect.succeed(a);
-          },
-        }),
-        Effect.uninterruptible,
+      return chrome.spinner(message).pipe(
+        Effect.flatMap((handle) =>
+          Effect.interruptible(f(handle)).pipe(
+            Effect.matchCauseEffect({
+              onFailure: (cause) => {
+                const finalize = Cause.hasInterruptsOnly(cause)
+                  ? handle.cancel()
+                  : handle.error(failureMessage ?? message);
+                return finalize.pipe(Effect.andThen(Effect.failCause(cause)));
+              },
+              onSuccess: (value) =>
+                handle
+                  .stop(successMessageFn?.(value) ?? successMessage ?? message)
+                  .pipe(Effect.as(value)),
+            }),
+            Effect.uninterruptible,
+          ),
+        ),
       );
     });
 
-  return Layer.succeed(CliRenderer, {
-    // Chrome (stderr) — delegate to Clack
-    intro: (title) => Effect.sync(() => p.intro(title)),
-    outro: (message) => Effect.sync(() => p.outro(message)),
-    message: (message) => Effect.sync(() => p.log.message(message)),
-    info: (message) => Effect.sync(() => p.log.info(message)),
-    success: (message) => Effect.sync(() => p.log.success(message)),
-    step: (message) => Effect.sync(() => p.log.step(message)),
-    warn: (message) => Effect.sync(() => p.log.warn(message)),
-    error: (message) => Effect.sync(() => p.log.error(message)),
-    cancel: (message) => Effect.sync(() => p.cancel(message)),
-    note: (message, title) => Effect.sync(() => p.note(message, title)),
-    box: (message, title, opts) => Effect.sync(() => p.box(message, title, opts)),
-    streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) =>
-      Stream.runCollect(stream).pipe(
-        Effect.flatMap((arr) => Effect.promise(() => streamMethodMap[level](arr))),
+  const liveWithProgress = <A, E, R>(
+    config: ProgressConfig,
+    message: string,
+    f: (handle: ProgressHandle) => Effect.Effect<A, E, R>,
+    stopMessage?: string,
+  ): Effect.Effect<A, E, R> =>
+    Effect.suspend(() =>
+      chrome.progress(config, message).pipe(
+        Effect.flatMap((handle) =>
+          Effect.interruptible(f(handle)).pipe(
+            Effect.matchCauseEffect({
+              onFailure: (cause) => {
+                const finalize = Cause.hasInterruptsOnly(cause)
+                  ? handle.cancel()
+                  : handle.error(message);
+                return finalize.pipe(Effect.andThen(Effect.failCause(cause)));
+              },
+              onSuccess: (value) => handle.stop(stopMessage).pipe(Effect.as(value)),
+            }),
+            Effect.uninterruptible,
+          ),
+        ),
       ),
+    );
 
-    // Activity — delegate to Clack
-    spinner: (message) =>
-      Effect.sync(() => {
-        const s = p.spinner();
-        s.start(message);
-        return makeSpinnerHandle(s);
-      }),
+  return Layer.succeed(CliRenderer, {
+    // Chrome (stderr)
+    intro: chrome.intro,
+    outro: chrome.outro,
+    message: (message) => chrome.logLine("message", message),
+    info: (message) => chrome.logLine("info", message),
+    success: (message) => chrome.logLine("success", message),
+    step: (message) => chrome.logLine("step", message),
+    warn: (message) => chrome.logLine("warn", message),
+    error: (message) => chrome.logLine("error", message),
+    cancel: (message) => chrome.cancel(message ?? "Cancelled"),
+    note: chrome.note,
+    box: chrome.box,
+    streamLog: chrome.streamLog,
+
+    // Activity
+    spinner: chrome.spinner,
     withSpinner: liveWithSpinner,
-    progress: (config, message) =>
-      Effect.sync(() => {
-        const pr = p.progress(config);
-        pr.start(message);
-        return makeProgressHandle(pr);
-      }),
-    withProgress: <A, E, R>(
-      config: ProgressConfig,
-      message: string,
-      f: (handle: ProgressHandle) => Effect.Effect<A, E, R>,
-      stopMessage?: string,
-    ): Effect.Effect<A, E, R> =>
-      Effect.suspend(() => {
-        const pr = p.progress(config);
-        pr.start(message);
-        const handle = makeProgressHandle(pr);
-
-        return Effect.interruptible(f(handle)).pipe(
-          Effect.matchCauseEffect({
-            onFailure: (cause) => {
-              if (Cause.hasInterruptsOnly(cause)) {
-                pr.cancel();
-              } else {
-                pr.error(message);
-              }
-              return Effect.failCause(cause);
-            },
-            onSuccess: (a) => {
-              pr.stop(stopMessage ?? message);
-              return Effect.succeed(a);
-            },
-          }),
-          Effect.uninterruptible,
-        );
-      }),
-    taskLog: (config) => Effect.sync(() => wrapTaskLogHandle(p.taskLog(config))),
-    withTaskLog: <A, E, R>(
-      config: TaskLogConfig,
-      f: (handle: TaskLogHandle) => Effect.Effect<A, E, R>,
-    ): Effect.Effect<A, E, R> =>
-      Effect.suspend(() => {
-        const handle = wrapTaskLogHandle(p.taskLog(config));
-        return f(handle);
-      }),
+    progress: chrome.progress,
+    withProgress: liveWithProgress,
+    taskLog: chrome.taskLog,
+    withTaskLog: (config, f) => chrome.taskLog(config).pipe(Effect.flatMap((handle) => f(handle))),
     runTasks: <E, R>(
       tasks: ReadonlyArray<{
         readonly title: string;
@@ -392,16 +315,13 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
       Effect.forEach(
         tasks.filter((t) => t.enabled !== false),
         (task) =>
-          liveWithSpinner(task.title, (handle) =>
-            Effect.map(
-              task.task((msg) => handle.update(msg)),
-              (result) => result ?? task.title,
-            ),
-          ),
+          liveWithSpinner(task.title, (handle) => task.task((msg) => handle.update(msg)), {
+            successMessage: (result) => taskCompletionMessage(task.title, result),
+          }),
         { concurrency: 1 },
       ).pipe(Effect.asVoid),
 
-    // Data display (stdout) — custom formatters
+    // Data display (stdout)
     table: <T>(items: ReadonlyArray<T>, columns: ReadonlyArray<ColumnDef<T>>, caption?: string) => {
       const output = formatTable(items, columns, caption);
       if (output) return writeStdoutLine(output);
@@ -418,11 +338,11 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
       return Effect.void;
     },
 
-    // Machine data output — no-ops in interactive mode
+    // Machine data output
     result: () => Effect.succeed(false),
     resultStream: () => Effect.succeed(false),
 
-    // Both modes (stdout)
+    // Both modes
     json: (data) => writeStdoutLine(JSON.stringify(data, null, 2)),
     raw: (content) => writeStdout(content),
   });

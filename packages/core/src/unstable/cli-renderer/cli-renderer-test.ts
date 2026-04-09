@@ -89,10 +89,45 @@ const makeMockSpinnerHandle = (state: TestRendererState, _message: string): Spin
   clear: () => Effect.void,
 });
 
-const makeMockProgressHandle = (state: TestRendererState, message: string): ProgressHandle => ({
-  ...makeMockSpinnerHandle(state, message),
-  advance: () => Effect.void,
-});
+const makeMockProgressHandle = (state: TestRendererState, message: string): ProgressHandle => {
+  let currentMessage = message;
+  const spinnerHandle = makeMockSpinnerHandle(state, message);
+
+  return {
+    ...spinnerHandle,
+    stop: (msg) =>
+      Effect.sync(() => {
+        currentMessage = msg ?? currentMessage;
+        if (currentMessage) {
+          state.spinnerMessages.push(currentMessage);
+        }
+      }),
+    update: (msg) =>
+      Effect.sync(() => {
+        currentMessage = msg ?? currentMessage;
+        if (msg) {
+          state.spinnerMessages.push(msg);
+        }
+      }),
+    advance: (_step, msg) =>
+      Effect.sync(() => {
+        currentMessage = msg ?? currentMessage;
+        if (msg) {
+          state.spinnerMessages.push(msg);
+        }
+      }),
+  };
+};
+
+const taskCompletionMessage = (title: string, result: string | void): string => {
+  if (result === undefined || result.length === 0 || result === title) {
+    return title;
+  }
+  if (result.startsWith(`${title}:`) || result.startsWith(`${title} `)) {
+    return result;
+  }
+  return `${title}: ${result}`;
+};
 
 const makeTestRendererService = (
   state: TestRendererState,
@@ -235,8 +270,7 @@ const makeTestRendererService = (
               return Effect.failCause(cause);
             },
             onSuccess: (a) => {
-              if (stopMessage) state.spinnerMessages.push(stopMessage);
-              return Effect.succeed(a);
+              return handle.stop(stopMessage).pipe(Effect.as(a));
             },
           }),
           Effect.uninterruptible,
@@ -324,12 +358,9 @@ const makeTestRendererService = (
       Effect.forEach(
         tasks.filter((t) => t.enabled !== false),
         (task) =>
-          mockWithSpinner(task.title, (handle) =>
-            Effect.map(
-              task.task((msg) => handle.update(msg)),
-              (result) => result ?? task.title,
-            ),
-          ),
+          mockWithSpinner(task.title, (handle) => task.task((msg) => handle.update(msg)), {
+            successMessage: (result) => taskCompletionMessage(task.title, result),
+          }),
         { concurrency: 1 },
       ).pipe(Effect.asVoid),
 

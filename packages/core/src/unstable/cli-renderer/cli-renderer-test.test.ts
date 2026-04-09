@@ -278,21 +278,42 @@ describe("TestRenderer", () => {
       }),
     );
 
-    it.effect("runTasks captures task titles as spinner messages", () =>
+    it.effect("withProgress defaults the final message to the latest progress update", () =>
+      Effect.gen(function* () {
+        const { layer, state } = TestRenderer.make();
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.withProgress({ max: 2 }, "Downloading", (handle) =>
+              Effect.gen(function* () {
+                yield* handle.advance(1, "Halfway");
+                yield* handle.advance(1, "Complete");
+              }),
+            );
+          }),
+          layer,
+        );
+        expect(state.spinnerMessages[state.spinnerMessages.length - 1]).toBe("Complete");
+      }),
+    );
+
+    it.effect("runTasks prefixes custom success messages with the task title", () =>
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
             yield* r.runTasks([
-              { title: "Task A", task: () => Effect.succeed("a done") },
-              { title: "Task B", task: () => Effect.succeed("b done") },
+              { title: "Task A", task: () => Effect.succeed("done") },
+              { title: "Task B", task: () => Effect.succeed("passed") },
             ]);
           }),
           layer,
         );
         expect(state.spinnerMessages).toContain("Task A");
         expect(state.spinnerMessages).toContain("Task B");
+        expect(state.spinnerMessages).toContain("Task A: done");
+        expect(state.spinnerMessages).toContain("Task B: passed");
       }),
     );
 

@@ -308,13 +308,13 @@ describe("packs-add.handler", () => {
 
   describe("conflict-safe manifest apply", () => {
     it.effect("detects stale manifest when file was modified externally", () => {
-      // We use a custom layer that intercepts resolvePlan to modify
+      // We use a custom layer that intercepts previewOrApplyPlan to modify
       // the manifest on disk between plan building and apply.
-      // However, since the handler computes hash then immediately calls resolvePlan,
+      // However, since the handler computes hash then immediately calls previewOrApplyPlan,
       // and our test can't intercept between those steps, we instead test
       // that adding to a pack that was concurrently modified fails gracefully.
       // The handler computes the hash at handler time; if we change the manifest
-      // after the handler started but before resolvePlan applies, it should fail.
+      // after the handler started but before previewOrApplyPlan applies, it should fail.
       // In practice, the operation-level tests cover the stale hash detection.
       // Here we test the happy end-to-end path works correctly with the real workspace.
       const { provide } = makeLayers();

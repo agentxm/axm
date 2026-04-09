@@ -13,7 +13,7 @@ import { enableCommand as runEnableCommand } from "@axm.sh/core/unstable/command
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
@@ -108,7 +108,7 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* resolvePlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

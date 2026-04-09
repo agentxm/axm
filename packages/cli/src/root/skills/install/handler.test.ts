@@ -16,7 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
@@ -337,7 +337,7 @@ describe("skills install handler — error propagation", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // --force propagation to workspace resolvePlan
+  // --force propagation to workspace previewOrApplyPlan
   // ---------------------------------------------------------------------------
 
   it.effect("--force in workspace options downgrades plan errors to warnings", () => {
@@ -363,7 +363,7 @@ describe("skills install handler — error propagation", () => {
             },
           ],
         };
-        const result = yield* resolvePlan(plan, { yes: false, force: true, preview: false });
+        const result = yield* previewOrApplyPlan(plan, { yes: false, force: true, preview: false });
         // --force downgrades errors to warnings and proceeds
         expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
         expect(result._tag).toBe("ExecutedPlan");

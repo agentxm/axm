@@ -201,7 +201,7 @@ export {
   ResolvePlanInteractionLive,
   ResolvePlanInteractionTest,
 } from "./resolve-plan-interaction.js";
-export { resolvePlan } from "./resolve-plan.js";
+export { previewOrApplyPlan } from "./resolve-plan.js";
 
 // Plan display
 export { displayPlan } from "./display-plan.js";

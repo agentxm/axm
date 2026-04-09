@@ -1,7 +1,7 @@
 /**
  * Pure function to scan a plan's steps and collect readiness statistics.
  *
- * Extracts from the inline logic in `resolvePlan` so it can be tested
+ * Extracts from the inline logic in `previewOrApplyPlan` so it can be tested
  * independently and reused from core without CLI dependencies.
  *
  * @experimental This API is unstable and may change without notice.

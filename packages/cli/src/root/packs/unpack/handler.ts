@@ -16,7 +16,7 @@ import {
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { parseFqnOrThrow } from "@axm.sh/core/unstable/extensions";
 import { buildUnpackPlan } from "./plan.js";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 
 export interface UnpackHandlerArgs {
@@ -146,7 +146,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
   });
 
-  const resolution = yield* resolvePlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

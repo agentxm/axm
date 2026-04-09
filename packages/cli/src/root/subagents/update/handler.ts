@@ -13,7 +13,7 @@ import type { Handle } from "@axm.sh/core/unstable/extensions";
 import { parseRegistrySourcePatternParts } from "@axm.sh/core/unstable/extensions";
 import { resolveSource } from "@axm.sh/core/unstable/source-resolution";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 
@@ -274,7 +274,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   );
 
   // Step 9: Resolve plan
-  const resolution = yield* resolvePlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

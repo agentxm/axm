@@ -17,7 +17,7 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { toJobStepResult } from "./job-step-result.js";
@@ -119,7 +119,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* resolvePlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

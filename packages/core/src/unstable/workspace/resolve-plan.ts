@@ -1,5 +1,5 @@
 /**
- * Plan resolution function.
+ * Plan preview/apply function.
  *
  * Orchestrates `augmentPlanWithReconciliation`, `scanPlanReadiness`,
  * and `applyPlan` with `displayPlan` and interactive prompts.
@@ -49,7 +49,7 @@ setReconciliationAdapters([
 ]);
 
 /**
- * Resolve (display, confirm, and apply) a plan using the workspace context.
+ * Preview or apply (display, confirm, and execute) a plan using the workspace context.
  *
  * Steps:
  * 1. Augment plan with lockfile reconciliation if needed
@@ -58,7 +58,7 @@ setReconciliationAdapters([
  * 4. Preview if requested (with confirmation unless --yes)
  * 5. Apply and display results
  */
-export const resolvePlan = Effect.fn("resolvePlan")(function* (
+export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   plan: Plan,
   flags: { yes: boolean; force: boolean; preview: boolean },
 ) {

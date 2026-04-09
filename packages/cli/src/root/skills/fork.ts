@@ -29,7 +29,7 @@ import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
 import type { Plan } from "@axm.sh/core/unstable/workspace";
 import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 
 export interface ForkHandlerArgs {
@@ -345,7 +345,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   };
 
   const resolution = yield* withAuthGuard(
-    resolvePlan(plan, {
+    previewOrApplyPlan(plan, {
       yes: args.yes,
       force: args.force,
       preview: args.preview,

@@ -18,7 +18,7 @@ import { computeExtensionPackPaths } from "@axm.sh/core/unstable/packs";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
@@ -120,7 +120,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* resolvePlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

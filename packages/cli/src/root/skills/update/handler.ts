@@ -30,7 +30,7 @@ import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@axm.sh/core/unstable/skills";
 import { uninstallSkill } from "@axm.sh/core/unstable/skills";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -534,7 +534,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   );
 
   // Step 11: Resolve plan
-  const resolution = yield* resolvePlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

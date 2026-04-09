@@ -22,7 +22,7 @@ import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
 } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import type { ExtensionPackRef } from "@axm.sh/core/unstable/packs";
 import type { ExtensionFiles } from "@axm.sh/core/unstable/sources";
 import {
@@ -1239,7 +1239,7 @@ describe("packs install handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // --force propagation to workspace resolvePlan
+  // --force propagation to workspace previewOrApplyPlan
   // ---------------------------------------------------------------------------
 
   describe("--force propagation", () => {
@@ -1266,7 +1266,11 @@ describe("packs install handler", () => {
               },
             ],
           };
-          const result = yield* resolvePlan(plan, { yes: true, force: true, preview: false });
+          const result = yield* previewOrApplyPlan(plan, {
+            yes: true,
+            force: true,
+            preview: false,
+          });
           // --force downgrades errors to warnings and proceeds
           expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
           expect(result._tag).toBe("ExecutedPlan");

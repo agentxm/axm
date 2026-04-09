@@ -21,7 +21,7 @@ import {
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
 
@@ -287,7 +287,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

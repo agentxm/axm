@@ -2,7 +2,7 @@
  * Tests for runUninstallCommandWorkflow phase ordering.
  *
  * Verifies the canonical sequence: parse -> finalizeIntent ->
- * buildUninstallPlan -> resolvePlan.
+ * buildUninstallPlan -> previewOrApplyPlan.
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -51,7 +51,7 @@ const makeTestLayer = () => {
 
 describe("runUninstallCommandWorkflow", () => {
   it.effect(
-    "executes phases in canonical order: parse -> finalizeIntent -> buildUninstallPlan -> resolvePlan",
+    "executes phases in canonical order: parse -> finalizeIntent -> buildUninstallPlan -> previewOrApplyPlan",
     () =>
       Effect.gen(function* () {
         const callOrder: string[] = [];
@@ -91,7 +91,7 @@ describe("runUninstallCommandWorkflow", () => {
       }).pipe(Effect.provide(makeTestLayer())),
   );
 
-  it.effect("passes the built plan to resolvePlan", () => {
+  it.effect("passes the built plan to previewOrApplyPlan", () => {
     const testPlan: Plan = {
       _tag: "Plan",
       name: "captured-uninstall-plan",
@@ -111,7 +111,7 @@ describe("runUninstallCommandWorkflow", () => {
         force: false,
         preview: false,
       });
-      // resolvePlan is now a free function; buildUninstallPlan output flows through automatically
+      // previewOrApplyPlan is now a free function; buildUninstallPlan output flows through automatically
       expect(testPlan.name).toBe("captured-uninstall-plan");
     }).pipe(Effect.provide(makeTestLayer()));
   });

@@ -8,7 +8,7 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import type { SubagentLockEntry } from "@axm.sh/core/unstable/lockfile";
 import {
@@ -236,7 +236,7 @@ export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function*
     jobs: [{ concurrency: 1 as const, steps: [renameStep] }],
   };
 
-  const resolution = yield* resolvePlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

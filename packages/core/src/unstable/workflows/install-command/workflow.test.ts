@@ -2,7 +2,7 @@
  * Tests for runInstallCommandWorkflow phase ordering.
  *
  * Verifies the canonical sequence: parse -> resolveSource -> discover ->
- * finalizeIntent -> buildPlan -> resolvePlan.
+ * finalizeIntent -> buildPlan -> previewOrApplyPlan.
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -53,7 +53,7 @@ const makeTestLayer = () => {
 
 describe("runInstallCommandWorkflow", () => {
   it.effect(
-    "executes phases in canonical order: parse -> resolveSource -> discover -> finalizeIntent -> buildPlan -> resolvePlan",
+    "executes phases in canonical order: parse -> resolveSource -> discover -> finalizeIntent -> buildPlan -> previewOrApplyPlan",
     () =>
       Effect.gen(function* () {
         const callOrder: string[] = [];
@@ -114,7 +114,7 @@ describe("runInstallCommandWorkflow", () => {
       }).pipe(Effect.provide(makeTestLayer())),
   );
 
-  it.effect("passes the built plan to resolvePlan", () => {
+  it.effect("passes the built plan to previewOrApplyPlan", () => {
     const testPlan: Plan = {
       _tag: "Plan",
       name: "captured-plan",
@@ -142,7 +142,7 @@ describe("runInstallCommandWorkflow", () => {
         force: false,
         preview: false,
       });
-      // resolvePlan is now a free function; buildPlan output flows through automatically
+      // previewOrApplyPlan is now a free function; buildPlan output flows through automatically
       expect(testPlan.name).toBe("captured-plan");
     }).pipe(Effect.provide(makeTestLayer()));
   });

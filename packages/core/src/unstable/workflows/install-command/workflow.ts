@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
 import type { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 import type { Plan, PlanResolution } from "../../workspace/plan.js";
-import { resolvePlan } from "../../workspace/resolve-plan.js";
+import { previewOrApplyPlan } from "../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Install Command Workflow Actions Interface
@@ -50,7 +50,7 @@ export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, 
  * Run the canonical install command workflow.
  *
  * Executes phases in order: parse -> resolveSource -> discover ->
- * finalizeIntent -> buildPlan -> resolvePlan.
+ * finalizeIntent -> buildPlan -> previewOrApplyPlan.
  */
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
@@ -63,5 +63,5 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
     const refs = yield* actions.discoverRefs(sourceRequests);
     const intent = yield* actions.finalizeIntent(parsed, refs);
     const plan = yield* actions.buildPlan(intent);
-    return yield* resolvePlan(plan, flags);
+    return yield* previewOrApplyPlan(plan, flags);
   }).pipe(Effect.map((resolution): PlanResolution => resolution));

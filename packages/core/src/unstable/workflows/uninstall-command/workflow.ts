@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
 import type { Plan, PlanResolution } from "../../workspace/plan.js";
-import { resolvePlan } from "../../workspace/resolve-plan.js";
+import { previewOrApplyPlan } from "../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Uninstall Command Workflow Actions Interface
@@ -40,7 +40,7 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
  * Run the canonical uninstall command workflow.
  *
  * Executes phases in order: parse -> finalizeIntent -> buildUninstallPlan ->
- * resolvePlan.
+ * previewOrApplyPlan.
  */
 export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
   args: Args,
@@ -51,5 +51,5 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent);
-    return yield* resolvePlan(plan, flags);
+    return yield* previewOrApplyPlan(plan, flags);
   }).pipe(Effect.map((resolution): PlanResolution => resolution));

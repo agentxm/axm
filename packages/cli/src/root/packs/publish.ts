@@ -36,7 +36,7 @@ import {
   publishMcpServer,
   type PublishMcpServerOperation,
 } from "@axm.sh/core/unstable/mcp-servers";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
@@ -332,7 +332,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     jobs,
   };
 
-  const resolvedPlan = yield* resolvePlan(plan, {
+  const resolvedPlan = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

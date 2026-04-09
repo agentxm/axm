@@ -17,7 +17,7 @@ import {
   COMMAND_MANIFEST_FILENAME,
 } from "@axm.sh/core/unstable/commands";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
@@ -284,7 +284,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  const resolvedPlan = yield* resolvePlan(plan, {
+  const resolvedPlan = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

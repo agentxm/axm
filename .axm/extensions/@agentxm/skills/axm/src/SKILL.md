@@ -4,7 +4,7 @@ description: |
   Manage AI agent extensions via the axm CLI. Install, publish,
   and manage skills, commands, MCP servers, extension packs, and other extension types.
   Use for ANY axm or AgentXM question or action.
-cli-version-audited: "0.1.4"
+cli-version-audited: "0.1.5"
 triggers:
   # Direct invocations
   - axm
@@ -20,16 +20,24 @@ triggers:
   - axm packs
   - axm commands
   - axm mcp-servers
+  - axm subagents
   - axm auth
+  # Workspace ops
+  - axm doctor
+  - axm sync
+  - axm discover
   # Common intents
   - install extension
   - install skill
   - install pack
   - install command
   - install mcp server
+  - install subagent
   - publish extension
   - manage extensions
   - update extensions
+  - discover extensions
+  - check workspace
   # Questions
   - how do I axm
   - what extensions
@@ -40,12 +48,13 @@ argument-hint: "[action] [args...]"
 
 # axm
 
-CLI reference for the axm extension manager (v0.1.4).
+CLI reference for the axm extension manager (v0.1.5).
 
 ## Agent Invariants
 
 1. **JSON output.** Use `--json` for data commands. The CLI auto-detects
-   non-TTY but be explicit.
+   non-TTY but be explicit. Mutations also accept `--json` when you need to
+   parse the result envelope or error code.
 2. **Non-interactive.** Use `--yes` for confirmations. Use `--preview` to
    inspect first.
 3. **Scope awareness.** Project scope (`.axm/`) is default. Use `--scope user`
@@ -71,6 +80,9 @@ CLI reference for the axm extension manager (v0.1.4).
 | Task                           | Command                                                   |
 | ------------------------------ | --------------------------------------------------------- |
 | Initialize workspace           | `axm init --yes`                                          |
+| Diagnose workspace             | `axm doctor`                                              |
+| Sync workspace from settings   | `axm sync --yes`                                          |
+| Discover compatible extensions | `axm discover`                                            |
 | Install skill from registry    | `axm skills install @profile/skills/name --yes`           |
 | Install skill from GitHub      | `axm skills install owner/repo --yes`                     |
 | Install all skills from source | `axm skills install owner/repo --all --yes`               |
@@ -78,17 +90,26 @@ CLI reference for the axm extension manager (v0.1.4).
 | Install pack                   | `axm packs install @profile/packs/name --yes`             |
 | Install command                | `axm commands install @profile/commands/n --yes`          |
 | Install MCP server             | `axm mcp-servers install @p/mcp-servers/n --yes`          |
-| List installed skills          | `axm skills list --json`                                  |
+| Install subagent               | `axm subagents install @profile/subagents/n --yes`        |
+| List installed skills          | `axm skills list`                                         |
+| List installed subagents       | `axm subagents list`                                      |
+| List installed commands        | `axm commands list`                                       |
 | Update all skills              | `axm skills update --yes`                                 |
 | Update specific skill          | `axm skills update --skill name --yes`                    |
+| Update all subagents           | `axm subagents update --yes`                              |
+| Update all commands            | `axm commands update --yes`                               |
 | Uninstall a skill              | `axm skills uninstall name --yes`                         |
 | Enable / disable a skill       | `axm skills enable name` / `disable name`                 |
 | Fork a skill                   | `axm skills fork name --yes`                              |
 | Create a new skill             | `axm skills new name --yes`                               |
+| Create a new subagent          | `axm subagents new name --yes`                            |
+| Create a new command           | `axm commands new name --yes`                             |
 | Publish a skill                | `axm skills publish name --yes`                           |
+| Publish a subagent             | `axm subagents publish name --yes`                        |
+| Publish a command              | `axm commands publish name --yes`                         |
 | Create and publish a pack      | `axm packs new n` / `packs add n ext` / `packs publish n` |
 | Unpack a pack                  | `axm packs unpack name --yes`                             |
-| Check auth status              | `axm whoami --json`                                       |
+| Check auth status              | `axm whoami`                                              |
 | Login / logout                 | `axm login` / `axm logout`                                |
 | Upgrade axm                    | `axm upgrade`                                             |
 
@@ -105,13 +126,21 @@ Setting up a workspace?
 │   └── Tool-managed skills → Leave as Unmanaged, do not modify
 └── Already has .axm/ → axm skills list --json (review current state)
 
+Triaging a workspace?
+├── Health check → axm doctor --json (checks[] + summary counts)
+├── Drifted from settings → axm sync --preview → axm sync --yes
+└── Need extensions for project deps → axm discover --json
+
 Want to find/install an extension?
 ├── Know the FQN → axm skills install @profile/skills/name --yes
+│   (substitute `commands`, `mcp-servers`, `subagents`, or `packs` for skills)
 ├── Have a GitHub repo → axm skills install owner/repo --yes
 └── Browse installed → axm skills list --json
 
 Want to publish?
 ├── New skill → axm skills new name → edit SKILL.md → axm skills publish name
+├── New subagent → axm subagents new name → edit → axm subagents publish name
+├── New command → axm commands new name → edit → axm commands publish name
 ├── New extension pack → axm packs new name → axm packs add → axm packs publish name
 └── Include extension pack deps → axm packs publish name -d --yes
 ```
@@ -215,8 +244,13 @@ old script after `axm skills list --json` confirms all expected skills.
 ## Command Reference
 
 Global flags: `--json`, `--quiet`, `--verbose`, `--debug`, `--non-interactive`,
-`--help`, `--version`, `--log-level`. Standard mutation flags on most commands:
-`--yes`, `--force`, `--preview`, `--scope <project|user>`.
+`--help`, `--version`. Standard mutation flags on most commands: `--yes`,
+`--force`, `--preview`, `--scope <project|user>`.
+
+Top-level command groups: `init`, `skills`, `packs`, `commands`, `mcp-servers`,
+`subagents`, `discover`, `doctor`, `sync`, `auth`, `login`, `logout`, `whoami`,
+`token`, `upgrade`. The `auth` shortcut commands (`login`, `logout`, `whoami`,
+`token`) are aliases for the corresponding `auth <sub>` forms.
 
 ### init
 
@@ -276,11 +310,12 @@ Without arguments, updates all. `--skill` filters by name or glob. Optional
 ### skills new
 
 ```
-axm skills new <name> [--profile @handle] [--agent <id>...] [--yes] [--force]
+axm skills new <name> [--profile @handle] [--agent <id>...] [--yes] [--force] [--preview]
 ```
 
 Name: `[a-z0-9][a-z0-9-]*`, max 64 chars. Creates `skill.json` +
-`src/SKILL.md`, registers in settings, creates agent symlinks.
+`src/SKILL.md`, registers in settings, creates agent symlinks. The scaffolded
+manifest is named `skill.json` (not `axm-skill.json`).
 
 ### skills fork
 
@@ -351,14 +386,45 @@ axm packs remove <pack> <extension> [--yes] [--force]
 axm packs uninstall <name> [--yes] [--force] [--preview]
 ```
 
-### commands install / uninstall
+### commands
 
 ```
 axm commands install <source> [--scope] [--yes] [--force] [--preview]
 axm commands uninstall <name> [--yes] [--force] [--preview]
+axm commands list [--scope]
+axm commands enable <name> [--scope] [--yes] [--force] [--preview]
+axm commands disable <name> [--scope] [--yes] [--force] [--preview]
+axm commands update [<name>] [--scope] [--yes] [--force] [--preview]
+axm commands new <name> [--description <text>] [--profile @handle] [--yes] [--force] [--preview]
+axm commands publish <extensions...> [--registry <name>] [--yes] [--force] [--preview]
 ```
 
-Source: `@profile/commands/name` or bare name.
+Install source: `@profile/commands/name` or bare name. `commands new` creates
+a `command.json` manifest.
+
+### subagents
+
+```
+axm subagents install <source> [--scope] [--subagent <name>] [--agent <id>] [--all] [--yes] [--force] [--preview]
+axm subagents uninstall <subagent> [--yes] [--force] [--preview]
+axm subagents list [--scope] [--agent <id>]
+axm subagents update [<source>] [--scope] [--agent <id>] [--subagent <name>] [--yes] [--force] [--preview]
+axm subagents new <name> [--profile @handle] [--agent <id>...] [--model fast|default|powerful|inherit] [--tool-access full|readonly|none] [--background] [--yes] [--force] [--preview]
+axm subagents enable <name> [--scope] [--yes] [--force] [--preview]
+axm subagents disable <name> [--scope] [--yes] [--force] [--preview]
+axm subagents rename <old> <new> [--scope] [--yes] [--force] [--preview]
+axm subagents publish <extensions...> [--registry <name>] [--yes] [--force] [--preview]
+```
+
+Install source forms mirror `skills install`: `@profile/subagents/name[@version]`,
+`owner/repo`, `./path`, or URL. `subagents new` creates a `subagent.json`
+manifest.
+
+```bash
+axm subagents install @acme/subagents/researcher --yes
+axm subagents new my-helper --model powerful --tool-access readonly --yes
+axm subagents publish my-helper --yes
+```
 
 ### mcp-servers install / uninstall
 
@@ -369,6 +435,35 @@ axm mcp-servers uninstall <name> [--yes] [--force] [--preview]
 
 Source: `@profile/mcp-servers/name` or bare name.
 
+### discover
+
+```
+axm discover [--path <dir>] [--json]
+```
+
+Scans the current project (or `--path <dir>`) for known dependency manifests
+and surfaces compatible registry extensions. JSON envelope:
+`{ _version, command, items, count, totalDetected, registryAvailable }`.
+
+### doctor
+
+```
+axm doctor [--scope project|user] [--json]
+```
+
+Runs workspace diagnostics. JSON envelope: `{ _version, command, data }` with
+`checks[]` and summary counts. Use as a first triage step before other
+commands when something looks off.
+
+### sync
+
+```
+axm sync [--scope project|user] [--yes] [--preview] [--json]
+```
+
+Reconciles the on-disk workspace with `settings.json`. Always preview first
+(`axm sync --preview`) before applying with `--yes`.
+
 ### auth
 
 ```
@@ -378,7 +473,8 @@ axm whoami [--json]         # Show authenticated identity
 axm token [--json]          # Print auth token to stdout
 ```
 
-For non-interactive auth, set `AXM_TOKEN` env var instead of `axm login`.
+The unprefixed forms are aliases for `axm auth <sub>`. For non-interactive
+auth, set `AXM_TOKEN` env var instead of `axm login`.
 
 ### upgrade
 

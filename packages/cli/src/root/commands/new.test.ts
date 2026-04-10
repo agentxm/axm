@@ -80,7 +80,15 @@ describe("commands-new.handler", () => {
           yield* handleCommandsNew(defaultArgs("my-command"));
 
           // Verify manifest
-          const manifestPath = path.join(tempDir, "my-command", "command.json");
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "commands",
+            "my-command",
+            "command.json",
+          );
           expect(fs.existsSync(manifestPath)).toBe(true);
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.owner).toBe("@acme");
@@ -89,7 +97,16 @@ describe("commands-new.handler", () => {
           expect(manifest.version).toBe("0.1.0");
 
           // Verify COMMAND.md
-          const commandMdPath = path.join(tempDir, "my-command", "COMMAND.md");
+          const commandMdPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "commands",
+            "my-command",
+            "src",
+            "COMMAND.md",
+          );
           expect(fs.existsSync(commandMdPath)).toBe(true);
           const commandMd = fs.readFileSync(commandMdPath, "utf-8");
           expect(commandMd).toContain("name: my-command");
@@ -108,11 +125,28 @@ describe("commands-new.handler", () => {
         Effect.gen(function* () {
           yield* handleCommandsNew(defaultArgs("my-command", { description: "Does cool stuff" }));
 
-          const manifestPath = path.join(tempDir, "my-command", "command.json");
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "commands",
+            "my-command",
+            "command.json",
+          );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.description).toBe("Does cool stuff");
 
-          const commandMdPath = path.join(tempDir, "my-command", "COMMAND.md");
+          const commandMdPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "commands",
+            "my-command",
+            "src",
+            "COMMAND.md",
+          );
           const commandMd = fs.readFileSync(commandMdPath, "utf-8");
           expect(commandMd).toContain("description: Does cool stuff");
         }),
@@ -129,7 +163,15 @@ describe("commands-new.handler", () => {
         Effect.gen(function* () {
           yield* handleCommandsNew(defaultArgs("my-command", { profile: Option.some("@corp") }));
 
-          const manifestPath = path.join(tempDir, "my-command", "command.json");
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@corp",
+            "commands",
+            "my-command",
+            "command.json",
+          );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -148,7 +190,15 @@ describe("commands-new.handler", () => {
         Effect.gen(function* () {
           yield* handleCommandsNew(defaultArgs("my-command", { profile: Option.some("corp") }));
 
-          const manifestPath = path.join(tempDir, "my-command", "command.json");
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@corp",
+            "commands",
+            "my-command",
+            "command.json",
+          );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -228,8 +278,10 @@ describe("commands-new.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
-      // Pre-create the directory
-      fs.mkdirSync(path.join(tempDir, "my-command"), { recursive: true });
+      // Pre-create the managed extension directory
+      fs.mkdirSync(path.join(tempDir, ".axm", "extensions", "@acme", "commands", "my-command"), {
+        recursive: true,
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -249,7 +301,16 @@ describe("commands-new.handler", () => {
         Effect.gen(function* () {
           yield* handleCommandsNew(defaultArgs("my-tool"));
 
-          const commandMdPath = path.join(tempDir, "my-tool", "COMMAND.md");
+          const commandMdPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "commands",
+            "my-tool",
+            "src",
+            "COMMAND.md",
+          );
           const content = fs.readFileSync(commandMdPath, "utf-8");
 
           // Check frontmatter
@@ -273,7 +334,15 @@ describe("commands-new.handler", () => {
           yield* handleCommandsNew(defaultArgs("my-command", { preview: true }));
 
           // Manifest should NOT be created
-          const manifestPath = path.join(tempDir, "my-command", "command.json");
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "commands",
+            "my-command",
+            "command.json",
+          );
           expect(fs.existsSync(manifestPath)).toBe(false);
 
           // Preview log message should appear

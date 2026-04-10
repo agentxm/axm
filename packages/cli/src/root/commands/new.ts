@@ -7,6 +7,7 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import {
   decodeExtensionNameSync,
   normalizeHandle,
+  REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@axm.sh/core/unstable/extensions";
 import type { NewCommandOperation } from "@axm.sh/core/unstable/commands";
@@ -79,16 +80,22 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     });
   }
 
-  // 3. Check directory doesn't already exist
+  // 3. Check the managed extension directory doesn't already exist
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const targetDir = path.resolve(args.name);
+  const targetDir = path.join(
+    path.resolve("."),
+    REGISTRY_EXTENSIONS_DIR,
+    owner,
+    "commands",
+    args.name,
+  );
   const dirExists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
 
   if (dirExists) {
     return yield* makeAppError({
       code: "COMMAND_DIR_EXISTS",
-      what: `Directory "${args.name}" already exists`,
+      what: `Managed command directory already exists: ${targetDir}`,
       howToFix: "Choose a different name or remove the existing directory first",
     });
   }

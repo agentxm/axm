@@ -59,7 +59,15 @@ describe("new-command operation", () => {
       expect(result.message).toContain("@acme/commands/my-cmd");
 
       // Verify manifest
-      const manifestPath = path.join(tempDir, "my-cmd", "command.json");
+      const manifestPath = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "commands",
+        "my-cmd",
+        "command.json",
+      );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
       expect(manifest.owner).toBe("@acme");
@@ -69,7 +77,16 @@ describe("new-command operation", () => {
       expect(manifest.$schema).toBe("https://axm.sh/schemas/command.schema.json");
 
       // Verify COMMAND.md
-      const commandMdPath = path.join(tempDir, "my-cmd", "COMMAND.md");
+      const commandMdPath = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "commands",
+        "my-cmd",
+        "src",
+        "COMMAND.md",
+      );
       expect(fs.existsSync(commandMdPath)).toBe(true);
       const content = fs.readFileSync(commandMdPath, "utf-8");
       expect(content).toMatch(/^---\n/);
@@ -85,11 +102,28 @@ describe("new-command operation", () => {
 
       expect(result.result).toBe("success");
 
-      const manifestPath = path.join(tempDir, "my-cmd", "command.json");
+      const manifestPath = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "commands",
+        "my-cmd",
+        "command.json",
+      );
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
       expect(manifest.description).toBe("Does cool things");
 
-      const commandMdPath = path.join(tempDir, "my-cmd", "COMMAND.md");
+      const commandMdPath = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "commands",
+        "my-cmd",
+        "src",
+        "COMMAND.md",
+      );
       const content = fs.readFileSync(commandMdPath, "utf-8");
       expect(content).toContain("description: Does cool things");
     }).pipe(Effect.provide(NodeServices.layer)),
@@ -97,7 +131,9 @@ describe("new-command operation", () => {
 
   it.effect("fails when directory already exists", () =>
     Effect.gen(function* () {
-      fs.mkdirSync(path.join(tempDir, "existing-cmd"), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, ".axm", "extensions", "@acme", "commands", "existing-cmd"), {
+        recursive: true,
+      });
 
       const result = yield* newCommand(makeOp("existing-cmd")).pipe(
         Effect.catchTag("AppError", (e) => Effect.succeed({ result: "error", code: e.code })),

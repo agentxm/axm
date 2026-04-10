@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
+import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation } from "../../workspace/plan.js";
@@ -65,11 +65,11 @@ const INITIAL_COMMAND_VERSION = decodeExactSemverVersionSync("0.1.0");
 /**
  * New-command operation handler.
  *
- * 1. Compute target directory path
+ * 1. Compute managed extension directory path
  * 2. Check if directory already exists
- * 3. Create directory
+ * 3. Create the managed extension + src directories
  * 4. Write command.json manifest
- * 5. Write starter COMMAND.md
+ * 5. Write starter COMMAND.md in src/
  */
 export const newCommand: OperationHandler<
   NewCommandOperation,
@@ -81,8 +81,15 @@ export const newCommand: OperationHandler<
 
     const { name, owner, description } = op.args;
 
-    // 1. Compute target directory
-    const targetDir = path.resolve(name);
+    // 1. Compute managed extension directory
+    const targetDir = path.join(
+      path.resolve("."),
+      REGISTRY_EXTENSIONS_DIR,
+      owner,
+      "commands",
+      name,
+    );
+    const srcDir = path.join(targetDir, "src");
 
     // 2. Check if directory already exists
     const dirExists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
@@ -95,8 +102,8 @@ export const newCommand: OperationHandler<
       });
     }
 
-    // 3. Create directory
-    yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
+    // 3. Create managed extension directories
+    yield* fs.makeDirectory(srcDir, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "COMMAND_CREATE_FAILED",
@@ -131,9 +138,9 @@ export const newCommand: OperationHandler<
         ),
       );
 
-    // 5. Write starter COMMAND.md
+    // 5. Write starter COMMAND.md in src/
     yield* fs
-      .writeFileString(path.join(targetDir, "COMMAND.md"), makeCommandMd(name, description))
+      .writeFileString(path.join(srcDir, "COMMAND.md"), makeCommandMd(name, description))
       .pipe(
         Effect.mapError((e) =>
           makeAppError({

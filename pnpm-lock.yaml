@@ -152,6 +152,9 @@ importers:
       '@axm.sh/e2e-utils':
         specifier: workspace:*
         version: link:../e2e-utils
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.2
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

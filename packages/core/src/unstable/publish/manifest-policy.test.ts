@@ -42,6 +42,7 @@ describe("manifestFilenameForType", () => {
     expect(manifestFilenameForType("skill")).toBe("skill.json");
     expect(manifestFilenameForType("command")).toBe("command.json");
     expect(manifestFilenameForType("mcp-server")).toBe("mcp-server.json");
+    expect(manifestFilenameForType("subagent")).toBe("subagent.json");
     expect(manifestFilenameForType("pack")).toBe("extension-pack.json");
   });
 });
@@ -65,6 +66,28 @@ describe("resolveManifest", () => {
 
       expect(resolved.identity.owner).toBe("@acme");
       expect(resolved.identity.name).toBe("code-review");
+    }),
+  );
+
+  it.effect("resolves a valid subagent manifest", () =>
+    Effect.gen(function* () {
+      const manifest = JSON.stringify({
+        owner: "@acme",
+        type: "subagent",
+        name: "researcher",
+        version: "1.0.0",
+        description: "A research subagent",
+      });
+
+      const resolved = yield* resolveManifest({
+        type: "subagent",
+        entries: [makeEntry("subagent.json")],
+        readEntry: makeReadEntry({ "subagent.json": manifest }),
+      });
+
+      expect(resolved.identity.owner).toBe("@acme");
+      expect(resolved.identity.name).toBe("researcher");
+      expect(resolved.identity.type).toBe("subagent");
     }),
   );
 

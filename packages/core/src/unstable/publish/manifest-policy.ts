@@ -24,6 +24,10 @@ import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
 } from "../skills/manifest-schema.js";
 import {
+  SubagentManifestSchema,
+  MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
+} from "../subagents/manifest-schema.js";
+import {
   ExactSemverVersionSchema,
   type ExactSemverVersion,
 } from "../version-constraints/version-constraints.js";
@@ -48,6 +52,8 @@ export const manifestFilenameForType = (type: string): string | undefined => {
       return COMMAND_MANIFEST_FILENAME;
     case "mcp-server":
       return MCP_SERVER_MANIFEST_FILENAME;
+    case "subagent":
+      return SUBAGENT_MANIFEST_FILENAME;
     case "pack":
       return EXTENSION_PACK_MANIFEST_FILENAME;
     default:
@@ -79,6 +85,8 @@ export const manifestSchemaForType = (type: string) => {
       return CommandManifestSchema;
     case "mcp-server":
       return McpServerManifestSchema;
+    case "subagent":
+      return SubagentManifestSchema;
     case "pack":
       return ExtensionPackManifestSchema;
     default:

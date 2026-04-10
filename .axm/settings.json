@@ -10,6 +10,11 @@
       "name": "local",
       "type": "registry",
       "location": "file:///Users/craig/sandbox_reg"
+    },
+    {
+      "name": "prod",
+      "type": "registry",
+      "location": "https://registry.agentxm.ai/"
     }
   ],
   "agents": [

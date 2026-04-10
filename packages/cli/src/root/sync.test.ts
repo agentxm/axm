@@ -32,7 +32,7 @@ describe("sync handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const createSourceSkillDir = (name = "manage-extensions") => {
+  const createSourceSkillDir = (name = "example-skill") => {
     const sourceRoot = path.join(tempDir, "source-skills");
     const sourceDir = path.join(sourceRoot, name);
     fs.mkdirSync(sourceDir, { recursive: true });
@@ -52,7 +52,7 @@ describe("sync handler", () => {
       agents: ["claude-code"],
       profile: "@axm",
       skills: {
-        "manage-extensions": opts.skillSource,
+        "example-skill": opts.skillSource,
       },
       lockfileSkills: opts.lockfileSkills,
     });
@@ -119,21 +119,19 @@ describe("sync handler", () => {
               "extensions",
               "external",
               "skills",
-              "manage-extensions",
+              "example-skill",
               "SKILL.md",
             ),
           ),
         ).toBe(true);
-        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "manage-extensions"))).toBe(
-          true,
-        );
+        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "example-skill"))).toBe(true);
 
         const lockfile = YAML.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8"),
         );
 
         expect(lockfile.skills).toEqual({
-          "manage-extensions": expect.objectContaining({
+          "example-skill": expect.objectContaining({
             type: "local",
             path: sourceDir,
             agents: ["claude-code"],
@@ -179,7 +177,7 @@ describe("sync handler", () => {
         );
         expect(
           fs.existsSync(
-            path.join(tempDir, ".axm", "extensions", "external", "skills", "manage-extensions"),
+            path.join(tempDir, ".axm", "extensions", "external", "skills", "example-skill"),
           ),
         ).toBe(false);
       }),

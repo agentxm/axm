@@ -45,7 +45,7 @@ describe("workspace sync", () => {
       return Layer.mergeAll(workspaceFoundation, sourceProvidersLayer, CodingAgentRepositoryLive);
     })();
 
-  const createSourceSkillDir = (name = "manage-extensions") => {
+  const createSourceSkillDir = (name = "example-skill") => {
     const sourceRoot = path.join(tempDir, "source-skills");
     const sourceDir = path.join(sourceRoot, name);
     fs.mkdirSync(sourceDir, { recursive: true });
@@ -66,7 +66,7 @@ describe("workspace sync", () => {
       agents: ["claude-code"],
       profile: "@axm",
       skills: {
-        "manage-extensions":
+        "example-skill":
           opts.enabled === false ? { source: opts.skillSource, enabled: false } : opts.skillSource,
       },
       lockfileSkills: opts.lockfileSkills,
@@ -101,21 +101,19 @@ describe("workspace sync", () => {
               "extensions",
               "external",
               "skills",
-              "manage-extensions",
+              "example-skill",
               "SKILL.md",
             ),
           ),
         ).toBe(true);
-        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "manage-extensions"))).toBe(
-          true,
-        );
+        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "example-skill"))).toBe(true);
 
         const lockfile = YAML.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8"),
         );
 
         expect(lockfile.skills).toEqual({
-          "manage-extensions": expect.objectContaining({
+          "example-skill": expect.objectContaining({
             type: "local",
             path: sourceDir,
             agents: ["claude-code"],
@@ -133,7 +131,7 @@ describe("workspace sync", () => {
         enabled: false,
       });
 
-      const staleArtifact = path.join(tempDir, ".claude", "skills", "manage-extensions");
+      const staleArtifact = path.join(tempDir, ".claude", "skills", "example-skill");
       fs.mkdirSync(staleArtifact, { recursive: true });
       fs.writeFileSync(path.join(staleArtifact, "SKILL.md"), "stale\n");
 
@@ -149,7 +147,7 @@ describe("workspace sync", () => {
               "extensions",
               "external",
               "skills",
-              "manage-extensions",
+              "example-skill",
               "SKILL.md",
             ),
           ),
@@ -160,7 +158,7 @@ describe("workspace sync", () => {
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8"),
         );
 
-        expect(lockfile.skills["manage-extensions"]).toMatchObject({
+        expect(lockfile.skills["example-skill"]).toMatchObject({
           type: "local",
           path: sourceDir,
           agents: [],
@@ -180,7 +178,7 @@ describe("workspace sync", () => {
 
         expect(readiness.canSync).toBe(false);
         expect(readiness.unresolvedCount).toBe(1);
-        expect(readiness.unresolved[0]).toContain("manage-extensions");
+        expect(readiness.unresolved[0]).toContain("example-skill");
       }).pipe(Effect.provide(makeLayers()));
     })(),
   );

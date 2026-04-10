@@ -1,5 +1,5 @@
 ---
-name: manage-extensions
+name: axm
 description: |
   Manage AI agent extensions via the axm CLI. Install, publish,
   and manage skills, commands, MCP servers, extension packs, and other extension types.
@@ -38,7 +38,7 @@ invocable: true
 argument-hint: "[action] [args...]"
 ---
 
-# manage-extensions
+# axm
 
 CLI reference for the axm extension manager (v0.1.4).
 

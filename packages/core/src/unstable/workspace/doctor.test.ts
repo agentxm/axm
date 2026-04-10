@@ -93,7 +93,7 @@ describe("workspace doctor", () => {
     writeWorkspaceFiles(axmDir, {
       agents: ["claude-code"],
       skills: {
-        "manage-extensions": "@axm/skills/manage-extensions",
+        "example-skill": "@axm/skills/example-skill",
       },
     });
   };
@@ -105,7 +105,7 @@ describe("workspace doctor", () => {
       "extensions",
       "@axm",
       "skills",
-      "manage-extensions",
+      "example-skill",
     );
     fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
     fs.writeFileSync(
@@ -114,14 +114,14 @@ describe("workspace doctor", () => {
         {
           owner: "@axm",
           type: "skill",
-          name: "manage-extensions",
+          name: "example-skill",
           version: "0.0.1",
         },
         null,
         2,
       ) + "\n",
     );
-    fs.writeFileSync(path.join(canonicalDir, "src", "SKILL.md"), "name: manage-extensions\n");
+    fs.writeFileSync(path.join(canonicalDir, "src", "SKILL.md"), "name: example-skill\n");
   };
 
   it.effect("reports install drift separately from resolution", () =>
@@ -150,7 +150,7 @@ describe("workspace doctor", () => {
         expect(diagnosis.passed).toBe(1);
         expect(diagnosis.skipped).toBe(1);
         expect(diagnosis.canSync).toBe(true);
-      }).pipe(Effect.provide(makeLayers(makeSourceProviders(["manage-extensions"]))));
+      }).pipe(Effect.provide(makeLayers(makeSourceProviders(["example-skill"]))));
     })(),
   );
 
@@ -180,7 +180,7 @@ describe("workspace doctor", () => {
         expect(diagnosis.failed).toBe(1);
         expect(diagnosis.passed).toBe(2);
         expect(diagnosis.canSync).toBe(true);
-      }).pipe(Effect.provide(makeLayers(makeSourceProviders(["manage-extensions"]))));
+      }).pipe(Effect.provide(makeLayers(makeSourceProviders(["example-skill"]))));
     })(),
   );
 

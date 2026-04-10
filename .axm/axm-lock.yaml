@@ -234,10 +234,10 @@ skills:
       - opencode
     installedAt: 2026-04-04T01:03:24.868Z
     updatedAt: 2026-04-04T01:03:24.868Z
-  manage-extensions:
+  axm:
     type: registry
-    profile: "@axm"
-    name: manage-extensions
+    profile: "@agentxm"
+    name: axm
     resolvedVersion: 0.0.1
     integrity: ""
     sourceName: default

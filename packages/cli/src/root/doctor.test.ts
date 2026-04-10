@@ -70,7 +70,7 @@ describe("doctor handler", () => {
       agents: ["claude-code"],
       profile: "@axm",
       skills: {
-        "manage-extensions": "@axm/skills/manage-extensions",
+        "example-skill": "@axm/skills/example-skill",
       },
     });
   };
@@ -111,7 +111,7 @@ describe("doctor handler", () => {
   };
 
   it.effect("emits machine-readable checklist diagnostics", () => {
-    const { provide, rendererState } = makeLayers(makeSourceProviders(["manage-extensions"]), {
+    const { provide, rendererState } = makeLayers(makeSourceProviders(["example-skill"]), {
       machine: true,
     });
     createSkillWorkspace();
@@ -151,7 +151,7 @@ describe("doctor handler", () => {
   });
 
   it.effect("renders a diagnostics table in human mode", () => {
-    const { provide, rendererState } = makeLayers(makeSourceProviders(["manage-extensions"]));
+    const { provide, rendererState } = makeLayers(makeSourceProviders(["example-skill"]));
     createSkillWorkspace();
 
     return provide(

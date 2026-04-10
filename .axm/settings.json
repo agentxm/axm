@@ -26,7 +26,7 @@
     "effect-basics": "@axm/skills/effect-basics",
     "code-review": "@axm/skills/code-review",
     "e2e-publish-check": "@local-dev/skills/e2e-publish-check",
-    "manage-extensions": "@axm/skills/manage-extensions"
+    "axm": "@agentxm/skills/axm"
   },
   "packs": {
     "effect": "@axm/packs/effect"

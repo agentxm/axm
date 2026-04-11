@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import {
   CommandsMapSchema,
   McpServersMapSchema,
+  McpServerEntryObjectSchema,
+  McpServerEntrySchema,
   ExtensionPackEntryObjectSchema,
   ExtensionPackEntrySchema,
   ExtensionPacksMapSchema,
@@ -525,11 +527,11 @@ describe("Settings schema", () => {
   describe("other extension types at root level (legacy)", () => {
     it("accepts valid commands at root", () => {
       const input = {
-        commands: { "batcomputer-sync": "^1.0.0" },
+        commands: { "batcomputer-sync": "@wayne/commands/batcomputer-sync" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.commands).toEqual({ "batcomputer-sync": "^1.0.0" });
+      expect(result.commands).toEqual({ "batcomputer-sync": "@wayne/commands/batcomputer-sync" });
     });
 
     it("accepts valid packs at root with string entry", () => {
@@ -554,26 +556,26 @@ describe("Settings schema", () => {
 
     it("accepts valid mcpServers at root", () => {
       const input = {
-        mcpServers: { batcomputer: "^2.0.0" },
+        mcpServers: { batcomputer: "@wayne/mcp-servers/batcomputer" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.mcpServers).toEqual({ batcomputer: "^2.0.0" });
+      expect(result.mcpServers).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
     });
 
     it("accepts all extension types together at root", () => {
       const input = {
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
-        commands: { "batcomputer-sync": "^1.0.0" },
+        commands: { "batcomputer-sync": "@wayne/commands/batcomputer-sync" },
         packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
-        mcpServers: { batcomputer: "^2.0.0" },
+        mcpServers: { batcomputer: "@wayne/mcp-servers/batcomputer" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({ "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" });
-      expect(result.commands).toEqual({ "batcomputer-sync": "^1.0.0" });
+      expect(result.commands).toEqual({ "batcomputer-sync": "@wayne/commands/batcomputer-sync" });
       expect(result.packs).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
-      expect(result.mcpServers).toEqual({ batcomputer: "^2.0.0" });
+      expect(result.mcpServers).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
     });
 
     it("accepts empty extension map", () => {
@@ -587,7 +589,7 @@ describe("Settings schema", () => {
   });
 
   describe("CommandsMap schema (command entry forms)", () => {
-    it("accepts string shorthand", () => {
+    it("accepts string entry", () => {
       const input = { deploy: "@acme/commands/deploy" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
       expect(result).toEqual({ deploy: "@acme/commands/deploy" });
@@ -623,74 +625,74 @@ describe("Settings schema", () => {
 
   describe("CommandsMap schema (command name validation)", () => {
     it("accepts valid command name", () => {
-      const input = { commit: "^1.0.0" };
+      const input = { commit: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ commit: "^1.0.0" });
+      expect(result).toEqual({ commit: "@wayne/commands/reference" });
     });
 
     it("accepts command name with hyphens", () => {
-      const input = { "my-extension": "^1.0.0" };
+      const input = { "my-extension": "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ "my-extension": "^1.0.0" });
+      expect(result).toEqual({ "my-extension": "@wayne/commands/reference" });
     });
 
     it("accepts command name with numbers", () => {
-      const input = { skill123: "^1.0.0" };
+      const input = { skill123: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ skill123: "^1.0.0" });
+      expect(result).toEqual({ skill123: "@wayne/commands/reference" });
     });
 
     it("accepts single character command name", () => {
-      const input = { a: "^1.0.0" };
+      const input = { a: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ a: "^1.0.0" });
+      expect(result).toEqual({ a: "@wayne/commands/reference" });
     });
 
     it("accepts 64 character command name (max length)", () => {
       const name = "a".repeat(64);
-      const input = { [name]: "^1.0.0" };
+      const input = { [name]: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ [name]: "^1.0.0" });
+      expect(result).toEqual({ [name]: "@wayne/commands/reference" });
     });
 
     it("rejects command name over 64 characters", () => {
       const name = "a".repeat(65);
-      const input = { [name]: "^1.0.0" };
+      const input = { [name]: "@wayne/commands/reference" };
 
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
     it("rejects command name starting with hyphen", () => {
-      const input = { "-invalid": "^1.0.0" };
+      const input = { "-invalid": "@wayne/commands/reference" };
 
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
     it("rejects command name ending with hyphen", () => {
-      const input = { "invalid-": "^1.0.0" };
+      const input = { "invalid-": "@wayne/commands/reference" };
 
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
     it("rejects command name with uppercase letters", () => {
-      const input = { MySkill: "^1.0.0" };
+      const input = { MySkill: "@wayne/commands/reference" };
 
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
     it("rejects command name with underscores", () => {
-      const input = { my_skill: "^1.0.0" };
+      const input = { my_skill: "@wayne/commands/reference" };
 
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
     it("rejects command name with special characters", () => {
-      const input = { "my@skill": "^1.0.0" };
+      const input = { "my@skill": "@wayne/commands/reference" };
 
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
@@ -698,16 +700,45 @@ describe("Settings schema", () => {
 
   describe("McpServersMap schema (MCP server name validation)", () => {
     it("accepts valid MCP server name", () => {
-      const input = { batcomputer: "^2.0.0" };
+      const input = { batcomputer: "@wayne/mcp-servers/batcomputer" };
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
-      expect(result).toEqual({ batcomputer: "^2.0.0" });
+      expect(result).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
+    });
+
+    it("accepts MCP server object entry with source", () => {
+      const input = { batcomputer: { source: "@wayne/mcp-servers/batcomputer" } };
+      const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
+
+      expect(result).toEqual({ batcomputer: { source: "@wayne/mcp-servers/batcomputer" } });
     });
 
     it("rejects MCP server names with underscores", () => {
-      const input = { bat_computer: "^2.0.0" };
+      const input = { bat_computer: "@wayne/mcp-servers/reference" };
 
       expect(() => Schema.decodeUnknownSync(McpServersMapSchema)(input)).toThrow();
+    });
+  });
+
+  describe("McpServerEntrySchema", () => {
+    it("accepts a plain string", () => {
+      const result = Schema.decodeUnknownSync(McpServerEntrySchema)(
+        "@wayne/mcp-servers/batcomputer",
+      );
+
+      expect(result).toBe("@wayne/mcp-servers/batcomputer");
+    });
+
+    it("accepts an object with source", () => {
+      const result = Schema.decodeUnknownSync(McpServerEntryObjectSchema)({
+        source: "@wayne/mcp-servers/batcomputer",
+      });
+
+      expect(result).toEqual({ source: "@wayne/mcp-servers/batcomputer" });
+    });
+
+    it("rejects object without source", () => {
+      expect(() => Schema.decodeUnknownSync(McpServerEntrySchema)({ foo: "bar" })).toThrow();
     });
   });
 
@@ -809,13 +840,13 @@ describe("Settings schema", () => {
           "dev-gadget": "local:./dev/gadgets/dev-gadget",
         },
         commands: {
-          "batcomputer-sync": "^1.0.0",
+          "batcomputer-sync": "@wayne/commands/batcomputer-sync",
         },
         packs: {
           "utility-belt": "@wayne/packs/utility-belt@^1.0.0",
         },
         mcpServers: {
-          batcomputer: "^2.0.0",
+          batcomputer: "@wayne/mcp-servers/batcomputer",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);

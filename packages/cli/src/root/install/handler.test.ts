@@ -1,8 +1,12 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach } from "vitest";
 import {
   InstallCommandCommandWorkflowActions,
   type InstallCommandHandlerArgs,
@@ -23,7 +27,12 @@ import {
   InstallSubagentCommandWorkflowActions,
   type InstallSubagentSourceHandlerArgs,
 } from "../subagents/install/command-actions.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 
 import { handleInstall, type RootInstallFlags } from "./handler.js";
 
@@ -33,6 +42,20 @@ interface InstallCall extends RootInstallFlags {
 }
 
 describe("root install handler", () => {
+  let tempDir: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "root-install-handler-test-"));
+    process.chdir(tempDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
   const makePlan = (label: string) => ({
     _tag: "Plan" as const,
     name: `Install ${label}`,
@@ -218,6 +241,37 @@ describe("root install handler", () => {
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
+    }),
+  );
+
+  it.effect("rejects shorthand command declarations on workspace install", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide } = makeLayers(calls);
+
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        profile: "@axm",
+        commands: {
+          "example-command": "^1.0.0",
+        },
+      });
+
+      const error = yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: false,
+          force: false,
+          preview: true,
+        }).pipe(Effect.flip),
+      );
+      const appError = getAppError(error);
+
+      expect(appError.code).toBe("WORKSPACE_INSTALL_SOURCE_INVALID");
+      expect(appError.what).toBe('The configured command entry "example-command" is invalid.');
+      expect(Option.getOrUndefined(appError.howToFix)).toBe(
+        'Use a name like "@owner/commands/name".',
+      );
     }),
   );
 });

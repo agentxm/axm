@@ -183,6 +183,7 @@ axm auth logout && axm auth login
 ```bash
 # Check connectivity to the default registry
 curl -sf https://registry.agentxm.ai/v1/health || echo "Registry unreachable"
-# Or point to a local registry for development:
-export AXM_REGISTRY_URL=http://localhost:4300
+# Or override the built-in default source for development/testing:
+export AXM_REGISTRY_LOCATION=http://localhost:4300
+# AXM_REGISTRY_LOCATION may also be a file path or file:// URL
 ```

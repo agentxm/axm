@@ -24,7 +24,7 @@ interface ServerContext {
 const createBinaryServer = async (): Promise<ServerContext> => {
   if (!fs.existsSync(binaryDir)) {
     throw new Error(
-      `Compiled binaries not found at ${binaryDir}. Run 'pnpm exec nx run cli:compile' or set AXM_INSTALL_BASE_URL.`,
+      `Compiled binaries not found at ${binaryDir}. Run 'pnpm nx run cli:compile' or set AXM_INSTALL_BASE_URL.`,
     );
   }
 

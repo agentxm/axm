@@ -11,10 +11,10 @@ const buildLogLines = [
   "[1/5] Resolving packages...",
   "[2/5] Fetching packages...",
   "[3/5] Linking dependencies...",
-  "[4/5] Building fresh packages...",
-  "  > @axm.sh/core: tsc --build",
-  "  > @axm.sh/cli: tsc --build",
-  "  > @axm.sh/cli-spike: tsc --build",
+  "[4/5] Running build targets...",
+  "  > nx run core:build",
+  "  > nx run cli:build",
+  "  > nx run cli-spike:build",
   "[5/5] Done in 3.42s",
 ];
 

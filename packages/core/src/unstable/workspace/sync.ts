@@ -25,13 +25,28 @@ import {
   setReconciliationAdapters,
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
-import { buildWorkspaceSkillState, isResolvedWorkspaceSkill } from "./skill-state.js";
+import {
+  diagnoseWorkspaceDoctor,
+  isWorkspaceDoctorSyncBlockingDiagnostic,
+  type WorkspaceDoctorDiagnostic,
+} from "./doctor.js";
+import {
+  buildWorkspaceSkillSnapshot,
+  isResolvedWorkspaceSkill,
+  type WorkspaceSkillAgentIssue,
+} from "./skill-snapshot.js";
 import { Workspace } from "./service-interface.js";
+
+export interface WorkspaceSyncBlocker {
+  readonly code: WorkspaceDoctorDiagnostic["code"];
+  readonly subject: string;
+  readonly message: string;
+  readonly hint?: string;
+}
 
 export interface WorkspaceSyncReadiness {
   readonly canSync: boolean;
-  readonly unresolvedCount: number;
-  readonly unresolved: ReadonlyArray<string>;
+  readonly blockers: ReadonlyArray<WorkspaceSyncBlocker>;
 }
 
 interface SyncState {
@@ -64,15 +79,6 @@ const countLockfileEntries = (lockfile: ReconciliationSnapshot["lockfile"]): num
   Object.keys(lockfile.mcpServers ?? {}).length +
   Object.keys(lockfile.packs ?? {}).length;
 
-const formatUnresolvedSkills = () =>
-  buildWorkspaceSkillState().pipe(
-    Effect.map(({ skills }) =>
-      skills
-        .filter((skill) => skill._tag === "unresolved")
-        .map((skill) => `${skill.name} (${skill.reason})`),
-    ),
-  );
-
 const buildLockfileSyncState = () =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
@@ -94,13 +100,40 @@ const buildLockfileSyncState = () =>
     } satisfies SyncState;
   });
 
+const toSyncBlocker = (diagnostic: WorkspaceDoctorDiagnostic): WorkspaceSyncBlocker => ({
+  code: diagnostic.code,
+  subject: diagnostic.subject,
+  message: diagnostic.message,
+  ...(diagnostic.hint === undefined ? {} : { hint: diagnostic.hint }),
+});
+
+const formatWorkspaceSkillAgentIssue = (issue: WorkspaceSkillAgentIssue): string => {
+  switch (issue._tag) {
+    case "unknown-agent":
+      return `${issue.agentId}: unknown agent`;
+    case "misconfigured-agent":
+      return `${issue.agentId}: ${issue.reason}`;
+  }
+};
+
+export const formatWorkspaceSyncBlockersHowToFix = (
+  blockers: ReadonlyArray<WorkspaceSyncBlocker>,
+): string =>
+  blockers.length === 1
+    ? (blockers[0]?.hint ??
+      "Fix or remove the invalid or unresolved entries in settings.json first.")
+    : "Fix or remove the invalid or unresolved entries in settings.json first.";
+
 export const getWorkspaceSyncReadiness = () =>
   Effect.gen(function* () {
-    const unresolved = yield* formatUnresolvedSkills();
+    const diagnosis = yield* diagnoseWorkspaceDoctor();
+    const blockers = diagnosis.diagnostics
+      .filter(isWorkspaceDoctorSyncBlockingDiagnostic)
+      .map(toSyncBlocker);
+
     return {
-      canSync: unresolved.length === 0,
-      unresolvedCount: unresolved.length,
-      unresolved,
+      canSync: blockers.length === 0,
+      blockers,
     } satisfies WorkspaceSyncReadiness;
   });
 
@@ -112,31 +145,29 @@ export const syncWorkspace = () =>
     const sources = yield* SourceHostProviders;
     const fsLayer = makeFsLayer(fs, path);
     const provide: ProvideFs = (effect) => Effect.provide(effect, fsLayer);
+    const syncReadiness = yield* getWorkspaceSyncReadiness();
 
-    const skillState = yield* buildWorkspaceSkillState();
-    const unresolved = skillState.skills
-      .filter((skill) => skill._tag === "unresolved")
-      .map((skill) => `${skill.name} (${skill.reason})`);
-
-    if (unresolved.length > 0) {
+    if (!syncReadiness.canSync) {
       return yield* makeAppError({
         code: "WORKSPACE_SYNC_BLOCKED",
-        what: "Cannot sync workspace while skill declarations are unresolved",
-        details: unresolved,
-        howToFix: "Fix the declared skill sources in settings.json first.",
+        what: "Cannot sync workspace while settings entries are invalid or unresolved",
+        details: syncReadiness.blockers.map((blocker) => `${blocker.subject}: ${blocker.message}`),
+        howToFix: formatWorkspaceSyncBlockersHowToFix(syncReadiness.blockers),
       });
     }
 
-    if (skillState.agentState.issues.length > 0) {
+    const skillSnapshot = yield* buildWorkspaceSkillSnapshot();
+
+    if (skillSnapshot.agents.issues.length > 0) {
       return yield* makeAppError({
         code: "WORKSPACE_SYNC_BLOCKED",
         what: "Cannot sync workspace while configured agent skill directories are unavailable",
-        details: skillState.agentState.issues,
+        details: skillSnapshot.agents.issues.map(formatWorkspaceSkillAgentIssue),
         howToFix: "Fix the configured agent setup or remove unsupported agents from settings.json.",
       });
     }
 
-    const resolvedSkills = skillState.skills.filter(isResolvedWorkspaceSkill);
+    const resolvedSkills = skillSnapshot.skills.filter(isResolvedWorkspaceSkill);
 
     yield* Effect.forEach(
       resolvedSkills,
@@ -157,7 +188,7 @@ export const syncWorkspace = () =>
       resolvedSkills,
       (skill) =>
         Effect.forEach(
-          skillState.agentState.supportedDirs,
+          skillSnapshot.agents.supportedDirs,
           ({ dir }) =>
             skill.enabled
               ? ensureSkillAgentArtifact({
@@ -180,22 +211,6 @@ export const syncWorkspace = () =>
     );
 
     const lockfileState = yield* buildLockfileSyncState();
-    const nonSkillUnresolved = lockfileState.snapshot.unresolved.filter(
-      ({ declaration }) => declaration.type !== "skills",
-    );
-
-    if (nonSkillUnresolved.length > 0) {
-      return yield* makeAppError({
-        code: "WORKSPACE_SYNC_BLOCKED",
-        what: "Cannot sync workspace while non-skill declarations are unresolved",
-        details: nonSkillUnresolved.map(
-          ({ declaration, reason }) =>
-            `${declaration.type}:${declaration.owner}/${declaration.name} (${reason})`,
-        ),
-        howToFix: "Restore the missing extension files or remove the stale settings entries first.",
-      });
-    }
-
     const settings = yield* readSettingsSafe(ws.path, fsLayer);
     const configuredAgents = settings.agents ?? [];
     const synchronizedSkills = Object.fromEntries(

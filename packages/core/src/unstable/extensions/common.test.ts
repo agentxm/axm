@@ -16,6 +16,8 @@ import {
   ExtensionTypeSchema,
   extensionTypeLabels,
   extensionTypePluralLabels,
+  extensionTypePluralSentenceLabels,
+  extensionTypeSentenceLabels,
   FullyQualifiedNameSchema,
   FullyQualifiedRefSchema,
 } from "./common.js";
@@ -503,6 +505,18 @@ describe("common schemas", () => {
       expect(extensionTypePluralLabels.skills).toBe("Skills");
       expect(extensionTypePluralLabels["mcp-servers"]).toBe("MCP Servers");
       expect(extensionTypePluralLabels.packs).toBe("Extension Packs");
+    });
+
+    it("provides sentence-case singular display labels", () => {
+      expect(extensionTypeSentenceLabels.skill).toBe("skill");
+      expect(extensionTypeSentenceLabels["mcp-server"]).toBe("MCP server");
+      expect(extensionTypeSentenceLabels.pack).toBe("extension pack");
+    });
+
+    it("provides sentence-case plural display labels", () => {
+      expect(extensionTypePluralSentenceLabels.skills).toBe("skills");
+      expect(extensionTypePluralSentenceLabels["mcp-servers"]).toBe("MCP servers");
+      expect(extensionTypePluralSentenceLabels.packs).toBe("extension packs");
     });
   });
 

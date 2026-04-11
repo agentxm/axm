@@ -102,14 +102,21 @@ export {
 // Doctor
 export {
   diagnoseWorkspaceDoctor,
-  WORKSPACE_DOCTOR_CHECK_STATUSES,
-  type WorkspaceDoctorCheck,
-  type WorkspaceDoctorCheckStatus,
+  isWorkspaceDoctorSyncBlockingDiagnostic,
+  WORKSPACE_DOCTOR_DIAGNOSTIC_SEVERITIES,
+  type WorkspaceDoctorDiagnostic,
+  type WorkspaceDoctorDiagnosticSeverity,
   type WorkspaceDoctorDiagnosis,
 } from "./doctor.js";
 
 // Sync
-export { getWorkspaceSyncReadiness, syncWorkspace, type WorkspaceSyncReadiness } from "./sync.js";
+export {
+  formatWorkspaceSyncBlockersHowToFix,
+  getWorkspaceSyncReadiness,
+  syncWorkspace,
+  type WorkspaceSyncBlocker,
+  type WorkspaceSyncReadiness,
+} from "./sync.js";
 
 // Reconciliation types
 export type {

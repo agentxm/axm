@@ -48,6 +48,14 @@
         "cwd": "packages/cli-e2e"
       }
     },
+    "install-suite": {
+      "dependsOn": ["utils:build", "cli:compile-host"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.install.config.ts",
+        "cwd": "packages/cli-e2e"
+      }
+    },
     "install-verification": {
       "dependsOn": ["utils:build"],
       "executor": "nx:run-commands",

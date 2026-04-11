@@ -303,13 +303,49 @@ export const CommandsMapSchema = Schema.Record(Schema.String, CommandEntrySchema
 export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
 
 /**
- * MCP servers map - maps MCP server names to source strings.
+ * MCP server entry object with source.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const McpServerEntryObjectSchema = Schema.Struct({
+  source: Schema.String.pipe(
+    Schema.annotateKey({ messageMissingKey: "MCP server source is required" }),
+  ),
+}).annotate({
+  identifier: "McpServerEntryObject",
+  title: "MCP Server Entry Object",
+  description: "An MCP server with its source location.",
+});
+
+/**
+ * Union of MCP server entry forms: plain source string or object with source.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const McpServerEntrySchema = Schema.Union([
+  Schema.String,
+  McpServerEntryObjectSchema,
+]).annotate({
+  identifier: "McpServerEntry",
+  title: "MCP Server Entry",
+  description: "An MCP server reference — either a source string or an object with source.",
+});
+
+/**
+ * Inferred type for McpServerEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type McpServerEntry = Schema.Schema.Type<typeof McpServerEntrySchema>;
+
+/**
+ * MCP servers map - maps MCP server names to MCP server entries.
  *
  * Keys use the canonical MCP server name schema from the shared kernel.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServersMapSchema = Schema.Record(Schema.String, Schema.String)
+export const McpServersMapSchema = Schema.Record(Schema.String, McpServerEntrySchema)
   .check(Schema.makeFilter(validateNamedRecordKeys("MCP server", decodeExtensionNameSync)))
   .annotate({
     identifier: "McpServersMap",

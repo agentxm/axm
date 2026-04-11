@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
@@ -19,9 +18,13 @@ import {
 } from "@axm.sh/core/unstable/workspace";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
+  extensionTypePluralSentenceLabels,
+  extensionTypeSentenceLabels,
+  parseRegistrySourceRef,
   parseRegistrySourcePatternParts,
   type Handle,
   type InstallableExtensionType,
+  toInstallableExtensionTypePlural,
 } from "@axm.sh/core/unstable/extensions";
 import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 
@@ -35,10 +38,6 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
-import {
-  parseRegistryInstallTarget,
-  type RegistryInstallTarget,
-} from "../shared/registry-install-target.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
 
@@ -86,26 +85,16 @@ export type WorkspaceInstallPlanResult =
       readonly plan: Plan;
     };
 
-const configuredTypeLabel = (type: WorkspaceInstallableType): string => {
-  switch (type) {
-    case "skill":
-      return "skills";
-    case "command":
-      return "commands";
-    case "subagent":
-      return "subagents";
-    case "mcp-server":
-      return "MCP servers";
-    case "pack":
-      return "extension packs";
-  }
-};
-
 const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): string =>
   Option.match(type, {
     onNone: () => "No configured extensions. Nothing to install.",
-    onSome: (value) => `No configured ${configuredTypeLabel(value)}. Nothing to install.`,
+    onSome: (value) =>
+      `No configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]}. Nothing to install.`,
   });
+
+const configuredRegistrySourceExample = (
+  type: Exclude<WorkspaceInstallableType, "skill">,
+): string => `@owner/${toInstallableExtensionTypePlural(type)}/name`;
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
   plan.jobs.flatMap((job) => job.steps);
@@ -317,66 +306,38 @@ const resolveSubagentIntent = (name: string, source: string) =>
     } satisfies InstallSubagentCommandIntent;
   });
 
-const parseRegistryTarget = <TExpected extends WorkspaceInstallableType>(
+const resolveRegistryOwnerAndInput = (
+  name: string,
   source: string,
-  expectedType: TExpected,
-  allowBareVersionConstraint = false,
-): Option.Option<RegistryInstallTarget> => {
-  const parsed = parseRegistryInstallTarget(source, {
-    expectedType,
-    allowBareName: true,
-    allowBareVersionConstraint,
-  });
-
-  if (Result.isFailure(parsed)) {
-    return Option.none();
-  }
-
-  return Option.some(parsed.success);
-};
-
-const resolveRegistryOwnerAndInput = (source: string, type: "command" | "mcp-server" | "pack") =>
+  type: "command" | "mcp-server" | "pack",
+) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
-    const parsedOption = parseRegistryTarget(source, type, type === "pack");
-    if (Option.isNone(parsedOption)) {
+    const parsed = parseRegistrySourceRef(source);
+    if (
+      parsed === undefined ||
+      parsed.type !== toInstallableExtensionTypePlural(type) ||
+      parsed.name !== name
+    ) {
       return yield* makeAppError({
         code: "WORKSPACE_INSTALL_SOURCE_INVALID",
-        what: `Configured ${type} source is invalid`,
+        what: `The configured ${extensionTypeSentenceLabels[type]} entry "${name}" is invalid.`,
         details: [`Source: ${source}`],
-        howToFix: "Reinstall the extension or update settings.json with a valid registry source.",
+        howToFix: `Use a name like "${configuredRegistrySourceExample(type)}".`,
       });
     }
 
-    const parsed = parsedOption.value;
-    if (parsed.kind === "registry") {
-      return {
-        owner: parsed.owner,
-        name: parsed.name,
-        versionConstraint: Option.fromUndefinedOr(parsed.versionConstraint),
-        resolvedInput: source,
-      };
-    }
-
-    const owner = yield* ws.getConfiguredProfile();
-    const resolvedInput = Option.match(Option.fromUndefinedOr(parsed.versionConstraint), {
-      onNone: () => `${owner}/${type === "mcp-server" ? "mcp-servers" : `${type}s`}/${parsed.name}`,
-      onSome: (constraint) =>
-        `${owner}/${type === "mcp-server" ? "mcp-servers" : `${type}s`}/${parsed.name}@${constraint}`,
-    });
-
     return {
-      owner,
+      owner: parsed.owner,
       name: parsed.name,
       versionConstraint: Option.fromUndefinedOr(parsed.versionConstraint),
-      resolvedInput,
+      resolvedInput: source,
     };
   });
 
 const resolveCommandIntent = (name: string, source: string) =>
   Effect.gen(function* () {
+    const resolved = yield* resolveRegistryOwnerAndInput(name, source, "command");
     const providers = yield* SourceHostProviders;
-    const resolved = yield* resolveRegistryOwnerAndInput(source, "command");
     const resolvedSource = yield* resolveSource(resolved.resolvedInput).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -431,8 +392,8 @@ const resolveCommandIntent = (name: string, source: string) =>
 
 const resolveMcpServerIntent = (name: string, source: string) =>
   Effect.gen(function* () {
+    const resolved = yield* resolveRegistryOwnerAndInput(name, source, "mcp-server");
     const providers = yield* SourceHostProviders;
-    const resolved = yield* resolveRegistryOwnerAndInput(source, "mcp-server");
     const resolvedSource = yield* resolveSource(resolved.resolvedInput).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -487,8 +448,8 @@ const resolveMcpServerIntent = (name: string, source: string) =>
 
 const resolvePackRef = (name: string, source: string) =>
   Effect.gen(function* () {
+    const resolved = yield* resolveRegistryOwnerAndInput(name, source, "pack");
     const providers = yield* SourceHostProviders;
-    const resolved = yield* resolveRegistryOwnerAndInput(source, "pack");
     const resolvedSource = yield* resolveSource(resolved.resolvedInput).pipe(
       Effect.mapError((error) =>
         makeAppError({

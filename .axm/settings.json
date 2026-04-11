@@ -1,22 +1,5 @@
 {
   "profile": "@agentxm",
-  "sources": [
-    {
-      "name": "local-registry",
-      "type": "registry",
-      "location": "http://localhost:4300/"
-    },
-    {
-      "name": "local",
-      "type": "registry",
-      "location": "file:///Users/craig/sandbox_reg"
-    },
-    {
-      "name": "prod",
-      "type": "registry",
-      "location": "https://registry.agentxm.ai/"
-    }
-  ],
   "agents": [
     "amp",
     "antigravity",

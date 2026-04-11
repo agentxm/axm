@@ -1,9 +1,15 @@
+/**
+ * Read-only workspace skill snapshot for doctor and sync.
+ *
+ * Resolves declared skills, derives install state, and discovers configured
+ * agent skill directories. This module does not plan or perform writes.
+ */
 import * as Array from "effect/Array";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../agents/index.js";
 import { sanitizeName } from "../extensions/utils.js";
 import { createDefaultSettings, normalizeSkillEntry, readSettings } from "../settings/index.js";
@@ -28,30 +34,75 @@ export interface WorkspaceResolvedSkill {
   readonly installed: boolean;
 }
 
+export type WorkspaceUnresolvedSkillReason =
+  | {
+      readonly _tag: "multiple-matches";
+    }
+  | {
+      readonly _tag: "timeout";
+    }
+  | {
+      readonly _tag: "skill-not-found";
+    }
+  | {
+      readonly _tag: "resolution-failed";
+      readonly message: string;
+    };
+
 export interface WorkspaceUnresolvedSkill {
   readonly _tag: "unresolved";
   readonly name: string;
   readonly source: string;
   readonly enabled: boolean;
-  readonly reason: string;
+  readonly reason: WorkspaceUnresolvedSkillReason;
 }
 
 export type WorkspaceSkillState = WorkspaceResolvedSkill | WorkspaceUnresolvedSkill;
 
-export interface WorkspaceSkillAgentState {
-  readonly supportedDirs: ReadonlyArray<{
-    readonly agentId: string;
-    readonly dir: string;
-  }>;
-  readonly issues: ReadonlyArray<string>;
+export interface WorkspaceSkillAgentDirectory {
+  readonly agentId: string;
+  readonly dir: string;
 }
 
-export interface WorkspaceSkillStateSnapshot {
+export type WorkspaceSkillAgentIssue =
+  | {
+      readonly _tag: "unknown-agent";
+      readonly agentId: string;
+    }
+  | {
+      readonly _tag: "misconfigured-agent";
+      readonly agentId: string;
+      readonly reason: string;
+    };
+
+export interface WorkspaceSkillAgentSnapshot {
+  readonly supportedDirs: ReadonlyArray<WorkspaceSkillAgentDirectory>;
+  readonly issues: ReadonlyArray<WorkspaceSkillAgentIssue>;
+}
+
+export interface WorkspaceSkillSnapshot {
   readonly skills: ReadonlyArray<WorkspaceSkillState>;
-  readonly agentState: WorkspaceSkillAgentState;
+  readonly agents: WorkspaceSkillAgentSnapshot;
 }
 
 const SKILL_RESOLUTION_TIMEOUT = "2 seconds";
+
+const multipleMatchesReason = (): WorkspaceUnresolvedSkillReason => ({
+  _tag: "multiple-matches",
+});
+
+const timeoutReason = (): WorkspaceUnresolvedSkillReason => ({
+  _tag: "timeout",
+});
+
+const skillNotFoundReason = (): WorkspaceUnresolvedSkillReason => ({
+  _tag: "skill-not-found",
+});
+
+const resolutionFailedReason = (message: string): WorkspaceUnresolvedSkillReason => ({
+  _tag: "resolution-failed",
+  message,
+});
 
 const makeFsLayer = (fs: FileSystem.FileSystem, path: Path.Path) =>
   Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fs), Layer.succeed(Path.Path, path));
@@ -66,7 +117,11 @@ const resolveSkillRef = (
   name: string,
   source: string,
   providers: SourceHostProvidersService,
-): Effect.Effect<SkillExtensionRef, string, Workspace | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  SkillExtensionRef,
+  WorkspaceUnresolvedSkillReason,
+  Workspace | FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const parsed = parseInputPattern(source);
     const owner =
@@ -90,7 +145,9 @@ const resolveSkillRef = (
         : []),
     ]);
 
-    const sourceRef = yield* resolveSource(source).pipe(Effect.mapError((error) => error.what));
+    const sourceRef = yield* resolveSource(source).pipe(
+      Effect.mapError((error) => resolutionFailedReason(error.what)),
+    );
 
     const findSkills = (skillNames: ReadonlyArray<string>) =>
       providers
@@ -105,7 +162,7 @@ const resolveSkillRef = (
           Effect.map((refs) =>
             refs.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
           ),
-          Effect.mapError((error) => error.what),
+          Effect.mapError((error) => resolutionFailedReason(error.what)),
         );
 
     const directMatches = yield* findSkills(expectedNames);
@@ -115,9 +172,7 @@ const resolveSkillRef = (
     }
 
     if (directMatches.length > 1) {
-      return yield* Effect.fail(
-        `Multiple skills matched "${name}" from ${source}. Narrow the declaration to one skill.`,
-      );
+      return yield* Effect.fail(multipleMatchesReason());
     }
 
     const discovered = yield* findSkills([]);
@@ -133,11 +188,11 @@ const resolveSkillRef = (
       if (onlyMatch !== undefined) return onlyMatch;
     }
 
-    return yield* Effect.fail(`No skill named "${name}" could be resolved from ${source}.`);
+    return yield* Effect.fail(skillNotFoundReason());
   }).pipe(
     Effect.timeoutOrElse({
       duration: SKILL_RESOLUTION_TIMEOUT,
-      orElse: () => Effect.fail(`Timed out while resolving "${name}" from ${source}.`),
+      orElse: () => Effect.fail(timeoutReason()),
     }),
   );
 
@@ -152,7 +207,7 @@ const toSkillPathSource = (ref: SkillExtensionRef): SkillPathSource => {
   }
 };
 
-const buildSkillState = (
+const buildDeclaredSkillState = (
   baseDir: string,
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -202,9 +257,50 @@ const buildSkillState = (
     } satisfies WorkspaceResolvedSkill;
   });
 
-const buildAgentState = (
+const buildDeclaredSkillSnapshot = (
   baseDir: string,
-): Effect.Effect<WorkspaceSkillAgentState, never, CodingAgentRepository | Path.Path | Workspace> =>
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  providers: SourceHostProvidersService,
+) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const fsLayer = makeFsLayer(fs, path);
+    const settings = yield* readSettingsSafe(ws.path, fsLayer);
+    const normalizedSkills = Object.entries(settings.skills ?? {}).map(([name, entry]) => ({
+      name,
+      ...normalizeSkillEntry(entry),
+    }));
+
+    return yield* Effect.forEach(
+      normalizedSkills,
+      ({ name, source, enabled }) =>
+        buildDeclaredSkillState(baseDir, fs, path, providers, name, source, enabled),
+      { concurrency: "unbounded" },
+    );
+  });
+
+const buildUnknownAgentIssue = (agentId: string): WorkspaceSkillAgentIssue => ({
+  _tag: "unknown-agent",
+  agentId,
+});
+
+const buildMisconfiguredAgentIssue = (
+  agentId: string,
+  reason: string,
+): WorkspaceSkillAgentIssue => ({
+  _tag: "misconfigured-agent",
+  agentId,
+  reason,
+});
+
+const buildWorkspaceSkillAgentSnapshot = (
+  baseDir: string,
+): Effect.Effect<
+  WorkspaceSkillAgentSnapshot,
+  never,
+  CodingAgentRepository | Path.Path | Workspace
+> =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
     const path = yield* Path.Path;
@@ -246,45 +342,34 @@ const buildAgentState = (
     );
 
     const issues = [
-      ...unknownConfiguredAgentIds.map((agentId) => `${agentId}: unknown agent`),
+      ...unknownConfiguredAgentIds.map(buildUnknownAgentIssue),
       ...resolved.flatMap(({ agentId, outcome }) =>
-        outcome._tag === "supported" ? [] : [`${agentId}: ${outcome.reason}`],
+        outcome._tag === "supported" ? [] : [buildMisconfiguredAgentIssue(agentId, outcome.reason)],
       ),
     ];
 
     return {
       supportedDirs,
       issues,
-    } satisfies WorkspaceSkillAgentState;
+    } satisfies WorkspaceSkillAgentSnapshot;
   });
 
 export const isResolvedWorkspaceSkill = (
   skill: WorkspaceSkillState,
 ): skill is WorkspaceResolvedSkill => skill._tag === "resolved";
 
-export const buildWorkspaceSkillState = () =>
+export const buildWorkspaceSkillSnapshot = () =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const providers = yield* SourceHostProviders;
-    const fsLayer = makeFsLayer(fs, path);
-    const settings = yield* readSettingsSafe(ws.path, fsLayer);
-    const normalizedSkills = Object.entries(settings.skills ?? {}).map(([name, entry]) => ({
-      name,
-      ...normalizeSkillEntry(entry),
-    }));
 
-    const skills = yield* Effect.forEach(
-      normalizedSkills,
-      ({ name, source, enabled }) =>
-        buildSkillState(ws.baseDir, fs, path, providers, name, source, enabled),
-      { concurrency: "unbounded" },
-    );
-    const agentState = yield* buildAgentState(ws.baseDir);
+    const skills = yield* buildDeclaredSkillSnapshot(ws.baseDir, fs, path, providers);
+    const agents = yield* buildWorkspaceSkillAgentSnapshot(ws.baseDir);
 
     return {
       skills,
-      agentState,
-    } satisfies WorkspaceSkillStateSnapshot;
+      agents,
+    } satisfies WorkspaceSkillSnapshot;
   });

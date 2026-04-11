@@ -9,6 +9,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
+  formatWorkspaceSyncBlockersHowToFix,
   getWorkspaceSyncReadiness,
   syncWorkspace,
   type JobStepResult,
@@ -21,6 +22,7 @@ import {
 import { emitPlanResolutionResult } from "../json-output.js";
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
+import { buildWorkspaceInstallPlan } from "./install/workspace-install.js";
 
 export interface SyncHandlerArgs {
   readonly yes: boolean;
@@ -30,11 +32,14 @@ export interface SyncHandlerArgs {
 const formatEntryCount = (entryCount: number) =>
   entryCount === 1 ? "1 entry" : `${entryCount} entries`;
 
-const makeSyncPlan = (step: PlannedJobStep): Plan => ({
+const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
+  plan.jobs.flatMap((job) => job.steps);
+
+const makeSyncPlan = (steps: ReadonlyArray<PlannedJobStep>): Plan => ({
   _tag: "Plan",
   name: "Sync workspace",
   description: Option.some("Synchronize managed workspace state from settings.json"),
-  jobs: [{ concurrency: 1 as const, steps: [step] }],
+  jobs: [{ concurrency: 1 as const, steps }],
 });
 
 export const handleSync = Effect.fn("Sync.handle")(function* (args: SyncHandlerArgs) {
@@ -46,31 +51,47 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: SyncHandlerA
   const agentRepo = yield* CodingAgentRepository;
   const syncReadiness = yield* getWorkspaceSyncReadiness();
 
-  const step: PlannedJobStep = syncReadiness.canSync
-    ? {
-        readiness: "ready",
-        label: "Managed skills and axm-lock.yaml",
-        run: syncWorkspace().pipe(
-          Effect.map(
-            (entryCount): JobStepResult => ({
-              result: "success",
-              message: `Synchronized managed workspace state (${formatEntryCount(entryCount)} in axm-lock.yaml)`,
-            }),
-          ),
-          Effect.provideService(Workspace, ws),
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-          Effect.provideService(SourceHostProviders, sources),
-          Effect.provideService(CodingAgentRepository, agentRepo),
-        ),
-      }
-    : {
-        readiness: "error",
-        label: "Managed skills and axm-lock.yaml",
-        errorMessage: `Cannot synchronize while ${syncReadiness.unresolvedCount} skill declaration(s) are unresolved.`,
-      };
+  const syncStep: PlannedJobStep = {
+    readiness: "ready",
+    label: "Managed extensions and axm-lock.yaml",
+    run: syncWorkspace().pipe(
+      Effect.map(
+        (entryCount): JobStepResult => ({
+          result: "success",
+          message: `Synchronized managed workspace state (${formatEntryCount(entryCount)} in axm-lock.yaml)`,
+        }),
+      ),
+      Effect.provideService(Workspace, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(SourceHostProviders, sources),
+      Effect.provideService(CodingAgentRepository, agentRepo),
+    ),
+  };
 
-  const plan = makeSyncPlan(step);
+  const plan = syncReadiness.canSync
+    ? yield* Effect.gen(function* () {
+        const installPlanResult = yield* buildWorkspaceInstallPlan({
+          type: Option.none(),
+          planName: "Install configured extensions",
+          planDescription: Option.some("Install configured workspace extensions"),
+        });
+        const installSteps =
+          installPlanResult._tag === "WorkspaceInstallPlan"
+            ? flattenPlanSteps(installPlanResult.plan)
+            : [];
+
+        return makeSyncPlan([...installSteps, syncStep]);
+      })
+    : makeSyncPlan(
+        syncReadiness.blockers.map(
+          (blocker): PlannedJobStep => ({
+            readiness: "error",
+            label: blocker.subject,
+            errorMessage: blocker.message,
+          }),
+        ),
+      );
 
   yield* renderer.info("axm sync");
 
@@ -78,6 +99,11 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: SyncHandlerA
     yes: args.yes,
     force: false,
     preview: args.preview,
+    ...(syncReadiness.canSync
+      ? {}
+      : {
+          blockedByErrorsHowToFix: formatWorkspaceSyncBlockersHowToFix(syncReadiness.blockers),
+        }),
   });
   yield* emitPlanResolutionResult("sync", resolution);
 

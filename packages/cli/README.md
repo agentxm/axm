@@ -12,7 +12,7 @@ Prerequisites:
 Run:
 
 ```sh
-pnpm exec nx run cli:compile
+pnpm nx run cli:compile
 ```
 
 The target depends on `cli:build`, compiles from `dist/src/main.js`, and writes binaries to `packages/cli/dist/bin/`:

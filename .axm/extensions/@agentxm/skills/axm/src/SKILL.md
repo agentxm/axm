@@ -490,23 +490,24 @@ axm upgrade [--force]
 | `axm-lock.yaml`        | Version pins         |
 | `~/.axm/settings.json` | User-scope config    |
 
-| Variable           | Purpose                             |
-| ------------------ | ----------------------------------- |
-| `AXM_TOKEN`        | Auth token (skips device code flow) |
-| `AXM_REGISTRY_URL` | Override registry endpoint          |
-| `AXM_TELEMETRY`    | `0` to disable                      |
+| Variable                | Purpose                                    |
+| ----------------------- | ------------------------------------------ |
+| `AXM_TOKEN`             | Auth token (skips device code flow)        |
+| `AXM_REGISTRY_LOCATION` | Override default registry source           |
+| `AXM_REGISTRY_URL`      | Override remote registry API/auth endpoint |
+| `AXM_TELEMETRY`         | `0` to disable                             |
 
 ## Error Handling
 
 Exit 0 = success, non-zero = failure. JSON errors include `code` and `message`.
 
-| Error Code            | Recovery                                      |
-| --------------------- | --------------------------------------------- |
-| `AUTH_LOGIN_REQUIRED` | Set `AXM_TOKEN` or run `axm login`            |
-| Extension not found   | Verify FQN: `@profile/skills/name`            |
-| Version conflict      | Use `--force` or adjust constraint            |
-| Registry unreachable  | Check `AXM_REGISTRY_URL`, verify connectivity |
-| Workspace not init'd  | Run `axm init --yes`                          |
-| Prompt hanging        | Add `--yes` or `--non-interactive`            |
+| Error Code            | Recovery                                                                 |
+| --------------------- | ------------------------------------------------------------------------ |
+| `AUTH_LOGIN_REQUIRED` | Set `AXM_TOKEN` or run `axm login`                                       |
+| Extension not found   | Verify FQN: `@profile/skills/name`                                       |
+| Version conflict      | Use `--force` or adjust constraint                                       |
+| Registry unreachable  | Check `AXM_REGISTRY_LOCATION` or `AXM_REGISTRY_URL`, verify connectivity |
+| Workspace not init'd  | Run `axm init --yes`                                                     |
+| Prompt hanging        | Add `--yes` or `--non-interactive`                                       |
 
 Use `--debug` for full error details including stack traces.

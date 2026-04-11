@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
+import { pathToFileURL } from "node:url";
 
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
@@ -113,6 +114,7 @@ const debugLoggerLayer = Layer.unwrap(
 );
 
 interface RuntimeEnvConfig {
+  readonly registryLocation: string;
   readonly registryUrl: string;
   readonly doNotTrack: Option.Option<string>;
   readonly telemetry: Option.Option<string>;
@@ -120,9 +122,30 @@ interface RuntimeEnvConfig {
   readonly debug: Option.Option<string>;
 }
 
+const getNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): Option.Option<string> =>
+  Option.fromUndefinedOr(env[name]).pipe(Option.filter((value) => value.length > 0));
+
+const normalizeRegistryLocation = (location: string): string => {
+  try {
+    return new URL(location).href;
+  } catch {
+    return pathToFileURL(location).href;
+  }
+};
+
+export const resolveBuiltInRegistryLocation = (
+  env: NodeJS.ProcessEnv,
+  registryUrl: string,
+): string =>
+  Option.match(getNonEmptyEnv(env, "AXM_REGISTRY_LOCATION"), {
+    onNone: () => normalizeRegistryLocation(registryUrl),
+    onSome: normalizeRegistryLocation,
+  });
+
 const readRuntimeEnvConfig = Effect.gen(function* () {
   const registryUrl = yield* RegistryUrl;
   return {
+    registryLocation: resolveBuiltInRegistryLocation(process.env, registryUrl),
     registryUrl,
     doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
     telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
@@ -143,13 +166,13 @@ const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig
 });
 
 const makeWorkspaceProgramLayer = (
-  registryUrl: string,
+  registryLocation: string,
   workspace: Omit<WorkspaceContextOptions, "builtInSources">,
 ) => {
   // -- Workspace foundation --
   const wsLayer = coreWorkspaceLayer({
     ...workspace,
-    builtInSources: getBuiltInSources(registryUrl),
+    builtInSources: getBuiltInSources(registryLocation),
   });
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
   const workspaceServiceLayer = Layer.mergeAll(
@@ -225,9 +248,9 @@ export const withWorkspace =
   (options: WorkspaceScope | Omit<WorkspaceContextOptions, "builtInSources">) =>
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
     Effect.gen(function* () {
-      const registryUrl = yield* RegistryUrl;
+      const envConfig = yield* readRuntimeEnvConfig;
       const resolved = typeof options === "string" ? { scope: options } : options;
-      const wsLayer = makeWorkspaceProgramLayer(registryUrl, resolved);
+      const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
       return yield* Effect.provide(program, wsLayer);
     });
 

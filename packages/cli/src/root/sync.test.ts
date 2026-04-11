@@ -5,16 +5,28 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
+import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
+import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
+import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
+import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
+import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { getAppError } from "../test-helpers.js";
 import { writeWorkspaceFiles } from "../test-stubs.js";
+import { InstallCommandCommandWorkflowActionsLive } from "./commands/install/command-actions.js";
+import { InstallMcpServerCommandWorkflowActionsLive } from "./mcp-servers/install/command-actions.js";
+import { InstallPackCommandWorkflowActionsLive } from "./packs/install/command-actions.js";
+import { InstallSkillCommandWorkflowActionsLive } from "./skills/install/command-actions.js";
+import { InstallSubagentCommandWorkflowActionsLive } from "./subagents/install/command-actions.js";
 import { handleSync } from "./sync.js";
 
 describe("sync handler", () => {
@@ -78,11 +90,39 @@ describe("sync handler", () => {
     );
     const workspaceFoundation = Layer.mergeAll(baseLayer, wsLayer);
     const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, workspaceFoundation);
-    const fullLayer = Layer.mergeAll(
+    const workspaceServiceLayer = Layer.mergeAll(
       workspaceFoundation,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
     );
+    const commandsLayer = Layer.provideMerge(
+      InstallCommandCommandWorkflowActionsLive,
+      CommandManagerLive,
+    );
+    const mcpServersLayer = Layer.provideMerge(
+      InstallMcpServerCommandWorkflowActionsLive,
+      McpServerManagerLive,
+    );
+    const skillsLayer = Layer.provideMerge(
+      InstallSkillCommandWorkflowActionsLive,
+      SkillManagerLive,
+    );
+    const subagentsLayer = Layer.provideMerge(
+      InstallSubagentCommandWorkflowActionsLive,
+      SubagentManagerLive,
+    );
+    const packsLayer = Layer.provideMerge(
+      InstallPackCommandWorkflowActionsLive,
+      ExtensionPackManagerLive,
+    );
+    const coreExtensions = Layer.mergeAll(
+      commandsLayer,
+      mcpServersLayer,
+      skillsLayer,
+      subagentsLayer,
+    );
+    const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
+    const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -98,8 +138,12 @@ describe("sync handler", () => {
       skillSource: sourceDir,
       lockfileSkills: {
         stale: {
-          type: "local",
-          path: "/tmp/stale",
+          type: "registry",
+          owner: "@axm",
+          name: "stale",
+          resolvedVersion: "1.0.0",
+          integrity: "sha512-stale",
+          sourceName: "default",
           agents: ["claude-code"],
           installedAt: new Date("2025-01-01T00:00:00.000Z").toISOString(),
           updatedAt: new Date("2025-01-01T00:00:00.000Z").toISOString(),
@@ -161,14 +205,14 @@ describe("sync handler", () => {
             outcome: "previewed",
             planName: "Sync workspace",
             planDescription: "Synchronize managed workspace state from settings.json",
-            totalSteps: 1,
-            readyCount: 1,
-            steps: [
+            totalSteps: 2,
+            readyCount: 2,
+            steps: expect.arrayContaining([
               {
-                label: "Managed skills and axm-lock.yaml",
+                label: "Managed extensions and axm-lock.yaml",
                 status: "ready",
               },
-            ],
+            ]),
           },
         });
 
@@ -180,6 +224,49 @@ describe("sync handler", () => {
             path.join(tempDir, ".axm", "extensions", "external", "skills", "example-skill"),
           ),
         ).toBe(false);
+      }),
+    );
+  });
+
+  it.effect("reports unresolved skill declarations without suggesting --force", () => {
+    const { provide } = makeLayers();
+    createWorkspace({
+      skillSource: path.join(tempDir, "missing-skill"),
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleSync({ yes: true, preview: false }).pipe(Effect.flip);
+        const appError = getAppError(error);
+
+        expect(appError.code).toBe("PLAN_BLOCKED_BY_ERRORS");
+        expect(appError.what).toBe("Plan has errors that prevent execution");
+        expect(Option.getOrUndefined(appError.howToFix)).toBe(
+          `Check that "${path.join(tempDir, "missing-skill")}" points to the correct skill, or remove "example-skill" from settings.json.`,
+        );
+      }),
+    );
+  });
+
+  it.effect("reports invalid command entries with a targeted fix", () => {
+    const { provide } = makeLayers();
+    const axmDir = path.join(tempDir, ".axm");
+    writeWorkspaceFiles(axmDir, {
+      agents: ["claude-code"],
+      commands: {
+        "example-command": "^1.0.0",
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleSync({ yes: true, preview: false }).pipe(Effect.flip);
+        const appError = getAppError(error);
+
+        expect(appError.code).toBe("PLAN_BLOCKED_BY_ERRORS");
+        expect(Option.getOrUndefined(appError.howToFix)).toBe(
+          'Use a name like "@owner/commands/name".',
+        );
       }),
     );
   });

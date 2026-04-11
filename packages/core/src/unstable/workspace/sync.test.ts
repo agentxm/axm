@@ -177,8 +177,11 @@ describe("workspace sync", () => {
         const readiness = yield* getWorkspaceSyncReadiness();
 
         expect(readiness.canSync).toBe(false);
-        expect(readiness.unresolvedCount).toBe(1);
-        expect(readiness.unresolved[0]).toContain("example-skill");
+        expect(readiness.blockers).toHaveLength(1);
+        expect(readiness.blockers[0]?.subject).toBe("skill:example-skill");
+        expect(readiness.blockers[0]?.message).toContain(
+          "Could not determine an installable skill",
+        );
       }).pipe(Effect.provide(makeLayers()));
     })(),
   );

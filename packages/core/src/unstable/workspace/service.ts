@@ -381,7 +381,10 @@ const make = (options: WorkspaceLayerOptions) =>
             const mcpSettings = settings.mcpServers ?? {};
             const mcpServerLockEntries: McpServersLockMap = lockfile.mcpServers ?? {};
             const configured = Object.fromEntries(
-              Object.entries(mcpSettings).map(([name, source]) => [name, { source }]),
+              Object.entries(mcpSettings).map(([name, entry]) => {
+                const source = typeof entry === "string" ? entry : entry.source;
+                return [name, { source }];
+              }),
             );
             return yield* classifyExtensions({
               type,

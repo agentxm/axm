@@ -36,10 +36,10 @@ export const deriveSourceMetaFromLockType = (lockType: string): SourceMeta => {
 
 /**
  * Built-in source defaults that are always available unless overridden.
- * The default registry entry is parameterized by the resolved registry URL.
+ * The default registry entry is parameterized by the resolved registry location.
  */
-export const getBuiltInSources = (registryUrl: string): ReadonlyArray<SourceHostConfig> => [
-  { name: "default", type: "registry", location: new URL(registryUrl) },
+export const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
+  { name: "default", type: "registry", location: new URL(registryLocation) },
   { name: "github", type: "github", url: new URL("https://github.com") },
   { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },

@@ -72,10 +72,10 @@ describe("SettingsSchema ignored fields", () => {
 describe("SettingsSchema mcpServers (camelCase)", () => {
   it("accepts mcpServers key (camelCase)", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      mcpServers: { batcomputer: "^2.0.0" },
+      mcpServers: { batcomputer: "@wayne/mcp-servers/batcomputer" },
     });
 
-    expect(result.mcpServers).toEqual({ batcomputer: "^2.0.0" });
+    expect(result.mcpServers).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
   });
 });
 

@@ -17,14 +17,14 @@ const resolveCommandExecutable = (
 
 const compileHostCommand = {
   command: "pnpm",
-  args: ["exec", "nx", "run", "cli:compile-host", "--outputStyle=static"],
+  args: ["nx", "run", "cli:compile-host"],
   cwd: "repoRoot",
 } as const satisfies InstallVerificationCommand;
 
-const vitestCommand = {
+const installSuiteCommand = {
   command: "pnpm",
-  args: ["exec", "vitest", "run", "--config", "vitest.install.config.ts"],
-  cwd: "packageRoot",
+  args: ["nx", "run", "cli-e2e:install-suite"],
+  cwd: "repoRoot",
 } as const satisfies InstallVerificationCommand;
 
 const hasInstallBaseUrl = (installBaseUrl: string | undefined): boolean =>
@@ -33,6 +33,8 @@ const hasInstallBaseUrl = (installBaseUrl: string | undefined): boolean =>
 export const createInstallVerificationCommandPlan = (
   installBaseUrl: string | undefined,
 ): ReadonlyArray<InstallVerificationCommand> =>
-  hasInstallBaseUrl(installBaseUrl) ? [vitestCommand] : [compileHostCommand, vitestCommand];
+  hasInstallBaseUrl(installBaseUrl)
+    ? [installSuiteCommand]
+    : [compileHostCommand, installSuiteCommand];
 
 export { resolveCommandExecutable };

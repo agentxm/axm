@@ -9,13 +9,13 @@ describe("install verification runner", () => {
     expect(createInstallVerificationCommandPlan(undefined)).toEqual([
       {
         command: "pnpm",
-        args: ["exec", "nx", "run", "cli:compile-host", "--outputStyle=static"],
+        args: ["nx", "run", "cli:compile-host"],
         cwd: "repoRoot",
       },
       {
         command: "pnpm",
-        args: ["exec", "vitest", "run", "--config", "vitest.install.config.ts"],
-        cwd: "packageRoot",
+        args: ["nx", "run", "cli-e2e:install-suite"],
+        cwd: "repoRoot",
       },
     ]);
   });
@@ -24,13 +24,13 @@ describe("install verification runner", () => {
     expect(createInstallVerificationCommandPlan("")).toEqual([
       {
         command: "pnpm",
-        args: ["exec", "nx", "run", "cli:compile-host", "--outputStyle=static"],
+        args: ["nx", "run", "cli:compile-host"],
         cwd: "repoRoot",
       },
       {
         command: "pnpm",
-        args: ["exec", "vitest", "run", "--config", "vitest.install.config.ts"],
-        cwd: "packageRoot",
+        args: ["nx", "run", "cli-e2e:install-suite"],
+        cwd: "repoRoot",
       },
     ]);
   });
@@ -43,8 +43,8 @@ describe("install verification runner", () => {
     ).toEqual([
       {
         command: "pnpm",
-        args: ["exec", "vitest", "run", "--config", "vitest.install.config.ts"],
-        cwd: "packageRoot",
+        args: ["nx", "run", "cli-e2e:install-suite"],
+        cwd: "repoRoot",
       },
     ]);
   });

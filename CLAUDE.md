@@ -28,7 +28,15 @@ Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md in
 
 All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` and `pnpm spike` run Bun entrypoints from source; they do not build first.
 
-Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. Direct tool invocations like `pnpm exec vitest`, `tsc`, `eslint`, `prettier`, or raw `nx` can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
+Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. This is a hard rule. Do not use direct tool invocations like `pnpm exec vitest`, `vitest`, `tsc`, `eslint`, `prettier`, or bare `nx` for repo verification when a repo-backed script or target exists. They can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
+
+For focused verification, keep the repo-backed target and pass filters through it:
+
+- focused tests: `pnpm nx run <project>:test --args="path/to/test.ts"`
+- focused test by name: `pnpm nx run <project>:test --args='path/to/test.ts -t "test name"'`
+- focused typecheck: `pnpm nx run <project>:typecheck`
+
+Only call a direct tool when no equivalent `pnpm` script or `pnpm nx` target exists, and say why.
 
 | Command                      | Purpose                                                                   |
 | ---------------------------- | ------------------------------------------------------------------------- |
@@ -55,9 +63,13 @@ Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists
 | `pnpm generate`              | Generate registry and telemetry clients                                   |
 
 `./scripts/axm-local` preserves your current working directory and only sets
-`AXM_REGISTRY_URL=http://localhost:4300` and `AXM_TELEMETRY=0` when they are
-unset, so it behaves like the real CLI while targeting a local registry by
-default.
+`AXM_REGISTRY_LOCATION=http://localhost:4300` and `AXM_TELEMETRY=0` when they
+are unset. When that location is HTTP(S), it also sets `AXM_REGISTRY_URL` to
+the same value for auth/API flows.
+
+For testing install, doctor, sync, and other default-source behavior, set
+`AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
+of checking custom registry sources into `.axm/settings.json`.
 
 ### Releasing
 
@@ -113,8 +125,10 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false # Disable dynamic line-rewriting (ol
 - CI may set them in workflow or job `env`.
 - Prefer not to rewrite checked-in repo scripts just to inject them.
 - Prefer `pnpm nx ...`, not bare `nx ...`.
-- For focused tests, keep the Nx target and pass Vitest filters through it, for example `pnpm nx test cli -- src/root/install/handler.test.ts`.
-- File filters passed through `pnpm nx test <project> -- ...` are relative to that target's `cwd` from `project.json`.
+- Never reach for raw `vitest` or `tsc` when an Nx target exists for that project.
+- For focused tests, keep the Nx target and pass Vitest filters through it, for example `pnpm nx run cli:test --args="src/root/install/handler.test.ts"`.
+- For focused test-name filters, keep the same pattern, for example `pnpm nx run cli:test --args='src/root/install/handler.test.ts -t "installs configured commands"'`.
+- Filters passed through `pnpm nx run <project>:test --args="..."` are relative to that target's `cwd` from `project.json`.
 - Formatting strategy: `pnpm format` and `pnpm format:check` are the canonical
   full-repo Prettier commands. `pnpm format:affected` and
   `pnpm format:check:affected` are Nx conveniences for changed-file ranges only.
@@ -344,6 +358,7 @@ See [Testing Guide](contributing/guides/testing.md) and
 - Prefer seams and test layers over mocks; mock third-party boundaries only when an explicit seam is impractical
 - Avoid tests that only restate declarations or source structure; test observable behavior or enforce the rule with static analysis
 - Prefer `@effect/vitest` helpers like `it.effect`, `it.scoped`, and `it.layer` for new Effect tests
+- Prefer `pnpm nx run <project>:test --args="..."` and `pnpm nx run <project>:typecheck` over direct `vitest` or `tsc` invocations
 
 ### Test Organization
 

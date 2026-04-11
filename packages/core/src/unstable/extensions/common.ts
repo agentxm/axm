@@ -128,6 +128,26 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
   packs: "Extension Packs",
 };
 
+export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
+  skill: "skill",
+  command: "command",
+  "mcp-server": "MCP server",
+  subagent: "subagent",
+  file: "file",
+  rule: "rule",
+  pack: "extension pack",
+};
+
+export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, string> = {
+  skills: "skills",
+  commands: "commands",
+  "mcp-servers": "MCP servers",
+  subagents: "subagents",
+  files: "files",
+  rules: "rules",
+  packs: "extension packs",
+};
+
 const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|");
 const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";

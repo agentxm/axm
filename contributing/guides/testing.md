@@ -185,6 +185,16 @@ tests define behavior, implementation follows.
 When a change can affect shipped CLI behavior, run both `pnpm test` and
 `pnpm test:e2e`.
 
+For targeted verification, prefer repo-backed Nx targets over direct tool
+invocations:
+
+- `pnpm nx run <project>:test --args="path/to/test.ts"`
+- `pnpm nx run <project>:test --args='path/to/test.ts -t "test name"'`
+- `pnpm nx run <project>:typecheck`
+
+Avoid direct `vitest` or `tsc` commands when an equivalent `pnpm` script or
+`pnpm nx` target exists.
+
 ---
 
 ## Unit Tests

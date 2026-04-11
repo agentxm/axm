@@ -25,6 +25,8 @@ export {
   extensionTypeLabels,
   extensionTypePluralSegments,
   extensionTypePluralLabels,
+  extensionTypePluralSentenceLabels,
+  extensionTypeSentenceLabels,
   extensionTypeToPlural,
   extensionTypes,
   isExtensionType,

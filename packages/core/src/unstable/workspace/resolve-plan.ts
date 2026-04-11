@@ -60,7 +60,12 @@ setReconciliationAdapters([
  */
 export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   plan: Plan,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: {
+    yes: boolean;
+    force: boolean;
+    preview: boolean;
+    blockedByErrorsHowToFix?: string;
+  },
 ) {
   const ws = yield* Workspace;
   const renderer = yield* CliRenderer;
@@ -116,7 +121,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
         code: "PLAN_BLOCKED_BY_ERRORS",
         what: "Plan has errors that prevent execution",
         details: readiness.errorMessages,
-        howToFix: "Re-run with --force to override",
+        howToFix: flags.blockedByErrorsHowToFix ?? "Re-run with --force to override",
       });
     }
   }

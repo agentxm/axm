@@ -36,7 +36,6 @@ import {
   PackageUrlPartsSchema,
   type PackageUrlParts,
 } from "@axm.sh/core/unstable/packaging";
-import type { InstallHandlerArgs } from "./handler.js";
 import type { InstallSkillCommandIntent } from "./intent.js";
 import {
   resolveSkillInstallSource,
@@ -47,6 +46,12 @@ import { determineSkillsToInstall } from "./select-skills.js";
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
+
+export interface InstallSkillSourceHandlerArgs {
+  readonly source: string;
+  readonly skills: readonly string[];
+  readonly all: boolean;
+}
 
 /**
  * Parsed and validated skill install arguments.
@@ -217,7 +222,7 @@ const extractRequestedOwner = (
 // Service Tag
 // -----------------------------------------------------------------------------
 
-type SkillsInstallHandlerArgs = InstallHandlerArgs;
+type SkillsInstallHandlerArgs = InstallSkillSourceHandlerArgs;
 
 export class InstallSkillCommandWorkflowActions extends ServiceMap.Service<
   InstallSkillCommandWorkflowActions,

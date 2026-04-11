@@ -11,6 +11,7 @@ const installConfig = {
     Argument.withDescription(
       "Registry extension pack reference (@owner/packs/name, @owner/packs/name@version, or bare pack-name)",
     ),
+    Argument.optional,
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
@@ -34,8 +35,14 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install an extension pack and its extensions from a registry"),
+  Command.withDescription(
+    "Install configured extension packs, or install an extension pack and its extensions from a registry",
+  ),
   Command.withExamples([
+    {
+      command: "axm packs install",
+      description: "Install all configured extension packs",
+    },
     {
       command: "axm packs install @acme/packs/frontend-tools",
       description: "Add a curated set of frontend extensions to your agents",

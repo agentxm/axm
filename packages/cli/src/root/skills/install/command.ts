@@ -11,6 +11,7 @@ const installConfig = {
     Argument.withDescription(
       "Registry reference (@owner/skills/name), GitHub shorthand (owner/repo), local path, or URL",
     ),
+    Argument.optional,
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
@@ -39,8 +40,14 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install skills from a registry, GitHub, or local path"),
+  Command.withDescription(
+    "Install configured skills, or install skills from a registry, GitHub, or local path",
+  ),
   Command.withExamples([
+    {
+      command: "axm skills install",
+      description: "Install all configured skills",
+    },
     {
       command: "axm skills install @acme/skills/code-review",
       description: "Add a code review skill to your agents",

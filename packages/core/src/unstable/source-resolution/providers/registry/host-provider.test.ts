@@ -30,6 +30,7 @@ import type { RegistrySkillRef } from "../../../skills/index.js";
 import type { RegistryCommandRef } from "../../../commands/index.js";
 import type { RegistryMcpServerRef } from "../../../mcp-servers/index.js";
 import type { RegistryExtensionPackRef } from "../../../packs/index.js";
+import type { RegistrySubagentRef } from "../../../subagents/index.js";
 import type { RegistrySource, FindOptions } from "../../../sources/index.js";
 import {
   createLocalRegistrySourceHostProvider,
@@ -230,6 +231,14 @@ const expectRegistryExtensionPackRef = (ref: ExtensionRef): RegistryExtensionPac
   return ref;
 };
 
+const expectRegistrySubagentRef = (ref: ExtensionRef): RegistrySubagentRef => {
+  if (ref.type !== "subagent" || ref.refType !== "registry") {
+    throw new Error("Expected registry subagent ref");
+  }
+
+  return ref;
+};
+
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider — find
 // -----------------------------------------------------------------------------
@@ -371,6 +380,45 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(cmdRef.owner).toBe("@test");
         expect(cmdRef.name).toBe("my-command");
         expect(cmdRef.version).toBe("1.5.0");
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
+  it.effect("maps subagent entries to SubagentExtensionRef", () => {
+    const registry = makeTestRegistry();
+    const entries: ReadonlyArray<RegistryExtensionManifest> = [
+      makeManifest({
+        type: "subagent",
+        name: "researcher",
+        version: "1.2.0",
+        integrity: "sha512-sub",
+        description: Option.some("Research helper"),
+      }),
+    ];
+
+    const client = createMockClient({
+      getExtensionsByScope: () => Effect.succeed(toResult(entries)),
+    });
+
+    const provider = createLocalRegistrySourceHostProvider(client);
+
+    return runEffect(
+      Effect.gen(function* () {
+        const refs = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          type: "subagent",
+        });
+
+        expect(refs).toHaveLength(1);
+        const ref = at(refs, 0);
+        expect(ref.type).toBe("subagent");
+        expect(ref.refType).toBe("registry");
+        const subagentRef = expectRegistrySubagentRef(ref);
+        expect(subagentRef.subagent.name).toBe("researcher");
+        expect(subagentRef.subagent.description).toEqual(Option.some("Research helper"));
+        expect(subagentRef.owner).toBe("@test");
+        expect(subagentRef.name).toBe("researcher");
+        expect(subagentRef.version).toBe("1.2.0");
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });

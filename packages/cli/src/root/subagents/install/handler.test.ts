@@ -12,6 +12,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
@@ -52,7 +53,7 @@ const defaultArgs = (
   source: string,
   overrides: Partial<InstallSubagentHandlerArgs> = {},
 ): InstallSubagentHandlerArgs => ({
-  source,
+  source: Option.some(source),
   subagents: [],
   all: false,
   ...overrides,
@@ -179,6 +180,54 @@ describe("subagents install handler — error propagation", () => {
         const reason = details.find((d) => d.startsWith("Reason:"));
         expect(reason).toBeDefined();
         expect(reason).not.toBe("Reason:");
+      }),
+    );
+  });
+
+  it.effect("rejects --subagent without a source", () => {
+    const { provide } = makeLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleInstall(
+          {
+            source: Option.none(),
+            subagents: ["researcher"],
+            all: false,
+          },
+          {
+            yes: false,
+            force: false,
+            preview: false,
+          },
+        ).pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.code).toBe("SUBAGENTS_INSTALL_SELECTOR_REQUIRES_SOURCE");
+      }),
+    );
+  });
+
+  it.effect("rejects --all without a source", () => {
+    const { provide } = makeLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleInstall(
+          {
+            source: Option.none(),
+            subagents: [],
+            all: true,
+          },
+          {
+            yes: false,
+            force: false,
+            preview: false,
+          },
+        ).pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.code).toBe("SUBAGENTS_INSTALL_ALL_REQUIRES_SOURCE");
       }),
     );
   });

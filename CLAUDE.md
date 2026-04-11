@@ -28,6 +28,8 @@ Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md in
 
 All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` and `pnpm spike` run Bun entrypoints from source; they do not build first.
 
+Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. Direct tool invocations like `pnpm exec vitest`, `tsc`, `eslint`, `prettier`, or raw `nx` can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
+
 | Command                      | Purpose                                                                   |
 | ---------------------------- | ------------------------------------------------------------------------- |
 | `pnpm axm`                   | Run the main CLI from source                                              |
@@ -110,6 +112,9 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false # Disable dynamic line-rewriting (ol
 - Agents should export them in their shell before invoking Nx-backed commands.
 - CI may set them in workflow or job `env`.
 - Prefer not to rewrite checked-in repo scripts just to inject them.
+- Prefer `pnpm nx ...`, not bare `nx ...`.
+- For focused tests, keep the Nx target and pass Vitest filters through it, for example `pnpm nx test cli -- src/root/install/handler.test.ts`.
+- File filters passed through `pnpm nx test <project> -- ...` are relative to that target's `cwd` from `project.json`.
 - Formatting strategy: `pnpm format` and `pnpm format:check` are the canonical
   full-repo Prettier commands. `pnpm format:affected` and
   `pnpm format:check:affected` are Nx conveniences for changed-file ranges only.

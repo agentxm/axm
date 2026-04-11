@@ -46,12 +46,14 @@ export type JobStepResult =
 // -----------------------------------------------------------------------------
 
 export interface ReadyJobStep {
+  readonly key?: string;
   readonly readiness: "ready";
   readonly label: string;
   readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 
 export interface WarnJobStep {
+  readonly key?: string;
   readonly readiness: "warn";
   readonly warnMessage: string;
   readonly label: string;
@@ -59,6 +61,7 @@ export interface WarnJobStep {
 }
 
 export interface ErrorJobStep {
+  readonly key?: string;
   readonly readiness: "error";
   readonly errorMessage: string;
   readonly label: string;

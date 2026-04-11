@@ -108,7 +108,7 @@ describe("commands install.handler preview", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstallCommand({
-          source: "my-cmd",
+          source: Option.some("my-cmd"),
           yes: false,
           force: false,
           preview: true,
@@ -127,7 +127,7 @@ describe("commands install.handler preview", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstallCommand({
-          source: "my-cmd",
+          source: Option.some("my-cmd"),
           yes: true,
           force: false,
           preview: false,

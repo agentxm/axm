@@ -32,6 +32,7 @@ import { upgradeCommand } from "./root/upgrade/upgrade.js";
 import { doctorCommand } from "./root/doctor.js";
 import { syncCommand } from "./root/sync.js";
 import { discoverCommand } from "./root/discover/command.js";
+import { installCommand } from "./root/install/command.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
@@ -49,7 +50,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withExamples([
     { command: "axm init", description: "Start managing extensions in your project" },
     {
-      command: "axm skills install @acme/skills/code-review",
+      command: "axm install @acme/skills/code-review",
       description: "Add a code review skill to your agents",
     },
     {
@@ -63,6 +64,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     {
       group: "EXTENSIONS",
       commands: [
+        installCommand,
         skillsCommand,
         packsCommand,
         commandsCommand,

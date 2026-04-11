@@ -57,6 +57,19 @@ export {
 } from "./registry-source.js";
 
 export {
+  installableExtensionTypes,
+  installableExtensionTypePluralSegments,
+  InstallableExtensionTypeSchema,
+  InstallableExtensionTypePluralSchema,
+  isInstallableExtensionType,
+  isInstallableExtensionTypePlural,
+  toInstallableExtensionType,
+  toInstallableExtensionTypePlural,
+  type InstallableExtensionType,
+  type InstallableExtensionTypePlural,
+} from "./installable-types.js";
+
+export {
   HANDLE_PATTERN,
   HANDLE_PATTERN_SOURCE,
   HandleSchema,

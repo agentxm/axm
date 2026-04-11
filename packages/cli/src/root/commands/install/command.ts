@@ -9,6 +9,7 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 const installConfig = {
   source: Argument.string("source").pipe(
     Argument.withDescription("Registry command reference (@owner/commands/name or bare name)"),
+    Argument.optional,
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
@@ -30,8 +31,12 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install a command from a registry"),
+  Command.withDescription("Install configured commands, or install a command from a registry"),
   Command.withExamples([
+    {
+      command: "axm commands install",
+      description: "Install all configured commands",
+    },
     {
       command: "axm commands install @acme/commands/my-cmd",
       description: "Add a command from the registry",

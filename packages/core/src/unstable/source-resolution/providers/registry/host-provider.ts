@@ -26,6 +26,8 @@ import { createRegistryClient, extractZip, resolveVersionEntry } from "../../../
 import { computeIntegrity } from "../../../utils/index.js";
 import {
   decodeExtensionNameSync,
+  installableExtensionTypes,
+  isInstallableExtensionType,
   toAuthor,
   type Author,
   type ExtensionDependencyConstraintMap,
@@ -53,17 +55,6 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
     metadata: VersionEntry,
   ) => Effect.Effect<void, AppError, R>;
 };
-
-type RegistryManagedExtensionType = Extract<
-  ExtensionType,
-  "skill" | "command" | "mcp-server" | "pack"
->;
-
-const registryManagedExtensionTypes = new Set<string>(["skill", "command", "mcp-server", "pack"]);
-
-const isRegistryManagedExtensionType = (
-  type: ExtensionType,
-): type is RegistryManagedExtensionType => registryManagedExtensionTypes.has(type);
 
 // -----------------------------------------------------------------------------
 // Type Mapping Helpers
@@ -138,7 +129,7 @@ const findWithVersionConstraint = (
     (owner) =>
       Effect.gen(function* () {
         const requestedTypes: ReadonlyArray<ExtensionType> =
-          options.type === "*" ? ["skill", "command", "mcp-server", "pack"] : [options.type];
+          options.type === "*" ? installableExtensionTypes : [options.type];
         const requestedNames = options.skillNames.length > 0 ? options.skillNames : [];
 
         if (requestedNames.length === 0) {
@@ -215,7 +206,7 @@ const toExtensionRef = (
   entry: RegistryExtensionManifest,
   source: RegistrySource,
 ): Option.Option<ExtensionRef> => {
-  if (!isRegistryManagedExtensionType(entry.type)) {
+  if (!isInstallableExtensionType(entry.type)) {
     return Option.none();
   }
 
@@ -265,6 +256,14 @@ const toExtensionRef = (
         type: "command",
         refType: "registry" as const,
         command: { name: entry.name },
+        source,
+        ...details,
+      });
+    case "subagent":
+      return Option.some({
+        type: "subagent",
+        refType: "registry" as const,
+        subagent: { name: entry.name, description: entry.description },
         source,
         ...details,
       });

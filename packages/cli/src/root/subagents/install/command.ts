@@ -11,16 +11,13 @@ const installConfig = {
     Argument.withDescription(
       "Registry reference (@owner/subagents/name), GitHub shorthand (owner/repo), local path, or URL",
     ),
+    Argument.optional,
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
   subagent: Flag.string("subagent").pipe(
     Flag.withDescription("Cherry-pick specific subagent(s) from a multi-subagent source"),
-    Flag.atLeast(0),
-  ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Restrict rendering to specified agent(s)"),
     Flag.atLeast(0),
   ),
   all: Flag.boolean("all").pipe(
@@ -43,8 +40,14 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install subagents from a registry, GitHub, or local path"),
+  Command.withDescription(
+    "Install configured subagents, or install subagents from a registry, GitHub, or local path",
+  ),
   Command.withExamples([
+    {
+      command: "axm subagents install",
+      description: "Install all configured subagents",
+    },
     {
       command: "axm subagents install @acme/subagents/researcher",
       description: "Add a researcher subagent to your agents",

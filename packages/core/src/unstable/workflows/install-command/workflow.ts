@@ -52,16 +52,30 @@ export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, 
  * Executes phases in order: parse -> resolveSource -> discover ->
  * finalizeIntent -> buildPlan -> previewOrApplyPlan.
  */
-export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
+export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
-  flags: { yes: boolean; force: boolean; preview: boolean },
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);
     const sourceRequests = yield* actions.resolveSourceRequests(parsed);
     const refs = yield* actions.discoverRefs(sourceRequests);
     const intent = yield* actions.finalizeIntent(parsed, refs);
-    const plan = yield* actions.buildPlan(intent);
+    return yield* actions.buildPlan(intent);
+  });
+
+/**
+ * Run the canonical install command workflow.
+ *
+ * Executes phases in order: parse -> resolveSource -> discover ->
+ * finalizeIntent -> buildPlan -> previewOrApplyPlan.
+ */
+export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
+  args: Args,
+  actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
+  flags: { yes: boolean; force: boolean; preview: boolean },
+) =>
+  Effect.gen(function* () {
+    const plan = yield* buildInstallCommandPlan(args, actions);
     return yield* previewOrApplyPlan(plan, flags);
   }).pipe(Effect.map((resolution): PlanResolution => resolution));

@@ -29,7 +29,6 @@ import { SubagentManager, type SubagentExtensionRef } from "@axm.sh/core/unstabl
 import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { Plan } from "@axm.sh/core/unstable/workspace";
-import type { InstallSubagentHandlerArgs } from "./handler.js";
 import type { InstallSubagentCommandIntent } from "./intent.js";
 import {
   resolveSubagentInstallSource,
@@ -40,6 +39,12 @@ import { determineSubagentsToInstall } from "./select-subagents.js";
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
+
+export interface InstallSubagentSourceHandlerArgs {
+  readonly source: string;
+  readonly subagents: readonly string[];
+  readonly all: boolean;
+}
 
 /**
  * Parsed and validated subagent install arguments.
@@ -154,7 +159,7 @@ const extractRequestedOwner = (
 // Service Tag
 // -----------------------------------------------------------------------------
 
-type SubagentsInstallHandlerArgs = InstallSubagentHandlerArgs;
+type SubagentsInstallHandlerArgs = InstallSubagentSourceHandlerArgs;
 
 export class InstallSubagentCommandWorkflowActions extends ServiceMap.Service<
   InstallSubagentCommandWorkflowActions,

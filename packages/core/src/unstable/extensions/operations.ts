@@ -50,6 +50,16 @@ export const toLabel = (target: ExtensionTarget): string =>
   target.type === "pack" ? `${target.owner}/${target.name}` : target.name;
 
 /**
+ * Produce a stable step identity key from an ExtensionTarget.
+ *
+ * This is internal plan identity, not display text.
+ */
+export const toStepKey = (target: ExtensionTarget): string =>
+  target.type === "pack"
+    ? `${target.type}:${target.owner}/${target.name}`
+    : `${target.type}:${target.name}`;
+
+/**
  * Format a single PackageUrlParts as a compact display string.
  *
  * Examples: `pkg:npm/react`, `pkg:npm/@angular/core@18.0.0`
@@ -142,6 +152,7 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
   const compatPkgs = args.ref.refType === "registry" ? args.ref.compatiblePackages : [];
 
   return {
+    key: toStepKey(target),
     label: toLabelWithCompatibility(target, compatPkgs),
     readiness: "ready",
     run: runInstallOperation(manager, args),

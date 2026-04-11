@@ -44,9 +44,9 @@ import {
   AgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
+  type InstallableExtensionType,
   parseFullyQualifiedNameParts,
   parseRegistrySourcePatternParts,
-  type ExtensionType,
 } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
@@ -76,10 +76,7 @@ import {
 } from "../settings/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 
-type WorkspaceManagedExtensionType = Extract<
-  ExtensionType,
-  "skill" | "command" | "mcp-server" | "pack" | "subagent"
->;
+type WorkspaceManagedExtensionType = InstallableExtensionType;
 import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

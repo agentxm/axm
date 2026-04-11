@@ -11,6 +11,7 @@ const installConfig = {
     Argument.withDescription(
       "Registry MCP server reference (@owner/mcp-servers/name or bare name)",
     ),
+    Argument.optional,
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
@@ -32,8 +33,14 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install an MCP server from a registry"),
+  Command.withDescription(
+    "Install configured MCP servers, or install an MCP server from a registry",
+  ),
   Command.withExamples([
+    {
+      command: "axm mcp-servers install",
+      description: "Install all configured MCP servers",
+    },
     {
       command: "axm mcp-servers install @acme/mcp-servers/my-server",
       description: "Add an MCP server from the registry",

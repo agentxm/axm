@@ -51,7 +51,7 @@ describe("axm skills", () => {
       const result = await runCli(["skills", "install", "--help"]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Install skills");
+      expect(result.stdout).toContain("Install configured skills");
     });
   });
 });

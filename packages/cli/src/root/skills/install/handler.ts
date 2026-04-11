@@ -1,19 +1,63 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
 
 import { emitPlanResolutionResult } from "../../../json-output.js";
+import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
+
 export interface InstallHandlerArgs {
-  readonly source: string;
+  readonly source: Option.Option<string>;
   readonly skills: readonly string[];
   readonly all: boolean;
 }
-export const handleInstall = (
-  args: InstallHandlerArgs,
-  flags: { yes: boolean; force: boolean; preview: boolean },
-) =>
+
+export interface InstallSkillFlags {
+  readonly yes: boolean;
+  readonly force: boolean;
+  readonly preview: boolean;
+}
+
+const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
+    if (args.all) {
+      return yield* makeAppError({
+        code: "SKILLS_INSTALL_ALL_REQUIRES_SOURCE",
+        what: "The --all flag requires a source for skills install",
+        howToFix:
+          "Run `axm skills install <source> --all` or omit --all to install all configured skills.",
+      });
+    }
+
+    if (args.skills.length > 0) {
+      return yield* makeAppError({
+        code: "SKILLS_INSTALL_SELECTOR_REQUIRES_SOURCE",
+        what: "The --skill flag requires a source for skills install",
+        howToFix:
+          "Run `axm skills install <source> --skill <name>` or omit --skill to install all configured skills.",
+      });
+    }
+  });
+
+export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags) =>
+  Effect.gen(function* () {
+    if (Option.isNone(args.source)) {
+      yield* validateWorkspaceInstallArgs(args);
+      return yield* handleWorkspaceInstall({
+        command: "skills.install",
+        type: Option.some("skill"),
+        planName: "Install skill(s)",
+        planDescription: Option.some("Install configured skills"),
+        flags,
+      });
+    }
+
     const actions = yield* InstallSkillCommandWorkflowActions;
-    const resolution = yield* runInstallCommandWorkflow(args, actions, flags);
+    const resolution = yield* runInstallCommandWorkflow(
+      { source: args.source.value, skills: args.skills, all: args.all },
+      actions,
+      flags,
+    );
     yield* emitPlanResolutionResult("skills.install", resolution);
   });

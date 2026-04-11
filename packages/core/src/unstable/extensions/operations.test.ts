@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { formatPackageUrlParts, toLabelWithCompatibility } from "./operations.js";
+import { formatPackageUrlParts, toLabelWithCompatibility, toStepKey } from "./operations.js";
 import { handle, packageUrl } from "../test-helpers.js";
 
 describe("formatPackageUrlParts", () => {
@@ -60,5 +60,18 @@ describe("toLabelWithCompatibility", () => {
       [packageUrl("pkg:npm/react")],
     );
     expect(result).toBe("@acme/frontend (pkg:npm/react)");
+  });
+});
+
+describe("toStepKey", () => {
+  it("includes the extension type for non-pack targets", () => {
+    expect(toStepKey({ type: "skill", name: "lint" })).toBe("skill:lint");
+    expect(toStepKey({ type: "command", name: "lint" })).toBe("command:lint");
+  });
+
+  it("includes the owner for pack targets", () => {
+    expect(toStepKey({ type: "pack", name: "frontend", owner: handle("@acme") })).toBe(
+      "pack:@acme/frontend",
+    );
   });
 });

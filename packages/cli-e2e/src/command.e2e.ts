@@ -71,7 +71,7 @@ describe("main CLI help", () => {
     expect(result.exitCode).toBe(0);
     expect(output).toContain("EXAMPLES");
     expect(output).toContain("axm init");
-    expect(output).toContain("axm skills install @acme/skills/code-review");
+    expect(output).toContain("axm install @acme/skills/code-review");
     expect(output).toContain("axm whoami");
   });
 
@@ -95,6 +95,7 @@ describe("main CLI help", () => {
     { args: ["init", "--help"], expected: ["--scope", "--agent"] },
     { args: ["whoami", "--help"], expected: ["--json"] },
     { args: ["skills", "install", "--help"], expected: ["--skill", "--all"] },
+    { args: ["subagents", "install", "--help"], expected: ["--subagent", "--all"] },
     { args: ["skills", "ls", "--help"], expected: ["List installed skills"] },
     { args: ["packs", "unpack", "--help"], expected: ["--strict-agent-sync"] },
     { args: ["commands", "install", "--help"], expected: ["--scope"] },
@@ -107,5 +108,13 @@ describe("main CLI help", () => {
     for (const text of expected) {
       expect(output).toContain(text);
     }
+  });
+
+  it("does not show the removed --agent flag on subagents install", async () => {
+    const result = await runCli(["subagents", "install", "--help"]);
+    const output = getOutput(result);
+
+    expect(result.exitCode).toBe(0);
+    expect(output).not.toContain("--agent");
   });
 });

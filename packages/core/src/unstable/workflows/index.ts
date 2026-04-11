@@ -6,6 +6,7 @@
  */
 
 export {
+  buildInstallCommandPlan,
   type InstallExtensionCommandWorkflowActions,
   runInstallCommandWorkflow,
 } from "./install-command/workflow.js";

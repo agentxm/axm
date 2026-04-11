@@ -125,7 +125,7 @@ const defaultArgs = (
   source: string,
   overrides: Partial<InstallHandlerArgs> = {},
 ): InstallHandlerArgs => ({
-  source,
+  source: Option.some(source),
   skills: [],
   all: false,
   ...overrides,
@@ -332,6 +332,54 @@ describe("skills install handler — error propagation", () => {
         const reason = details.find((d) => d.startsWith("Reason:"));
         expect(reason).toBeDefined();
         expect(reason).not.toBe("Reason:");
+      }),
+    );
+  });
+
+  it.effect("rejects --skill without a source", () => {
+    const { provide } = makeLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleInstall(
+          {
+            source: Option.none(),
+            skills: ["effect-basics"],
+            all: false,
+          },
+          {
+            yes: false,
+            force: false,
+            preview: false,
+          },
+        ).pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.code).toBe("SKILLS_INSTALL_SELECTOR_REQUIRES_SOURCE");
+      }),
+    );
+  });
+
+  it.effect("rejects --all without a source", () => {
+    const { provide } = makeLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleInstall(
+          {
+            source: Option.none(),
+            skills: [],
+            all: true,
+          },
+          {
+            yes: false,
+            force: false,
+            preview: false,
+          },
+        ).pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.code).toBe("SKILLS_INSTALL_ALL_REQUIRES_SOURCE");
       }),
     );
   });

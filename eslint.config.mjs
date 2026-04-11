@@ -8,6 +8,7 @@ export default [
   {
     ignores: [
       "**/dist/**",
+      "**/out-tsc/**",
       "**/build/**",
       "**/node_modules/**",
       ".axm/cache/**",

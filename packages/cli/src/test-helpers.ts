@@ -13,7 +13,11 @@ import { writeWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/client-core/unstable/app-error";
 import { AuthGuardInteractionTest } from "@agentxm/client-core/unstable/auth";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,

@@ -13,7 +13,11 @@ import * as Option from "effect/Option";
 
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   type SourceHostProvidersService,

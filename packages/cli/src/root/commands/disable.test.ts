@@ -11,7 +11,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   getAppError,

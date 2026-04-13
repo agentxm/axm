@@ -7,11 +7,11 @@ import {
   type ExtensionType,
   type Handle,
   toExtensionType,
-} from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/extensions";
 import {
   VersionConstraintSchema,
   type VersionConstraint,
-} from "@axm.sh/core/unstable/version-constraints";
+} from "@agentxm/client-core/unstable/version-constraints";
 
 const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
 const decodeVersionConstraint = Schema.decodeUnknownResult(VersionConstraintSchema);

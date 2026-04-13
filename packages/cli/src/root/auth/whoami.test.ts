@@ -7,10 +7,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { AuthClientTest, RegistryUrl, CredentialStoreTest } from "@axm.sh/core/unstable/auth";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
+import {
+  AuthClientTest,
+  RegistryUrl,
+  CredentialStoreTest,
+} from "@agentxm/client-core/unstable/auth";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { handleWhoami } from "./whoami.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";

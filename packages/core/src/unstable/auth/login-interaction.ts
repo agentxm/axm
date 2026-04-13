@@ -28,7 +28,7 @@ export interface AuthLoginInteractionService {
 export class AuthLoginInteraction extends ServiceMap.Service<
   AuthLoginInteraction,
   AuthLoginInteractionService
->()("@axm.sh/cli/AuthLoginInteraction") {}
+>()("axm.sh/AuthLoginInteraction") {}
 
 const runCommand = (invocation: CommandInvocation) =>
   Effect.tryPromise({

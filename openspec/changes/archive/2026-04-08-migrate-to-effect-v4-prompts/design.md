@@ -1,6 +1,6 @@
 ## Context
 
-The CLI spike currently uses the `CliPrompt` service from `@axm.sh/core` for all interactive prompts. This service wraps `@clack/prompts` with a token-mapping layer, cancel-symbol translation, and non-interactive guards. Effect v4 now provides a native `Prompt` module (`effect/unstable/cli/Prompt`) that is fully effectful, composable, and built on the same service infrastructure the spike already uses (`Terminal`, `FileSystem`, `Path`).
+The CLI spike currently uses the `CliPrompt` service from `@agentxm/client-core` for all interactive prompts. This service wraps `@clack/prompts` with a token-mapping layer, cancel-symbol translation, and non-interactive guards. Effect v4 now provides a native `Prompt` module (`effect/unstable/cli/Prompt`) that is fully effectful, composable, and built on the same service infrastructure the spike already uses (`Terminal`, `FileSystem`, `Path`).
 
 This design covers migrating the spike to use Effect v4 prompts directly, building a small complementary prompt module for missing types, re-theming all demos to the pet store domain, and adding new demo commands for Effect v4-only prompt types.
 
@@ -25,7 +25,7 @@ This design covers migrating the spike to use Effect v4 prompts directly, buildi
 
 ### Non-Goals
 
-- Modifying existing `CliPrompt` service, Clack wrappers, or existing `@axm.sh/core` prompt code
+- Modifying existing `CliPrompt` service, Clack wrappers, or existing `@agentxm/client-core` prompt code
 - Migrating the primary CLI (`packages/cli/`)
 - Building a reusable prompt abstraction layer — the spike uses prompts directly
 
@@ -52,7 +52,7 @@ Prompts require `Terminal.Terminal` (+ `FileSystem`, `Path` for file prompts) in
 
 ### 2. Prompt helpers on the AxmPrompt namespace, dual/pipeable
 
-The existing `fromFlagOrPrompt` and `autoConfirm` in `@axm.sh/core` are plain functions typed to `PromptCancelled | AppError`. They aren't pipeable and don't follow Effect's `dual` convention. We replace them with idiomatic helpers on the `AxmPrompt` namespace.
+The existing `fromFlagOrPrompt` and `autoConfirm` in `@agentxm/client-core` are plain functions typed to `PromptCancelled | AppError`. They aren't pipeable and don't follow Effect's `dual` convention. We replace them with idiomatic helpers on the `AxmPrompt` namespace.
 
 **Why core, not spike-local?** These helpers will be reused when the main CLI migrates to Effect v4 prompts. Putting them in core now avoids a second migration.
 
@@ -189,10 +189,10 @@ packages/core/src/unstable/cli/prompt/
   autocomplete-multiselect.ts    # searchable multi-select
 ```
 
-Exported from `@axm.sh/core/unstable/cli/prompt` as a namespace:
+Exported from `@agentxm/client-core/unstable/cli/prompt` as a namespace:
 
 ```typescript
-import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { AxmPrompt } from "@agentxm/client-core/unstable/cli/prompt";
 import { Prompt } from "effect/unstable/cli";
 
 // Native prompts — Prompt namespace

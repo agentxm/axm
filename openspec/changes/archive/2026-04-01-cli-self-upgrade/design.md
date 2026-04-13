@@ -56,7 +56,7 @@ Install scripts write `install-meta.json` to the axm data directory after placin
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | `script`        | Download latest binary from GitHub Releases, verify integrity, atomic-replace the running binary |
 | `homebrew`      | Print `Run: brew upgrade agentxm/tap/axm` and exit with code 0                                   |
-| `npm`           | Print `Run: npm update -g @axm.sh/cli` and exit with code 0                                      |
+| `npm`           | Print `Run: npm update -g axm.sh` and exit with code 0                                           |
 | `unknown`       | Print install script URL as fallback, suggest re-installing                                      |
 
 **Alternatives considered:**
@@ -172,7 +172,7 @@ The second line varies by detected method:
 | --------------- | ----------------------------------- |
 | `script`        | `Run: axm upgrade`                  |
 | `homebrew`      | `Run: brew upgrade agentxm/tap/axm` |
-| `npm`           | `Run: npm update -g @axm.sh/cli`    |
+| `npm`           | `Run: npm update -g axm.sh`         |
 | `unknown`       | `Run: axm upgrade`                  |
 
 **Alternatives considered:**
@@ -206,7 +206,7 @@ No `--version` flag to pin a target version (non-goal: downgrading/pinning).
 
 ### 6. Service design
 
-Three new services in `@axm.sh/core/unstable/`:
+Three new services in `@agentxm/client-core/unstable/`:
 
 **`InstallMethod`** — determines how axm was installed. Provides `detect()` returning a tagged union (`Script | Homebrew | Npm | Unknown`) using the precedence chain from Decision 1 (path-based detection first, metadata file fallback). Both the upgrade command and the update check notification depend on this service.
 

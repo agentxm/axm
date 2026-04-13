@@ -28,7 +28,7 @@ export interface DeviceLoginInteractionService {
 export class DeviceLoginInteraction extends ServiceMap.Service<
   DeviceLoginInteraction,
   DeviceLoginInteractionService
->()("@axm.sh/core/DeviceLoginInteraction") {}
+>()("@agentxm/client-core/DeviceLoginInteraction") {}
 
 // -----------------------------------------------------------------------------
 // Test layer factory

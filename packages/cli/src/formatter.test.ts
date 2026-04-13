@@ -3,7 +3,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
-import { JsonSchemaVersion } from "@axm.sh/core/unstable/cli-runtime";
+import { JsonSchemaVersion } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { LearnMore, makeAxmFormatter } from "./formatter.js";
 

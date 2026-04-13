@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
+import { readEnvWithDefault } from "@agentxm/client-utils/unstable/env";
 
 import { capture, run, tryCapture } from "./release-command.js";
 

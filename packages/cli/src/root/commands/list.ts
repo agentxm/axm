@@ -1,9 +1,9 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 

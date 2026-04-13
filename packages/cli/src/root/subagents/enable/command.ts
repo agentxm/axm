@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleEnableSubagent } from "./handler.js";

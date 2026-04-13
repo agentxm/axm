@@ -68,7 +68,7 @@ export interface SourceHostProvidersService {
 export class SourceHostProviders extends ServiceMap.Service<
   SourceHostProviders,
   SourceHostProvidersService
->()("@axm.sh/cli/SourceHostProviders") {}
+>()("axm.sh/SourceHostProviders") {}
 
 // -----------------------------------------------------------------------------
 // Clone URL Building

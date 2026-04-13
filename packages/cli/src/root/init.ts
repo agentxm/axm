@@ -1,15 +1,15 @@
-import { getAgentById, scanAllSubagentFiles } from "@axm.sh/core/unstable/agents";
-import type { AgentSubagentSummary } from "@axm.sh/core/unstable/agents";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
-import { envOption } from "@axm.sh/core/unstable/utils";
+import { getAgentById, scanAllSubagentFiles } from "@agentxm/client-core/unstable/agents";
+import type { AgentSubagentSummary } from "@agentxm/client-core/unstable/agents";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
+import { envOption } from "@agentxm/client-core/unstable/utils";
 import {
   bootstrapWorkspace,
   type WorkspaceContextOptions,
   type WorkspaceScope,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";

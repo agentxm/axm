@@ -39,7 +39,7 @@ import { checkInstalledOnDisk } from "./operations/shared-command-helpers.js";
 export class CommandManager extends ServiceMap.Service<
   CommandManager,
   ExtensionManager<CommandExtensionRef>
->()("@axm.sh/cli/CommandManager") {}
+>()("axm.sh/CommandManager") {}
 
 // Build lock entry from registry ref
 const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockEntry => ({

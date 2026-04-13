@@ -30,8 +30,8 @@ import type {
   UnmanagedExtensionRef,
   InstalledExtensionRef,
   ClassifiedExtensionRef,
-} from "@axm.sh/core/unstable/workspace";
-import type { AppError } from "@axm.sh/core/unstable/app-error";
+} from "@agentxm/client-core/unstable/workspace";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   ExtensionDependencyConstraintMapSchema,
   decodeExtensionNameSync,
@@ -39,20 +39,20 @@ import {
   type ExtensionName,
   type Handle,
   normalizeHandle,
-} from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/extensions";
 import {
   makeRegistryExtensionPackLockEntry as buildRegistryExtensionPackLockEntry,
   type RegistryExtensionPackLockEntry,
   ResolvedExtensionMapSchema,
   type ResolvedExtensionMap,
   type SkillLockEntry,
-} from "@axm.sh/core/unstable/lockfile";
+} from "@agentxm/client-core/unstable/lockfile";
 import {
   decodeExactSemverVersionSync,
   decodeVersionConstraintSync,
   type ExactSemverVersion,
   type VersionConstraint,
-} from "@axm.sh/core/unstable/version-constraints";
+} from "@agentxm/client-core/unstable/version-constraints";
 import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;

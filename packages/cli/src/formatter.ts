@@ -9,7 +9,10 @@ import * as ServiceMap from "effect/ServiceMap";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
-import { JsonSchemaVersion, JsonSchemaVersionSchema } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  JsonSchemaVersion,
+  JsonSchemaVersionSchema,
+} from "@agentxm/client-core/unstable/cli-runtime";
 
 /**
  * Annotation key for "learn more" footer text.

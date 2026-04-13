@@ -7,9 +7,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { SubagentLockEntry } from "@axm.sh/core/unstable/lockfile";
-import type { RegistrySubagentRef } from "@axm.sh/core/unstable/subagents";
-import type { JobStepResult } from "@axm.sh/core/unstable/workspace";
+import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { RegistrySubagentRef } from "@agentxm/client-core/unstable/subagents";
+import type { JobStepResult } from "@agentxm/client-core/unstable/workspace";
 import { buildUpdatePlan, type UpdateOperation } from "./plan.js";
 
 // -----------------------------------------------------------------------------

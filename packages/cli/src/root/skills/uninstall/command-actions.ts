@@ -12,18 +12,18 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { expandGlob } from "@axm.sh/core/unstable/utils";
-import { SkillManager } from "@axm.sh/core/unstable/skills";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { expandGlob } from "@agentxm/client-core/unstable/utils";
+import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import {
   buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@axm.sh/core/unstable/extensions";
-import type { SkillExtensionTarget } from "@axm.sh/core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
-import type { AppError } from "@axm.sh/core/unstable/app-error";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/extensions";
+import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -56,7 +56,7 @@ export class UninstallSkillCommandWorkflowActions extends ServiceMap.Service<
     ParsedSkillUninstallArgs,
     UninstallSkillCommandIntent
   >
->()("@axm.sh/cli/UninstallSkillCommandWorkflowActions") {}
+>()("axm.sh/UninstallSkillCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

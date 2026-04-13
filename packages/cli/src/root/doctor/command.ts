@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { resolveBuiltInSources, withRuntime } from "../../runtime.js";

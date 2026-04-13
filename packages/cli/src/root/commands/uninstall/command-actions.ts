@@ -12,13 +12,16 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
-import type { Plan } from "@axm.sh/core/unstable/workspace";
-import type { CommandExtensionTarget, ExtensionTarget } from "@axm.sh/core/unstable/workspace";
-import { buildUninstallOperation } from "@axm.sh/core/unstable/extensions";
-import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
+import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type {
+  CommandExtensionTarget,
+  ExtensionTarget,
+} from "@agentxm/client-core/unstable/workspace";
+import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallCommandCommandIntent } from "./intent.js";
 import {
   combinePlanSections,
@@ -53,7 +56,7 @@ export class UninstallCommandCommandWorkflowActions extends ServiceMap.Service<
     ParsedCommandUninstallArgs,
     UninstallCommandCommandIntent
   >
->()("@axm.sh/cli/UninstallCommandCommandWorkflowActions") {}
+>()("axm.sh/UninstallCommandCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

@@ -312,7 +312,7 @@ Errors are routed to three channels to serve both humans and machines:
 ### Run Boundary
 
 `Command.runWith()` handles `--help` and `--version` automatically. The
-production entry point uses `runCliMain` from `@axm.sh/core/unstable/cli-runtime`,
+production entry point uses `runCliMain` from `@agentxm/client-core/unstable/cli-runtime`,
 which owns signal handling, three-channel error routing, and graceful shutdown.
 
 Output format must be resolved _before_ Effect runs (raw argv scan) because CLI
@@ -324,8 +324,8 @@ format detection, those errors cannot route to the correct output channel.
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliOutput, Command } from "effect/unstable/cli";
-import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
-import { InteractiveRenderer, MachineRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
+import { InteractiveRenderer, MachineRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
 const VERSION = "0.0.1";
 
@@ -469,7 +469,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import { CliOutput, Command } from "effect/unstable/cli";
 
-import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+import { runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAxmFormatter } from "./formatter.js";
 ```
 
@@ -516,14 +516,14 @@ because it is a reference app. Shipping CLIs keep built-artifact E2E tests in
 
 Two prompt approaches coexist. Match the approach of the package you're working in.
 
-|                    | Primary CLI (`packages/cli/`)                                                        | CLI Spike (`packages/cli-spike/`)                           |
-| ------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| **Core surface**   | `@axm.sh/core/unstable/cli/prompt` helpers for command-local prompt flows            | Same helpers plus native `Prompt` composition               |
-| **Legacy/test**    | `CliPrompt` from `@axm.sh/core/unstable/cli-prompt` for shared adapters/tests        | Not used for normal spike commands                          |
-| **Flag bypass**    | `fromFlagOrInteractivePrompt(value, Prompt.text(...), { message })`                  | Same                                                        |
-| **Auto-confirm**   | `fromInteractivePrompt(Prompt.confirm(...), { message })` or `AxmPrompt.autoConfirm` | Same                                                        |
-| **Custom prompts** | `AxmPrompt.selectKey(...)`                                                           | `AxmPrompt.selectKey(...)`                                  |
-| **Cancellation**   | `PromptCancelled`                                                                    | `PromptCancelled` via `runPrompt` / `fromInteractivePrompt` |
+|                    | Primary CLI (`packages/cli/`)                                                         | CLI Spike (`packages/cli-spike/`)                           |
+| ------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Core surface**   | `@agentxm/client-core/unstable/cli/prompt` helpers for command-local prompt flows     | Same helpers plus native `Prompt` composition               |
+| **Legacy/test**    | `CliPrompt` from `@agentxm/client-core/unstable/cli-prompt` for shared adapters/tests | Not used for normal spike commands                          |
+| **Flag bypass**    | `fromFlagOrInteractivePrompt(value, Prompt.text(...), { message })`                   | Same                                                        |
+| **Auto-confirm**   | `fromInteractivePrompt(Prompt.confirm(...), { message })` or `AxmPrompt.autoConfirm`  | Same                                                        |
+| **Custom prompts** | `AxmPrompt.selectKey(...)`                                                            | `AxmPrompt.selectKey(...)`                                  |
+| **Cancellation**   | `PromptCancelled`                                                                     | `PromptCancelled` via `runPrompt` / `fromInteractivePrompt` |
 
 ```typescript
 // CLI Spike / command-local prompt flow
@@ -532,7 +532,7 @@ import {
   AxmPrompt,
   fromFlagOrInteractivePrompt,
   fromInteractivePrompt,
-} from "@axm.sh/core/unstable/cli/prompt";
+} from "@agentxm/client-core/unstable/cli/prompt";
 
 const name =
   yield *

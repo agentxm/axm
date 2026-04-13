@@ -4,11 +4,16 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { withAuthGuard } from "@axm.sh/core/unstable/auth";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { Job, JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type {
+  Job,
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/workspace";
 import {
   formatFqn,
   parseFqn,
@@ -17,33 +22,33 @@ import {
   type FullyQualifiedNameParts,
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
-} from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/extensions";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
   ExtensionPackManifestSchema,
-} from "@axm.sh/core/unstable/packs";
-import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/skills";
+} from "@agentxm/client-core/unstable/packs";
+import { publishSkill, type PublishSkillOperation } from "@agentxm/client-core/unstable/skills";
 import {
   publishExtensionPack,
   type PublishExtensionPackOperation,
   computeExtensionPackPaths,
-} from "@axm.sh/core/unstable/packs";
+} from "@agentxm/client-core/unstable/packs";
 import {
   publishCommand as publishCommandOp,
   type PublishCommandOperation,
-} from "@axm.sh/core/unstable/commands";
+} from "@agentxm/client-core/unstable/commands";
 import {
   publishMcpServer,
   type PublishMcpServerOperation,
-} from "@axm.sh/core/unstable/mcp-servers";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+} from "@agentxm/client-core/unstable/mcp-servers";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   withArgvTracking,
-} from "@axm.sh/core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 

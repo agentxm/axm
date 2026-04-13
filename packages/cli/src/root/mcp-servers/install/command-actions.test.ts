@@ -13,12 +13,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { McpServerManager } from "@axm.sh/core/unstable/mcp-servers";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   InstallMcpServerCommandWorkflowActions,
   InstallMcpServerCommandWorkflowActionsLive,

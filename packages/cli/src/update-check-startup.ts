@@ -15,14 +15,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { InstallMethod } from "@axm.sh/core/unstable/install-method";
-import { UpdateCheck, isCacheStale } from "@axm.sh/core/unstable/update-check";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { InstallMethod } from "@agentxm/client-core/unstable/install-method";
+import { UpdateCheck, isCacheStale } from "@agentxm/client-core/unstable/update-check";
 import {
   resolveLatestVersion,
   DEFAULT_GITHUB_REPO,
-} from "@axm.sh/core/unstable/version-resolution";
-import { isAgent } from "@axm.sh/utils/unstable/interaction";
+} from "@agentxm/client-core/unstable/version-resolution";
+import { isAgent } from "@agentxm/client-utils/unstable/interaction";
 
 // -----------------------------------------------------------------------------
 // Skip detection from argv

@@ -6,10 +6,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 
-import { InteractiveRenderer, MachineRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { removeBuiltInFlag, runCliMain } from "@axm.sh/core/unstable/cli-runtime";
-import { InstallMethodLive } from "@axm.sh/core/unstable/install-method";
-import { UpdateCheckLive } from "@axm.sh/core/unstable/update-check";
+import { InteractiveRenderer, MachineRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
+import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
+import { UpdateCheckLive } from "@agentxm/client-core/unstable/update-check";
 
 import { LearnMore, makeAxmFormatter } from "./formatter.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";

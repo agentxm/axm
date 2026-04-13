@@ -1,9 +1,9 @@
 /**
- * Source parsing and identification module for @axm.sh/core.
+ * Source parsing and identification module for @agentxm/client-core.
  *
  * Source providers and parsing utilities. Extension ref types live in
  * the extensions module (`extensions/refs.ts`, `extensions/ref-base.ts`)
- * — import them from `@axm.sh/core/unstable/extensions`.
+ * — import them from `@agentxm/client-core/unstable/extensions`.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation

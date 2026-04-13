@@ -11,21 +11,21 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@axm.sh/core/unstable/agents";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+} from "@agentxm/client-core/unstable/agents";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { exactVersion, extensionName, makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
-import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
-import type { UninstallExtensionPackOperation } from "@axm.sh/core/unstable/packs";
+import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
+import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcp-servers";
+import type { UninstallExtensionPackOperation } from "@agentxm/client-core/unstable/packs";
 import { buildUnpackPlan } from "./plan.js";
 
 const ACME = normalizeHandle("@acme");

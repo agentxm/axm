@@ -8,10 +8,14 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
+import {
+  AuthClientTest,
+  CredentialStoreTest,
+  RegistryUrl,
+} from "@agentxm/client-core/unstable/auth";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";

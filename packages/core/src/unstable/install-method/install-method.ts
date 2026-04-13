@@ -88,7 +88,7 @@ export interface InstallMethodService {
  * @experimental This API is unstable and may change without notice.
  */
 export class InstallMethod extends ServiceMap.Service<InstallMethod, InstallMethodService>()(
-  "@axm.sh/core/InstallMethod",
+  "@agentxm/client-core/InstallMethod",
 ) {}
 
 // -----------------------------------------------------------------------------

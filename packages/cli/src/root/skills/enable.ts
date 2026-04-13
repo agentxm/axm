@@ -3,16 +3,19 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { decodeExtensionNameSync, type ExtensionName } from "@axm.sh/core/unstable/extensions";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { EnableSkillOperation } from "@axm.sh/core/unstable/skills";
-import { enableSkill } from "@axm.sh/core/unstable/skills";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  decodeExtensionNameSync,
+  type ExtensionName,
+} from "@agentxm/client-core/unstable/extensions";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { EnableSkillOperation } from "@agentxm/client-core/unstable/skills";
+import { enableSkill } from "@agentxm/client-core/unstable/skills";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
@@ -72,7 +75,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
   }): JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }

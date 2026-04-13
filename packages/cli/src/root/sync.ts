@@ -3,11 +3,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   formatWorkspaceSyncBlockersHowToFix,
   getWorkspaceSyncReadiness,
@@ -17,7 +17,7 @@ import {
   type PlannedJobStep,
   previewOrApplyPlan,
   Workspace,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../json-output.js";
 import { scopeFlag } from "../cli-flags.js";

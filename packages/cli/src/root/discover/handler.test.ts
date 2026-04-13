@@ -3,11 +3,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { decodeExtensionNameSync, decodeHandleSync } from "@axm.sh/core/unstable/extensions";
-import { PackageTypeSchema } from "@axm.sh/core/unstable/packaging";
-import type { DiscoverExtensionEntry } from "@axm.sh/core/unstable/registry";
-import type { DiscoverPackageResult, DiscoverResult } from "@axm.sh/core/unstable/discover";
-import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
+import {
+  decodeExtensionNameSync,
+  decodeHandleSync,
+} from "@agentxm/client-core/unstable/extensions";
+import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
+import type { DiscoverExtensionEntry } from "@agentxm/client-core/unstable/registry";
+import type { DiscoverPackageResult, DiscoverResult } from "@agentxm/client-core/unstable/discover";
+import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 import { makeCliTestContext } from "../../test-helpers.js";
 import { formatPackageName, handleDiscoverWith, toDiscoverOutput } from "./handler.js";

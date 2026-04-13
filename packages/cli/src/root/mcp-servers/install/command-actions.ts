@@ -17,15 +17,21 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { ExtensionName, Handle } from "@axm.sh/core/unstable/extensions";
-import type { RegistrySource } from "@axm.sh/core/unstable/sources";
-import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
-import type { Plan } from "@axm.sh/core/unstable/workspace";
-import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
-import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { ExtensionName, Handle } from "@agentxm/client-core/unstable/extensions";
+import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import {
+  resolveSource,
+  SourceHostProviders,
+} from "@agentxm/client-core/unstable/source-resolution";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import {
+  McpServerManager,
+  type McpServerExtensionRef,
+} from "@agentxm/client-core/unstable/mcp-servers";
+import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 
@@ -73,7 +79,7 @@ export class InstallMcpServerCommandWorkflowActions extends ServiceMap.Service<
     McpServerExtensionRef,
     InstallMcpServerCommandIntent
   >
->()("@axm.sh/cli/InstallMcpServerCommandWorkflowActions") {}
+>()("axm.sh/InstallMcpServerCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

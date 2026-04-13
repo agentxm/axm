@@ -17,12 +17,12 @@ The `INSTALL.md` document (served at `axm.sh/install.md`) SHALL document all ins
 
 ### Requirement: Agent install doc recommends npx as the default for agents
 
-The document SHALL recommend `npx @axm.sh/cli` as the primary installation method, since agents typically run in Node.js environments.
+The document SHALL recommend `npx axm.sh` as the primary installation method, since agents typically run in Node.js environments.
 
 #### Scenario: npx recommended first
 
 - **WHEN** the agent install doc is read
-- **THEN** the first installation option presented SHALL be `npx @axm.sh/cli` with a note that it requires Node.js
+- **THEN** the first installation option presented SHALL be `npx axm.sh` with a note that it requires Node.js
 
 #### Scenario: Alternatives documented
 

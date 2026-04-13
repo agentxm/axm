@@ -1,5 +1,5 @@
 {
-  "name": "@axm.sh/e2e-utils",
+  "name": "@agentxm/client-e2e-utils",
   "version": "0.0.1",
   "private": true,
   "description": "Shared E2E test utilities for axm CLIs",
@@ -14,7 +14,7 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@axm.sh/utils": "workspace:*",
+    "@agentxm/client-utils": "workspace:*",
     "execa": "^9.6.1"
   },
   "devDependencies": {

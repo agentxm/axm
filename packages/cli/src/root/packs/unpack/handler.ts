@@ -1,22 +1,22 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { buildRegistrySkillRef } from "@axm.sh/core/unstable/skills";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { buildRegistrySkillRef } from "@agentxm/client-core/unstable/skills";
 import {
   buildRegistryCommandRef,
   type InstallCommandOperation,
-} from "@axm.sh/core/unstable/commands";
+} from "@agentxm/client-core/unstable/commands";
 import {
   buildRegistryMcpServerRef,
   type InstallMcpServerOperation,
-} from "@axm.sh/core/unstable/mcp-servers";
-import type { RegistrySource } from "@axm.sh/core/unstable/sources";
-import { parseFqnOrThrow } from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/mcp-servers";
+import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import { parseFqnOrThrow } from "@agentxm/client-core/unstable/extensions";
 import { buildUnpackPlan } from "./plan.js";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 
 export interface UnpackHandlerArgs {

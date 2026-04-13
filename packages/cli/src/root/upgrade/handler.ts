@@ -5,14 +5,17 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { InstallMeta } from "@axm.sh/core/unstable/install-meta";
-import { InstallMethod, type InstallMethodType } from "@axm.sh/core/unstable/install-method";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { InstallMeta } from "@agentxm/client-core/unstable/install-meta";
+import {
+  InstallMethod,
+  type InstallMethodType,
+} from "@agentxm/client-core/unstable/install-method";
 import {
   resolveLatestVersion,
   DEFAULT_GITHUB_REPO,
-} from "@axm.sh/core/unstable/version-resolution";
+} from "@agentxm/client-core/unstable/version-resolution";
 import { loadVersion } from "../../version.js";
 
 export interface UpgradeHandlerArgs {
@@ -239,12 +242,12 @@ const handleNpm = (force: boolean) =>
       yield* renderer.info("--force has no effect for npm installs.");
     }
     yield* renderer.info("Installed via npm");
-    yield* renderer.info("Run: npm update -g @axm.sh/cli");
+    yield* renderer.info("Run: npm update -g axm.sh");
     return {
       status: "delegated",
       installMethod: "npm",
       localVersion,
-      delegatedCommand: "npm update -g @axm.sh/cli",
+      delegatedCommand: "npm update -g axm.sh",
       force,
     } satisfies UpgradeResult;
   });

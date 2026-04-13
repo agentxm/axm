@@ -12,24 +12,24 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
-} from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import type { ExtensionPackRef } from "@axm.sh/core/unstable/packs";
-import type { ExtensionFiles } from "@axm.sh/core/unstable/sources";
+} from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import type { ExtensionPackRef } from "@agentxm/client-core/unstable/packs";
+import type { ExtensionFiles } from "@agentxm/client-core/unstable/sources";
 import {
   SourceHostProvidersLive,
   SourceHostProviders,
-} from "@axm.sh/core/unstable/source-resolution";
-import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
+} from "@agentxm/client-core/unstable/source-resolution";
+import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
 import { handleInstallPack } from "./handler.js";
 import {
   type InstallPackHandlerArgs,
@@ -37,15 +37,15 @@ import {
   InstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
 import type { PackInstallHandlerArgs } from "./handler.js";
-import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
-import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
-import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
-import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import * as Schema from "effect/Schema";
-import { PackageTypeSchema } from "@axm.sh/core/unstable/packaging";
+import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
 import { dependencyConstraintMap, exactVersion, extensionName } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 

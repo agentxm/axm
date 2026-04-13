@@ -1,19 +1,23 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   decodeExtensionNameSync,
   type ExtensionName,
   type Handle,
-} from "@axm.sh/core/unstable/extensions";
-import { createRegistryClient, type RegistryClient } from "@axm.sh/core/unstable/registry";
-import type { InputParseResult, InputPattern, RegistrySource } from "@axm.sh/core/unstable/sources";
+} from "@agentxm/client-core/unstable/extensions";
+import { createRegistryClient, type RegistryClient } from "@agentxm/client-core/unstable/registry";
+import type {
+  InputParseResult,
+  InputPattern,
+  RegistrySource,
+} from "@agentxm/client-core/unstable/sources";
 import {
   resolveShorthandInputSource,
   resolveSlashInputSource,
   routeUrlInput,
-} from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/source-resolution";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
 
 export type RegistryLookupProbe = {
   readonly location: string;

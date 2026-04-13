@@ -18,7 +18,7 @@ export interface AuthGuardInteractionService {
 export class AuthGuardInteraction extends ServiceMap.Service<
   AuthGuardInteraction,
   AuthGuardInteractionService
->()("@axm.sh/cli/AuthGuardInteraction") {}
+>()("axm.sh/AuthGuardInteraction") {}
 
 export const AuthGuardInteractionLive = Layer.effect(
   AuthGuardInteraction,

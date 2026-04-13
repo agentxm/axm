@@ -34,7 +34,7 @@ importers:
 
   .:
     devDependencies:
-      '@axm.sh/utils':
+      '@agentxm/client-utils':
         specifier: workspace:*
         version: link:packages/utils
       '@effect/eslint-plugin':
@@ -106,10 +106,10 @@ importers:
 
   packages/cli:
     dependencies:
-      '@axm.sh/core':
+      '@agentxm/client-core':
         specifier: workspace:*
         version: link:../core
-      '@axm.sh/utils':
+      '@agentxm/client-utils':
         specifier: workspace:*
         version: link:../utils
       '@effect/platform-node':
@@ -149,7 +149,7 @@ importers:
 
   packages/cli-e2e:
     devDependencies:
-      '@axm.sh/e2e-utils':
+      '@agentxm/client-e2e-utils':
         specifier: workspace:*
         version: link:../e2e-utils
       fflate:
@@ -167,7 +167,7 @@ importers:
 
   packages/cli-spike:
     dependencies:
-      '@axm.sh/core':
+      '@agentxm/client-core':
         specifier: workspace:*
         version: link:../core
       '@effect/platform-node':
@@ -192,7 +192,7 @@ importers:
 
   packages/cli-spike-e2e:
     devDependencies:
-      '@axm.sh/e2e-utils':
+      '@agentxm/client-e2e-utils':
         specifier: workspace:*
         version: link:../e2e-utils
       typescript:
@@ -229,7 +229,7 @@ importers:
         specifier: ^3.33.0
         version: 3.33.0
     devDependencies:
-      '@axm.sh/utils':
+      '@agentxm/client-utils':
         specifier: workspace:*
         version: link:../utils
       '@effect/openapi-generator':
@@ -259,7 +259,7 @@ importers:
 
   packages/e2e-utils:
     dependencies:
-      '@axm.sh/utils':
+      '@agentxm/client-utils':
         specifier: workspace:*
         version: link:../utils
       execa:

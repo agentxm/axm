@@ -9,7 +9,7 @@ import {
   expectNonInteractiveFailure,
   expectNonInteractiveSuccess,
   getOutput,
-} from "@axm.sh/e2e-utils";
+} from "@agentxm/client-e2e-utils";
 
 import { runCli } from "./utils.js";
 

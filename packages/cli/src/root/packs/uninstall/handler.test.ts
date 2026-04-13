@@ -13,25 +13,25 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
-} from "@axm.sh/core/unstable/workspace";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
+} from "@agentxm/client-core/unstable/workspace";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
 import {
   type UninstallPackHandlerArgs,
   UninstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
-import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
-import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
-import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
-import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 
 // -----------------------------------------------------------------------------
 // Helpers

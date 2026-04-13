@@ -524,7 +524,7 @@ tracking into commands.
 
 - [ ] **Edge provision** -- All layers provided once via `Effect.provide` at the
       `Command.run` / `Command.runWith` call site
-- [ ] **runCliMain entry point** -- `runCliMain` from `@axm.sh/core` used as the
+- [ ] **runCliMain entry point** -- `runCliMain` from `@agentxm/client-core` used as the
       CLI entry point (handles signal handling, error routing, graceful shutdown)
 - [ ] **Per-subcommand layers** -- `Command.provide` used when subcommands need
       different services or flag-dependent layers

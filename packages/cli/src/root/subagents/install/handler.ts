@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";

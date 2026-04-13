@@ -3,27 +3,27 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { withAuthGuard } from "@axm.sh/core/unstable/auth";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   withArgvTracking,
-} from "@axm.sh/core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { PublishCommandOperation } from "@axm.sh/core/unstable/commands";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { PublishCommandOperation } from "@agentxm/client-core/unstable/commands";
 import {
   publishCommand as publishCommandOp,
   COMMAND_MANIFEST_FILENAME,
-} from "@axm.sh/core/unstable/commands";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
-import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
+} from "@agentxm/client-core/unstable/commands";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
+import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import {
   emitNoOpResult,
   emitPlanResolutionResult,

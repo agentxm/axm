@@ -3,15 +3,15 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { DisableSkillOperation } from "@axm.sh/core/unstable/skills";
-import { disableSkill } from "@axm.sh/core/unstable/skills";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { DisableSkillOperation } from "@agentxm/client-core/unstable/skills";
+import { disableSkill } from "@agentxm/client-core/unstable/skills";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
@@ -71,7 +71,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
   }): JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }

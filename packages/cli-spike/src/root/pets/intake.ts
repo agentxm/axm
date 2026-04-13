@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
 
-import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { type FakePetHabitat, FakePetStore } from "../../fake-pet-store.js";
 import { withRuntime } from "../../runtime.js";

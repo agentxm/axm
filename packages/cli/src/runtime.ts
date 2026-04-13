@@ -7,15 +7,15 @@ import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import { pathToFileURL } from "node:url";
 
-import type { AppError } from "@axm.sh/core/unstable/app-error";
-import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 
 import {
   type CliTelemetryConfigService,
   makeFoundationLayer,
   resolveCliFormat,
   withCliErrorHandling,
-} from "@axm.sh/core/unstable/cli-runtime";
+} from "@agentxm/client-core/unstable/cli-runtime";
 import {
   Verbosity,
   nonInteractiveFlag,
@@ -23,14 +23,14 @@ import {
   verboseFlag,
   debugFlag,
   quietFlag,
-} from "@axm.sh/core/unstable/cli-flags";
-import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
-import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
-import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
-import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+} from "@agentxm/client-core/unstable/cli-flags";
+import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import {
   AuthClientLive,
   AuthGuardInteractionLive,
@@ -38,7 +38,7 @@ import {
   AuthMiddlewareLive,
   CredentialStoreLive,
   RegistryUrl,
-} from "@axm.sh/core/unstable/auth";
+} from "@agentxm/client-core/unstable/auth";
 import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcp-servers/install/command-actions.js";
@@ -49,14 +49,17 @@ import { InstallSkillCommandWorkflowActionsLive } from "./root/skills/install/co
 import { UninstallSkillCommandWorkflowActionsLive } from "./root/skills/uninstall/command-actions.js";
 import { InstallSubagentCommandWorkflowActionsLive } from "./root/subagents/install/command-actions.js";
 import { UninstallSubagentCommandWorkflowActionsLive } from "./root/subagents/uninstall/command-actions.js";
-import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
-import type { WorkspaceContextOptions, WorkspaceScope } from "@axm.sh/core/unstable/workspace";
+import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
+import type {
+  WorkspaceContextOptions,
+  WorkspaceScope,
+} from "@agentxm/client-core/unstable/workspace";
 import {
   getBuiltInSources,
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionLive,
   WorkspaceInitializationInteractionLive,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 import { loadVersion } from "./version.js";
 
 export { verboseFlag, debugFlag };

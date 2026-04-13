@@ -64,7 +64,7 @@ The quickstart markdown SHALL include an npx pathway for users who already have 
 #### Scenario: npx command documented
 
 - **WHEN** the npx section is read
-- **THEN** it SHALL include `npx @axm.sh/cli` and note that it requires Node.js
+- **THEN** it SHALL include `npx axm.sh` and note that it requires Node.js
 
 ### Requirement: Authentication section covers interactive and non-interactive methods
 

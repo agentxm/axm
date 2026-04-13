@@ -14,7 +14,7 @@ import {
   decodeExactSemverVersionSync,
   decodeVersionConstraintSync,
   satisfiesConstraint,
-} from "@axm.sh/core/unstable/version-constraints";
+} from "@agentxm/client-core/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Types

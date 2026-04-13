@@ -111,7 +111,7 @@ The notification message SHALL show the appropriate update command for the detec
 - **WHEN** the detected method is `npm`
 - **THEN** the notification SHALL display the title `Update Available`
 - **AND** the notification body SHALL include `{current} → {latest}`
-- **AND** the notification body SHALL include `Run: npm update -g @axm.sh/cli`
+- **AND** the notification body SHALL include `Run: npm update -g axm.sh`
 
 #### Scenario: Unknown install notification
 

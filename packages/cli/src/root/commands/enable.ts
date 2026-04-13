@@ -3,17 +3,20 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { decodeExtensionNameSync, type ExtensionName } from "@axm.sh/core/unstable/extensions";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { EnableCommandOperation } from "@axm.sh/core/unstable/commands";
-import { enableCommand as runEnableCommand } from "@axm.sh/core/unstable/commands";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import {
+  decodeExtensionNameSync,
+  type ExtensionName,
+} from "@agentxm/client-core/unstable/extensions";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { EnableCommandOperation } from "@agentxm/client-core/unstable/commands";
+import { enableCommand as runEnableCommand } from "@agentxm/client-core/unstable/commands";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";

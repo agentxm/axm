@@ -163,7 +163,7 @@ describe("notificationMessage", () => {
       "0.1.0",
       "0.2.0",
     );
-    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: npm update -g @axm.sh/cli");
+    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: npm update -g axm.sh");
   });
 
   it("returns script message for Unknown method", () => {
@@ -189,7 +189,7 @@ describe("notificationMessage", () => {
       "agent",
     );
     expect(msg).toBe(
-      'AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="npm update -g @axm.sh/cli"',
+      'AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="npm update -g axm.sh"',
     );
   });
 });

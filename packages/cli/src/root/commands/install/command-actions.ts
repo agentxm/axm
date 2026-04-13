@@ -23,20 +23,23 @@ import * as Result from "effect/Result";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { ExtensionName, Handle } from "@axm.sh/core/unstable/extensions";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
-import type { RegistrySource } from "@axm.sh/core/unstable/sources";
-import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { ExtensionName, Handle } from "@agentxm/client-core/unstable/extensions";
+import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import {
+  resolveSource,
+  SourceHostProviders,
+} from "@agentxm/client-core/unstable/source-resolution";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import {
   CommandManager,
   selectRenderer,
   type CommandExtensionRef,
-} from "@axm.sh/core/unstable/commands";
-import type { Plan } from "@axm.sh/core/unstable/workspace";
-import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
-import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
+} from "@agentxm/client-core/unstable/commands";
+import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallCommandCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { combinePlanSections, makeAgentSection, makeGroupedSection } from "../preview-sections.js";
@@ -91,7 +94,7 @@ export class InstallCommandCommandWorkflowActions extends ServiceMap.Service<
     CommandExtensionRef,
     InstallCommandCommandIntent
   >
->()("@axm.sh/cli/InstallCommandCommandWorkflowActions") {}
+>()("axm.sh/InstallCommandCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

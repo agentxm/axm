@@ -29,7 +29,7 @@ class NotificationService extends ServiceMap.Service<
       notifications: ReadonlyArray<Notification>,
     ) => Effect.Effect<void, AppError>;
   }
->()("@axm.sh/cli/NotificationService") {}
+>()("axm.sh/NotificationService") {}
 ```
 
 The service class decouples consumers from implementations — you get testability
@@ -56,7 +56,7 @@ interface DocumentStore {
 }
 
 // The service, typed to the interface
-const DocumentStore = ServiceMap.Service<DocumentStore>("@axm.sh/cli/DocumentStore");
+const DocumentStore = ServiceMap.Service<DocumentStore>("axm.sh/DocumentStore");
 
 // Implementation A
 const S3DocumentStoreLayer = Layer.succeed(DocumentStore, {
@@ -184,7 +184,7 @@ Benefits:
 
 ### Service identifiers
 
-Use `@axm.sh/cli/<ServiceName>` as the identifier string:
+Use `axm.sh/<ServiceName>` as the identifier string:
 
 ```typescript
 ServiceMap.Service<
@@ -192,13 +192,13 @@ ServiceMap.Service<
   {
     /* ... */
   }
->()("@axm.sh/cli/Workspace");
+>()("axm.sh/Workspace");
 ServiceMap.Service<
   SourceHostProviders,
   {
     /* ... */
   }
->()("@axm.sh/cli/SourceHostProviders");
+>()("axm.sh/SourceHostProviders");
 ```
 
 ### Layer names
@@ -299,7 +299,7 @@ const doSomething = (input: string) =>
 
 ## Service Design Checklist
 
-- [ ] **Unique namespaced tag** — `@axm.sh/cli/<ServiceName>`
+- [ ] **Unique namespaced tag** — `axm.sh/<ServiceName>`
 - [ ] **R = never on methods** — no dependency leakage in interface
 - [ ] **Readonly properties** — no mutable state exposed
 - [ ] **Single responsibility** — one domain concern per service

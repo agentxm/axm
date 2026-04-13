@@ -4,7 +4,7 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-Creates the `@axm.sh/core/unstable/subagents` module with manifest schema (`subagent.json`), content file module (`subagent-content.ts` — subagent-specific frontmatter schema and parsing), and directory layout constants. No predecessor phases.
+Creates the `@agentxm/client-core/unstable/subagents` module with manifest schema (`subagent.json`), content file module (`subagent-content.ts` — subagent-specific frontmatter schema and parsing), and directory layout constants. No predecessor phases.
 
 **Reference:** `subagents/spec.md` — Subagent manifest schema, Subagent content file, Directory layout, FQN segment.
 

@@ -121,8 +121,8 @@ errors, and tests with the feature that owns them.
 - **Shared within feature** → in a dedicated file in that feature folder (e.g., `schema.ts`)
 - **Never** → cross-feature "constants.ts" or "types.ts" at the root
 
-**`@axm.sh/core` unstable namespace** — All core code lives under
-`src/unstable/` and is exported via `@axm.sh/core/unstable/*`. Never place core
+**`@agentxm/client-core` unstable namespace** — All core code lives under
+`src/unstable/` and is exported via `@agentxm/client-core/unstable/*`. Never place core
 code directly under `src/`.
 
 ## TypeScript

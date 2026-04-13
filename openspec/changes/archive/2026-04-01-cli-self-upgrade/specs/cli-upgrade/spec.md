@@ -82,7 +82,7 @@ When the detected method is `homebrew` or `npm`, the command SHALL print the app
 #### Scenario: npm installation detected
 
 - **WHEN** the detected method is `npm`
-- **THEN** the command SHALL print `Run: npm update -g @axm.sh/cli` and exit with code 0
+- **THEN** the command SHALL print `Run: npm update -g axm.sh` and exit with code 0
 
 #### Scenario: Unknown installation method
 

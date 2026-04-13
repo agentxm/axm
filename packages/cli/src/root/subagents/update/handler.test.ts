@@ -13,9 +13,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
-import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 

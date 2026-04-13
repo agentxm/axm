@@ -1,4 +1,4 @@
-import type { VerbosityLevel } from "@axm.sh/core/unstable/cli-flags";
+import type { VerbosityLevel } from "@agentxm/client-core/unstable/cli-flags";
 import type {
   Action,
   Check,
@@ -7,7 +7,7 @@ import type {
   FindingSeverity,
   ReportSummary,
   WorkspaceDoctorReport,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 
 const ACTION_COMMAND_COLUMN_WIDTH = 20;
 

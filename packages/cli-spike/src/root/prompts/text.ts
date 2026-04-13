@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 

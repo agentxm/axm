@@ -13,12 +13,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import { exactVersion, extensionName, handle, makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { CommandManager, type RegistryCommandRef } from "@axm.sh/core/unstable/commands";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import { CommandManager, type RegistryCommandRef } from "@agentxm/client-core/unstable/commands";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   InstallCommandCommandWorkflowActions,
   InstallCommandCommandWorkflowActionsLive,

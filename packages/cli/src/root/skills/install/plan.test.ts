@@ -8,18 +8,18 @@ import * as Effect from "effect/Effect";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@axm.sh/core/unstable/agents";
+} from "@agentxm/client-core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
-import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
-import type { LocalSkillRef, RegistrySkillRef } from "@axm.sh/core/unstable/skills";
-import type { Source } from "@axm.sh/core/unstable/sources";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
+import type { LocalSkillRef, RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
+import type { Source } from "@agentxm/client-core/unstable/sources";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   exactVersion,
   extensionName,

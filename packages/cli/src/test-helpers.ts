@@ -10,16 +10,16 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { writeWorkspaceFiles } from "./test-stubs.js";
-import { AppError } from "@axm.sh/core/unstable/app-error";
-import { AuthGuardInteractionTest } from "@axm.sh/core/unstable/auth";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { AppError } from "@agentxm/client-core/unstable/app-error";
+import { AuthGuardInteractionTest } from "@agentxm/client-core/unstable/auth";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
   WorkspaceInitializationInteractionTest,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 
 export interface TestPromptConfig {
   readonly confirmResponses?: ReadonlyArray<boolean>;

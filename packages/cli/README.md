@@ -1,4 +1,4 @@
-# @axm.sh/cli
+# axm.sh
 
 CLI package for `axm`.
 

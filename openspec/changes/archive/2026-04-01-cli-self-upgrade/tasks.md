@@ -4,7 +4,7 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-Implements the `InstallMethod` service in `@axm.sh/core/unstable/` that detects how axm was installed. No predecessor phases.
+Implements the `InstallMethod` service in `@agentxm/client-core/unstable/` that detects how axm was installed. No predecessor phases.
 
 - [x] 1.1 Write tests for `InstallMethod.detect()` covering all five precedence levels: script (exec path in `~/.axm/bin/`), homebrew (`/Cellar/` in path), npm (`node_modules` in import URL), metadata file fallback, and unknown
 - [x] 1.2 Create `packages/core/src/unstable/install-method/` module with `InstallMethod` Effect service, tagged union type (`Script | Homebrew | Npm | Unknown`), and `detect()` implementation using the precedence chain from the design

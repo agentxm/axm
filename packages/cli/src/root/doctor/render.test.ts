@@ -5,7 +5,7 @@ import type {
   Finding,
   ReportSummary,
   WorkspaceDoctorReport,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 
 import {
   computeCheckHeaderAction,

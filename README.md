@@ -7,7 +7,7 @@ Manage agent skills, commands, sub-agents, MCP servers, and rules for your Claud
 ## Installation
 
 ```bash
-npm install -g @axm.sh/cli
+npm install -g axm.sh
 ```
 
 ## Getting Started

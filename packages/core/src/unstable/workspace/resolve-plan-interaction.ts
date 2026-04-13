@@ -18,7 +18,7 @@ export interface ResolvePlanInteractionService {
 export class ResolvePlanInteraction extends ServiceMap.Service<
   ResolvePlanInteraction,
   ResolvePlanInteractionService
->()("@axm.sh/workspace/ResolvePlanInteraction") {}
+>()("@agentxm/workspace/ResolvePlanInteraction") {}
 
 export const ResolvePlanInteractionLive = Layer.effect(
   ResolvePlanInteraction,

@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliRenderer, type LogLevel } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { CliRenderer, type LogLevel } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 

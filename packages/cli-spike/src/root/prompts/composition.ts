@@ -3,11 +3,11 @@ import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import type * as PromptTypes from "effect/unstable/cli/Prompt";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
-import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { isNonInteractive } from "@agentxm/client-core/unstable/cli-flags";
+import { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { withRuntime } from "../../runtime.js";
 
 const speciesValues = ["cat", "dog", "rabbit", "bird", "hamster"] as const;

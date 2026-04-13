@@ -11,25 +11,25 @@ import * as Exit from "effect/Exit";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@axm.sh/core/unstable/agents";
+} from "@agentxm/client-core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type {
   Lockfile,
   ExtensionPackLockEntry,
   ResolvedExtensionMap,
-} from "@axm.sh/core/unstable/lockfile";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/lockfile";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import {
   exactVersion,
   extensionName,
   makeBaseWorkspaceMock,
   resolvedExtensionMap,
 } from "../../../test-stubs.js";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
 
 const ACME = normalizeHandle("@acme");
 

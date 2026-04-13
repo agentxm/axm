@@ -12,7 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import type { ExtensionName } from "@axm.sh/core/unstable/extensions";
+import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleCommandsNew, type CommandsNewHandlerArgs } from "./new.js";

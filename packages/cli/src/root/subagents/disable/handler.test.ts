@@ -16,7 +16,7 @@ import { makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@axm.sh/core/unstable/agents";
+} from "@agentxm/client-core/unstable/agents";
 import { handleDisableSubagent } from "./handler.js";
 
 // -----------------------------------------------------------------------------

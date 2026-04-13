@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { copyFixture, createCliRunner, createTempDir } from "@axm.sh/e2e-utils";
+import { copyFixture, createCliRunner, createTempDir } from "@agentxm/client-e2e-utils";
 
 export const runCli = createCliRunner(new URL("../../cli/dist/src/main.js", import.meta.url));
 

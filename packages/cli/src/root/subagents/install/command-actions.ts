@@ -16,19 +16,22 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Terminal from "effect/Terminal";
-import { nonInteractiveFlag } from "@axm.sh/core/unstable/cli-flags";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { Handle } from "@axm.sh/core/unstable/extensions";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
-import { parseInputPattern } from "@axm.sh/core/unstable/sources";
-import type { Source, InputParseResult } from "@axm.sh/core/unstable/sources";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { SubagentManager, type SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
-import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
-import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
-import type { Plan } from "@axm.sh/core/unstable/workspace";
+import { nonInteractiveFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { Handle } from "@agentxm/client-core/unstable/extensions";
+import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import {
+  SubagentManager,
+  type SubagentExtensionRef,
+} from "@agentxm/client-core/unstable/subagents";
+import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { Plan } from "@agentxm/client-core/unstable/workspace";
 import type { InstallSubagentCommandIntent } from "./intent.js";
 import {
   resolveSubagentInstallSource,
@@ -170,7 +173,7 @@ export class InstallSubagentCommandWorkflowActions extends ServiceMap.Service<
     SubagentExtensionRef,
     InstallSubagentCommandIntent
   >
->()("@axm.sh/cli/InstallSubagentCommandWorkflowActions") {}
+>()("axm.sh/InstallSubagentCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

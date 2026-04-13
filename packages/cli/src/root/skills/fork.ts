@@ -1,39 +1,42 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { SkillExtensionRef, RegistrySkillRef } from "@axm.sh/core/unstable/skills";
-import type { Source } from "@axm.sh/core/unstable/sources";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { resolveSourcePattern, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import type { SkillExtensionRef, RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
+import type { Source } from "@agentxm/client-core/unstable/sources";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import {
+  resolveSourcePattern,
+  SourceHostProviders,
+} from "@agentxm/client-core/unstable/source-resolution";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { withAuthGuard } from "@axm.sh/core/unstable/auth";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   withArgvTracking,
-} from "@axm.sh/core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { CopySkillOperation } from "@axm.sh/core/unstable/skills";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import type { PublishSkillOperation } from "@axm.sh/core/unstable/skills";
-import { copySkill } from "@axm.sh/core/unstable/skills";
-import { installSkill } from "@axm.sh/core/unstable/skills";
-import { publishSkill } from "@axm.sh/core/unstable/skills";
-import { expandGlobs } from "@axm.sh/core/unstable/utils";
-import { createRegistryClient } from "@axm.sh/core/unstable/registry";
-import type { PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
-import type { Plan } from "@axm.sh/core/unstable/workspace";
-import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { CopySkillOperation } from "@agentxm/client-core/unstable/skills";
+import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+import type { PublishSkillOperation } from "@agentxm/client-core/unstable/skills";
+import { copySkill } from "@agentxm/client-core/unstable/skills";
+import { installSkill } from "@agentxm/client-core/unstable/skills";
+import { publishSkill } from "@agentxm/client-core/unstable/skills";
+import { expandGlobs } from "@agentxm/client-core/unstable/utils";
+import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+import type { PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 
 export interface ForkHandlerArgs {

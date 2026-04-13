@@ -8,13 +8,13 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
-import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
-import { expandGlobs } from "@axm.sh/core/unstable/utils";
+import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
+import { isNonInteractive } from "@agentxm/client-core/unstable/cli-flags";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
+import { expandGlobs } from "@agentxm/client-core/unstable/utils";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

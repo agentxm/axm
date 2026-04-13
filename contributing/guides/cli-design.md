@@ -461,7 +461,7 @@ the open issue to make it removable.
 
 ### Per-Command Flag Semantics
 
-Reusable per-command flags live in `@axm.sh/core/unstable/cli-flags`. Their
+Reusable per-command flags live in `@agentxm/client-core/unstable/cli-flags`. Their
 meanings are fixed across all commands:
 
 | Flag             | Behavior                                                      | Does NOT imply |
@@ -561,13 +561,13 @@ Use prompts to resolve missing choices, not to hide essential command behavior.
 
 The CLI spike uses Effect v4 native `Prompt` from `effect/unstable/cli`
 directly. `Prompt` is `Yieldable`, but command-local flows should still prefer
-the helper wrappers in `@axm.sh/core/unstable/cli/prompt` when they need
+the helper wrappers in `@agentxm/client-core/unstable/cli/prompt` when they need
 non-interactive guards or flag bypasses.
 
 > **Note:** `CliPrompt` still exists for shared interaction adapters and test
 > harnesses in the primary CLI. New command-local prompt flows in both
 > `packages/cli/` and `packages/cli-spike/` should usually use
-> `requireInteractive` from `@axm.sh/core/unstable/cli/prompt` and inline
+> `requireInteractive` from `@agentxm/client-core/unstable/cli/prompt` and inline
 > simple `Option.match` / length checks at the call site.
 
 **Direct `yield* Prompt.xxx()`:**
@@ -580,7 +580,7 @@ const name = yield * Prompt.text({ message: "Pet name:" });
 **Non-interactive guard at call site:**
 
 ```typescript
-import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
+import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 
 const name =
   yield *
@@ -594,7 +594,7 @@ const name =
 ```typescript
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
+import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 
 const name =
   yield *
@@ -619,7 +619,7 @@ const info =
 ```
 
 **`Prompt.custom` for new prompt types** — see the `AxmPrompt` namespace in
-`@axm.sh/core/unstable/cli/prompt` for custom prompt implementations.
+`@agentxm/client-core/unstable/cli/prompt` for custom prompt implementations.
 
 ---
 

@@ -11,14 +11,14 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { isEffectCliExit } from "@axm.sh/core/unstable/cli-runtime";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   type SourceHostProvidersService,
   SourceHostProviders,
-} from "@axm.sh/core/unstable/source-resolution";
+} from "@agentxm/client-core/unstable/source-resolution";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleDoctor } from "./handler.js";

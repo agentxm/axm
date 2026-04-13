@@ -69,7 +69,7 @@ export interface InstallMetaService {
  * @experimental This API is unstable and may change without notice.
  */
 export class InstallMeta extends ServiceMap.Service<InstallMeta, InstallMetaService>()(
-  "@axm.sh/core/InstallMeta",
+  "@agentxm/client-core/InstallMeta",
 ) {}
 
 // -----------------------------------------------------------------------------

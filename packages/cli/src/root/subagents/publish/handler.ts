@@ -2,21 +2,21 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { withAuthGuard } from "@axm.sh/core/unstable/auth";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-} from "@axm.sh/core/unstable/cli-runtime";
+} from "@agentxm/client-core/unstable/cli-runtime";
 
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { PublishSubagentOperation } from "@axm.sh/core/unstable/subagents";
-import { publishSubagent, MANIFEST_FILENAME } from "@axm.sh/core/unstable/subagents";
-import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
-import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { PublishSubagentOperation } from "@agentxm/client-core/unstable/subagents";
+import { publishSubagent, MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
+import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import {
   emitNoOpResult,
   emitPlanResolutionResult,
@@ -239,7 +239,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
   }): JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }

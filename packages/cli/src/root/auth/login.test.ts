@@ -14,11 +14,11 @@ import {
   RegistryUrl,
   CredentialStore,
   CredentialStoreTest,
-} from "@axm.sh/core/unstable/auth";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/auth";
+import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { handleLogin } from "./login.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";

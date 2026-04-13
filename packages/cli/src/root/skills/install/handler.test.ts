@@ -16,10 +16,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
 import {

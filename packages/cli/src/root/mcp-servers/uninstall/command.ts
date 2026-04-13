@@ -1,9 +1,9 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { handleUninstallMcpServer } from "./handler.js";
-import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {

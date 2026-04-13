@@ -9,10 +9,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach } from "vitest";
-import { normalizeHandle, type Handle } from "@axm.sh/core/unstable/extensions";
-import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
-import { parseInputPattern, type InputParseResult } from "@axm.sh/core/unstable/sources";
-import { Workspace, type WorkspaceContextService } from "@axm.sh/core/unstable/workspace";
+import { normalizeHandle, type Handle } from "@agentxm/client-core/unstable/extensions";
+import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
+import { parseInputPattern, type InputParseResult } from "@agentxm/client-core/unstable/sources";
+import { Workspace, type WorkspaceContextService } from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 

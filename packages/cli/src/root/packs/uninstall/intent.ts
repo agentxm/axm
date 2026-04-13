@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { PackExtensionTarget } from "@axm.sh/core/unstable/workspace";
+import type { PackExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 
 export interface UninstallPackCommandIntent {
   readonly packsToUninstall: ReadonlyArray<PackExtensionTarget>;

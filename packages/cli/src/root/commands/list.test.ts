@@ -10,12 +10,16 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Layer from "effect/Layer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleListCommands } from "./list.js";
 

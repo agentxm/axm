@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { runUninstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
+import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import {

@@ -1,10 +1,10 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { decodeExtensionNameSync } from "@axm.sh/core/unstable/extensions";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { TOOL_ACCESS_LEVELS } from "@axm.sh/core/unstable/subagents";
-import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { TOOL_ACCESS_LEVELS } from "@agentxm/client-core/unstable/subagents";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleSubagentsNew } from "./handler.js";
 

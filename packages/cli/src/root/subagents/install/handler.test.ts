@@ -15,9 +15,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { InstallSubagentCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallSubagentHandlerArgs } from "./handler.js";
 import {

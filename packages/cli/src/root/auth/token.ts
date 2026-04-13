@@ -3,11 +3,11 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { RegistryUrl, resolveRequiredToken } from "@axm.sh/core/unstable/auth";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
 
 const TokenDataSchema = Schema.Struct({

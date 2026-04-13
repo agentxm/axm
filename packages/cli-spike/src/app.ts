@@ -16,8 +16,8 @@ import {
   verboseFlag,
   debugFlag,
   quietFlag,
-} from "@axm.sh/core/unstable/cli-flags";
-import { removeBuiltInFlag, runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+} from "@agentxm/client-core/unstable/cli-flags";
+import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { makeSpikeFormatter } from "./formatter.js";
 import { ROOT_COMMAND, VERSION } from "./runtime.js";

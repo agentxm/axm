@@ -16,25 +16,38 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { ExtensionName, ExtensionRef, Handle } from "@axm.sh/core/unstable/extensions";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
-import type { RegistrySource } from "@axm.sh/core/unstable/sources";
-import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import type { ExtensionName, ExtensionRef, Handle } from "@agentxm/client-core/unstable/extensions";
+import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import {
+  resolveSource,
+  SourceHostProviders,
+} from "@agentxm/client-core/unstable/source-resolution";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import {
   ExtensionPackManager,
   expandExtensionPackInstallRefs,
   type ExtensionPackRef,
-} from "@axm.sh/core/unstable/packs";
-import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
-import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
-import { SubagentManager, type SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
-import { buildInstallOperation, targetFromRef, toLabel } from "@axm.sh/core/unstable/extensions";
-import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/packs";
+import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
+import {
+  McpServerManager,
+  type McpServerExtensionRef,
+} from "@agentxm/client-core/unstable/mcp-servers";
+import {
+  SubagentManager,
+  type SubagentExtensionRef,
+} from "@agentxm/client-core/unstable/subagents";
+import {
+  buildInstallOperation,
+  targetFromRef,
+  toLabel,
+} from "@agentxm/client-core/unstable/extensions";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 

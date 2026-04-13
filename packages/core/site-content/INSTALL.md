@@ -28,14 +28,14 @@ npx is the recommended default.
 Requires Node.js. No global install needed.
 
 ```bash
-npx @axm.sh/cli --version
+npx axm.sh --version
 ```
 
-Prefix all axm commands with `npx @axm.sh/cli` instead of `axm`:
+Prefix all axm commands with `npx axm.sh` instead of `axm`:
 
 ```bash
-npx @axm.sh/cli auth login
-npx @axm.sh/cli whoami
+npx axm.sh auth login
+npx axm.sh whoami
 ```
 
 ### Option B: Native install scripts
@@ -147,7 +147,7 @@ axm skills list --json
 
 The fix depends on how you installed:
 
-- **npx:** Use `npx @axm.sh/cli` instead of `axm`. Ensure Node.js is installed.
+- **npx:** Use `npx axm.sh` instead of `axm`. Ensure Node.js is installed.
 - **Install script (macOS/Linux):** Add `~/.axm/bin` to PATH:
   ```bash
   export PATH="$HOME/.axm/bin:$PATH"

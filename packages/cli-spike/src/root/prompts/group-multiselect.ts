@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { AxmPrompt, requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { AxmPrompt, requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 

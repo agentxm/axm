@@ -3,8 +3,15 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer, type DetailView, type TableView } from "@axm.sh/core/unstable/cli-renderer";
-import { makeCommandDocumentSchema, withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  CliRenderer,
+  type DetailView,
+  type TableView,
+} from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  makeCommandDocumentSchema,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 

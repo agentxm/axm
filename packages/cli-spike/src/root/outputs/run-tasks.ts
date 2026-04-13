@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 

@@ -11,15 +11,15 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
-import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
-import type { Source } from "@axm.sh/core/unstable/sources";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { SubagentManager } from "@axm.sh/core/unstable/subagents";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
+import type { Source } from "@agentxm/client-core/unstable/sources";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 
 /**
  * Args for building a subagent install plan.

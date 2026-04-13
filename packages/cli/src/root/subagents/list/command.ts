@@ -1,5 +1,5 @@
 import { Command, Flag } from "effect/unstable/cli";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleListSubagents } from "./handler.js";

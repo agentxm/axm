@@ -1,4 +1,4 @@
-import { createBinaryRunner, createTempDir } from "@axm.sh/e2e-utils";
+import { createBinaryRunner, createTempDir } from "@agentxm/client-e2e-utils";
 import { describe, expect, it } from "vitest";
 
 import { resolveBinaryPath } from "./distribution-targets.js";

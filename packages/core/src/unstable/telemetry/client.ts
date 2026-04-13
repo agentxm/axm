@@ -36,7 +36,7 @@ export interface TelemetryClientOptions {
 }
 
 export class TelemetryClient extends ServiceMap.Service<TelemetryClient, TelemetryClientService>()(
-  "@axm.sh/core/TelemetryClient",
+  "@agentxm/client-core/TelemetryClient",
 ) {}
 
 export const TelemetryClientTest = Layer.succeed(TelemetryClient, {

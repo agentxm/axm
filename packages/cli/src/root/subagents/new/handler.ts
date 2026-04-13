@@ -3,13 +3,16 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   decodeExtensionNameSync,
   normalizeHandle,
   type ExtensionName,
-} from "@axm.sh/core/unstable/extensions";
-import { computeSourceHash, RenderedFilesMapSchema } from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/extensions";
+import {
+  computeSourceHash,
+  RenderedFilesMapSchema,
+} from "@agentxm/client-core/unstable/extensions";
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
@@ -17,13 +20,13 @@ import {
   computeSubagentPaths,
   isToolAccessLevel,
   type SubagentManifest,
-} from "@axm.sh/core/unstable/subagents";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
+} from "@agentxm/client-core/unstable/subagents";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;

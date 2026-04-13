@@ -8,13 +8,13 @@ import {
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
   runDeviceLogin,
-} from "@axm.sh/core/unstable/auth";
-import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { isNonInteractive, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
+} from "@agentxm/client-core/unstable/auth";
+import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { isNonInteractive, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { withAuthRuntime } from "../../runtime.js";
 
 interface LoginInteractions {

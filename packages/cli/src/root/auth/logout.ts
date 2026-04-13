@@ -2,9 +2,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command } from "effect/unstable/cli";
 
-import { AuthClient, RegistryUrl, CredentialStore } from "@axm.sh/core/unstable/auth";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { AuthClient, RegistryUrl, CredentialStore } from "@agentxm/client-core/unstable/auth";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import * as Schema from "effect/Schema";
 import { withAuthRuntime } from "../../runtime.js";
 

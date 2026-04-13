@@ -1,5 +1,5 @@
 {
-  "name": "@axm.sh/cli-spike",
+  "name": "@agentxm/client-spike",
   "version": "0.0.1",
   "private": true,
   "description": "Effect v4 CLI spike - proving out idiomatic command/flag patterns",
@@ -11,7 +11,7 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@axm.sh/core": "workspace:*",
+    "@agentxm/client-core": "workspace:*",
     "effect": "catalog:",
     "@effect/platform-node": "catalog:"
   },

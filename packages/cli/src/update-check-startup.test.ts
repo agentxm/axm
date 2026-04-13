@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   InstallMethod,
   Unknown,
@@ -24,8 +24,8 @@ import {
   Homebrew,
   Npm,
   type InstallMethodType,
-} from "@axm.sh/core/unstable/install-method";
-import { UpdateCheck, UpdateCheckTest } from "@axm.sh/core/unstable/update-check";
+} from "@agentxm/client-core/unstable/install-method";
+import { UpdateCheck, UpdateCheckTest } from "@agentxm/client-core/unstable/update-check";
 
 import {
   type NotificationPrinter,
@@ -437,7 +437,7 @@ describe("withUpdateCheck", () => {
     const layer = makeTestLayers({
       tempDir,
       cacheData: { latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() },
-      method: new Npm({ importUrl: "file:///node_modules/@axm.sh/cli" }),
+      method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
     });
 
     return withUpdateCheck(commandProgram, {
@@ -448,7 +448,7 @@ describe("withUpdateCheck", () => {
       Effect.tap(() =>
         Effect.sync(() => {
           expect(messages.length).toBe(1);
-          expect(messages[0]).toContain("npm update -g @axm.sh/cli");
+          expect(messages[0]).toContain("npm update -g axm.sh");
         }),
       ),
       Effect.provide(layer),

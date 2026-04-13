@@ -13,10 +13,14 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
+import {
+  AuthClientTest,
+  CredentialStoreTest,
+  RegistryUrl,
+} from "@agentxm/client-core/unstable/auth";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
   getErrorResult,
   makeEffectProvide,

@@ -16,10 +16,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
-import { EXTENSION_PACK_MANIFEST_FILENAME } from "@axm.sh/core/unstable/packs";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { REGISTRY_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extensions";
+import { EXTENSION_PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {
   expectRecord,

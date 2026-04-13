@@ -2,14 +2,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import type { DisableSubagentOperation } from "@axm.sh/core/unstable/subagents";
-import { disableSubagent } from "@axm.sh/core/unstable/subagents";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import type { DisableSubagentOperation } from "@agentxm/client-core/unstable/subagents";
+import { disableSubagent } from "@agentxm/client-core/unstable/subagents";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 
 export interface DisableSubagentHandlerArgs {
@@ -70,7 +70,7 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
   }): JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }

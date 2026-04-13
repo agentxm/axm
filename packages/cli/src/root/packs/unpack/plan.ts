@@ -18,22 +18,25 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { AppError } from "@axm.sh/core/unstable/app-error";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { installSkill, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import { installCommand, type InstallCommandOperation } from "@axm.sh/core/unstable/commands";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { installSkill, type InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+import {
+  installCommand,
+  type InstallCommandOperation,
+} from "@agentxm/client-core/unstable/commands";
 import {
   installMcpServer,
   type InstallMcpServerOperation,
-} from "@axm.sh/core/unstable/mcp-servers";
+} from "@agentxm/client-core/unstable/mcp-servers";
 import {
   uninstallExtensionPack,
   type UninstallExtensionPackOperation,
-} from "@axm.sh/core/unstable/packs";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/packs";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
 
 /**
  * Union of operation types produced by the pack unpack plan builder.

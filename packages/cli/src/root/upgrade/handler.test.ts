@@ -15,8 +15,8 @@ import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach } from "vitest";
 
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   InstallMethod,
   Script,
@@ -24,8 +24,8 @@ import {
   Npm,
   Unknown,
   type InstallMethodType,
-} from "@axm.sh/core/unstable/install-method";
-import { InstallMeta, type InstallMetaData } from "@axm.sh/core/unstable/install-meta";
+} from "@agentxm/client-core/unstable/install-method";
+import { InstallMeta, type InstallMetaData } from "@agentxm/client-core/unstable/install-meta";
 
 import { handleUpgrade, resolvePlatformBinary, makeDownloadUrl } from "./handler.js";
 
@@ -208,26 +208,26 @@ describe("handleUpgrade", () => {
   describe("npm delegation", () => {
     it.effect("prints npm update message", () => {
       const { provide, logs } = makeTestLayers({
-        method: new Npm({ importUrl: "file:///node_modules/@axm.sh/cli" }),
+        method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
           expect(logs.info).toContain("Installed via npm");
-          expect(logs.info).toContain("Run: npm update -g @axm.sh/cli");
+          expect(logs.info).toContain("Run: npm update -g axm.sh");
         }),
       );
     });
 
     it.effect("notes that --force has no effect", () => {
       const { provide, logs } = makeTestLayers({
-        method: new Npm({ importUrl: "file:///node_modules/@axm.sh/cli" }),
+        method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
           expect(logs.info).toContain("--force has no effect for npm installs.");
-          expect(logs.info).toContain("Run: npm update -g @axm.sh/cli");
+          expect(logs.info).toContain("Run: npm update -g axm.sh");
         }),
       );
     });
@@ -397,13 +397,13 @@ describe("handleUpgrade", () => {
 
     it.effect("force flag is noted but does not error for npm", () => {
       const { provide, logs } = makeTestLayers({
-        method: new Npm({ importUrl: "file:///node_modules/@axm.sh/cli" }),
+        method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
           expect(logs.info).toContain("--force has no effect for npm installs.");
-          expect(logs.info).toContain("Run: npm update -g @axm.sh/cli");
+          expect(logs.info).toContain("Run: npm update -g axm.sh");
         }),
       );
     });

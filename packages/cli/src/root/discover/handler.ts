@@ -2,16 +2,16 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@axm.sh/core/unstable/auth";
-import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer";
-import { makeCommandDocumentSchema } from "@axm.sh/core/unstable/cli-runtime";
+import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
+import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import { makeCommandDocumentSchema } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   discover,
   type DiscoverPackageResult,
   type DiscoverResult,
-} from "@axm.sh/core/unstable/discover";
-import { PackageUrlSchema } from "@axm.sh/core/unstable/packaging";
-import { createRegistryClient } from "@axm.sh/core/unstable/registry";
+} from "@agentxm/client-core/unstable/discover";
+import { PackageUrlSchema } from "@agentxm/client-core/unstable/packaging";
+import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
 

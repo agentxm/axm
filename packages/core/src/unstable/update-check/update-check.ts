@@ -94,7 +94,7 @@ export interface UpdateCheckService {
  * @experimental This API is unstable and may change without notice.
  */
 export class UpdateCheck extends ServiceMap.Service<UpdateCheck, UpdateCheckService>()(
-  "@axm.sh/core/UpdateCheck",
+  "@agentxm/client-core/UpdateCheck",
 ) {}
 
 // -----------------------------------------------------------------------------
@@ -119,7 +119,7 @@ const notificationCommand = (method: InstallMethodType): string => {
     case "Homebrew":
       return "brew upgrade agentxm/tap/axm";
     case "Npm":
-      return "npm update -g @axm.sh/cli";
+      return "npm update -g axm.sh";
   }
 };
 

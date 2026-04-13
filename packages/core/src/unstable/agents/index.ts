@@ -1,5 +1,5 @@
 /**
- * Agent configuration and detection module for @axm.sh/core.
+ * Agent configuration and detection module for @agentxm/client-core.
  *
  * Provides a registry of known AI coding agents with their skills
  * installation paths, plus effectful detection of installed agents.

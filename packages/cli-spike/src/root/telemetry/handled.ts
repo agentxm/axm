@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 
 const handledConfig = {} as const;

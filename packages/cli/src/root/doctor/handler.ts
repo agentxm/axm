@@ -1,15 +1,15 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { Verbosity } from "@axm.sh/core/unstable/cli-flags";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { effectCliExit } from "@axm.sh/core/unstable/cli-runtime";
-import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
+import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
+import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
 import {
   diagnoseWorkspaceDoctor,
   WorkspaceDoctorReportSchema,
   type WorkspaceScope,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 
 import { renderHumanReport } from "./render.js";
 

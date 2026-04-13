@@ -1,5 +1,5 @@
 /**
- * Extension schemas, types, and shared utilities for @axm.sh/core.
+ * Extension schemas, types, and shared utilities for @agentxm/client-core.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation

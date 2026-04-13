@@ -39,7 +39,7 @@ describe("findBoundaryViolations", () => {
   const rules: ReadonlyArray<BoundaryRule> = [
     {
       projectRoot: "packages/example-e2e",
-      forbiddenPackageNames: ["@axm.sh/core", "@axm.sh/cli"],
+      forbiddenPackageNames: ["@agentxm/client-core", "axm.sh"],
       forbiddenProjectRoots: ["packages/core", "packages/cli"],
     },
   ];
@@ -48,8 +48,8 @@ describe("findBoundaryViolations", () => {
     const repoRoot = createRepoFixture({
       "packages/example-e2e/package.json": JSON.stringify({
         devDependencies: {
-          "@axm.sh/e2e-utils": "workspace:*",
-          "@axm.sh/utils": "workspace:*",
+          "@agentxm/client-e2e-utils": "workspace:*",
+          "@agentxm/client-utils": "workspace:*",
         },
       }),
       "packages/example-e2e/tsconfig.json": JSON.stringify({
@@ -66,7 +66,7 @@ describe("findBoundaryViolations", () => {
   it("reports forbidden internal package dependencies", () => {
     const repoRoot = createRepoFixture({
       "packages/example-e2e/package.json": JSON.stringify({
-        dependencies: { "@axm.sh/core": "workspace:*" },
+        dependencies: { "@agentxm/client-core": "workspace:*" },
       }),
       "packages/example-e2e/tsconfig.json": JSON.stringify({}),
     });
@@ -82,7 +82,7 @@ describe("findBoundaryViolations", () => {
     }
 
     expect(formatViolation(violation)).toBe(
-      "packages/example-e2e/package.json: dependencies must not include @axm.sh/core",
+      "packages/example-e2e/package.json: dependencies must not include @agentxm/client-core",
     );
   });
 

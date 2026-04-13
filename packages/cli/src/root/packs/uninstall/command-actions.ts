@@ -12,27 +12,33 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
+import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import {
   ExtensionPackManager,
   expandExtensionPackUninstallTargets,
   type UninstallSettingsContext,
   type ExtensionPackRef,
-} from "@axm.sh/core/unstable/packs";
-import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
-import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
-import { SubagentManager, type SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
+} from "@agentxm/client-core/unstable/packs";
+import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
+import {
+  McpServerManager,
+  type McpServerExtensionRef,
+} from "@agentxm/client-core/unstable/mcp-servers";
+import {
+  SubagentManager,
+  type SubagentExtensionRef,
+} from "@agentxm/client-core/unstable/subagents";
 import {
   buildUninstallOperation,
   toLabel,
   type UninstallRetentionPolicy,
-} from "@axm.sh/core/unstable/extensions";
-import type { PackExtensionTarget, ExtensionTarget } from "@axm.sh/core/unstable/workspace";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { expandGlob } from "@axm.sh/core/unstable/utils";
-import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/extensions";
+import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { expandGlob } from "@agentxm/client-core/unstable/utils";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -69,7 +75,7 @@ export class UninstallPackCommandWorkflowActions extends ServiceMap.Service<
     ParsedPackUninstallArgs,
     UninstallPackCommandIntent
   >
->()("@axm.sh/cli/UninstallPackCommandWorkflowActions") {}
+>()("axm.sh/UninstallPackCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

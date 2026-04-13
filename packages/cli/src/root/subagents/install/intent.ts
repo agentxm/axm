@@ -5,8 +5,8 @@
  */
 
 import type * as Option from "effect/Option";
-import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
+import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
+import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
 
 /**
  * Describes the resolved intent to install one or more subagents.

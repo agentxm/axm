@@ -2,7 +2,7 @@
 
 Extension discovery today is entirely keyword-driven via `axm skills search`. Users must know what to look for. There is no mechanism to connect an extension to the packages it supports, nor for library authors to recommend extensions alongside their packages.
 
-The extension manifest schemas (`CommonManifestFields` in `@axm.sh/core/unstable/extensions`) define shared fields across skills, commands, MCP servers, and packs. The registry client (`RegistryClient` interface) provides `getExtensionIndex`, `publishExtension`, and scope-based search — but no package-aware discovery endpoint. The local registry is filesystem-based, storing `index.json` and versioned archives under `<registry-root>/extensions/@<owner>/<type-plural>/<name>/`.
+The extension manifest schemas (`CommonManifestFields` in `@agentxm/client-core/unstable/extensions`) define shared fields across skills, commands, MCP servers, and packs. The registry client (`RegistryClient` interface) provides `getExtensionIndex`, `publishExtension`, and scope-based search — but no package-aware discovery endpoint. The local registry is filesystem-based, storing `index.json` and versioned archives under `<registry-root>/extensions/@<owner>/<type-plural>/<name>/`.
 
 This design introduces package-aware extension discovery by adding `compatiblePackages` to extension manifests, a registry discover endpoint, local dependency detection, and recommendation reading from installed packages.
 
@@ -324,7 +324,7 @@ packages/cli/
       handler.ts                # handler wiring: discover pipeline → renderer
 ```
 
-Packaging-related code (purl types, ecosystem detectors, recommendation readers, and their orchestrators) lives in `@axm.sh/core/unstable/packaging` because it is reusable (the registry could also run detection). The `packaging` module never touches the registry — it owns package ecosystem knowledge only. The `discover` module is a thin pipeline that wires packaging detection/reading with the registry query and merge logic. The CLI command wires the pipeline to output.
+Packaging-related code (purl types, ecosystem detectors, recommendation readers, and their orchestrators) lives in `@agentxm/client-core/unstable/packaging` because it is reusable (the registry could also run detection). The `packaging` module never touches the registry — it owns package ecosystem knowledge only. The `discover` module is a thin pipeline that wires packaging detection/reading with the registry query and merge logic. The CLI command wires the pipeline to output.
 
 ### 6. Package detector and reader interfaces
 
@@ -447,7 +447,7 @@ const AxmPackageMetaSchema = Schema.Struct({
 
 ```typescript
 // Addition to packages/cli/scripts/generate-schemas.ts
-import { AxmPackageMetaSchema } from "@axm.sh/core/unstable/packaging";
+import { AxmPackageMetaSchema } from "@agentxm/client-core/unstable/packaging";
 
 // Add to schemas array:
 {

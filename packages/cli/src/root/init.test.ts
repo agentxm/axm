@@ -3,16 +3,16 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "@axm.sh/core/unstable/settings";
+import type { Settings } from "@agentxm/client-core/unstable/settings";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import { WorkspaceInitializationInteractionTest } from "@axm.sh/core/unstable/workspace";
+import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
 import { expectDefined } from "../test-helpers.js";
 import { handleInit } from "./init.js";
 

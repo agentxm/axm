@@ -2,8 +2,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { CancelledPlan, ExecutedPlan, PreviewedPlan } from "@axm.sh/core/unstable/workspace";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import type {
+  CancelledPlan,
+  ExecutedPlan,
+  PreviewedPlan,
+} from "@agentxm/client-core/unstable/workspace";
 
 import { toPlanResolutionResult, planResolutionToSummary } from "./json-output.js";
 

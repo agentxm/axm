@@ -136,14 +136,12 @@ describe("InstallMethod", () => {
       Effect.gen(function* () {
         const inputs: InstallMethodInputs = {
           ...baseInputs,
-          importMetaUrl: "file:///usr/local/lib/node_modules/@axm.sh/cli/dist/main.js",
+          importMetaUrl: "file:///usr/local/lib/node_modules/axm.sh/dist/main.js",
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Npm");
         if (result._tag === "Npm") {
-          expect(result.importUrl).toBe(
-            "file:///usr/local/lib/node_modules/@axm.sh/cli/dist/main.js",
-          );
+          expect(result.importUrl).toBe("file:///usr/local/lib/node_modules/axm.sh/dist/main.js");
         }
       }).pipe(Effect.provide(NodeServices.layer)),
     );

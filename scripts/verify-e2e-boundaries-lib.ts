@@ -9,9 +9,9 @@ const DEPENDENCY_FIELDS = [
 ] as const satisfies ReadonlyArray<string>;
 
 const FORBIDDEN_PACKAGE_NAMES = [
-  "@axm.sh/core",
-  "@axm.sh/cli",
-  "@axm.sh/cli-spike",
+  "@agentxm/client-core",
+  "axm.sh",
+  "@agentxm/client-spike",
 ] as const satisfies ReadonlyArray<string>;
 
 const FORBIDDEN_PROJECT_ROOTS = [

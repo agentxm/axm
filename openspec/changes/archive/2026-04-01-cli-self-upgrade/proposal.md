@@ -29,4 +29,4 @@ Users who installed axm via native install scripts (bash, PowerShell, CMD) have 
 - **Install scripts**: All three native install scripts (bash, PowerShell, CMD) gain a metadata write step
 - **Filesystem**: New files in the axm data directory — `install-meta.json` (written at install time) and `update-check.json` (written at runtime as a cache)
 - **Network**: One HTTPS request to GitHub Releases API per 24-hour period to check the latest version tag
-- **Core package**: Install metadata reading and update-check logic added to `@axm.sh/core`
+- **Core package**: Install metadata reading and update-check logic added to `@agentxm/client-core`

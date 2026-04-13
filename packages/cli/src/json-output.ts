@@ -2,18 +2,18 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type {
   CommandOutcomeSummary,
   SourceKind,
   SubjectType,
-} from "@axm.sh/core/unstable/cli-runtime";
+} from "@agentxm/client-core/unstable/cli-runtime";
 import type {
   CompletedJobStep,
   ExecutedPlan,
   PlanResolution,
   PlannedJobStep,
-} from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/workspace";
 
 const StepStatusSchema = Schema.Literals([
   "ready",

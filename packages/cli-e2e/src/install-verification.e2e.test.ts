@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 
-import { createBinaryRunner, createTempDir, runCommand } from "@axm.sh/e2e-utils";
+import { createBinaryRunner, createTempDir, runCommand } from "@agentxm/client-e2e-utils";
 import { afterAll, describe, expect, it } from "vitest";
 import { binaryDir, repoRoot, resolveInstallMode } from "./distribution-targets.js";
 

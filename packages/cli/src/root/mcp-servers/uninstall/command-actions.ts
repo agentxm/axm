@@ -12,13 +12,19 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
-import type { Plan } from "@axm.sh/core/unstable/workspace";
-import type { ExtensionTarget, McpServerExtensionTarget } from "@axm.sh/core/unstable/workspace";
-import { buildUninstallOperation } from "@axm.sh/core/unstable/extensions";
-import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import {
+  McpServerManager,
+  type McpServerExtensionRef,
+} from "@agentxm/client-core/unstable/mcp-servers";
+import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type {
+  ExtensionTarget,
+  McpServerExtensionTarget,
+} from "@agentxm/client-core/unstable/workspace";
+import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -48,7 +54,7 @@ export class UninstallMcpServerCommandWorkflowActions extends ServiceMap.Service
     ParsedMcpServerUninstallArgs,
     UninstallMcpServerCommandIntent
   >
->()("@axm.sh/cli/UninstallMcpServerCommandWorkflowActions") {}
+>()("axm.sh/UninstallMcpServerCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

@@ -8,13 +8,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
-import type { ExactSemverVersion } from "@axm.sh/core/unstable/version-constraints";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
-import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import type { Lockfile, SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { ExactSemverVersion } from "@agentxm/client-core/unstable/version-constraints";
+import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 

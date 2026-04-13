@@ -5,28 +5,28 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   formatFqn,
   normalizeHandle,
   parseRegistrySourcePatternParts,
   decodeExtensionNameSync,
-} from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/extensions";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
   ExtensionPackManifestSchema,
-} from "@axm.sh/core/unstable/packs";
-import type { AddToExtensionPackOperation } from "@axm.sh/core/unstable/packs";
-import { addToExtensionPack } from "@axm.sh/core/unstable/packs";
-import { computeExtensionPackPaths } from "@axm.sh/core/unstable/packs";
-import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/packs";
+import type { AddToExtensionPackOperation } from "@agentxm/client-core/unstable/packs";
+import { addToExtensionPack } from "@agentxm/client-core/unstable/packs";
+import { computeExtensionPackPaths } from "@agentxm/client-core/unstable/packs";
+import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 

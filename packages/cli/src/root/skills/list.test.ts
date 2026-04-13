@@ -13,10 +13,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------

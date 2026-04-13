@@ -41,7 +41,7 @@ import { createRegistryClient, extractZip } from "../registry/index.js";
 export class SubagentManager extends ServiceMap.Service<
   SubagentManager,
   ExtensionManager<SubagentExtensionRef>
->()("@axm.sh/cli/SubagentManager") {}
+>()("axm.sh/SubagentManager") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

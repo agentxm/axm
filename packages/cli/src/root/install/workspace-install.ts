@@ -4,7 +4,7 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
-import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   type Plan,
   type PlanSection,
@@ -15,13 +15,13 @@ import {
   resolveConfiguredPack,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-} from "@axm.sh/core/unstable/workspace";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+} from "@agentxm/client-core/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   extensionTypePluralSentenceLabels,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
-} from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/extensions";
 
 import { InstallCommandCommandWorkflowActions } from "../commands/install/command-actions.js";
 import type { InstallCommandCommandIntent } from "../commands/install/intent.js";

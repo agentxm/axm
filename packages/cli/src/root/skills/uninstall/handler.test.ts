@@ -12,10 +12,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import {
   UninstallSkillCommandWorkflowActionsLive,
   type UninstallHandlerArgs,

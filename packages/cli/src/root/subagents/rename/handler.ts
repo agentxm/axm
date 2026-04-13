@@ -4,21 +4,24 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import matter from "gray-matter";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import type { SubagentLockEntry } from "@axm.sh/core/unstable/lockfile";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   computeSubagentPaths,
   SUBAGENT_CONTENT_FILENAME,
   parseSubagentMd,
-} from "@axm.sh/core/unstable/subagents";
-import type { SubagentPathSource } from "@axm.sh/core/unstable/subagents";
-import { sanitizeName } from "@axm.sh/core/unstable/extensions";
-import { computeSourceHash, RenderedFilesMapSchema } from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/subagents";
+import type { SubagentPathSource } from "@agentxm/client-core/unstable/subagents";
+import { sanitizeName } from "@agentxm/client-core/unstable/extensions";
+import {
+  computeSourceHash,
+  RenderedFilesMapSchema,
+} from "@agentxm/client-core/unstable/extensions";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 
 export interface RenameSubagentHandlerArgs {

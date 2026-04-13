@@ -4,8 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { AppError } from "@axm.sh/core/unstable/app-error";
-import type { JobStepResult } from "@axm.sh/core/unstable/workspace";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import type { JobStepResult } from "@agentxm/client-core/unstable/workspace";
 
 /**
  * Maps an operation result to a {@link JobStepResult} discriminated union.

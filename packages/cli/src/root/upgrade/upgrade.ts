@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { forceFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { InstallMethodLive } from "@axm.sh/core/unstable/install-method";
-import { InstallMetaLive } from "@axm.sh/core/unstable/install-meta";
+import { forceFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
+import { InstallMetaLive } from "@agentxm/client-core/unstable/install-meta";
 import { Command, Flag } from "effect/unstable/cli";
 import { withRuntime } from "../../runtime.js";
 

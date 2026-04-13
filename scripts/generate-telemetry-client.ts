@@ -10,7 +10,7 @@
  */
 
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off — Bun codegen script, not Effect code
-import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
+import { readEnvWithDefault } from "@agentxm/client-utils/unstable/env";
 import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";

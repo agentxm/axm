@@ -209,4 +209,4 @@ export class CliRenderer extends ServiceMap.Service<
     readonly json: (data: unknown) => Effect.Effect<void>;
     readonly raw: (content: string) => Effect.Effect<void>;
   }
->()("@axm.sh/cli/CliRenderer") {}
+>()("axm.sh/CliRenderer") {}

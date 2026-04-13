@@ -10,5 +10,5 @@
 import * as ServiceMap from "effect/ServiceMap";
 
 export class RegistryUrl extends ServiceMap.Service<RegistryUrl, string>()(
-  "@axm.sh/core/RegistryUrl",
+  "@agentxm/client-core/RegistryUrl",
 ) {}

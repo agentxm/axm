@@ -115,15 +115,15 @@ Zero-install option for Node.js users. Good for trying axm without committing to
 ### Run
 
 ```bash
-npx @axm.sh/cli
+npx axm.sh
 ```
 
 You can pass any axm command directly:
 
 ```bash
-npx @axm.sh/cli --version
-npx @axm.sh/cli auth login
-npx @axm.sh/cli whoami
+npx axm.sh --version
+npx axm.sh auth login
+npx axm.sh whoami
 ```
 
 ---

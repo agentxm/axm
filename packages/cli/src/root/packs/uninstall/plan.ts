@@ -13,22 +13,25 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseFullyQualifiedNameParts } from "@axm.sh/core/unstable/extensions";
-import type { Lockfile, ExtensionPackLockEntry } from "@axm.sh/core/unstable/lockfile";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
-import { uninstallSkill, type UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import { parseFullyQualifiedNameParts } from "@agentxm/client-core/unstable/extensions";
+import type { Lockfile, ExtensionPackLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import { uninstallSkill, type UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import {
   uninstallExtensionPack,
   type UninstallExtensionPackOperation,
-} from "@axm.sh/core/unstable/packs";
-import { uninstallCommand, type UninstallCommandOperation } from "@axm.sh/core/unstable/commands";
+} from "@agentxm/client-core/unstable/packs";
+import {
+  uninstallCommand,
+  type UninstallCommandOperation,
+} from "@agentxm/client-core/unstable/commands";
 import {
   uninstallMcpServer,
   type UninstallMcpServerOperation,
-} from "@axm.sh/core/unstable/mcp-servers";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+} from "@agentxm/client-core/unstable/mcp-servers";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
 /**
  * Union of operation types produced by the pack uninstall plan builder.

@@ -3,8 +3,8 @@ import * as Option from "effect/Option";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-} from "@axm.sh/core/unstable/cli-runtime";
-import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
+} from "@agentxm/client-core/unstable/cli-runtime";
+import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import {

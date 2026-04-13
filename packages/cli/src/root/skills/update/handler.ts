@@ -1,36 +1,39 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
-import type { RegistrySource } from "@axm.sh/core/unstable/sources";
-import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
+import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import {
+  resolveSource,
+  SourceHostProviders,
+} from "@agentxm/client-core/unstable/source-resolution";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { expandGlobs } from "@axm.sh/core/unstable/utils";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { expandGlobs } from "@agentxm/client-core/unstable/utils";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import {
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
   parseRegistrySourcePatternParts,
   type ExtensionName,
   type Handle,
-} from "@axm.sh/core/unstable/extensions";
+} from "@agentxm/client-core/unstable/extensions";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
   ExtensionPackManifestSchema,
-} from "@axm.sh/core/unstable/packs";
-import { createRegistryClient } from "@axm.sh/core/unstable/registry";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
+} from "@agentxm/client-core/unstable/packs";
+import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
-import { installSkill } from "@axm.sh/core/unstable/skills";
-import { uninstallSkill } from "@axm.sh/core/unstable/skills";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { installSkill } from "@agentxm/client-core/unstable/skills";
+import { uninstallSkill } from "@agentxm/client-core/unstable/skills";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -497,8 +500,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
-  }): import("@axm.sh/core/unstable/workspace").JobStepResult =>
+    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
+  }): import("@agentxm/client-core/unstable/workspace").JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }
       : { result: "success", message: result.message };

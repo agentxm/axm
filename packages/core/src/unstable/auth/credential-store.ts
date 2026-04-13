@@ -49,7 +49,7 @@ export interface CredentialStoreService {
 }
 
 export class CredentialStore extends ServiceMap.Service<CredentialStore, CredentialStoreService>()(
-  "@axm.sh/core/CredentialStore",
+  "@agentxm/client-core/CredentialStore",
 ) {}
 
 // -----------------------------------------------------------------------------

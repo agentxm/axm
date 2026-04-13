@@ -40,7 +40,7 @@ import {
 export class SkillManager extends ServiceMap.Service<
   SkillManager,
   ExtensionManager<SkillExtensionRef>
->()("@axm.sh/cli/SkillManager") {}
+>()("axm.sh/SkillManager") {}
 
 // -----------------------------------------------------------------------------
 // Helpers

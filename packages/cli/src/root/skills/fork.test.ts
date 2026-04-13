@@ -13,15 +13,15 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { AuthGuardInteractionTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
+import { AuthGuardInteractionTest, RegistryUrl } from "@agentxm/client-core/unstable/auth";
+import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { handleFork, type ForkHandlerArgs } from "./fork.js";
 import { expectDefined, stringArrayProperty, stringProperty } from "../../test-helpers.js";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 
 // -----------------------------------------------------------------------------
 // Helpers

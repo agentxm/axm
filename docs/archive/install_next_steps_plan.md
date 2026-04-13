@@ -72,7 +72,7 @@ Automate versioned releases with binary assets and npm publish.
   - `axm-linux-arm64`
   - `axm-linux-x64`
   - `axm-windows-x64.exe`
-- [x] 3.4 Publish `@axm.sh/core` and `@axm.sh/cli` to npm with provenance (existing publish.yml logic)
+- [x] 3.4 Publish `@agentxm/client-core` and `axm.sh` to npm with provenance (existing publish.yml logic)
 - [x] 3.5 Version strategy: Release tag format `cli-v{VERSION}` — install scripts and Homebrew formula depend on this
 - [x] 3.6 Add a release checklist or script that validates all expected assets are present before upload/publish steps proceed
 

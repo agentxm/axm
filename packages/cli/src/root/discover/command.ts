@@ -3,7 +3,7 @@
  */
 
 import { Command, Flag } from "effect/unstable/cli";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 
 import { handleDiscover } from "./handler.js";

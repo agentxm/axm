@@ -8,11 +8,11 @@ Custom prompt module for CLI spike providing `selectKey`, `groupMultiselect`, an
 
 ### Requirement: AxmPrompt namespace exports custom prompt constructors and helpers
 
-The `@axm.sh/core/unstable/cli/prompt` module SHALL export an `AxmPrompt` namespace containing custom prompt constructors (`selectKey`, `groupMultiselect`, `autocompleteMultiselect`) and prompt helpers (`unless`, `autoConfirm`).
+The `@agentxm/client-core/unstable/cli/prompt` module SHALL export an `AxmPrompt` namespace containing custom prompt constructors (`selectKey`, `groupMultiselect`, `autocompleteMultiselect`) and prompt helpers (`unless`, `autoConfirm`).
 
 #### Scenario: Import and use AxmPrompt namespace
 
-- **WHEN** a consumer imports `AxmPrompt` from `@axm.sh/core/unstable/cli/prompt`
+- **WHEN** a consumer imports `AxmPrompt` from `@agentxm/client-core/unstable/cli/prompt`
 - **THEN** `AxmPrompt.selectKey`, `AxmPrompt.groupMultiselect`, `AxmPrompt.autocompleteMultiselect`, `AxmPrompt.unless`, and `AxmPrompt.autoConfirm` SHALL be available
 
 ### Requirement: selectKey returns a Prompt that resolves on single keypress

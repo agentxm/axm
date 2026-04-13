@@ -1,5 +1,5 @@
 {
-  "name": "@axm.sh/core",
+  "name": "@agentxm/client-core",
   "version": "0.1.5",
   "description": "Core library for the axm agent extension manager",
   "type": "module",
@@ -189,7 +189,7 @@
     "simple-git": "^3.33.0"
   },
   "devDependencies": {
-    "@axm.sh/utils": "workspace:*",
+    "@agentxm/client-utils": "workspace:*",
     "@effect/openapi-generator": "4.0.0-beta.43",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",

@@ -1,5 +1,5 @@
 {
-  "name": "@axm.sh/cli-e2e",
+  "name": "@agentxm/client-e2e",
   "version": "0.0.1",
   "private": true,
   "description": "Distribution E2E tests for the axm CLI",
@@ -8,7 +8,7 @@
     "includedScripts": []
   },
   "devDependencies": {
-    "@axm.sh/e2e-utils": "workspace:*",
+    "@agentxm/client-e2e-utils": "workspace:*",
     "fflate": "^0.8.2",
     "typescript": "catalog:",
     "vitest": "catalog:",

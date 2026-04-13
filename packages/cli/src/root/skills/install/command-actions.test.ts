@@ -8,9 +8,9 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import type { RegistrySkillRef, LocalSkillRef } from "@axm.sh/core/unstable/skills";
-import { PackageTypeSchema, type PackageUrlParts } from "@axm.sh/core/unstable/packaging";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import type { RegistrySkillRef, LocalSkillRef } from "@agentxm/client-core/unstable/skills";
+import { PackageTypeSchema, type PackageUrlParts } from "@agentxm/client-core/unstable/packaging";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { getCompatiblePackages, buildCompatiblePackagesSection } from "./command-actions.js";
 

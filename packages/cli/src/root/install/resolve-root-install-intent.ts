@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   installableExtensionTypePluralSegments,
   InstallableExtensionTypePluralSchema,
@@ -11,8 +11,8 @@ import {
   RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
-} from "@axm.sh/core/unstable/extensions";
-import { parseInputPattern } from "@axm.sh/core/unstable/sources";
+} from "@agentxm/client-core/unstable/extensions";
+import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 

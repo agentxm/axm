@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 export const FakePetRecordSchema = Schema.Struct({
   _version: Schema.Literal(1),
@@ -129,7 +129,7 @@ export class FakePetStore extends ServiceMap.Service<
       force: boolean,
     ) => Effect.Effect<AdoptionOutcome, ReturnType<typeof makeAppError>>;
   }
->()("@axm.sh/cli-spike/FakePetStore") {}
+>()("@agentxm/client-spike/FakePetStore") {}
 
 export const FakePetStoreLive = Layer.succeed(FakePetStore, {
   listPets: (habitat) => Effect.succeed(petsInHabitat(habitat)),

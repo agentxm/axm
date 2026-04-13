@@ -1,5 +1,5 @@
 /**
- * Extension pack feature module for @axm.sh/core.
+ * Extension pack feature module for @agentxm/client-core.
  *
  * Provides extension pack manifest schemas, extension ref types, lifecycle manager,
  * path computation, expansion helpers, reconciliation adapter, and operations.

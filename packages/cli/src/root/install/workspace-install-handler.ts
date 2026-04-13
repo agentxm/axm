@@ -5,8 +5,8 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
-} from "@axm.sh/core/unstable/cli-runtime";
-import { previewOrApplyPlan, type PlanResolution } from "@axm.sh/core/unstable/workspace";
+} from "@agentxm/client-core/unstable/cli-runtime";
+import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/workspace";
 
 import {
   emitNoOpResult,

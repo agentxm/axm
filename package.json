@@ -61,7 +61,7 @@
   },
   "packageManager": "pnpm@10.29.3",
   "devDependencies": {
-    "@axm.sh/utils": "workspace:*",
+    "@agentxm/client-utils": "workspace:*",
     "@effect/eslint-plugin": "^0.3.2",
     "@effect/language-service": "^0.84.1",
     "@effect/vitest": "catalog:",

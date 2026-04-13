@@ -94,9 +94,9 @@ jobs:
         run: |
           rm -rf release-packages
           mkdir -p release-packages
-          pnpm --filter @axm.sh/utils pack --pack-destination release-packages
-          pnpm --filter @axm.sh/core pack --pack-destination release-packages
-          pnpm --filter @axm.sh/cli pack --pack-destination release-packages
+          pnpm --filter @agentxm/client-utils pack --pack-destination release-packages
+          pnpm --filter @agentxm/client-core pack --pack-destination release-packages
+          pnpm --filter axm.sh pack --pack-destination release-packages
 
       - name: Publish npm packages
         env:
@@ -117,9 +117,9 @@ jobs:
             npm publish "$tarball_path" --provenance --access public
           }
 
-          publish_if_missing "@axm.sh/utils" "./release-packages/axm.sh-utils-${VERSION}.tgz"
-          publish_if_missing "@axm.sh/core" "./release-packages/axm.sh-core-${VERSION}.tgz"
-          publish_if_missing "@axm.sh/cli" "./release-packages/axm.sh-cli-${VERSION}.tgz"
+          publish_if_missing "@agentxm/client-utils" "./release-packages/agentxm-client-utils-${VERSION}.tgz"
+          publish_if_missing "@agentxm/client-core" "./release-packages/agentxm-client-core-${VERSION}.tgz"
+          publish_if_missing "axm.sh" "./release-packages/axm.sh-${VERSION}.tgz"
 
       - name: Update Homebrew formula
         env:

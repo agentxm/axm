@@ -7,8 +7,8 @@
  */
 
 import type * as Option from "effect/Option";
-import type { CommandExtensionRef } from "@axm.sh/core/unstable/commands";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
+import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
+import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
 
 /**
  * Intent for installing a command extension.

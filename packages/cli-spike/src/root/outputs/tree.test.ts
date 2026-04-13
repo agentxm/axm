@@ -1,4 +1,4 @@
-import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";

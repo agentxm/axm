@@ -6,7 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { CommandExtensionTarget } from "@axm.sh/core/unstable/workspace";
+import type { CommandExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 
 /**
  * Intent for uninstalling a command extension.

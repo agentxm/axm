@@ -1,19 +1,19 @@
-import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
-import { SubagentManager } from "@axm.sh/core/unstable/subagents";
-import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
+import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { expandGlobs } from "@axm.sh/core/unstable/utils";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { expandGlobs } from "@agentxm/client-core/unstable/utils";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { Handle } from "@axm.sh/core/unstable/extensions";
-import { parseRegistrySourcePatternParts } from "@axm.sh/core/unstable/extensions";
-import { resolveSource } from "@axm.sh/core/unstable/source-resolution";
-import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import type { Handle } from "@agentxm/client-core/unstable/extensions";
+import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
+import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
+import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCI, isHumanInteractive } from "@axm.sh/utils/unstable/interaction";
+import { isCI, isHumanInteractive } from "@agentxm/client-utils/unstable/interaction";
 
 describe("interaction", () => {
   it("re-exports CI detection", () => {

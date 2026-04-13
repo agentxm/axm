@@ -4,20 +4,23 @@ import * as Option from "effect/Option";
 import * as Array from "effect/Array";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { installCommand as installCommandOp } from "@axm.sh/core/unstable/commands";
-import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
-import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { installCommand as installCommandOp } from "@agentxm/client-core/unstable/commands";
+import {
+  resolveSource,
+  SourceHostProviders,
+} from "@agentxm/client-core/unstable/source-resolution";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
-import type { CommandExtensionRef } from "@axm.sh/core/unstable/commands";
+import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeItemSection } from "./preview-sections.js";
 

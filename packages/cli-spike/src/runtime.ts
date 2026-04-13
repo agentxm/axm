@@ -12,10 +12,10 @@ import {
   makeFoundationLayer,
   resolveCliFormat,
   withCliErrorHandling,
-} from "@axm.sh/core/unstable/cli-runtime";
-import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
-import type { AppError } from "@axm.sh/core/unstable/app-error";
-import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
+} from "@agentxm/client-core/unstable/cli-runtime";
+import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 
 import { FakePetStoreLive } from "./fake-pet-store.js";
 

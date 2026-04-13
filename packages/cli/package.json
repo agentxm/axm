@@ -1,5 +1,5 @@
 {
-  "name": "@axm.sh/cli",
+  "name": "axm.sh",
   "version": "0.1.5",
   "description": "Open agent extension manager for skills and more",
   "type": "module",
@@ -77,8 +77,8 @@
     "node": ">=22 <23"
   },
   "dependencies": {
-    "@axm.sh/core": "workspace:*",
-    "@axm.sh/utils": "workspace:*",
+    "@agentxm/client-core": "workspace:*",
+    "@agentxm/client-utils": "workspace:*",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "gray-matter": "^4.0.3",

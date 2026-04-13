@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-04-03
-version: 0.2.0
+last-reviewed: 2026-04-13
+version: 0.2.1
 description: Shared writing rules for human-facing docs, agent-facing instructions, guides,
   specs, and contributor workflows
 depends-on:
@@ -472,6 +472,28 @@ and hard to notice.
       exceptions
 - [ ] **No excessive cross-references** — Links to other docs are conditioned
       and justified (see Cross-Reference Checklist)
+
+---
+
+## Review Findings
+
+When a review or analysis produces findings, present each item as:
+
+1. **Finding** — what was observed
+2. **Options** — lettered remediation choices (`a`, `b`, `c`, ...)
+3. **Recommendation** — which option to take and why
+
+```markdown
+### 1. <Finding title>
+
+<Description of the issue>
+
+a) <Option A> — <brief description>
+b) <Option B> — <brief description>
+c) <Option C> — <brief description>
+
+**Recommendation:** (b) — <rationale>
+```
 
 ---
 

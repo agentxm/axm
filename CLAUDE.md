@@ -38,6 +38,14 @@ For focused verification, keep the repo-backed target and pass filters through i
 
 Only call a direct tool when no equivalent `pnpm` script or `pnpm nx` target exists, and say why.
 
+Always set these before running any `pnpm` script or `pnpm nx` command:
+
+```bash
+export NX_TUI=false
+export NX_DEFAULT_OUTPUT_STYLE=static
+export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
+```
+
 | Command                      | Purpose                                                                   |
 | ---------------------------- | ------------------------------------------------------------------------- |
 | `pnpm axm`                   | Run the main CLI from source                                              |
@@ -80,170 +88,42 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 Use `contributing/guides` for topic-level guidance. If a guide goes deeper than
 the summary here, follow the guide.
 
-| Guide                                                                       | When to consult                                                                      |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Docs & process**                                                          |                                                                                      |
-| [Guides README](contributing/guides/README.md)                              | Adding a guide; template and local conventions                                       |
-| [Documentation Guidelines](contributing/guides/documentation-guidelines.md) | Writing or editing docs; audience, flow, and source-of-truth rules                   |
-| [Guide Authoring](contributing/guides/guide-authoring.md)                   | Deciding whether a topic needs a guide; structuring guide content                    |
-| [Instructions Guide](contributing/guides/instructions.md)                   | README vs CONTRIBUTING vs AGENTS/CLAUDE vs INSTALL vs SKILL ownership                |
-| [Agent Accessibility Guide](contributing/guides/agent-accessibility.md)     | Updating INSTALL.md or SKILL.md after CLI or workflow changes                        |
-| **Delivery**                                                                |                                                                                      |
-| [Releasing Guide](contributing/guides/releasing.md)                         | Planning, preparing, publishing, or checking a release                               |
-| [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | OpenSpec workflow from proposal through archive                                      |
-| [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Proposal, design, implementation, and verification checks                            |
-| **Implementation**                                                          |                                                                                      |
-| [CLI Design Guide](contributing/guides/cli-design.md)                       | Command shape, flags, prompts, handlers, and parent command behavior                 |
-| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                   | Machine-readable JSON output, renderer boundaries, and diagnostics                   |
-| [Testing Guide](contributing/guides/testing.md)                             | Test levels, E2E scope, and Effect testing references                                |
-| [Effect Guide](contributing/guides/effect.md)                               | Core Effect patterns and skill index                                                 |
-| [Effect Option Guide](contributing/guides/effect-option.md)                 | Option vs nullable values and boundary conversions                                   |
-| [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | Common v3 to v4 renames and migration patterns                                       |
-| [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Error architecture, AppError conventions, typed service errors, Result type guidance |
-| [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Layer construction, composition, provision, and dependency wiring                    |
-| [Logging Guide](contributing/guides/logging.md)                             | Structured logging with Effect                                                       |
-| [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Assertion-free TypeScript, narrowing, and immutability                               |
-
-### Nx
-
-Nx orchestrates the monorepo. Configuration lives in `nx.json` (workspace-level) and per-package `project.json` files.
-
-- **TypeScript plugin** — `nx.json` configures `@nx/js/typescript` for TypeScript target inference.
-- **Project targets** — many projects still define `build`, `lint`, `test`, `e2e`, `compile`, or publish targets explicitly in `project.json`.
-- **Target defaults** — `nx.json` `targetDefaults` set caching, inputs, and dependency ordering for shared targets like `lint` and `test`.
-- **Named inputs** — `default` and `production` input sets control cache invalidation. Test files and vitest configs are excluded from `production`.
-- **Module boundaries** — `@nx/enforce-module-boundaries` ESLint rule enforces dependency constraints via project tags (`type:app` can depend on `type:lib`, not vice versa).
-- **Always** set these before running any `pnpm` script or `nx` command:
-
-```bash
-export NX_TUI=false                         # Disable interactive terminal UI (requires human input, produces unparseable ANSI output)
-export NX_DEFAULT_OUTPUT_STYLE=static       # Buffer each task's output and print as a clean block (prevents interleaving during parallel execution)
-export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false # Disable dynamic line-rewriting (older Nx fallback for same issue as TUI)
-```
-
-- Agents should export them in their shell before invoking Nx-backed commands.
-- CI may set them in workflow or job `env`.
-- Prefer not to rewrite checked-in repo scripts just to inject them.
-- Prefer `pnpm nx ...`, not bare `nx ...`.
-- Never reach for raw `vitest` or `tsc` when an Nx target exists for that project.
-- For focused tests, keep the Nx target and pass Vitest filters through it, for example `pnpm nx run cli:test --args="src/root/install/handler.test.ts"`.
-- For focused test-name filters, keep the same pattern, for example `pnpm nx run cli:test --args='src/root/install/handler.test.ts -t "installs configured commands"'`.
-- Filters passed through `pnpm nx run <project>:test --args="..."` are relative to that target's `cwd` from `project.json`.
-- Formatting strategy: `pnpm format` and `pnpm format:check` are the canonical
-  full-repo Prettier commands. `pnpm format:affected` and
-  `pnpm format:check:affected` are Nx conveniences for changed-file ranges only.
-
-## CLI Conventions
-
-See [CLI Design Guide](contributing/guides/cli-design.md) for command structure,
-flags, and prompt behavior. See
-[CLI Renderer Guide](contributing/guides/cli-renderer.md) for machine-readable
-output and renderer contracts.
-
-### Global Flags
-
-- `--non-interactive` applies to every command
-- `--json` / `-j` outputs machine-readable JSON
-- `--verbose` / `-v`, `--debug`, `--quiet` / `-q` control verbosity
-- No prompt may block in non-interactive mode
-- Resolution chain: explicit `--non-interactive` → `CI=true` → `!stdin.isTTY`
-
-### Per-Command Flags
-
-- Shared reusable flags live in `@axm.sh/core/unstable/cli-flags`
-- CLI-local flags live in `packages/cli/src/cli-flags.ts`
-- Per-command flag values are passed as explicit handler args, not read from a
-  service
-- `--yes` only skips yes/no confirmations
-- `--force` overrides blocking constraints and does not imply `--yes`
-- `--preview` is display-only unless combined with explicit confirmation
-- Blockers are errors; non-blockers are warnings
+| Guide                                                                       | When to consult                                                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Docs & process**                                                          |                                                                                        |
+| [Guides README](contributing/guides/README.md)                              | Before adding a guide, read for template and local conventions                         |
+| [Documentation Guidelines](contributing/guides/documentation-guidelines.md) | Before writing or editing docs, read for audience, flow, and source-of-truth rules     |
+| [Guide Authoring](contributing/guides/guide-authoring.md)                   | Before deciding a topic needs a guide, read for scope and structure                    |
+| [Instructions Guide](contributing/guides/instructions.md)                   | Before choosing README vs CONTRIBUTING vs AGENTS/CLAUDE vs INSTALL vs SKILL, read it   |
+| [Agent Accessibility Guide](contributing/guides/agent-accessibility.md)     | When updating INSTALL.md or SKILL.md, read for accessibility checks                    |
+| **Delivery**                                                                |                                                                                        |
+| [Releasing Guide](contributing/guides/releasing.md)                         | Before planning or publishing a release, read the release flow                         |
+| [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | Before starting or progressing an OpenSpec change, read for workflow steps             |
+| [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Before proposing, designing, implementing, or verifying a feature, read for checks     |
+| **Implementation**                                                          |                                                                                        |
+| [CLI Design Guide](contributing/guides/cli-design.md)                       | Before designing a CLI command, read for shape, flags, prompts, and handlers           |
+| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                   | Before changing JSON output or renderer boundaries, read for contracts and diagnostics |
+| [Testing Guide](contributing/guides/testing.md)                             | Before writing or reviewing tests, read for levels, E2E scope, and Effect testing      |
+| [Effect Guide](contributing/guides/effect.md)                               | Before writing Effect code, read for core patterns and the skill index                 |
+| [Effect Option Guide](contributing/guides/effect-option.md)                 | When handling optional values in Effect code, read for Option and nullable boundaries  |
+| [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | When translating v3-era examples, read for common v4 renames and migrations            |
+| [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Before designing or translating Effect errors, read for AppError and service patterns  |
+| [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Before building or wiring layers, read for composition and provision rules             |
+| [Logging Guide](contributing/guides/logging.md)                             | Before adding structured logs, read for logging conventions                            |
+| [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Before writing or revising TypeScript, read for narrowing and immutability rules       |
 
 ## Code Organization
 
-Group by feature, not by type. Co-locate constants, types, and schemas with the components that use them.
+Group by feature, not by type. Co-locate local constants, types, schemas,
+errors, and tests with the feature that owns them.
 
 - **Single-use** → in the component file
-- **Shared within feature** → in a dedicated file in the feature folder (e.g., `schema.ts`)
+- **Shared within feature** → in a dedicated file in that feature folder (e.g., `schema.ts`)
 - **Never** → cross-feature "constants.ts" or "types.ts" at the root
 
-```typescript
-// Good: constant lives with its feature
-// settings/settings.ts
-export const SETTINGS_FILENAME = "settings.json";
-
-// Good: schema shared across feature components
-// lockfile/schema.ts (used by multiple lockfile components)
-export class LockfileSchema extends Schema.Class<LockfileSchema>("LockfileSchema")({...}) {}
-
-// Bad: generic constants file far from usage
-// src/constants.ts
-export const SETTINGS_FILENAME = "settings.json";
-export const LOCKFILE_NAME = "axm-lock.yaml";
-```
-
-### Project Structure
-
-```
-nx.json               # Nx workspace config
-project.json          # Root project for workspace-level tasks
-packages/
-  core/               # @axm.sh/core shared services, schemas, runtime helpers
-    src/unstable/     # Entire public surface is intentionally unstable
-      app-error/
-      auth/
-      cli-flags/
-      cli/
-      cli-renderer/
-      cli-runtime/
-      commands/
-      extensions/
-      git/
-      lockfile/
-      mcp-servers/
-      packs/
-      registry/
-      skills/
-  cli/                # Main axm CLI
-    src/
-      app.ts
-      main.ts
-      cli-flags.ts
-      root/
-        auth/
-        commands/
-        mcp-servers/
-        packs/
-        skills/
-        init.ts
-  cli-spike/          # Effect CLI spike app
-  cli-e2e/            # Built cli E2E, binary smoke, install verification
-  cli-spike-e2e/      # Built cli-spike E2E
-  e2e-utils/          # Shared subprocess and temp-dir helpers
-  utils/              # Small shared utilities
-openspec/
-  specs/              # Accepted capabilities in */spec.md
-  changes/            # Active changes with proposal/design artifacts
-```
-
-Each feature folder is self-contained: logic, constants, errors, schemas, and tests stay near the code that uses them. Only `utils/` holds truly cross-cutting helpers.
-
-**`@axm.sh/core` unstable namespace** — All code in the core package lives under `src/unstable/` and is exported via `@axm.sh/core/unstable/*`. This signals that the package API is highly unstable and subject to breaking changes. Never place code directly under `src/` in core — always use the `unstable/` namespace.
-
-### Command Arg Type Naming
-
-- Command arg types (CLI parser): `<Command>CommandArgs` (e.g. `InstallCommandArgs`)
-- Handler arg types (Effect): `<Command>HandlerArgs` (e.g. `InstallHandlerArgs`)
-- Handler args use idiomatic Effect types (`Option`, `ReadonlyArray`, etc.) — not raw JS types
-- Commands map command args → handler args at the boundary (e.g. `Option.fromUndefinedOr(argv.name)`)
-
-### Handlers
-
-See [CLI Design Guide](contributing/guides/cli-design.md).
-
-- Handlers are effectful entry points for command behavior
-- Parsing stays at the command boundary; handlers accept parsed input
-- Handlers return Effects and require dependencies via layers
+**`@axm.sh/core` unstable namespace** — All core code lives under
+`src/unstable/` and is exported via `@axm.sh/core/unstable/*`. Never place core
+code directly under `src/`.
 
 ## TypeScript
 
@@ -288,119 +168,31 @@ Setup and sync instructions are in the
 ## Effect
 
 See [Effect Guide](contributing/guides/effect.md),
-[Effect Option Guide](contributing/guides/effect-option.md), and
-[Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md).
+[Effect Option Guide](contributing/guides/effect-option.md),
+[Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md), and
+[Effect Errors Guide](contributing/guides/effect-errors.md).
 
-- Refer to `../external/Effect-TS/effect-smol` (repo-root-relative) for
-  idiomatic Effect v4 reference implementations and Effect v4 capability/API
-  questions.
-
-- Use Effect collection types in signatures
-- Prefer `Option<T>` internally; convert nullable values at boundaries
-- No raw Promises or async/await in production code
-- Errors are typed in the Effect signature
-- Dependencies use services, not direct imports
-- Resources use acquire/release patterns
-- Layers provide dependencies at the edge
-- Use `Effect.all` or `Effect.forEach` when work can run in parallel
-- Avoid `for` or `while` loops containing `yield*` when the iterations are
-  independent
-- Use `effect/FileSystem` and `effect/Path` in production code, never
-  `node:fs` or `node:path`
-
-### Type Inference
-
-- Prefer inference over explicit return annotations so the `R` parameter tracks
-  dependencies automatically
-- Avoid tacit point-free style when it harms inference
-- Add explicit annotations at published package boundaries (types consumed
-  by external callers), recursive functions, and `Effect.async` boundaries
-- Internal monorepo functions — even if exported across workspace packages —
-  do not need return type annotations
-
-### Effect Language Service
-
-When implementing Effect code, run `pnpm typecheck` (or `pnpm typecheck:affected`) and address any diagnostics emitted by the `@effect/language-service` plugin as part of the implementation work.
-
-### Error Handling Patterns
-
-See [Effect Errors Guide](contributing/guides/effect-errors.md) for full
-conventions, recovery operators, and service error channel design.
-
-- Two-layer error model: services MAY use typed `Data.TaggedError` subclasses
-  for internal precision; command handlers MUST translate all errors to
-  `AppError` before the runtime boundary
-- `AppError` is the CLI-facing error type; error codes use stable `AREA_REASON`
-  names
-- `run` only accepts `Effect<A, AppError | PromptCancelled, R>`
-- `PromptCancelled` is control flow, not an error
-- Typed service errors earn their keep when callers need distinct recovery
-  strategies, the error carries structurally different metadata, or it
-  represents control flow (like `PromptCancelled`); otherwise use `AppError`
-  with a code
-- Expected failures live in the `E` channel; defects crash
-- Do not throw in helpers except deliberate `unsafe*` or `*OrThrow` escape
-  hatches
-- Preserve `cause` when wrapping failures
-- Return `Option<T>` for expected not-found cases
-- Validate parsed data with Schema
+- Use `../external/Effect-TS/effect-smol` for repo-matched Effect v4 references.
+- No raw Promises or async/await in production code.
+- Use `effect/FileSystem` and `effect/Path`, never `node:fs` or `node:path`.
+- Run `pnpm typecheck` or `pnpm typecheck:affected` and fix all
+  `@effect/language-service` diagnostics as part of the change.
 
 ## Testing
 
 See [Testing Guide](contributing/guides/testing.md) and
 [Feature Delivery Guide](contributing/guides/feature-delivery.md).
 
-- Designs prescribe testing for changed behavior
 - Write tests first to define behavior
 - Bug fix means regression test first
-- Unit tests live beside the code they cover
-- Distribution E2E tests live in `packages/<cli>-e2e/` and run against `dist/`
-- Prefer seams and test layers over mocks; mock third-party boundaries only when an explicit seam is impractical
-- Avoid tests that only restate declarations or source structure; test observable behavior or enforce the rule with static analysis
-- Prefer `@effect/vitest` helpers like `it.effect`, `it.scoped`, and `it.layer` for new Effect tests
-- Prefer `pnpm nx run <project>:test --args="..."` and `pnpm nx run <project>:typecheck` over direct `vitest` or `tsc` invocations
-
-### Test Organization
-
-- Co-locate tests with the code they verify
-- Keep helpers and fixtures near the tests that use them
-- E2E tests focus on user-visible behavior, not internals
-
-### Test Quality
-
-- Tests should be isolated, deterministic, behavioral, structure-insensitive,
-  specific, readable, and predictive
+- Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
 
 ## Spec-Driven Development
 
 See [Spec-Driven Development](contributing/guides/spec-driven-development.md).
 
-- Specs define what; design defines how
-- Accepted specs live in `openspec/specs/<capability>/spec.md`
-- Active changes live in `openspec/changes/<change-id>/proposal.md`,
-  `design.md`, and `.openspec.yaml`
-- `spec.md` contains user-facing behavior and API contracts only
-- `design.md` contains the technical approach and implementation guidance
-
-## Findings Presentation
-
-When a review or analysis produces findings, present each as a numbered item with:
-
-1. **Finding** — what was observed
-2. **Options** — lettered remediation choices (a, b, c, ...)
-3. **Recommendation** — which option to take and why
-
-```
-### 1. <Finding title>
-
-<Description of the issue>
-
-  a) <Option A> — <brief description>
-  b) <Option B> — <brief description>
-  c) <Option C> — <brief description>
-
-**Recommendation:** (b) — <rationale>
-```
+Accepted specs: `openspec/specs/<capability>/spec.md`. Active changes:
+`openspec/changes/<change-id>/`.
 
 ## Git Workflow
 

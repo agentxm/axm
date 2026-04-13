@@ -9,7 +9,7 @@
  */
 
 // Detection (effectful)
-export { detectAgent, detectAgents } from "./detection.js";
+export { detectAgent, detectAgentInRoot, detectAgents, detectAgentsInRoot } from "./detection.js";
 
 // Subagent file detection
 export { scanAgentSubagentFiles, scanAllSubagentFiles } from "./subagent-detection.js";

@@ -70,12 +70,8 @@ export type WorkspaceDoctorReport = typeof WorkspaceDoctorReportSchema.Type;
 
 export const CHECK_IDS = {
   workspaceReady: "workspace-ready",
-  settingsValidation: "settings-validation",
-  lockfileValidation: "lockfile-validation",
-  agentReadiness: "agent-readiness",
-} as const satisfies Record<
-  "workspaceReady" | "settingsValidation" | "lockfileValidation" | "agentReadiness",
-  string
->;
+  agentsConfigured: "agents-configured",
+  extensionsInstalled: "extensions-installed",
+} as const satisfies Record<"workspaceReady" | "agentsConfigured" | "extensionsInstalled", string>;
 
 export type CheckId = (typeof CHECK_IDS)[keyof typeof CHECK_IDS];

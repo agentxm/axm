@@ -1,6 +1,9 @@
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
+import type * as Scope from "effect/Scope";
 import { CodingAgentRepository, CodingAgentRepositoryLive } from "../../agents/index.js";
 import { SourceHostProviders, SourceHostProvidersLive } from "../../source-resolution/index.js";
 import { locateWorkspace } from "../paths.js";
@@ -8,18 +11,24 @@ import { Workspace } from "../service-interface.js";
 import type { WorkspaceContextOptions } from "../service-interface.js";
 import { loadWorkspace } from "../service.js";
 import type { CheckDef } from "./check-def.js";
-import { agentReadinessCheck } from "./checks/agent-readiness.js";
-import { lockfileValidationCheck } from "./checks/lockfile-validation.js";
-import { settingsValidationCheck } from "./checks/settings-validation.js";
+import { agentsConfiguredCheck } from "./checks/agents-configured.js";
+import { extensionsInstalledCheck } from "./checks/extensions-installed.js";
 import { makeWorkspaceReadyCheck } from "./checks/workspace-ready.js";
 import { summarize } from "./rollup.js";
 import type { Check } from "./types.js";
 import { runCheckGraph } from "./runner.js";
 
+type DoctorCheckDeps =
+  | FileSystem.FileSystem
+  | Path.Path
+  | Scope.Scope
+  | Workspace
+  | CodingAgentRepository
+  | SourceHostProviders;
+
 const dependentChecks = [
-  settingsValidationCheck,
-  lockfileValidationCheck,
-  agentReadinessCheck,
+  agentsConfiguredCheck,
+  extensionsInstalledCheck,
 ] as const satisfies ReadonlyArray<CheckDef<unknown>>;
 
 const skipCheck = (check: CheckDef<unknown>, failedTitle: string): Check => ({
@@ -69,11 +78,13 @@ export const diagnoseWorkspaceDoctor = (
       onNone: () => CodingAgentRepositoryLive,
       onSome: (service) => Layer.succeed(CodingAgentRepository, service),
     });
+    const checks: ReadonlyArray<CheckDef<DoctorCheckDeps>> = [
+      workspaceReadyCheck,
+      agentsConfiguredCheck,
+      extensionsInstalledCheck,
+    ];
 
-    return yield* runCheckGraph(
-      [workspaceReadyCheck, settingsValidationCheck, lockfileValidationCheck, agentReadinessCheck],
-      workspace,
-    ).pipe(
+    return yield* runCheckGraph(checks, workspace).pipe(
       Effect.provide(
         Layer.mergeAll(workspaceLayer, sourceProvidersLayer, codingAgentRepositoryLayer),
       ),

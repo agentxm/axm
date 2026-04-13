@@ -20,15 +20,57 @@ import type { AgentDescriptor } from "./types.js";
 // Detection Functions
 // -----------------------------------------------------------------------------
 
+const wrapDetectionError = (what: string) => (error: unknown) =>
+  makeAppError({
+    code: "AGENT_DETECTION_FAILED",
+    what,
+    cause: error,
+  });
+
+const firstPathSegment = (dir: string): string | undefined => {
+  const segment = dir.split("/")[0];
+  return segment === undefined || segment.length === 0 ? undefined : segment;
+};
+
+const detectionSegments = (agent: AgentDescriptor): ReadonlyArray<string> =>
+  Array.from(
+    new Set(
+      [
+        firstPathSegment(agent.skills.dir),
+        firstPathSegment(agent.commands?.dir ?? ""),
+        firstPathSegment(agent.subagents?.dir ?? ""),
+      ].filter((segment): segment is string => segment !== undefined),
+    ),
+  );
+
+const detectAgentInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const p = yield* Path.Path;
+    const results = yield* Effect.all(
+      detectionSegments(agent).map((segment) => fs.exists(p.join(rootDir, segment))),
+      { concurrency: "unbounded" },
+    );
+
+    return results.some((exists) => exists);
+  });
+
 /**
- * Check if a specific agent is installed by checking both project-level
- * and user-scope directories.
+ * Check whether an agent can be detected from a single filesystem root.
  *
- * - **Project-level**: Checks if the first path segment of `skills.dir`
- *   exists in `projectDir` (e.g., `.claude/` for Claude Code)
- * - **Global**: Checks if `~/.{agent-id}` exists in the user's home
+ * Uses the first segment of the agent's skills, commands, and subagents
+ * descriptors.
+ */
+export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
+  detectAgentInRootRaw(agent, rootDir).pipe(
+    Effect.mapError(wrapDetectionError(`Failed to detect ${agent.name}`)),
+  );
+
+/**
+ * Check if a specific agent is installed by checking both project-level and
+ * user-scope roots, plus the legacy `~/.<agent-id>` fallback.
  *
- * Returns `true` if either check passes (logical OR).
+ * Returns `true` if any supported location exists.
  *
  * @param agent - The agent descriptor to check
  * @param projectDir - The project directory to check for agent config
@@ -40,41 +82,29 @@ export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const p = yield* Path.Path;
-
     const home = yield* getHome;
 
-    // Project-level: first segment of skills.dir in projectDir
-    const skillsFirstSegment = agent.skills.dir.split("/")[0] ?? "";
-    const skillsProjectPath = p.join(projectDir, skillsFirstSegment);
-
-    // Project-level: first segment of commands.dir in projectDir (if agent supports commands)
-    const commandsFirstSegment = agent.commands?.dir.split("/")[0] ?? "";
-
-    // Global: ~/.{agent-id} in home directory
-    const globalPath = p.join(home, `.${agent.id}`);
-
-    // Build list of paths to check concurrently
-    const pathsToCheck = [
-      fs.exists(skillsProjectPath),
-      fs.exists(globalPath),
-      // Only check commands dir if it differs from skills dir first segment
-      ...(commandsFirstSegment !== "" && commandsFirstSegment !== skillsFirstSegment
-        ? [fs.exists(p.join(projectDir, commandsFirstSegment))]
-        : []),
-    ];
-
-    const results = yield* Effect.all(pathsToCheck, { concurrency: "unbounded" });
+    const results = yield* Effect.all(
+      [
+        detectAgentInRootRaw(agent, projectDir),
+        detectAgentInRootRaw(agent, home),
+        fs.exists(p.join(home, `.${agent.id}`)),
+      ],
+      { concurrency: "unbounded" },
+    );
 
     return results.some((exists) => exists);
-  }).pipe(
-    Effect.mapError((error) =>
-      makeAppError({
-        code: "AGENT_DETECTION_FAILED",
-        what: `Failed to detect ${agent.name}`,
-        cause: error,
-      }),
-    ),
-  );
+  }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect ${agent.name}`)));
+
+/**
+ * Detect all installed agents from a single filesystem root.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const detectAgentsInRoot = (rootDir: string) =>
+  Effect.filter(getAllAgents(), (agent) => detectAgentInRootRaw(agent, rootDir), {
+    concurrency: "unbounded",
+  }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect installed agents in ${rootDir}`)));
 
 /**
  * Detect all installed agents concurrently.

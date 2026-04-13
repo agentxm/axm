@@ -17,7 +17,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { AppError } from "../app-error/index.js";
-import { detectAgent, detectAgents } from "./detection.js";
+import { detectAgent, detectAgentInRoot, detectAgents, detectAgentsInRoot } from "./detection.js";
 import { AGENTS } from "./registry.js";
 import { expectDefined } from "../test-helpers.js";
 
@@ -343,6 +343,18 @@ describe("detectAgent", () => {
   });
 });
 
+describe("detectAgentInRoot", () => {
+  it.effect("detects claude-code from a user-scope root via .claude", () =>
+    Effect.gen(function* () {
+      const existingPaths = new Set([path.join(home, ".claude")]);
+      const result = yield* detectAgentInRoot(AGENTS["claude-code"], home).pipe(
+        Effect.provide(createMockFileSystem(existingPaths)),
+      );
+      expect(result).toBe(true);
+    }),
+  );
+});
+
 // =============================================================================
 // detectAgents Tests
 // =============================================================================
@@ -454,4 +466,21 @@ describe("detectAgents", () => {
       }),
     );
   });
+});
+
+describe("detectAgentsInRoot", () => {
+  it.effect("returns agents detected from a single root without legacy home fallbacks", () =>
+    Effect.gen(function* () {
+      const existingPaths = new Set([
+        path.join(testProjectDir, ".codex"),
+        path.join(testProjectDir, ".roo"),
+      ]);
+      const result = yield* detectAgentsInRoot(testProjectDir).pipe(
+        Effect.provide(createMockFileSystem(existingPaths)),
+      );
+      const ids = result.map((agent) => agent.id);
+      expect(ids).toContain("codex");
+      expect(ids).toContain("roo");
+    }),
+  );
 });

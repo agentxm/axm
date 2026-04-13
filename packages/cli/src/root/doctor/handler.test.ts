@@ -114,6 +114,7 @@ describe("doctor handler", () => {
       agents: ["claude-code"],
       profile: "@axm",
     });
+    fs.mkdirSync(path.join(tempDir, ".claude", "skills"), { recursive: true });
   };
 
   describe("JSON mode", () => {
@@ -192,8 +193,9 @@ describe("doctor handler", () => {
             const text = logs.info.join("\n");
             expect(text).toContain("Workspace Health");
             expect(text).toContain("✓ Workspace is ready");
-            expect(text).toContain("✓ Settings entries resolve");
-            expect(text).toContain("4 passed");
+            expect(text).toContain("✓ Agents configured");
+            expect(text).toContain("✓ Extensions are installed");
+            expect(text).toContain("3 passed");
             expect(text).toContain("0 failed");
           }),
         );
@@ -261,8 +263,9 @@ describe("doctor handler", () => {
 
           const text = logs.info.join("\n");
           expect(text).toContain("✓ Workspace is ready");
-          expect(text).toContain("✓ Settings entries resolve");
-          expect(text).toContain("4 passed");
+          expect(text).toContain("✓ Agents configured");
+          expect(text).toContain("✓ Extensions are installed");
+          expect(text).toContain("3 passed");
         }),
       );
     });

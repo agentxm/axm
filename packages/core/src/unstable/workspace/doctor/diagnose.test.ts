@@ -61,6 +61,7 @@ describe("diagnoseWorkspaceDoctor", () => {
         path.join(axmDir, "settings.json"),
         JSON.stringify({ agents: ["claude-code"] }),
       );
+      fs.mkdirSync(path.join(tempDir, ".claude", "skills"), { recursive: true });
 
       const report = yield* diagnoseWorkspaceDoctor({
         scope: "project",
@@ -69,15 +70,13 @@ describe("diagnoseWorkspaceDoctor", () => {
 
       expect(report.healthy).toBe(true);
       expect(report.summary.findings.errors).toBe(0);
-      expect(report.checks).toHaveLength(4);
+      expect(report.checks).toHaveLength(3);
       expect(report.checks[0]?.id).toBe("workspace-ready");
-      expect(report.checks[1]?.id).toBe("settings-validation");
-      expect(report.checks[2]?.id).toBe("lockfile-validation");
-      expect(report.checks[3]?.id).toBe("agent-readiness");
+      expect(report.checks[1]?.id).toBe("agents-configured");
+      expect(report.checks[2]?.id).toBe("extensions-installed");
       expect(report.checks[0]?.status).toBe("pass");
       expect(report.checks[1]?.status).toBe("pass");
       expect(report.checks[2]?.status).toBe("pass");
-      expect(report.checks[3]?.status).toBe("pass");
       expect(report.workspacePath).toBe(fs.realpathSync(axmDir));
     }).pipe(Effect.provide(makeLayers())),
   );
@@ -120,7 +119,7 @@ describe("diagnoseWorkspaceDoctor", () => {
     }).pipe(Effect.provide(makeLayers())),
   );
 
-  it.effect("reports unresolved settings entries after workspace-ready passes", () =>
+  it.effect("reports missing agent target directories after workspace-ready passes", () =>
     Effect.gen(function* () {
       fs.mkdirSync(axmDir, { recursive: true });
       fs.writeFileSync(
@@ -140,10 +139,41 @@ describe("diagnoseWorkspaceDoctor", () => {
       const check = report.checks[1];
 
       expect(report.healthy).toBe(false);
-      expect(check?.id).toBe("settings-validation");
+      expect(check?.id).toBe("agents-configured");
       expect(check?.status).toBe("fail");
       expect(
-        check?.findings.some((finding) => finding.id === "settings-validation.source-not-found"),
+        check?.findings.some((finding) => finding.id === "agents-configured.target-dir-missing"),
+      ).toBe(true);
+    }).pipe(Effect.provide(makeLayers())),
+  );
+
+  it.effect("reports unresolved extension declarations under extensions-installed", () =>
+    Effect.gen(function* () {
+      fs.mkdirSync(axmDir, { recursive: true });
+      fs.mkdirSync(path.join(tempDir, ".claude", "skills"), { recursive: true });
+      fs.writeFileSync(
+        path.join(axmDir, "settings.json"),
+        JSON.stringify({
+          agents: ["claude-code"],
+          skills: {
+            "example-skill": "@axm/skills/example-skill",
+          },
+        }),
+      );
+
+      const report = yield* diagnoseWorkspaceDoctor({
+        scope: "project",
+        builtInSources: registrySources,
+      });
+      const check = report.checks[2];
+
+      expect(report.healthy).toBe(false);
+      expect(check?.id).toBe("extensions-installed");
+      expect(check?.status).toBe("fail");
+      expect(
+        check?.findings.some(
+          (finding) => finding.id === "extensions-installed.declaration-source-not-found",
+        ),
       ).toBe(true);
     }).pipe(Effect.provide(makeLayers())),
   );

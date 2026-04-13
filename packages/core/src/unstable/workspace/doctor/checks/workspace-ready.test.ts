@@ -36,10 +36,34 @@ const tryMakeUnreadable = (filePath: string): boolean => {
   }
 };
 
+const tryMakeUnwritableDirectory = (dirPath: string): boolean => {
+  try {
+    fs.chmodSync(dirPath, 0o555);
+  } catch {
+    return false;
+  }
+  const probePath = path.join(dirPath, ".axm-write-probe");
+  try {
+    fs.writeFileSync(probePath, "probe");
+    fs.rmSync(probePath, { force: true });
+    return false;
+  } catch {
+    return true;
+  }
+};
+
 // Best-effort restore of permissions so afterEach rmSync can clean up.
 const restorePermissions = (filePath: string): void => {
   try {
     fs.chmodSync(filePath, 0o644);
+  } catch {
+    // best-effort; the tmp dir will still be removed
+  }
+};
+
+const restoreDirectoryPermissions = (dirPath: string): void => {
+  try {
+    fs.chmodSync(dirPath, 0o755);
   } catch {
     // best-effort; the tmp dir will still be removed
   }
@@ -113,7 +137,8 @@ describe("workspaceReadyCheck", () => {
       expect(finding?.message).toContain("not valid JSON");
       expect(finding?.details).toBeDefined();
       expect(finding?.details?.length ?? 0).toBeGreaterThan(0);
-      expect(finding?.action?.command).toBe("axm init");
+      expect(finding?.action?.label).toBe("Edit settings.json");
+      expect(finding?.action?.command).toBeUndefined();
     }),
   );
 
@@ -133,7 +158,8 @@ describe("workspaceReadyCheck", () => {
       expect(finding?.message).toContain("schema");
       expect(finding?.details).toBeDefined();
       expect(finding?.details?.length ?? 0).toBeGreaterThan(0);
-      expect(finding?.action?.command).toBe("axm init");
+      expect(finding?.action?.label).toBe("Edit settings.json");
+      expect(finding?.action?.command).toBeUndefined();
     }),
   );
 
@@ -152,101 +178,79 @@ describe("workspaceReadyCheck", () => {
     }),
   );
 
-  it.effect(
-    "emits settings-read-failure when settings.json cannot be read due to permissions",
-    () =>
-      Effect.gen(function* () {
-        fs.mkdirSync(axmDir, { recursive: true });
-        const settingsPath = path.join(axmDir, "settings.json");
-        fs.writeFileSync(settingsPath, JSON.stringify({ agents: ["claude-code"] }));
-
-        // Some environments (e.g. CI running as root) ignore chmod 0 on files.
-        // If we can't reliably trigger a read failure, skip the assertions.
-        // TODO: (#51) platform-agnostic way to force a read failure.
-        if (!tryMakeUnreadable(settingsPath)) {
-          return;
-        }
-
-        const report = yield* runCheck();
-        const check = findCheck(report.checks, "workspace-ready");
-        expect(check.status).toBe("fail");
-        expect(check.findings).toHaveLength(1);
-        const finding = check.findings[0];
-        expect(finding?.id).toBe("workspace-ready.settings-read-failure");
-        expect(finding?.severity).toBe("error");
-        expect(finding?.message).toContain("could not be read");
-        expect(finding?.details).toBeDefined();
-        expect(finding?.action?.command).toBe("axm init");
-      }).pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            restorePermissions(path.join(axmDir, "settings.json"));
-          }),
-        ),
-      ),
-  );
-
-  it.effect("all five diagnostics reference the same init action across states", () =>
+  it.effect("emits not-writable when the workspace directory cannot be written", () =>
     Effect.gen(function* () {
-      const actions = new Set<unknown>();
-
-      // State 1: .axm missing -> directory-missing
-      let report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
-        Effect.provide(NodeServices.layer),
-      );
-      for (const finding of findCheck(report.checks, "workspace-ready").findings) {
-        expect(finding.action).toBeDefined();
-        actions.add(finding.action);
-      }
-
-      // State 2: .axm exists, settings missing
       fs.mkdirSync(axmDir, { recursive: true });
-      report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
-        Effect.provide(NodeServices.layer),
-      );
-      for (const finding of findCheck(report.checks, "workspace-ready").findings) {
-        expect(finding.action).toBeDefined();
-        actions.add(finding.action);
-      }
-
-      // State 3: settings exists but read fails (permission denied). Some
-      // environments (e.g. CI running as root) ignore chmod 0 on files; in
-      // that case we skip State 3 — the other four states still prove all
-      // diagnostics share the same action instance.
       const settingsPath = path.join(axmDir, "settings.json");
       fs.writeFileSync(settingsPath, JSON.stringify({ agents: ["claude-code"] }));
-      if (tryMakeUnreadable(settingsPath)) {
-        report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
-          Effect.provide(NodeServices.layer),
-        );
-        for (const finding of findCheck(report.checks, "workspace-ready").findings) {
-          expect(finding.action).toBeDefined();
-          actions.add(finding.action);
-        }
-      }
-      restorePermissions(settingsPath);
 
-      // State 4: settings exists but unparseable
-      fs.writeFileSync(settingsPath, "{not json");
-      report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
-        Effect.provide(NodeServices.layer),
-      );
-      for (const finding of findCheck(report.checks, "workspace-ready").findings) {
-        expect(finding.action).toBeDefined();
-        actions.add(finding.action);
+      if (!tryMakeUnwritableDirectory(axmDir)) {
+        return;
       }
 
-      // State 5: settings parseable but schema-invalid
-      fs.writeFileSync(settingsPath, JSON.stringify({ agents: "not-an-array" }));
-      report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
-        Effect.provide(NodeServices.layer),
-      );
-      for (const finding of findCheck(report.checks, "workspace-ready").findings) {
-        expect(finding.action).toBeDefined();
-        actions.add(finding.action);
+      const report = yield* runCheck();
+      const check = findCheck(report.checks, "workspace-ready");
+      expect(check.status).toBe("fail");
+      expect(check.findings).toHaveLength(1);
+      const finding = check.findings[0];
+      expect(finding?.id).toBe("workspace-ready.not-writable");
+      expect(finding?.severity).toBe("error");
+      expect(finding?.message).toContain("not writable");
+      expect(finding?.action?.label).toBe("Fix filesystem permissions");
+      expect(finding?.action?.command).toBeUndefined();
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          restoreDirectoryPermissions(axmDir);
+        }),
+      ),
+    ),
+  );
+
+  it.effect("emits not-writable when settings.json is blocked by file permissions", () =>
+    Effect.gen(function* () {
+      fs.mkdirSync(axmDir, { recursive: true });
+      const settingsPath = path.join(axmDir, "settings.json");
+      fs.writeFileSync(settingsPath, JSON.stringify({ agents: ["claude-code"] }));
+
+      if (!tryMakeUnreadable(settingsPath)) {
+        return;
       }
 
-      expect(actions.size).toBe(1);
+      const report = yield* runCheck();
+      const check = findCheck(report.checks, "workspace-ready");
+      expect(check.status).toBe("fail");
+      expect(check.findings).toHaveLength(1);
+      const finding = check.findings[0];
+      expect(finding?.id).toBe("workspace-ready.not-writable");
+      expect(finding?.message).toContain("current file permissions");
+      expect(finding?.action?.label).toBe("Fix filesystem permissions");
+      expect(finding?.action?.command).toBeUndefined();
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          restorePermissions(path.join(axmDir, "settings.json"));
+        }),
+      ),
+    ),
+  );
+
+  it.effect("emits settings-read-failure for non-permission filesystem read errors", () =>
+    Effect.gen(function* () {
+      fs.mkdirSync(axmDir, { recursive: true });
+      fs.mkdirSync(path.join(axmDir, "settings.json"));
+
+      const report = yield* runCheck();
+      const check = findCheck(report.checks, "workspace-ready");
+      expect(check.status).toBe("fail");
+      expect(check.findings).toHaveLength(1);
+      const finding = check.findings[0];
+      expect(finding?.id).toBe("workspace-ready.settings-read-failure");
+      expect(finding?.severity).toBe("error");
+      expect(finding?.message).toContain("could not be read");
+      expect(finding?.details).toBeDefined();
+      expect(finding?.action?.label).toBe("Check filesystem access");
+      expect(finding?.action?.command).toBeUndefined();
     }),
   );
 });

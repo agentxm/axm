@@ -27,6 +27,11 @@ const SYNC_ACTION: Action = {
   command: "axm sync",
 };
 
+const EDIT_SETTINGS_ACTION: Action = {
+  label: "Edit settings.json",
+  description: "Fix settings.json and rerun doctor",
+};
+
 const makeFinding = (overrides?: Partial<Finding>): Finding => ({
   id: "workspace-ready.directory-missing",
   severity: "error",
@@ -125,6 +130,14 @@ describe("computeCheckHeaderAction", () => {
         makeFinding({ id: "workspace-ready.a", action: INIT_ACTION }),
         makeFinding({ id: "workspace-ready.b", message: "no action" }),
       ],
+    });
+    expect(computeCheckHeaderAction(check)).toBeUndefined();
+  });
+
+  it("returns undefined when the action has no command", () => {
+    const check = makeCheck({
+      status: "fail",
+      findings: [makeFinding({ action: EDIT_SETTINGS_ACTION })],
     });
     expect(computeCheckHeaderAction(check)).toBeUndefined();
   });
@@ -328,6 +341,34 @@ describe("renderHumanReport", () => {
     const lines = renderHumanReport(report, "normal");
     const initOccurrences = lines.filter((line) => line.includes("→ axm init"));
     expect(initOccurrences).toHaveLength(1);
+  });
+
+  it("renders commandless finding actions with their label", () => {
+    const report = makeReport({
+      healthy: false,
+      summary: makeSummary({
+        checks: { passed: 0, warned: 0, failed: 1, skipped: 0, info: 0 },
+        findings: { errors: 1, warnings: 0, info: 0 },
+      }),
+      checks: [
+        makeCheck({
+          status: "fail",
+          findings: [
+            makeFinding({
+              id: "workspace-ready.settings-unparseable",
+              message: "settings.json is not valid JSON",
+              action: EDIT_SETTINGS_ACTION,
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const text = renderHumanReport(report, "normal").join("\n");
+
+    expect(text).toContain("✗ settings.json is not valid JSON");
+    expect(text).toContain("→ Edit settings.json");
+    expect(text).toContain("Fix settings.json and rerun doctor");
   });
 
   it("renders skipped checks with their skip reason", () => {

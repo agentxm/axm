@@ -19,10 +19,8 @@ import {
   type SourceHostProvidersService,
   SourceHostProviders,
 } from "@axm.sh/core/unstable/source-resolution";
-import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
-import { layer as coreWorkspaceLayer, Workspace } from "@axm.sh/core/unstable/workspace";
 
-import { makeBaseWorkspaceMock, writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleDoctor } from "./handler.js";
 
 interface DoctorTestContextOptions {
@@ -34,12 +32,6 @@ interface DoctorTestContextOptions {
     nonInteractive?: boolean;
     json?: boolean;
   };
-  /**
-   * When provided, uses a mocked workspace pointing at this `.axm` directory
-   * instead of the real workspace layer. Needed to exercise unhealthy paths
-   * where the real layer would auto-initialize `.axm`.
-   */
-  readonly mockWorkspacePath?: string;
 }
 
 const makeDoctorTestContext = (opts?: DoctorTestContextOptions) => {
@@ -52,14 +44,6 @@ const makeDoctorTestContext = (opts?: DoctorTestContextOptions) => {
     TestFlagsLayer({ nonInteractive: true, ...opts?.flags }),
   );
 
-  const wsLayer =
-    opts?.mockWorkspacePath !== undefined
-      ? Workspace.layer(makeBaseWorkspaceMock(opts.mockWorkspacePath))
-      : Layer.provide(
-          coreWorkspaceLayer({ scope: "project" } satisfies WorkspaceContextOptions),
-          baseLayer,
-        );
-
   const sourceProviders: SourceHostProvidersService = {
     find: () => Effect.succeed([]),
     fetch: () => Effect.die("unused in doctor handler tests"),
@@ -69,7 +53,6 @@ const makeDoctorTestContext = (opts?: DoctorTestContextOptions) => {
 
   const fullLayer = Layer.mergeAll(
     baseLayer,
-    wsLayer,
     CodingAgentRepositoryLive,
     Layer.succeed(SourceHostProviders, sourceProviders),
   );
@@ -99,6 +82,14 @@ const extractCliExitCode = (exit: Exit.Exit<unknown, unknown>): number => {
 };
 
 describe("doctor handler", () => {
+  const builtInSources = [
+    {
+      name: "default",
+      type: "registry" as const,
+      location: new URL("https://registry.agentxm.ai"),
+    },
+  ];
+
   let tempDir: string;
   let originalCwd: string;
 
@@ -128,7 +119,7 @@ describe("doctor handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleDoctor();
+          yield* handleDoctor({ scope: "project", builtInSources });
 
           expect(rendererState.results).toHaveLength(1);
           const entry = rendererState.results[0];
@@ -148,15 +139,13 @@ describe("doctor handler", () => {
     });
 
     it.effect("reports unhealthy workspace and exits 1 when .axm is missing", () => {
-      const axmDir = path.join(tempDir, "nonexistent", ".axm");
       const { provide, rendererState } = makeDoctorTestContext({
         machine: true,
-        mockWorkspacePath: axmDir,
       });
 
       return provide(
         Effect.gen(function* () {
-          const exit = yield* Effect.exit(handleDoctor());
+          const exit = yield* Effect.exit(handleDoctor({ scope: "project", builtInSources }));
           expect(extractCliExitCode(exit)).toBe(1);
 
           expect(rendererState.results).toHaveLength(1);
@@ -194,7 +183,7 @@ describe("doctor handler", () => {
 
         return provide(
           Effect.gen(function* () {
-            yield* handleDoctor();
+            yield* handleDoctor({ scope: "project", builtInSources });
 
             const text = logs.info.join("\n");
             expect(text).toContain("Workspace Health");
@@ -210,12 +199,11 @@ describe("doctor handler", () => {
     it.effect(
       "default verbosity on an unhealthy workspace renders findings and lifted action",
       () => {
-        const axmDir = path.join(tempDir, "nonexistent", ".axm");
-        const { provide, logs } = makeDoctorTestContext({ mockWorkspacePath: axmDir });
+        const { provide, logs } = makeDoctorTestContext();
 
         return provide(
           Effect.gen(function* () {
-            const exit = yield* Effect.exit(handleDoctor());
+            const exit = yield* Effect.exit(handleDoctor({ scope: "project", builtInSources }));
             expect(extractCliExitCode(exit)).toBe(1);
 
             const text = logs.info.join("\n");
@@ -236,22 +224,20 @@ describe("doctor handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleDoctor();
+          yield* handleDoctor({ scope: "project", builtInSources });
           expect(logs.info).toEqual([]);
         }),
       );
     });
 
     it.effect("quiet mode on an unhealthy workspace omits healthy check output", () => {
-      const axmDir = path.join(tempDir, "nonexistent", ".axm");
       const { provide, logs } = makeDoctorTestContext({
         flags: { quiet: true },
-        mockWorkspacePath: axmDir,
       });
 
       return provide(
         Effect.gen(function* () {
-          const exit = yield* Effect.exit(handleDoctor());
+          const exit = yield* Effect.exit(handleDoctor({ scope: "project", builtInSources }));
           expect(extractCliExitCode(exit)).toBe(1);
 
           const text = logs.info.join("\n");
@@ -267,7 +253,7 @@ describe("doctor handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleDoctor();
+          yield* handleDoctor({ scope: "project", builtInSources });
 
           const text = logs.info.join("\n");
           expect(text).toContain("✓ Workspace is ready");
@@ -278,12 +264,11 @@ describe("doctor handler", () => {
     });
 
     it.effect("action dedup: workspace-ready errors lift a single header action", () => {
-      const axmDir = path.join(tempDir, "nonexistent", ".axm");
-      const { provide, logs } = makeDoctorTestContext({ mockWorkspacePath: axmDir });
+      const { provide, logs } = makeDoctorTestContext();
 
       return provide(
         Effect.gen(function* () {
-          const exit = yield* Effect.exit(handleDoctor());
+          const exit = yield* Effect.exit(handleDoctor({ scope: "project", builtInSources }));
           expect(extractCliExitCode(exit)).toBe(1);
 
           const initOccurrences = logs.info.filter((line) => line.includes("→ axm init"));

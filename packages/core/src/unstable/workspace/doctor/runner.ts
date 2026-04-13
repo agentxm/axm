@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { Workspace } from "../service-interface.js";
+import type { WorkspaceLocation } from "../paths.js";
 import { FINDING_ID_PATTERN, matchesCheckIdPrefix, type CheckDef } from "./check-def.js";
 import { rollupFindings, summarize } from "./rollup.js";
 import type { Check, Finding, WorkspaceDoctorReport } from "./types.js";
@@ -219,7 +219,8 @@ const processLevel = <Deps>(
 
 export const runCheckGraph = <Deps>(
   checks: ReadonlyArray<CheckDef<Deps>>,
-): Effect.Effect<WorkspaceDoctorReport, never, Deps | Workspace> =>
+  workspace: WorkspaceLocation,
+): Effect.Effect<WorkspaceDoctorReport, never, Deps> =>
   Effect.gen(function* () {
     const error = validateGraph(checks);
     if (error?.kind === "missing") {
@@ -252,7 +253,6 @@ export const runCheckGraph = <Deps>(
       .filter((result): result is Check => result !== undefined);
 
     const summary = summarize(orderedChecks);
-    const workspace = yield* Workspace;
 
     return {
       scope: workspace.scope,

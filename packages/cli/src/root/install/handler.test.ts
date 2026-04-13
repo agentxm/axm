@@ -221,6 +221,10 @@ describe("root install handler", () => {
         preview: true,
       } satisfies RootInstallFlags;
       const { provide } = makeLayers(calls);
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        profile: "@axm",
+      });
 
       const sources = [
         "@acme/skills/code-review",

@@ -5,7 +5,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import { CodingAgentRepositoryLive } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -13,37 +12,35 @@ import {
   type SourceHostProvidersService,
   SourceHostProviders,
 } from "../../source-resolution/index.js";
-import { Workspace } from "../service-interface.js";
-import { makeBaseWorkspaceMock } from "../test-stubs.js";
+import { CodingAgentRepositoryLive } from "../../agents/index.js";
 import { diagnoseWorkspaceDoctor } from "./diagnose.js";
 
 describe("diagnoseWorkspaceDoctor", () => {
   let tempDir: string;
   let axmDir: string;
+  let originalCwd: string;
 
   beforeEach(() => {
+    originalCwd = process.cwd();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-doctor-diagnose-"));
     axmDir = path.join(tempDir, ".axm");
+    process.chdir(tempDir);
   });
 
   afterEach(() => {
+    process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
+  const registrySources = [
+    {
+      name: "default",
+      type: "registry" as const,
+      location: new URL("https://registry.agentxm.ai"),
+    },
+  ];
+
   const makeLayers = () => {
-    const registrySources = [
-      {
-        name: "default",
-        type: "registry" as const,
-        location: new URL("https://registry.agentxm.ai"),
-      },
-    ];
-    const workspaceLayer = Workspace.layer(
-      makeBaseWorkspaceMock(axmDir, {
-        getConfiguredSources: () => Effect.succeed(registrySources),
-        getRegistrySourceHosts: () => Effect.succeed(registrySources),
-      }),
-    );
     const providers: SourceHostProvidersService = {
       find: () => Effect.succeed([]),
       fetch: () => Effect.die("unused in diagnoseWorkspaceDoctor tests"),
@@ -52,7 +49,6 @@ describe("diagnoseWorkspaceDoctor", () => {
     };
     return Layer.mergeAll(
       NodeServices.layer,
-      workspaceLayer,
       CodingAgentRepositoryLive,
       Layer.succeed(SourceHostProviders, providers),
     );
@@ -66,7 +62,10 @@ describe("diagnoseWorkspaceDoctor", () => {
         JSON.stringify({ agents: ["claude-code"] }),
       );
 
-      const report = yield* diagnoseWorkspaceDoctor();
+      const report = yield* diagnoseWorkspaceDoctor({
+        scope: "project",
+        builtInSources: registrySources,
+      });
 
       expect(report.healthy).toBe(true);
       expect(report.summary.findings.errors).toBe(0);
@@ -79,13 +78,16 @@ describe("diagnoseWorkspaceDoctor", () => {
       expect(report.checks[1]?.status).toBe("pass");
       expect(report.checks[2]?.status).toBe("pass");
       expect(report.checks[3]?.status).toBe("pass");
-      expect(report.workspacePath).toBe(axmDir);
+      expect(report.workspacePath).toBe(fs.realpathSync(axmDir));
     }).pipe(Effect.provide(makeLayers())),
   );
 
   it.effect("returns an unhealthy report when .axm is missing", () =>
     Effect.gen(function* () {
-      const report = yield* diagnoseWorkspaceDoctor();
+      const report = yield* diagnoseWorkspaceDoctor({
+        scope: "project",
+        builtInSources: registrySources,
+      });
 
       expect(report.healthy).toBe(false);
       expect(report.summary.findings.errors).toBeGreaterThanOrEqual(1);
@@ -102,7 +104,10 @@ describe("diagnoseWorkspaceDoctor", () => {
       fs.mkdirSync(axmDir, { recursive: true });
       fs.writeFileSync(path.join(axmDir, "settings.json"), "{oops");
 
-      const report = yield* diagnoseWorkspaceDoctor();
+      const report = yield* diagnoseWorkspaceDoctor({
+        scope: "project",
+        builtInSources: registrySources,
+      });
 
       expect(report.healthy).toBe(false);
       expect(report.checks[1]?.status).toBe("skip");
@@ -128,7 +133,10 @@ describe("diagnoseWorkspaceDoctor", () => {
         }),
       );
 
-      const report = yield* diagnoseWorkspaceDoctor();
+      const report = yield* diagnoseWorkspaceDoctor({
+        scope: "project",
+        builtInSources: registrySources,
+      });
       const check = report.checks[1];
 
       expect(report.healthy).toBe(false);

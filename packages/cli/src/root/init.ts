@@ -5,7 +5,11 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import { envOption } from "@axm.sh/core/unstable/utils";
-import { Workspace } from "@axm.sh/core/unstable/workspace";
+import {
+  bootstrapWorkspace,
+  type WorkspaceContextOptions,
+  type WorkspaceScope,
+} from "@axm.sh/core/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -13,7 +17,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { scopeFlag } from "../cli-flags.js";
-import { withRuntime, withWorkspace } from "../runtime.js";
+import { withRuntime } from "../runtime.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,
@@ -73,10 +77,17 @@ const renderSubagentSummary = (
       }
     }
   });
-export const handleInit = Effect.fn("Init.handle")(function* () {
+export const handleInit = Effect.fn("Init.handle")(function* (args: {
+  readonly scope: WorkspaceScope;
+  readonly agents?: ReadonlyArray<string>;
+}) {
   const renderer = yield* CliRenderer;
-  const context = yield* Workspace;
-  const agentIds = yield* context.getConfiguredAgents();
+  const { settings, location } = yield* bootstrapWorkspace(
+    args.agents !== undefined && args.agents.length > 0
+      ? ({ scope: args.scope, agents: args.agents } satisfies WorkspaceContextOptions)
+      : ({ scope: args.scope } satisfies WorkspaceContextOptions),
+  );
+  const agentIds = settings.agents ?? [];
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
   const telemetryMode = resolveTelemetryMode(
@@ -98,12 +109,12 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
   const allAgents = [...agents, ...unknownAgents];
   const agentNames = allAgents.map((agent) => agent.name).join(", ");
   const telemetryEnabled = telemetryMode !== "off";
-  const settingsPath = `${context.path}/settings.json`;
+  const settingsPath = `${location.path}/settings.json`;
 
   // Scan subagent directories for existing files
   const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
     agentDescriptors.length > 0
-      ? yield* scanAllSubagentFiles(agentDescriptors, context.baseDir)
+      ? yield* scanAllSubagentFiles(agentDescriptors, location.baseDir)
       : [];
 
   if (
@@ -111,7 +122,7 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
       "init",
       {
         result: {
-          scope: context.scope,
+          scope: location.scope,
           agents: allAgents,
           settingsPath,
           telemetryEnabled,
@@ -125,7 +136,7 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
   }
 
   // Show intro
-  yield* renderer.info(`axm init (${context.scope})`);
+  yield* renderer.info(`axm init (${location.scope})`);
   if (allAgents.length > 0) {
     yield* renderer.info(`Agents: ${agentNames}`);
   }
@@ -158,10 +169,7 @@ const initConfig = {
 } as const;
 
 export const initCommand = Command.make("init", initConfig, ({ scope, agent }) =>
-  handleInit().pipe(
-    withWorkspace(agent.length > 0 ? { scope, agents: agent } : scope),
-    withRuntime("init"),
-  ),
+  handleInit({ scope, ...(agent.length > 0 ? { agents: agent } : {}) }).pipe(withRuntime("init")),
 ).pipe(
   withArgvTracking(initConfig),
   Command.withDescription("Set up axm in the current project"),

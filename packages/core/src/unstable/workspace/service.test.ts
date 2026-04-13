@@ -39,7 +39,7 @@ import {
   type SetExtensionPackArgs,
   type WorkspaceContextOptions,
 } from "./service-interface.js";
-import { WorkspaceInitializationInteractionTest } from "./index.js";
+import { bootstrapWorkspace, WorkspaceInitializationInteractionTest } from "./index.js";
 
 describe("WorkspaceContextService", () => {
   let tempDir: string;
@@ -99,6 +99,18 @@ describe("WorkspaceContextService", () => {
         });
 
         expect(ws.baseDir).toBe(path.dirname(ws.path));
+      }),
+    );
+  });
+
+  describe("workspace readiness", () => {
+    it.effect("fails fast when settings.json is missing", () =>
+      Effect.gen(function* () {
+        fs.rmSync(path.join(projectDir, ".axm"), { recursive: true, force: true });
+
+        const error = yield* getService({ scope: "project" }).pipe(Effect.flip);
+        const appError = getAppError(error);
+        expect(appError.code).toBe("WORKSPACE_NOT_INITIALIZED");
       }),
     );
   });
@@ -1053,10 +1065,10 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Initialization flow (initializeProjectWorkspace)
+  // Initialization flow (bootstrapWorkspace)
   // ---------------------------------------------------------------------------
 
-  describe("initializeProjectWorkspace", () => {
+  describe("bootstrapWorkspace", () => {
     /**
      * Helper to remove the pre-created settings so init triggers.
      */
@@ -1086,9 +1098,12 @@ describe("WorkspaceContextService", () => {
         flagsLayer,
       );
       const wsOptions: WorkspaceContextOptions = { scope: "project" };
-      const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
-        run: Workspace.asEffect().pipe(Effect.provide(wsLayer)),
+        run: bootstrapWorkspace(wsOptions).pipe(
+          Effect.map((r) => r.settings),
+          Effect.provide(base),
+          Effect.scoped,
+        ),
         promptState: workspaceInitInteraction.state,
       };
     };
@@ -1122,13 +1137,12 @@ describe("WorkspaceContextService", () => {
           nonInteractive: true,
         });
 
-        const ws = yield* run;
-        const agents = yield* ws.getConfiguredAgents();
+        const settings = yield* run;
 
         // --non-interactive skips prompting entirely
         expect(promptState.selectAgentsCalls).toHaveLength(0);
         // claude-code should be auto-selected via project-level detection
-        expect(agents).toContain("claude-code");
+        expect(settings.agents).toContain("claude-code");
       }),
     );
 

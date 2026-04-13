@@ -1,9 +1,10 @@
+import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { scopeFlag } from "../../cli-flags.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { resolveBuiltInSources, withRuntime } from "../../runtime.js";
 import { handleDoctor } from "./handler.js";
 
 const doctorConfig = {
@@ -11,7 +12,10 @@ const doctorConfig = {
 } as const;
 
 export const doctorCommand = Command.make("doctor", doctorConfig, ({ scope }) =>
-  handleDoctor().pipe(withWorkspace(scope), withRuntime("doctor")),
+  Effect.gen(function* () {
+    const builtInSources = yield* resolveBuiltInSources;
+    yield* handleDoctor({ scope, builtInSources });
+  }).pipe(withRuntime("doctor")),
 ).pipe(
   withArgvTracking(doctorConfig),
   Command.withDescription("Run workspace diagnostics"),

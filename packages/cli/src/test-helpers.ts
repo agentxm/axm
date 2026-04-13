@@ -8,6 +8,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+
+import { writeWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@axm.sh/core/unstable/app-error";
 import { AuthGuardInteractionTest } from "@axm.sh/core/unstable/auth";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
@@ -239,6 +241,12 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     scope: "project",
     ...opts?.wsOptions,
   } satisfies WorkspaceContextOptions;
+
+  // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
+  if (wsOptions.scope === "project") {
+    writeWorkspaceFiles(`${process.cwd()}/.axm`);
+  }
+
   const wsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);
   const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer);
 

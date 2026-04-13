@@ -13,6 +13,12 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { WorkspaceScope } from "./scope.js";
 
+export interface WorkspaceLocation {
+  readonly scope: WorkspaceScope;
+  readonly path: string;
+  readonly baseDir: string;
+}
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -92,3 +98,17 @@ export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
  */
 export const getAxmDir = (scope: WorkspaceScope): Effect.Effect<string, never, Path.Path> =>
   scope === "user" ? getUserScopeDir() : getProjectDir();
+
+export const locateWorkspace = (
+  scope: WorkspaceScope,
+): Effect.Effect<WorkspaceLocation, never, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const workspacePath = yield* getAxmDir(scope);
+
+    return {
+      scope,
+      path: workspacePath,
+      baseDir: path.dirname(workspacePath),
+    } satisfies WorkspaceLocation;
+  });

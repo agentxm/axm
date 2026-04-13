@@ -3,7 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { readAndValidateJsonFile, type JsonFileReadResult } from "../../../schema/index.js";
 import { SETTINGS_FILENAME, SettingsSchema } from "../../../settings/index.js";
-import { Workspace } from "../../service-interface.js";
+import type { WorkspaceLocation } from "../../paths.js";
 import { defineCheck, type DiagnosticDef } from "../check-def.js";
 import { CHECK_IDS, type Action, type Finding } from "../types.js";
 
@@ -22,45 +22,41 @@ const INIT_WORKSPACE_ACTION: Action = {
   command: "axm init",
 };
 
-const prepareContext: Effect.Effect<
-  WorkspaceReadyContext,
-  never,
-  Workspace | FileSystem.FileSystem | Path.Path
-> = Effect.gen(function* () {
-  const workspace = yield* Workspace;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
+const prepareContext = (workspace: WorkspaceLocation) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
 
-  const axmDirExists = yield* Effect.match(fs.exists(workspace.path), {
-    onFailure: () => false,
-    onSuccess: (value) => value,
-  });
+    const axmDirExists = yield* Effect.match(fs.exists(workspace.path), {
+      onFailure: () => false,
+      onSuccess: (value) => value,
+    });
 
-  const settingsPath = path.join(workspace.path, SETTINGS_FILENAME);
+    const settingsPath = path.join(workspace.path, SETTINGS_FILENAME);
 
-  if (!axmDirExists) {
+    if (!axmDirExists) {
+      return {
+        axmDir: workspace.path,
+        axmDirExists,
+        settingsPath,
+        settingsReadResult: { _tag: "missing" } as const,
+      } satisfies WorkspaceReadyContext;
+    }
+
+    const settingsReadResult = yield* readAndValidateJsonFile(settingsPath, SettingsSchema, {
+      maxSchemaIssues: MAX_SCHEMA_ISSUES,
+    });
     return {
       axmDir: workspace.path,
       axmDirExists,
       settingsPath,
-      settingsReadResult: { _tag: "missing" } as const,
+      settingsReadResult,
     } satisfies WorkspaceReadyContext;
-  }
-
-  const settingsReadResult = yield* readAndValidateJsonFile(settingsPath, SettingsSchema, {
-    maxSchemaIssues: MAX_SCHEMA_ISSUES,
   });
-  return {
-    axmDir: workspace.path,
-    axmDirExists,
-    settingsPath,
-    settingsReadResult,
-  } satisfies WorkspaceReadyContext;
-});
 
 type WorkspaceReadyDiagnostic = DiagnosticDef<
   WorkspaceReadyContext,
-  Workspace | FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path
 >;
 
 const directoryMissingDiagnostic: WorkspaceReadyDiagnostic = {
@@ -158,18 +154,19 @@ const settingsReadFailureDiagnostic: WorkspaceReadyDiagnostic = {
   },
 };
 
-export const workspaceReadyCheck = defineCheck({
-  id: CHECK_IDS.workspaceReady,
-  title: "Workspace is ready",
-  description:
-    "Verifies .axm exists and settings.json is readable, parseable JSON, and matches the schema.",
-  dependsOn: [],
-  prepareContext,
-  diagnostics: [
-    directoryMissingDiagnostic,
-    settingsMissingDiagnostic,
-    settingsReadFailureDiagnostic,
-    settingsUnparseableDiagnostic,
-    settingsSchemaInvalidDiagnostic,
-  ],
-});
+export const makeWorkspaceReadyCheck = (workspace: WorkspaceLocation) =>
+  defineCheck({
+    id: CHECK_IDS.workspaceReady,
+    title: "Workspace is ready",
+    description:
+      "Verifies .axm exists and settings.json is readable, parseable JSON, and matches the schema.",
+    dependsOn: [],
+    prepareContext: prepareContext(workspace),
+    diagnostics: [
+      directoryMissingDiagnostic,
+      settingsMissingDiagnostic,
+      settingsReadFailureDiagnostic,
+      settingsUnparseableDiagnostic,
+      settingsSchemaInvalidDiagnostic,
+    ],
+  });

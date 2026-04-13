@@ -2,13 +2,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import { Workspace } from "../service-interface.js";
-import { makeBaseWorkspaceMock } from "../test-stubs.js";
+import type { WorkspaceLocation } from "../paths.js";
 import { defineCheck, type CheckDefInput, type DiagnosticDef } from "./check-def.js";
 import { runCheckGraph } from "./runner.js";
 import type { Check, Finding } from "./types.js";
 
-const workspaceLayer = Workspace.layer(makeBaseWorkspaceMock("/tmp/axm"));
+const workspace: WorkspaceLocation = {
+  scope: "project",
+  path: "/tmp/axm",
+  baseDir: "/tmp",
+};
 
 type Ctx = { readonly name: string };
 
@@ -64,7 +67,10 @@ describe("runCheckGraph", () => {
         diagnostics: [diag("c.info", [finding("c.info", "info")])],
       });
 
-      const report = yield* runCheckGraph([defineCheck(a), defineCheck(b), defineCheck(c)]);
+      const report = yield* runCheckGraph(
+        [defineCheck(a), defineCheck(b), defineCheck(c)],
+        workspace,
+      );
 
       expect(report.checks.map((check) => check.id)).toEqual(["a", "b", "c"]);
       expect(report.checks.every((check) => check.status === "pass")).toBe(true);
@@ -72,7 +78,7 @@ describe("runCheckGraph", () => {
       expect(report.summary.checks.passed).toBe(3);
       expect(report.summary.checks.info).toBe(3);
       expect(report.summary.findings.info).toBe(3);
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 
   it.effect("skips dependents when a dependency fails", () =>
@@ -93,7 +99,10 @@ describe("runCheckGraph", () => {
         diagnostics: [diag("c.info", [finding("c.info", "info")])],
       });
 
-      const report = yield* runCheckGraph([defineCheck(a), defineCheck(b), defineCheck(c)]);
+      const report = yield* runCheckGraph(
+        [defineCheck(a), defineCheck(b), defineCheck(c)],
+        workspace,
+      );
 
       expect(findCheck(report.checks, "a").status).toBe("fail");
       const bResult = findCheck(report.checks, "b");
@@ -106,7 +115,7 @@ describe("runCheckGraph", () => {
       expect(report.healthy).toBe(false);
       expect(report.summary.checks.failed).toBe(1);
       expect(report.summary.checks.skipped).toBe(2);
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 
   it.effect("still runs dependents when a dependency only warns", () =>
@@ -121,14 +130,14 @@ describe("runCheckGraph", () => {
         diagnostics: [diag("b.info", [finding("b.info", "info")])],
       });
 
-      const report = yield* runCheckGraph([defineCheck(a), defineCheck(b)]);
+      const report = yield* runCheckGraph([defineCheck(a), defineCheck(b)], workspace);
 
       expect(findCheck(report.checks, "a").status).toBe("warn");
       expect(findCheck(report.checks, "b").status).toBe("pass");
       expect(report.healthy).toBe(true);
       expect(report.summary.checks.warned).toBe(1);
       expect(report.summary.checks.passed).toBe(1);
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 
   it.effect("handles a diamond dependency graph where all checks pass", () =>
@@ -153,17 +162,15 @@ describe("runCheckGraph", () => {
         diagnostics: [diag("d.info", [finding("d.info", "info")])],
       });
 
-      const report = yield* runCheckGraph([
-        defineCheck(a),
-        defineCheck(b),
-        defineCheck(c),
-        defineCheck(d),
-      ]);
+      const report = yield* runCheckGraph(
+        [defineCheck(a), defineCheck(b), defineCheck(c), defineCheck(d)],
+        workspace,
+      );
 
       expect(report.checks.map((check) => check.id)).toEqual(["a", "b", "c", "d"]);
       expect(report.checks.every((check) => check.status === "pass")).toBe(true);
       expect(report.healthy).toBe(true);
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 
   it.effect("rolls up mixed severities into per-check statuses", () =>
@@ -184,7 +191,10 @@ describe("runCheckGraph", () => {
         diagnostics: [diag("c.info", [finding("c.info", "info")])],
       });
 
-      const report = yield* runCheckGraph([defineCheck(a), defineCheck(b), defineCheck(c)]);
+      const report = yield* runCheckGraph(
+        [defineCheck(a), defineCheck(b), defineCheck(c)],
+        workspace,
+      );
 
       expect(findCheck(report.checks, "a").status).toBe("warn");
       expect(findCheck(report.checks, "b").status).toBe("fail");
@@ -196,7 +206,7 @@ describe("runCheckGraph", () => {
       expect(report.summary.findings.warnings).toBe(2);
       expect(report.summary.findings.info).toBe(2);
       expect(report.healthy).toBe(false);
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 
   it.effect("replaces findings with invalid ids with a synthetic fail finding", () =>
@@ -210,7 +220,7 @@ describe("runCheckGraph", () => {
         ],
       });
 
-      const report = yield* runCheckGraph([defineCheck(a)]);
+      const report = yield* runCheckGraph([defineCheck(a)], workspace);
 
       const aResult = findCheck(report.checks, "a");
       expect(aResult.status).toBe("fail");
@@ -225,7 +235,7 @@ describe("runCheckGraph", () => {
         expect(f.id).toMatch(/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/);
         expect(f.id.startsWith("a.")).toBe(true);
       }
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 
   it.effect("dies when the check graph contains a cycle", () =>
@@ -241,13 +251,13 @@ describe("runCheckGraph", () => {
         diagnostics: [],
       });
 
-      const exit = yield* Effect.exit(runCheckGraph([defineCheck(a), defineCheck(b)]));
+      const exit = yield* Effect.exit(runCheckGraph([defineCheck(a), defineCheck(b)], workspace));
 
       expect(Exit.isFailure(exit)).toBe(true);
       if (Exit.isFailure(exit)) {
         expect(Cause.hasDies(exit.cause)).toBe(true);
       }
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 
   it.effect("dies when a check declares a dependency on an unknown check id", () =>
@@ -258,12 +268,12 @@ describe("runCheckGraph", () => {
         diagnostics: [],
       });
 
-      const exit = yield* Effect.exit(runCheckGraph([defineCheck(a)]));
+      const exit = yield* Effect.exit(runCheckGraph([defineCheck(a)], workspace));
 
       expect(Exit.isFailure(exit)).toBe(true);
       if (Exit.isFailure(exit)) {
         expect(Cause.hasDies(exit.cause)).toBe(true);
       }
-    }).pipe(Effect.provide(workspaceLayer)),
+    }),
   );
 });

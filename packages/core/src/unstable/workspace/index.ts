@@ -28,7 +28,13 @@ export type {
 export { applyPlan, type OperationHandler } from "./apply-plan.js";
 
 // Path utilities
-export { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
+export {
+  getAxmDir,
+  getProjectDir,
+  getUserScopeDir,
+  locateWorkspace,
+  type WorkspaceLocation,
+} from "./paths.js";
 
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
@@ -216,10 +222,11 @@ export {
 } from "./service-interface.js";
 
 // Workspace service implementation (layer)
-export { layer, type WorkspaceLayerOptions } from "./service.js";
+export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
 
 // Initialization
 export {
+  bootstrapWorkspace,
   initializeProjectWorkspace,
   ensureGlobalWorkspaceInitialized,
   ensureProjectWorkspaceInitialized,

@@ -27,6 +27,7 @@ import {
 } from "../settings/index.js";
 import type { WorkspaceContextOptions } from "./service-interface.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
+import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "PROMPT_REQUIRED",
@@ -184,4 +185,26 @@ export const ensureProjectWorkspaceInitialized = (
     }
 
     return localSettingsResult.settings;
+  });
+
+export const bootstrapWorkspace = (options: WorkspaceContextOptions) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const workspaceDir = yield* getAxmDir(options.scope);
+    const location: WorkspaceLocation = {
+      scope: options.scope,
+      path: workspaceDir,
+      baseDir: path.dirname(workspaceDir),
+    };
+
+    if (options.scope === "user") {
+      yield* ensureGlobalWorkspaceInitialized(workspaceDir);
+      const settings = yield* readSettings(workspaceDir).pipe(
+        Effect.map(Option.getOrElse(() => createDefaultSettings())),
+      );
+      return { settings, location };
+    }
+
+    const settings = yield* ensureProjectWorkspaceInitialized(workspaceDir, options);
+    return { settings, location };
   });

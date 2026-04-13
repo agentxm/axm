@@ -142,6 +142,11 @@ export const resolveBuiltInRegistryLocation = (
     onSome: normalizeRegistryLocation,
   });
 
+export const resolveBuiltInSources = Effect.gen(function* () {
+  const registryUrl = yield* RegistryUrl;
+  return getBuiltInSources(resolveBuiltInRegistryLocation(process.env, registryUrl));
+});
+
 const readRuntimeEnvConfig = Effect.gen(function* () {
   const registryUrl = yield* RegistryUrl;
   return {

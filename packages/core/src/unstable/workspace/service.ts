@@ -60,6 +60,7 @@ import {
   type ExtensionPacksMap,
   readSettings,
   type Settings,
+  SETTINGS_FILENAME,
   type SkillsMap,
   type SubagentsMap,
   type SourceHostConfig,
@@ -90,10 +91,6 @@ import {
   deriveSourceMetaForPacks,
   deriveSourceMetaForSkills,
 } from "./source-metadata.js";
-import {
-  ensureGlobalWorkspaceInitialized,
-  ensureProjectWorkspaceInitialized,
-} from "./initialization.js";
 import {
   toClassifiedCommandRecord,
   toClassifiedExtensionRefRecord,
@@ -152,35 +149,50 @@ export type WorkspaceLayerOptions = WorkspaceContextOptions;
 /**
  * Create workspace context effect.
  *
- * Loads settings and lockfile based on workspace profile:
- * - User-scope mode: reads only user-scope settings (auto-creates with {} if not found)
- * - Project mode: merges user-scope and project settings (project overrides user),
- *   runs initialization flow if local settings don't exist
+ * Loads an existing workspace context from disk.
  *
- * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * provide `WorkspaceInitializationInteraction` for agent selection.
+ * The workspace must already be initialized. Missing or invalid settings fail
+ * fast with an `AppError`.
  *
  * @param options - Workspace layer options
  * @returns Effect yielding WorkspaceContextService
  *
  * @internal Not exported from barrel - use layer() for external access
  */
-const make = (options: WorkspaceLayerOptions) =>
+const requireInitializedWorkspace = (settingsPath: string, workspaceDir: string) =>
+  readSettings(workspaceDir).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () =>
+          Effect.fail(
+            makeAppError({
+              code: "WORKSPACE_NOT_INITIALIZED",
+              what: `Workspace settings not found: ${settingsPath}`,
+              howToFix: "Run `axm init` to create the workspace.",
+            }),
+          ),
+        onSome: () => Effect.void,
+      }),
+    ),
+  );
+
+export const loadWorkspace = (options: WorkspaceLayerOptions) =>
   Effect.gen(function* () {
     const globalDir = yield* getAxmDir("user");
     const localDir = yield* getAxmDir("project");
     const workspaceDir = options.scope === "user" ? globalDir : localDir;
 
-    if (options.scope === "user") {
-      yield* ensureGlobalWorkspaceInitialized(globalDir);
-    } else {
-      yield* ensureProjectWorkspaceInitialized(localDir, options);
-    }
-
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const semaphore = yield* Semaphore.make(1);
+    const settingsPath = path.join(workspaceDir, SETTINGS_FILENAME);
+
+    yield* requireInitializedWorkspace(settingsPath, workspaceDir).pipe(
+      Effect.provide(
+        Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fs), Layer.succeed(Path.Path, path)),
+      ),
+    );
 
     const baseDir = path.dirname(workspaceDir);
 
@@ -1552,12 +1564,12 @@ const make = (options: WorkspaceLayerOptions) =>
 /**
  * Create a layer that loads workspace context from disk.
  *
- * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * provide `WorkspaceInitializationInteraction` for agent selection.
+ * The workspace must already be initialized.
  *
  * @param options - Workspace layer options
  * @returns Layer providing WorkspaceContext
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const layer = (options: WorkspaceLayerOptions) => Layer.effect(Workspace, make(options));
+export const layer = (options: WorkspaceLayerOptions) =>
+  Layer.effect(Workspace, loadWorkspace(options));

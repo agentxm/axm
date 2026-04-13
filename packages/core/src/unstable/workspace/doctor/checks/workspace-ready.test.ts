@@ -6,12 +6,10 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import { Workspace } from "../../service-interface.js";
-import { makeBaseWorkspaceMock } from "../../test-stubs.js";
+import type { WorkspaceLocation } from "../../paths.js";
 import { runCheckGraph } from "../runner.js";
 import type { Check } from "../types.js";
-import { workspaceReadyCheck } from "./workspace-ready.js";
+import { makeWorkspaceReadyCheck } from "./workspace-ready.js";
 
 const findCheck = (checks: ReadonlyArray<Check>, id: string): Check => {
   const match = checks.find((check) => check.id === id);
@@ -60,12 +58,16 @@ describe("workspaceReadyCheck", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
-    const workspaceLayer = Workspace.layer(makeBaseWorkspaceMock(axmDir));
-    return Layer.mergeAll(NodeServices.layer, workspaceLayer);
-  };
+  const workspace = (): WorkspaceLocation => ({
+    scope: "project",
+    path: axmDir,
+    baseDir: tempDir,
+  });
 
-  const runCheck = () => runCheckGraph([workspaceReadyCheck]).pipe(Effect.provide(makeLayers()));
+  const runCheck = () =>
+    runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
+      Effect.provide(NodeServices.layer),
+    );
 
   it.effect("emits directory-missing when .axm is absent", () =>
     Effect.gen(function* () {
@@ -189,7 +191,9 @@ describe("workspaceReadyCheck", () => {
       const actions = new Set<unknown>();
 
       // State 1: .axm missing -> directory-missing
-      let report = yield* runCheckGraph([workspaceReadyCheck]).pipe(Effect.provide(makeLayers()));
+      let report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
+        Effect.provide(NodeServices.layer),
+      );
       for (const finding of findCheck(report.checks, "workspace-ready").findings) {
         expect(finding.action).toBeDefined();
         actions.add(finding.action);
@@ -197,7 +201,9 @@ describe("workspaceReadyCheck", () => {
 
       // State 2: .axm exists, settings missing
       fs.mkdirSync(axmDir, { recursive: true });
-      report = yield* runCheckGraph([workspaceReadyCheck]).pipe(Effect.provide(makeLayers()));
+      report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
+        Effect.provide(NodeServices.layer),
+      );
       for (const finding of findCheck(report.checks, "workspace-ready").findings) {
         expect(finding.action).toBeDefined();
         actions.add(finding.action);
@@ -210,7 +216,9 @@ describe("workspaceReadyCheck", () => {
       const settingsPath = path.join(axmDir, "settings.json");
       fs.writeFileSync(settingsPath, JSON.stringify({ agents: ["claude-code"] }));
       if (tryMakeUnreadable(settingsPath)) {
-        report = yield* runCheckGraph([workspaceReadyCheck]).pipe(Effect.provide(makeLayers()));
+        report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
+          Effect.provide(NodeServices.layer),
+        );
         for (const finding of findCheck(report.checks, "workspace-ready").findings) {
           expect(finding.action).toBeDefined();
           actions.add(finding.action);
@@ -220,7 +228,9 @@ describe("workspaceReadyCheck", () => {
 
       // State 4: settings exists but unparseable
       fs.writeFileSync(settingsPath, "{not json");
-      report = yield* runCheckGraph([workspaceReadyCheck]).pipe(Effect.provide(makeLayers()));
+      report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
+        Effect.provide(NodeServices.layer),
+      );
       for (const finding of findCheck(report.checks, "workspace-ready").findings) {
         expect(finding.action).toBeDefined();
         actions.add(finding.action);
@@ -228,7 +238,9 @@ describe("workspaceReadyCheck", () => {
 
       // State 5: settings parseable but schema-invalid
       fs.writeFileSync(settingsPath, JSON.stringify({ agents: "not-an-array" }));
-      report = yield* runCheckGraph([workspaceReadyCheck]).pipe(Effect.provide(makeLayers()));
+      report = yield* runCheckGraph([makeWorkspaceReadyCheck(workspace())], workspace()).pipe(
+        Effect.provide(NodeServices.layer),
+      );
       for (const finding of findCheck(report.checks, "workspace-ready").findings) {
         expect(finding.action).toBeDefined();
         actions.add(finding.action);

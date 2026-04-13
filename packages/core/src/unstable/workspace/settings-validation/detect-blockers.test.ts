@@ -512,7 +512,7 @@ describe("detectSettingsEntryBlockers", () => {
     })(),
   );
 
-  it.effect(
+  it.live(
     "emits source-timeout when provider find hangs for command",
     () =>
       (() => {
@@ -530,15 +530,7 @@ describe("detectSettingsEntryBlockers", () => {
         };
 
         return Effect.gen(function* () {
-          const fiber = yield* Effect.forkChild(detectSettingsEntryBlockers());
-          // Yield repeatedly so the forked fiber can run through its startup
-          // chain (filesystem reads, service lookups, source resolution) and
-          // register its timeout sleep with the TestClock before we advance.
-          for (let i = 0; i < 20; i++) {
-            yield* Effect.yieldNow;
-          }
-          yield* TestClock.adjust("3 seconds");
-          const blockers = yield* Fiber.join(fiber);
+          const blockers = yield* detectSettingsEntryBlockers();
 
           expect(blockers).toMatchObject([
             {
@@ -550,6 +542,6 @@ describe("detectSettingsEntryBlockers", () => {
           ]);
         }).pipe(Effect.provide(makeLayers(providers)));
       })(),
-    30_000,
+    10_000,
   );
 });

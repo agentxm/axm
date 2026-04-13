@@ -18,6 +18,25 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 import { type Lockfile, LockfileSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
+// Utilities
+// -----------------------------------------------------------------------------
+
+/**
+ * Count all extension entries across every section of a lockfile.
+ *
+ * Optional sections (`commands`, `subagents`, `mcpServers`, `packs`) default
+ * to empty when absent.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const countLockfileEntries = (lockfile: Lockfile): number =>
+  Object.keys(lockfile.skills).length +
+  Object.keys(lockfile.commands ?? {}).length +
+  Object.keys(lockfile.subagents ?? {}).length +
+  Object.keys(lockfile.mcpServers ?? {}).length +
+  Object.keys(lockfile.packs ?? {}).length;
+
+// -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 

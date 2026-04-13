@@ -40,9 +40,6 @@ const parseRegistryMcpSource = (
   });
 };
 
-const getMcpSource = (entry: string | { readonly source: string }): string =>
-  typeof entry === "string" ? entry : entry.source;
-
 export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
   type: "mcp-servers",
   scanDeclarations: (context) => {
@@ -50,7 +47,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
     const servers = context.settings.mcpServers ?? {};
 
     for (const [name, entry] of Object.entries(servers)) {
-      const source = getMcpSource(entry);
+      const source = entry.source;
       const parsed = parseRegistryMcpSource(source);
       declarations.push({
         type: "mcp-servers",

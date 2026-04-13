@@ -317,7 +317,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 Effect.gen(function* () {
                   const findWith = (candidate: RegistrySource) =>
                     sources.find(candidate, {
-                      skillNames: [req.packName],
+                      names: [req.packName],
                       type: "pack",
                       owner: Option.some(req.owner),
                       versionConstraint: req.versionConstraint,

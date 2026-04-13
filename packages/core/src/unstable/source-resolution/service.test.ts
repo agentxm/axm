@@ -48,7 +48,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 });
 
 const defaultFindOptions: FindOptions = {
-  skillNames: [],
+  names: [],
   type: "skill",
   owner: Option.none(),
   versionConstraint: Option.none(),
@@ -145,7 +145,7 @@ describe("registry meta-provider owner routing", () => {
             location: new URL(`file://${registryRoot}`),
             owner: Option.none(),
           },
-          { ...defaultFindOptions, skillNames: ["my-skill"] },
+          { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(1);
       }).pipe(
@@ -167,7 +167,7 @@ describe("registry meta-provider owner routing", () => {
             location: new URL("file:///tmp/registry"),
             owner: Option.none(),
           },
-          { ...defaultFindOptions, skillNames: ["my-skill"] },
+          { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
       }),
@@ -267,7 +267,7 @@ describe("registry meta-provider owner routing", () => {
             location: new URL(`file://${registryRoot}`),
             owner: Option.some(handle("@test")),
           },
-          { ...defaultFindOptions, skillNames: ["missing"] },
+          { ...defaultFindOptions, names: ["missing"] },
         );
         expect(refs).toHaveLength(0);
       }).pipe(
@@ -366,7 +366,7 @@ describe("SourceHostProviders dispatch", () => {
             location: new URL(`file://${registryRoot}`),
             owner: Option.none(),
           },
-          { ...defaultFindOptions, skillNames: ["nonexistent"] },
+          { ...defaultFindOptions, names: ["nonexistent"] },
         );
         // Empty results, but no error (successful dispatch)
         expect(refs).toHaveLength(0);

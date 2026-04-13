@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
-import { writeLockfile } from "../lockfile/index.js";
+import { countLockfileEntries, writeLockfile } from "../lockfile/index.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
 import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
@@ -26,10 +26,9 @@ import {
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
 import {
-  diagnoseWorkspaceDoctor,
-  isWorkspaceDoctorSyncBlockingDiagnostic,
-  type WorkspaceDoctorDiagnostic,
-} from "./doctor.js";
+  detectSettingsEntryBlockers,
+  type SettingsEntryBlocker,
+} from "./settings-validation/index.js";
 import {
   buildWorkspaceSkillSnapshot,
   isResolvedWorkspaceSkill,
@@ -37,16 +36,9 @@ import {
 } from "./skill-snapshot.js";
 import { Workspace } from "./service-interface.js";
 
-export interface WorkspaceSyncBlocker {
-  readonly code: WorkspaceDoctorDiagnostic["code"];
-  readonly subject: string;
-  readonly message: string;
-  readonly hint?: string;
-}
-
 export interface WorkspaceSyncReadiness {
   readonly canSync: boolean;
-  readonly blockers: ReadonlyArray<WorkspaceSyncBlocker>;
+  readonly blockers: ReadonlyArray<SettingsEntryBlocker>;
 }
 
 interface SyncState {
@@ -73,12 +65,6 @@ const readSettingsSafe = (dir: string, fsLayer: Layer.Layer<FileSystem.FileSyste
     Effect.provide(fsLayer),
   );
 
-const countLockfileEntries = (lockfile: ReconciliationSnapshot["lockfile"]): number =>
-  Object.keys(lockfile.skills).length +
-  Object.keys(lockfile.commands ?? {}).length +
-  Object.keys(lockfile.mcpServers ?? {}).length +
-  Object.keys(lockfile.packs ?? {}).length;
-
 const buildLockfileSyncState = () =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
@@ -100,13 +86,6 @@ const buildLockfileSyncState = () =>
     } satisfies SyncState;
   });
 
-const toSyncBlocker = (diagnostic: WorkspaceDoctorDiagnostic): WorkspaceSyncBlocker => ({
-  code: diagnostic.code,
-  subject: diagnostic.subject,
-  message: diagnostic.message,
-  ...(diagnostic.hint === undefined ? {} : { hint: diagnostic.hint }),
-});
-
 const formatWorkspaceSkillAgentIssue = (issue: WorkspaceSkillAgentIssue): string => {
   switch (issue._tag) {
     case "unknown-agent":
@@ -117,19 +96,18 @@ const formatWorkspaceSkillAgentIssue = (issue: WorkspaceSkillAgentIssue): string
 };
 
 export const formatWorkspaceSyncBlockersHowToFix = (
-  blockers: ReadonlyArray<WorkspaceSyncBlocker>,
-): string =>
-  blockers.length === 1
-    ? (blockers[0]?.hint ??
-      "Fix or remove the invalid or unresolved entries in settings.json first.")
-    : "Fix or remove the invalid or unresolved entries in settings.json first.";
+  blockers: ReadonlyArray<SettingsEntryBlocker>,
+): string => {
+  const [first, ...rest] = blockers;
+  if (first !== undefined && rest.length === 0) {
+    return first.hint;
+  }
+  return "Fix or remove the invalid or unresolved entries in settings.json first.";
+};
 
 export const getWorkspaceSyncReadiness = () =>
   Effect.gen(function* () {
-    const diagnosis = yield* diagnoseWorkspaceDoctor();
-    const blockers = diagnosis.diagnostics
-      .filter(isWorkspaceDoctorSyncBlockingDiagnostic)
-      .map(toSyncBlocker);
+    const blockers = yield* detectSettingsEntryBlockers();
 
     return {
       canSync: blockers.length === 0,
@@ -151,7 +129,9 @@ export const syncWorkspace = () =>
       return yield* makeAppError({
         code: "WORKSPACE_SYNC_BLOCKED",
         what: "Cannot sync workspace while settings entries are invalid or unresolved",
-        details: syncReadiness.blockers.map((blocker) => `${blocker.subject}: ${blocker.message}`),
+        details: syncReadiness.blockers.map(
+          (blocker) => `${blocker.subject.kind}:${blocker.subject.ref}: ${blocker.message}`,
+        ),
         howToFix: formatWorkspaceSyncBlockersHowToFix(syncReadiness.blockers),
       });
     }

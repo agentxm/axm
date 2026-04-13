@@ -143,7 +143,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   ) =>
     sources
       .find(source, {
-        skillNames: options.subagentNames,
+        names: options.subagentNames,
         type: "subagent",
         owner: options.owner,
         versionConstraint: options.versionConstraint,

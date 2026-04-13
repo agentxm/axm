@@ -180,7 +180,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   ) =>
     sources
       .find(source, {
-        skillNames: options.skillNames,
+        names: options.skillNames,
         type: "skill",
         owner: options.owner,
         versionConstraint: options.versionConstraint,

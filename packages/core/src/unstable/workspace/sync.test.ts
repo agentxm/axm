@@ -178,9 +178,13 @@ describe("workspace sync", () => {
 
         expect(readiness.canSync).toBe(false);
         expect(readiness.blockers).toHaveLength(1);
-        expect(readiness.blockers[0]?.subject).toBe("skill:example-skill");
+        expect(readiness.blockers[0]?.subject).toEqual({
+          kind: "extension",
+          ref: "skill:example-skill",
+        });
+        expect(readiness.blockers[0]?.reason).toBe("source-resolution-failed");
         expect(readiness.blockers[0]?.message).toContain(
-          "Could not determine an installable skill",
+          'Could not resolve the source for skill "example-skill"',
         );
       }).pipe(Effect.provide(makeLayers()));
     })(),

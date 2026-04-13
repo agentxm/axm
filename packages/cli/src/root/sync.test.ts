@@ -242,7 +242,7 @@ describe("sync handler", () => {
         expect(appError.code).toBe("PLAN_BLOCKED_BY_ERRORS");
         expect(appError.what).toBe("Plan has errors that prevent execution");
         expect(Option.getOrUndefined(appError.howToFix)).toBe(
-          `Check that "${path.join(tempDir, "missing-skill")}" points to the correct skill, or remove "example-skill" from settings.json.`,
+          'Check the source for skill "example-skill" in settings.json.',
         );
       }),
     );

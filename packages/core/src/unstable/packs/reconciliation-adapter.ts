@@ -73,9 +73,6 @@ const parseRegistryPackSource = (
   });
 };
 
-const toPackSource = (entry: string | { readonly source: string }): string =>
-  typeof entry === "string" ? entry : entry.source;
-
 const parseExtensionPackDependency = (
   type: "skills" | "commands" | "mcp-servers",
   singularType: "skill" | "command" | "mcp-server",
@@ -324,7 +321,7 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
       const packs = context.settings.packs ?? {};
 
       for (const [name, entry] of Object.entries(packs)) {
-        const source = toPackSource(entry);
+        const source = entry.source;
         const parsed = parseRegistryPackSource(source);
         const owner = Option.match(parsed, {
           onNone: () => context.defaultProfile,

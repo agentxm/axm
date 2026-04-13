@@ -136,10 +136,10 @@ export const createRegistryMetaProvider = () => ({
         ? options.owner
         : Option.isSome(source.owner)
           ? source.owner
-          : options.skillNames.length > 0
+          : options.names.length > 0
             ? Option.fromUndefinedOr(
                 (() => {
-                  const requestedName = options.skillNames.find((name) => name.startsWith("@"));
+                  const requestedName = options.names.find((name) => name.startsWith("@"));
                   return requestedName === undefined
                     ? undefined
                     : parseRegistrySourcePatternParts(requestedName)?.owner;

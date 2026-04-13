@@ -11,7 +11,7 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
-import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import { countLockfileEntries, LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import type { DegradedLockfileState } from "./augment-plan.js";
 import type {
   DeclarationResolution,
@@ -221,14 +221,7 @@ export const runReadRecoverOperation = (
   Effect.gen(function* () {
     const snapshot = yield* buildReconciliationSnapshot(context);
     const unresolvedCount = snapshot.unresolved.length;
-    // Optional lockfile sections default to empty for counting purposes.
-    // The total represents all extension types found on disk during reconciliation.
-    const reconstructedCount =
-      Object.keys(snapshot.lockfile.skills).length +
-      Object.keys(snapshot.lockfile.commands ?? {}).length +
-      Object.keys(snapshot.lockfile.subagents ?? {}).length +
-      Object.keys(snapshot.lockfile.mcpServers ?? {}).length +
-      Object.keys(snapshot.lockfile.packs ?? {}).length;
+    const reconstructedCount = countLockfileEntries(snapshot.lockfile);
 
     const suffix = unresolvedCount > 0 ? `, ${unresolvedCount} unresolved` : "";
     return {

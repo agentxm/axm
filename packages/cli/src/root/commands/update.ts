@@ -101,7 +101,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
             const source = yield* resolveSource(sourceStr);
             const refs = yield* sources
               .find(source, {
-                skillNames: [name],
+                names: [name],
                 type: "command",
                 owner: Option.none(),
                 versionConstraint: Option.none(),

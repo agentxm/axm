@@ -50,22 +50,13 @@ import {
 } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
-  collapseCommandEntry,
-  collapseSkillEntry,
-  collapseSubagentEntry,
+  type CommandEntry,
   type CommandsMap,
   createDefaultSettings,
   DEFAULT_PROFILE,
-  getCommandEntrySource,
-  getSkillEntrySource,
-  getSubagentEntrySource,
   type McpServersMap,
-  type NormalizedCommandEntry,
-  normalizeCommandEntry,
-  type NormalizedSkillEntry,
-  normalizeSkillEntry,
-  type NormalizedSubagentEntry,
-  normalizeSubagentEntry,
+  type SkillEntry,
+  type SubagentEntry,
   type ExtensionPacksMap,
   readSettings,
   type Settings,
@@ -315,15 +306,9 @@ const make = (options: WorkspaceLayerOptions) =>
           case "skill": {
             const detectedNames = yield* detectSkillNamesOnDisk(settings.agents ?? []);
             const configuredSkills = settings.skills ?? {};
-            const configured = Object.fromEntries(
-              Object.entries(configuredSkills).map(([name, entry]) => {
-                const normalized = normalizeSkillEntry(entry);
-                return [name, { source: normalized.source, enabled: normalized.enabled }];
-              }),
-            );
             return yield* classifyExtensions({
               type,
-              configured,
+              configured: configuredSkills,
               lockedNames: Object.keys(lockfile.skills),
               detectedNames,
               ignoredPatterns: settings.ignored?.skills ?? [],
@@ -333,12 +318,6 @@ const make = (options: WorkspaceLayerOptions) =>
           case "command": {
             const commandSettings = settings.commands ?? {};
             const commandLockEntries: CommandsLockMap = lockfile.commands ?? {};
-            const configured = Object.fromEntries(
-              Object.entries(commandSettings).map(([name, entry]) => {
-                const normalized = normalizeCommandEntry(entry);
-                return [name, { source: normalized.source, enabled: normalized.enabled }];
-              }),
-            );
 
             // Collect transitive command names from pack resolvedCommands
             const directLockedNames = Object.keys(commandLockEntries);
@@ -350,12 +329,7 @@ const make = (options: WorkspaceLayerOptions) =>
 
             // Build source metadata including transitive commands as native
             const directSourceMeta = deriveSourceMetaForNonSkill(
-              Object.fromEntries(
-                Object.entries(commandSettings).map(([name, entry]) => [
-                  name,
-                  getCommandEntrySource(entry),
-                ]),
-              ),
+              commandSettings,
               commandLockEntries,
             );
             const sourceMetaByName: Record<
@@ -370,7 +344,7 @@ const make = (options: WorkspaceLayerOptions) =>
 
             return yield* classifyExtensions({
               type,
-              configured,
+              configured: commandSettings,
               lockedNames: allLockedNames,
               detectedNames: [],
               ignoredPatterns: settings.ignored?.commands ?? [],
@@ -380,15 +354,9 @@ const make = (options: WorkspaceLayerOptions) =>
           case "mcp-server": {
             const mcpSettings = settings.mcpServers ?? {};
             const mcpServerLockEntries: McpServersLockMap = lockfile.mcpServers ?? {};
-            const configured = Object.fromEntries(
-              Object.entries(mcpSettings).map(([name, entry]) => {
-                const source = typeof entry === "string" ? entry : entry.source;
-                return [name, { source }];
-              }),
-            );
             return yield* classifyExtensions({
               type,
-              configured,
+              configured: mcpSettings,
               lockedNames: Object.keys(mcpServerLockEntries),
               detectedNames: [],
               ignoredPatterns: settings.ignored?.mcpServers ?? [],
@@ -398,15 +366,9 @@ const make = (options: WorkspaceLayerOptions) =>
           case "pack": {
             const packSettings = settings.packs ?? {};
             const packLockEntries: ExtensionPacksLockMap = lockfile.packs ?? {};
-            const configured = Object.fromEntries(
-              Object.entries(packSettings).map(([name, entry]) => {
-                const source = typeof entry === "string" ? entry : entry.source;
-                return [name, { source }];
-              }),
-            );
             return yield* classifyExtensions({
               type,
-              configured,
+              configured: packSettings,
               lockedNames: Object.keys(packLockEntries),
               detectedNames: [],
               ignoredPatterns: settings.ignored?.packs ?? [],
@@ -416,12 +378,6 @@ const make = (options: WorkspaceLayerOptions) =>
           case "subagent": {
             const subagentSettings = settings.subagents ?? {};
             const subagentLockEntries: SubagentsLockMap = lockfile.subagents ?? {};
-            const configured = Object.fromEntries(
-              Object.entries(subagentSettings).map(([name, entry]) => {
-                const normalized = normalizeSubagentEntry(entry);
-                return [name, { source: normalized.source, enabled: normalized.enabled }];
-              }),
-            );
 
             // Collect transitive subagent names from pack resolvedSubagents
             const directLockedNames = Object.keys(subagentLockEntries);
@@ -433,12 +389,7 @@ const make = (options: WorkspaceLayerOptions) =>
 
             // Build source metadata including transitive subagents as native
             const directSourceMeta = deriveSourceMetaForNonSkill(
-              Object.fromEntries(
-                Object.entries(subagentSettings).map(([name, entry]) => [
-                  name,
-                  getSubagentEntrySource(entry),
-                ]),
-              ),
+              subagentSettings,
               subagentLockEntries,
             );
             const sourceMetaByName: Record<
@@ -453,7 +404,7 @@ const make = (options: WorkspaceLayerOptions) =>
 
             return yield* classifyExtensions({
               type,
-              configured,
+              configured: subagentSettings,
               lockedNames: allLockedNames,
               detectedNames: [],
               ignoredPatterns: settings.ignored?.subagents ?? [],
@@ -486,7 +437,7 @@ const make = (options: WorkspaceLayerOptions) =>
         const skills = settings.skills ?? {};
         const entry = skills[name];
         if (entry !== undefined) {
-          const sourceStr = getSkillEntrySource(entry);
+          const sourceStr = entry.source;
           if (sourceStr?.startsWith("registry:")) {
             const parsed = parseRegistrySourcePatternParts(sourceStr.slice("registry:".length));
             if (parsed?.name !== undefined) {
@@ -674,7 +625,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             const updatedSettings = {
               ...currentSettings,
-              skills: { ...currentSkills, [name]: source },
+              skills: { ...currentSkills, [name]: { source, enabled: true } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -754,10 +705,7 @@ const make = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      updateSkillEntry: (
-        name: string,
-        updater: (entry: NormalizedSkillEntry) => NormalizedSkillEntry,
-      ) =>
+      updateSkillEntry: (name: string, updater: (entry: SkillEntry) => SkillEntry) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
@@ -768,26 +716,23 @@ const make = (options: WorkspaceLayerOptions) =>
               "SKILL_NOT_FOUND",
               `Skill "${name}" not found in settings`,
             );
-            const normalized = normalizeSkillEntry(currentEntry);
-            const updated = updater(normalized);
-            const collapsed = collapseSkillEntry(updated);
+            const updated = updater(currentEntry);
             const updatedSettings = {
               ...currentSettings,
-              skills: { ...currentSkills, [name]: collapsed },
+              skills: { ...currentSkills, [name]: updated },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
-      setSkillEntry: (name: string, entry: NormalizedSkillEntry) =>
+      setSkillEntry: (name: string, entry: SkillEntry) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
-            const collapsed = collapseSkillEntry(entry);
             const updatedSettings = {
               ...currentSettings,
-              skills: { ...currentSkills, [name]: collapsed },
+              skills: { ...currentSkills, [name]: entry },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
@@ -992,7 +937,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
             const updatedSettings = {
               ...currentSettings,
-              packs: { ...currentPacks, [name]: source },
+              packs: { ...currentPacks, [name]: { source } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1063,7 +1008,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
             const updatedSettings = {
               ...currentSettings,
-              commands: { ...currentCommands, [name]: source },
+              commands: { ...currentCommands, [name]: { source, enabled: true } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1134,36 +1079,30 @@ const make = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("Workspace.removeCommand")),
 
-      updateCommandEntry: (
-        name: string,
-        updater: (entry: NormalizedCommandEntry) => NormalizedCommandEntry,
-      ) =>
+      updateCommandEntry: (name: string, updater: (entry: CommandEntry) => CommandEntry) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
             const existingEntry = currentCommands[name];
             if (existingEntry === undefined) return;
-            const normalized = normalizeCommandEntry(existingEntry);
-            const updated = updater(normalized);
-            const collapsed = collapseCommandEntry(updated);
+            const updated = updater(existingEntry);
             const updatedSettings = {
               ...currentSettings,
-              commands: { ...currentCommands, [name]: collapsed },
+              commands: { ...currentCommands, [name]: updated },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("Workspace.updateCommandEntry")),
 
-      setCommandEntry: (name: string, entry: NormalizedCommandEntry) =>
+      setCommandEntry: (name: string, entry: CommandEntry) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
-            const collapsed = collapseCommandEntry(entry);
             const updatedSettings = {
               ...currentSettings,
-              commands: { ...currentCommands, [name]: collapsed },
+              commands: { ...currentCommands, [name]: entry },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
@@ -1207,7 +1146,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
             const updatedSettings = {
               ...currentSettings,
-              subagents: { ...currentSubagents, [name]: source },
+              subagents: { ...currentSubagents, [name]: { source, enabled: true } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1278,36 +1217,30 @@ const make = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("Workspace.removeSubagent")),
 
-      updateSubagentEntry: (
-        name: string,
-        updater: (entry: NormalizedSubagentEntry) => NormalizedSubagentEntry,
-      ) =>
+      updateSubagentEntry: (name: string, updater: (entry: SubagentEntry) => SubagentEntry) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
             const existingEntry = currentSubagents[name];
             if (existingEntry === undefined) return;
-            const normalized = normalizeSubagentEntry(existingEntry);
-            const updated = updater(normalized);
-            const collapsed = collapseSubagentEntry(updated);
+            const updated = updater(existingEntry);
             const updatedSettings = {
               ...currentSettings,
-              subagents: { ...currentSubagents, [name]: collapsed },
+              subagents: { ...currentSubagents, [name]: updated },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("Workspace.updateSubagentEntry")),
 
-      setSubagentEntry: (name: string, entry: NormalizedSubagentEntry) =>
+      setSubagentEntry: (name: string, entry: SubagentEntry) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
-            const collapsed = collapseSubagentEntry(entry);
             const updatedSettings = {
               ...currentSettings,
-              subagents: { ...currentSubagents, [name]: collapsed },
+              subagents: { ...currentSubagents, [name]: entry },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
@@ -1362,7 +1295,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const updatedSettings = {
               ...currentSettings,
-              mcpServers: { ...currentMcpServers, [name]: source },
+              mcpServers: { ...currentMcpServers, [name]: { source } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 

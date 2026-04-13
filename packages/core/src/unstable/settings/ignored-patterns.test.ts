@@ -75,7 +75,9 @@ describe("SettingsSchema mcpServers (camelCase)", () => {
       mcpServers: { batcomputer: "@wayne/mcp-servers/batcomputer" },
     });
 
-    expect(result.mcpServers).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
+    expect(result.mcpServers).toEqual({
+      batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+    });
   });
 });
 

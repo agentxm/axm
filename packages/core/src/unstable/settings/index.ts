@@ -51,26 +51,6 @@ export {
   SourceHostConfigSchema,
 } from "./schema.js";
 
-// Skill entry normalization
-export type { NormalizedSkillEntry } from "./skill-entry.js";
-export { collapseSkillEntry, getSkillEntrySource, normalizeSkillEntry } from "./skill-entry.js";
-
-// Command entry normalization
-export type { NormalizedCommandEntry } from "./command-entry.js";
-export {
-  collapseCommandEntry,
-  getCommandEntrySource,
-  normalizeCommandEntry,
-} from "./command-entry.js";
-
-// Subagent entry normalization
-export type { NormalizedSubagentEntry } from "./subagent-entry.js";
-export {
-  collapseSubagentEntry,
-  getSubagentEntrySource,
-  normalizeSubagentEntry,
-} from "./subagent-entry.js";
-
 // Ignored patterns
 export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";
 
@@ -80,6 +60,7 @@ export {
   DEFAULT_PROFILE,
   orderSettingsKeys,
   readSettings,
+  readSettingsOrDefault,
   SETTINGS_FILENAME,
   writeSettings,
 } from "./settings.js";

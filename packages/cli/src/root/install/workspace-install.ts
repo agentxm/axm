@@ -4,29 +4,24 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
-import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { CommandExtensionRef } from "@axm.sh/core/unstable/commands";
-import type { ExtensionPackRef } from "@axm.sh/core/unstable/packs";
-import type { McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
-import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import {
   type Plan,
   type PlanSection,
   type PlannedJobStep,
   Workspace,
+  resolveConfiguredCommand,
+  resolveConfiguredMcpServer,
+  resolveConfiguredPack,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
 } from "@axm.sh/core/unstable/workspace";
-import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
   extensionTypePluralSentenceLabels,
-  extensionTypeSentenceLabels,
-  parseRegistrySourceRef,
-  parseRegistrySourcePatternParts,
-  type Handle,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
 } from "@axm.sh/core/unstable/extensions";
-import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 
 import { InstallCommandCommandWorkflowActions } from "../commands/install/command-actions.js";
 import type { InstallCommandCommandIntent } from "../commands/install/intent.js";
@@ -91,10 +86,6 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): str
     onSome: (value) =>
       `No configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]}. Nothing to install.`,
   });
-
-const configuredRegistrySourceExample = (
-  type: Exclude<WorkspaceInstallableType, "skill">,
-): string => `@owner/${toInstallableExtensionTypePlural(type)}/name`;
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
   plan.jobs.flatMap((job) => job.steps);
@@ -172,367 +163,59 @@ const mergeFragments = (
 };
 
 const resolveSkillIntent = (name: string, source: string) =>
-  Effect.gen(function* () {
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "SKILL_SOURCE_INVALID",
-          what: `Invalid skill source for ${name}: ${error.message}`,
-          details: [`Source: ${source}`],
-          cause: error,
-        }),
-      ),
-    );
-    const parsedPattern = parseRegistrySourcePatternParts(source);
-    const requestedOwner =
-      parsedPattern?.type === "skills"
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none<Handle>();
-    const versionConstraint =
-      resolvedSource.type === "registry" && parsedPattern?.type === "skills"
-        ? Option.fromUndefinedOr(parsedPattern.versionConstraint)
-        : Option.none<VersionConstraint>();
-
-    const refs = yield* providers
-      .find(resolvedSource, {
-        skillNames: [name],
-        type: "skill",
-        owner: requestedOwner,
-        versionConstraint,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is SkillExtensionRef => entry.type === "skill"),
-        ),
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "SKILL_SOURCE_RESOLUTION_FAILED",
-            what: `Failed to resolve configured skill "${name}"`,
-            details: [`Source: ${source}`],
-            howToFix: "Verify the configured source is reachable and still contains the skill.",
-            cause: error,
-          }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.skill.name === name);
-    if (ref === undefined) {
-      return yield* makeAppError({
-        code: "SKILL_SOURCE_MISSING",
-        what: `Configured skill "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
-        howToFix: "Verify the configured source still contains the skill or update settings.json.",
-      });
-    }
-
-    return {
-      skillsToInstall: [
-        {
-          ref,
-          versionConstraint: ref.refType === "registry" ? versionConstraint : Option.none(),
-        },
-      ],
-    } satisfies InstallSkillCommandIntent;
-  });
+  resolveConfiguredSkill(name, source).pipe(
+    Effect.map(
+      ({ ref, versionConstraint }) =>
+        ({
+          skillsToInstall: [{ ref, versionConstraint }],
+        }) satisfies InstallSkillCommandIntent,
+    ),
+  );
 
 const resolveSubagentIntent = (name: string, source: string) =>
-  Effect.gen(function* () {
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "SUBAGENT_SOURCE_INVALID",
-          what: `Invalid subagent source for ${name}: ${error.message}`,
-          details: [`Source: ${source}`],
-          cause: error,
-        }),
-      ),
-    );
-    const parsedPattern = parseRegistrySourcePatternParts(source);
-    const requestedOwner =
-      parsedPattern?.type === "subagents"
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none<Handle>();
-    const versionConstraint =
-      resolvedSource.type === "registry" && parsedPattern?.type === "subagents"
-        ? Option.fromUndefinedOr(parsedPattern.versionConstraint)
-        : Option.none<VersionConstraint>();
-
-    const refs = yield* providers
-      .find(resolvedSource, {
-        skillNames: [name],
-        type: "subagent",
-        owner: requestedOwner,
-        versionConstraint,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is SubagentExtensionRef => entry.type === "subagent"),
-        ),
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "SUBAGENT_SOURCE_RESOLUTION_FAILED",
-            what: `Failed to resolve configured subagent "${name}"`,
-            details: [`Source: ${source}`],
-            howToFix: "Verify the configured source is reachable and still contains the subagent.",
-            cause: error,
-          }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.subagent.name === name);
-    if (ref === undefined) {
-      return yield* makeAppError({
-        code: "SUBAGENT_SOURCE_MISSING",
-        what: `Configured subagent "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
-        howToFix:
-          "Verify the configured source still contains the subagent or update settings.json.",
-      });
-    }
-
-    return {
-      subagentsToInstall: [
-        {
-          ref,
-          versionConstraint: ref.refType === "registry" ? versionConstraint : Option.none(),
-        },
-      ],
-    } satisfies InstallSubagentCommandIntent;
-  });
-
-const resolveRegistryOwnerAndInput = (
-  name: string,
-  source: string,
-  type: "command" | "mcp-server" | "pack",
-) =>
-  Effect.gen(function* () {
-    const parsed = parseRegistrySourceRef(source);
-    if (
-      parsed === undefined ||
-      parsed.type !== toInstallableExtensionTypePlural(type) ||
-      parsed.name !== name
-    ) {
-      return yield* makeAppError({
-        code: "WORKSPACE_INSTALL_SOURCE_INVALID",
-        what: `The configured ${extensionTypeSentenceLabels[type]} entry "${name}" is invalid.`,
-        details: [`Source: ${source}`],
-        howToFix: `Use a name like "${configuredRegistrySourceExample(type)}".`,
-      });
-    }
-
-    return {
-      owner: parsed.owner,
-      name: parsed.name,
-      versionConstraint: Option.fromUndefinedOr(parsed.versionConstraint),
-      resolvedInput: source,
-    };
-  });
+  resolveConfiguredSubagent(name, source).pipe(
+    Effect.map(
+      ({ ref, versionConstraint }) =>
+        ({
+          subagentsToInstall: [{ ref, versionConstraint }],
+        }) satisfies InstallSubagentCommandIntent,
+    ),
+  );
 
 const resolveCommandIntent = (name: string, source: string) =>
-  Effect.gen(function* () {
-    const resolved = yield* resolveRegistryOwnerAndInput(name, source, "command");
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(resolved.resolvedInput).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "COMMAND_SOURCE_INVALID",
-          what: `Invalid command source for ${name}: ${error.message}`,
-          details: [`Source: ${source}`],
-          cause: error,
-        }),
-      ),
-    );
-
-    const refs = yield* providers
-      .find(resolvedSource, {
-        skillNames: [name],
-        type: "command",
-        owner: Option.some(resolved.owner),
-        versionConstraint: resolved.versionConstraint,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is CommandExtensionRef => entry.type === "command"),
-        ),
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "COMMAND_SOURCE_RESOLUTION_FAILED",
-            what: `Failed to resolve configured command "${name}"`,
-            details: [`Source: ${source}`],
-            howToFix:
-              "Verify the configured registry source is reachable and still contains the command.",
-            cause: error,
-          }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.command.name === name);
-    if (ref === undefined) {
-      return yield* makeAppError({
-        code: "COMMAND_SOURCE_MISSING",
-        what: `Configured command "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
-        howToFix:
-          "Verify the configured source still contains the command or update settings.json.",
-      });
-    }
-
-    return {
-      ref,
-      versionConstraint: resolved.versionConstraint,
-      force: false,
-    } satisfies InstallCommandCommandIntent;
-  });
+  resolveConfiguredCommand(name, source).pipe(
+    Effect.map(
+      ({ ref, versionConstraint }) =>
+        ({
+          ref,
+          versionConstraint,
+          force: false,
+        }) satisfies InstallCommandCommandIntent,
+    ),
+  );
 
 const resolveMcpServerIntent = (name: string, source: string) =>
-  Effect.gen(function* () {
-    const resolved = yield* resolveRegistryOwnerAndInput(name, source, "mcp-server");
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(resolved.resolvedInput).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "MCP_SERVER_SOURCE_INVALID",
-          what: `Invalid MCP server source for ${name}: ${error.message}`,
-          details: [`Source: ${source}`],
-          cause: error,
-        }),
-      ),
-    );
-
-    const refs = yield* providers
-      .find(resolvedSource, {
-        skillNames: [name],
-        type: "mcp-server",
-        owner: Option.some(resolved.owner),
-        versionConstraint: resolved.versionConstraint,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is McpServerExtensionRef => entry.type === "mcp-server"),
-        ),
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "MCP_SERVER_SOURCE_RESOLUTION_FAILED",
-            what: `Failed to resolve configured MCP server "${name}"`,
-            details: [`Source: ${source}`],
-            howToFix:
-              "Verify the configured registry source is reachable and still contains the MCP server.",
-            cause: error,
-          }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.server.name === name);
-    if (ref === undefined) {
-      return yield* makeAppError({
-        code: "MCP_SERVER_SOURCE_MISSING",
-        what: `Configured MCP server "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
-        howToFix:
-          "Verify the configured source still contains the MCP server or update settings.json.",
-      });
-    }
-
-    return {
-      ref,
-      versionConstraint: Option.map(resolved.versionConstraint, (constraint) => constraint),
-      force: false,
-    } satisfies InstallMcpServerCommandIntent;
-  });
+  resolveConfiguredMcpServer(name, source).pipe(
+    Effect.map(
+      ({ ref, versionConstraint }) =>
+        ({
+          ref,
+          versionConstraint,
+          force: false,
+        }) satisfies InstallMcpServerCommandIntent,
+    ),
+  );
 
 const resolvePackRef = (name: string, source: string) =>
-  Effect.gen(function* () {
-    const resolved = yield* resolveRegistryOwnerAndInput(name, source, "pack");
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(resolved.resolvedInput).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "PACK_SOURCE_INVALID",
-          what: `Invalid extension pack source for ${name}: ${error.message}`,
-          details: [`Source: ${source}`],
-          cause: error,
-        }),
-      ),
-    );
-
-    const findWith = (candidate: typeof resolvedSource) =>
-      providers.find(candidate, {
-        skillNames: [name],
-        type: "pack",
-        owner: Option.some(resolved.owner),
-        versionConstraint: resolved.versionConstraint,
-      });
-
-    const refs = yield* findWith(resolvedSource).pipe(
-      Effect.map((entries) =>
-        entries.filter((entry): entry is ExtensionPackRef => entry.type === "pack"),
-      ),
-      Effect.catch((error) =>
-        resolvedSource.type === "registry"
-          ? Effect.gen(function* () {
-              const registryHosts = yield* Effect.gen(function* () {
-                const ws = yield* Workspace;
-                return yield* ws.getRegistrySourceHosts();
-              });
-              const fallbackSources = registryHosts
-                .filter((host) => host.location.protocol === "file:")
-                .map((host) => ({
-                  type: "registry" as const,
-                  location: host.location,
-                  owner: Option.some(resolved.owner),
-                }));
-
-              for (const fallback of fallbackSources) {
-                if (fallback.location.href === resolvedSource.location.href) {
-                  continue;
-                }
-
-                const fallbackResult = yield* findWith(fallback).pipe(Effect.result);
-                if (fallbackResult._tag === "Success" && fallbackResult.success.length > 0) {
-                  return fallbackResult.success.filter(
-                    (entry): entry is ExtensionPackRef => entry.type === "pack",
-                  );
-                }
-              }
-
-              return yield* error;
-            })
-          : Effect.fail(error),
-      ),
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "PACK_SOURCE_RESOLUTION_FAILED",
-          what: `Failed to resolve configured extension pack "${name}"`,
-          details: [`Source: ${source}`],
-          howToFix:
-            "Verify the configured registry source is reachable and still contains the extension pack.",
-          cause: error,
-        }),
-      ),
-    );
-
-    const ref = refs.find((entry) => entry.pack.name === name);
-    if (ref === undefined) {
-      return yield* makeAppError({
-        code: "PACK_SOURCE_MISSING",
-        what: `Configured extension pack "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
-        howToFix:
-          "Verify the configured source still contains the extension pack or update settings.json.",
-      });
-    }
-
-    return {
-      packToInstall: ref,
-      versionConstraint: resolved.versionConstraint,
-    } satisfies InstallPackCommandIntent;
-  });
+  resolveConfiguredPack(name, source).pipe(
+    Effect.map(
+      ({ ref, versionConstraint }) =>
+        ({
+          packToInstall: ref,
+          versionConstraint,
+        }) satisfies InstallPackCommandIntent,
+    ),
+  );
 
 const collectSkillPlans = () =>
   Effect.gen(function* () {

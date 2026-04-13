@@ -304,7 +304,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
               () =>
                 sources
                   .find(req.source, {
-                    skillNames: req.requestedSubagents,
+                    names: req.requestedSubagents,
                     type: "subagent" as const,
                     owner: req.requestedOwner,
                     versionConstraint: req.versionConstraint,

@@ -47,7 +47,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
 
     const declarations: ReadonlyArray<ReconciliationDeclaration> = Object.entries(commands).map(
       ([name, entry], index): ReconciliationDeclaration => {
-        const source = typeof entry === "string" ? entry : entry.source;
+        const source = entry.source;
         const parsed = parseRegistryCommandSource(source);
         return {
           type: "commands",

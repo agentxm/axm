@@ -147,7 +147,7 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
         const refs = yield* Effect.gen(function* () {
           const svc = yield* SourceHostProviders;
           return yield* svc.find(source, {
-            skillNames: [],
+            names: [],
             type: "skill",
             owner: Option.none(),
             versionConstraint: Option.none(),

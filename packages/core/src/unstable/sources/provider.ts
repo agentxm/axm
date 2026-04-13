@@ -23,14 +23,14 @@ import type { Source } from "./types.js";
 /**
  * Search criteria passed to `find` -- independent of source identity.
  *
- * - `skillNames`: extension names to match (empty = all)
+ * - `names`: extension names to match (empty = all)
  * - `type`: findable extension type filter or `"*"` for all
  * - `versionConstraint`: optional version constraint for registry-backed lookups
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface FindOptions {
-  readonly skillNames: ReadonlyArray<string>;
+  readonly names: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
   /** Registry owner filter (e.g. "@acme"). */
   readonly owner: Option.Option<Handle>;

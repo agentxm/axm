@@ -130,7 +130,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: "@acme/skills/tool@^1",
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 
@@ -164,7 +164,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: "@acme/skills/tool@^1",
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 
@@ -199,7 +199,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: "@acme/skills/tool@^1",
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 
@@ -231,7 +231,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: "@acme/skills/tool@^1",
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 

@@ -5,14 +5,14 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
 import { decodeHandleSync } from "../extensions/handle.js";
+import { readAndValidateJsonFile } from "../schema/index.js";
 import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -84,59 +84,55 @@ export const orderSettingsKeys = (settings: Settings): Settings =>
  */
 export const readSettings = (axmDir: string) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
 
-    // Check if file exists
-    const exists = yield* fs.exists(settingsPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "SETTINGS_PARSE_FAILED",
-          what: `Failed to check if settings file exists: ${settingsPath}`,
-          cause: error,
-        }),
-      ),
-    );
-    if (!exists) {
-      return Option.none<Settings>();
-    }
+    const result = yield* readAndValidateJsonFile(settingsPath, SettingsSchema);
 
-    // Read file contents
-    const content = yield* fs.readFileString(settingsPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
+    switch (result._tag) {
+      case "ok":
+        return Option.some(result.value);
+      case "missing":
+        return Option.none<Settings>();
+      case "read-failure":
+        return yield* makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           what: `Failed to read settings file: ${settingsPath}`,
-          cause: error,
-        }),
-      ),
-    );
-
-    // Parse JSON
-    const json = yield* Effect.try({
-      try: () => JSON.parse(content),
-      catch: (error) =>
-        makeAppError({
+          details: [result.error],
+        });
+      case "unparseable":
+        return yield* makeAppError({
           code: "SETTINGS_PARSE_FAILED",
-          what: `Failed to parse settings JSON: ${String(error)}`,
-          cause: error,
-        }),
-    });
-
-    // Validate schema
-    const parsed = yield* Schema.decodeUnknownEffect(SettingsSchema)(json).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
+          what: `Failed to parse settings JSON at ${settingsPath}`,
+          details: [result.error, ...(result.location !== undefined ? [result.location] : [])],
+        });
+      case "schema-invalid":
+        return yield* makeAppError({
           code: "SETTINGS_PARSE_FAILED",
-          what: `Invalid settings format: ${error.message}`,
-          cause: error,
-        }),
-      ),
-    );
-
-    return Option.some(parsed);
+          what: `Invalid settings format: ${settingsPath}`,
+          details: [...result.issues],
+        });
+    }
   });
+
+/**
+ * Read settings from .axm/settings.json, falling back to defaults on missing
+ * file or read/parse error.
+ *
+ * @param axmDir - Path to the .axm directory
+ * @returns Settings object (never fails)
+ *
+ * @remarks All errors — including schema validation failures — are silently
+ * swallowed, returning default settings. Only use this in contexts where a
+ * prior check (e.g. workspace-ready) has already validated the settings file.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const readSettingsOrDefault = (axmDir: string) =>
+  readSettings(axmDir).pipe(
+    Effect.map(Option.getOrElse(() => createDefaultSettings())),
+    Effect.orElseSucceed(() => createDefaultSettings()),
+  );
 
 /**
  * Write settings to .axm/settings.json.

@@ -173,7 +173,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
           resolvedSources,
           (source) =>
             sources.find(source, {
-              skillNames: [],
+              names: [],
               type: "skill",
               owner: Option.none(),
               versionConstraint: Option.none(),

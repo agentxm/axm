@@ -206,7 +206,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             (req) =>
               sources
                 .find(req.source, {
-                  skillNames: [req.serverName],
+                  names: [req.serverName],
                   type: "mcp-server",
                   owner: Option.some(req.owner),
                   versionConstraint: req.versionConstraint,

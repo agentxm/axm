@@ -64,7 +64,7 @@ describe("axm skills enable", () => {
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       expect(settings.skills["my-skill"]).toBeDefined();
       const entry = settings.skills["my-skill"];
-      // When enabled, collapseSkillEntry returns just the source string
+      // When enabled, schema encode collapses to just the source string
       if (typeof entry === "string") {
         // Collapsed to string — correct
         expect(entry.length).toBeGreaterThan(0);

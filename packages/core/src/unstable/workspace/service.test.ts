@@ -1344,7 +1344,7 @@ describe("WorkspaceContextService", () => {
   // ---------------------------------------------------------------------------
 
   describe("getInstalledSkills (normalized)", () => {
-    it.effect("returns all configured entries as NormalizedSkillEntry", () =>
+    it.effect("returns all configured entries as SkillEntry", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],

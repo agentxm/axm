@@ -125,8 +125,8 @@ export const createGitHostingSourceHostProvider = <
         { concurrency: "unbounded" },
       );
 
-      if (options.skillNames.length === 0) return refs;
-      const nameSet = new Set(options.skillNames);
+      if (options.names.length === 0) return refs;
+      const nameSet = new Set(options.names);
       return refs.filter((r) => r.type === "skill" && nameSet.has(r.skill.name));
     }),
 

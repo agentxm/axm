@@ -25,7 +25,6 @@ import {
   type SubagentManifest,
 } from "./manifest-schema.js";
 import { computeSubagentPaths } from "./paths.js";
-import { normalizeSubagentEntry } from "../settings/subagent-entry.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
@@ -62,8 +61,7 @@ export const subagentReconciliationAdapter: ReconciliationAdapter = {
 
     const subagents = context.settings.subagents ?? {};
     for (const [name, entry] of Object.entries(subagents)) {
-      const normalized = normalizeSubagentEntry(entry);
-      const source = normalized.source;
+      const source = entry.source;
       const parsed = parseRegistrySubagentSource(source);
 
       declarations.push({

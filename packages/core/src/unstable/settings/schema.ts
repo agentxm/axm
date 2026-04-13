@@ -7,6 +7,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as SchemaTransformation from "effect/SchemaTransformation";
 import { AgentIdSchema, ExtensionNameSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 
@@ -195,16 +196,36 @@ export const SkillEntryObjectSchema = Schema.Struct({
 /**
  * Union of skill entry forms: plain source string or object with source + enabled.
  *
+ * Decodes to canonical `{ source, enabled }` form; encodes back to the most
+ * compact JSON representation (plain string when enabled, object when disabled).
+ *
  * The legacy unmanaged marker (`{ managed: false }`) is no longer supported.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSchema]).annotate({
-  identifier: "SkillEntry",
-  title: "Skill Entry",
-  description:
-    "A skill reference — either a source string like @owner/skills/name or an object with source and enabled.",
-});
+export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSchema]).pipe(
+  Schema.decodeTo(
+    Schema.Struct({
+      source: Schema.String,
+      enabled: Schema.Boolean,
+    }).annotate({
+      identifier: "SkillEntry",
+      title: "Skill Entry",
+      description:
+        "A skill reference — either a source string like @owner/skills/name or an object with source and enabled.",
+    }),
+    SchemaTransformation.transform({
+      decode: (entry) =>
+        typeof entry === "string"
+          ? { source: entry, enabled: true }
+          : { source: entry.source, enabled: entry.enabled ?? true },
+      encode: (
+        entry,
+      ): string | { readonly source: string; readonly enabled?: boolean | undefined } =>
+        entry.enabled ? entry.source : { source: entry.source, enabled: false },
+    }),
+  ),
+);
 
 /**
  * Inferred type for SkillEntry schema.
@@ -259,14 +280,34 @@ export const CommandEntryObjectSchema = Schema.Struct({
 /**
  * Union of command entry forms: plain source string or object with source + enabled.
  *
+ * Decodes to canonical `{ source, enabled }` form; encodes back to the most
+ * compact JSON representation (plain string when enabled, object when disabled).
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandEntrySchema = Schema.Union([Schema.String, CommandEntryObjectSchema]).annotate({
-  identifier: "CommandEntry",
-  title: "Command Entry",
-  description:
-    "A command reference — either a source string like @owner/commands/name or an object with source and enabled.",
-});
+export const CommandEntrySchema = Schema.Union([Schema.String, CommandEntryObjectSchema]).pipe(
+  Schema.decodeTo(
+    Schema.Struct({
+      source: Schema.String,
+      enabled: Schema.Boolean,
+    }).annotate({
+      identifier: "CommandEntry",
+      title: "Command Entry",
+      description:
+        "A command reference — either a source string like @owner/commands/name or an object with source and enabled.",
+    }),
+    SchemaTransformation.transform({
+      decode: (entry) =>
+        typeof entry === "string"
+          ? { source: entry, enabled: true }
+          : { source: entry.source, enabled: entry.enabled ?? true },
+      encode: (
+        entry,
+      ): string | { readonly source: string; readonly enabled?: boolean | undefined } =>
+        entry.enabled ? entry.source : { source: entry.source, enabled: false },
+    }),
+  ),
+);
 
 /**
  * Inferred type for CommandEntry schema.
@@ -320,16 +361,27 @@ export const McpServerEntryObjectSchema = Schema.Struct({
 /**
  * Union of MCP server entry forms: plain source string or object with source.
  *
+ * Decodes to canonical `{ source }` form; encodes back to the most compact
+ * JSON representation (plain string).
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerEntrySchema = Schema.Union([
-  Schema.String,
-  McpServerEntryObjectSchema,
-]).annotate({
-  identifier: "McpServerEntry",
-  title: "MCP Server Entry",
-  description: "An MCP server reference — either a source string or an object with source.",
-});
+export const McpServerEntrySchema = Schema.Union([Schema.String, McpServerEntryObjectSchema]).pipe(
+  Schema.decodeTo(
+    Schema.Struct({
+      source: Schema.String,
+    }).annotate({
+      identifier: "McpServerEntry",
+      title: "MCP Server Entry",
+      description: "An MCP server reference — either a source string or an object with source.",
+    }),
+    SchemaTransformation.transform({
+      decode: (entry): { readonly source: string } =>
+        typeof entry === "string" ? { source: entry } : { source: entry.source },
+      encode: (entry): string | { readonly source: string } => entry.source,
+    }),
+  ),
+);
 
 /**
  * Inferred type for McpServerEntry schema.
@@ -383,17 +435,34 @@ export const SubagentEntryObjectSchema = Schema.Struct({
 /**
  * Union of subagent entry forms: plain source string or object with source + enabled.
  *
+ * Decodes to canonical `{ source, enabled }` form; encodes back to the most
+ * compact JSON representation (plain string when enabled, object when disabled).
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentEntrySchema = Schema.Union([
-  Schema.String,
-  SubagentEntryObjectSchema,
-]).annotate({
-  identifier: "SubagentEntry",
-  title: "Subagent Entry",
-  description:
-    "A subagent reference — either a source string like @owner/subagents/name or an object with source and enabled.",
-});
+export const SubagentEntrySchema = Schema.Union([Schema.String, SubagentEntryObjectSchema]).pipe(
+  Schema.decodeTo(
+    Schema.Struct({
+      source: Schema.String,
+      enabled: Schema.Boolean,
+    }).annotate({
+      identifier: "SubagentEntry",
+      title: "Subagent Entry",
+      description:
+        "A subagent reference — either a source string like @owner/subagents/name or an object with source and enabled.",
+    }),
+    SchemaTransformation.transform({
+      decode: (entry) =>
+        typeof entry === "string"
+          ? { source: entry, enabled: true }
+          : { source: entry.source, enabled: entry.enabled ?? true },
+      encode: (
+        entry,
+      ): string | { readonly source: string; readonly enabled?: boolean | undefined } =>
+        entry.enabled ? entry.source : { source: entry.source, enabled: false },
+    }),
+  ),
+);
 
 /**
  * Inferred type for SubagentEntry schema.
@@ -451,16 +520,30 @@ export const ExtensionPackEntryObjectSchema = Schema.Struct({
 /**
  * Union of pack entry forms: plain source string or object with source.
  *
+ * Decodes to canonical `{ source }` form; encodes back to the most compact
+ * JSON representation (plain string).
+ *
  * @experimental This API is unstable and may change without notice.
  */
 export const ExtensionPackEntrySchema = Schema.Union([
   Schema.String,
   ExtensionPackEntryObjectSchema,
-]).annotate({
-  identifier: "ExtensionPackEntry",
-  title: "Extension Pack Entry",
-  description: "An extension pack reference — either a source string or an object with source.",
-});
+]).pipe(
+  Schema.decodeTo(
+    Schema.Struct({
+      source: Schema.String,
+    }).annotate({
+      identifier: "ExtensionPackEntry",
+      title: "Extension Pack Entry",
+      description: "An extension pack reference — either a source string or an object with source.",
+    }),
+    SchemaTransformation.transform({
+      decode: (entry): { readonly source: string } =>
+        typeof entry === "string" ? { source: entry } : { source: entry.source },
+      encode: (entry): string | { readonly source: string } => entry.source,
+    }),
+  ),
+);
 
 /**
  * Inferred type for ExtensionPackEntry schema.

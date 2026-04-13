@@ -4,23 +4,20 @@
  * Resolves declared skills, derives install state, and discovers configured
  * agent skill directories. This module does not plan or perform writes.
  */
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../agents/index.js";
 import { sanitizeName } from "../extensions/utils.js";
-import { createDefaultSettings, normalizeSkillEntry, readSettings } from "../settings/index.js";
-import { type FindOptions, parseInputPattern } from "../sources/index.js";
-import {
-  type SourceHostProvidersService,
-  resolveSource,
-  SourceHostProviders,
-} from "../source-resolution/index.js";
+import { readSettingsOrDefault } from "../settings/index.js";
 import { type SkillExtensionRef } from "../skills/index.js";
 import { computeSkillPaths, type SkillPathSource } from "../skills/paths.js";
+import {
+  resolveConfiguredSkill,
+  toConfiguredEntryFailureReason,
+  withConfiguredEntryResolutionTimeout,
+  type ConfiguredEntryFailureReason,
+} from "./configured-entry-resolution/index.js";
 import { Workspace } from "./service-interface.js";
 
 export interface WorkspaceResolvedSkill {
@@ -34,27 +31,12 @@ export interface WorkspaceResolvedSkill {
   readonly installed: boolean;
 }
 
-export type WorkspaceUnresolvedSkillReason =
-  | {
-      readonly _tag: "multiple-matches";
-    }
-  | {
-      readonly _tag: "timeout";
-    }
-  | {
-      readonly _tag: "skill-not-found";
-    }
-  | {
-      readonly _tag: "resolution-failed";
-      readonly message: string;
-    };
-
 export interface WorkspaceUnresolvedSkill {
   readonly _tag: "unresolved";
   readonly name: string;
   readonly source: string;
   readonly enabled: boolean;
-  readonly reason: WorkspaceUnresolvedSkillReason;
+  readonly reason: ConfiguredEntryFailureReason;
 }
 
 export type WorkspaceSkillState = WorkspaceResolvedSkill | WorkspaceUnresolvedSkill;
@@ -85,117 +67,6 @@ export interface WorkspaceSkillSnapshot {
   readonly agents: WorkspaceSkillAgentSnapshot;
 }
 
-const SKILL_RESOLUTION_TIMEOUT = "2 seconds";
-
-const multipleMatchesReason = (): WorkspaceUnresolvedSkillReason => ({
-  _tag: "multiple-matches",
-});
-
-const timeoutReason = (): WorkspaceUnresolvedSkillReason => ({
-  _tag: "timeout",
-});
-
-const skillNotFoundReason = (): WorkspaceUnresolvedSkillReason => ({
-  _tag: "skill-not-found",
-});
-
-const resolutionFailedReason = (message: string): WorkspaceUnresolvedSkillReason => ({
-  _tag: "resolution-failed",
-  message,
-});
-
-const makeFsLayer = (fs: FileSystem.FileSystem, path: Path.Path) =>
-  Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fs), Layer.succeed(Path.Path, path));
-
-const readSettingsSafe = (dir: string, fsLayer: Layer.Layer<FileSystem.FileSystem | Path.Path>) =>
-  readSettings(dir).pipe(
-    Effect.map(Option.getOrElse(() => createDefaultSettings())),
-    Effect.provide(fsLayer),
-  );
-
-const resolveSkillRef = (
-  name: string,
-  source: string,
-  providers: SourceHostProvidersService,
-): Effect.Effect<
-  SkillExtensionRef,
-  WorkspaceUnresolvedSkillReason,
-  Workspace | FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const parsed = parseInputPattern(source);
-    const owner =
-      Option.isSome(parsed) &&
-      parsed.value.pattern.pattern === "registry-pattern-input" &&
-      Option.isSome(parsed.value.pattern.type) &&
-      parsed.value.pattern.type.value === "skills"
-        ? Option.some(parsed.value.pattern.owner)
-        : Option.none();
-    const versionConstraint =
-      Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input"
-        ? parsed.value.pattern.versionConstraint
-        : Option.none<string>();
-
-    const expectedNames = Array.dedupe([
-      name,
-      ...(Option.isSome(parsed) &&
-      parsed.value.pattern.pattern === "registry-pattern-input" &&
-      Option.isSome(parsed.value.pattern.name)
-        ? [parsed.value.pattern.name.value]
-        : []),
-    ]);
-
-    const sourceRef = yield* resolveSource(source).pipe(
-      Effect.mapError((error) => resolutionFailedReason(error.what)),
-    );
-
-    const findSkills = (skillNames: ReadonlyArray<string>) =>
-      providers
-        .find(sourceRef, {
-          skillNames,
-          type: "skill",
-          owner,
-          versionConstraint,
-        } satisfies FindOptions)
-        .pipe(
-          Effect.scoped,
-          Effect.map((refs) =>
-            refs.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
-          ),
-          Effect.mapError((error) => resolutionFailedReason(error.what)),
-        );
-
-    const directMatches = yield* findSkills(expectedNames);
-    if (directMatches.length === 1) {
-      const [match] = directMatches;
-      if (match !== undefined) return match;
-    }
-
-    if (directMatches.length > 1) {
-      return yield* Effect.fail(multipleMatchesReason());
-    }
-
-    const discovered = yield* findSkills([]);
-    const matchingDiscovered = discovered.filter((ref) => expectedNames.includes(ref.skill.name));
-
-    if (matchingDiscovered.length === 1) {
-      const [match] = matchingDiscovered;
-      if (match !== undefined) return match;
-    }
-
-    if (discovered.length === 1) {
-      const [onlyMatch] = discovered;
-      if (onlyMatch !== undefined) return onlyMatch;
-    }
-
-    return yield* Effect.fail(skillNotFoundReason());
-  }).pipe(
-    Effect.timeoutOrElse({
-      duration: SKILL_RESOLUTION_TIMEOUT,
-      orElse: () => Effect.fail(timeoutReason()),
-    }),
-  );
-
 const toSkillPathSource = (ref: SkillExtensionRef): SkillPathSource => {
   switch (ref.refType) {
     case "registry":
@@ -211,18 +82,18 @@ const buildDeclaredSkillState = (
   baseDir: string,
   fs: FileSystem.FileSystem,
   path: Path.Path,
-  providers: SourceHostProvidersService,
   name: string,
   source: string,
   enabled: boolean,
-): Effect.Effect<WorkspaceSkillState, never, Workspace | FileSystem.FileSystem | Path.Path> =>
+) =>
   Effect.gen(function* () {
-    const resolved = yield* resolveSkillRef(name, source, providers).pipe(
-      Effect.map((ref) => ({ _tag: "resolved" as const, ref })),
-      Effect.catch((reason) =>
+    const resolved = yield* resolveConfiguredSkill(name, source).pipe(
+      withConfiguredEntryResolutionTimeout(source),
+      Effect.map(({ ref }) => ({ _tag: "resolved" as const, ref })),
+      Effect.catch((error) =>
         Effect.succeed({
           _tag: "unresolved" as const,
-          reason,
+          reason: toConfiguredEntryFailureReason(error),
         }),
       ),
     );
@@ -257,25 +128,22 @@ const buildDeclaredSkillState = (
     } satisfies WorkspaceResolvedSkill;
   });
 
-const buildDeclaredSkillSnapshot = (
-  baseDir: string,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  providers: SourceHostProvidersService,
-) =>
+const buildDeclaredSkillSnapshot = (baseDir: string, fs: FileSystem.FileSystem, path: Path.Path) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const fsLayer = makeFsLayer(fs, path);
-    const settings = yield* readSettingsSafe(ws.path, fsLayer);
+    const settings = yield* readSettingsOrDefault(ws.path).pipe(
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(FileSystem.FileSystem, fs),
+    );
     const normalizedSkills = Object.entries(settings.skills ?? {}).map(([name, entry]) => ({
       name,
-      ...normalizeSkillEntry(entry),
+      ...entry,
     }));
 
     return yield* Effect.forEach(
       normalizedSkills,
       ({ name, source, enabled }) =>
-        buildDeclaredSkillState(baseDir, fs, path, providers, name, source, enabled),
+        buildDeclaredSkillState(baseDir, fs, path, name, source, enabled),
       { concurrency: "unbounded" },
     );
   });
@@ -363,9 +231,8 @@ export const buildWorkspaceSkillSnapshot = () =>
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const providers = yield* SourceHostProviders;
 
-    const skills = yield* buildDeclaredSkillSnapshot(ws.baseDir, fs, path, providers);
+    const skills = yield* buildDeclaredSkillSnapshot(ws.baseDir, fs, path);
     const agents = yield* buildWorkspaceSkillAgentSnapshot(ws.baseDir);
 
     return {

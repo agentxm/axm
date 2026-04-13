@@ -66,6 +66,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: SyncHandlerA
       Effect.provideService(Path.Path, path),
       Effect.provideService(SourceHostProviders, sources),
       Effect.provideService(CodingAgentRepository, agentRepo),
+      Effect.scoped,
     ),
   };
 
@@ -87,7 +88,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: SyncHandlerA
         syncReadiness.blockers.map(
           (blocker): PlannedJobStep => ({
             readiness: "error",
-            label: blocker.subject,
+            label: `${blocker.subject.kind}:${blocker.subject.ref}`,
             errorMessage: blocker.message,
           }),
         ),

@@ -78,7 +78,7 @@ const testSource: RegistrySource = {
 };
 
 const defaultFindOptions: FindOptions = {
-  skillNames: [],
+  names: [],
   type: "skill",
   owner: Option.none(),
   versionConstraint: Option.none(),
@@ -269,7 +269,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     return runEffect(
       Effect.gen(function* () {
         const findOptions: FindOptions = {
-          skillNames: ["my-skill"],
+          names: ["my-skill"],
           type: "skill",
           owner: Option.none(),
           versionConstraint: Option.none(),

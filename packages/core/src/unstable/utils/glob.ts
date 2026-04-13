@@ -1,30 +1,30 @@
 /**
- * Glob expansion for skill names.
+ * Glob expansion for extension names.
  *
- * Expands `*` wildcards against a list of skill names. Only `*` is supported
+ * Expands `*` wildcards against a list of names. Only `*` is supported
  * as a wildcard — all other characters are treated as literals.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 /**
- * Expand a glob pattern against a list of skill names.
+ * Expand a glob pattern against a list of names.
  *
  * Only `*` wildcards are supported. All other characters (including `?`, `[`, `]`)
  * are treated as literals. Matching is case-sensitive.
  *
  * @param pattern - The pattern to match (may contain `*`)
- * @param skillNames - Available skill names to match against
- * @returns Matching skill names in their original order
+ * @param names - Available names to match against
+ * @returns Matching names in their original order
  */
 export const expandGlob = (
   pattern: string,
-  skillNames: ReadonlyArray<string>,
+  names: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
   const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
   const regexSource = `^${escaped.replace(/\*/g, ".*")}$`;
   const regex = new RegExp(regexSource);
-  return skillNames.filter((name) => regex.test(name));
+  return names.filter((name) => regex.test(name));
 };
 
 /**
@@ -34,8 +34,8 @@ export const expandGlob = (
  * order of `names`.
  *
  * @param patterns - Patterns to match (may contain `*`)
- * @param names - Available skill names to match against
- * @returns Matching skill names in their original order, deduplicated
+ * @param names - Available names to match against
+ * @returns Matching names in their original order, deduplicated
  */
 export const expandGlobs = (
   patterns: ReadonlyArray<string>,

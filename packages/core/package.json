@@ -58,6 +58,10 @@
       "types": "./src/unstable/lockfile/index.ts",
       "default": "./dist/src/unstable/lockfile/index.js"
     },
+    "./unstable/schema": {
+      "types": "./src/unstable/schema/index.ts",
+      "default": "./dist/src/unstable/schema/index.js"
+    },
     "./unstable/settings": {
       "types": "./src/unstable/settings/index.ts",
       "default": "./dist/src/unstable/settings/index.js"

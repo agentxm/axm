@@ -1,31 +1,27 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { SkillEntryObjectSchema, SkillEntrySchema } from "./schema.js";
-import { collapseSkillEntry, normalizeSkillEntry } from "./skill-entry.js";
 
 describe("SkillEntrySchema", () => {
-  describe("parsing", () => {
-    it("accepts a plain string", () => {
+  describe("decode", () => {
+    it("decodes a plain string to normalized entry", () => {
       const result = Schema.decodeUnknownSync(SkillEntrySchema)("github:owner/repo");
-
-      expect(result).toBe("github:owner/repo");
+      expect(result).toEqual({ source: "github:owner/repo", enabled: true });
     });
 
-    it("accepts a SkillEntryObject with source and enabled", () => {
-      const result = Schema.decodeUnknownSync(SkillEntryObjectSchema)({
+    it("decodes an object with enabled false", () => {
+      const result = Schema.decodeUnknownSync(SkillEntrySchema)({
         source: "github:owner/repo",
         enabled: false,
       });
-
       expect(result).toEqual({ source: "github:owner/repo", enabled: false });
     });
 
-    it("accepts a SkillEntryObject with defaults", () => {
-      const result = Schema.decodeUnknownSync(SkillEntryObjectSchema)({
+    it("decodes an object without enabled as enabled true", () => {
+      const result = Schema.decodeUnknownSync(SkillEntrySchema)({
         source: "github:owner/repo",
       });
-
-      expect(result).toEqual({ source: "github:owner/repo" });
+      expect(result).toEqual({ source: "github:owner/repo", enabled: true });
     });
 
     it("rejects { managed: false } (legacy unmanaged marker)", () => {
@@ -40,53 +36,39 @@ describe("SkillEntrySchema", () => {
       expect(() => Schema.decodeUnknownSync(SkillEntrySchema)(42)).toThrow();
     });
   });
-});
 
-describe("normalizeSkillEntry", () => {
-  it("normalizes a plain string", () => {
-    const result = normalizeSkillEntry("github:owner/repo");
-
-    expect(result).toEqual({
-      source: "github:owner/repo",
-      enabled: true,
+  describe("encode", () => {
+    it("encodes enabled entry to string", () => {
+      const result = Schema.encodeSync(SkillEntrySchema)({
+        source: "github:owner/repo",
+        enabled: true,
+      });
+      expect(result).toBe("github:owner/repo");
     });
-  });
 
-  it("normalizes an object with source and enabled false", () => {
-    const result = normalizeSkillEntry({ source: "github:owner/repo", enabled: false });
-
-    expect(result).toEqual({
-      source: "github:owner/repo",
-      enabled: false,
-    });
-  });
-
-  it("normalizes an object with source and default enabled", () => {
-    const result = normalizeSkillEntry({ source: "github:owner/repo" });
-
-    expect(result).toEqual({
-      source: "github:owner/repo",
-      enabled: true,
+    it("encodes disabled entry to object", () => {
+      const result = Schema.encodeSync(SkillEntrySchema)({
+        source: "github:owner/repo",
+        enabled: false,
+      });
+      expect(result).toEqual({ source: "github:owner/repo", enabled: false });
     });
   });
 });
 
-describe("collapseSkillEntry", () => {
-  it("collapses to string when enabled is true (default)", () => {
-    const result = collapseSkillEntry({
-      source: "x",
-      enabled: true,
-    });
-
-    expect(result).toBe("x");
-  });
-
-  it("collapses to object when enabled is false", () => {
-    const result = collapseSkillEntry({
-      source: "x",
+describe("SkillEntryObjectSchema", () => {
+  it("accepts object with source and enabled", () => {
+    const result = Schema.decodeUnknownSync(SkillEntryObjectSchema)({
+      source: "github:owner/repo",
       enabled: false,
     });
+    expect(result).toEqual({ source: "github:owner/repo", enabled: false });
+  });
 
-    expect(result).toEqual({ source: "x", enabled: false });
+  it("accepts object with defaults", () => {
+    const result = Schema.decodeUnknownSync(SkillEntryObjectSchema)({
+      source: "github:owner/repo",
+    });
+    expect(result).toEqual({ source: "github:owner/repo" });
   });
 });

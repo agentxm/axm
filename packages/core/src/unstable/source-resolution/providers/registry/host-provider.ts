@@ -63,7 +63,7 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
 /** Map FindOptions + owner to GetExtensionsByOwnerArgs (no pagination — fetch all). */
 const toSearchOptions = (owner: "*", options: FindOptions): GetExtensionsByOwnerArgs => ({
   owner,
-  names: options.skillNames,
+  names: options.names,
   types: options.type === "*" ? [] : [options.type],
   limit: Option.none(),
   offset: 0,
@@ -74,7 +74,7 @@ const toRegistrySearchOptions = (
   options: FindOptions,
 ): GetExtensionsByOwnerArgs => ({
   owner,
-  names: options.skillNames,
+  names: options.names,
   types: options.type === "*" ? [] : [options.type],
   limit: Option.none(),
   offset: 0,
@@ -130,7 +130,7 @@ const findWithVersionConstraint = (
       Effect.gen(function* () {
         const requestedTypes: ReadonlyArray<ExtensionType> =
           options.type === "*" ? installableExtensionTypes : [options.type];
-        const requestedNames = options.skillNames.length > 0 ? options.skillNames : [];
+        const requestedNames = options.names.length > 0 ? options.names : [];
 
         if (requestedNames.length === 0) {
           const result = yield* client.getExtensionsByScope(

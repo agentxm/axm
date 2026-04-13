@@ -54,7 +54,9 @@ describe("Settings schema", () => {
 
       expect(result.profile).toBe("@wayne");
       expect(result.agents).toEqual(["claude-code", "cursor"]);
-      expect(result.skills).toEqual({ "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" });
+      expect(result.skills).toEqual({
+        "grappling-hook": { source: "@wayne/skills/grappling-hook@^1.0.0", enabled: true },
+      });
     });
   });
 
@@ -397,7 +399,9 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills).toEqual({ "my-skill": "@acme/skills/my-skill@^1.0.0" });
+      expect(result.skills).toEqual({
+        "my-skill": { source: "@acme/skills/my-skill@^1.0.0", enabled: true },
+      });
     });
 
     it("accepts skills with GitHub source", () => {
@@ -409,7 +413,10 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({
-        "grappling-hook": "github:wayne-industries/skills/grappling-hook",
+        "grappling-hook": {
+          source: "github:wayne-industries/skills/grappling-hook",
+          enabled: true,
+        },
       });
     });
 
@@ -421,7 +428,9 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills).toEqual({ "dev-skill": "local:./my-skills/dev-skill" });
+      expect(result.skills).toEqual({
+        "dev-skill": { source: "local:./my-skills/dev-skill", enabled: true },
+      });
     });
 
     it("accepts skills with mixed source types", () => {
@@ -434,9 +443,18 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills?.["registry-skill"]).toBe("@wayne/skills/registry-skill@^1.0.0");
-      expect(result.skills?.["github-skill"]).toBe("github:wayne-industries/skills#main");
-      expect(result.skills?.["local-skill"]).toBe("local:./dev/local-skill");
+      expect(result.skills?.["registry-skill"]).toEqual({
+        source: "@wayne/skills/registry-skill@^1.0.0",
+        enabled: true,
+      });
+      expect(result.skills?.["github-skill"]).toEqual({
+        source: "github:wayne-industries/skills#main",
+        enabled: true,
+      });
+      expect(result.skills?.["local-skill"]).toEqual({
+        source: "local:./dev/local-skill",
+        enabled: true,
+      });
     });
 
     it("accepts empty skills map", () => {
@@ -454,28 +472,34 @@ describe("Settings schema", () => {
       const input = { commit: "@wayne/skills/commit@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ commit: "@wayne/skills/commit@^1.0.0" });
+      expect(result).toEqual({
+        commit: { source: "@wayne/skills/commit@^1.0.0", enabled: true },
+      });
     });
 
     it("accepts skill name with hyphens", () => {
       const input = { "my-extension": "@wayne/skills/my-extension@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ "my-extension": "@wayne/skills/my-extension@^1.0.0" });
+      expect(result).toEqual({
+        "my-extension": { source: "@wayne/skills/my-extension@^1.0.0", enabled: true },
+      });
     });
 
     it("accepts skill name with numbers", () => {
       const input = { skill123: "@wayne/skills/skill123@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ skill123: "@wayne/skills/skill123@^1.0.0" });
+      expect(result).toEqual({
+        skill123: { source: "@wayne/skills/skill123@^1.0.0", enabled: true },
+      });
     });
 
     it("accepts single character skill name", () => {
       const input = { a: "@wayne/skills/a@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ a: "@wayne/skills/a@^1.0.0" });
+      expect(result).toEqual({ a: { source: "@wayne/skills/a@^1.0.0", enabled: true } });
     });
 
     it("accepts 64 character skill name (max length)", () => {
@@ -483,7 +507,9 @@ describe("Settings schema", () => {
       const input = { [name]: "@wayne/skills/skill@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ [name]: "@wayne/skills/skill@^1.0.0" });
+      expect(result).toEqual({
+        [name]: { source: "@wayne/skills/skill@^1.0.0", enabled: true },
+      });
     });
 
     it("rejects skill name over 64 characters", () => {
@@ -531,7 +557,9 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.commands).toEqual({ "batcomputer-sync": "@wayne/commands/batcomputer-sync" });
+      expect(result.commands).toEqual({
+        "batcomputer-sync": { source: "@wayne/commands/batcomputer-sync", enabled: true },
+      });
     });
 
     it("accepts valid packs at root with string entry", () => {
@@ -540,7 +568,9 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.packs).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
+      expect(result.packs).toEqual({
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+      });
     });
 
     it("accepts valid packs at root with object entry", () => {
@@ -560,7 +590,9 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.mcpServers).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
+      expect(result.mcpServers).toEqual({
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+      });
     });
 
     it("accepts all extension types together at root", () => {
@@ -572,10 +604,18 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills).toEqual({ "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" });
-      expect(result.commands).toEqual({ "batcomputer-sync": "@wayne/commands/batcomputer-sync" });
-      expect(result.packs).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
-      expect(result.mcpServers).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
+      expect(result.skills).toEqual({
+        "grappling-hook": { source: "@wayne/skills/grappling-hook@^1.0.0", enabled: true },
+      });
+      expect(result.commands).toEqual({
+        "batcomputer-sync": { source: "@wayne/commands/batcomputer-sync", enabled: true },
+      });
+      expect(result.packs).toEqual({
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+      });
+      expect(result.mcpServers).toEqual({
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+      });
     });
 
     it("accepts empty extension map", () => {
@@ -592,29 +632,26 @@ describe("Settings schema", () => {
     it("accepts string entry", () => {
       const input = { deploy: "@acme/commands/deploy" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result).toEqual({ deploy: "@acme/commands/deploy" });
+      expect(result).toEqual({ deploy: { source: "@acme/commands/deploy", enabled: true } });
     });
 
     it("accepts object entry with source", () => {
       const input = { deploy: { source: "@acme/commands/deploy" } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result["deploy"]).toEqual({ source: "@acme/commands/deploy" });
+      expect(result["deploy"]).toEqual({ source: "@acme/commands/deploy", enabled: true });
     });
 
-    it("accepts object entry with source and enabled", () => {
+    it("accepts object entry with source and enabled false", () => {
       const input = { deploy: { source: "@acme/commands/deploy", enabled: false } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
       expect(result["deploy"]).toEqual({ source: "@acme/commands/deploy", enabled: false });
     });
 
-    it("accepts object entry with enabled defaulting to undefined (treated as true)", () => {
+    it("accepts object entry with enabled defaulting to true", () => {
       const input = { deploy: { source: "@acme/commands/deploy" } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
       const entry = result["deploy"];
-      expect(typeof entry).toBe("object");
-      if (typeof entry === "object" && entry !== null) {
-        expect(entry.enabled).toBeUndefined();
-      }
+      expect(entry).toEqual({ source: "@acme/commands/deploy", enabled: true });
     });
 
     it("rejects object entry without source", () => {
@@ -628,28 +665,34 @@ describe("Settings schema", () => {
       const input = { commit: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ commit: "@wayne/commands/reference" });
+      expect(result).toEqual({
+        commit: { source: "@wayne/commands/reference", enabled: true },
+      });
     });
 
     it("accepts command name with hyphens", () => {
       const input = { "my-extension": "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ "my-extension": "@wayne/commands/reference" });
+      expect(result).toEqual({
+        "my-extension": { source: "@wayne/commands/reference", enabled: true },
+      });
     });
 
     it("accepts command name with numbers", () => {
       const input = { skill123: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ skill123: "@wayne/commands/reference" });
+      expect(result).toEqual({
+        skill123: { source: "@wayne/commands/reference", enabled: true },
+      });
     });
 
     it("accepts single character command name", () => {
       const input = { a: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ a: "@wayne/commands/reference" });
+      expect(result).toEqual({ a: { source: "@wayne/commands/reference", enabled: true } });
     });
 
     it("accepts 64 character command name (max length)", () => {
@@ -657,7 +700,9 @@ describe("Settings schema", () => {
       const input = { [name]: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ [name]: "@wayne/commands/reference" });
+      expect(result).toEqual({
+        [name]: { source: "@wayne/commands/reference", enabled: true },
+      });
     });
 
     it("rejects command name over 64 characters", () => {
@@ -703,14 +748,18 @@ describe("Settings schema", () => {
       const input = { batcomputer: "@wayne/mcp-servers/batcomputer" };
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
-      expect(result).toEqual({ batcomputer: "@wayne/mcp-servers/batcomputer" });
+      expect(result).toEqual({
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+      });
     });
 
     it("accepts MCP server object entry with source", () => {
       const input = { batcomputer: { source: "@wayne/mcp-servers/batcomputer" } };
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
-      expect(result).toEqual({ batcomputer: { source: "@wayne/mcp-servers/batcomputer" } });
+      expect(result).toEqual({
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+      });
     });
 
     it("rejects MCP server names with underscores", () => {
@@ -721,14 +770,39 @@ describe("Settings schema", () => {
   });
 
   describe("McpServerEntrySchema", () => {
-    it("accepts a plain string", () => {
-      const result = Schema.decodeUnknownSync(McpServerEntrySchema)(
-        "@wayne/mcp-servers/batcomputer",
-      );
+    describe("decode", () => {
+      it("decodes a plain string to normalized entry", () => {
+        const result = Schema.decodeUnknownSync(McpServerEntrySchema)(
+          "@wayne/mcp-servers/batcomputer",
+        );
 
-      expect(result).toBe("@wayne/mcp-servers/batcomputer");
+        expect(result).toEqual({ source: "@wayne/mcp-servers/batcomputer" });
+      });
+
+      it("decodes an object with source", () => {
+        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
+          source: "@wayne/mcp-servers/batcomputer",
+        });
+
+        expect(result).toEqual({ source: "@wayne/mcp-servers/batcomputer" });
+      });
+
+      it("rejects object without source", () => {
+        expect(() => Schema.decodeUnknownSync(McpServerEntrySchema)({ foo: "bar" })).toThrow();
+      });
     });
 
+    describe("encode", () => {
+      it("encodes entry to string", () => {
+        const result = Schema.encodeSync(McpServerEntrySchema)({
+          source: "@wayne/mcp-servers/batcomputer",
+        });
+        expect(result).toBe("@wayne/mcp-servers/batcomputer");
+      });
+    });
+  });
+
+  describe("McpServerEntryObjectSchema", () => {
     it("accepts an object with source", () => {
       const result = Schema.decodeUnknownSync(McpServerEntryObjectSchema)({
         source: "@wayne/mcp-servers/batcomputer",
@@ -736,41 +810,58 @@ describe("Settings schema", () => {
 
       expect(result).toEqual({ source: "@wayne/mcp-servers/batcomputer" });
     });
-
-    it("rejects object without source", () => {
-      expect(() => Schema.decodeUnknownSync(McpServerEntrySchema)({ foo: "bar" })).toThrow();
-    });
   });
 
   describe("ExtensionPackEntrySchema", () => {
-    it("accepts a plain string", () => {
-      const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)(
-        "@wayne/packs/utility-belt@^1.0.0",
-      );
+    describe("decode", () => {
+      it("decodes a plain string to normalized entry", () => {
+        const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)(
+          "@wayne/packs/utility-belt@^1.0.0",
+        );
 
-      expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
+        expect(result).toEqual({ source: "@wayne/packs/utility-belt@^1.0.0" });
+      });
+
+      it("decodes an object with source", () => {
+        const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+        });
+
+        expect(result).toEqual({ source: "@wayne/packs/utility-belt@^1.0.0" });
+      });
+
+      it("rejects invalid object with managed field", () => {
+        expect(() =>
+          Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ managed: false }),
+        ).toThrow();
+      });
+
+      it("rejects a number", () => {
+        expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)(42)).toThrow();
+      });
+
+      it("rejects object without source", () => {
+        expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ foo: "bar" })).toThrow();
+      });
     });
 
-    it("accepts an ExtensionPackEntryObject with source", () => {
+    describe("encode", () => {
+      it("encodes entry to string", () => {
+        const result = Schema.encodeSync(ExtensionPackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+        });
+        expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
+      });
+    });
+  });
+
+  describe("ExtensionPackEntryObjectSchema", () => {
+    it("accepts an object with source", () => {
       const result = Schema.decodeUnknownSync(ExtensionPackEntryObjectSchema)({
         source: "@wayne/packs/utility-belt@^1.0.0",
       });
 
       expect(result).toEqual({ source: "@wayne/packs/utility-belt@^1.0.0" });
-    });
-
-    it("rejects invalid object with managed field", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ managed: false }),
-      ).toThrow();
-    });
-
-    it("rejects a number", () => {
-      expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)(42)).toThrow();
-    });
-
-    it("rejects object without source", () => {
-      expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ foo: "bar" })).toThrow();
     });
   });
 
@@ -779,14 +870,18 @@ describe("Settings schema", () => {
       const input = { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" };
       const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
 
-      expect(result).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
+      expect(result).toEqual({
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+      });
     });
 
     it("accepts valid pack name with object entry", () => {
       const input = { "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } };
       const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
 
-      expect(result).toEqual({ "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } });
+      expect(result).toEqual({
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+      });
     });
 
     it("accepts empty packs map", () => {
@@ -855,11 +950,18 @@ describe("Settings schema", () => {
       expect(result.agents?.length).toBe(3);
       expect(result.sources).toHaveLength(4);
       expect(Object.keys(result.skills ?? {}).length).toBe(3);
-      expect(result.skills?.["grappling-hook"]).toBe("@wayne/skills/grappling-hook@^1.0.0");
-      expect(result.skills?.["batarang"]).toBe(
-        "github:wayne-industries/gadgets/skills/batarang#main",
-      );
-      expect(result.skills?.["dev-gadget"]).toBe("local:./dev/gadgets/dev-gadget");
+      expect(result.skills?.["grappling-hook"]).toEqual({
+        source: "@wayne/skills/grappling-hook@^1.0.0",
+        enabled: true,
+      });
+      expect(result.skills?.["batarang"]).toEqual({
+        source: "github:wayne-industries/gadgets/skills/batarang#main",
+        enabled: true,
+      });
+      expect(result.skills?.["dev-gadget"]).toEqual({
+        source: "local:./dev/gadgets/dev-gadget",
+        enabled: true,
+      });
     });
   });
 });

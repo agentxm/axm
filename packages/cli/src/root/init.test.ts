@@ -149,7 +149,7 @@ describe("init.handler", () => {
           // Pre-create settings with specific data
           const axmDir = path.join(tempDir, ".axm");
           fs.mkdirSync(axmDir, { recursive: true });
-          const existingSettings: Settings = {
+          const existingSettings = {
             agents: ["claude-code", "cursor"],
             skills: {
               commit: "^1.0.0",

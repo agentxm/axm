@@ -224,7 +224,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             (req) =>
               sources
                 .find(req.source, {
-                  skillNames: [req.commandName],
+                  names: [req.commandName],
                   type: "command",
                   owner: Option.some(req.owner),
                   versionConstraint: req.versionConstraint,

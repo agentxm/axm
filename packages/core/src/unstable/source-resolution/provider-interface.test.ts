@@ -94,7 +94,7 @@ describe("SourceHostProvider", () => {
         subPath: Option.none(),
       };
       const options: FindOptions = {
-        skillNames: [],
+        names: [],
         type: "skill",
         owner: Option.none(),
         versionConstraint: Option.none(),
@@ -181,7 +181,7 @@ describe("registry provider shape", () => {
 describe("FindOptions", () => {
   it("type field accepts ExtensionType", () => {
     const options: FindOptions = {
-      skillNames: [],
+      names: [],
       type: "skill",
       owner: Option.none(),
       versionConstraint: Option.none(),
@@ -189,7 +189,7 @@ describe("FindOptions", () => {
     expect(options.type).toBe("skill");
 
     const packOptions: FindOptions = {
-      skillNames: [],
+      names: [],
       type: "pack",
       owner: Option.none(),
       versionConstraint: Option.none(),
@@ -197,7 +197,7 @@ describe("FindOptions", () => {
     expect(packOptions.type).toBe("pack");
 
     const mcpOptions: FindOptions = {
-      skillNames: [],
+      names: [],
       type: "mcp-server",
       owner: Option.none(),
       versionConstraint: Option.none(),
@@ -207,7 +207,7 @@ describe("FindOptions", () => {
 
   it("type field accepts '*' wildcard", () => {
     const options: FindOptions = {
-      skillNames: [],
+      names: [],
       type: "*",
       owner: Option.none(),
       versionConstraint: Option.none(),
@@ -217,7 +217,7 @@ describe("FindOptions", () => {
 
   it("accepts versionConstraint", () => {
     const options: FindOptions = {
-      skillNames: ["my-skill"],
+      names: ["my-skill"],
       type: "skill",
       owner: Option.none(),
       versionConstraint: Option.some(versionConstraint("^1.2.3")),

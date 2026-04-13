@@ -32,9 +32,9 @@ import type {
   SubagentsLockMap,
 } from "../lockfile/index.js";
 import type {
-  NormalizedCommandEntry,
-  NormalizedSkillEntry,
-  NormalizedSubagentEntry,
+  CommandEntry,
+  SkillEntry,
+  SubagentEntry,
   SourceHostConfig,
 } from "../settings/index.js";
 import type {
@@ -314,13 +314,10 @@ export interface WorkspaceContextService {
   /** Update a skill entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateSkillEntry: (
     name: string,
-    updater: (entry: NormalizedSkillEntry) => NormalizedSkillEntry,
+    updater: (entry: SkillEntry) => SkillEntry,
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a skill entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setSkillEntry: (
-    name: string,
-    entry: NormalizedSkillEntry,
-  ) => Effect.Effect<void, AppError>;
+  readonly setSkillEntry: (name: string, entry: SkillEntry) => Effect.Effect<void, AppError>;
   /** Atomically rename a skill in both settings and lockfile. Serialized by semaphore. */
   readonly renameSkill: (oldName: string, newName: string) => Effect.Effect<void, AppError>;
   /** Update the agents field on a lock entry. Serialized by semaphore. */
@@ -450,13 +447,10 @@ export interface WorkspaceContextService {
   /** Update a command entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateCommandEntry: (
     name: string,
-    updater: (entry: NormalizedCommandEntry) => NormalizedCommandEntry,
+    updater: (entry: CommandEntry) => CommandEntry,
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a command entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setCommandEntry: (
-    name: string,
-    entry: NormalizedCommandEntry,
-  ) => Effect.Effect<void, AppError>;
+  readonly setCommandEntry: (name: string, entry: CommandEntry) => Effect.Effect<void, AppError>;
   /** Configured subagents from settings with source metadata. */
   readonly getConfiguredSubagents: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredSubagent>,
@@ -492,13 +486,10 @@ export interface WorkspaceContextService {
   /** Update a subagent entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateSubagentEntry: (
     name: string,
-    updater: (entry: NormalizedSubagentEntry) => NormalizedSubagentEntry,
+    updater: (entry: SubagentEntry) => SubagentEntry,
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a subagent entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setSubagentEntry: (
-    name: string,
-    entry: NormalizedSubagentEntry,
-  ) => Effect.Effect<void, AppError>;
+  readonly setSubagentEntry: (name: string, entry: SubagentEntry) => Effect.Effect<void, AppError>;
   // --- Granular subagent removal methods (settings-only or lockfile-only) ---
   /** Remove a subagent from settings only (keep lockfile entry). Serialized by semaphore. */
   readonly removeSubagentSettings: (name: string) => Effect.Effect<void, AppError>;

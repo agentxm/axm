@@ -101,20 +101,56 @@ export {
 
 // Doctor
 export {
+  ActionSchema,
+  CheckSchema,
+  CheckStatusSchema,
   diagnoseWorkspaceDoctor,
-  isWorkspaceDoctorSyncBlockingDiagnostic,
-  WORKSPACE_DOCTOR_DIAGNOSTIC_SEVERITIES,
-  type WorkspaceDoctorDiagnostic,
-  type WorkspaceDoctorDiagnosticSeverity,
-  type WorkspaceDoctorDiagnosis,
-} from "./doctor.js";
+  FindingSchema,
+  FindingSeveritySchema,
+  FindingSubjectSchema,
+  ReportSummarySchema,
+  WorkspaceDoctorReportSchema,
+  type Action,
+  type Check,
+  type CheckStatus,
+  type Finding,
+  type FindingSeverity,
+  type FindingSubject,
+  type ReportSummary,
+  type WorkspaceDoctorReport,
+} from "./doctor/index.js";
+
+// Settings validation
+export {
+  detectLockfileBlockers,
+  detectSettingsEntryBlockers,
+  type LockfileBlocker,
+  type LockfileBlockerReason,
+  type SettingsEntryBlocker,
+  type SettingsEntryBlockerReason,
+} from "./settings-validation/index.js";
+
+// Configured entry resolution
+export {
+  resolveConfiguredCommand,
+  resolveConfiguredMcpServer,
+  resolveConfiguredPack,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
+  type ConfiguredEntryFailureReason,
+  type ResolvedConfiguredCommand,
+  type ResolvedConfiguredEntry,
+  type ResolvedConfiguredMcpServer,
+  type ResolvedConfiguredPack,
+  type ResolvedConfiguredSkill,
+  type ResolvedConfiguredSubagent,
+} from "./configured-entry-resolution/index.js";
 
 // Sync
 export {
   formatWorkspaceSyncBlockersHowToFix,
   getWorkspaceSyncReadiness,
   syncWorkspace,
-  type WorkspaceSyncBlocker,
   type WorkspaceSyncReadiness,
 } from "./sync.js";
 

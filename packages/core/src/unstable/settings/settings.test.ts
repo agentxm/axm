@@ -51,7 +51,7 @@ describe("settings", () => {
           const settings: Settings = {
             agents: ["claude-code"],
             skills: {
-              commit: "^1.0.0",
+              commit: { source: "^1.0.0", enabled: true },
             },
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -61,7 +61,7 @@ describe("settings", () => {
           expect(Option.isSome(result)).toBe(true);
           const value = Option.getOrThrow(result);
           expect(value.agents).toEqual(["claude-code"]);
-          expect(value.skills?.["commit"]).toBe("^1.0.0");
+          expect(value.skills?.["commit"]).toEqual({ source: "^1.0.0", enabled: true });
         }),
       ),
     );
@@ -144,7 +144,7 @@ describe("settings", () => {
         Effect.gen(function* () {
           // Provide settings with keys in reverse order
           const settings: Settings = {
-            skills: { commit: "^1.0.0" },
+            skills: { commit: { source: "^1.0.0", enabled: true } },
             agents: ["claude-code"],
             profile: handle("@acme"),
           };

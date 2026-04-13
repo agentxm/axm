@@ -40,10 +40,6 @@ const parseRegistrySkillSource = (
   });
 };
 
-const toSkillSource = (
-  entry: string | { readonly source: string; readonly enabled?: boolean | undefined },
-): string => (typeof entry === "string" ? entry : entry.source);
-
 export const skillReconciliationAdapter: ReconciliationAdapter = {
   type: "skills",
   scanDeclarations: (context) => {
@@ -51,7 +47,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
 
     const skills = context.settings.skills ?? {};
     for (const [name, entry] of Object.entries(skills)) {
-      const source = toSkillSource(entry);
+      const source = entry.source;
       const parsed = parseRegistrySkillSource(source);
 
       declarations.push({

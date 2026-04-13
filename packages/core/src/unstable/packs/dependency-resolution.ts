@@ -83,7 +83,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
     const source = yield* registrySourceForDependency(pack, parsed.owner);
     const matches = yield* Effect.scoped(
       sources.find(source, {
-        skillNames: [parsed.name],
+        names: [parsed.name],
         type: expectedType,
         owner: Option.some(parsed.owner),
         versionConstraint: Option.some<string>(constraint),

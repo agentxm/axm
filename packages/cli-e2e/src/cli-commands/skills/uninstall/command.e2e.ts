@@ -425,10 +425,10 @@ describe("axm skills uninstall", () => {
   });
 
   describe("uninitialized workspace", () => {
-    it("auto-initializes and shows no-op when workspace is not initialized", async () => {
+    it("fails with an explicit init instruction when workspace is not initialized", async () => {
       const temp = createTempDir();
       try {
-        // Do not initialize — --non-interactive allows auto-init without prompts
+        // Do not initialize. Uninstall requires an explicit workspace bootstrap.
 
         const result = await runCli(
           ["skills", "uninstall", "my-skill", "--yes", "--non-interactive"],
@@ -437,9 +437,8 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        // Auto-init runs first, then the missing skill resolves to a no-op
-        expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toContain("not installed");
+        expect(result.exitCode).toBe(1);
+        expect(getOutput(result)).toContain("axm init");
       } finally {
         temp.cleanup();
       }

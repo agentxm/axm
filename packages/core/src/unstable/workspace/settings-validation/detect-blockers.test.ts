@@ -512,40 +512,44 @@ describe("detectSettingsEntryBlockers", () => {
     })(),
   );
 
-  it.effect("emits source-timeout when provider find hangs for command", () =>
-    (() => {
-      createWorkspace({
-        commands: {
-          "example-cmd": "@axm/commands/example-cmd",
-        },
-      });
-
-      const providers: SourceHostProvidersService = {
-        find: () => Effect.never,
-        fetch: () => Effect.die("unused in settings-validation tests"),
-        cloneUrl: () => Option.none(),
-        origin: () => "test",
-      };
-
-      return Effect.gen(function* () {
-        const fiber = yield* Effect.forkChild(detectSettingsEntryBlockers());
-        // Advance the clock in small increments to give deeply nested fibers
-        // (inside Effect.all + Effect.forEach + raceFirst) time to start and
-        // register their sleeps with the TestClock before advancing past them.
-        for (let i = 0; i < 10; i++) {
-          yield* TestClock.adjust("500 millis");
-        }
-        const blockers = yield* Fiber.join(fiber);
-
-        expect(blockers).toMatchObject([
-          {
-            reason: "source-timeout",
-            subject: { kind: "extension", ref: "command:example-cmd" },
-            message: 'Timed out while checking the command "@axm/commands/example-cmd".',
-            hint: "Check that the source is reachable, then run `axm doctor` again.",
+  it.effect(
+    "emits source-timeout when provider find hangs for command",
+    () =>
+      (() => {
+        createWorkspace({
+          commands: {
+            "example-cmd": "@axm/commands/example-cmd",
           },
-        ]);
-      }).pipe(Effect.provide(makeLayers(providers)));
-    })(),
+        });
+
+        const providers: SourceHostProvidersService = {
+          find: () => Effect.never,
+          fetch: () => Effect.die("unused in settings-validation tests"),
+          cloneUrl: () => Option.none(),
+          origin: () => "test",
+        };
+
+        return Effect.gen(function* () {
+          const fiber = yield* Effect.forkChild(detectSettingsEntryBlockers());
+          // Yield repeatedly so the forked fiber can run through its startup
+          // chain (filesystem reads, service lookups, source resolution) and
+          // register its timeout sleep with the TestClock before we advance.
+          for (let i = 0; i < 20; i++) {
+            yield* Effect.yieldNow;
+          }
+          yield* TestClock.adjust("3 seconds");
+          const blockers = yield* Fiber.join(fiber);
+
+          expect(blockers).toMatchObject([
+            {
+              reason: "source-timeout",
+              subject: { kind: "extension", ref: "command:example-cmd" },
+              message: 'Timed out while checking the command "@axm/commands/example-cmd".',
+              hint: "Check that the source is reachable, then run `axm doctor` again.",
+            },
+          ]);
+        }).pipe(Effect.provide(makeLayers(providers)));
+      })(),
+    30_000,
   );
 });

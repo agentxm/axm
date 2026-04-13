@@ -1,10 +1,9 @@
 /**
- * Auth guard combinator for publish-time recovery.
+ * Auth guard combinator for commands that require authentication.
  *
  * Wraps an Effect with a pre-check for authentication. If no token is
- * resolvable, prompts the user to sign in (respecting --yes and
- * --non-interactive flags), runs the device code login flow inline,
- * and retries the inner effect once on login success.
+ * resolvable, fails immediately with an actionable error message directing
+ * the user to `axm auth login`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -13,36 +12,21 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { isNonInteractive } from "../cli-flags/index.js";
 import {
-  AuthGuardInteraction,
   CredentialStore,
   RegistryUrl,
   makePersistedCredentialsUnsupportedError,
   resolveRequestToken,
-  runDeviceLogin,
 } from "./index.js";
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 
-const AUTH_LOGIN_REQUIRED_NON_INTERACTIVE = makeAppError({
+const AUTH_LOGIN_REQUIRED = makeAppError({
   code: "AUTH_LOGIN_REQUIRED",
   what: "Authentication required",
-  howToFix: "Set the AXM_TOKEN environment variable or run `axm login` in an interactive terminal.",
-});
-
-const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
-  code: "AUTH_LOGIN_REQUIRED",
-  what: "Authentication required",
-  howToFix: "Run `axm login` to sign in.",
-});
-
-const AUTH_LOGIN_PROMPT_MISSING = makeAppError({
-  code: "PROMPT_REQUIRED",
-  what: "Interactive prompt required: You need to sign in to publish. Sign in now?",
-  howToFix: "Provide AuthGuardInteraction in the runtime.",
+  howToFix: 'Run "axm auth login" to sign in, then retry.',
 });
 
 // -----------------------------------------------------------------------------
@@ -65,22 +49,19 @@ const isRemoteRegistryUrl = (registryUrl: string) =>
   });
 
 /**
- * Wraps an Effect with a publish-time auth guard.
+ * Wraps an Effect with an auth guard.
  *
  * - If the target registry is local, runs the inner effect directly.
  * - If a token is already resolvable, runs the inner effect directly.
- * - If no token and `--non-interactive`: fails with `AUTH_LOGIN_REQUIRED`.
- * - If no token and TTY: prompts to sign in (auto-accepted by `--yes`).
- * - On login success: retries the inner effect once.
- * - On decline: fails with `AUTH_LOGIN_REQUIRED`.
+ * - If no token: fails with `AUTH_LOGIN_REQUIRED`.
  */
 export const withAuthGuard = <A, E, R>(
   effect: Effect.Effect<A, E | AppError, R>,
-  options: { yes: boolean; registryUrl?: string },
+  options?: { registryUrl?: string },
 ) =>
   Effect.gen(function* () {
     const defaultRegistryUrl = yield* RegistryUrl;
-    const targetRegistryUrl = options.registryUrl ?? defaultRegistryUrl;
+    const targetRegistryUrl = options?.registryUrl ?? defaultRegistryUrl;
 
     // Local registries do not require HTTP auth.
     const isRemote = yield* isRemoteRegistryUrl(targetRegistryUrl);
@@ -100,27 +81,6 @@ export const withAuthGuard = <A, E, R>(
       return yield* makePersistedCredentialsUnsupportedError();
     }
 
-    // No token — check flags
-    const nonInteractive = yield* isNonInteractive;
-
-    if (nonInteractive) {
-      return yield* AUTH_LOGIN_REQUIRED_NON_INTERACTIVE;
-    }
-
-    // Interactive: prompt (auto-accept with --yes)
-    if (!options.yes) {
-      const interaction = yield* Effect.serviceOption(AuthGuardInteraction);
-      const shouldLogin = Option.isSome(interaction)
-        ? yield* interaction.value.confirmLogin()
-        : yield* AUTH_LOGIN_PROMPT_MISSING;
-      if (!shouldLogin) {
-        return yield* AUTH_LOGIN_REQUIRED_DECLINED;
-      }
-    }
-
-    // Run inline login flow
-    yield* runDeviceLogin(targetRegistryUrl);
-
-    // Retry the inner effect once after login
-    return yield* effect;
+    // No token — fail fast
+    return yield* AUTH_LOGIN_REQUIRED;
   });

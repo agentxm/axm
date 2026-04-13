@@ -217,6 +217,66 @@ describe("TelemetryClientLive", () => {
     );
   });
 
+  describe("JSON-primitive property support", () => {
+    it.effect("trackEvent accepts number, boolean, and null property values", () =>
+      Effect.gen(function* () {
+        const mock = makeMockHttpClient();
+        const telemetry = yield* getTelemetry("all", "skills install", mock);
+
+        yield* telemetry.trackEvent("command_completed", {
+          "cli.command": "skills install",
+          "cli.duration_ms": 1234,
+          "cli.verbose": true,
+          "cli.error_code": null,
+        });
+        yield* Effect.yieldNow;
+
+        expect(mock.captured).toHaveLength(1);
+        const req = at(mock.captured, 0);
+        const body = expectRecord(req.body);
+        const events = property(body, "events");
+        expect(Array.isArray(events)).toBe(true);
+        if (Array.isArray(events)) {
+          const event = expectRecord(at(events, 0));
+          const props = expectRecord(property(event, "properties"));
+          expect(props["cli.duration_ms"]).toBe(1234);
+          expect(typeof props["cli.duration_ms"]).toBe("number");
+          expect(props["cli.verbose"]).toBe(true);
+          expect(typeof props["cli.verbose"]).toBe("boolean");
+          expect(props["cli.error_code"]).toBeNull();
+        }
+      }),
+    );
+
+    it.effect("HTTP payload preserves JSON types (numbers stay numbers)", () =>
+      Effect.gen(function* () {
+        const mock = makeMockHttpClient();
+        const telemetry = yield* getTelemetry("all", "init", mock);
+
+        yield* telemetry.trackEvent("test_event", {
+          count: 42,
+          enabled: false,
+          label: "test",
+          missing: null,
+        });
+        yield* Effect.yieldNow;
+
+        expect(mock.captured).toHaveLength(1);
+        const body = expectRecord(at(mock.captured, 0).body);
+        const events = property(body, "events");
+        expect(Array.isArray(events)).toBe(true);
+        if (Array.isArray(events)) {
+          const props = expectRecord(property(expectRecord(at(events, 0)), "properties"));
+          // Verify raw JSON types are preserved through serialization
+          expect(props["count"]).toBe(42);
+          expect(props["enabled"]).toBe(false);
+          expect(props["label"]).toBe("test");
+          expect(props["missing"]).toBeNull();
+        }
+      }),
+    );
+  });
+
   describe("generated client delegation", () => {
     it.effect("trackEvent delegates to generated EventsIngest via POST /v1/events", () =>
       Effect.gen(function* () {

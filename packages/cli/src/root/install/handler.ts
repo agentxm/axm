@@ -1,8 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import {
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+} from "@axm.sh/core/unstable/cli-runtime";
 import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import {
   InstallCommandCommandWorkflowActions,
   type InstallCommandHandlerArgs,
@@ -85,6 +89,14 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
       Effect.gen(function* () {
         const intent = yield* resolveRootInstallIntent(source);
         const resolution = yield* runInstallIntent(intent, args);
+        yield* setCommandSemanticProperties(
+          summarizeCommandOutcome(
+            planResolutionToSummary(resolution, {
+              subjectType: intent.type,
+              sourceKind: "registry",
+            }),
+          ),
+        );
         yield* emitPlanResolutionResult("install", resolution);
       }),
   });

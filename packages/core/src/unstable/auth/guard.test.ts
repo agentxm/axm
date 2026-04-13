@@ -7,19 +7,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import {
-  AuthClientTest,
-  AuthGuardInteractionTest,
-  CredentialStoreTest,
-  RegistryUrl,
-} from "./index.js";
-import { AuthLoginInteractionTest } from "./login-interaction.js";
-import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
-import { TestFlagsLayer } from "../cli-flags/index.js";
+import { CredentialStoreTest, RegistryUrl } from "./index.js";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "../app-error/index.js";
 import { CredentialFileSchema } from "./schema.js";
-import { handle } from "../test-helpers.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
@@ -34,22 +25,10 @@ const makeCredentialFile = (registries: Record<string, unknown>) =>
   });
 
 const makeLayers = (opts?: {
-  nonInteractive?: boolean;
-  yes?: boolean;
   hasToken?: boolean;
-  confirmValue?: boolean;
   storedRegistryUrl?: string;
   allowsPersistedCredentials?: boolean;
 }) => {
-  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-  const authGuardInteraction = AuthGuardInteractionTest({
-    confirmLogin: () => Effect.succeed(opts?.confirmValue ?? true),
-  });
-  const interactionLayer = AuthLoginInteractionTest().layer;
-
-  const flagsLayer = TestFlagsLayer({
-    nonInteractive: opts?.nonInteractive ?? false,
-  });
   const credStoreLayer = opts?.hasToken
     ? CredentialStoreTest(
         "restricted-file",
@@ -69,52 +48,14 @@ const makeLayers = (opts?: {
       )
     : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
-  const authClientLayer = AuthClientTest({
-    initiateDeviceFlow: () =>
-      Effect.succeed({
-        device_code: "dc-123",
-        user_code: "ABCD-1234",
-        verification_uri: "https://auth.agentxm.ai/device",
-        verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
-        interval: 5,
-        expires_in: 600,
-      }),
-    pollDeviceToken: () =>
-      Effect.succeed({
-        access_token: "axm_ses_new",
-        refresh_token: "axm_ref_new",
-        expires_at: "2099-06-01T00:00:00Z",
-      }),
-    getMe: (_accessToken: string) =>
-      Effect.succeed({
-        userId: "user-1",
-        userHandle: handle("@alice"),
-        email: "alice@example.com",
-        tokenType: "session",
-        scopes: ["extensions:read"],
-        orgs: [],
-      }),
-  });
-
-  const FullLayer = Layer.mergeAll(
-    rendererLayer,
-    authGuardInteraction.layer,
-    interactionLayer,
-    flagsLayer,
-    credStoreLayer,
-    authClientLayer,
-    registryUrlLayer,
-  );
-
-  const logs = logsByTag(rendererState);
-  return { FullLayer, rendererState, promptState: authGuardInteraction.state, logs };
+  return Layer.mergeAll(credStoreLayer, registryUrlLayer);
 };
 
 describe("withAuthGuard", () => {
   it.effect("passes through when token is resolvable", () => {
-    const { FullLayer } = makeLayers({ hasToken: true });
-    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
-      Effect.provide(FullLayer),
+    const layer = makeLayers({ hasToken: true });
+    return withAuthGuard(makeInnerEffect(), { registryUrl: REGISTRY_URL }).pipe(
+      Effect.provide(layer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
       }),
@@ -123,12 +64,11 @@ describe("withAuthGuard", () => {
 
   it.effect("uses the explicit registry URL for token resolution", () => {
     const customRegistryUrl = "https://custom.registry.example.com";
-    const { FullLayer } = makeLayers({ hasToken: true, storedRegistryUrl: customRegistryUrl });
+    const layer = makeLayers({ hasToken: true, storedRegistryUrl: customRegistryUrl });
     return withAuthGuard(makeInnerEffect(), {
-      yes: false,
       registryUrl: customRegistryUrl,
     }).pipe(
-      Effect.provide(FullLayer),
+      Effect.provide(layer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
       }),
@@ -136,23 +76,21 @@ describe("withAuthGuard", () => {
   });
 
   it.effect("skips auth for local registry URLs", () => {
-    const { FullLayer, promptState } = makeLayers({ confirmValue: false });
+    const layer = makeLayers();
     return withAuthGuard(makeInnerEffect(), {
-      yes: false,
       registryUrl: "file:///tmp/registry",
     }).pipe(
-      Effect.provide(FullLayer),
+      Effect.provide(layer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
-        expect(promptState.confirmLoginCalls).toHaveLength(0);
       }),
     );
   });
 
-  it.effect("fails with AUTH_LOGIN_REQUIRED in non-interactive mode when no token", () => {
-    const { FullLayer } = makeLayers({ nonInteractive: true });
-    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
-      Effect.provide(FullLayer),
+  it.effect("fails with AUTH_LOGIN_REQUIRED when no token", () => {
+    const layer = makeLayers();
+    return withAuthGuard(makeInnerEffect()).pipe(
+      Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
@@ -161,63 +99,23 @@ describe("withAuthGuard", () => {
   });
 
   it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
-    const { FullLayer, promptState } = makeLayers({
-      confirmValue: true,
-      allowsPersistedCredentials: false,
-    });
-    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
-      Effect.provide(FullLayer),
+    const layer = makeLayers({ allowsPersistedCredentials: false });
+    return withAuthGuard(makeInnerEffect()).pipe(
+      Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "AUTH_TOKEN_REQUIRED" });
-        expect(promptState.confirmLoginCalls).toHaveLength(0);
-      }),
-    );
-  });
-
-  it.effect("prompts and runs login when no token and user accepts", () => {
-    const { FullLayer, logs } = makeLayers({ confirmValue: true });
-    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
-      Effect.provide(FullLayer),
-      Effect.map((result) => {
-        expect(result).toBe("publish-result");
-        expect(
-          logs.success.some((m) => m.includes("Logged in to") && m.includes("as @alice")),
-        ).toBe(true);
-      }),
-    );
-  });
-
-  it.effect("fails with AUTH_LOGIN_REQUIRED when user declines login", () => {
-    const { FullLayer } = makeLayers({ confirmValue: false });
-    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
-      Effect.provide(FullLayer),
-      Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
-      Effect.map((result) => {
-        expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
-      }),
-    );
-  });
-
-  it.effect("auto-accepts login with --yes flag", () => {
-    const { FullLayer, promptState } = makeLayers({ yes: true });
-    return withAuthGuard(makeInnerEffect(), { yes: true }).pipe(
-      Effect.provide(FullLayer),
-      Effect.map((result) => {
-        expect(result).toBe("publish-result");
-        // Should not have prompted (--yes auto-accepts)
-        expect(promptState.confirmLoginCalls).toHaveLength(0);
       }),
     );
   });
 
   it.effect("propagates inner effect errors", () => {
-    const { FullLayer } = makeLayers({ hasToken: true });
+    const layer = makeLayers({ hasToken: true });
     const failingEffect = Effect.fail(
       makeAppError({ code: "PUBLISH_PLAN_FAILED", what: "Publish failed" }),
     );
-    return withAuthGuard(failingEffect, { yes: false }).pipe(
-      Effect.provide(FullLayer),
+    return withAuthGuard(failingEffect).pipe(
+      Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });

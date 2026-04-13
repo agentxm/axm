@@ -38,9 +38,13 @@ import {
 } from "@axm.sh/core/unstable/mcp-servers";
 import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+  withArgvTracking,
+} from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
 export interface PublishPackHandlerArgs {
@@ -126,7 +130,6 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
 ) {
   const targetRegistry = yield* resolveTargetRegistry(args.registry);
   yield* withAuthGuard(publishPackEffect(args, targetRegistry), {
-    yes: args.yes,
     registryUrl: targetRegistry.registryUrl,
   });
 });
@@ -356,6 +359,14 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     }
   }
 
+  yield* setCommandSemanticProperties(
+    summarizeCommandOutcome(
+      planResolutionToSummary(resolvedPlan, {
+        subjectType: "pack",
+        sourceKind: "registry",
+      }),
+    ),
+  );
   yield* emitPlanResolutionResult("packs.publish", resolvedPlan);
 
   yield* renderer.success("Done");

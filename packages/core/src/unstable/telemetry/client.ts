@@ -10,8 +10,11 @@ import { envWithDefault } from "../utils/index.js";
 import * as GeneratedTelemetryClient from "./__generated__/telemetry-client.js";
 import type { TelemetryMode } from "./mode.js";
 
+export type TelemetryPropertyValue = string | number | boolean | null;
+export type TelemetryProperties = Record<string, TelemetryPropertyValue>;
+
 export interface TelemetryClientService {
-  readonly trackEvent: (event: string, properties?: Record<string, string>) => Effect.Effect<void>;
+  readonly trackEvent: (event: string, properties?: TelemetryProperties) => Effect.Effect<void>;
   readonly reportError: (error: {
     readonly name: string;
     readonly message: string;

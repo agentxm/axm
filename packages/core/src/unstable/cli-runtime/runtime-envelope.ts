@@ -17,6 +17,8 @@ import {
   reportCliError,
   trackCliCommand,
   trackCliCommandCompleted,
+  getCommandSemanticProperties,
+  CommandSemanticPropertiesLive,
 } from "./telemetry.js";
 import { CommandArgv, serializeArgv } from "./command-argv.js";
 
@@ -153,7 +155,7 @@ export const withCliErrorHandling = <A, R>(
     const globalProperties = yield* readGlobalFlagProperties;
 
     // Merge all properties for command_invoked
-    const allProperties: Record<string, string> = {
+    const allProperties = {
       ...argvProperties,
       ...globalProperties,
     };
@@ -166,10 +168,14 @@ export const withCliErrorHandling = <A, R>(
 
     return yield* program.pipe(
       Effect.tap(() =>
-        trackCliCommandCompleted({
-          command,
-          result: "success",
-          durationMs: Date.now() - startTime,
+        Effect.gen(function* () {
+          const semanticProperties = yield* getCommandSemanticProperties;
+          yield* trackCliCommandCompleted({
+            command,
+            result: "success",
+            durationMs: Date.now() - startTime,
+            semanticProperties,
+          });
         }),
       ),
       Effect.catch((error: ExpectedCliError) => {
@@ -180,11 +186,15 @@ export const withCliErrorHandling = <A, R>(
         return writeExpectedCliError(error, options.format).pipe(
           Effect.andThen(reportCliError(error, command)),
           Effect.andThen(
-            trackCliCommandCompleted({
-              command,
-              result,
-              durationMs,
-              ...(error._tag === "AppError" && { errorCode: error.code }),
+            Effect.gen(function* () {
+              const semanticProperties = yield* getCommandSemanticProperties;
+              yield* trackCliCommandCompleted({
+                command,
+                result,
+                durationMs,
+                ...(error._tag === "AppError" && { errorCode: error.code }),
+                semanticProperties,
+              });
             }),
           ),
           Effect.andThen(Effect.die(effectCliExit(exitCode))),
@@ -199,10 +209,14 @@ export const withCliErrorHandling = <A, R>(
 
         return reportCliDefect(cause, command).pipe(
           Effect.andThen(
-            trackCliCommandCompleted({
-              command,
-              result: "defect",
-              durationMs,
+            Effect.gen(function* () {
+              const semanticProperties = yield* getCommandSemanticProperties;
+              yield* trackCliCommandCompleted({
+                command,
+                result: "defect",
+                durationMs,
+                semanticProperties,
+              });
             }),
           ),
           Effect.andThen(Effect.failCause(cause)),
@@ -211,7 +225,9 @@ export const withCliErrorHandling = <A, R>(
     );
   });
 
-  return enrichedProgram.pipe(Effect.provide(telemetryLayer));
+  return enrichedProgram.pipe(
+    Effect.provide(Layer.mergeAll(telemetryLayer, CommandSemanticPropertiesLive)),
+  );
 };
 
 // ---------------------------------------------------------------------------

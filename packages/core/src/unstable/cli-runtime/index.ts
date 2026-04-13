@@ -40,6 +40,11 @@ export {
   trackCliCommandCompleted,
   reportCliDefect,
   reportCliError,
+  setCommandSemanticProperties,
+  getCommandSemanticProperties,
+  CommandSemanticProperties,
+  CommandSemanticPropertiesLive,
+  type CommandSemanticPropertiesService,
   type CliCommandTelemetryOptions,
   type CliCommandCompletedOptions,
 } from "./telemetry.js";
@@ -50,3 +55,10 @@ export {
   serializeArgv,
   extractParamKinds,
 } from "./command-argv.js";
+export {
+  summarizeCommandOutcome,
+  type CommandOutcomeSummary,
+  type CommandOutcome,
+  type SubjectType,
+  type SourceKind,
+} from "./command-summary.js";

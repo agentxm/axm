@@ -5,6 +5,10 @@ import * as Option from "effect/Option";
 import { withAuthGuard } from "@axm.sh/core/unstable/auth";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import {
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+} from "@axm.sh/core/unstable/cli-runtime";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { PublishSubagentOperation } from "@axm.sh/core/unstable/subagents";
@@ -13,7 +17,11 @@ import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/
 import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
+import {
+  emitNoOpResult,
+  emitPlanResolutionResult,
+  planResolutionToSummary,
+} from "../../../json-output.js";
 
 export interface PublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
@@ -119,7 +127,6 @@ export const handlePublish = Effect.fn("SubagentsPublish.handle")(function* (
 ) {
   const targetRegistry = yield* resolveTargetRegistry(args.registry);
   yield* withAuthGuard(publishEffect(args, targetRegistry), {
-    yes: args.yes,
     registryUrl: targetRegistry.registryUrl,
   });
 });
@@ -293,6 +300,14 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     });
   }
 
+  yield* setCommandSemanticProperties(
+    summarizeCommandOutcome(
+      planResolutionToSummary(resolvedPlan, {
+        subjectType: "subagent",
+        sourceKind: "registry",
+      }),
+    ),
+  );
   yield* emitPlanResolutionResult("subagents.publish", resolvedPlan);
   yield* renderer.success("Done");
 });

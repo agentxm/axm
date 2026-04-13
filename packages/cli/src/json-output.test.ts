@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { CancelledPlan, ExecutedPlan, PreviewedPlan } from "@axm.sh/core/unstable/workspace";
 
-import { toPlanResolutionResult } from "./json-output.js";
+import { toPlanResolutionResult, planResolutionToSummary } from "./json-output.js";
 
 describe("toPlanResolutionResult", () => {
   const successfulRun = Effect.succeed({
@@ -166,5 +166,194 @@ describe("toPlanResolutionResult", () => {
         },
       ],
     });
+  });
+});
+
+describe("planResolutionToSummary", () => {
+  const successfulRun = Effect.succeed({
+    result: "success" as const,
+    message: "",
+  });
+
+  it("maps PreviewedPlan to previewed outcome with context", () => {
+    const resolution: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Install skill",
+      description: Option.some("Install @acme/skills/code-review"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [{ readiness: "ready", label: "Install skill", run: successfulRun }],
+        },
+      ],
+    };
+
+    const summary = planResolutionToSummary(resolution, {
+      subjectType: "skill",
+      sourceKind: "registry",
+    });
+
+    expect(summary.outcome).toBe("previewed");
+    expect(summary.subjectType).toBe("skill");
+    expect(summary.sourceKind).toBe("registry");
+    expect(summary.appliedCount).toBeUndefined();
+    expect(summary.failedCount).toBeUndefined();
+    expect(summary.blockedCount).toBeUndefined();
+  });
+
+  it("maps CancelledPlan to cancelled outcome", () => {
+    const resolution: CancelledPlan = {
+      _tag: "CancelledPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [{ readiness: "ready", label: "Install skill", run: successfulRun }],
+        },
+      ],
+    };
+
+    const summary = planResolutionToSummary(resolution, {
+      subjectType: "skill",
+      sourceKind: "registry",
+    });
+
+    expect(summary.outcome).toBe("cancelled");
+  });
+
+  it("maps ExecutedPlan to applied outcome with counts", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.some("Install 2 skills"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "Install code-review",
+              result: { result: "success", message: "installed" },
+            },
+            {
+              label: "Install linter",
+              result: { result: "success", message: "installed" },
+            },
+          ],
+        },
+      ],
+    };
+
+    const summary = planResolutionToSummary(resolution, {
+      subjectType: "skill",
+      sourceKind: "registry",
+    });
+
+    expect(summary.outcome).toBe("applied");
+    expect(summary.subjectType).toBe("skill");
+    expect(summary.sourceKind).toBe("registry");
+    expect(summary.appliedCount).toBe(2);
+    expect(summary.failedCount).toBeUndefined();
+    expect(summary.blockedCount).toBeUndefined();
+  });
+
+  it("includes failedCount and blockedCount when non-zero", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Publish pack",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "Publish dep",
+              result: {
+                result: "error",
+                message: "failed",
+                error: makeAppError({ code: "FAIL", what: "failed" }),
+              },
+            },
+            {
+              label: "Publish pack",
+              result: {
+                result: "error",
+                message: "blocked",
+                error: makeAppError({ code: "PLAN_STEP_BLOCKED", what: "blocked" }),
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const summary = planResolutionToSummary(resolution, {
+      subjectType: "pack",
+      sourceKind: "registry",
+    });
+
+    expect(summary.outcome).toBe("applied");
+    expect(summary.failedCount).toBe(1);
+    expect(summary.blockedCount).toBe(1);
+    expect(summary.appliedCount).toBeUndefined();
+  });
+
+  it("omits zero counts from summary", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "Install code-review",
+              result: { result: "success", message: "ok" },
+            },
+          ],
+        },
+      ],
+    };
+
+    const summary = planResolutionToSummary(resolution, { subjectType: "skill" });
+
+    expect(summary.appliedCount).toBe(1);
+    expect(summary.failedCount).toBeUndefined();
+    expect(summary.blockedCount).toBeUndefined();
+  });
+
+  it("preserves context subjectType and sourceKind", () => {
+    const resolution: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Install",
+      description: Option.none(),
+      jobs: [{ concurrency: 1, steps: [] }],
+    };
+
+    const summary = planResolutionToSummary(resolution, {
+      subjectType: "mcp-server",
+      sourceKind: "local",
+    });
+
+    expect(summary.subjectType).toBe("mcp-server");
+    expect(summary.sourceKind).toBe("local");
+  });
+
+  it("handles mixed subject type for workspace install", () => {
+    const resolution: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Install configured extensions",
+      description: Option.some("Install configured workspace extensions"),
+      jobs: [{ concurrency: 1, steps: [] }],
+    };
+
+    const summary = planResolutionToSummary(resolution, {
+      subjectType: "mixed",
+      sourceKind: "workspace",
+    });
+
+    expect(summary.subjectType).toBe("mixed");
+    expect(summary.sourceKind).toBe("workspace");
   });
 });

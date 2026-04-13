@@ -13,7 +13,11 @@ import { withAuthGuard } from "@axm.sh/core/unstable/auth";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+  withArgvTracking,
+} from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
@@ -30,7 +34,7 @@ import type { PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/worksp
 import type { Plan } from "@axm.sh/core/unstable/workspace";
 import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
 import { previewOrApplyPlan } from "@axm.sh/core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 
 export interface ForkHandlerArgs {
   readonly source: string;
@@ -350,10 +354,15 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       force: args.force,
       preview: args.preview,
     }),
-    {
-      yes: args.yes,
-      registryUrl: registrySource.location.href,
-    },
+    { registryUrl: registrySource.location.href },
+  );
+  yield* setCommandSemanticProperties(
+    summarizeCommandOutcome(
+      planResolutionToSummary(resolution, {
+        subjectType: "skill",
+        sourceKind: "registry",
+      }),
+    ),
   );
   yield* emitPlanResolutionResult("skills.fork", resolution);
 

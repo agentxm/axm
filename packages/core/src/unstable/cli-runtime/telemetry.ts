@@ -1,9 +1,13 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import * as ServiceMap from "effect/ServiceMap";
 import type { AppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { TelemetryClient } from "../telemetry/index.js";
+import type { TelemetryProperties } from "../telemetry/client.js";
 import {
   nonInteractiveFlag,
   jsonFlag,
@@ -19,7 +23,7 @@ import {
 export interface CliCommandTelemetryOptions {
   readonly command: string;
   readonly event?: string;
-  readonly properties?: Record<string, string>;
+  readonly properties?: TelemetryProperties;
 }
 
 export const trackCliCommand = ({
@@ -41,6 +45,7 @@ export interface CliCommandCompletedOptions {
   readonly result: "success" | "error" | "cancelled" | "defect";
   readonly durationMs: number;
   readonly errorCode?: string;
+  readonly semanticProperties?: TelemetryProperties;
 }
 
 export const trackCliCommandCompleted = (
@@ -51,8 +56,9 @@ export const trackCliCommandCompleted = (
     yield* telemetry.trackEvent("command_completed", {
       "cli.command": options.command,
       "cli.result": options.result,
-      "cli.duration_ms": String(options.durationMs),
-      ...(options.errorCode && { "cli.error_code": options.errorCode }),
+      "cli.duration_ms": options.durationMs,
+      ...(options.errorCode !== undefined && { "cli.error_code": options.errorCode }),
+      ...(options.semanticProperties ?? {}),
     });
   }).pipe(Effect.catchCause(() => Effect.void));
 
@@ -98,6 +104,64 @@ export const reportCliError = (
         });
       }).pipe(Effect.catchCause(() => Effect.void))
     : Effect.void;
+
+// ---------------------------------------------------------------------------
+// Command semantic properties (Ref-based forwarding)
+// ---------------------------------------------------------------------------
+
+export interface CommandSemanticPropertiesService {
+  readonly ref: Ref.Ref<TelemetryProperties>;
+}
+
+export class CommandSemanticProperties extends ServiceMap.Service<
+  CommandSemanticProperties,
+  CommandSemanticPropertiesService
+>()("@axm.sh/core/CommandSemanticProperties") {}
+
+/**
+ * Set semantic telemetry properties from within a command handler.
+ * These properties are read by the runtime envelope and merged into
+ * the `command_completed` event. Safe to call when the service is
+ * absent (e.g., in tests that bypass the runtime envelope).
+ */
+export const setCommandSemanticProperties = (
+  properties: TelemetryProperties,
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const option = yield* Effect.serviceOption(CommandSemanticProperties);
+    yield* Option.match(option, {
+      onNone: () => Effect.void,
+      onSome: (svc) => Ref.set(svc.ref, properties),
+    });
+  });
+
+/**
+ * Read the current semantic telemetry properties.
+ * Returns an empty record if the service is not available.
+ */
+const emptyProperties: TelemetryProperties = {};
+
+export const getCommandSemanticProperties: Effect.Effect<TelemetryProperties> = Effect.gen(
+  function* () {
+    const option = yield* Effect.serviceOption(CommandSemanticProperties);
+    return yield* Option.match(option, {
+      onNone: () => Effect.succeed(emptyProperties),
+      onSome: (svc) => Ref.get(svc.ref),
+    });
+  },
+);
+
+/**
+ * Create a Layer that provides CommandSemanticProperties backed by a fresh Ref.
+ */
+export const CommandSemanticPropertiesLive: Layer.Layer<CommandSemanticProperties> = Layer.effect(
+  CommandSemanticProperties,
+  Ref.make(emptyProperties).pipe(Effect.map((ref) => ({ ref }))),
+);
+
+// ---------------------------------------------------------------------------
+// Defect reporting
+// ---------------------------------------------------------------------------
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
   const squashed = Cause.squash(cause);

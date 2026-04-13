@@ -4,6 +4,11 @@ import * as Schema from "effect/Schema";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import type {
+  CommandOutcomeSummary,
+  SourceKind,
+  SubjectType,
+} from "@axm.sh/core/unstable/cli-runtime";
+import type {
   CompletedJobStep,
   ExecutedPlan,
   PlanResolution,
@@ -169,6 +174,25 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       PlanResolutionDocumentFields,
     );
   });
+
+/**
+ * Convert a PlanResolution to a CommandOutcomeSummary for telemetry.
+ * Produces normalized outcome, counts, and optional subject/source context.
+ */
+export const planResolutionToSummary = (
+  resolution: PlanResolution,
+  context: { readonly subjectType?: SubjectType; readonly sourceKind?: SourceKind },
+): CommandOutcomeSummary => {
+  const result = toPlanResolutionResult(resolution);
+  return {
+    outcome: result.outcome,
+    ...(context.subjectType !== undefined ? { subjectType: context.subjectType } : {}),
+    ...(context.sourceKind !== undefined ? { sourceKind: context.sourceKind } : {}),
+    ...(result.appliedCount > 0 ? { appliedCount: result.appliedCount } : {}),
+    ...(result.failedCount > 0 ? { failedCount: result.failedCount } : {}),
+    ...(result.blockedCount > 0 ? { blockedCount: result.blockedCount } : {}),
+  };
+};
 
 export const emitNoOpResult = <TCommand extends string>(
   command: TCommand,

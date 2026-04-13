@@ -1,10 +1,25 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import {
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+  type SubjectType,
+} from "@axm.sh/core/unstable/cli-runtime";
 import { previewOrApplyPlan, type PlanResolution } from "@axm.sh/core/unstable/workspace";
 
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import {
+  emitNoOpResult,
+  emitPlanResolutionResult,
+  planResolutionToSummary,
+} from "../../json-output.js";
 import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
+
+const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
+  Option.match(type, {
+    onNone: () => "mixed" as const,
+    onSome: (value) => value,
+  });
 
 export interface WorkspaceInstallFlags {
   readonly yes: boolean;
@@ -27,6 +42,13 @@ export const handleWorkspaceInstall = (args: {
     });
 
     if (planResult._tag === "NoConfiguredExtensions") {
+      yield* setCommandSemanticProperties(
+        summarizeCommandOutcome({
+          outcome: "no-op",
+          subjectType: workspaceInstallSubjectType(args.type),
+          sourceKind: "workspace",
+        }),
+      );
       yield* emitNoOpResult(args.command, {
         planName: args.planName,
         message: planResult.message,
@@ -39,6 +61,14 @@ export const handleWorkspaceInstall = (args: {
     }
 
     const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
+    yield* setCommandSemanticProperties(
+      summarizeCommandOutcome(
+        planResolutionToSummary(resolution, {
+          subjectType: workspaceInstallSubjectType(args.type),
+          sourceKind: "workspace",
+        }),
+      ),
+    );
     yield* emitPlanResolutionResult(args.command, resolution);
   });
 

@@ -34,7 +34,7 @@ describe("compiled binary smoke", () => {
     expect(getOutput(result)).toContain("Persisted credentials are disabled");
   });
 
-  it("exits non-zero for skills disable on a missing skill", async () => {
+  it("exits non-zero with an explicit init instruction for skills disable in an uninitialized workspace", async () => {
     const temp = createTempDir();
 
     try {
@@ -46,8 +46,8 @@ describe("compiled binary smoke", () => {
       );
 
       expect(result.exitCode).toBe(1);
-      expect(getOutput(result)).toContain("SKILL_NOT_FOUND");
-      expect(getOutput(result)).toContain("fake-skill");
+      expect(getOutput(result)).toContain("WORKSPACE_NOT_INITIALIZED");
+      expect(getOutput(result)).toContain("axm init");
     } finally {
       temp.cleanup();
     }

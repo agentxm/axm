@@ -2,8 +2,8 @@ name: CI
 run-name: >-
   ${{
     github.event_name == 'pull_request' &&
-    format('CI - PR #{0} - affected', github.event.pull_request.number) ||
-    format('CI - {0} - full', github.ref_name)
+    format('CI - PR #{0}', github.event.pull_request.number) ||
+    format('CI - {0}', github.ref_name)
   }}
 
 on:
@@ -15,56 +15,71 @@ permissions:
   checks: write
   contents: read
 
-env:
-  NX_TUI: "false"
-  NX_DEFAULT_OUTPUT_STYLE: "static"
-  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
-
 jobs:
   verify:
     name: Verify Workspace
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.1
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v6.0.2
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v6.1.0
+        uses: actions/setup-node@v6.3.0
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2.0.2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: 1.3.5
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Resolve Nx affected SHAs
-        uses: nrwl/nx-set-shas@v5.0.1
-
       - name: Check release plan
         if: github.event_name == 'pull_request'
         run: pnpm release:plan:check
 
-      - name: Run affected CI
-        if: github.event_name == 'pull_request'
-        run: pnpm run ci:affected
+      - name: Check Nx sync
+        run: pnpm exec nx sync:check
 
-      - name: Run full CI
-        if: github.ref == 'refs/heads/main'
-        run: pnpm run ci
+      - name: Check formatting
+        run: pnpm exec nx format:check
+
+      - name: Type check
+        run: pnpm exec nx run-many -t typecheck
+
+      - name: Lint
+        run: pnpm exec nx run-many -t lint
+
+      - name: Build
+        run: pnpm exec nx run-many -t build
+
+      - name: Test
+        run: pnpm exec nx run-many -t test
+
+      - name: E2E tests
+        run: pnpm exec nx run-many -t e2e
+
+      - name: Lint scripts
+        run: pnpm exec nx run axm:scripts-lint
+
+      - name: Type check scripts
+        run: pnpm exec nx run axm:scripts-typecheck
+
+      - name: Test scripts
+        run: pnpm exec nx run axm:scripts-test
+
+      - name: Verify E2E boundaries
+        run: pnpm exec nx run axm:verify-e2e-boundaries
 
       - name: Upload JUnit artifacts
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: test-results
@@ -81,7 +96,7 @@ jobs:
           include_passed: true
 
       - name: Upload compiled binaries
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: axm-binaries-${{ github.sha }}
           path: packages/cli/dist/bin/
@@ -110,20 +125,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v6.1.0
+        uses: actions/setup-node@v6.3.0
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2.0.2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: 1.3.5
 

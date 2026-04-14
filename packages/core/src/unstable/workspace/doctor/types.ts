@@ -73,8 +73,9 @@ export const CHECK_IDS = {
   agentsConfigured: "agents-configured",
   extensionsInstalled: "extensions-installed",
   extensionsCurrent: "extensions-current",
+  extensionsActive: "extensions-active",
 } as const satisfies Record<
-  "workspaceReady" | "agentsConfigured" | "extensionsInstalled" | "extensionsCurrent",
+  "workspaceReady" | "agentsConfigured" | "extensionsInstalled" | "extensionsCurrent" | "extensionsActive",
   string
 >;
 

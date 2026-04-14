@@ -14,6 +14,7 @@ import type { WorkspaceContextOptions } from "../service-interface.js";
 import { loadWorkspace } from "../service.js";
 import type { CheckDef } from "./check-def.js";
 import { agentsConfiguredCheck } from "./checks/agents-configured.js";
+import { extensionsActiveCheck } from "./checks/extensions-active.js";
 import { makeExtensionsCurrentCheck } from "./checks/extensions-current.js";
 import { extensionsInstalledCheck } from "./checks/extensions-installed.js";
 import { makeWorkspaceReadyCheck } from "./checks/workspace-ready.js";
@@ -32,6 +33,7 @@ type DoctorCheckDeps =
 const staticDependentChecks = [
   agentsConfiguredCheck,
   extensionsInstalledCheck,
+  extensionsActiveCheck,
 ] as const satisfies ReadonlyArray<CheckDef<unknown>>;
 
 const skipCheck = (check: CheckDef<unknown>, failedTitle: string): Check => ({
@@ -95,6 +97,7 @@ export const diagnoseWorkspaceDoctor = (
       workspaceReadyCheck,
       agentsConfiguredCheck,
       extensionsInstalledCheck,
+      extensionsActiveCheck,
       ...dynamicChecks,
     ];
 

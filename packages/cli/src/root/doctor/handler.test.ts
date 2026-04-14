@@ -195,7 +195,8 @@ describe("doctor handler", () => {
             expect(text).toContain("✓ Workspace is ready");
             expect(text).toContain("✓ Agents configured");
             expect(text).toContain("✓ Extensions are installed");
-            expect(text).toContain("4 passed");
+            expect(text).toContain("✓ Extensions are active");
+            expect(text).toContain("5 passed");
             expect(text).toContain("0 failed");
           }),
         );
@@ -265,7 +266,8 @@ describe("doctor handler", () => {
           expect(text).toContain("✓ Workspace is ready");
           expect(text).toContain("✓ Agents configured");
           expect(text).toContain("✓ Extensions are installed");
-          expect(text).toContain("4 passed");
+          expect(text).toContain("✓ Extensions are active");
+          expect(text).toContain("5 passed");
         }),
       );
     });

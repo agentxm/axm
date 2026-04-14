@@ -111,4 +111,35 @@ describe("publishExtensionPack", () => {
       }),
     );
   });
+
+  it.effect("records every dependency type in published metadata", () =>
+    Effect.gen(function* () {
+      const { axmDir, registryRoot } = setup("@community", "full-pack", {
+        skills: { "@community/skills/example": "^1.0.0" },
+        commands: { "@community/commands/release": "~2.0.0" },
+        "mcp-servers": { "@community/mcp-servers/docs": "3.1.0" },
+        subagents: { "@community/subagents/researcher": "1.4.0" },
+      });
+
+      yield* publishExtensionPack(
+        makeOp({ name: "@community/packs/full-pack", registryName: "local" }),
+      ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+      const indexPath = path.join(
+        registryRoot,
+        "extensions",
+        "@community",
+        "packs",
+        "full-pack",
+        "index.json",
+      );
+      const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+      expect(index.versions[0]?.dependencies).toEqual({
+        "@community/skills/example": "^1.0.0",
+        "@community/commands/release": "~2.0.0",
+        "@community/mcp-servers/docs": "3.1.0",
+        "@community/subagents/researcher": "1.4.0",
+      });
+    }),
+  );
 });

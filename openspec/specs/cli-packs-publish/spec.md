@@ -43,6 +43,19 @@ The command SHALL accept an `--include-dependencies` flag (shorthand `-d`, defau
 - **THEN** locally managed dependency extensions are published before the extension pack
 - **AND** the extension extension pack is published to the registry
 
+#### Scenario: Publish preserves referenced members across dependency types
+
+- **WHEN** a pack manifest references skills, commands, MCP servers, or subagents
+- **THEN** the published pack metadata records every referenced member FQN and version constraint
+- **AND** registry consumers can resolve the full pack membership from published metadata
+
+#### Scenario: Pack manifests may reference external registry members
+
+- **WHEN** a pack manifest references an extension owned by another publisher
+- **THEN** the pack may be published without transferring ownership of that member
+- **AND** `--include-dependencies` only publishes locally managed dependency extensions available in the current workspace
+- **AND** external-member references remain as manifest FQNs in the published pack metadata
+
 #### Scenario: Publish without --include-dependencies flag
 
 - **WHEN** user runs `axm packs publish @acme/frontend-tools`

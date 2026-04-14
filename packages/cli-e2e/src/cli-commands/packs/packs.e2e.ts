@@ -76,6 +76,41 @@ function writeSkillPackage(workspaceRoot: string, name: string, version = "1.0.0
   );
 }
 
+function writeSubagentPackage(workspaceRoot: string, name: string, version = "1.0.0") {
+  const subagentDir = path.join(workspaceRoot, ".axm", "extensions", "@test", "subagents", name);
+  const srcDir = path.join(subagentDir, "src");
+  fs.mkdirSync(srcDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(srcDir, "SUBAGENT.md"),
+    [
+      "---",
+      `name: "${name}"`,
+      'description: "A dependency subagent"',
+      "model: default",
+      "toolAccess: readonly",
+      "background: false",
+      "---",
+      "",
+      `# ${name}`,
+      "",
+    ].join("\n"),
+  );
+  fs.writeFileSync(
+    path.join(subagentDir, "subagent.json"),
+    JSON.stringify(
+      {
+        owner: "@test",
+        type: "subagent",
+        name,
+        version,
+        agents: ["claude-code"],
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
 function updatePackManifest(
   workspaceRoot: string,
   packName: string,
@@ -570,6 +605,84 @@ describe("axm packs install", () => {
 
       // Verify skill is NOT in settings (it's a pack dependency, not a direct install)
       expect(settings.skills?.["dep-skill"]).toBeUndefined();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("installs pack with subagent dependencies, records them in lockfile resolvedSubagents", async () => {
+    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
+      setupWorkspaceWithRegistry();
+    try {
+      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+
+      writeSubagentPackage(temp.path, "dep-subagent");
+
+      const subagentPublishResult = await runCli(
+        ["subagents", "publish", "dep-subagent", "--yes"],
+        {
+          cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
+        },
+      );
+      expect(subagentPublishResult.exitCode).toBe(0);
+
+      await runCli(["packs", "new", "subagent-pack", "--yes"], { cwd: temp.path });
+
+      const packManifestPath = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "packs",
+        "subagent-pack",
+        "extension-pack.json",
+      );
+      const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
+      packManifest.subagents = { "@test/subagents/dep-subagent": "1.0.0" };
+      fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
+
+      const packPublishResult = await runCli(["packs", "publish", "subagent-pack", "--yes"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(packPublishResult.exitCode).toBe(0);
+
+      const settingsBefore = readSettings();
+      delete settingsBefore.packs?.["subagent-pack"];
+      fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
+
+      const lockBefore = readLock();
+      if (lockBefore.packs) delete lockBefore.packs["subagent-pack"];
+      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), YAML.stringify(lockBefore));
+
+      fs.rmSync(path.join(temp.path, ".axm", "extensions", "@test", "packs", "subagent-pack"), {
+        recursive: true,
+        force: true,
+      });
+
+      const installResult = await runCli(
+        ["packs", "install", "@test/packs/subagent-pack", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(installResult.exitCode).toBe(0);
+
+      const lock = readLock();
+      const packEntry = lock.packs["subagent-pack"];
+      expect(packEntry.resolvedSubagents).toEqual({
+        "@test/subagents/dep-subagent": "1.0.0",
+      });
+      expect(lock.subagents["dep-subagent"]).toBeDefined();
+
+      const settings = readSettings();
+      expect(settings.packs?.["subagent-pack"]).toBeDefined();
+      expect(settings.subagents?.["dep-subagent"]).toBeUndefined();
+      expect(
+        fs.existsSync(
+          path.join(temp.path, ".axm", "extensions", "@test", "subagents", "dep-subagent"),
+        ),
+      ).toBe(true);
     } finally {
       cleanup();
     }

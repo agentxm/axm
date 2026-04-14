@@ -167,6 +167,7 @@ export const publishExtensionPack: OperationHandler<
     addDependencies(manifest.skills);
     addDependencies(manifest.commands);
     addDependencies(manifest["mcp-servers"]);
+    addDependencies(manifest.subagents);
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {

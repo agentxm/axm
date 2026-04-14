@@ -5,6 +5,8 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import { CodingAgentRepository, CodingAgentRepositoryLive } from "../../agents/index.js";
+import { createRegistryClient } from "../../registry/index.js";
+import type { RegistrySourceHostConfig } from "../../settings/index.js";
 import { SourceHostProviders, SourceHostProvidersLive } from "../../source-resolution/index.js";
 import { locateWorkspace } from "../paths.js";
 import { Workspace } from "../service-interface.js";
@@ -12,6 +14,7 @@ import type { WorkspaceContextOptions } from "../service-interface.js";
 import { loadWorkspace } from "../service.js";
 import type { CheckDef } from "./check-def.js";
 import { agentsConfiguredCheck } from "./checks/agents-configured.js";
+import { makeExtensionsCurrentCheck } from "./checks/extensions-current.js";
 import { extensionsInstalledCheck } from "./checks/extensions-installed.js";
 import { makeWorkspaceReadyCheck } from "./checks/workspace-ready.js";
 import { summarize } from "./rollup.js";
@@ -26,7 +29,7 @@ type DoctorCheckDeps =
   | CodingAgentRepository
   | SourceHostProviders;
 
-const dependentChecks = [
+const staticDependentChecks = [
   agentsConfiguredCheck,
   extensionsInstalledCheck,
 ] as const satisfies ReadonlyArray<CheckDef<unknown>>;
@@ -53,7 +56,7 @@ export const diagnoseWorkspaceDoctor = (
     if (rootCheck !== undefined && rootCheck.status === "fail") {
       const checks = [
         rootCheck,
-        ...dependentChecks.map((check) => skipCheck(check, rootCheck.title)),
+        ...staticDependentChecks.map((check) => skipCheck(check, rootCheck.title)),
       ] satisfies ReadonlyArray<Check>;
       const summary = summarize(checks);
 
@@ -78,10 +81,21 @@ export const diagnoseWorkspaceDoctor = (
       onNone: () => CodingAgentRepositoryLive,
       onSome: (service) => Layer.succeed(CodingAgentRepository, service),
     });
+
+    const registrySources = yield* workspaceService
+      .getRegistrySourceHosts()
+      .pipe(Effect.orElseSucceed((): ReadonlyArray<RegistrySourceHostConfig> => []));
+    const firstSource = registrySources[0];
+    const dynamicChecks: ReadonlyArray<CheckDef<DoctorCheckDeps>> =
+      firstSource === undefined
+        ? []
+        : [makeExtensionsCurrentCheck(yield* createRegistryClient(firstSource.location.href))];
+
     const checks: ReadonlyArray<CheckDef<DoctorCheckDeps>> = [
       workspaceReadyCheck,
       agentsConfiguredCheck,
       extensionsInstalledCheck,
+      ...dynamicChecks,
     ];
 
     return yield* runCheckGraph(checks, workspace).pipe(

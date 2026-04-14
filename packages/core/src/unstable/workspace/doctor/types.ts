@@ -72,6 +72,10 @@ export const CHECK_IDS = {
   workspaceReady: "workspace-ready",
   agentsConfigured: "agents-configured",
   extensionsInstalled: "extensions-installed",
-} as const satisfies Record<"workspaceReady" | "agentsConfigured" | "extensionsInstalled", string>;
+  extensionsCurrent: "extensions-current",
+} as const satisfies Record<
+  "workspaceReady" | "agentsConfigured" | "extensionsInstalled" | "extensionsCurrent",
+  string
+>;
 
 export type CheckId = (typeof CHECK_IDS)[keyof typeof CHECK_IDS];

@@ -33,6 +33,8 @@ import { doctorCommand } from "./root/doctor/command.js";
 import { syncCommand } from "./root/sync.js";
 import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
+import { outdatedCommand } from "./root/outdated/command.js";
+import { updateCommand } from "./root/update/command.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
@@ -65,6 +67,8 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       group: "EXTENSIONS",
       commands: [
         installCommand,
+        updateCommand,
+        outdatedCommand,
         skillsCommand,
         packsCommand,
         commandsCommand,

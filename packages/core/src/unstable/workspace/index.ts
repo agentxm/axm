@@ -255,3 +255,17 @@ export { previewOrApplyPlan } from "./resolve-plan.js";
 
 // Plan display
 export { displayPlan } from "./display-plan.js";
+
+// Version currency
+export {
+  checkCurrency,
+  collectAllCurrencyEntries,
+  collectCommandCurrency,
+  collectMcpServerCurrency,
+  collectPackCurrency,
+  collectSkillCurrency,
+  collectSubagentCurrency,
+  type CurrencyResult,
+  type CurrencyStatus,
+  type ExtensionCurrencyEntry,
+} from "./version-currency/index.js";

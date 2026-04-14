@@ -70,13 +70,15 @@ describe("diagnoseWorkspaceDoctor", () => {
 
       expect(report.healthy).toBe(true);
       expect(report.summary.findings.errors).toBe(0);
-      expect(report.checks).toHaveLength(3);
+      expect(report.checks).toHaveLength(4);
       expect(report.checks[0]?.id).toBe("workspace-ready");
       expect(report.checks[1]?.id).toBe("agents-configured");
       expect(report.checks[2]?.id).toBe("extensions-installed");
+      expect(report.checks[3]?.id).toBe("extensions-current");
       expect(report.checks[0]?.status).toBe("pass");
       expect(report.checks[1]?.status).toBe("pass");
       expect(report.checks[2]?.status).toBe("pass");
+      expect(report.checks[3]?.status).toBe("pass");
       expect(report.workspacePath).toBe(fs.realpathSync(axmDir));
     }).pipe(Effect.provide(makeLayers())),
   );

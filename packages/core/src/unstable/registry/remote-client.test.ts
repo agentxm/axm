@@ -16,7 +16,13 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { AppError } from "../app-error/index.js";
-import { extensionName, exactVersion, handle } from "../test-helpers.js";
+import {
+  extensionName,
+  exactVersion,
+  fullyQualifiedRef,
+  handle,
+  packageUrl,
+} from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -85,6 +91,7 @@ const extensionIndexResponse = {
       published: "2025-01-01T00:00:00Z",
       integrity: "sha512-abc123",
       dependencies: {},
+      compatiblePackages: ["pkg:npm/react"],
     },
     {
       version: "0.9.0",
@@ -93,6 +100,53 @@ const extensionIndexResponse = {
     },
   ],
 };
+
+const makeExtensionIndexResponse = (overrides?: {
+  readonly name?: string;
+  readonly owner?: string;
+  readonly type?: string;
+  readonly description?: string;
+  readonly compatiblePackages?: ReadonlyArray<string>;
+}) => ({
+  ...extensionIndexResponse,
+  ...(overrides?.name === undefined ? {} : { name: overrides.name }),
+  ...(overrides?.owner === undefined ? {} : { owner: overrides.owner }),
+  ...(overrides?.type === undefined ? {} : { type: overrides.type }),
+  ...(overrides?.description === undefined ? {} : { description: overrides.description }),
+  versions: [
+    {
+      ...extensionIndexResponse.versions[0],
+      ...(overrides?.compatiblePackages === undefined
+        ? {}
+        : { compatiblePackages: [...overrides.compatiblePackages] }),
+    },
+    ...extensionIndexResponse.versions.slice(1),
+  ],
+});
+
+const makeSearchHit = (overrides?: {
+  readonly name?: string;
+  readonly owner?: string;
+  readonly type?: string;
+  readonly latestVersion?: string;
+}) => ({
+  name: overrides?.name ?? "test-skill",
+  owner: overrides?.owner ?? "@acme",
+  type: overrides?.type ?? "skill",
+  latestVersion: overrides?.latestVersion ?? "1.0.0",
+});
+
+const makeSearchResponse = (
+  extensions: ReadonlyArray<ReturnType<typeof makeSearchHit>>,
+  options?: {
+    readonly has_more?: boolean;
+    readonly cursor?: string | null;
+  },
+) => ({
+  extensions,
+  has_more: options?.has_more ?? false,
+  cursor: options?.cursor ?? null,
+});
 
 /**
  * Standard extension list response body.
@@ -208,6 +262,10 @@ describe("getExtensionIndex", () => {
       expect(index.type).toBe("skill");
       expect(index.versions).toHaveLength(2);
       expect(index.versions[0]?.version).toBe("1.0.0");
+      expect(index.versions[0]?.compatiblePackages?.[0]).toMatchObject({
+        type: "npm",
+        name: "react",
+      });
     }),
   );
 
@@ -568,6 +626,191 @@ describe("extensionExists", () => {
 
       expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_FAILED");
     }),
+  );
+});
+
+// =============================================================================
+// discoverExtensions
+// =============================================================================
+
+describe("discoverExtensions", () => {
+  it.effect("discovers supported types via search pagination and resolves recommendations", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient((request) => {
+        const url = new URL(request.url);
+        const path = decodeURIComponent(url.pathname);
+
+        if (path === "/v1/search") {
+          expect(url.searchParams.get("q")).toBe("");
+          expect(url.searchParams.get("limit")).toBe("100");
+
+          if (url.searchParams.get("cursor") === "2") {
+            return new Response(
+              JSON.stringify(
+                makeSearchResponse([
+                  makeSearchHit({ name: "test-mcp", type: "mcp-server" }),
+                  makeSearchHit({ name: "test-subagent", type: "subagent" }),
+                ]),
+              ),
+              { status: 200 },
+            );
+          }
+
+          return new Response(
+            JSON.stringify(
+              makeSearchResponse(
+                [
+                  makeSearchHit({ name: "test-skill", type: "skill" }),
+                  makeSearchHit({ name: "test-command", type: "command" }),
+                ],
+                { has_more: true, cursor: "2" },
+              ),
+            ),
+            { status: 200 },
+          );
+        }
+
+        if (path === "/v1/extensions/@acme/skills/test-skill") {
+          return new Response(
+            JSON.stringify(
+              makeExtensionIndexResponse({
+                name: "test-skill",
+                type: "skill",
+                description: "Skill result",
+                compatiblePackages: ["pkg:npm/react"],
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+
+        if (path === "/v1/extensions/@acme/commands/test-command") {
+          return new Response(
+            JSON.stringify(
+              makeExtensionIndexResponse({
+                name: "test-command",
+                type: "command",
+                description: "Command result",
+                compatiblePackages: ["pkg:npm/react"],
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+
+        if (path === "/v1/extensions/@acme/mcp-servers/test-mcp") {
+          return new Response(
+            JSON.stringify(
+              makeExtensionIndexResponse({
+                name: "test-mcp",
+                type: "mcp-server",
+                description: "MCP result",
+                compatiblePackages: ["pkg:npm/react"],
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+
+        if (path === "/v1/extensions/@acme/subagents/test-subagent") {
+          return new Response(
+            JSON.stringify(
+              makeExtensionIndexResponse({
+                name: "test-subagent",
+                type: "subagent",
+                description: "Subagent result",
+                compatiblePackages: ["pkg:npm/react"],
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+
+        if (path === "/v1/extensions/@acme/skills/recommended-skill") {
+          return new Response(
+            JSON.stringify(
+              makeExtensionIndexResponse({
+                name: "recommended-skill",
+                type: "skill",
+                description: "Recommended result",
+                compatiblePackages: ["pkg:npm/react"],
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+
+        return typedErrorResponse(404, "extension_not_found", `Unexpected path: ${path}`);
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.discoverExtensions({
+        packages: [packageUrl("pkg:npm/react")],
+        workspaceRecommendedExtensions: [fullyQualifiedRef("@acme/skills/recommended-skill")],
+      });
+
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.detectedPackage).toMatchObject({
+        type: "npm",
+        name: "react",
+      });
+      expect(result.results[0]?.extensions).toEqual([
+        {
+          owner: "@acme",
+          type: "skill",
+          name: "test-skill",
+          description: "Skill result",
+          latestVersion: "1.0.0",
+        },
+        {
+          owner: "@acme",
+          type: "command",
+          name: "test-command",
+          description: "Command result",
+          latestVersion: "1.0.0",
+        },
+        {
+          owner: "@acme",
+          type: "mcp-server",
+          name: "test-mcp",
+          description: "MCP result",
+          latestVersion: "1.0.0",
+        },
+        {
+          owner: "@acme",
+          type: "subagent",
+          name: "test-subagent",
+          description: "Subagent result",
+          latestVersion: "1.0.0",
+        },
+      ]);
+      expect(result.resolvedRecommendations).toEqual([
+        {
+          owner: "@acme",
+          type: "skill",
+          name: "recommended-skill",
+          description: "Recommended result",
+          latestVersion: "1.0.0",
+        },
+      ]);
+    }),
+  );
+
+  it.effect(
+    "fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR when search cannot be reached",
+    () =>
+      Effect.gen(function* () {
+        const httpClient = makeNetworkErrorClient();
+        const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+        const error = yield* runFailure(
+          client.discoverExtensions({
+            packages: [packageUrl("pkg:npm/react")],
+          }),
+        );
+
+        expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+      }),
   );
 });
 

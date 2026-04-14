@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
+import { parseFullyQualifiedRefParts } from "../extensions/common.js";
 import {
   decodeExtensionNameSync,
   toAuthor,
@@ -22,7 +23,9 @@ import {
   type ExtensionType,
 } from "../extensions/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
-import { ExtensionIndexSchema, VersionEntrySchema, type ExtensionIndex } from "./schema.js";
+import { purlMatch } from "../packaging/purl-match.js";
+import { ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
+import type { DiscoverExtensionEntry } from "./discover-schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
   DiscoverExtensionsArgs,
@@ -61,6 +64,7 @@ import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
   ExtensionsListByOwner200,
+  SearchSearchExtensions200,
 } from "./__generated__/registry-client.js";
 
 // -----------------------------------------------------------------------------
@@ -68,7 +72,6 @@ import type {
 // -----------------------------------------------------------------------------
 
 const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
-const decodeVersionEntry = Schema.decodeUnknownSync(VersionEntrySchema);
 const decodeExtensionIndex = Schema.decodeUnknownSync(ExtensionIndexSchema);
 
 /**
@@ -97,14 +100,16 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
             email: a.email ?? undefined,
             url: a.url ?? undefined,
           })),
-    versions: response.versions.map((v) =>
-      decodeVersionEntry({
-        version: v.version,
-        published: v.published,
-        integrity: v.integrity,
-        dependencies: v.dependencies === null ? undefined : v.dependencies,
-      }),
-    ),
+    versions: response.versions.map((v) => ({
+      version: v.version,
+      published: v.published,
+      integrity: v.integrity,
+      dependencies: v.dependencies === null ? undefined : v.dependencies,
+      compatiblePackages:
+        v.compatiblePackages === null || v.compatiblePackages === undefined
+          ? undefined
+          : v.compatiblePackages,
+    })),
   });
 
 /**
@@ -134,6 +139,64 @@ const toRegistryManifest = (
   });
 };
 
+const optionToArray = <A>(option: Option.Option<A>): ReadonlyArray<A> =>
+  Option.match(option, {
+    onNone: () => [],
+    onSome: (value) => [value],
+  });
+
+const indexToDiscoverEntry = (index: ExtensionIndex): Option.Option<DiscoverExtensionEntry> => {
+  const [latestVersion] = index.versions;
+  if (latestVersion === undefined) {
+    return Option.none();
+  }
+
+  return Option.some({
+    type: index.type,
+    name: index.name,
+    owner: index.owner,
+    description: index.description ?? "",
+    latestVersion: latestVersion.version,
+  });
+};
+
+const remoteDiscoverableTypes: ReadonlyArray<ExtensionType> = [
+  "skill",
+  "command",
+  "mcp-server",
+  "subagent",
+] as const;
+
+const isRemoteDiscoverableType = (type: ExtensionType): boolean =>
+  remoteDiscoverableTypes.includes(type);
+
+type SearchCatalogHit = SearchSearchExtensions200["extensions"][number];
+
+const isSearchCatalogHitDiscoverable = (
+  hit: SearchCatalogHit,
+): hit is SearchCatalogHit & { readonly type: (typeof remoteDiscoverableTypes)[number] } =>
+  hit.type === "skill" ||
+  hit.type === "command" ||
+  hit.type === "mcp-server" ||
+  hit.type === "subagent";
+
+const decodeSearchCatalogHit = (
+  hit: SearchCatalogHit,
+): Effect.Effect<GetExtensionIndexArgs, AppError> =>
+  Effect.try({
+    try: () => ({
+      owner: decodeHandleSync(hit.owner),
+      type: hit.type,
+      name: decodeExtensionNameSync(hit.name),
+    }),
+    catch: (cause) =>
+      makeAppError({
+        code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
+        what: "Remote discovery response does not match expected schema",
+        cause,
+      }),
+  });
+
 // -----------------------------------------------------------------------------
 // Remote Registry Client
 // -----------------------------------------------------------------------------
@@ -142,6 +205,7 @@ const remoteDiscoveryTypes: ReadonlyArray<ExtensionType> = [
   "skill",
   "command",
   "mcp-server",
+  "subagent",
   "pack",
 ] as const;
 
@@ -373,6 +437,58 @@ export const createRemoteRegistryClient = (
    */
   const mapDiscoveryErrors = <A>(effect: Effect.Effect<A, unknown>): Effect.Effect<A, AppError> =>
     effect.pipe(Effect.mapError((e) => mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")));
+
+  const fetchDiscoverableCatalogHits = (): Effect.Effect<
+    ReadonlyArray<SearchCatalogHit>,
+    AppError
+  > =>
+    Effect.gen(function* () {
+      const hits: Array<SearchCatalogHit> = [];
+      let cursor: string | undefined;
+
+      while (true) {
+        const page = yield* mapDiscoveryErrors(
+          client.SearchSearchExtensions({
+            params: {
+              q: "",
+              limit: "100",
+              ...(cursor === undefined ? {} : { cursor }),
+            },
+          }),
+        );
+
+        hits.push(...page.extensions.filter(isSearchCatalogHitDiscoverable));
+
+        if (!page.has_more) {
+          return hits;
+        }
+
+        if (page.cursor === null) {
+          return yield* makeAppError({
+            code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
+            what: "Remote discovery response does not match expected schema",
+            details: ["Search pagination indicated more results but omitted the next cursor."],
+          });
+        }
+
+        cursor = page.cursor;
+      }
+    });
+
+  const fetchDiscoverableIndexes = (): Effect.Effect<ReadonlyArray<ExtensionIndex>, AppError> =>
+    Effect.gen(function* () {
+      const hits = yield* fetchDiscoverableCatalogHits();
+      const maybeIndexes = yield* Effect.forEach(
+        hits,
+        (hit) =>
+          decodeSearchCatalogHit(hit).pipe(
+            Effect.flatMap((decodedHit) => getExtensionIndex(decodedHit)),
+          ),
+        { concurrency: "unbounded" },
+      );
+
+      return maybeIndexes.flatMap(optionToArray);
+    });
 
   // ---------------------------------------------------------------------------
   // ownerExists
@@ -822,21 +938,73 @@ export const createRemoteRegistryClient = (
   };
 
   // ---------------------------------------------------------------------------
-  // discoverExtensions (stub — full implementation in Phase 8)
+  // discoverExtensions
   // ---------------------------------------------------------------------------
   const discoverExtensions = (
-    _args: DiscoverExtensionsArgs,
+    args: DiscoverExtensionsArgs,
   ): Effect.Effect<
     import("./discover-schema.js").DiscoverExtensionsResponse,
     import("../app-error/index.js").AppError
   > =>
-    Effect.fail(
-      makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        what: "Remote registry discover is not yet implemented",
-        howToFix: "Use a local registry or install extensions directly by name.",
-      }),
-    );
+    Effect.gen(function* () {
+      const indexes = yield* fetchDiscoverableIndexes();
+
+      const results = args.packages.flatMap((detectedPackage) => {
+        const matchingExtensions = indexes.flatMap((index) => {
+          const [latestVersion] = index.versions;
+          if (latestVersion === undefined) {
+            return [];
+          }
+
+          const compatiblePackages = latestVersion.compatiblePackages ?? [];
+          if (!compatiblePackages.some((declared) => purlMatch(detectedPackage, declared))) {
+            return [];
+          }
+
+          return optionToArray(indexToDiscoverEntry(index));
+        });
+
+        if (matchingExtensions.length === 0) {
+          return [];
+        }
+
+        return [
+          {
+            detectedPackage,
+            extensions: matchingExtensions,
+          },
+        ];
+      });
+
+      const resolvedRecommendationIndexes = yield* Effect.forEach(
+        args.workspaceRecommendedExtensions ?? [],
+        (ref) => {
+          const parsed = parseFullyQualifiedRefParts(ref);
+          if (parsed === undefined || !isRemoteDiscoverableType(parsed.type)) {
+            return Effect.succeed(Option.none<ExtensionIndex>());
+          }
+
+          return getExtensionIndex({
+            owner: parsed.owner,
+            type: parsed.type,
+            name: parsed.name,
+          });
+        },
+        { concurrency: "unbounded" },
+      );
+
+      const resolvedRecommendations = resolvedRecommendationIndexes.flatMap((index) =>
+        Option.match(index, {
+          onNone: () => [],
+          onSome: (value) => optionToArray(indexToDiscoverEntry(value)),
+        }),
+      );
+
+      return {
+        results,
+        resolvedRecommendations,
+      };
+    });
 
   return {
     getExtensionIndex,

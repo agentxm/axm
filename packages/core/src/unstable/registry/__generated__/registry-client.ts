@@ -935,6 +935,7 @@ export type ExtensionsGet200 = {
     readonly published: string;
     readonly integrity: string;
     readonly dependencies?: { readonly [x: string]: string } | null;
+    readonly compatiblePackages?: ReadonlyArray<string> | null;
     readonly yanked_at?: string | null;
   }>;
   readonly visibility?: "public" | "unlisted" | "private" | null;
@@ -967,6 +968,9 @@ export const ExtensionsGet200 = Schema.Struct({
       integrity: Schema.String.annotate({ readOnly: true }),
       dependencies: Schema.optionalKey(
         Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Null]),
+      ),
+      compatiblePackages: Schema.optionalKey(
+        Schema.Union([Schema.Array(Schema.String), Schema.Null]),
       ),
       yanked_at: Schema.optionalKey(
         Schema.Union([
@@ -1477,25 +1481,80 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
 });
 export type HealthGetObservabilityVerification400 = DecodeErrorResponse;
 export const HealthGetObservabilityVerification400 = DecodeErrorResponse;
-export type SearchSearchExtensionsParams = { readonly q: string };
+export type SearchSearchExtensionsParams = {
+  readonly q: string;
+  readonly cursor?: string | null;
+  readonly limit?: string | null;
+};
 export const SearchSearchExtensionsParams = Schema.Struct({
-  q: Schema.String.check(Schema.isMinLength(1)),
+  q: Schema.String,
+  cursor: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type SearchSearchExtensions200 = {
-  readonly ok: true;
-  readonly mock: true;
-  readonly method: "GET";
-  readonly route: "/v1/search";
-  readonly message: string;
-  readonly query: { readonly q: string };
+  readonly extensions: ReadonlyArray<{
+    readonly name: string;
+    readonly owner: string;
+    readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
+    readonly latestVersion: string;
+    readonly description?: string | null;
+    readonly repository?: string | null;
+    readonly license?: string | null;
+    readonly authors?: ReadonlyArray<{
+      readonly name?: string | null;
+      readonly email?: string | null;
+      readonly url?: string | null;
+    }> | null;
+    readonly deprecated_at?: string | null;
+    readonly deprecation_notice?: string | null;
+  }>;
+  readonly has_more: boolean;
+  readonly cursor: string | null;
 };
 export const SearchSearchExtensions200 = Schema.Struct({
-  ok: Schema.Literal(true),
-  mock: Schema.Literal(true),
-  method: Schema.Literal("GET"),
-  route: Schema.Literal("/v1/search"),
-  message: Schema.String,
-  query: Schema.Struct({ q: Schema.String }),
+  extensions: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      owner: Schema.String,
+      type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
+      latestVersion: Schema.String,
+      description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      authors: Schema.optionalKey(
+        Schema.Union([
+          Schema.Array(
+            Schema.Struct({
+              name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+              email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+              url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+            }),
+          ),
+          Schema.Null,
+        ]),
+      ),
+      deprecated_at: Schema.optionalKey(
+        Schema.Union([
+          Schema.String.annotate({ readOnly: true, format: "date-time" }),
+          Schema.Null,
+        ]),
+      ),
+      deprecation_notice: Schema.optionalKey(
+        Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
+      ),
+    }),
+  ).annotate({
+    description: "Extensions matching the query, ordered by recency.",
+  }),
+  has_more: Schema.Boolean.annotate({
+    description: "Whether additional results exist beyond this page.",
+  }),
+  cursor: Schema.Union([
+    Schema.String.annotate({
+      description: "Opaque cursor for fetching the next page of results.",
+    }),
+    Schema.Null,
+  ]),
 });
 export type SearchSearchExtensions400 = DecodeErrorResponse;
 export const SearchSearchExtensions400 = DecodeErrorResponse;
@@ -2022,16 +2081,26 @@ export const make = (
         ),
       ),
     SearchSearchExtensions: (options) =>
-      HttpClientRequest.get(`/v1/search`).pipe(
-        HttpClientRequest.setUrlParams({ q: options.params["q"] as any }),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(SearchSearchExtensions200),
-            "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
+      (() => {
+        const params = new URLSearchParams();
+        params.set("q", options.params["q"]);
+        if (options.params["cursor"] !== undefined && options.params["cursor"] !== null) {
+          params.set("cursor", options.params["cursor"]);
+        }
+        if (options.params["limit"] !== undefined && options.params["limit"] !== null) {
+          params.set("limit", options.params["limit"]);
+        }
+
+        return HttpClientRequest.get(`/v1/search?${params.toString()}`).pipe(
+          withResponse(options.config)(
+            HttpClientResponse.matchStatus({
+              "2xx": decodeSuccess(SearchSearchExtensions200),
+              "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
+              orElse: unexpectedStatus,
+            }),
+          ),
+        );
+      })(),
   };
 };
 
@@ -2577,7 +2646,7 @@ export interface RegistryClient {
       >
   >;
   /**
-   * Returns the current mock search response for the provided query string.
+   * Returns extensions whose name matches the query. Use an empty query to list the public catalog.
    */
   readonly SearchSearchExtensions: <Config extends OperationConfig>(options: {
     readonly params: typeof SearchSearchExtensionsParams.Encoded;

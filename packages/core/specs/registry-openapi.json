@@ -14,22 +14,9 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Registry service metadata including health status and documentation entry points.",
             "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": { "type": "boolean", "enum": [true] },
-                    "service": { "type": "string", "enum": ["registry"] },
-                    "message": { "type": "string" },
-                    "docs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "openapi": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                  },
-                  "required": ["ok", "service", "message", "docs", "openapi"],
-                  "additionalProperties": false
-                }
-              }
+              "application/json": { "schema": { "$ref": "#/components/schemas/MetaResponse" } }
             }
           },
           "400": {
@@ -56,48 +43,7 @@
             "description": "Response from the OAuth device authorization endpoint (RFC 8628).",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "device_code": {
-                      "type": "string",
-                      "description": "Device verification code for the polling client."
-                    },
-                    "user_code": {
-                      "type": "string",
-                      "description": "Short code the user enters in the browser."
-                    },
-                    "verification_uri": {
-                      "type": "string",
-                      "description": "URI where the user should navigate to enter the user code.",
-                      "format": "uri"
-                    },
-                    "verification_uri_complete": {
-                      "type": "string",
-                      "description": "URI with the user code pre-filled, suitable for QR codes or direct links.",
-                      "format": "uri"
-                    },
-                    "expires_in": {
-                      "type": "integer",
-                      "allOf": [{ "description": "Lifetime of the device code in seconds." }]
-                    },
-                    "interval": {
-                      "type": "integer",
-                      "allOf": [{ "description": "Minimum polling interval in seconds." }]
-                    }
-                  },
-                  "required": [
-                    "device_code",
-                    "user_code",
-                    "verification_uri",
-                    "verification_uri_complete",
-                    "expires_in",
-                    "interval"
-                  ],
-                  "additionalProperties": false,
-                  "title": "Device Code Response",
-                  "description": "Response from the OAuth device authorization endpoint (RFC 8628)."
-                }
+                "schema": { "$ref": "#/components/schemas/DeviceCodeResponse" }
               }
             }
           },
@@ -125,7 +71,11 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "client_id": { "type": "string", "enum": ["axm-cli"] },
+                  "client_id": {
+                    "type": "string",
+                    "enum": ["axm-cli"],
+                    "description": "OAuth client identifier. Must be 'axm-cli'."
+                  },
                   "scope": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                 },
                 "required": ["client_id"],
@@ -148,45 +98,7 @@
             "description": "OAuth 2.0 token response containing an access/refresh token pair.",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "access_token": { "type": "string", "description": "OAuth 2.0 access token." },
-                    "refresh_token": {
-                      "type": "string",
-                      "description": "OAuth 2.0 refresh token for obtaining new token pairs."
-                    },
-                    "token_type": { "type": "string", "enum": ["Bearer"] },
-                    "expires_in": {
-                      "type": "integer",
-                      "allOf": [{ "description": "Access token lifetime remaining in seconds." }]
-                    },
-                    "expires_at": {
-                      "type": "string",
-                      "description": "ISO 8601 timestamp when the access token expires.",
-                      "format": "date-time"
-                    },
-                    "scope": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "description": "Space-delimited list of granted scopes."
-                        },
-                        { "type": "null" }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in",
-                    "expires_at"
-                  ],
-                  "additionalProperties": false,
-                  "title": "Session Token Response",
-                  "description": "OAuth 2.0 token response containing an access/refresh token pair."
-                }
+                "schema": { "$ref": "#/components/schemas/SessionTokenResponse" }
               }
             }
           },
@@ -221,9 +133,20 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "grant_type": { "type": "string" },
-                  "device_code": { "type": "string" },
-                  "client_id": { "type": "string" }
+                  "grant_type": {
+                    "type": "string",
+                    "description": "OAuth grant type. Must be 'urn:ietf:params:oauth:grant-type:device_code'.",
+                    "examples": ["urn:ietf:params:oauth:grant-type:device_code"]
+                  },
+                  "device_code": {
+                    "type": "string",
+                    "description": "The device verification code received from the /device/code endpoint."
+                  },
+                  "client_id": {
+                    "type": "string",
+                    "description": "OAuth client identifier, e.g. 'axm-cli'.",
+                    "examples": ["axm-cli"]
+                  }
                 },
                 "required": ["grant_type", "device_code", "client_id"],
                 "additionalProperties": false
@@ -245,45 +168,7 @@
             "description": "OAuth 2.0 token response containing an access/refresh token pair.",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "access_token": { "type": "string", "description": "OAuth 2.0 access token." },
-                    "refresh_token": {
-                      "type": "string",
-                      "description": "OAuth 2.0 refresh token for obtaining new token pairs."
-                    },
-                    "token_type": { "type": "string", "enum": ["Bearer"] },
-                    "expires_in": {
-                      "type": "integer",
-                      "allOf": [{ "description": "Access token lifetime remaining in seconds." }]
-                    },
-                    "expires_at": {
-                      "type": "string",
-                      "description": "ISO 8601 timestamp when the access token expires.",
-                      "format": "date-time"
-                    },
-                    "scope": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "description": "Space-delimited list of granted scopes."
-                        },
-                        { "type": "null" }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in",
-                    "expires_at"
-                  ],
-                  "additionalProperties": false,
-                  "title": "Session Token Response",
-                  "description": "OAuth 2.0 token response containing an access/refresh token pair."
-                }
+                "schema": { "$ref": "#/components/schemas/RefreshSessionTokenResponse" }
               }
             }
           },
@@ -311,9 +196,26 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "grant_type": { "type": "string", "enum": ["refresh_token"] },
-                  "refresh_token": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "client_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "grant_type": {
+                    "type": "string",
+                    "enum": ["refresh_token"],
+                    "description": "OAuth grant type. Must be 'refresh_token'."
+                  },
+                  "refresh_token": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "minLength": 1,
+                        "description": "The refresh token to exchange for a new token pair."
+                      }
+                    ]
+                  },
+                  "client_id": {
+                    "anyOf": [
+                      { "type": "string", "description": "OAuth client identifier." },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["grant_type", "refresh_token"],
                 "additionalProperties": false
@@ -347,7 +249,17 @@
             "application/x-www-form-urlencoded": {
               "schema": {
                 "type": "object",
-                "properties": { "token": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "minLength": 1,
+                        "description": "The access token or refresh token to revoke. Revocation is idempotent."
+                      }
+                    ]
+                  }
+                },
                 "required": ["token"],
                 "additionalProperties": false
               }
@@ -365,60 +277,9 @@
         "security": [{ "bearer": [] }],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Your user profile, organizations, and token details.",
             "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "user": {
-                      "type": "object",
-                      "properties": {
-                        "id": { "$ref": "#/components/schemas/UserId" },
-                        "handle": { "type": "string" },
-                        "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                      },
-                      "required": ["id", "handle", "email"],
-                      "additionalProperties": false
-                    },
-                    "orgs": { "type": "array", "items": false },
-                    "token": {
-                      "type": "object",
-                      "properties": {
-                        "id": { "$ref": "#/components/schemas/TokenId" },
-                        "type": { "type": "string", "enum": ["session", "pat", "oidc"] },
-                        "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                        "scopes": { "type": "array", "items": { "type": "string" } },
-                        "resource_restrictions": {
-                          "type": "object",
-                          "properties": {
-                            "extensions": {
-                              "anyOf": [
-                                { "type": "array", "items": { "type": "string" } },
-                                { "type": "null" }
-                              ]
-                            }
-                          },
-                          "required": ["extensions"],
-                          "additionalProperties": false
-                        },
-                        "expires_at": { "type": "string", "format": "date-time" }
-                      },
-                      "required": [
-                        "id",
-                        "type",
-                        "name",
-                        "scopes",
-                        "resource_restrictions",
-                        "expires_at"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["user", "orgs", "token"],
-                  "additionalProperties": false
-                }
-              }
+              "application/json": { "schema": { "$ref": "#/components/schemas/AuthMeResponse" } }
             }
           },
           "400": {
@@ -477,70 +338,38 @@
           {
             "name": "cursor",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Opaque cursor from a previous response for pagination."
+                },
+                { "type": "null" }
+              ]
+            },
             "required": false
           },
           {
             "name": "limit",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Maximum number of tokens to return (1–100, default 50)."
+                },
+                { "type": "null" }
+              ]
+            },
             "required": false
           }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "A page of your access tokens.",
             "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "tokens": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": { "$ref": "#/components/schemas/TokenId" },
-                          "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "type": { "type": "string" },
-                          "scopes": { "type": "array", "items": { "type": "string" } },
-                          "created_at": {
-                            "type": "string",
-                            "readOnly": true,
-                            "format": "date-time"
-                          },
-                          "expires_at": {
-                            "type": "string",
-                            "readOnly": true,
-                            "format": "date-time"
-                          },
-                          "last_used_at": {
-                            "anyOf": [
-                              { "type": "string", "readOnly": true, "format": "date-time" },
-                              { "type": "null" }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "name",
-                          "type",
-                          "scopes",
-                          "created_at",
-                          "expires_at",
-                          "last_used_at"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
-                    "has_more": { "type": "boolean" },
-                    "cursor": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                  },
-                  "required": ["tokens", "has_more", "cursor"],
-                  "additionalProperties": false
-                }
-              }
+              "application/json": { "schema": { "$ref": "#/components/schemas/TokenListResponse" } }
             }
           },
           "400": {
@@ -577,28 +406,10 @@
         "security": [{ "bearer": [] }],
         "responses": {
           "201": {
-            "description": "Newly created personal access token with the plaintext token value.",
+            "description": "Your new access token. The token value is only shown once — save it now.",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "$ref": "#/components/schemas/TokenId" },
-                    "token": {
-                      "type": "string",
-                      "description": "The full token value. Only returned once at creation time.",
-                      "readOnly": true
-                    },
-                    "name": { "type": "string" },
-                    "scopes": { "type": "array", "items": { "type": "string" } },
-                    "created_at": { "type": "string", "readOnly": true, "format": "date-time" },
-                    "expires_at": { "type": "string", "readOnly": true, "format": "date-time" }
-                  },
-                  "required": ["id", "token", "name", "scopes", "created_at", "expires_at"],
-                  "additionalProperties": false,
-                  "title": "Create Token Response",
-                  "description": "Newly created personal access token with the plaintext token value."
-                }
+                "schema": { "$ref": "#/components/schemas/CreateTokenResponse" }
               }
             }
           },
@@ -638,38 +449,7 @@
         "summary": "Create scoped access token",
         "requestBody": {
           "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "allOf": [
-                      { "minLength": 1, "description": "Human-readable name for the token." }
-                    ]
-                  },
-                  "scopes": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "allOf": [{ "minItems": 1 }]
-                  },
-                  "expires_in": {
-                    "type": "integer",
-                    "allOf": [
-                      { "minimum": 3600 },
-                      {
-                        "maximum": 31536000,
-                        "description": "Token lifetime in seconds (3600–31536000)."
-                      }
-                    ]
-                  }
-                },
-                "required": ["name", "scopes", "expires_in"],
-                "additionalProperties": false,
-                "title": "Create Token Request",
-                "description": "Request body for creating a new personal access token."
-              }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateTokenRequest" } }
           },
           "required": true
         }
@@ -683,7 +463,7 @@
           {
             "name": "tokenId",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/TokenId" },
+            "schema": { "$ref": "#/components/schemas/TokenId3" },
             "required": true
           }
         ],
@@ -718,6 +498,47 @@
         "summary": "Revoke access token"
       }
     },
+    "/v1/owners/{handle}": {
+      "get": {
+        "tags": ["Owners"],
+        "operationId": "Owners.getOwner",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Minimal owner summary for machine clients.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/OwnerResponse" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Returns the minimal public owner summary for the provided handle.",
+        "summary": "Get owner"
+      }
+    },
     "/v1/extensions/{owner}": {
       "get": {
         "tags": ["Extensions"],
@@ -726,7 +547,7 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           }
         ],
@@ -744,21 +565,10 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "name": { "type": "string" },
-                          "owner": { "type": "string" },
-                          "type": {
-                            "type": "string",
-                            "enum": [
-                              "skill",
-                              "command",
-                              "mcp-server",
-                              "subagent",
-                              "file",
-                              "rule",
-                              "pack"
-                            ]
-                          },
-                          "latestVersion": { "type": "string" },
+                          "name": { "$ref": "#/components/schemas/ExtensionName" },
+                          "owner": { "$ref": "#/components/schemas/Handle" },
+                          "type": { "$ref": "#/components/schemas/ExtensionType" },
+                          "latestVersion": { "$ref": "#/components/schemas/ExactSemverVersion" },
                           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -766,17 +576,7 @@
                             "anyOf": [
                               {
                                 "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                                    "email": {
-                                      "anyOf": [{ "type": "string" }, { "type": "null" }]
-                                    },
-                                    "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                                  },
-                                  "additionalProperties": false
-                                }
+                                "items": { "$ref": "#/components/schemas/Author" }
                               },
                               { "type": "null" }
                             ]
@@ -786,7 +586,7 @@
                           },
                           "deprecated_at": {
                             "anyOf": [
-                              { "type": "string", "readOnly": true, "format": "date-time" },
+                              { "$ref": "#/components/schemas/IsoDateTimeString5" },
                               { "type": "null" }
                             ]
                           },
@@ -825,16 +625,13 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           }
         ],
@@ -852,21 +649,10 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "name": { "type": "string" },
-                          "owner": { "type": "string" },
-                          "type": {
-                            "type": "string",
-                            "enum": [
-                              "skill",
-                              "command",
-                              "mcp-server",
-                              "subagent",
-                              "file",
-                              "rule",
-                              "pack"
-                            ]
-                          },
-                          "latestVersion": { "type": "string" },
+                          "name": { "$ref": "#/components/schemas/ExtensionName" },
+                          "owner": { "$ref": "#/components/schemas/Handle" },
+                          "type": { "$ref": "#/components/schemas/ExtensionType" },
+                          "latestVersion": { "$ref": "#/components/schemas/ExactSemverVersion" },
                           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -874,17 +660,7 @@
                             "anyOf": [
                               {
                                 "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                                    "email": {
-                                      "anyOf": [{ "type": "string" }, { "type": "null" }]
-                                    },
-                                    "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                                  },
-                                  "additionalProperties": false
-                                }
+                                "items": { "$ref": "#/components/schemas/Author" }
                               },
                               { "type": "null" }
                             ]
@@ -894,7 +670,7 @@
                           },
                           "deprecated_at": {
                             "anyOf": [
-                              { "type": "string", "readOnly": true, "format": "date-time" },
+                              { "$ref": "#/components/schemas/IsoDateTimeString6" },
                               { "type": "null" }
                             ]
                           },
@@ -933,22 +709,19 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           }
         ],
@@ -968,22 +741,19 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           }
         ],
@@ -996,29 +766,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "name": { "type": "string" },
-                    "owner": { "type": "string" },
-                    "type": {
-                      "type": "string",
-                      "enum": ["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]
-                    },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "authors": {
                       "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                              "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                              "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                            },
-                            "additionalProperties": false
-                          }
-                        },
+                        { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
                         { "type": "null" }
                       ]
                     },
@@ -1027,22 +783,29 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "version": { "type": "string" },
-                          "published": {
-                            "type": "string",
-                            "readOnly": true,
-                            "format": "date-time"
-                          },
+                          "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
+                          "published": { "$ref": "#/components/schemas/IsoDateTimeString7" },
                           "integrity": { "type": "string", "readOnly": true },
                           "dependencies": {
                             "anyOf": [
-                              { "type": "object", "additionalProperties": { "type": "string" } },
+                              {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "$ref": "#/components/schemas/VersionConstraint"
+                                }
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "compatiblePackages": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
                               { "type": "null" }
                             ]
                           },
                           "yanked_at": {
                             "anyOf": [
-                              { "type": "string", "readOnly": true, "format": "date-time" },
+                              { "$ref": "#/components/schemas/IsoDateTimeString8" },
                               { "type": "null" }
                             ]
                           }
@@ -1063,7 +826,7 @@
                     },
                     "deprecated_at": {
                       "anyOf": [
-                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString9" },
                         { "type": "null" }
                       ]
                     },
@@ -1104,22 +867,19 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           }
         ],
@@ -1133,9 +893,9 @@
                   "type": "object",
                   "properties": {
                     "id": { "$ref": "#/components/schemas/ExtensionId" },
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "name": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "visibility": { "type": "string" },
                     "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
                   },
@@ -1193,16 +953,7 @@
         "summary": "Update extension visibility",
         "requestBody": {
           "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "visibility": { "type": "string", "enum": ["public", "unlisted", "private"] }
-                },
-                "required": ["visibility"],
-                "additionalProperties": false
-              }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/PatchVisibilityBody" } }
           },
           "required": true
         }
@@ -1216,25 +967,27 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
-          { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExactSemverVersion" },
+            "required": true
+          }
         ],
         "security": [],
         "responses": {
@@ -1245,52 +998,52 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "name": { "type": "string" },
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "version": { "type": "string" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "status": {
                       "type": "string",
                       "enum": ["pending", "available", "failed"],
                       "readOnly": true
                     },
-                    "published": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "published": { "$ref": "#/components/schemas/IsoDateTimeString10" },
                     "integrity": { "type": "string", "readOnly": true },
                     "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "authors": {
                       "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                              "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                              "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                            },
-                            "additionalProperties": false
-                          }
-                        },
+                        { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
                         { "type": "null" }
                       ]
                     },
                     "dependencies": {
                       "anyOf": [
-                        { "type": "object", "additionalProperties": { "type": "string" } },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/VersionConstraint"
+                          }
+                        },
+                        { "type": "null" }
+                      ]
+                    },
+                    "compatiblePackages": {
+                      "anyOf": [
+                        { "type": "array", "items": { "type": "string" } },
                         { "type": "null" }
                       ]
                     },
                     "yanked_at": {
                       "anyOf": [
-                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString11" },
                         { "type": "null" }
                       ]
                     },
                     "deleted_at": {
                       "anyOf": [
-                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString12" },
                         { "type": "null" }
                       ]
                     }
@@ -1335,25 +1088,27 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
-          { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExactSemverVersion" },
+            "required": true
+          }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
@@ -1400,25 +1155,27 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
-          { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExactSemverVersion" },
+            "required": true
+          }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
@@ -1429,14 +1186,18 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "name": { "type": "string" },
-                    "version": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "integrity": { "type": "string", "readOnly": true },
                     "sha256_hex": { "type": "string", "readOnly": true },
-                    "published_at": { "type": "string", "readOnly": true, "format": "date-time" },
-                    "publish_status": { "type": "string", "readOnly": true }
+                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString13" },
+                    "publish_status": {
+                      "type": "string",
+                      "enum": ["pending", "available", "failed"],
+                      "readOnly": true
+                    }
                   },
                   "required": [
                     "owner",
@@ -1460,14 +1221,18 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "name": { "type": "string" },
-                    "version": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "integrity": { "type": "string", "readOnly": true },
                     "sha256_hex": { "type": "string", "readOnly": true },
-                    "published_at": { "type": "string", "readOnly": true, "format": "date-time" },
-                    "publish_status": { "type": "string", "readOnly": true }
+                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString13" },
+                    "publish_status": {
+                      "type": "string",
+                      "enum": ["pending", "available", "failed"],
+                      "readOnly": true
+                    }
                   },
                   "required": [
                     "owner",
@@ -1576,14 +1341,6 @@
               }
             }
           },
-          "501": {
-            "description": "NotImplementedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/NotImplementedError" }
-              }
-            }
-          },
           "503": {
             "description": "ServiceUnavailableError",
             "content": {
@@ -1623,25 +1380,27 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
-          { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExactSemverVersion" },
+            "required": true
+          }
         ],
         "security": [],
         "responses": {
@@ -1677,58 +1436,6 @@
         "summary": "Download extension archive"
       }
     },
-    "/v1/extensions/{owner}/profile": {
-      "get": {
-        "tags": ["Extensions"],
-        "operationId": "Extensions.getOwnerProfile",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
-            "required": true
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": { "type": "boolean", "enum": [true] },
-                    "mock": { "type": "boolean", "enum": [true] },
-                    "method": { "type": "string", "enum": ["GET"] },
-                    "route": { "type": "string", "enum": ["/v1/extensions/{owner}/profile"] },
-                    "message": { "type": "string" },
-                    "params": {
-                      "type": "object",
-                      "properties": { "owner": { "type": "string" } },
-                      "required": ["owner"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["ok", "mock", "method", "route", "message", "params"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse | BadRequest",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          }
-        },
-        "description": "Returns the current mock owner profile payload.",
-        "summary": "Get owner profile"
-      }
-    },
     "/v1/extensions/{owner}/{type}/{name}/deprecate": {
       "post": {
         "tags": ["Extensions"],
@@ -1737,22 +1444,19 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           }
         ],
@@ -1765,9 +1469,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "name": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "deprecatedAt": {
                       "anyOf": [
                         { "type": "string", "readOnly": true, "format": "date-time" },
@@ -1820,13 +1524,7 @@
         "summary": "Deprecate an extension",
         "requestBody": {
           "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": { "notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] } },
-                "additionalProperties": false
-              }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/DeprecateBody" } }
           },
           "required": true
         }
@@ -1838,22 +1536,19 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           }
         ],
@@ -1866,9 +1561,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "name": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "deprecatedAt": { "type": "null" },
                     "deprecationNotice": { "type": "null" }
                   },
@@ -1922,25 +1617,27 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
-          { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExactSemverVersion" },
+            "required": true
+          }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
@@ -1951,13 +1648,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "name": { "type": "string" },
-                    "version": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "yankedAt": {
                       "anyOf": [
-                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString14" },
                         { "type": "null" }
                       ]
                     }
@@ -2010,25 +1707,27 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
-          { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExactSemverVersion" },
+            "required": true
+          }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
@@ -2039,10 +1738,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "owner": { "type": "string" },
-                    "type": { "type": "string" },
-                    "name": { "type": "string" },
-                    "version": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "yankedAt": { "type": "null" }
                   },
                   "required": ["owner", "type", "name", "version", "yankedAt"],
@@ -2095,22 +1794,19 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           }
         ],
@@ -2128,11 +1824,11 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "userId": { "$ref": "#/components/schemas/UserId" },
+                          "userId": { "$ref": "#/components/schemas/UserId1" },
                           "role": { "type": "string" },
                           "grantedBy": {
                             "anyOf": [
-                              { "$ref": "#/components/schemas/UserId" },
+                              { "$ref": "#/components/schemas/UserId1" },
                               { "type": "null" }
                             ],
                             "readOnly": true
@@ -2194,28 +1890,25 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle1" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural1" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName1" },
             "required": true
           },
           {
             "name": "userId",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
+            "schema": { "$ref": "#/components/schemas/UserId2" },
             "required": true
           }
         ],
@@ -2228,10 +1921,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "userId": { "$ref": "#/components/schemas/UserId" },
+                    "userId": { "$ref": "#/components/schemas/UserId1" },
                     "role": { "type": "string" },
                     "grantedBy": {
-                      "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
+                      "anyOf": [{ "$ref": "#/components/schemas/UserId1" }, { "type": "null" }],
                       "readOnly": true
                     },
                     "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
@@ -2290,14 +1983,7 @@
         "summary": "Add or update collaborator",
         "requestBody": {
           "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": { "role": { "type": "string", "enum": ["admin", "write", "read"] } },
-                "required": ["role"],
-                "additionalProperties": false
-              }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/PutCollaboratorBody" } }
           },
           "required": true
         }
@@ -2309,28 +1995,25 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/Handle1" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": {
-              "type": "string",
-              "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"]
-            },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural1" },
             "required": true
           },
           {
             "name": "name",
             "in": "path",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": { "$ref": "#/components/schemas/ExtensionName1" },
             "required": true
           },
           {
             "name": "userId",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
+            "schema": { "$ref": "#/components/schemas/UserId2" },
             "required": true
           }
         ],
@@ -2518,6 +2201,23 @@
             "in": "query",
             "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "required": false
+          },
+          {
+            "name": "scenario",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["effect-handled-500", "surface-unhandled-500"] },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "scenarioId",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
           }
         ],
         "security": [],
@@ -2586,7 +2286,21 @@
                                 "status": { "type": "string", "enum": ["ok", "error"] },
                                 "sentryEventId": {
                                   "anyOf": [{ "type": "string" }, { "type": "null" }]
-                                }
+                                },
+                                "reason": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["sentry-issue-reporter-disabled"]
+                                        }
+                                      ]
+                                    },
+                                    { "type": "null" }
+                                  ]
+                                },
+                                "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                               },
                               "required": ["status"],
                               "additionalProperties": false
@@ -2613,7 +2327,7 @@
             }
           }
         },
-        "description": "Exercises observability pipelines and returns correlation identifiers. Requires X-Health-Key header.",
+        "description": "Exercises observability pipelines and can simulate server error scenarios. Requires X-Health-Key header.",
         "summary": "Observability verification"
       }
     },
@@ -2625,35 +2339,48 @@
           {
             "name": "q",
             "in": "query",
-            "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "schema": {
+              "type": "string",
+              "description": "Search query string. Use an empty string to list the public catalog.",
+              "examples": ["git commit", ""]
+            },
             "required": true
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Opaque cursor from a previous response for pagination."
+                },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Maximum number of results to return (1–100, default 20)."
+                },
+                { "type": "null" }
+              ]
+            },
+            "required": false
           }
         ],
         "security": [],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "A page of extensions matching the search query.",
             "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": { "type": "boolean", "enum": [true] },
-                    "mock": { "type": "boolean", "enum": [true] },
-                    "method": { "type": "string", "enum": ["GET"] },
-                    "route": { "type": "string", "enum": ["/v1/search"] },
-                    "message": { "type": "string" },
-                    "query": {
-                      "type": "object",
-                      "properties": { "q": { "type": "string" } },
-                      "required": ["q"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["ok", "mock", "method", "route", "message", "query"],
-                  "additionalProperties": false
-                }
-              }
+              "application/json": { "schema": { "$ref": "#/components/schemas/SearchResponse" } }
             }
           },
           "400": {
@@ -2665,13 +2392,45 @@
             }
           }
         },
-        "description": "Returns the current mock search response for the provided query string.",
+        "description": "Returns extensions whose name matches the query, ordered by most recently published version. When `q` is empty, returns the public catalog. Only public, available, non-yanked versions are returned.",
         "summary": "Search extensions"
       }
     }
   },
   "components": {
     "schemas": {
+      "MetaResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "enum": [true] },
+          "service": { "type": "string", "enum": ["registry"] },
+          "message": { "type": "string", "description": "Human-readable service greeting." },
+          "docs": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Path to the interactive API documentation, or null when docs are disabled.",
+                "format": "uri-reference"
+              },
+              { "type": "null" }
+            ]
+          },
+          "openapi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Path to the OpenAPI specification, or null when docs are disabled.",
+                "format": "uri-reference"
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["ok", "service", "message", "docs", "openapi"],
+        "additionalProperties": false,
+        "title": "Meta Response",
+        "description": "Registry service metadata including health status and documentation entry points."
+      },
       "DecodeErrorResponse": {
         "type": "object",
         "properties": {
@@ -2680,11 +2439,83 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
-          "instance": { "type": "string" }
+          "instance": { "type": "string" },
+          "code": { "type": "string" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "DeviceCodeResponse": {
+        "type": "object",
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "description": "Device verification code for the polling client."
+          },
+          "user_code": {
+            "type": "string",
+            "description": "Short code the user enters in the browser."
+          },
+          "verification_uri": {
+            "type": "string",
+            "description": "URI where the user should navigate to enter the user code.",
+            "format": "uri"
+          },
+          "verification_uri_complete": {
+            "type": "string",
+            "description": "URI with the user code pre-filled, suitable for QR codes or direct links.",
+            "format": "uri"
+          },
+          "expires_in": {
+            "type": "integer",
+            "allOf": [{ "description": "Lifetime of the device code in seconds." }]
+          },
+          "interval": {
+            "type": "integer",
+            "allOf": [{ "description": "Minimum polling interval in seconds." }]
+          }
+        },
+        "required": [
+          "device_code",
+          "user_code",
+          "verification_uri",
+          "verification_uri_complete",
+          "expires_in",
+          "interval"
+        ],
+        "additionalProperties": false,
+        "title": "Device Code Response",
+        "description": "Response from the OAuth device authorization endpoint (RFC 8628)."
+      },
+      "PublishDetails": {
+        "type": "object",
+        "properties": {
+          "retryable": {
+            "type": "boolean",
+            "description": "Whether the client may retry the request."
+          },
+          "retryAfterSeconds": {
+            "type": "number",
+            "allOf": [{ "description": "Suggested delay in seconds before retrying." }]
+          },
+          "requiredScope": {
+            "type": "string",
+            "description": "The scope required to perform the operation, if applicable."
+          },
+          "tokenScopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The scopes present on the token used for the request."
+          },
+          "requiredRole": {
+            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "description": "The collaborator role required, if applicable."
+          }
+        },
+        "required": ["retryable"],
+        "additionalProperties": false,
+        "title": "Publish Details",
+        "description": "Extended error details for publish-related and retryable error responses."
       },
       "InternalError": {
         "type": "object",
@@ -2694,23 +2525,42 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "SessionTokenResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string", "description": "OAuth 2.0 access token." },
+          "refresh_token": {
+            "type": "string",
+            "description": "OAuth 2.0 refresh token for obtaining new token pairs."
+          },
+          "token_type": { "type": "string", "enum": ["Bearer"] },
+          "expires_in": {
+            "type": "integer",
+            "allOf": [{ "description": "Access token lifetime remaining in seconds." }]
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "ISO 8601 timestamp when the access token expires.",
+            "format": "date-time"
+          },
+          "scope": {
+            "anyOf": [
+              { "type": "string", "description": "Space-delimited list of granted scopes." },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["access_token", "refresh_token", "token_type", "expires_in", "expires_at"],
+        "additionalProperties": false,
+        "title": "Session Token Response",
+        "description": "OAuth 2.0 token response containing an access/refresh token pair."
       },
       "InvalidRequestError": {
         "type": "object",
@@ -2720,20 +2570,9 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -2750,12 +2589,47 @@
               "slow_down",
               "expired_token",
               "access_denied"
-            ]
+            ],
+            "title": "OAuth Device Error Code",
+            "description": "RFC 8628 error code indicating the polling state."
           },
-          "error_description": { "type": "string" }
+          "error_description": {
+            "type": "string",
+            "description": "Human-readable explanation of the error."
+          }
         },
         "required": ["kind", "error", "error_description"],
         "additionalProperties": false
+      },
+      "RefreshSessionTokenResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string", "description": "OAuth 2.0 access token." },
+          "refresh_token": {
+            "type": "string",
+            "description": "OAuth 2.0 refresh token for obtaining new token pairs."
+          },
+          "token_type": { "type": "string", "enum": ["Bearer"] },
+          "expires_in": {
+            "type": "integer",
+            "allOf": [{ "description": "Access token lifetime remaining in seconds." }]
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "ISO 8601 timestamp when the access token expires.",
+            "format": "date-time"
+          },
+          "scope": {
+            "anyOf": [
+              { "type": "string", "description": "Space-delimited list of granted scopes." },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["access_token", "refresh_token", "token_type", "expires_in", "expires_at"],
+        "additionalProperties": false,
+        "title": "Session Token Response",
+        "description": "OAuth 2.0 token response containing an access/refresh token pair."
       },
       "RefreshTokenError": {
         "type": "object",
@@ -2765,8 +2639,8 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
+          "code": { "type": "string" },
           "details": {}
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -2778,10 +2652,35 @@
           {
             "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "User ID",
-            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+            "description": "Unique user identifier.",
             "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
+      },
+      "AuthMeUser": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/UserId" },
+          "handle": {
+            "type": "string",
+            "description": "The user's registry handle.",
+            "examples": ["@example"]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The user's email address, if available.",
+                "format": "email"
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["id", "handle", "email"],
+        "additionalProperties": false,
+        "title": "Authenticated User",
+        "description": "Your profile information."
       },
       "TokenId": {
         "type": "string",
@@ -2789,10 +2688,72 @@
           {
             "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "Token ID",
-            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+            "description": "Unique identifier of the token used for this request.",
             "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
+      },
+      "ResourceRestrictions": {
+        "type": "object",
+        "properties": {
+          "extensions": {
+            "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }],
+            "description": "Extension patterns this token is limited to, or null if unrestricted."
+          }
+        },
+        "required": ["extensions"],
+        "additionalProperties": false,
+        "title": "Resource Restrictions",
+        "description": "What this token is allowed to access."
+      },
+      "AuthMeToken": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TokenId" },
+          "type": {
+            "type": "string",
+            "enum": ["session", "pat", "oidc"],
+            "title": "Token Type",
+            "description": "The type of authentication token."
+          },
+          "name": {
+            "anyOf": [
+              { "type": "string", "description": "Human-readable name of the token, if assigned." },
+              { "type": "null" }
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Scopes granted to this token."
+          },
+          "resource_restrictions": { "$ref": "#/components/schemas/ResourceRestrictions" },
+          "expires_at": {
+            "type": "string",
+            "description": "When this token expires.",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "type", "name", "scopes", "resource_restrictions", "expires_at"],
+        "additionalProperties": false,
+        "title": "Token Info",
+        "description": "Details about the token you used to authenticate."
+      },
+      "AuthMeResponse": {
+        "type": "object",
+        "properties": {
+          "user": { "$ref": "#/components/schemas/AuthMeUser" },
+          "orgs": {
+            "type": "array",
+            "items": false,
+            "description": "Organizations the user belongs to (reserved, currently empty)."
+          },
+          "token": { "$ref": "#/components/schemas/AuthMeToken" }
+        },
+        "required": ["user", "orgs", "token"],
+        "additionalProperties": false,
+        "title": "Auth Me Response",
+        "description": "Your user profile, organizations, and token details."
       },
       "UnauthorizedError": {
         "type": "object",
@@ -2802,8 +2763,8 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
-          "instance": { "type": "string" }
+          "instance": { "type": "string" },
+          "code": { "type": "string" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -2816,23 +2777,150 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "TokenId1": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Token ID",
+            "description": "Unique token identifier.",
+            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString1": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString2": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "TokenListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TokenId1" },
+          "name": {
+            "anyOf": [
+              { "type": "string", "description": "Human-readable name of the token, if assigned." },
+              { "type": "null" }
+            ]
+          },
+          "type": { "type": "string", "description": "Token type (e.g. 'pat', 'session')." },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Scopes granted to this token."
+          },
+          "created_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString1" },
+          "last_used_at": {
+            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString2" }, { "type": "null" }]
+          }
+        },
+        "required": ["id", "name", "type", "scopes", "created_at", "expires_at", "last_used_at"],
+        "additionalProperties": false,
+        "title": "Token List Item",
+        "description": "Summary of an access token."
+      },
+      "TokenListResponse": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TokenListItem" },
+            "description": "List of access tokens for the authenticated user."
+          },
+          "has_more": {
+            "type": "boolean",
+            "description": "Whether additional tokens exist beyond this page."
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Opaque cursor for fetching the next page of results."
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["tokens", "has_more", "cursor"],
+        "additionalProperties": false,
+        "title": "Token List Response",
+        "description": "A page of your access tokens."
+      },
+      "ScopeCheckDetails": {
+        "type": "object",
+        "properties": {
+          "requiredScope": {
+            "type": "string",
+            "description": "The scope required to perform the requested operation."
+          },
+          "grantedScopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The scopes granted to the current credential."
+          }
+        },
+        "required": ["requiredScope", "grantedScopes"],
+        "additionalProperties": false,
+        "title": "Scope Check Details",
+        "description": "Diagnostic details returned when a request is denied due to insufficient scopes."
+      },
+      "AuthorizationDenyDetails": {
+        "type": "object",
+        "properties": {
+          "requiredScope": {
+            "type": "string",
+            "description": "The scope required to perform the requested operation."
+          },
+          "tokenScopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The scopes present on the token used for the request."
+          },
+          "requiredRole": {
+            "type": "string",
+            "description": "The collaborator role required, if applicable."
+          }
+        },
+        "required": ["requiredScope", "tokenScopes"],
+        "additionalProperties": false,
+        "title": "Authorization Deny Details",
+        "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
+      },
+      "PublishDetails1": {
+        "type": "object",
+        "properties": {
+          "retryable": {
+            "type": "boolean",
+            "description": "Whether the client may retry the request."
+          },
+          "retryAfterSeconds": {
+            "type": "number",
+            "allOf": [{ "description": "Suggested delay in seconds before retrying." }]
+          },
+          "requiredScope": {
+            "type": "string",
+            "description": "The scope required to perform the operation, if applicable."
+          },
+          "tokenScopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The scopes present on the token used for the request."
+          },
+          "requiredRole": {
+            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "description": "The collaborator role required, if applicable."
+          }
+        },
+        "required": ["retryable"],
+        "additionalProperties": false,
+        "title": "Publish Details",
+        "description": "Extended error details for publish-related and retryable error responses."
       },
       "ForbiddenError": {
         "type": "object",
@@ -2842,46 +2930,90 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
+          "code": { "type": "string" },
           "details": {
             "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "type": "string" }
-                },
-                "required": ["requiredScope", "tokenScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": { "type": "number" },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
+              { "$ref": "#/components/schemas/ScopeCheckDetails" },
+              { "$ref": "#/components/schemas/AuthorizationDenyDetails" },
+              { "$ref": "#/components/schemas/PublishDetails1" }
             ]
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "CreateTokenRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "allOf": [
+              {
+                "minLength": 1,
+                "description": "Human-readable name for the token.",
+                "examples": ["CI publish token"]
+              }
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "allOf": [
+              {
+                "minItems": 1,
+                "description": "Permissions to grant this token (e.g. extensions:read, extensions:write).",
+                "examples": [["extensions:read", "extensions:write"]]
+              }
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "allOf": [
+              { "minimum": 3600 },
+              {
+                "maximum": 31536000,
+                "description": "How long the token lasts, in seconds (1 hour to 365 days)."
+              }
+            ]
+          }
+        },
+        "required": ["name", "scopes", "expires_in"],
+        "additionalProperties": false,
+        "title": "Create Token Request",
+        "description": "Request body for creating a new personal access token."
+      },
+      "TokenId2": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Token ID",
+            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "IsoDateTimeString3": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString4": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "CreateTokenResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TokenId2" },
+          "token": {
+            "type": "string",
+            "description": "The token value — save this, it won't be shown again.",
+            "readOnly": true
+          },
+          "name": { "type": "string" },
+          "scopes": { "type": "array", "items": { "type": "string" } },
+          "created_at": { "$ref": "#/components/schemas/IsoDateTimeString3" },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString4" }
+        },
+        "required": ["id", "token", "name", "scopes", "created_at", "expires_at"],
+        "additionalProperties": false,
+        "title": "Create Token Response",
+        "description": "Your new access token. The token value is only shown once — save it now."
       },
       "UnprocessableEntityError": {
         "type": "object",
@@ -2891,23 +3023,44 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "TokenId3": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Token ID",
+            "description": "TypeID of the token to revoke.",
+            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "Handle": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+            "title": "Handle",
+            "description": "A unique username or organization name starting with @, like @my-org.",
+            "examples": ["@my-org", "@username"]
+          }
+        ]
+      },
+      "OwnerResponse": {
+        "type": "object",
+        "properties": {
+          "displayName": { "type": "string", "description": "Display name for the owner account." }
+        },
+        "required": ["displayName"],
+        "additionalProperties": false,
+        "title": "Owner Response",
+        "description": "Minimal owner summary for machine clients."
       },
       "NotFoundError": {
         "type": "object",
@@ -2917,23 +3070,84 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "ExtensionName": { "type": "string" },
+      "ExtensionType": {
+        "type": "string",
+        "enum": ["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"],
+        "title": "Extension Type",
+        "description": "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack."
+      },
+      "ExactSemverVersion": { "type": "string" },
+      "Author": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "anyOf": [
+              { "type": "string", "description": "Display name of the extension author." },
+              { "type": "null" }
+            ]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Contact email of the extension author.",
+                "format": "email"
+              },
+              { "type": "null" }
+            ]
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "URL for the extension author (homepage or profile).",
+                "format": "uri"
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "title": "Author",
+        "description": "Author details: name, email, and homepage URL."
+      },
+      "IsoDateTimeString5": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "ExtensionTypePlural": {
+        "type": "string",
+        "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"],
+        "title": "Extension Type (Plural)",
+        "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs)."
+      },
+      "IsoDateTimeString6": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString7": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "VersionConstraint": { "type": "string" },
+      "IsoDateTimeString8": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString9": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString10": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString11": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "IsoDateTimeString12": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "PatchVisibilityBody": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "enum": ["public", "unlisted", "private"],
+            "title": "Visibility",
+            "description": "Target visibility level for the extension."
+          }
+        },
+        "required": ["visibility"],
+        "additionalProperties": false,
+        "title": "Patch Visibility Body",
+        "description": "Request body for updating an extension's visibility."
       },
       "ExtensionId": {
         "type": "string",
@@ -2946,6 +3160,25 @@
           }
         ]
       },
+      "DeprecateBody": {
+        "type": "object",
+        "properties": {
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Message shown to users explaining why this extension is deprecated.",
+                "examples": ["Use @example/skills/new-skill instead."]
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "title": "Deprecate Body",
+        "description": "Request body for deprecating an extension."
+      },
+      "IsoDateTimeString13": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "ConflictError": {
         "type": "object",
         "properties": {
@@ -2954,20 +3187,9 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -2980,20 +3202,9 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -3006,20 +3217,9 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -3032,20 +3232,9 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -3058,23 +3247,124 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
+          "code": { "type": "string" },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "IsoDateTimeString14": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "UserId1": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "User ID",
+            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "PutCollaboratorBody": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["admin", "write", "read"],
+            "title": "Collaborator Role",
+            "description": "The role to assign to the collaborator."
+          }
+        },
+        "required": ["role"],
+        "additionalProperties": false,
+        "title": "Put Collaborator Body",
+        "description": "Request body for assigning a collaborator role on an extension."
+      },
+      "Handle1": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+            "title": "Handle",
+            "description": "Owner handle, e.g. '@example'.",
+            "examples": ["@my-org", "@username"]
+          }
+        ]
+      },
+      "ExtensionTypePlural1": {
+        "type": "string",
+        "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"],
+        "title": "Extension Type (Plural)",
+        "description": "Extension type (e.g. skills, commands, extension packs)."
+      },
+      "ExtensionName1": { "type": "string" },
+      "UserId2": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "User ID",
+            "description": "ID of the collaborator.",
+            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "IsoDateTimeString15": { "type": "string", "allOf": [{ "minLength": 1 }] },
+      "SearchHit": {
+        "type": "object",
+        "properties": {
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "latestVersion": { "$ref": "#/components/schemas/ExactSemverVersion" },
+          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "authors": {
+            "anyOf": [
+              { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
+              { "type": "null" }
+            ]
+          },
+          "deprecated_at": {
+            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString15" }, { "type": "null" }]
+          },
+          "deprecation_notice": {
+            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+          }
+        },
+        "required": ["name", "owner", "type", "latestVersion"],
+        "additionalProperties": false,
+        "title": "Search Hit",
+        "description": "A single extension matched by a search query."
+      },
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "extensions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SearchHit" },
+            "description": "Extensions matching the query, ordered by recency."
+          },
+          "has_more": {
+            "type": "boolean",
+            "description": "Whether additional results exist beyond this page."
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Opaque cursor for fetching the next page of results."
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["extensions", "has_more", "cursor"],
+        "additionalProperties": false,
+        "title": "Search Response",
+        "description": "A page of extensions matching the search query."
       }
     },
     "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } }
@@ -3084,6 +3374,7 @@
     { "name": "Meta" },
     { "name": "Auth" },
     { "name": "Tokens" },
+    { "name": "Owners" },
     { "name": "Extensions" },
     { "name": "Collaborators" },
     { "name": "Health" },

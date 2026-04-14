@@ -198,7 +198,7 @@ export const SubagentManagerLive = Layer.effect(
         switch (ref.refType) {
           case "git-hosted": {
             const sourcePath = stripFileProtocol(ref.location);
-            yield* removeFromAllCanonicalLocations(fs, baseDir, sanitized, path);
+            yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
             yield* copyToCanonical(sourcePath, subagentSrcPath);
             break;
           }
@@ -206,7 +206,7 @@ export const SubagentManagerLive = Layer.effect(
             const sourcePath = stripFileProtocol(ref.location);
             const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
             if (!isSelfCopy) {
-              yield* removeFromAllCanonicalLocations(fs, baseDir, sanitized, path);
+              yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
               yield* copyToCanonical(sourcePath, subagentSrcPath);
             }
             break;
@@ -327,7 +327,7 @@ export const SubagentManagerLive = Layer.effect(
         }
 
         // --- Remove canonical source directory ---
-        yield* removeFromAllCanonicalLocations(fs, baseDir, sanitized, path);
+        yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
       });
 
     return {

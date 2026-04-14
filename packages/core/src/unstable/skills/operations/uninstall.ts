@@ -172,7 +172,7 @@ export const uninstallSkill: OperationHandler<
 
     // Full uninstall: remove from all known canonical locations
     if (installedOnDisk) {
-      yield* removeFromAllCanonicalLocations(fs, base, sanitizedName, path);
+      yield* removeFromAllCanonicalLocations(fs, base, "skills", sanitizedName, path);
     }
 
     // Remove from both settings and lockfile (swallow errors on full uninstall)

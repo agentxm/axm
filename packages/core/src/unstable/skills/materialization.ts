@@ -32,7 +32,7 @@ const preCleanAndCopy = (
   provide: ProvideFs,
 ) =>
   Effect.gen(function* () {
-    yield* removeFromAllCanonicalLocations(fs, baseDir, sanitizedName, pathService);
+    yield* removeFromAllCanonicalLocations(fs, baseDir, "skills", sanitizedName, pathService);
     yield* provide(
       copyExtensionDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((error) =>

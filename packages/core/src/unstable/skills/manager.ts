@@ -185,7 +185,7 @@ export const SkillManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
-        yield* removeFromAllCanonicalLocations(fs, baseDir, sanitized, path);
+        yield* removeFromAllCanonicalLocations(fs, baseDir, "skills", sanitized, path);
       });
 
     return {

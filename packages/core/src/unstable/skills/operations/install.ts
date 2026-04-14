@@ -97,7 +97,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     const path = yield* Path.Path;
     const ws = yield* Workspace;
 
-    yield* removeFromAllCanonicalLocations(fs, ws.baseDir, sanitizedName, path);
+    yield* removeFromAllCanonicalLocations(fs, ws.baseDir, "skills", sanitizedName, path);
     yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
         makeAppError({

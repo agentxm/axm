@@ -414,6 +414,51 @@ describe("SubagentManager", () => {
       );
     });
 
+    it.effect("removes registry canonical subagent directories", () => {
+      const tmpDir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-subagent-uninstall-"));
+      const axmDir = nodePath.join(tmpDir, "project", ".axm");
+      const canonicalDir = nodePath.join(
+        tmpDir,
+        "project",
+        ".axm",
+        "extensions",
+        "@test",
+        "subagents",
+        "planner",
+      );
+
+      return Effect.gen(function* () {
+        yield* Effect.sync(() => {
+          nodeFs.mkdirSync(nodePath.join(canonicalDir, "src"), { recursive: true });
+          nodeFs.writeFileSync(
+            nodePath.join(canonicalDir, "src", "SUBAGENT.md"),
+            makeSubagentContent("planner", "Plans work"),
+          );
+        });
+
+        const manager = yield* SubagentManager;
+        yield* manager.materializeUninstall({
+          target: { type: "subagent", name: "planner" },
+        });
+
+        expect(nodeFs.existsSync(canonicalDir)).toBe(false);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            nodeFs.rmSync(tmpDir, { recursive: true, force: true });
+          }),
+        ),
+        Effect.provide(
+          makeTestLayer({
+            axmDir,
+            wsOverrides: {
+              getLockedSubagent: () => Effect.succeed(Option.none()),
+            },
+          }),
+        ),
+      );
+    });
+
     it.effect("handles missing lockfile entry gracefully", () =>
       Effect.gen(function* () {
         const manager = yield* SubagentManager;

@@ -262,9 +262,7 @@ const expectSameCanonicalState = (
 
   expect(rootExists).toBe(typedExists);
 
-  if (surface !== "subagents") {
-    expect(rootExists).toBe(false);
-  }
+  expect(rootExists).toBe(false);
 };
 
 const uninstallCases: ReadonlyArray<UninstallCase> = [
@@ -364,7 +362,6 @@ describe("axm uninstall", () => {
         expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, surface, name);
         assertAdditionalCleanup?.(rootWorkspace.path, typedWorkspace.path);
 
-        // Subagents currently leave the canonical registry directory behind in both paths.
         const rootSecondPass = await runJsonCommand(rootWorkspace.path, [
           "uninstall",
           registryFqn(surface, name, version),

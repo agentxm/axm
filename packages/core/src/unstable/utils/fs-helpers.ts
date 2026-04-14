@@ -1,5 +1,5 @@
 /**
- * Shared filesystem helpers for skill operations.
+ * Shared filesystem helpers for canonical extension cleanup.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -20,16 +20,19 @@ export const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string
     ),
   );
 
+export type CanonicalExtensionDirectory = "skills" | "subagents";
+
 /**
- * Remove a skill from ALL known canonical locations.
+ * Remove an extension from all known canonical locations for its directory.
  *
- * Ensures clean removal regardless of where the skill was installed:
- * 1. `.axm/extensions/external/skills/<name>/` (non-registry canonical)
- * 2. `.axm/extensions/@* /skills/<name>/` (registry canonical, any owner)
+ * Ensures clean removal regardless of where the extension was installed:
+ * 1. `.axm/extensions/external/<directory>/<name>/` (non-registry canonical)
+ * 2. `.axm/extensions/@scope/<directory>/<name>/` (registry canonical, any owner)
  */
 export const removeFromAllCanonicalLocations = (
   fsService: FileSystem.FileSystem,
   base: string,
+  directory: CanonicalExtensionDirectory,
   sanitizedName: string,
   pathService: Path.Path,
 ) =>
@@ -37,7 +40,7 @@ export const removeFromAllCanonicalLocations = (
     // Remove from non-registry canonical location
     yield* removeIfExists(
       fsService,
-      pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName),
+      pathService.join(base, EXTERNAL_EXTENSIONS_DIR, directory, sanitizedName),
     );
 
     // Remove from any registry canonical location
@@ -55,8 +58,8 @@ export const removeFromAllCanonicalLocations = (
         scopeDirs,
         (scopeDir) => {
           if (!scopeDir.startsWith("@")) return Effect.void;
-          const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
-          return removeIfExists(fsService, skillPath);
+          const canonicalPath = pathService.join(extensionsDir, scopeDir, directory, sanitizedName);
+          return removeIfExists(fsService, canonicalPath);
         },
         { concurrency: "unbounded" },
       );

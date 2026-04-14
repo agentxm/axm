@@ -1,0 +1,106 @@
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import * as SchemaIssue from "effect/SchemaIssue";
+
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  installableExtensionTypePluralSegments,
+  isInstallableExtensionTypePlural,
+  RegistrySourceRefSchema,
+  toInstallableExtensionType,
+  type InstallableExtensionType,
+} from "@agentxm/client-core/unstable/extensions";
+import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+
+const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
+
+export const rootUninstallableTypeSegments = installableExtensionTypePluralSegments;
+export type RootUninstallableType = InstallableExtensionType;
+
+export interface RootUninstallIntent {
+  readonly source: string;
+  readonly type: RootUninstallableType;
+  readonly name: string;
+}
+
+const rootUninstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
+
+const supportedRootUninstallTypes = rootUninstallableTypeSegments.join(", ");
+
+const genericPerTypeUninstallGuidance =
+  "Use the matching per-type uninstall command instead: `axm skills uninstall <name>`, `axm commands uninstall <name>`, `axm subagents uninstall <name>`, `axm packs uninstall <name>`, or `axm mcp-servers uninstall <name>`.";
+
+const rootUninstallRegistryOnlyHowToFix = (source: string): string => {
+  const parsed = parseInputPattern(source);
+
+  if (Option.isNone(parsed)) {
+    return `Use \`axm uninstall ${rootUninstallFqnGrammar}\`. ${genericPerTypeUninstallGuidance}`;
+  }
+
+  switch (parsed.value.pattern.pattern) {
+    case "name-input":
+    case "glob-input":
+      return `Root uninstall only accepts registry FQNs. Use the matching per-type command instead: \`axm skills uninstall ${source}\`, \`axm commands uninstall ${source}\`, \`axm subagents uninstall ${source}\`, \`axm packs uninstall ${source}\`, or \`axm mcp-servers uninstall ${source}\`.`;
+    case "file-path-pattern":
+    case "url-input":
+    case "git-scp-address":
+    case "shorthand-input":
+    case "slash-pattern":
+    case "registry-pattern-input":
+      return `Use \`axm uninstall ${rootUninstallFqnGrammar}\`. ${genericPerTypeUninstallGuidance}`;
+  }
+};
+
+export const resolveRootUninstallIntent = (input: string) =>
+  Effect.gen(function* () {
+    const source = input.trim();
+    const segments = source.split("/");
+    const pluralType = segments.length === 3 ? segments[1] : undefined;
+
+    if (!source.startsWith("@")) {
+      return yield* makeAppError({
+        code: "UNINSTALL_SOURCE_NOT_FQN",
+        what: "Root uninstall only accepts registry FQNs",
+        details: [`Provided: ${source}`],
+        howToFix: rootUninstallRegistryOnlyHowToFix(source),
+      });
+    }
+
+    const parsed = yield* decodeRegistrySourceRef(source).pipe(
+      Effect.mapError((error) => {
+        if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
+          return makeAppError({
+            code: "UNINSTALL_SOURCE_UNKNOWN_TYPE",
+            what: "Uninstall source uses an unsupported plural type",
+            details: [`Provided: ${source}`, `Supported types: ${supportedRootUninstallTypes}`],
+            howToFix: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
+            cause: error,
+          });
+        }
+
+        return makeAppError({
+          code: "UNINSTALL_SOURCE_INVALID_FQN",
+          what: "Uninstall source must be a registry FQN",
+          details: [SchemaIssue.makeFormatterDefault()(error.issue)],
+          howToFix: `Use ${rootUninstallFqnGrammar} with one of: ${supportedRootUninstallTypes}.`,
+          cause: error,
+        });
+      }),
+    );
+
+    if (!isInstallableExtensionTypePlural(parsed.type)) {
+      return yield* makeAppError({
+        code: "UNINSTALL_SOURCE_UNSUPPORTED_TYPE",
+        what: "Root uninstall does not support that extension type",
+        details: [`Provided: ${source}`, `Supported types: ${supportedRootUninstallTypes}`],
+        howToFix: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
+      });
+    }
+
+    return {
+      source,
+      type: toInstallableExtensionType(parsed.type),
+      name: parsed.name,
+    } satisfies RootUninstallIntent;
+  });

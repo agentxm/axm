@@ -34,6 +34,7 @@ import { syncCommand } from "./root/sync.js";
 import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
 import { outdatedCommand } from "./root/outdated/command.js";
+import { uninstallCommand } from "./root/uninstall/command.js";
 import { updateCommand } from "./root/update/command.js";
 
 const ROOT_COMMAND = "axm";
@@ -56,6 +57,10 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       description: "Add a code review skill to your agents",
     },
     {
+      command: "axm uninstall @acme/skills/code-review",
+      description: "Remove an installed extension by registry FQN",
+    },
+    {
       command: "axm packs install @acme/packs/frontend-tools",
       description: "Install a curated set of extensions at once",
     },
@@ -68,6 +73,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         installCommand,
         updateCommand,
+        uninstallCommand,
         outdatedCommand,
         skillsCommand,
         packsCommand,

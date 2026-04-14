@@ -42,12 +42,22 @@ import {
   type SubagentExtensionRef,
 } from "@agentxm/client-core/unstable/subagents";
 import {
+  buildUninstallOperation,
   buildInstallOperation,
+  parseFullyQualifiedNameParts,
   targetFromRef,
   toLabel,
+  type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type {
+  CommandExtensionTarget,
+  McpServerExtensionTarget,
+  Plan,
+  PlannedJobStep,
+  SkillExtensionTarget,
+  SubagentExtensionTarget,
+} from "@agentxm/client-core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 
@@ -117,6 +127,113 @@ interface RegistryLookupProbe {
   readonly outcome: "matched" | "not-found" | "error";
   readonly reason: Option.Option<string>;
 }
+
+type PackDependencyNameSets = {
+  readonly skill: Set<string>;
+  readonly command: Set<string>;
+  readonly "mcp-server": Set<string>;
+  readonly subagent: Set<string>;
+};
+
+type DroppedPackDependencyTarget =
+  | SkillExtensionTarget
+  | CommandExtensionTarget
+  | McpServerExtensionTarget
+  | SubagentExtensionTarget;
+
+const makePackDependencyNameSets = (): PackDependencyNameSets => ({
+  skill: new Set<string>(),
+  command: new Set<string>(),
+  "mcp-server": new Set<string>(),
+  subagent: new Set<string>(),
+});
+
+const nameFromFqn = (fqn: string): string => parseFullyQualifiedNameParts(fqn)?.name ?? fqn;
+
+const collectResolvedDependencyNames = (
+  refs: ReadonlyArray<ExtensionRef>,
+): PackDependencyNameSets => {
+  const names = makePackDependencyNameSets();
+
+  for (const ref of refs) {
+    switch (ref.type) {
+      case "pack":
+        break;
+      case "skill":
+        names.skill.add(ref.skill.name);
+        break;
+      case "command":
+        names.command.add(ref.command.name);
+        break;
+      case "mcp-server":
+        names["mcp-server"].add(ref.server.name);
+        break;
+      case "subagent":
+        names.subagent.add(ref.subagent.name);
+        break;
+    }
+  }
+
+  return names;
+};
+
+const collectDirectlyConfiguredNames = (args: {
+  readonly skills: Readonly<Record<string, unknown>>;
+  readonly commands: Readonly<Record<string, unknown>>;
+  readonly mcpServers: Readonly<Record<string, unknown>>;
+  readonly subagents: Readonly<Record<string, unknown>>;
+}): PackDependencyNameSets => ({
+  skill: new Set(Object.keys(args.skills)),
+  command: new Set(Object.keys(args.commands)),
+  "mcp-server": new Set(Object.keys(args.mcpServers)),
+  subagent: new Set(Object.keys(args.subagents)),
+});
+
+const collectDroppedPackDependencyTargets = (args: {
+  readonly lockedPack: {
+    readonly resolvedSkills: Readonly<Record<string, string>>;
+    readonly resolvedCommands: Readonly<Record<string, string>>;
+    readonly resolvedMcpServers: Readonly<Record<string, string>>;
+    readonly resolvedSubagents: Readonly<Record<string, string>>;
+  };
+  readonly nextDependencies: PackDependencyNameSets;
+  readonly directlyConfigured: PackDependencyNameSets;
+}): ReadonlyArray<DroppedPackDependencyTarget> => {
+  const droppedTargets: Array<DroppedPackDependencyTarget> = [];
+
+  for (const fqn of Object.keys(args.lockedPack.resolvedSkills)) {
+    const name = nameFromFqn(fqn);
+    if (!args.nextDependencies.skill.has(name) && !args.directlyConfigured.skill.has(name)) {
+      droppedTargets.push({ type: "skill", name });
+    }
+  }
+
+  for (const fqn of Object.keys(args.lockedPack.resolvedCommands)) {
+    const name = nameFromFqn(fqn);
+    if (!args.nextDependencies.command.has(name) && !args.directlyConfigured.command.has(name)) {
+      droppedTargets.push({ type: "command", name });
+    }
+  }
+
+  for (const fqn of Object.keys(args.lockedPack.resolvedMcpServers)) {
+    const name = nameFromFqn(fqn);
+    if (
+      !args.nextDependencies["mcp-server"].has(name) &&
+      !args.directlyConfigured["mcp-server"].has(name)
+    ) {
+      droppedTargets.push({ type: "mcp-server", name });
+    }
+  }
+
+  for (const fqn of Object.keys(args.lockedPack.resolvedSubagents)) {
+    const name = nameFromFqn(fqn);
+    if (!args.nextDependencies.subagent.has(name) && !args.directlyConfigured.subagent.has(name)) {
+      droppedTargets.push({ type: "subagent", name });
+    }
+  }
+
+  return droppedTargets;
+};
 
 const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
   switch (probe.outcome) {
@@ -490,8 +607,26 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent"],
           sources,
         });
+        const lockedPack = yield* ws.getLockedExtensionPack(intent.packToInstall.pack.name);
+        const [configuredSkills, configuredCommands, configuredMcpServers, configuredSubagents] =
+          yield* Effect.all(
+            [
+              ws.getConfiguredSkills(),
+              ws.getConfiguredCommands(),
+              ws.getConfiguredMcpServers(),
+              ws.getConfiguredSubagents(),
+            ],
+            { concurrency: "unbounded" },
+          );
 
-        const steps = refs.map((ref: ExtensionRef): PlannedJobStep => {
+        const retentionPolicy: UninstallRetentionPolicy = {
+          isRequiredByInstalledPack: (args) =>
+            ws.isExtensionRequiredByInstalledExtensionPack(args.target),
+          markDependencyRetainedInLockfile: (args) =>
+            ws.markDependencyRetainedInLockfile(args.target),
+        };
+
+        const installSteps = refs.map((ref: ExtensionRef): PlannedJobStep => {
           const target = targetFromRef(ref);
 
           if (ref.type === "pack") {
@@ -540,11 +675,59 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           };
         });
 
+        const directlyConfigured = collectDirectlyConfiguredNames({
+          skills: configuredSkills,
+          commands: configuredCommands,
+          mcpServers: configuredMcpServers,
+          subagents: configuredSubagents,
+        });
+        const nextDependencies = collectResolvedDependencyNames(refs);
+        const droppedTargets = Option.match(lockedPack, {
+          onNone: () => [],
+          onSome: (entry) =>
+            collectDroppedPackDependencyTargets({
+              lockedPack: entry,
+              nextDependencies,
+              directlyConfigured,
+            }),
+        });
+        const uninstallSteps = droppedTargets.map((target): PlannedJobStep => {
+          if (target.type === "skill") {
+            return buildUninstallOperation<SkillExtensionRef>(skillMgr, retentionPolicy, {
+              target,
+            });
+          }
+
+          if (target.type === "command") {
+            return buildUninstallOperation<CommandExtensionRef>(commandMgr, retentionPolicy, {
+              target,
+            });
+          }
+
+          if (target.type === "mcp-server") {
+            return buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
+              target,
+            });
+          }
+
+          if (target.type === "subagent") {
+            return buildUninstallOperation<SubagentExtensionRef>(subagentMgr, retentionPolicy, {
+              target,
+            });
+          }
+
+          return {
+            label: toLabel(target),
+            readiness: "error",
+            errorMessage: "Unsupported dependency type",
+          };
+        });
+
         return {
           _tag: "Plan",
           name: "Install pack",
           description: Option.none(),
-          jobs: [{ concurrency: 1 as const, steps }],
+          jobs: [{ concurrency: 1 as const, steps: [...installSteps, ...uninstallSteps] }],
         } satisfies Plan;
       });
 

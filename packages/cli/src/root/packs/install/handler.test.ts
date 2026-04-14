@@ -75,6 +75,7 @@ const initWorkspace = (
     lockfileSkills?: Record<string, unknown>;
     lockfilePacks?: Record<string, unknown>;
     settingsPacks?: Record<string, unknown>;
+    settingsSkills?: Record<string, unknown>;
     sources?: ReadonlyArray<unknown>;
     owner?: string;
   },
@@ -82,6 +83,7 @@ const initWorkspace = (
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
+  if (opts?.settingsSkills) settings["skills"] = opts.settingsSkills;
   if (opts?.sources) settings["sources"] = opts.sources;
   if (opts?.owner) settings["profile"] = opts.owner;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -1242,6 +1244,131 @@ describe("packs install handler", () => {
           expect(allLogs).toContain("existing-skill");
           expect(allLogs).toContain("existing-cmd");
           expect(allLogs).toMatch(/3 (to apply|applied|failed)/);
+        }),
+      );
+    });
+
+    it.effect("adds uninstall step for dependencies dropped by a newer pack version", () => {
+      const packRef = makePackRef("prune-pack", {
+        skills: constraints({ "@acme/skills/kept-skill": "1.0.0" }),
+      });
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill",
+                refType: "registry",
+                skill: {
+                  name: extensionName("kept-skill"),
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  owner: Option.none(),
+                },
+                owner: ACME,
+                name: extensionName("kept-skill"),
+                version: exactVersion("1.0.0"),
+                integrity: Option.none(),
+                compatiblePackages: [],
+              },
+            ]);
+          }
+          return Effect.succeed([]);
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        lockfilePacks: {
+          "prune-pack": {
+            type: "registry",
+            owner: ACME,
+            name: "prune-pack",
+            resolvedVersion: "1.0.0",
+            integrity: "",
+            sourceName: "default",
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            resolvedSkills: {
+              "@acme/skills/kept-skill": "1.0.0",
+              "@acme/skills/dropped-skill": "1.0.0",
+            },
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+          },
+        },
+      });
+
+      const { provide } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const plan = yield* actions.buildPlan({
+            packToInstall: packRef,
+            versionConstraint: Option.none(),
+          });
+
+          const labels = plan.jobs.flatMap((job) => job.steps.map((step) => step.label));
+          expect(labels).toEqual(["@acme/prune-pack", "kept-skill", "dropped-skill"]);
+        }),
+      );
+    });
+
+    it.effect("keeps dropped dependency when it is directly configured in settings", () => {
+      const packRef = makePackRef("prune-pack");
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) =>
+          options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        settingsSkills: {
+          "dropped-skill": "@acme/skills/dropped-skill",
+        },
+        lockfilePacks: {
+          "prune-pack": {
+            type: "registry",
+            owner: ACME,
+            name: "prune-pack",
+            resolvedVersion: "1.0.0",
+            integrity: "",
+            sourceName: "default",
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            resolvedSkills: {
+              "@acme/skills/dropped-skill": "1.0.0",
+            },
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+          },
+        },
+      });
+
+      const { provide } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const plan = yield* actions.buildPlan({
+            packToInstall: packRef,
+            versionConstraint: Option.none(),
+          });
+
+          const labels = plan.jobs.flatMap((job) => job.steps.map((step) => step.label));
+          expect(labels).toEqual(["@acme/prune-pack"]);
         }),
       );
     });

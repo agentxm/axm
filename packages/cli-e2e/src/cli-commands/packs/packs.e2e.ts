@@ -52,6 +52,53 @@ function configureRegistrySource(settingsPath: string, registryUrl: string, owne
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
+function writeSkillPackage(workspaceRoot: string, name: string, version = "1.0.0") {
+  const skillDir = path.join(workspaceRoot, ".axm", "extensions", "@test", "skills", name);
+  const srcDir = path.join(skillDir, "src");
+  fs.mkdirSync(srcDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(srcDir, "SKILL.md"),
+    `---\nname: "${name}"\ndescription: "${name}"\n---\n\n# ${name}\n`,
+  );
+  fs.writeFileSync(
+    path.join(skillDir, "skill.json"),
+    JSON.stringify(
+      {
+        owner: "@test",
+        type: "skill",
+        name,
+        version,
+        agents: ["claude-code"],
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+function updatePackManifest(
+  workspaceRoot: string,
+  packName: string,
+  args: {
+    version: string;
+    skills: Record<string, string>;
+  },
+) {
+  const manifestPath = path.join(
+    workspaceRoot,
+    ".axm",
+    "extensions",
+    "@test",
+    "packs",
+    packName,
+    "extension-pack.json",
+  );
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+  manifest.version = args.version;
+  manifest.skills = args.skills;
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+}
+
 // ---------------------------------------------------------------------------
 // 9.1: packs new
 // ---------------------------------------------------------------------------
@@ -525,6 +572,119 @@ describe("axm packs install", () => {
       expect(settings.skills?.["dep-skill"]).toBeUndefined();
     } finally {
       cleanup();
+    }
+  });
+
+  it("prune logic removes dropped dependencies when sync re-evaluates an installed pack", async () => {
+    const author = createTempDir();
+    const consumer = createTempDir();
+    const registryDir = createTempDir("axm-registry-");
+
+    const authorSettingsPath = path.join(author.path, ".axm", "settings.json");
+    const consumerSettingsPath = path.join(consumer.path, ".axm", "settings.json");
+    const consumerLockPath = path.join(consumer.path, ".axm", "axm-lock.yaml");
+
+    try {
+      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: author.path });
+      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: consumer.path });
+
+      const registryUrl = `file://${registryDir.path}`;
+      configureRegistrySource(authorSettingsPath, registryUrl);
+      configureRegistrySource(consumerSettingsPath, registryUrl);
+
+      writeSkillPackage(author.path, "kept-skill");
+      writeSkillPackage(author.path, "dropped-skill");
+
+      const keptPublish = await runCli(["skills", "publish", "kept-skill", "--yes"], {
+        cwd: author.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(keptPublish.exitCode).toBe(0);
+
+      const droppedPublish = await runCli(["skills", "publish", "dropped-skill", "--yes"], {
+        cwd: author.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(droppedPublish.exitCode).toBe(0);
+
+      await runCli(["packs", "new", "prune-pack", "--yes"], { cwd: author.path });
+      updatePackManifest(author.path, "prune-pack", {
+        version: "0.0.1",
+        skills: {
+          "@test/skills/kept-skill": "1.0.0",
+          "@test/skills/dropped-skill": "1.0.0",
+        },
+      });
+
+      const initialPackPublish = await runCli(["packs", "publish", "prune-pack", "--yes"], {
+        cwd: author.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(initialPackPublish.exitCode).toBe(0);
+
+      const installResult = await runCli(["packs", "install", "@test/packs/prune-pack", "--yes"], {
+        cwd: consumer.path,
+      });
+      expect(installResult.exitCode).toBe(0);
+
+      const droppedCanonicalPath = path.join(
+        consumer.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "skills",
+        "dropped-skill",
+      );
+      const droppedAgentPath = path.join(consumer.path, ".claude", "skills", "dropped-skill");
+      const keptCanonicalPath = path.join(
+        consumer.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "skills",
+        "kept-skill",
+      );
+
+      expect(fs.existsSync(droppedCanonicalPath)).toBe(true);
+      expect(fs.existsSync(droppedAgentPath)).toBe(true);
+      expect(fs.existsSync(keptCanonicalPath)).toBe(true);
+
+      updatePackManifest(author.path, "prune-pack", {
+        version: "0.0.2",
+        skills: {
+          "@test/skills/kept-skill": "1.0.0",
+        },
+      });
+
+      const updatedPackPublish = await runCli(["packs", "publish", "prune-pack", "--yes"], {
+        cwd: author.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(updatedPackPublish.exitCode).toBe(0);
+
+      const syncResult = await runCli(["sync", "--yes"], {
+        cwd: consumer.path,
+      });
+      expect(syncResult.exitCode).toBe(0);
+
+      const lock = YAML.parse(fs.readFileSync(consumerLockPath, "utf-8"));
+      const packEntry = lock.packs["prune-pack"];
+      expect(packEntry.resolvedVersion).toBe("0.0.2");
+      expect(packEntry.resolvedSkills).toEqual({ "@test/skills/kept-skill": "1.0.0" });
+      expect(lock.skills).toEqual({});
+      expect(lock.skills["dropped-skill"]).toBeUndefined();
+
+      const settings = JSON.parse(fs.readFileSync(consumerSettingsPath, "utf-8"));
+      expect(settings.skills?.["dropped-skill"]).toBeUndefined();
+
+      expect(fs.existsSync(droppedCanonicalPath)).toBe(false);
+      expect(fs.existsSync(droppedAgentPath)).toBe(false);
+      expect(fs.existsSync(keptCanonicalPath)).toBe(true);
+      expect(fs.existsSync(path.join(consumer.path, ".claude", "skills", "kept-skill"))).toBe(true);
+    } finally {
+      author.cleanup();
+      consumer.cleanup();
+      registryDir.cleanup();
     }
   });
 

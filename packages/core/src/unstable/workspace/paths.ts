@@ -53,6 +53,7 @@ export const getUserScopeDir = (): Effect.Effect<string, never, Path.Path> =>
  *
  * The project directory stores project-specific configuration and skills.
  *
+ * @param projectRoot - Explicit project root; defaults to process.cwd()
  * @returns Effect yielding absolute path to the project axm directory (relative to cwd)
  *
  * @experimental This API is unstable and may change without notice.
@@ -65,11 +66,11 @@ export const getUserScopeDir = (): Effect.Effect<string, never, Path.Path> =>
  * // => "/path/to/project/.axm"
  * ```
  */
-export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
+export const getProjectDir = (projectRoot?: string): Effect.Effect<string, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const cwd = yield* Effect.sync(() => process.cwd());
-    return path.join(cwd, ".axm");
+    const baseDir = projectRoot ?? (yield* Effect.sync(() => process.cwd()));
+    return path.join(baseDir, ".axm");
   });
 
 /**
@@ -96,15 +97,19 @@ export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
  * // => "/Users/username/.axm"
  * ```
  */
-export const getAxmDir = (scope: WorkspaceScope): Effect.Effect<string, never, Path.Path> =>
-  scope === "user" ? getUserScopeDir() : getProjectDir();
+export const getAxmDir = (
+  scope: WorkspaceScope,
+  projectRoot?: string,
+): Effect.Effect<string, never, Path.Path> =>
+  scope === "user" ? getUserScopeDir() : getProjectDir(projectRoot);
 
 export const locateWorkspace = (
   scope: WorkspaceScope,
+  projectRoot?: string,
 ): Effect.Effect<WorkspaceLocation, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const workspacePath = yield* getAxmDir(scope);
+    const workspacePath = yield* getAxmDir(scope, projectRoot);
 
     return {
       scope,

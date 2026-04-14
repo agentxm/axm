@@ -179,7 +179,7 @@ const requireInitializedWorkspace = (settingsPath: string, workspaceDir: string)
 export const loadWorkspace = (options: WorkspaceLayerOptions) =>
   Effect.gen(function* () {
     const globalDir = yield* getAxmDir("user");
-    const localDir = yield* getAxmDir("project");
+    const localDir = yield* getAxmDir("project", options.projectRoot);
     const workspaceDir = options.scope === "user" ? globalDir : localDir;
 
     // Capture FileSystem and Path for use in closures

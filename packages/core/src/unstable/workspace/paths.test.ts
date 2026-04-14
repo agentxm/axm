@@ -44,6 +44,13 @@ describe("paths", () => {
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
+    it.effect("uses an explicit project root when provided", () =>
+      Effect.gen(function* () {
+        const result = yield* getProjectDir("/tmp/axm-project");
+        expect(result).toBe(path.join("/tmp/axm-project", ".axm"));
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
     it.effect("returns an absolute path", () =>
       Effect.gen(function* () {
         const result = yield* getProjectDir();
@@ -74,6 +81,13 @@ describe("paths", () => {
         const result = yield* getAxmDir("project");
         const expected = yield* getProjectDir();
         expect(result).toBe(expected);
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("uses explicit project root for project scope", () =>
+      Effect.gen(function* () {
+        const result = yield* getAxmDir("project", "/tmp/axm-project");
+        expect(result).toBe(path.join("/tmp/axm-project", ".axm"));
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 

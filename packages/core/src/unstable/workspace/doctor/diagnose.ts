@@ -42,10 +42,10 @@ const skipCheck = (check: CheckDef<unknown>, failedTitle: string): Check => ({
 });
 
 export const diagnoseWorkspaceDoctor = (
-  options: Pick<WorkspaceContextOptions, "scope" | "builtInSources">,
+  options: Pick<WorkspaceContextOptions, "scope" | "projectRoot" | "builtInSources">,
 ) =>
   Effect.gen(function* () {
-    const workspace = yield* locateWorkspace(options.scope);
+    const workspace = yield* locateWorkspace(options.scope, options.projectRoot);
     const workspaceReadyCheck = makeWorkspaceReadyCheck(workspace);
     const rootReport = yield* runCheckGraph([workspaceReadyCheck], workspace);
     const rootCheck = rootReport.checks[0];

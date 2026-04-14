@@ -25,6 +25,22 @@ import {
   WorkspaceInitializationInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
 
+const fs = (() => {
+  const module = process.getBuiltinModule("node:fs");
+  if (!module) {
+    throw new Error("node:fs builtin is unavailable");
+  }
+  return module;
+})();
+
+const path = (() => {
+  const module = process.getBuiltinModule("node:path");
+  if (!module) {
+    throw new Error("node:path builtin is unavailable");
+  }
+  return module;
+})();
+
 export interface TestPromptConfig {
   readonly confirmResponses?: ReadonlyArray<boolean>;
   readonly multiselectResponses?: ReadonlyArray<ReadonlyArray<string>>;
@@ -234,6 +250,26 @@ export const makeCliTestContext = (opts?: {
   };
 };
 
+const isRepositoryPath = (startDir: string): boolean => {
+  let current = path.resolve(startDir);
+
+  while (true) {
+    if (
+      fs.existsSync(path.join(current, ".git")) ||
+      fs.existsSync(path.join(current, "pnpm-workspace.yaml"))
+    ) {
+      return true;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return false;
+    }
+
+    current = parent;
+  }
+};
+
 export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
   readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
@@ -245,17 +281,35 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     scope: "project",
     ...opts?.wsOptions,
   } satisfies WorkspaceContextOptions;
+  const projectRoot =
+    wsOptions.scope === "project" ? (wsOptions.projectRoot ?? process.cwd()) : undefined;
 
   // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
   if (wsOptions.scope === "project") {
-    writeWorkspaceFiles(`${process.cwd()}/.axm`);
+    const workspaceRoot = projectRoot ?? process.cwd();
+
+    if (wsOptions.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
+      throw new Error(
+        "Project workspace tests must set wsOptions.projectRoot or chdir into a temp dir before calling makeWorkspaceHandlerTestContext().",
+      );
+    }
+
+    writeWorkspaceFiles(path.join(workspaceRoot, ".axm"));
   }
 
-  const wsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);
+  const workspaceOptions =
+    wsOptions.scope === "project"
+      ? {
+          ...wsOptions,
+          projectRoot: projectRoot ?? process.cwd(),
+        }
+      : wsOptions;
+  const wsLayer = Layer.provide(coreWorkspaceLayer(workspaceOptions), cliTestContext.baseLayer);
   const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer);
 
   return {
     ...cliTestContext,
+    ...(wsOptions.scope === "project" ? { projectRoot } : {}),
     wsLayer,
     fullLayer,
     provide: makeEffectProvide(fullLayer),

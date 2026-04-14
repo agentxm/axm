@@ -66,7 +66,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
       }
     } else {
       // Detect installed agents
-      const detectedAgents = yield* detectAgents(process.cwd()).pipe(
+      const detectedAgents = yield* detectAgents(options.projectRoot ?? process.cwd()).pipe(
         Effect.mapError((error) =>
           makeAppError({
             code: "WORKSPACE_INITIALIZATION_FAILED",
@@ -190,7 +190,7 @@ export const ensureProjectWorkspaceInitialized = (
 export const bootstrapWorkspace = (options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const workspaceDir = yield* getAxmDir(options.scope);
+    const workspaceDir = yield* getAxmDir(options.scope, options.projectRoot);
     const location: WorkspaceLocation = {
       scope: options.scope,
       path: workspaceDir,

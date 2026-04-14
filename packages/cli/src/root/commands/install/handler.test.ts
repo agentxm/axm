@@ -5,10 +5,14 @@
  * handler-local preview branch.
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach } from "vitest";
 import type { RegistryCommandRef } from "@agentxm/client-core/unstable/commands";
 import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
 import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
@@ -63,8 +67,22 @@ const installIntent: InstallCommandCommandIntent = {
 };
 
 describe("commands install.handler preview", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "commands-install-handler-test-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
   const makeLayers = () => {
-    const ctx = makeWorkspaceHandlerTestContext();
+    const ctx = makeWorkspaceHandlerTestContext({
+      wsOptions: {
+        projectRoot: tempDir,
+      },
+    });
     const actionsLayer = Layer.succeed(InstallCommandCommandWorkflowActions, {
       parseArgs: () => Effect.succeed(parsedArgs),
       resolveSourceRequests: () => Effect.succeed([sourceRequest]),

@@ -560,6 +560,8 @@ export class Workspace extends ServiceMap.Service<Workspace, WorkspaceContextSer
 export interface WorkspaceContextOptions {
   /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly scope: WorkspaceScope;
+  /** Explicit project root for project-scope workspaces (defaults to process.cwd()) */
+  readonly projectRoot?: string;
   /** Explicit agent IDs to use during initialization (overrides detection and prompting) */
   readonly agents?: ReadonlyArray<string>;
   /** Built-in source host configs (defaults to git forges only when not provided) */

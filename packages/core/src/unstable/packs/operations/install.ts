@@ -10,6 +10,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
@@ -29,6 +30,11 @@ import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
 import { computeExtensionPackPaths } from "../paths.js";
+import {
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  type ExtensionPackManifest,
+  ExtensionPackManifestSchema,
+} from "../manifest-schema.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -72,6 +78,23 @@ export type InstallExtensionPackOperation = Operation<
   InstallExtensionPackOperationArgs
 >;
 
+const PACK_DEPENDENCY_SECTIONS = [
+  ["skills", "resolvedSkills"],
+  ["commands", "resolvedCommands"],
+  ["mcp-servers", "resolvedMcpServers"],
+  ["subagents", "resolvedSubagents"],
+] as const;
+
+const collectMissingResolvedDependencies = (
+  manifest: ExtensionPackManifest,
+  op: InstallExtensionPackOperation,
+): ReadonlyArray<string> =>
+  PACK_DEPENDENCY_SECTIONS.flatMap(([manifestKey, resolvedKey]) =>
+    Object.keys(manifest[manifestKey] ?? {}).filter(
+      (fqn) => !Object.hasOwn(op.args[resolvedKey], fqn),
+    ),
+  );
+
 /**
  * Install extension pack operation handler.
  *
@@ -87,6 +110,7 @@ export const installExtensionPack: OperationHandler<
     const ws = yield* Workspace;
     const renderer = yield* CliRenderer;
     const sources = yield* SourceHostProviders;
+    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
     yield* validateExactResolvedVersion(
@@ -130,6 +154,51 @@ export const installExtensionPack: OperationHandler<
             }),
           ),
         );
+
+        const manifestPath = path.join(fetched.directory, EXTENSION_PACK_MANIFEST_FILENAME);
+        const manifestContent = yield* fs.readFileString(manifestPath).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "PACK_MANIFEST_READ_FAILED",
+              what: `Failed to read fetched extension pack manifest: ${manifestPath}`,
+              cause: error,
+            }),
+          ),
+        );
+        const manifestJson = yield* Effect.try({
+          try: () => {
+            const parsed: unknown = JSON.parse(manifestContent);
+            return parsed;
+          },
+          catch: (error) =>
+            makeAppError({
+              code: "PACK_MANIFEST_PARSE_FAILED",
+              what: `Invalid JSON in fetched extension pack manifest: ${manifestPath}`,
+              cause: error,
+            }),
+        });
+        const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(
+          manifestJson,
+        ).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "PACK_MANIFEST_INVALID",
+              what: `Invalid fetched extension pack manifest: ${manifestPath}`,
+              cause: error,
+            }),
+          ),
+        );
+
+        const missingDependencies = collectMissingResolvedDependencies(manifest, op);
+        if (missingDependencies.length > 0) {
+          return yield* makeAppError({
+            code: "PACK_DEPENDENCY_METADATA_MISMATCH",
+            what: `Extension pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
+            details: missingDependencies.map((dependency) => `Missing: ${dependency}`),
+            howToFix:
+              "Republish the extension pack or repair the registry metadata before installing this pack.",
+          });
+        }
 
         yield* copyExtensionDirectory(fetched.directory, packDir).pipe(
           Effect.mapError((e) =>

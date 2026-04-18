@@ -1,4 +1,4 @@
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import { Command } from "effect/unstable/cli";
 
 // ---------------------------------------------------------------------------

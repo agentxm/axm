@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";

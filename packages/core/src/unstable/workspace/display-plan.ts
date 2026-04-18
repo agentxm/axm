@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { renderAppError } from "../app-error/index.js";

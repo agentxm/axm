@@ -1,5 +1,5 @@
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 

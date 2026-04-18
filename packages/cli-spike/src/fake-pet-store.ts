@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 

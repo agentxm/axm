@@ -2,10 +2,10 @@ packages:
   - packages/*
 
 catalog:
-  "@effect/platform-node": 4.0.0-beta.43
-  "@effect/vitest": 4.0.0-beta.43
+  "@effect/platform-node": 4.0.0-beta.50
+  "@effect/vitest": 4.0.0-beta.50
   "@types/bun": ^1.3.11
-  effect: 4.0.0-beta.43
+  effect: 4.0.0-beta.50
   typescript: ^5.9.3
   vitest: ^4.0.0
 
@@ -16,4 +16,4 @@ onlyBuiltDependencies:
   - nx
 
 patchedDependencies:
-  "@effect/openapi-generator": patches/@effect__openapi-generator.patch
+  "@effect/openapi-generator@4.0.0-beta.50": patches/@effect__openapi-generator@4.0.0-beta.50.patch

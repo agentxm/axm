@@ -6,7 +6,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 
 import { CliRenderer } from "../cli-renderer/index.js";

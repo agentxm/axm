@@ -894,16 +894,6 @@ export const createRemoteRegistryClient = (
       });
     }
 
-    // 501 — type not supported
-    if (isRegistryClientError("ExtensionsPublishVersion501")(e)) {
-      return makeAppError({
-        code: "REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED",
-        what: "Extension type is not supported for publishing",
-        details: buildErrorDetails(e),
-        cause: e,
-      });
-    }
-
     // 503 — publishing disabled
     if (isRegistryClientError("ExtensionsPublishVersion503")(e)) {
       return makeAppError({

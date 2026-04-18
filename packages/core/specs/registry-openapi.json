@@ -586,7 +586,7 @@
                           },
                           "deprecated_at": {
                             "anyOf": [
-                              { "$ref": "#/components/schemas/IsoDateTimeString5" },
+                              { "$ref": "#/components/schemas/IsoDateTimeString" },
                               { "type": "null" }
                             ]
                           },
@@ -670,7 +670,7 @@
                           },
                           "deprecated_at": {
                             "anyOf": [
-                              { "$ref": "#/components/schemas/IsoDateTimeString6" },
+                              { "$ref": "#/components/schemas/IsoDateTimeString" },
                               { "type": "null" }
                             ]
                           },
@@ -784,7 +784,7 @@
                         "type": "object",
                         "properties": {
                           "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
-                          "published": { "$ref": "#/components/schemas/IsoDateTimeString7" },
+                          "published": { "$ref": "#/components/schemas/IsoDateTimeString" },
                           "integrity": { "type": "string", "readOnly": true },
                           "dependencies": {
                             "anyOf": [
@@ -805,7 +805,7 @@
                           },
                           "yanked_at": {
                             "anyOf": [
-                              { "$ref": "#/components/schemas/IsoDateTimeString8" },
+                              { "$ref": "#/components/schemas/IsoDateTimeString" },
                               { "type": "null" }
                             ]
                           }
@@ -826,7 +826,7 @@
                     },
                     "deprecated_at": {
                       "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString9" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
                         { "type": "null" }
                       ]
                     },
@@ -1007,7 +1007,7 @@
                       "enum": ["pending", "available", "failed"],
                       "readOnly": true
                     },
-                    "published": { "$ref": "#/components/schemas/IsoDateTimeString10" },
+                    "published": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "integrity": { "type": "string", "readOnly": true },
                     "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -1037,13 +1037,13 @@
                     },
                     "yanked_at": {
                       "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString11" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
                         { "type": "null" }
                       ]
                     },
                     "deleted_at": {
                       "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString12" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
                         { "type": "null" }
                       ]
                     }
@@ -1192,7 +1192,7 @@
                     "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "integrity": { "type": "string", "readOnly": true },
                     "sha256_hex": { "type": "string", "readOnly": true },
-                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString13" },
+                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "publish_status": {
                       "type": "string",
                       "enum": ["pending", "available", "failed"],
@@ -1227,7 +1227,7 @@
                     "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "integrity": { "type": "string", "readOnly": true },
                     "sha256_hex": { "type": "string", "readOnly": true },
-                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString13" },
+                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "publish_status": {
                       "type": "string",
                       "enum": ["pending", "available", "failed"],
@@ -1654,7 +1654,7 @@
                     "version": { "$ref": "#/components/schemas/ExactSemverVersion" },
                     "yankedAt": {
                       "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString14" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
                         { "type": "null" }
                       ]
                     }
@@ -1902,7 +1902,7 @@
           {
             "name": "name",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName1" },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
           {
@@ -2007,7 +2007,7 @@
           {
             "name": "name",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName1" },
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
           },
           {
@@ -2796,8 +2796,6 @@
         ]
       },
       "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString1": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString2": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "TokenListItem": {
         "type": "object",
         "properties": {
@@ -2815,9 +2813,9 @@
             "description": "Scopes granted to this token."
           },
           "created_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
-          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString1" },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
           "last_used_at": {
-            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString2" }, { "type": "null" }]
+            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
           }
         },
         "required": ["id", "name", "type", "scopes", "created_at", "expires_at", "last_used_at"],
@@ -2892,36 +2890,6 @@
         "title": "Authorization Deny Details",
         "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
       },
-      "PublishDetails1": {
-        "type": "object",
-        "properties": {
-          "retryable": {
-            "type": "boolean",
-            "description": "Whether the client may retry the request."
-          },
-          "retryAfterSeconds": {
-            "type": "number",
-            "allOf": [{ "description": "Suggested delay in seconds before retrying." }]
-          },
-          "requiredScope": {
-            "type": "string",
-            "description": "The scope required to perform the operation, if applicable."
-          },
-          "tokenScopes": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "The scopes present on the token used for the request."
-          },
-          "requiredRole": {
-            "anyOf": [{ "type": "string" }, { "type": "null" }],
-            "description": "The collaborator role required, if applicable."
-          }
-        },
-        "required": ["retryable"],
-        "additionalProperties": false,
-        "title": "Publish Details",
-        "description": "Extended error details for publish-related and retryable error responses."
-      },
       "ForbiddenError": {
         "type": "object",
         "properties": {
@@ -2936,7 +2904,7 @@
             "anyOf": [
               { "$ref": "#/components/schemas/ScopeCheckDetails" },
               { "$ref": "#/components/schemas/AuthorizationDenyDetails" },
-              { "$ref": "#/components/schemas/PublishDetails1" }
+              { "$ref": "#/components/schemas/PublishDetails" }
             ]
           }
         },
@@ -2994,8 +2962,6 @@
           }
         ]
       },
-      "IsoDateTimeString3": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString4": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "CreateTokenResponse": {
         "type": "object",
         "properties": {
@@ -3007,8 +2973,8 @@
           },
           "name": { "type": "string" },
           "scopes": { "type": "array", "items": { "type": "string" } },
-          "created_at": { "$ref": "#/components/schemas/IsoDateTimeString3" },
-          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString4" }
+          "created_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
         "required": ["id", "token", "name", "scopes", "created_at", "expires_at"],
         "additionalProperties": false,
@@ -3119,21 +3085,13 @@
         "title": "Author",
         "description": "Author details: name, email, and homepage URL."
       },
-      "IsoDateTimeString5": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "ExtensionTypePlural": {
         "type": "string",
         "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"],
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs)."
       },
-      "IsoDateTimeString6": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString7": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "VersionConstraint": { "type": "string" },
-      "IsoDateTimeString8": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString9": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString10": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString11": { "type": "string", "allOf": [{ "minLength": 1 }] },
-      "IsoDateTimeString12": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "PatchVisibilityBody": {
         "type": "object",
         "properties": {
@@ -3178,7 +3136,6 @@
         "title": "Deprecate Body",
         "description": "Request body for deprecating an extension."
       },
-      "IsoDateTimeString13": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "ConflictError": {
         "type": "object",
         "properties": {
@@ -3254,7 +3211,6 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "IsoDateTimeString14": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "UserId1": {
         "type": "string",
         "allOf": [
@@ -3298,7 +3254,6 @@
         "title": "Extension Type (Plural)",
         "description": "Extension type (e.g. skills, commands, extension packs)."
       },
-      "ExtensionName1": { "type": "string" },
       "UserId2": {
         "type": "string",
         "allOf": [
@@ -3310,7 +3265,6 @@
           }
         ]
       },
-      "IsoDateTimeString15": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "SearchHit": {
         "type": "object",
         "properties": {
@@ -3328,7 +3282,7 @@
             ]
           },
           "deprecated_at": {
-            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString15" }, { "type": "null" }]
+            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
           },
           "deprecation_notice": {
             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]

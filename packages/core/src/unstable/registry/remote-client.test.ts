@@ -10,6 +10,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as UrlParams from "effect/unstable/http/UrlParams";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -639,12 +640,14 @@ describe("discoverExtensions", () => {
       const httpClient = makeMockHttpClient((request) => {
         const url = new URL(request.url);
         const path = decodeURIComponent(url.pathname);
+        const getParam = (key: string): string | null =>
+          Option.getOrNull(UrlParams.getFirst(request.urlParams, key));
 
         if (path === "/v1/search") {
-          expect(url.searchParams.get("q")).toBe("");
-          expect(url.searchParams.get("limit")).toBe("100");
+          expect(getParam("q")).toBe("");
+          expect(getParam("limit")).toBe("100");
 
-          if (url.searchParams.get("cursor") === "2") {
+          if (getParam("cursor") === "2") {
             return new Response(
               JSON.stringify(
                 makeSearchResponse([
@@ -1098,30 +1101,6 @@ describe("publishExtension", () => {
 
       expect(error.code).toBe("REGISTRY_PUBLISH_THROTTLED");
       expect(Option.getOrThrow(error.howToFix)).toContain("30");
-    }),
-  );
-
-  it.effect("fails with REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED on 501", () =>
-    Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
-        () =>
-          new Response(
-            JSON.stringify({
-              kind: "NotImplementedError",
-              type: "about:blank",
-              title: "Not Implemented",
-              status: 501,
-              detail: "Type not supported",
-              code: "publish_type_not_implemented",
-            }),
-            { status: 501 },
-          ),
-      );
-      const client = createRemoteRegistryClient(BASE_URL, httpClient);
-
-      const error = yield* runFailure(client.publishExtension(publishArgs));
-
-      expect(error.code).toBe("REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED");
     }),
   );
 

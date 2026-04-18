@@ -12,7 +12,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { Workspace } from "@agentxm/client-core/unstable/workspace";

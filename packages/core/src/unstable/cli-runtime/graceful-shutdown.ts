@@ -12,7 +12,7 @@ export const withGracefulShutdown = <A, E, R>(
   program: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
-    const services = yield* Effect.services<R>();
+    const services = yield* Effect.context<R>();
     const fiber = yield* Effect.forkChild(program);
     const runFork = Effect.runForkWith(services);
 

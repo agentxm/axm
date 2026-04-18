@@ -13,7 +13,7 @@ import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";

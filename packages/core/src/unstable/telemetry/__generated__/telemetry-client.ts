@@ -34,8 +34,8 @@ export type DecodeErrorResponse = {
   readonly title: string;
   readonly status: number;
   readonly detail: string;
-  readonly code: string;
   readonly instance?: string;
+  readonly code: string;
 };
 export const DecodeErrorResponse = Schema.Struct({
   kind: Schema.Literal("DecodeErrorResponse"),
@@ -43,8 +43,8 @@ export const DecodeErrorResponse = Schema.Struct({
   title: Schema.String,
   status: Schema.Number.check(Schema.isInt()),
   detail: Schema.String,
-  code: Schema.String,
   instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
 });
 export type TelemetryEvent = {
   readonly event: string;
@@ -88,8 +88,8 @@ export type PayloadTooLargeError = {
   readonly title: string;
   readonly status: number;
   readonly detail: string;
-  readonly code: string;
   readonly instance?: string;
+  readonly code: string;
 };
 export const PayloadTooLargeError = Schema.Struct({
   kind: Schema.Literal("PayloadTooLargeError"),
@@ -97,8 +97,8 @@ export const PayloadTooLargeError = Schema.Struct({
   title: Schema.String,
   status: Schema.Number.check(Schema.isInt()),
   detail: Schema.String,
-  code: Schema.String,
   instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
 });
 export type TelemetryContext = {
   readonly client: TelemetryClientContext;
@@ -395,10 +395,16 @@ export const HealthGetDeepHealth400 = DecodeErrorResponse;
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
+  readonly scenario?: "effect-handled-500" | "surface-unhandled-500" | null;
+  readonly scenarioId?: string | null;
 };
 export const HealthGetObservabilityVerificationParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   level: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  scenario: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["effect-handled-500", "surface-unhandled-500"]), Schema.Null]),
+  ),
+  scenarioId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type HealthGetObservabilityVerification200 = {
   readonly status: "ok" | "error";
@@ -412,6 +418,8 @@ export type HealthGetObservabilityVerification200 = {
     readonly errors?: {
       readonly status: "ok" | "error";
       readonly sentryEventId?: string | null;
+      readonly reason?: "sentry-issue-reporter-disabled" | null;
+      readonly message?: string | null;
     } | null;
   };
 };
@@ -447,6 +455,10 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
         Schema.Struct({
           status: Schema.Literals(["ok", "error"]),
           sentryEventId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          reason: Schema.optionalKey(
+            Schema.Union([Schema.Literal("sentry-issue-reporter-disabled"), Schema.Null]),
+          ),
+          message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
         }),
         Schema.Null,
       ]),
@@ -581,7 +593,11 @@ export const make = (
       ),
     HealthGetObservabilityVerification: (options) =>
       HttpClientRequest.get(`/v1/debug/observability`).pipe(
-        HttpClientRequest.setUrlParams({ level: options?.params?.["level"] as any }),
+        HttpClientRequest.setUrlParams({
+          level: options?.params?.["level"] as any,
+          scenario: options?.params?.["scenario"] as any,
+          scenarioId: options?.params?.["scenarioId"] as any,
+        }),
         HttpClientRequest.setHeaders({
           "x-health-key": options?.params?.["x-health-key"] ?? undefined,
         }),
@@ -663,7 +679,7 @@ export interface TelemetryClient {
     | TelemetryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
   >;
   /**
-   * Exercises observability pipelines and returns correlation identifiers. Requires X-Health-Key header.
+   * Exercises observability pipelines and can simulate server error scenarios. Requires X-Health-Key header.
    */
   readonly HealthGetObservabilityVerification: <Config extends OperationConfig>(
     options:

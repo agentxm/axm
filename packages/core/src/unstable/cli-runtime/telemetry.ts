@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import type { AppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { TelemetryClient } from "../telemetry/index.js";

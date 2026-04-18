@@ -2,7 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import type { AppError } from "../app-error/index.js";

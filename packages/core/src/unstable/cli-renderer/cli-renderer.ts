@@ -1,5 +1,5 @@
 import type * as Effect from "effect/Effect";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import type * as Schema from "effect/Schema";
 import type * as Stream from "effect/Stream";
 

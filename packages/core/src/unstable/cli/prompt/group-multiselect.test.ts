@@ -6,7 +6,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { groupMultiselect } from "./group-multiselect.js";

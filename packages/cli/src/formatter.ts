@@ -5,7 +5,7 @@
 
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 

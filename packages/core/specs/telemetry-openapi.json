@@ -171,6 +171,23 @@
             "in": "query",
             "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "required": false
+          },
+          {
+            "name": "scenario",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["effect-handled-500", "surface-unhandled-500"] },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "scenarioId",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
           }
         ],
         "security": [],
@@ -239,7 +256,21 @@
                                 "status": { "type": "string", "enum": ["ok", "error"] },
                                 "sentryEventId": {
                                   "anyOf": [{ "type": "string" }, { "type": "null" }]
-                                }
+                                },
+                                "reason": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["sentry-issue-reporter-disabled"]
+                                        }
+                                      ]
+                                    },
+                                    { "type": "null" }
+                                  ]
+                                },
+                                "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                               },
                               "required": ["status"],
                               "additionalProperties": false
@@ -266,7 +297,7 @@
             }
           }
         },
-        "description": "Exercises observability pipelines and returns correlation identifiers. Requires X-Health-Key header.",
+        "description": "Exercises observability pipelines and can simulate server error scenarios. Requires X-Health-Key header.",
         "summary": "Observability verification"
       }
     },
@@ -361,8 +392,8 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
-          "instance": { "type": "string" }
+          "instance": { "type": "string" },
+          "code": { "type": "string" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -472,8 +503,8 @@
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
-          "code": { "type": "string" },
-          "instance": { "type": "string" }
+          "instance": { "type": "string" },
+          "code": { "type": "string" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false

@@ -14,7 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 
 import { InstallMethodLiteral } from "../install-method/install-method.js";
 import { resolveAxmDataDir } from "../utils/index.js";

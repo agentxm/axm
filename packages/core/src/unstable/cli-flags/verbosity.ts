@@ -1,6 +1,6 @@
 import * as Layer from "effect/Layer";
 import type * as LogLevel from "effect/LogLevel";
-import * as ServiceMap from "effect/ServiceMap";
+import * as ServiceMap from "effect/Context";
 
 export type VerbosityLevel = "quiet" | "normal" | "verbose" | "debug";
 

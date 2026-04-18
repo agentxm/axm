@@ -1,21 +1,8 @@
 diff --git a/dist/OpenApiGenerator.js b/dist/OpenApiGenerator.js
-index 8680867..7014e49 100644
+index d5a04f59d4ea843c7dcdfa594d51877490fad73f..01f99cfc896ad813c8070093a7fa76def8595b86 100644
 --- a/dist/OpenApiGenerator.js
 +++ b/dist/OpenApiGenerator.js
-@@ -231,6 +231,12 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
-           op.payloadFormData = true;
-           requestSchemaNames.set("multipart/form-data", op.payload);
-         }
-+        // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910: Support form-url-encoded request bodies
-+        if (Predicate.isNotUndefined(content["application/x-www-form-urlencoded"]?.schema)) {
-+          op.payload = addSchema(`${schemaId}RequestFormUrlEncoded`, content["application/x-www-form-urlencoded"].schema, op);
-+          op.payloadFormUrlEncoded = true;
-+          requestSchemaNames.set("application/x-www-form-urlencoded", op.payload);
-+        }
-         if (isHttpApi) {
-           const representableRequestBody = [];
-           for (const [contentType, mediaType] of Object.entries(content)) {
-@@ -276,21 +282,27 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+@@ -281,21 +281,27 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
            });
          }
          const representable = [];
@@ -51,7 +38,7 @@ index 8680867..7014e49 100644
                continue;
              }
              if (!Predicate.isObject(mediaType) || Predicate.isUndefined(mediaType.schema)) {
-@@ -345,10 +357,21 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+@@ -350,10 +356,21 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
              op.sseSchema = addSchema(`${schemaId}${status}Sse`, sseResponseSchema, op);
            }
          }
@@ -77,7 +64,7 @@ index 8680867..7014e49 100644
            }
          }
          if (isEmptyResponse) {
-@@ -571,9 +594,28 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
+@@ -576,9 +593,28 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
    const items = value.items;
    return isMultipartBinaryFile(items) || Predicate.isObject(items) && items.$ref === singleFileRef;
  };
@@ -107,18 +94,11 @@ index 8680867..7014e49 100644
  const getRequestMediaTypeEncoding = contentType => {
    const normalized = contentType.toLowerCase();
    if (isJsonMediaType(normalized)) {
-@@ -736,4 +778,4 @@ const processPath = path => {
-     pathTemplate
-   };
- };
--//# sourceMappingURL=OpenApiGenerator.js.map
-\ No newline at end of file
-+//# sourceMappingURL=OpenApiGenerator.js.map
 diff --git a/dist/OpenApiTransformer.js b/dist/OpenApiTransformer.js
-index 4763452..3231486 100644
+index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e976d89fe 100644
 --- a/dist/OpenApiTransformer.js
 +++ b/dist/OpenApiTransformer.js
-@@ -6,6 +6,7 @@ export class OpenApiTransformer extends /*#__PURE__*/ServiceMap.Service()("OpenA
+@@ -6,6 +6,7 @@ export class OpenApiTransformer extends /*#__PURE__*/Context.Service()("OpenApiT
  const computeImportRequirements = operations => {
    let eventStream = false;
    let octetStream = false;
@@ -196,13 +176,7 @@ index 4763452..3231486 100644
      httpClient,
      ${implMethods.join(",\n    ")}
    }
-@@ -213,20 +237,31 @@ export const make = (
-     const payloadVarName = "options.payload";
-     if (operation.payloadFormData) {
-       pipeline.push(`HttpClientRequest.bodyFormData(${payloadVarName} as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
-+      pipeline.push(`HttpClientRequest.bodyUrlParams(${payloadVarName} as any)`);
-     } else if (operation.payload) {
+@@ -219,16 +243,25 @@ export const make = (
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadVarName})`);
      }
      const decodes = [];
@@ -230,25 +204,7 @@ index 4763452..3231486 100644
      });
      decodes.push(`orElse: unexpectedStatus`);
      const configAccessor = resolveConfigAccessor(operation, "options", "config");
-@@ -256,6 +291,8 @@ export const make = (
-     }
-     if (operation.payloadFormData) {
-       pipeline.push(`HttpClientRequest.bodyFormData(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
-+      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
-     } else if (operation.payload) {
-       pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
-     }
-@@ -283,6 +320,8 @@ export const make = (
-     }
-     if (operation.payloadFormData) {
-       pipeline.push(`HttpClientRequest.bodyFormData(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
-+      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
-     } else if (operation.payload) {
-       pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
-     }
-@@ -356,8 +395,12 @@ ${clientErrorSource(name)}`;
+@@ -358,8 +391,12 @@ ${clientErrorSource(name)}`;
        args.push(`options: { ${options.join("; ")} } | undefined`);
      }
      let success = "void";
@@ -263,7 +219,7 @@ index 4763452..3231486 100644
      }
      const errors = ["HttpClientError.HttpClientError"];
      if (operation.errorSchemas.size > 0) {
-@@ -365,6 +408,11 @@ ${clientErrorSource(name)}`;
+@@ -367,6 +404,11 @@ ${clientErrorSource(name)}`;
          errors.push(`${name}Error<"${schema}", ${schema}>`);
        }
      }
@@ -275,7 +231,7 @@ index 4763452..3231486 100644
      const jsdoc = Utils.toComment(operation.description);
      const methodKey = `readonly "${operation.id}"`;
      const generic = `<Config extends OperationConfig>`;
-@@ -443,6 +491,10 @@ ${clientErrorSource(name)}`;
+@@ -445,6 +487,10 @@ ${clientErrorSource(name)}`;
      if (requirements.octetStream) {
        helpers.push(binaryRequestSourceTs);
      }
@@ -286,7 +242,7 @@ index 4763452..3231486 100644
      return `export interface OperationConfig {
    /**
     * Whether or not the response should be included in the value returned from
-@@ -488,20 +540,38 @@ export const make = (
+@@ -490,20 +536,38 @@ export const make = (
          response.json as Effect.Effect<E, HttpClientError.HttpClientError>,
          (cause) => Effect.fail(${name}Error(tag, cause, response)),
        )
@@ -330,14 +286,7 @@ index 4763452..3231486 100644
        cases["2xx"] = decodeVoid
      }
      return withResponse(config)(HttpClientResponse.matchStatus(cases) as any)
-@@ -530,15 +600,23 @@ export const make = (
-     const payloadAccessor = "options.payload";
-     if (operation.payloadFormData) {
-       pipeline.push(`HttpClientRequest.bodyFormDataRecord(${payloadAccessor} as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
-+      pipeline.push(`HttpClientRequest.bodyUrlParams(${payloadAccessor} as any)`);
-     } else if (operation.payload) {
-       pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadAccessor})`);
+@@ -537,10 +601,16 @@ export const make = (
      }
      const successCodesRaw = Array.from(operation.successSchemas.keys());
      const successCodes = successCodesRaw.map(_ => JSON.stringify(_)).join(", ");
@@ -356,25 +305,7 @@ index 4763452..3231486 100644
      return `"${operation.id}": (${params}) => ` + `HttpClientRequest.${operation.method}(${operation.pathTemplate})` + `.pipe(\n    ${pipeline.join(",\n    ")}\n  )`;
    };
    const operationToSseImpl = operation => {
-@@ -562,6 +640,8 @@ export const make = (
-     }
-     if (operation.payloadFormData) {
-       pipeline.push(`HttpClientRequest.bodyFormDataRecord(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
-+      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
-     } else if (operation.payload) {
-       pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
-     }
-@@ -589,6 +669,8 @@ export const make = (
-     }
-     if (operation.payloadFormData) {
-       pipeline.push(`HttpClientRequest.bodyFormDataRecord(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
-+      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
-     } else if (operation.payload) {
-       pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
-     }
-@@ -680,6 +762,9 @@ const binaryRequestSourceTs = `const binaryRequest = (request: HttpClientRequest
+@@ -682,6 +752,9 @@ const binaryRequestSourceTs = `const binaryRequest = (request: HttpClientRequest
        Effect.map((response) => response.stream),
        Stream.unwrap
      )`;
@@ -385,18 +316,10 @@ index 4763452..3231486 100644
    readonly _tag: Tag
    readonly request: HttpClientRequest.HttpClientRequest
 diff --git a/dist/ParsedOperation.js b/dist/ParsedOperation.js
-index 97dd00a..bf628f6 100644
+index 4aadbb86580118bd042ef6690514127db06bbbc8..7722d1ae351769746a47cf9485f2a4a9d46e5eff 100644
 --- a/dist/ParsedOperation.js
 +++ b/dist/ParsedOperation.js
-@@ -23,6 +23,7 @@ export const makeDeepMutable = options => ({
-   headers: [],
-   cookies: [],
-   payloadFormData: false,
-+  payloadFormUrlEncoded: false, // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
-   pathSchema: undefined,
-   querySchema: undefined,
-   querySchemaOptional: true,
-@@ -33,6 +34,7 @@ export const makeDeepMutable = options => ({
+@@ -34,6 +34,7 @@ export const makeDeepMutable = options => ({
    errorSchemas: new Map(),
    voidSchemas: new Set(),
    paramsOptional: true,
@@ -406,3 +329,18 @@ index 97dd00a..bf628f6 100644
  });
  //# sourceMappingURL=ParsedOperation.js.map
 \ No newline at end of file
+diff --git a/dist/Utils.js b/dist/Utils.js
+index a50c4ce0f563a52f2641a50e77f08ed51c922405..004ab9baab5a529349e4d647fb8343017607f936 100644
+--- a/dist/Utils.js
++++ b/dist/Utils.js
+@@ -39,4 +39,10 @@ export const spreadElementsInto = (source, destination) => {
+     destination.push(source[i]);
+   }
+ };
++// Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914: helper used by patched #1914 branches
++// to route 4xx/5xx void statuses to the error channel.
++export const isErrorStatus = status => {
++  const major = Number(status[0]);
++  return !Number.isNaN(major) && major >= 4;
++};
+ //# sourceMappingURL=Utils.js.map

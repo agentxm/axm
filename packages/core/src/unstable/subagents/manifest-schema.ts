@@ -4,7 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Option from "effect/Option";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
 import { ToolAccessLevelSchema } from "./tool-access.js";
@@ -42,7 +42,7 @@ export const SubagentManifestSchema = Schema.Struct({
   model: Schema.optional(Schema.String),
   toolAccess: Schema.optional(ToolAccessLevelSchema),
   background: Schema.optional(
-    Schema.Boolean.pipe(Schema.withConstructorDefault(() => Option.some(false))),
+    Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))),
   ),
   agents: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({

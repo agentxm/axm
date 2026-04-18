@@ -11,14 +11,43 @@ import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 // non-recursive definitions
+export type MetaResponse = {
+  readonly ok: true;
+  readonly service: "registry";
+  readonly message: string;
+  readonly docs: string | null;
+  readonly openapi: string | null;
+};
+export const MetaResponse = Schema.Struct({
+  ok: Schema.Literal(true),
+  service: Schema.Literal("registry"),
+  message: Schema.String.annotate({ description: "Human-readable service greeting." }),
+  docs: Schema.Union([
+    Schema.String.annotate({
+      description: "Path to the interactive API documentation, or null when docs are disabled.",
+      format: "uri-reference",
+    }),
+    Schema.Null,
+  ]),
+  openapi: Schema.Union([
+    Schema.String.annotate({
+      description: "Path to the OpenAPI specification, or null when docs are disabled.",
+      format: "uri-reference",
+    }),
+    Schema.Null,
+  ]),
+}).annotate({
+  title: "Meta Response",
+  description: "Registry service metadata including health status and documentation entry points.",
+});
 export type DecodeErrorResponse = {
   readonly kind: "DecodeErrorResponse";
   readonly type: string;
   readonly title: string;
   readonly status: number;
   readonly detail: string;
-  readonly code: string;
   readonly instance?: string;
+  readonly code: string;
 };
 export const DecodeErrorResponse = Schema.Struct({
   kind: Schema.Literal("DecodeErrorResponse"),
@@ -26,510 +55,10 @@ export const DecodeErrorResponse = Schema.Struct({
   title: Schema.String,
   status: Schema.Number.check(Schema.isInt()),
   detail: Schema.String,
-  code: Schema.String,
   instance: Schema.optionalKey(Schema.String),
-});
-export type InternalError = {
-  readonly kind: "InternalError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const InternalError = Schema.Struct({
-  kind: Schema.Literal("InternalError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
   code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
 });
-export type InvalidRequestError = {
-  readonly kind: "InvalidRequestError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const InvalidRequestError = Schema.Struct({
-  kind: Schema.Literal("InvalidRequestError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type DeviceTokenOAuthError = {
-  readonly kind: "DeviceTokenOAuthError";
-  readonly error:
-    | "invalid_request"
-    | "authorization_pending"
-    | "slow_down"
-    | "expired_token"
-    | "access_denied";
-  readonly error_description: string;
-};
-export const DeviceTokenOAuthError = Schema.Struct({
-  kind: Schema.Literal("DeviceTokenOAuthError"),
-  error: Schema.Literals([
-    "invalid_request",
-    "authorization_pending",
-    "slow_down",
-    "expired_token",
-    "access_denied",
-  ]),
-  error_description: Schema.String,
-});
-export type RefreshTokenError = {
-  readonly kind: "RefreshTokenError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: unknown;
-};
-export const RefreshTokenError = Schema.Struct({
-  kind: Schema.Literal("RefreshTokenError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(Schema.Unknown),
-});
-export type UserId = string;
-export const UserId = Schema.String.check(
-  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "User ID",
-    description:
-      "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
-    examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
-export type TokenId = string;
-export const TokenId = Schema.String.check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Token ID",
-    description:
-      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
-export type UnauthorizedError = {
-  readonly kind: "UnauthorizedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-};
-export const UnauthorizedError = Schema.Struct({
-  kind: Schema.Literal("UnauthorizedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-});
-export type NotImplementedError = {
-  readonly kind: "NotImplementedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const NotImplementedError = Schema.Struct({
-  kind: Schema.Literal("NotImplementedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type ForbiddenError = {
-  readonly kind: "ForbiddenError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?:
-    | { readonly requiredScope: string; readonly grantedScopes: ReadonlyArray<string> }
-    | {
-        readonly requiredScope: string;
-        readonly tokenScopes: ReadonlyArray<string>;
-        readonly requiredRole?: string;
-      }
-    | {
-        readonly retryable: boolean;
-        readonly retryAfterSeconds?: number;
-        readonly requiredScope?: string;
-        readonly tokenScopes?: ReadonlyArray<string>;
-        readonly requiredRole?: string | null;
-      };
-};
-export const ForbiddenError = Schema.Struct({
-  kind: Schema.Literal("ForbiddenError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Union([
-      Schema.Struct({ requiredScope: Schema.String, grantedScopes: Schema.Array(Schema.String) }),
-      Schema.Struct({
-        requiredScope: Schema.String,
-        tokenScopes: Schema.Array(Schema.String),
-        requiredRole: Schema.optionalKey(Schema.String),
-      }),
-      Schema.Struct({
-        retryable: Schema.Boolean,
-        retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-        requiredScope: Schema.optionalKey(Schema.String),
-        tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-        requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      }),
-    ]),
-  ),
-});
-export type UnprocessableEntityError = {
-  readonly kind: "UnprocessableEntityError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const UnprocessableEntityError = Schema.Struct({
-  kind: Schema.Literal("UnprocessableEntityError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type NotFoundError = {
-  readonly kind: "NotFoundError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const NotFoundError = Schema.Struct({
-  kind: Schema.Literal("NotFoundError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type ExtensionId = string;
-export const ExtensionId = Schema.String.check(
-  Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Extension ID",
-    description:
-      "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
-    examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
-export type ConflictError = {
-  readonly kind: "ConflictError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const ConflictError = Schema.Struct({
-  kind: Schema.Literal("ConflictError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type PayloadTooLargeError = {
-  readonly kind: "PayloadTooLargeError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const PayloadTooLargeError = Schema.Struct({
-  kind: Schema.Literal("PayloadTooLargeError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type UnsupportedMediaTypeError = {
-  readonly kind: "UnsupportedMediaTypeError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const UnsupportedMediaTypeError = Schema.Struct({
-  kind: Schema.Literal("UnsupportedMediaTypeError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type TooManyRequestsError = {
-  readonly kind: "TooManyRequestsError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const TooManyRequestsError = Schema.Struct({
-  kind: Schema.Literal("TooManyRequestsError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-export type ServiceUnavailableError = {
-  readonly kind: "ServiceUnavailableError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const ServiceUnavailableError = Schema.Struct({
-  kind: Schema.Literal("ServiceUnavailableError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
-// schemas
-export type MetaGet200 = {
-  readonly ok: true;
-  readonly service: "registry";
-  readonly message: string;
-  readonly docs: string | null;
-  readonly openapi: string | null;
-};
-export const MetaGet200 = Schema.Struct({
-  ok: Schema.Literal(true),
-  service: Schema.Literal("registry"),
-  message: Schema.String,
-  docs: Schema.Union([Schema.String, Schema.Null]),
-  openapi: Schema.Union([Schema.String, Schema.Null]),
-});
-export type MetaGet400 = DecodeErrorResponse;
-export const MetaGet400 = DecodeErrorResponse;
-export type AuthIssueDeviceCodeRequestFormUrlEncoded = {
-  readonly client_id: "axm-cli";
-  readonly scope?: string | null;
-};
-export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.Struct({
-  client_id: Schema.Literal("axm-cli"),
-  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
-export type AuthIssueDeviceCode200 = {
+export type DeviceCodeResponse = {
   readonly device_code: string;
   readonly user_code: string;
   readonly verification_uri: string;
@@ -537,7 +66,7 @@ export type AuthIssueDeviceCode200 = {
   readonly expires_in: number;
   readonly interval: number;
 };
-export const AuthIssueDeviceCode200 = Schema.Struct({
+export const DeviceCodeResponse = Schema.Struct({
   device_code: Schema.String.annotate({
     description: "Device verification code for the polling client.",
   }),
@@ -560,21 +89,40 @@ export const AuthIssueDeviceCode200 = Schema.Struct({
   title: "Device Code Response",
   description: "Response from the OAuth device authorization endpoint (RFC 8628).",
 });
-export type AuthIssueDeviceCode400 = DecodeErrorResponse;
-export const AuthIssueDeviceCode400 = DecodeErrorResponse;
-export type AuthIssueDeviceCode500 = InternalError;
-export const AuthIssueDeviceCode500 = InternalError;
-export type AuthExchangeDeviceCodeRequestFormUrlEncoded = {
-  readonly grant_type: string;
-  readonly device_code: string;
-  readonly client_id: string;
+export type PublishDetails = {
+  readonly retryable: boolean;
+  readonly retryAfterSeconds?: number;
+  readonly requiredScope?: string;
+  readonly tokenScopes?: ReadonlyArray<string>;
+  readonly requiredRole?: string | null;
 };
-export const AuthExchangeDeviceCodeRequestFormUrlEncoded = Schema.Struct({
-  grant_type: Schema.String,
-  device_code: Schema.String,
-  client_id: Schema.String,
+export const PublishDetails = Schema.Struct({
+  retryable: Schema.Boolean.annotate({ description: "Whether the client may retry the request." }),
+  retryAfterSeconds: Schema.optionalKey(
+    Schema.Number.annotate({ description: "Suggested delay in seconds before retrying." }).check(
+      Schema.isFinite(),
+    ),
+  ),
+  requiredScope: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "The scope required to perform the operation, if applicable.",
+    }),
+  ),
+  tokenScopes: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "The scopes present on the token used for the request.",
+    }),
+  ),
+  requiredRole: Schema.optionalKey(
+    Schema.Union([Schema.String, Schema.Null]).annotate({
+      description: "The collaborator role required, if applicable.",
+    }),
+  ),
+}).annotate({
+  title: "Publish Details",
+  description: "Extended error details for publish-related and retryable error responses.",
 });
-export type AuthExchangeDeviceCode200 = {
+export type SessionTokenResponse = {
   readonly access_token: string;
   readonly refresh_token: string;
   readonly token_type: "Bearer";
@@ -582,7 +130,7 @@ export type AuthExchangeDeviceCode200 = {
   readonly expires_at: string;
   readonly scope?: string | null;
 };
-export const AuthExchangeDeviceCode200 = Schema.Struct({
+export const SessionTokenResponse = Schema.Struct({
   access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
   refresh_token: Schema.String.annotate({
     description: "OAuth 2.0 refresh token for obtaining new token pairs.",
@@ -605,6 +153,761 @@ export const AuthExchangeDeviceCode200 = Schema.Struct({
   title: "Session Token Response",
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
+export type DeviceTokenOAuthError = {
+  readonly kind: "DeviceTokenOAuthError";
+  readonly error:
+    | "invalid_request"
+    | "authorization_pending"
+    | "slow_down"
+    | "expired_token"
+    | "access_denied";
+  readonly error_description: string;
+};
+export const DeviceTokenOAuthError = Schema.Struct({
+  kind: Schema.Literal("DeviceTokenOAuthError"),
+  error: Schema.Literals([
+    "invalid_request",
+    "authorization_pending",
+    "slow_down",
+    "expired_token",
+    "access_denied",
+  ]).annotate({
+    title: "OAuth Device Error Code",
+    description: "RFC 8628 error code indicating the polling state.",
+  }),
+  error_description: Schema.String.annotate({
+    description: "Human-readable explanation of the error.",
+  }),
+});
+export type RefreshSessionTokenResponse = {
+  readonly access_token: string;
+  readonly refresh_token: string;
+  readonly token_type: "Bearer";
+  readonly expires_in: number;
+  readonly expires_at: string;
+  readonly scope?: string | null;
+};
+export const RefreshSessionTokenResponse = Schema.Struct({
+  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
+  refresh_token: Schema.String.annotate({
+    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
+  }),
+  token_type: Schema.Literal("Bearer"),
+  expires_in: Schema.Number.annotate({
+    description: "Access token lifetime remaining in seconds.",
+  }).check(Schema.isInt()),
+  expires_at: Schema.String.annotate({
+    description: "ISO 8601 timestamp when the access token expires.",
+    format: "date-time",
+  }),
+  scope: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({
+  title: "Session Token Response",
+  description: "OAuth 2.0 token response containing an access/refresh token pair.",
+});
+export type RefreshTokenError = {
+  readonly kind: "RefreshTokenError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: unknown;
+};
+export const RefreshTokenError = Schema.Struct({
+  kind: Schema.Literal("RefreshTokenError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(Schema.Unknown),
+});
+export type UserId = string;
+export const UserId = Schema.String.check(
+  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "User ID",
+    description: "Unique user identifier.",
+    examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type TokenId = string;
+export const TokenId = Schema.String.check(
+  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Token ID",
+    description: "Unique identifier of the token used for this request.",
+    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type ResourceRestrictions = { readonly extensions: ReadonlyArray<string> | null };
+export const ResourceRestrictions = Schema.Struct({
+  extensions: Schema.Union([Schema.Array(Schema.String), Schema.Null]).annotate({
+    description: "Extension patterns this token is limited to, or null if unrestricted.",
+  }),
+}).annotate({
+  title: "Resource Restrictions",
+  description: "What this token is allowed to access.",
+});
+export type UnauthorizedError = {
+  readonly kind: "UnauthorizedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+};
+export const UnauthorizedError = Schema.Struct({
+  kind: Schema.Literal("UnauthorizedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+});
+export type TokenId1 = string;
+export const TokenId1 = Schema.String.check(
+  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Token ID",
+    description: "Unique token identifier.",
+    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type IsoDateTimeString = string;
+export const IsoDateTimeString = Schema.String.check(Schema.isMinLength(1));
+export type ScopeCheckDetails = {
+  readonly requiredScope: string;
+  readonly grantedScopes: ReadonlyArray<string>;
+};
+export const ScopeCheckDetails = Schema.Struct({
+  requiredScope: Schema.String.annotate({
+    description: "The scope required to perform the requested operation.",
+  }),
+  grantedScopes: Schema.Array(Schema.String).annotate({
+    description: "The scopes granted to the current credential.",
+  }),
+}).annotate({
+  title: "Scope Check Details",
+  description: "Diagnostic details returned when a request is denied due to insufficient scopes.",
+});
+export type AuthorizationDenyDetails = {
+  readonly requiredScope: string;
+  readonly tokenScopes: ReadonlyArray<string>;
+  readonly requiredRole?: string;
+};
+export const AuthorizationDenyDetails = Schema.Struct({
+  requiredScope: Schema.String.annotate({
+    description: "The scope required to perform the requested operation.",
+  }),
+  tokenScopes: Schema.Array(Schema.String).annotate({
+    description: "The scopes present on the token used for the request.",
+  }),
+  requiredRole: Schema.optionalKey(
+    Schema.String.annotate({ description: "The collaborator role required, if applicable." }),
+  ),
+}).annotate({
+  title: "Authorization Deny Details",
+  description:
+    "Diagnostic details returned when a request is denied due to insufficient authorization.",
+});
+export type CreateTokenRequest = {
+  readonly name: string;
+  readonly scopes: ReadonlyArray<string>;
+  readonly expires_in: number;
+};
+export const CreateTokenRequest = Schema.Struct({
+  name: Schema.String.check(
+    Schema.isMinLength(1, {
+      description: "Human-readable name for the token.",
+      examples: ["CI publish token"],
+    }),
+  ),
+  scopes: Schema.Array(Schema.String).check(
+    Schema.isMinLength(1, {
+      description: "Permissions to grant this token (e.g. extensions:read, extensions:write).",
+      examples: [["extensions:read", "extensions:write"]],
+    }),
+  ),
+  expires_in: Schema.Number.check(Schema.isInt())
+    .check(Schema.isFinite())
+    .check(Schema.isGreaterThanOrEqualTo(3600))
+    .check(
+      Schema.isLessThanOrEqualTo(31536000, {
+        description: "How long the token lasts, in seconds (1 hour to 365 days).",
+      }),
+    ),
+}).annotate({
+  title: "Create Token Request",
+  description: "Request body for creating a new personal access token.",
+});
+export type TokenId2 = string;
+export const TokenId2 = Schema.String.check(
+  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Token ID",
+    description:
+      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type Handle = string;
+export const Handle = Schema.String.check(
+  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$"), {
+    title: "Handle",
+    description: "A unique username or organization name starting with @, like @my-org.",
+    examples: ["@my-org", "@username"],
+  }),
+);
+export type OwnerResponse = { readonly displayName: string };
+export const OwnerResponse = Schema.Struct({
+  displayName: Schema.String.annotate({ description: "Display name for the owner account." }),
+}).annotate({ title: "Owner Response", description: "Minimal owner summary for machine clients." });
+export type ExtensionName = string;
+export const ExtensionName = Schema.String;
+export type ExtensionType =
+  | "skill"
+  | "command"
+  | "mcp-server"
+  | "subagent"
+  | "file"
+  | "rule"
+  | "pack";
+export const ExtensionType = Schema.Literals([
+  "skill",
+  "command",
+  "mcp-server",
+  "subagent",
+  "file",
+  "rule",
+  "pack",
+]).annotate({
+  title: "Extension Type",
+  description:
+    "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack.",
+});
+export type ExactSemverVersion = string;
+export const ExactSemverVersion = Schema.String;
+export type Author = {
+  readonly name?: string | null;
+  readonly email?: string | null;
+  readonly url?: string | null;
+};
+export const Author = Schema.Struct({
+  name: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Display name of the extension author." }),
+      Schema.Null,
+    ]),
+  ),
+  email: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Contact email of the extension author.",
+        format: "email",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  url: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "URL for the extension author (homepage or profile).",
+        format: "uri",
+      }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({ title: "Author", description: "Author details: name, email, and homepage URL." });
+export type VersionConstraint = string;
+export const VersionConstraint = Schema.String;
+export type PatchVisibilityBody = { readonly visibility: "public" | "unlisted" | "private" };
+export const PatchVisibilityBody = Schema.Struct({
+  visibility: Schema.Literals(["public", "unlisted", "private"]).annotate({
+    title: "Visibility",
+    description: "Target visibility level for the extension.",
+  }),
+}).annotate({
+  title: "Patch Visibility Body",
+  description: "Request body for updating an extension's visibility.",
+});
+export type ExtensionId = string;
+export const ExtensionId = Schema.String.check(
+  Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Extension ID",
+    description:
+      "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
+    examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type DeprecateBody = { readonly notice?: string | null };
+export const DeprecateBody = Schema.Struct({
+  notice: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Message shown to users explaining why this extension is deprecated.",
+        examples: ["Use @example/skills/new-skill instead."],
+      }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({ title: "Deprecate Body", description: "Request body for deprecating an extension." });
+export type UserId1 = string;
+export const UserId1 = Schema.String.check(
+  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "User ID",
+    description:
+      "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+    examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type PutCollaboratorBody = { readonly role: "admin" | "write" | "read" };
+export const PutCollaboratorBody = Schema.Struct({
+  role: Schema.Literals(["admin", "write", "read"]).annotate({
+    title: "Collaborator Role",
+    description: "The role to assign to the collaborator.",
+  }),
+}).annotate({
+  title: "Put Collaborator Body",
+  description: "Request body for assigning a collaborator role on an extension.",
+});
+export type InternalError = {
+  readonly kind: "InternalError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const InternalError = Schema.Struct({
+  kind: Schema.Literal("InternalError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type InvalidRequestError = {
+  readonly kind: "InvalidRequestError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const InvalidRequestError = Schema.Struct({
+  kind: Schema.Literal("InvalidRequestError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type NotImplementedError = {
+  readonly kind: "NotImplementedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const NotImplementedError = Schema.Struct({
+  kind: Schema.Literal("NotImplementedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type UnprocessableEntityError = {
+  readonly kind: "UnprocessableEntityError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const UnprocessableEntityError = Schema.Struct({
+  kind: Schema.Literal("UnprocessableEntityError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type NotFoundError = {
+  readonly kind: "NotFoundError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const NotFoundError = Schema.Struct({
+  kind: Schema.Literal("NotFoundError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type ConflictError = {
+  readonly kind: "ConflictError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const ConflictError = Schema.Struct({
+  kind: Schema.Literal("ConflictError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type PayloadTooLargeError = {
+  readonly kind: "PayloadTooLargeError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const PayloadTooLargeError = Schema.Struct({
+  kind: Schema.Literal("PayloadTooLargeError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type UnsupportedMediaTypeError = {
+  readonly kind: "UnsupportedMediaTypeError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const UnsupportedMediaTypeError = Schema.Struct({
+  kind: Schema.Literal("UnsupportedMediaTypeError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type TooManyRequestsError = {
+  readonly kind: "TooManyRequestsError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const TooManyRequestsError = Schema.Struct({
+  kind: Schema.Literal("TooManyRequestsError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type ServiceUnavailableError = {
+  readonly kind: "ServiceUnavailableError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: PublishDetails;
+};
+export const ServiceUnavailableError = Schema.Struct({
+  kind: Schema.Literal("ServiceUnavailableError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(PublishDetails),
+});
+export type AuthMeUser = {
+  readonly id: UserId;
+  readonly handle: string;
+  readonly email: string | null;
+};
+export const AuthMeUser = Schema.Struct({
+  id: UserId,
+  handle: Schema.String.annotate({
+    description: "The user's registry handle.",
+    examples: ["@example"],
+  }),
+  email: Schema.Union([
+    Schema.String.annotate({
+      description: "The user's email address, if available.",
+      format: "email",
+    }),
+    Schema.Null,
+  ]),
+}).annotate({ title: "Authenticated User", description: "Your profile information." });
+export type AuthMeToken = {
+  readonly id: TokenId;
+  readonly type: "session" | "pat" | "oidc";
+  readonly name: string | null;
+  readonly scopes: ReadonlyArray<string>;
+  readonly resource_restrictions: ResourceRestrictions;
+  readonly expires_at: string;
+};
+export const AuthMeToken = Schema.Struct({
+  id: TokenId,
+  type: Schema.Literals(["session", "pat", "oidc"]).annotate({
+    title: "Token Type",
+    description: "The type of authentication token.",
+  }),
+  name: Schema.Union([
+    Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
+    Schema.Null,
+  ]),
+  scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
+  resource_restrictions: ResourceRestrictions,
+  expires_at: Schema.String.annotate({
+    description: "When this token expires.",
+    format: "date-time",
+  }),
+}).annotate({
+  title: "Token Info",
+  description: "Details about the token you used to authenticate.",
+});
+export type TokenListItem = {
+  readonly id: TokenId1;
+  readonly name: string | null;
+  readonly type: string;
+  readonly scopes: ReadonlyArray<string>;
+  readonly created_at: IsoDateTimeString;
+  readonly expires_at: IsoDateTimeString;
+  readonly last_used_at: IsoDateTimeString | null;
+};
+export const TokenListItem = Schema.Struct({
+  id: TokenId1,
+  name: Schema.Union([
+    Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
+    Schema.Null,
+  ]),
+  type: Schema.String.annotate({ description: "Token type (e.g. 'pat', 'session')." }),
+  scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
+  created_at: IsoDateTimeString,
+  expires_at: IsoDateTimeString,
+  last_used_at: Schema.Union([IsoDateTimeString, Schema.Null]),
+}).annotate({ title: "Token List Item", description: "Summary of an access token." });
+export type ForbiddenError = {
+  readonly kind: "ForbiddenError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly details?: ScopeCheckDetails | AuthorizationDenyDetails | PublishDetails;
+};
+export const ForbiddenError = Schema.Struct({
+  kind: Schema.Literal("ForbiddenError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  details: Schema.optionalKey(
+    Schema.Union([ScopeCheckDetails, AuthorizationDenyDetails, PublishDetails]),
+  ),
+});
+export type CreateTokenResponse = {
+  readonly id: TokenId2;
+  readonly token: string;
+  readonly name: string;
+  readonly scopes: ReadonlyArray<string>;
+  readonly created_at: IsoDateTimeString;
+  readonly expires_at: IsoDateTimeString;
+};
+export const CreateTokenResponse = Schema.Struct({
+  id: TokenId2,
+  token: Schema.String.annotate({
+    description: "The token value — save this, it won't be shown again.",
+    readOnly: true,
+  }),
+  name: Schema.String,
+  scopes: Schema.Array(Schema.String),
+  created_at: IsoDateTimeString,
+  expires_at: IsoDateTimeString,
+}).annotate({
+  title: "Create Token Response",
+  description: "Your new access token. The token value is only shown once — save it now.",
+});
+export type SearchHit = {
+  readonly name: ExtensionName;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly latestVersion: ExactSemverVersion;
+  readonly description?: string | null;
+  readonly repository?: string | null;
+  readonly license?: string | null;
+  readonly authors?: ReadonlyArray<Author> | null;
+  readonly deprecated_at?: IsoDateTimeString | null;
+  readonly deprecation_notice?: string | null;
+};
+export const SearchHit = Schema.Struct({
+  name: ExtensionName,
+  owner: Handle,
+  type: ExtensionType,
+  latestVersion: ExactSemverVersion,
+  description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
+  deprecated_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
+  deprecation_notice: Schema.optionalKey(
+    Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
+  ),
+}).annotate({ title: "Search Hit", description: "A single extension matched by a search query." });
+export type AuthMeResponse = {
+  readonly user: AuthMeUser;
+  readonly orgs: ReadonlyArray<never>;
+  readonly token: AuthMeToken;
+};
+export const AuthMeResponse = Schema.Struct({
+  user: AuthMeUser,
+  orgs: Schema.Array(Schema.Never).annotate({
+    description: "Organizations the user belongs to (reserved, currently empty).",
+  }),
+  token: AuthMeToken,
+}).annotate({
+  title: "Auth Me Response",
+  description: "Your user profile, organizations, and token details.",
+});
+export type TokenListResponse = {
+  readonly tokens: ReadonlyArray<TokenListItem>;
+  readonly has_more: boolean;
+  readonly cursor: string | null;
+};
+export const TokenListResponse = Schema.Struct({
+  tokens: Schema.Array(TokenListItem).annotate({
+    description: "List of access tokens for the authenticated user.",
+  }),
+  has_more: Schema.Boolean.annotate({
+    description: "Whether additional tokens exist beyond this page.",
+  }),
+  cursor: Schema.Union([
+    Schema.String.annotate({ description: "Opaque cursor for fetching the next page of results." }),
+    Schema.Null,
+  ]),
+}).annotate({ title: "Token List Response", description: "A page of your access tokens." });
+export type SearchResponse = {
+  readonly extensions: ReadonlyArray<SearchHit>;
+  readonly has_more: boolean;
+  readonly cursor: string | null;
+};
+export const SearchResponse = Schema.Struct({
+  extensions: Schema.Array(SearchHit).annotate({
+    description: "Extensions matching the query, ordered by recency.",
+  }),
+  has_more: Schema.Boolean.annotate({
+    description: "Whether additional results exist beyond this page.",
+  }),
+  cursor: Schema.Union([
+    Schema.String.annotate({ description: "Opaque cursor for fetching the next page of results." }),
+    Schema.Null,
+  ]),
+}).annotate({
+  title: "Search Response",
+  description: "A page of extensions matching the search query.",
+});
+// schemas
+export type MetaGet200 = MetaResponse;
+export const MetaGet200 = MetaResponse;
+export type MetaGet400 = DecodeErrorResponse;
+export const MetaGet400 = DecodeErrorResponse;
+export type AuthIssueDeviceCodeRequestFormUrlEncoded = {
+  readonly client_id: "axm-cli";
+  readonly scope?: string | null;
+};
+export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.Struct({
+  client_id: Schema.Literal("axm-cli").annotate({
+    description: "OAuth client identifier. Must be 'axm-cli'.",
+  }),
+  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
+export type AuthIssueDeviceCode200 = DeviceCodeResponse;
+export const AuthIssueDeviceCode200 = DeviceCodeResponse;
+export type AuthIssueDeviceCode400 = DecodeErrorResponse;
+export const AuthIssueDeviceCode400 = DecodeErrorResponse;
+export type AuthIssueDeviceCode500 = InternalError;
+export const AuthIssueDeviceCode500 = InternalError;
+export type AuthExchangeDeviceCodeRequestFormUrlEncoded = {
+  readonly grant_type: string;
+  readonly device_code: string;
+  readonly client_id: string;
+};
+export const AuthExchangeDeviceCodeRequestFormUrlEncoded = Schema.Struct({
+  grant_type: Schema.String.annotate({
+    description: "OAuth grant type. Must be 'urn:ietf:params:oauth:grant-type:device_code'.",
+    examples: ["urn:ietf:params:oauth:grant-type:device_code"],
+  }),
+  device_code: Schema.String.annotate({
+    description: "The device verification code received from the /device/code endpoint.",
+  }),
+  client_id: Schema.String.annotate({
+    description: "OAuth client identifier, e.g. 'axm-cli'.",
+    examples: ["axm-cli"],
+  }),
+});
+export type AuthExchangeDeviceCode200 = SessionTokenResponse;
+export const AuthExchangeDeviceCode200 = SessionTokenResponse;
 export type AuthExchangeDeviceCode400 =
   | InvalidRequestError
   | DecodeErrorResponse
@@ -619,81 +922,37 @@ export type AuthRefreshTokenRequestFormUrlEncoded = {
   readonly client_id?: string | null;
 };
 export const AuthRefreshTokenRequestFormUrlEncoded = Schema.Struct({
-  grant_type: Schema.Literal("refresh_token"),
-  refresh_token: Schema.String.check(Schema.isMinLength(1)),
-  client_id: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
-export type AuthRefreshToken200 = {
-  readonly access_token: string;
-  readonly refresh_token: string;
-  readonly token_type: "Bearer";
-  readonly expires_in: number;
-  readonly expires_at: string;
-  readonly scope?: string | null;
-};
-export const AuthRefreshToken200 = Schema.Struct({
-  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
-  refresh_token: Schema.String.annotate({
-    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
+  grant_type: Schema.Literal("refresh_token").annotate({
+    description: "OAuth grant type. Must be 'refresh_token'.",
   }),
-  token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.annotate({
-    description: "Access token lifetime remaining in seconds.",
-  }).check(Schema.isInt()),
-  expires_at: Schema.String.annotate({
-    description: "ISO 8601 timestamp when the access token expires.",
-    format: "date-time",
-  }),
-  scope: Schema.optionalKey(
+  refresh_token: Schema.String.check(
+    Schema.isMinLength(1, { description: "The refresh token to exchange for a new token pair." }),
+  ),
+  client_id: Schema.optionalKey(
     Schema.Union([
-      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
+      Schema.String.annotate({ description: "OAuth client identifier." }),
       Schema.Null,
     ]),
   ),
-}).annotate({
-  title: "Session Token Response",
-  description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
+export type AuthRefreshToken200 = RefreshSessionTokenResponse;
+export const AuthRefreshToken200 = RefreshSessionTokenResponse;
 export type AuthRefreshToken400 = DecodeErrorResponse;
 export const AuthRefreshToken400 = DecodeErrorResponse;
 export type AuthRefreshToken401 = RefreshTokenError;
 export const AuthRefreshToken401 = RefreshTokenError;
 export type AuthRevokeTokenRequestFormUrlEncoded = { readonly token: string };
 export const AuthRevokeTokenRequestFormUrlEncoded = Schema.Struct({
-  token: Schema.String.check(Schema.isMinLength(1)),
+  token: Schema.String.check(
+    Schema.isMinLength(1, {
+      description: "The access token or refresh token to revoke. Revocation is idempotent.",
+    }),
+  ),
 });
 export type AuthRevokeToken400 = DecodeErrorResponse;
 export const AuthRevokeToken400 = DecodeErrorResponse;
-export type AuthGetMe200 = {
-  readonly user: { readonly id: UserId; readonly handle: string; readonly email: string | null };
-  readonly orgs: ReadonlyArray<never>;
-  readonly token: {
-    readonly id: TokenId;
-    readonly type: "session" | "pat" | "oidc";
-    readonly name: string | null;
-    readonly scopes: ReadonlyArray<string>;
-    readonly resource_restrictions: { readonly extensions: ReadonlyArray<string> | null };
-    readonly expires_at: string;
-  };
-};
-export const AuthGetMe200 = Schema.Struct({
-  user: Schema.Struct({
-    id: UserId,
-    handle: Schema.String,
-    email: Schema.Union([Schema.String, Schema.Null]),
-  }),
-  orgs: Schema.Array(Schema.Never),
-  token: Schema.Struct({
-    id: TokenId,
-    type: Schema.Literals(["session", "pat", "oidc"]),
-    name: Schema.Union([Schema.String, Schema.Null]),
-    scopes: Schema.Array(Schema.String),
-    resource_restrictions: Schema.Struct({
-      extensions: Schema.Union([Schema.Array(Schema.String), Schema.Null]),
-    }),
-    expires_at: Schema.String.annotate({ format: "date-time" }),
-  }),
-});
+export type AuthGetMe200 = AuthMeResponse;
+export const AuthGetMe200 = AuthMeResponse;
 export type AuthGetMe400 = DecodeErrorResponse;
 export const AuthGetMe400 = DecodeErrorResponse;
 export type AuthGetMe401 = UnauthorizedError;
@@ -704,90 +963,35 @@ export type AuthExchangeOidcToken501 = NotImplementedError;
 export const AuthExchangeOidcToken501 = NotImplementedError;
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
 export const TokensListParams = Schema.Struct({
-  cursor: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
-export type TokensList200 = {
-  readonly tokens: ReadonlyArray<{
-    readonly id: TokenId;
-    readonly name: string | null;
-    readonly type: string;
-    readonly scopes: ReadonlyArray<string>;
-    readonly created_at: string;
-    readonly expires_at: string;
-    readonly last_used_at: string | null;
-  }>;
-  readonly has_more: boolean;
-  readonly cursor: string | null;
-};
-export const TokensList200 = Schema.Struct({
-  tokens: Schema.Array(
-    Schema.Struct({
-      id: TokenId,
-      name: Schema.Union([Schema.String, Schema.Null]),
-      type: Schema.String,
-      scopes: Schema.Array(Schema.String),
-      created_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-      expires_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-      last_used_at: Schema.Union([
-        Schema.String.annotate({ readOnly: true, format: "date-time" }),
-        Schema.Null,
-      ]),
-    }),
+  cursor: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Opaque cursor from a previous response for pagination.",
+      }),
+      Schema.Null,
+    ]),
   ),
-  has_more: Schema.Boolean,
-  cursor: Schema.Union([Schema.String, Schema.Null]),
+  limit: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Maximum number of tokens to return (1–100, default 50).",
+      }),
+      Schema.Null,
+    ]),
+  ),
 });
+export type TokensList200 = TokenListResponse;
+export const TokensList200 = TokenListResponse;
 export type TokensList400 = DecodeErrorResponse;
 export const TokensList400 = DecodeErrorResponse;
 export type TokensList401 = UnauthorizedError;
 export const TokensList401 = UnauthorizedError;
 export type TokensList403 = ForbiddenError;
 export const TokensList403 = ForbiddenError;
-export type TokensCreateRequestJson = {
-  readonly name: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly expires_in: number;
-};
-export const TokensCreateRequestJson = Schema.Struct({
-  name: Schema.String.check(
-    Schema.isMinLength(1, { description: "Human-readable name for the token." }),
-  ),
-  scopes: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
-  expires_in: Schema.Number.check(Schema.isInt())
-    .check(Schema.isFinite())
-    .check(Schema.isGreaterThanOrEqualTo(3600))
-    .check(
-      Schema.isLessThanOrEqualTo(31536000, {
-        description: "Token lifetime in seconds (3600–31536000).",
-      }),
-    ),
-}).annotate({
-  title: "Create Token Request",
-  description: "Request body for creating a new personal access token.",
-});
-export type TokensCreate201 = {
-  readonly id: TokenId;
-  readonly token: string;
-  readonly name: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly created_at: string;
-  readonly expires_at: string;
-};
-export const TokensCreate201 = Schema.Struct({
-  id: TokenId,
-  token: Schema.String.annotate({
-    description: "The full token value. Only returned once at creation time.",
-    readOnly: true,
-  }),
-  name: Schema.String,
-  scopes: Schema.Array(Schema.String),
-  created_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-  expires_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-}).annotate({
-  title: "Create Token Response",
-  description: "Newly created personal access token with the plaintext token value.",
-});
+export type TokensCreateRequestJson = CreateTokenRequest;
+export const TokensCreateRequestJson = CreateTokenRequest;
+export type TokensCreate201 = CreateTokenResponse;
+export const TokensCreate201 = CreateTokenResponse;
 export type TokensCreate400 = DecodeErrorResponse;
 export const TokensCreate400 = DecodeErrorResponse;
 export type TokensCreate401 = UnauthorizedError;
@@ -802,56 +1006,42 @@ export type TokensDelete401 = UnauthorizedError;
 export const TokensDelete401 = UnauthorizedError;
 export type TokensDelete403 = ForbiddenError;
 export const TokensDelete403 = ForbiddenError;
+export type OwnersGetOwner200 = OwnerResponse;
+export const OwnersGetOwner200 = OwnerResponse;
+export type OwnersGetOwner400 = DecodeErrorResponse;
+export const OwnersGetOwner400 = DecodeErrorResponse;
+export type OwnersGetOwner404 = NotFoundError;
+export const OwnersGetOwner404 = NotFoundError;
 export type ExtensionsListByOwner200 = {
   readonly extensions: ReadonlyArray<{
-    readonly name: string;
-    readonly owner: string;
-    readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
-    readonly latestVersion: string;
+    readonly name: ExtensionName;
+    readonly owner: Handle;
+    readonly type: ExtensionType;
+    readonly latestVersion: ExactSemverVersion;
     readonly description?: string | null;
     readonly repository?: string | null;
     readonly license?: string | null;
-    readonly authors?: ReadonlyArray<{
-      readonly name?: string | null;
-      readonly email?: string | null;
-      readonly url?: string | null;
-    }> | null;
+    readonly authors?: ReadonlyArray<Author> | null;
     readonly visibility?: string | null;
-    readonly deprecated_at?: string | null;
+    readonly deprecated_at?: IsoDateTimeString | null;
     readonly deprecation_notice?: string | null;
   }>;
 };
 export const ExtensionsListByOwner200 = Schema.Struct({
   extensions: Schema.Array(
     Schema.Struct({
-      name: Schema.String,
-      owner: Schema.String,
-      type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
-      latestVersion: Schema.String,
+      name: ExtensionName,
+      owner: Handle,
+      type: ExtensionType,
+      latestVersion: ExactSemverVersion,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      authors: Schema.optionalKey(
-        Schema.Union([
-          Schema.Array(
-            Schema.Struct({
-              name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-              email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-              url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-            }),
-          ),
-          Schema.Null,
-        ]),
-      ),
+      authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
       visibility: Schema.optionalKey(
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
       ),
-      deprecated_at: Schema.optionalKey(
-        Schema.Union([
-          Schema.String.annotate({ readOnly: true, format: "date-time" }),
-          Schema.Null,
-        ]),
-      ),
+      deprecated_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
       deprecation_notice: Schema.optionalKey(
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
       ),
@@ -862,54 +1052,34 @@ export type ExtensionsListByOwner400 = DecodeErrorResponse;
 export const ExtensionsListByOwner400 = DecodeErrorResponse;
 export type ExtensionsListByType200 = {
   readonly extensions: ReadonlyArray<{
-    readonly name: string;
-    readonly owner: string;
-    readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
-    readonly latestVersion: string;
+    readonly name: ExtensionName;
+    readonly owner: Handle;
+    readonly type: ExtensionType;
+    readonly latestVersion: ExactSemverVersion;
     readonly description?: string | null;
     readonly repository?: string | null;
     readonly license?: string | null;
-    readonly authors?: ReadonlyArray<{
-      readonly name?: string | null;
-      readonly email?: string | null;
-      readonly url?: string | null;
-    }> | null;
+    readonly authors?: ReadonlyArray<Author> | null;
     readonly visibility?: string | null;
-    readonly deprecated_at?: string | null;
+    readonly deprecated_at?: IsoDateTimeString | null;
     readonly deprecation_notice?: string | null;
   }>;
 };
 export const ExtensionsListByType200 = Schema.Struct({
   extensions: Schema.Array(
     Schema.Struct({
-      name: Schema.String,
-      owner: Schema.String,
-      type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
-      latestVersion: Schema.String,
+      name: ExtensionName,
+      owner: Handle,
+      type: ExtensionType,
+      latestVersion: ExactSemverVersion,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      authors: Schema.optionalKey(
-        Schema.Union([
-          Schema.Array(
-            Schema.Struct({
-              name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-              email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-              url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-            }),
-          ),
-          Schema.Null,
-        ]),
-      ),
+      authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
       visibility: Schema.optionalKey(
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
       ),
-      deprecated_at: Schema.optionalKey(
-        Schema.Union([
-          Schema.String.annotate({ readOnly: true, format: "date-time" }),
-          Schema.Null,
-        ]),
-      ),
+      deprecated_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
       deprecation_notice: Schema.optionalKey(
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
       ),
@@ -919,65 +1089,45 @@ export const ExtensionsListByType200 = Schema.Struct({
 export type ExtensionsListByType400 = DecodeErrorResponse;
 export const ExtensionsListByType400 = DecodeErrorResponse;
 export type ExtensionsGet200 = {
-  readonly name: string;
-  readonly owner: string;
-  readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
+  readonly name: ExtensionName;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
   readonly description?: string | null;
   readonly repository?: string | null;
   readonly license?: string | null;
-  readonly authors?: ReadonlyArray<{
-    readonly name?: string | null;
-    readonly email?: string | null;
-    readonly url?: string | null;
-  }> | null;
+  readonly authors?: ReadonlyArray<Author> | null;
   readonly versions: ReadonlyArray<{
-    readonly version: string;
-    readonly published: string;
+    readonly version: ExactSemverVersion;
+    readonly published: IsoDateTimeString;
     readonly integrity: string;
-    readonly dependencies?: { readonly [x: string]: string } | null;
+    readonly dependencies?: { readonly [x: string]: VersionConstraint } | null;
     readonly compatiblePackages?: ReadonlyArray<string> | null;
-    readonly yanked_at?: string | null;
+    readonly yanked_at?: IsoDateTimeString | null;
   }>;
   readonly visibility?: "public" | "unlisted" | "private" | null;
-  readonly deprecated_at?: string | null;
+  readonly deprecated_at?: IsoDateTimeString | null;
   readonly deprecation_notice?: string | null;
 };
 export const ExtensionsGet200 = Schema.Struct({
-  name: Schema.String,
-  owner: Schema.String,
-  type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
+  name: ExtensionName,
+  owner: Handle,
+  type: ExtensionType,
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  authors: Schema.optionalKey(
-    Schema.Union([
-      Schema.Array(
-        Schema.Struct({
-          name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-          email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-          url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-        }),
-      ),
-      Schema.Null,
-    ]),
-  ),
+  authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   versions: Schema.Array(
     Schema.Struct({
-      version: Schema.String,
-      published: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      version: ExactSemverVersion,
+      published: IsoDateTimeString,
       integrity: Schema.String.annotate({ readOnly: true }),
       dependencies: Schema.optionalKey(
-        Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Null]),
+        Schema.Union([Schema.Record(Schema.String, VersionConstraint), Schema.Null]),
       ),
       compatiblePackages: Schema.optionalKey(
         Schema.Union([Schema.Array(Schema.String), Schema.Null]),
       ),
-      yanked_at: Schema.optionalKey(
-        Schema.Union([
-          Schema.String.annotate({ readOnly: true, format: "date-time" }),
-          Schema.Null,
-        ]),
-      ),
+      yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
     }),
   ),
   visibility: Schema.optionalKey(
@@ -986,9 +1136,7 @@ export const ExtensionsGet200 = Schema.Struct({
       Schema.Null,
     ]),
   ),
-  deprecated_at: Schema.optionalKey(
-    Schema.Union([Schema.String.annotate({ readOnly: true, format: "date-time" }), Schema.Null]),
-  ),
+  deprecated_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
   deprecation_notice: Schema.optionalKey(
     Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
   ),
@@ -997,25 +1145,21 @@ export type ExtensionsGet400 = DecodeErrorResponse;
 export const ExtensionsGet400 = DecodeErrorResponse;
 export type ExtensionsGet404 = NotFoundError;
 export const ExtensionsGet404 = NotFoundError;
-export type ExtensionsUpdateVisibilityRequestJson = {
-  readonly visibility: "public" | "unlisted" | "private";
-};
-export const ExtensionsUpdateVisibilityRequestJson = Schema.Struct({
-  visibility: Schema.Literals(["public", "unlisted", "private"]),
-});
+export type ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
+export const ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export type ExtensionsUpdateVisibility200 = {
   readonly id: ExtensionId;
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
   readonly visibility: string;
   readonly updatedAt: string;
 };
 export const ExtensionsUpdateVisibility200 = Schema.Struct({
   id: ExtensionId,
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
   visibility: Schema.String,
   updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
@@ -1031,57 +1175,40 @@ export const ExtensionsUpdateVisibility403 = ForbiddenError;
 export type ExtensionsUpdateVisibility404 = NotFoundError;
 export const ExtensionsUpdateVisibility404 = NotFoundError;
 export type ExtensionsGetVersion200 = {
-  readonly name: string;
-  readonly owner: string;
-  readonly type: string;
-  readonly version: string;
+  readonly name: ExtensionName;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly version: ExactSemverVersion;
   readonly status: "pending" | "available" | "failed";
-  readonly published: string;
+  readonly published: IsoDateTimeString;
   readonly integrity: string;
   readonly description?: string | null;
   readonly repository?: string | null;
   readonly license?: string | null;
-  readonly authors?: ReadonlyArray<{
-    readonly name?: string | null;
-    readonly email?: string | null;
-    readonly url?: string | null;
-  }> | null;
-  readonly dependencies?: { readonly [x: string]: string } | null;
-  readonly yanked_at?: string | null;
-  readonly deleted_at?: string | null;
+  readonly authors?: ReadonlyArray<Author> | null;
+  readonly dependencies?: { readonly [x: string]: VersionConstraint } | null;
+  readonly compatiblePackages?: ReadonlyArray<string> | null;
+  readonly yanked_at?: IsoDateTimeString | null;
+  readonly deleted_at?: IsoDateTimeString | null;
 };
 export const ExtensionsGetVersion200 = Schema.Struct({
-  name: Schema.String,
-  owner: Schema.String,
-  type: Schema.String,
-  version: Schema.String,
+  name: ExtensionName,
+  owner: Handle,
+  type: ExtensionType,
+  version: ExactSemverVersion,
   status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
-  published: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  published: IsoDateTimeString,
   integrity: Schema.String.annotate({ readOnly: true }),
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  authors: Schema.optionalKey(
-    Schema.Union([
-      Schema.Array(
-        Schema.Struct({
-          name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-          email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-          url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-        }),
-      ),
-      Schema.Null,
-    ]),
-  ),
+  authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   dependencies: Schema.optionalKey(
-    Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Null]),
+    Schema.Union([Schema.Record(Schema.String, VersionConstraint), Schema.Null]),
   ),
-  yanked_at: Schema.optionalKey(
-    Schema.Union([Schema.String.annotate({ readOnly: true, format: "date-time" }), Schema.Null]),
-  ),
-  deleted_at: Schema.optionalKey(
-    Schema.Union([Schema.String.annotate({ readOnly: true, format: "date-time" }), Schema.Null]),
-  ),
+  compatiblePackages: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
+  yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
+  deleted_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
 });
 export type ExtensionsGetVersion400 = DecodeErrorResponse;
 export const ExtensionsGetVersion400 = DecodeErrorResponse;
@@ -1096,44 +1223,44 @@ export const ExtensionsPublishVersionRequestFormData = Schema.Struct({
   integrity: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type ExtensionsPublishVersion200 = {
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
-  readonly version: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
   readonly integrity: string;
   readonly sha256_hex: string;
-  readonly published_at: string;
-  readonly publish_status: string;
+  readonly published_at: IsoDateTimeString;
+  readonly publish_status: "pending" | "available" | "failed";
 };
 export const ExtensionsPublishVersion200 = Schema.Struct({
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
-  version: Schema.String,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: ExactSemverVersion,
   integrity: Schema.String.annotate({ readOnly: true }),
   sha256_hex: Schema.String.annotate({ readOnly: true }),
-  published_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-  publish_status: Schema.String.annotate({ readOnly: true }),
+  published_at: IsoDateTimeString,
+  publish_status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
 });
 export type ExtensionsPublishVersion201 = {
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
-  readonly version: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
   readonly integrity: string;
   readonly sha256_hex: string;
-  readonly published_at: string;
-  readonly publish_status: string;
+  readonly published_at: IsoDateTimeString;
+  readonly publish_status: "pending" | "available" | "failed";
 };
 export const ExtensionsPublishVersion201 = Schema.Struct({
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
-  version: Schema.String,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: ExactSemverVersion,
   integrity: Schema.String.annotate({ readOnly: true }),
   sha256_hex: Schema.String.annotate({ readOnly: true }),
-  published_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-  publish_status: Schema.String.annotate({ readOnly: true }),
+  published_at: IsoDateTimeString,
+  publish_status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
 });
 export type ExtensionsPublishVersion400 = InvalidRequestError | DecodeErrorResponse;
 export const ExtensionsPublishVersion400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
@@ -1155,8 +1282,6 @@ export type ExtensionsPublishVersion429 = TooManyRequestsError;
 export const ExtensionsPublishVersion429 = TooManyRequestsError;
 export type ExtensionsPublishVersion500 = InternalError;
 export const ExtensionsPublishVersion500 = InternalError;
-export type ExtensionsPublishVersion501 = NotImplementedError;
-export const ExtensionsPublishVersion501 = NotImplementedError;
 export type ExtensionsPublishVersion503 = ServiceUnavailableError;
 export const ExtensionsPublishVersion503 = ServiceUnavailableError;
 export type ExtensionsDeleteVersion400 = DecodeErrorResponse;
@@ -1173,39 +1298,19 @@ export type ExtensionsDownloadArchive404 = NotFoundError;
 export const ExtensionsDownloadArchive404 = NotFoundError;
 export type ExtensionsDownloadArchive500 = InternalError;
 export const ExtensionsDownloadArchive500 = InternalError;
-export type ExtensionsGetOwnerProfile200 = {
-  readonly ok: true;
-  readonly mock: true;
-  readonly method: "GET";
-  readonly route: "/v1/extensions/{owner}/profile";
-  readonly message: string;
-  readonly params: { readonly owner: string };
-};
-export const ExtensionsGetOwnerProfile200 = Schema.Struct({
-  ok: Schema.Literal(true),
-  mock: Schema.Literal(true),
-  method: Schema.Literal("GET"),
-  route: Schema.Literal("/v1/extensions/{owner}/profile"),
-  message: Schema.String,
-  params: Schema.Struct({ owner: Schema.String }),
-});
-export type ExtensionsGetOwnerProfile400 = DecodeErrorResponse;
-export const ExtensionsGetOwnerProfile400 = DecodeErrorResponse;
-export type ExtensionsDeprecateRequestJson = { readonly notice?: string | null };
-export const ExtensionsDeprecateRequestJson = Schema.Struct({
-  notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
+export type ExtensionsDeprecateRequestJson = DeprecateBody;
+export const ExtensionsDeprecateRequestJson = DeprecateBody;
 export type ExtensionsDeprecate200 = {
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
   readonly deprecatedAt: string | null;
   readonly deprecationNotice: string | null;
 };
 export const ExtensionsDeprecate200 = Schema.Struct({
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
   deprecatedAt: Schema.Union([
     Schema.String.annotate({ readOnly: true, format: "date-time" }),
     Schema.Null,
@@ -1221,16 +1326,16 @@ export const ExtensionsDeprecate403 = ForbiddenError;
 export type ExtensionsDeprecate404 = NotFoundError;
 export const ExtensionsDeprecate404 = NotFoundError;
 export type ExtensionsUndeprecate200 = {
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
   readonly deprecatedAt: null;
   readonly deprecationNotice: null;
 };
 export const ExtensionsUndeprecate200 = Schema.Struct({
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
   deprecatedAt: Schema.Null,
   deprecationNotice: Schema.Null,
 });
@@ -1243,21 +1348,18 @@ export const ExtensionsUndeprecate403 = ForbiddenError;
 export type ExtensionsUndeprecate404 = NotFoundError;
 export const ExtensionsUndeprecate404 = NotFoundError;
 export type ExtensionsYankVersion200 = {
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
-  readonly version: string;
-  readonly yankedAt: string | null;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
+  readonly yankedAt: IsoDateTimeString | null;
 };
 export const ExtensionsYankVersion200 = Schema.Struct({
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
-  version: Schema.String,
-  yankedAt: Schema.Union([
-    Schema.String.annotate({ readOnly: true, format: "date-time" }),
-    Schema.Null,
-  ]),
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: ExactSemverVersion,
+  yankedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
 export const ExtensionsYankVersion400 = DecodeErrorResponse;
@@ -1268,17 +1370,17 @@ export const ExtensionsYankVersion403 = ForbiddenError;
 export type ExtensionsYankVersion404 = NotFoundError;
 export const ExtensionsYankVersion404 = NotFoundError;
 export type ExtensionsUnyankVersion200 = {
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
-  readonly version: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
   readonly yankedAt: null;
 };
 export const ExtensionsUnyankVersion200 = Schema.Struct({
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
-  version: Schema.String,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: ExactSemverVersion,
   yankedAt: Schema.Null,
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
@@ -1291,18 +1393,18 @@ export type ExtensionsUnyankVersion404 = NotFoundError;
 export const ExtensionsUnyankVersion404 = NotFoundError;
 export type CollaboratorsListCollaborators200 = {
   readonly collaborators: ReadonlyArray<{
-    readonly userId: UserId;
+    readonly userId: UserId1;
     readonly role: string;
-    readonly grantedBy: UserId | null;
+    readonly grantedBy: UserId1 | null;
     readonly createdAt: string;
   }>;
 };
 export const CollaboratorsListCollaborators200 = Schema.Struct({
   collaborators: Schema.Array(
     Schema.Struct({
-      userId: UserId,
+      userId: UserId1,
       role: Schema.String,
-      grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
+      grantedBy: Schema.Union([UserId1, Schema.Null]).annotate({ readOnly: true }),
       createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
     }),
   ),
@@ -1315,22 +1417,18 @@ export type CollaboratorsListCollaborators403 = ForbiddenError;
 export const CollaboratorsListCollaborators403 = ForbiddenError;
 export type CollaboratorsListCollaborators404 = NotFoundError;
 export const CollaboratorsListCollaborators404 = NotFoundError;
-export type CollaboratorsUpsertCollaboratorRequestJson = {
-  readonly role: "admin" | "write" | "read";
-};
-export const CollaboratorsUpsertCollaboratorRequestJson = Schema.Struct({
-  role: Schema.Literals(["admin", "write", "read"]),
-});
+export type CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
+export const CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
 export type CollaboratorsUpsertCollaborator200 = {
-  readonly userId: UserId;
+  readonly userId: UserId1;
   readonly role: string;
-  readonly grantedBy: UserId | null;
+  readonly grantedBy: UserId1 | null;
   readonly createdAt: string;
 };
 export const CollaboratorsUpsertCollaborator200 = Schema.Struct({
-  userId: UserId,
+  userId: UserId1,
   role: Schema.String,
-  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
+  grantedBy: Schema.Union([UserId1, Schema.Null]).annotate({ readOnly: true }),
   createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
 export type CollaboratorsUpsertCollaborator400 = InvalidRequestError | DecodeErrorResponse;
@@ -1421,10 +1519,16 @@ export const HealthGetDeepHealth400 = DecodeErrorResponse;
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
+  readonly scenario?: "effect-handled-500" | "surface-unhandled-500" | null;
+  readonly scenarioId?: string | null;
 };
 export const HealthGetObservabilityVerificationParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   level: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  scenario: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["effect-handled-500", "surface-unhandled-500"]), Schema.Null]),
+  ),
+  scenarioId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type HealthGetObservabilityVerification200 = {
   readonly status: "ok" | "error";
@@ -1438,6 +1542,8 @@ export type HealthGetObservabilityVerification200 = {
     readonly errors?: {
       readonly status: "ok" | "error";
       readonly sentryEventId?: string | null;
+      readonly reason?: "sentry-issue-reporter-disabled" | null;
+      readonly message?: string | null;
     } | null;
   };
 };
@@ -1473,6 +1579,10 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
         Schema.Struct({
           status: Schema.Literals(["ok", "error"]),
           sentryEventId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          reason: Schema.optionalKey(
+            Schema.Union([Schema.Literal("sentry-issue-reporter-disabled"), Schema.Null]),
+          ),
+          message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
         }),
         Schema.Null,
       ]),
@@ -1487,75 +1597,29 @@ export type SearchSearchExtensionsParams = {
   readonly limit?: string | null;
 };
 export const SearchSearchExtensionsParams = Schema.Struct({
-  q: Schema.String,
-  cursor: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
-export type SearchSearchExtensions200 = {
-  readonly extensions: ReadonlyArray<{
-    readonly name: string;
-    readonly owner: string;
-    readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
-    readonly latestVersion: string;
-    readonly description?: string | null;
-    readonly repository?: string | null;
-    readonly license?: string | null;
-    readonly authors?: ReadonlyArray<{
-      readonly name?: string | null;
-      readonly email?: string | null;
-      readonly url?: string | null;
-    }> | null;
-    readonly deprecated_at?: string | null;
-    readonly deprecation_notice?: string | null;
-  }>;
-  readonly has_more: boolean;
-  readonly cursor: string | null;
-};
-export const SearchSearchExtensions200 = Schema.Struct({
-  extensions: Schema.Array(
-    Schema.Struct({
-      name: Schema.String,
-      owner: Schema.String,
-      type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
-      latestVersion: Schema.String,
-      description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      authors: Schema.optionalKey(
-        Schema.Union([
-          Schema.Array(
-            Schema.Struct({
-              name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-              email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-              url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-            }),
-          ),
-          Schema.Null,
-        ]),
-      ),
-      deprecated_at: Schema.optionalKey(
-        Schema.Union([
-          Schema.String.annotate({ readOnly: true, format: "date-time" }),
-          Schema.Null,
-        ]),
-      ),
-      deprecation_notice: Schema.optionalKey(
-        Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
-      ),
-    }),
-  ).annotate({
-    description: "Extensions matching the query, ordered by recency.",
+  q: Schema.String.annotate({
+    description: "Search query string. Use an empty string to list the public catalog.",
+    examples: ["git commit", ""],
   }),
-  has_more: Schema.Boolean.annotate({
-    description: "Whether additional results exist beyond this page.",
-  }),
-  cursor: Schema.Union([
-    Schema.String.annotate({
-      description: "Opaque cursor for fetching the next page of results.",
-    }),
-    Schema.Null,
-  ]),
+  cursor: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Opaque cursor from a previous response for pagination.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  limit: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Maximum number of results to return (1–100, default 20).",
+      }),
+      Schema.Null,
+    ]),
+  ),
 });
+export type SearchSearchExtensions200 = SearchResponse;
+export const SearchSearchExtensions200 = SearchResponse;
 export type SearchSearchExtensions400 = DecodeErrorResponse;
 export const SearchSearchExtensions400 = DecodeErrorResponse;
 
@@ -1774,6 +1838,17 @@ export const make = (
           }),
         ),
       ),
+    OwnersGetOwner: (handle, options) =>
+      HttpClientRequest.get(`/v1/owners/${handle}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OwnersGetOwner200),
+            "400": decodeError("OwnersGetOwner400", OwnersGetOwner400),
+            "404": decodeError("OwnersGetOwner404", OwnersGetOwner404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     ExtensionsListByOwner: (owner, options) =>
       HttpClientRequest.get(`/v1/extensions/${owner}`).pipe(
         withResponse(options?.config)(
@@ -1860,7 +1935,6 @@ export const make = (
             "422": decodeError("ExtensionsPublishVersion422", ExtensionsPublishVersion422),
             "429": decodeError("ExtensionsPublishVersion429", ExtensionsPublishVersion429),
             "500": decodeError("ExtensionsPublishVersion500", ExtensionsPublishVersion500),
-            "501": decodeError("ExtensionsPublishVersion501", ExtensionsPublishVersion501),
             "503": decodeError("ExtensionsPublishVersion503", ExtensionsPublishVersion503),
             orElse: unexpectedStatus,
           }),
@@ -1894,16 +1968,6 @@ export const make = (
     ExtensionsDownloadArchiveStream: (owner, type, name, version) =>
       HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
         binaryRequest,
-      ),
-    ExtensionsGetOwnerProfile: (owner, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/profile`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGetOwnerProfile200),
-            "400": decodeError("ExtensionsGetOwnerProfile400", ExtensionsGetOwnerProfile400),
-            orElse: unexpectedStatus,
-          }),
-        ),
       ),
     ExtensionsDeprecate: (owner, type, name, options) =>
       HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/deprecate`).pipe(
@@ -2065,7 +2129,11 @@ export const make = (
       ),
     HealthGetObservabilityVerification: (options) =>
       HttpClientRequest.get(`/v1/debug/observability`).pipe(
-        HttpClientRequest.setUrlParams({ level: options?.params?.["level"] as any }),
+        HttpClientRequest.setUrlParams({
+          level: options?.params?.["level"] as any,
+          scenario: options?.params?.["scenario"] as any,
+          scenarioId: options?.params?.["scenarioId"] as any,
+        }),
         HttpClientRequest.setHeaders({
           "x-health-key": options?.params?.["x-health-key"] ?? undefined,
         }),
@@ -2081,26 +2149,20 @@ export const make = (
         ),
       ),
     SearchSearchExtensions: (options) =>
-      (() => {
-        const params = new URLSearchParams();
-        params.set("q", options.params["q"]);
-        if (options.params["cursor"] !== undefined && options.params["cursor"] !== null) {
-          params.set("cursor", options.params["cursor"]);
-        }
-        if (options.params["limit"] !== undefined && options.params["limit"] !== null) {
-          params.set("limit", options.params["limit"]);
-        }
-
-        return HttpClientRequest.get(`/v1/search?${params.toString()}`).pipe(
-          withResponse(options.config)(
-            HttpClientResponse.matchStatus({
-              "2xx": decodeSuccess(SearchSearchExtensions200),
-              "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
-              orElse: unexpectedStatus,
-            }),
-          ),
-        );
-      })(),
+      HttpClientRequest.get(`/v1/search`).pipe(
+        HttpClientRequest.setUrlParams({
+          q: options.params["q"] as any,
+          cursor: options.params["cursor"] as any,
+          limit: options.params["limit"] as any,
+        }),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(SearchSearchExtensions200),
+            "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
   };
 };
 
@@ -2239,6 +2301,19 @@ export interface RegistryClient {
     | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
   >;
   /**
+   * Returns the minimal public owner summary for the provided handle.
+   */
+  readonly OwnersGetOwner: <Config extends OperationConfig>(
+    handle: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OwnersGetOwner200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OwnersGetOwner400", typeof OwnersGetOwner400.Type>
+    | RegistryClientError<"OwnersGetOwner404", typeof OwnersGetOwner404.Type>
+  >;
+  /**
    * List owner extensions
    */
   readonly ExtensionsListByOwner: <Config extends OperationConfig>(
@@ -2371,7 +2446,6 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsPublishVersion422", typeof ExtensionsPublishVersion422.Type>
     | RegistryClientError<"ExtensionsPublishVersion429", typeof ExtensionsPublishVersion429.Type>
     | RegistryClientError<"ExtensionsPublishVersion500", typeof ExtensionsPublishVersion500.Type>
-    | RegistryClientError<"ExtensionsPublishVersion501", typeof ExtensionsPublishVersion501.Type>
     | RegistryClientError<"ExtensionsPublishVersion503", typeof ExtensionsPublishVersion503.Type>
   >;
   /**
@@ -2418,18 +2492,6 @@ export interface RegistryClient {
     name: string,
     version: string,
   ) => Stream.Stream<Uint8Array, HttpClientError.HttpClientError>;
-  /**
-   * Returns the current mock owner profile payload.
-   */
-  readonly ExtensionsGetOwnerProfile: <Config extends OperationConfig>(
-    owner: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetOwnerProfile200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsGetOwnerProfile400", typeof ExtensionsGetOwnerProfile400.Type>
-  >;
   /**
    * Deprecate an extension
    */
@@ -2627,7 +2689,7 @@ export interface RegistryClient {
     | RegistryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
   >;
   /**
-   * Exercises observability pipelines and returns correlation identifiers. Requires X-Health-Key header.
+   * Exercises observability pipelines and can simulate server error scenarios. Requires X-Health-Key header.
    */
   readonly HealthGetObservabilityVerification: <Config extends OperationConfig>(
     options:
@@ -2646,7 +2708,7 @@ export interface RegistryClient {
       >
   >;
   /**
-   * Returns extensions whose name matches the query. Use an empty query to list the public catalog.
+   * Returns extensions whose name matches the query, ordered by most recently published version. When `q` is empty, returns the public catalog. Only public, available, non-yanked versions are returned.
    */
   readonly SearchSearchExtensions: <Config extends OperationConfig>(options: {
     readonly params: typeof SearchSearchExtensionsParams.Encoded;

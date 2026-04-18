@@ -73,7 +73,7 @@ const MOCK_BINARY = new Uint8Array([0x7f, 0x45, 0x4c, 0x46]);
 
 /** Build a handler that serves a valid binary for download URLs and JSON for API URLs. */
 const makeSuccessHandler =
-  (remoteVersion = "0.2.0") =>
+  (remoteVersion = "99.0.0") =>
   (url: string) => {
     if (url.includes("/releases/download/")) {
       return new Response(MOCK_BINARY, { status: 200 });
@@ -290,7 +290,7 @@ describe("handleUpgrade", () => {
 
     it.effect("downloads and replaces binary when stale", () => {
       const { provide, rendererState, installMeta } = makeScriptLayers(tempDir, {
-        httpHandler: makeSuccessHandler("0.2.0"),
+        httpHandler: makeSuccessHandler("99.0.0"),
       });
       return provide(
         Effect.gen(function* () {
@@ -308,7 +308,7 @@ describe("handleUpgrade", () => {
 
     it.effect("force flag re-downloads even when up to date", () => {
       const { provide, rendererState, installMeta } = makeScriptLayers(tempDir, {
-        httpHandler: makeSuccessHandler("0.2.0"),
+        httpHandler: makeSuccessHandler("99.0.0"),
       });
       return provide(
         Effect.gen(function* () {
@@ -329,7 +329,7 @@ describe("handleUpgrade", () => {
           if (url.includes("/releases/download/")) {
             return new Response("Not Found", { status: 404 });
           }
-          return new Response(JSON.stringify({ tag_name: "cli-v0.2.0" }), { status: 200 });
+          return new Response(JSON.stringify({ tag_name: "cli-v99.0.0" }), { status: 200 });
         },
       });
       return provide(
@@ -362,7 +362,7 @@ describe("handleUpgrade", () => {
           if (url.includes("/releases/download/")) {
             return new Response(new Uint8Array(0), { status: 200 });
           }
-          return new Response(JSON.stringify({ tag_name: "cli-v0.2.0" }), { status: 200 });
+          return new Response(JSON.stringify({ tag_name: "cli-v99.0.0" }), { status: 200 });
         },
       });
       return provide(

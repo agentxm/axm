@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-04-09
-version: 0.2.0
+last-reviewed: 2026-04-18
+version: 0.2.1
 description: Common v3 to v4 renames and migration patterns
 depends-on: [./effect.md]
 ---
@@ -28,15 +28,22 @@ projects.
 
 ## Services
 
-`Context.Tag` became `ServiceMap.Service`.
+`Context.Tag` became `Context.Service`.
 
 ```typescript
 // v3
 class Database extends Context.Tag("Database")<Database, Shape>() {}
 
-// v4
+// v4 upstream API
+class Database extends Context.Service<Database, Shape>()("Database") {}
+
+// repo-local style
 class Database extends ServiceMap.Service<Database, Shape>()("Database") {}
 ```
+
+This repo commonly aliases `effect/Context` as `ServiceMap`, so local code uses
+`ServiceMap.Service` and `ServiceMap.Reference`. Upstream migration notes and
+newer examples call the same API surface `Context.Service`.
 
 ---
 
@@ -58,7 +65,11 @@ class Database extends ServiceMap.Service<Database, Shape>()("Database") {}
 | `Effect.fork`       | `Effect.forkChild`  |
 | `Effect.forkDaemon` | `Effect.forkDetach` |
 | `Effect.either`     | `Effect.result`     |
-| `Effect.context`    | `Effect.services`   |
+| `Effect.services`   | `Effect.context`    |
+| `Schema.makeUnsafe` | `Schema.make`       |
+
+Earlier beta-era examples may still show `Effect.services`; current code should
+use `Effect.context`.
 
 ---
 
@@ -116,6 +127,23 @@ import { FileSystem } from "effect/FileSystem";
 import { Path } from "effect/Path";
 import { NodeServices } from "@effect/platform-node/NodeServices";
 ```
+
+---
+
+## Schema
+
+### `Schema.withConstructorDefault`
+
+Beta.50 changed constructor defaults to return an `Effect`, not an `Option` or
+raw value.
+
+```typescript
+// current repo pattern
+Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false)));
+```
+
+If you copy an older example that passes a plain value or `Option.some(...)`,
+translate it to `Effect.succeed(...)`.
 
 ---
 

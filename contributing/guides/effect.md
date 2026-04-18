@@ -6,6 +6,10 @@ Option/nullable handling, collections (Array, Chunk, HashMap), iteration and
 streaming, schema validation, wrapping external APIs, and testing Effect
 programs.
 
+This repo commonly aliases `effect/Context` as `ServiceMap`, so local examples
+use `ServiceMap.Service` and `ServiceMap.Reference`. Upstream Effect docs and
+newer migration notes call the same API surface `Context.Service`.
+
 > [Effect](../../CLAUDE.md#effect) — critical guidance
 
 ## Key Resources

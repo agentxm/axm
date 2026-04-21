@@ -1,3 +1,13 @@
+## 0.3.2 (2026-04-21)
+
+### 🩹 Fixes
+
+- Refresh generated public schemas from source ([468ce476](https://github.com/agentxm/axm/commit/468ce476))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.3.1 (2026-04-21)
 
 ### 🩹 Fixes

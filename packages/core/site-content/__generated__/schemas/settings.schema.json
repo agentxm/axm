@@ -43,22 +43,11 @@
       "title": "GitHub Source Host",
       "description": "Configuration for a GitHub source."
     },
-    "SourceName1": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^[a-z0-9][a-z0-9.-]*$",
-          "title": "Source Name",
-          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
-          "examples": ["github", "my-registry.dev"]
-        }
-      ]
-    },
     "GitLabSourceHostConfig": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/definitions/SourceName1"
+          "$ref": "#/definitions/SourceName"
         },
         "type": {
           "type": "string",
@@ -73,22 +62,11 @@
       "title": "GitLab Source Host",
       "description": "Configuration for a GitLab source."
     },
-    "SourceName2": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^[a-z0-9][a-z0-9.-]*$",
-          "title": "Source Name",
-          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
-          "examples": ["github", "my-registry.dev"]
-        }
-      ]
-    },
     "BitbucketSourceHostConfig": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/definitions/SourceName2"
+          "$ref": "#/definitions/SourceName"
         },
         "type": {
           "type": "string",
@@ -103,22 +81,11 @@
       "title": "Bitbucket Source Host",
       "description": "Configuration for a Bitbucket source."
     },
-    "SourceName3": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^[a-z0-9][a-z0-9.-]*$",
-          "title": "Source Name",
-          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
-          "examples": ["github", "my-registry.dev"]
-        }
-      ]
-    },
     "AzureReposSourceHostConfig": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/definitions/SourceName3"
+          "$ref": "#/definitions/SourceName"
         },
         "type": {
           "type": "string",
@@ -133,22 +100,11 @@
       "title": "Azure Repos Source Host",
       "description": "Configuration for an Azure Repos source."
     },
-    "SourceName4": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^[a-z0-9][a-z0-9.-]*$",
-          "title": "Source Name",
-          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
-          "examples": ["github", "my-registry.dev"]
-        }
-      ]
-    },
     "RegistrySourceHostConfig": {
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/definitions/SourceName4"
+          "$ref": "#/definitions/SourceName"
         },
         "type": {
           "type": "string",
@@ -184,16 +140,108 @@
       "title": "Source Host Config",
       "description": "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
     },
+    "CommandEntryObject": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false,
+      "title": "Command Entry Object",
+      "description": "A command with its source location and whether it's enabled."
+    },
+    "CommandEntry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/CommandEntryObject"
+        }
+      ]
+    },
     "CommandsMap": {
       "type": "object",
       "additionalProperties": {
-        "type": "string"
+        "$ref": "#/definitions/CommandEntry"
       }
+    },
+    "SubagentEntryObject": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false,
+      "title": "Subagent Entry Object",
+      "description": "A subagent with its source location and whether it's enabled."
+    },
+    "SubagentEntry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/SubagentEntryObject"
+        }
+      ]
+    },
+    "SubagentsMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/SubagentEntry"
+      }
+    },
+    "McpServerEntryObject": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false,
+      "title": "MCP Server Entry Object",
+      "description": "An MCP server with its source location."
+    },
+    "McpServerEntry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/McpServerEntryObject"
+        }
+      ]
     },
     "McpServersMap": {
       "type": "object",
       "additionalProperties": {
-        "type": "string"
+        "$ref": "#/definitions/McpServerEntry"
       }
     },
     "ExtensionPackEntryObject": {
@@ -216,9 +264,7 @@
         {
           "$ref": "#/definitions/ExtensionPackEntryObject"
         }
-      ],
-      "title": "Extension Pack Entry",
-      "description": "An extension pack reference — either a source string or an object with source."
+      ]
     },
     "ExtensionPacksMap": {
       "type": "object",
@@ -256,9 +302,7 @@
         {
           "$ref": "#/definitions/SkillEntryObject"
         }
-      ],
-      "title": "Skill Entry",
-      "description": "A skill reference — either a source string like @owner/skills/name or an object with source and enabled."
+      ]
     },
     "SkillsMap": {
       "type": "object",
@@ -283,6 +327,19 @@
           ]
         },
         "commands": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subagents": {
           "anyOf": [
             {
               "type": "array",
@@ -325,6 +382,36 @@
       "additionalProperties": false,
       "title": "Ignored Settings",
       "description": "Glob patterns for extensions to ignore, grouped by type (e.g. skills, commands)."
+    },
+    "LintRuleSeverity": {
+      "type": "string",
+      "enum": ["off", "info", "warn", "error"],
+      "title": "Lint Rule Severity",
+      "description": "Severity override for a lint rule: 'off' silences it, 'info'/'warn'/'error' raise or lower severity."
+    },
+    "LintRulesMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/LintRuleSeverity"
+      }
+    },
+    "LintConfig": {
+      "type": "object",
+      "properties": {
+        "rules": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LintRulesMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Lint Config",
+      "description": "Workspace lint configuration under `lint` in `.axm/settings.json`."
     },
     "Settings": {
       "type": "object",
@@ -434,6 +521,16 @@
             }
           ]
         },
+        "subagents": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SubagentsMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "mcpServers": {
           "anyOf": [
             {
@@ -468,6 +565,16 @@
           "anyOf": [
             {
               "$ref": "#/definitions/IgnoredSettings"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lint": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LintConfig"
             },
             {
               "type": "null"

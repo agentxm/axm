@@ -168,6 +168,32 @@
         },
         "name": {
           "$ref": "#/definitions/ExtensionName"
+        },
+        "agents": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PackageUrlParts"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agentOverrides": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": ["owner", "version", "type", "name"],

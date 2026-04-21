@@ -80,6 +80,12 @@
           "additionalProperties": {
             "$ref": "#/definitions/ExactSemverVersion"
           }
+        },
+        "resolvedSubagents": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ExactSemverVersion"
+          }
         }
       },
       "required": [
@@ -93,7 +99,8 @@
         "updatedAt",
         "resolvedSkills",
         "resolvedCommands",
-        "resolvedMcpServers"
+        "resolvedMcpServers",
+        "resolvedSubagents"
       ],
       "additionalProperties": false,
       "title": "Extension Pack Lock Entry",
@@ -199,6 +206,39 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
@@ -273,6 +313,39 @@
                     "anyOf": [
                       {
                         "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
                       },
                       {
                         "type": "null"
@@ -357,6 +430,39 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
@@ -434,6 +540,39 @@
                     "anyOf": [
                       {
                         "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
                       },
                       {
                         "type": "null"
@@ -523,6 +662,39 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": ["type", "url", "agents", "installedAt", "updatedAt"],
@@ -564,6 +736,39 @@
                     "anyOf": [
                       {
                         "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
                       },
                       {
                         "type": "null"
@@ -622,6 +827,39 @@
                     "anyOf": [
                       {
                         "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
                       },
                       {
                         "type": "null"
@@ -694,6 +932,12 @@
                           }
                         ]
                       },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "installedAt": {
                         "$ref": "#/definitions/IsoDateTimeString"
                       },
@@ -719,9 +963,42 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
                     "additionalProperties": false
                   },
                   {
@@ -767,6 +1044,12 @@
                           }
                         ]
                       },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "installedAt": {
                         "$ref": "#/definitions/IsoDateTimeString"
                       },
@@ -792,9 +1075,42 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
                     "additionalProperties": false
                   },
                   {
@@ -840,6 +1156,12 @@
                           }
                         ]
                       },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "installedAt": {
                         "$ref": "#/definitions/IsoDateTimeString"
                       },
@@ -865,9 +1187,42 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
                     "additionalProperties": false
                   },
                   {
@@ -916,6 +1271,12 @@
                           }
                         ]
                       },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "installedAt": {
                         "$ref": "#/definitions/IsoDateTimeString"
                       },
@@ -941,6 +1302,39 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -948,6 +1342,7 @@
                       "organization",
                       "project",
                       "repo",
+                      "agents",
                       "installedAt",
                       "updatedAt"
                     ],
@@ -993,6 +1388,12 @@
                           }
                         ]
                       },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "installedAt": {
                         "$ref": "#/definitions/IsoDateTimeString"
                       },
@@ -1018,9 +1419,42 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
-                    "required": ["type", "url", "installedAt", "updatedAt"],
+                    "required": ["type", "url", "agents", "installedAt", "updatedAt"],
                     "additionalProperties": false
                   },
                   {
@@ -1033,6 +1467,12 @@
                       "path": {
                         "type": "string"
                       },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "installedAt": {
                         "$ref": "#/definitions/IsoDateTimeString"
                       },
@@ -1058,9 +1498,42 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
-                    "required": ["type", "path", "installedAt", "updatedAt"],
+                    "required": ["type", "path", "agents", "installedAt", "updatedAt"],
                     "additionalProperties": false
                   },
                   {
@@ -1085,6 +1558,12 @@
                       "sourceName": {
                         "type": "string"
                       },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "installedAt": {
                         "$ref": "#/definitions/IsoDateTimeString"
                       },
@@ -1110,6 +1589,39 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -1119,6 +1631,769 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
+                      "agents",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subagents": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["github"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["gitlab"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["bitbucket"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["azurerepos"]
+                      },
+                      "organization": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "project": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "organization",
+                      "project",
+                      "repo",
+                      "agents",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["git"]
+                      },
+                      "url": {
+                        "type": "string"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "url", "agents", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["local"]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "path", "agents", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["registry"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/Handle"
+                      },
+                      "name": {
+                        "$ref": "#/definitions/ExtensionName"
+                      },
+                      "resolvedVersion": {
+                        "$ref": "#/definitions/ExactSemverVersion"
+                      },
+                      "integrity": {
+                        "type": "string"
+                      },
+                      "sourceName": {
+                        "type": "string"
+                      },
+                      "agents": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sourceHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "name",
+                      "resolvedVersion",
+                      "integrity",
+                      "sourceName",
+                      "agents",
                       "installedAt",
                       "updatedAt"
                     ],

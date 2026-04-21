@@ -6,9 +6,19 @@
   "sourceRoot": "packages/core/src",
   "tags": ["type:lib", "scope:core"],
   "targets": {
+    "generate-schemas": {
+      "cache": true,
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "../cli/scripts/generate-schemas.ts"],
+        "cwd": "packages/core"
+      }
+    },
     "build": {
       "cache": true,
-      "dependsOn": ["^build"],
+      "dependsOn": ["generate-schemas", "^build"],
       "executor": "@nx/js:tsc",
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"],

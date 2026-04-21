@@ -8,18 +8,20 @@
  * internals and re-exporting them one by one.
  */
 
+/* eslint-disable @nx/enforce-module-boundaries -- Generator must read core source schemas directly so committed site-content cannot drift behind stale dist output. */
+
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off — build-time schema generation script, not Effect code
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as JsonSchema from "effect/JsonSchema";
 import * as Schema from "effect/Schema";
-import { SkillManifestSchema } from "@agentxm/client-core/unstable/skills";
-import { CommandManifestSchema } from "@agentxm/client-core/unstable/commands";
-import { McpServerManifestSchema } from "@agentxm/client-core/unstable/mcp-servers";
-import { ExtensionPackManifestSchema } from "@agentxm/client-core/unstable/packs";
-import { LockfileSchema } from "@agentxm/client-core/unstable/lockfile";
-import { AxmPackageMetaSchema } from "@agentxm/client-core/unstable/packaging";
-import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
+import { SkillManifestSchema } from "../../core/src/unstable/skills/index.js";
+import { CommandManifestSchema } from "../../core/src/unstable/commands/index.js";
+import { McpServerManifestSchema } from "../../core/src/unstable/mcp-servers/index.js";
+import { ExtensionPackManifestSchema } from "../../core/src/unstable/packs/index.js";
+import { LockfileSchema } from "../../core/src/unstable/lockfile/index.js";
+import { AxmPackageMetaSchema } from "../../core/src/unstable/packaging/index.js";
+import { SettingsSchema } from "../../core/src/unstable/settings/index.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const CORE_ROOT = path.join(import.meta.dirname, "../../core");

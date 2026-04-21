@@ -9,8 +9,10 @@
  */
 
 import * as os from "node:os";
+import * as Config from "effect/Config";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { WorkspaceScope } from "./scope.js";
 
 export interface WorkspaceLocation {
@@ -24,9 +26,12 @@ export interface WorkspaceLocation {
 // -----------------------------------------------------------------------------
 
 /**
- * Returns the user-scope axm directory path (~/.axm).
+ * Returns the user-scope axm directory path.
  *
  * The user-scope directory stores user-level configuration and installed skills.
+ * When `AXM_USER_HOME` is set, it is treated as the home-directory override
+ * and the returned path becomes `$AXM_USER_HOME/.axm`; otherwise the path
+ * falls back to `$HOME/.axm`.
  *
  * @returns Effect yielding absolute path to the user-scope axm directory
  *
@@ -41,10 +46,16 @@ export interface WorkspaceLocation {
  * // => "C:\\Users\\username\\.axm" (Windows)
  * ```
  */
+const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
+
 export const getUserScopeDir = (): Effect.Effect<string, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const home = yield* Effect.sync(() => os.homedir());
+    const axmUserHome = yield* Effect.orDie(axmUserHomeConfig.asEffect());
+    const home = Option.match(axmUserHome.pipe(Option.filter((value) => value.length > 0)), {
+      onNone: () => os.homedir(),
+      onSome: (value) => value,
+    });
     return path.join(home, ".axm");
   });
 

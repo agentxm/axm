@@ -14,8 +14,8 @@
  *
  * The `buildWorkspaceRuleContext` helper constructs a `WorkspaceRuleContext`
  * from a resolved `WorkspaceLintAccessor` and a requested scope. User-scope
- * root resolution for v1 is `$HOME/.axm/` per design doc Open Items #10; a
- * `--scope=user` follow-up owns the XDG story.
+ * root resolution for v1 is `$AXM_USER_HOME/.axm/` when set, otherwise
+ * `$HOME/.axm/`; a follow-up owns the broader XDG story.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

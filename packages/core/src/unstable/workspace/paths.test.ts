@@ -8,7 +8,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
 
 describe("paths", () => {
@@ -33,6 +35,22 @@ describe("paths", () => {
         const result2 = yield* getUserScopeDir();
         expect(result1).toBe(result2);
       }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("honors AXM_USER_HOME as a home-directory override", () =>
+      Effect.gen(function* () {
+        const result = yield* getUserScopeDir();
+        expect(result).toBe(path.join("/tmp/axm-user-home", ".axm"));
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            NodeServices.layer,
+            ConfigProvider.layer(
+              ConfigProvider.fromEnv({ env: { AXM_USER_HOME: "/tmp/axm-user-home" } }),
+            ),
+          ),
+        ),
+      ),
     );
   });
 

@@ -160,6 +160,7 @@ describe("axm lint (e2e, Phase 7)", () => {
   describe("Task 7.8 — --scope user", () => {
     it("runs against $AXM_USER_HOME and suppresses workspace/agents-detected-declared", async () => {
       const userHome = createTempDir("axm-phase7-user-home-");
+      const emptyHome = createTempDir("axm-phase7-empty-home-");
       try {
         fs.mkdirSync(path.join(userHome.path, ".axm"), { recursive: true });
         writeJson(path.join(userHome.path, ".axm", "settings.json"), {
@@ -169,11 +170,15 @@ describe("axm lint (e2e, Phase 7)", () => {
 
         const result = await runCli(["lint", "--scope", "user", "--json"], {
           cwd: userHome.path,
-          env: { AXM_USER_HOME: userHome.path },
+          env: {
+            AXM_USER_HOME: userHome.path,
+            HOME: emptyHome.path,
+          },
         });
 
         const findings = JSON.parse(result.stdout)?.result?.findings ?? [];
         const ruleIds = findings.map((f: { ruleId: string }) => f.ruleId);
+        expect(result.exitCode).toBe(1);
         // `agents-detected-declared` fires only on project scope.
         expect(ruleIds).not.toContain("workspace/agents-detected-declared");
         // `lockfile-valid` fires because we declared a skill with no
@@ -181,6 +186,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(ruleIds).toContain("workspace/lockfile-valid");
       } finally {
         userHome.cleanup();
+        emptyHome.cleanup();
       }
     });
   });

@@ -75,9 +75,11 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 are unset. When that location is HTTP(S), it also sets `AXM_REGISTRY_URL` to
 the same value for auth/API flows.
 
-For testing install, doctor, sync, and other default-source behavior, set
+For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
-of checking custom registry sources into `.axm/settings.json`.
+of checking custom registry sources into `.axm/settings.json`. `axm lint`
+reports workspace findings read-only; `axm lint --fix` reconciles the
+workspace non-interactively via the plan pipeline.
 
 ### Releasing
 

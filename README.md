@@ -116,6 +116,29 @@ axm packs install @acme/frontend-tools
 axm packs publish my-pack
 ```
 
+## Lint
+
+`axm lint` evaluates workspace and per-extension invariants against a
+shared-kernel rule catalog. Findings are structured (`rule id`, `severity`,
+`message`, `location`) and the same catalog drives the registry publish gate.
+
+```bash
+axm lint                    # Report findings against the current project
+axm lint --fix              # Apply every autofixable finding non-interactively
+axm lint --scope user       # Lint the user-scope workspace ($AXM_USER_HOME or $HOME/.axm)
+axm lint --strict           # Exit non-zero on warnings as well as errors
+axm lint --json             # Machine-readable findings envelope
+```
+
+Project-scope is the default. Workspace `lint.rules` overrides in
+`.axm/settings.json` affect `axm lint` only — the registry publish gate stays
+platform-canonical, and `axm lint` surfaces a drift banner when a local
+override weakens a platform-canonical `error` in `skill/*` or `pack/*`.
+
+`axm lint` replaces the previous `axm doctor` (diagnostic-only) and `axm sync`
+(reconcile-only) commands. See the [CHANGELOG](./CHANGELOG.md) for migration
+details.
+
 ## Development
 
 This is an Nx monorepo. All commands delegate to Nx for caching and dependency-aware orchestration.

@@ -1,3 +1,64 @@
+## Unreleased (2026-04-21)
+
+### 🚀 Features
+
+- # Lint engine + `axm lint` command (shared kernel + CLI)
+
+  ## Breaking changes
+  - **`axm doctor` removed.** Replaced by `axm lint`. The new command
+    evaluates the same workspace invariants (plus per-extension rules) and
+    produces structured `LintFinding` values with rule ids, severities, and
+    messages. Running the old name now fails with an unknown-command error —
+    there is no deprecation shim. Migration: `axm doctor` → `axm lint`
+    (`--json` for machine output, `--strict` to fail on warnings,
+    `--scope user` to lint the user-scope workspace).
+  - **`axm sync` removed.** Replaced by `axm lint --fix`. Autofixable findings
+    declare a per-extension `Operation` suggestion; `--fix` collects those,
+    feeds them through `resolvePlan` / `applyPlan`, and applies
+    non-interactively. Running the old name now fails with an unknown-command
+    error. Migration: `axm sync` → `axm lint --fix` (preview with `axm lint`
+    alone first).
+  - **`WorkspaceSyncBlocker`, `WorkspaceDoctorDiagnosticCode`, and the
+    `settings-validation` doctor primitives removed** alongside the CLI
+    surfaces. The code paths under
+    `packages/core/src/unstable/workspace/doctor/` and
+    `packages/core/src/unstable/workspace/sync-workspace.ts` are deleted.
+    Consumers should migrate to the rule-based API under
+    `@agentxm/client-core/unstable/lint`.
+
+  ## New public surface
+  - `@agentxm/client-core/unstable/lint` ships the rule primitives
+    (`LintRule<C>`, `LintFinding`, `Severity`), the pure evaluator
+    (`evaluateContexts`, `collectFixOperations`), three static rule catalogs
+    (`skillRules` — five rules, `packRules` — three rules, `workspaceRules`
+    — thirteen rules), rule-context types (`SkillRuleContext`,
+    `PackRuleContext`, `WorkspaceRuleContext`), narrow accessors
+    (`SkillFileAccessor`, `PackFileAccessor`, `WorkspaceLintAccessor`), VFT-
+    and platform-backed accessor implementations, `WorkspaceIndex`, and the
+    `LintConfig` schema surfaced under `settings.lint.rules`.
+  - Plan pipeline primitives (`Plan`, `resolvePlan`, `applyPlan`, the
+    `OperationHandler` registry) are hoisted to a stable kernel export path so
+    registry publish and `axm lint` share the same autofix backbone.
+  - `.axm/settings.json` now accepts `lint.rules` with exact rule-id keys
+    mapped to `off | info | warn | error`. Workspace overrides affect
+    `axm lint` only; the registry publish gate stays platform-canonical.
+    Weakening a platform-canonical `error` in `skill/*` or `pack/*` surfaces
+    a drift banner on `axm lint` output.
+  - `axm lint [--fix] [--scope <project|user>] [--strict] [--json] [<path>]`.
+    `--json` is a global flag, not a command-local flag. `--scope user`
+    resolves `$AXM_USER_HOME`, falling back to `$HOME/.axm/` (XDG Base
+    Directory integration is deferred).
+
+  ## Internal
+  - Five v1 skill rules: `skill/skill-md-present`,
+    `skill/manifest-present`, `skill/frontmatter-parseable`,
+    `skill/manifest-schema-valid`, `skill/manifest-keys-recognized`.
+  - Three v1 pack rules: `pack/manifest-present`,
+    `pack/manifest-schema-valid`, `pack/manifest-keys-recognized`.
+  - Thirteen v1 workspace rules across three families (foundation 5, skills
+    install 5, packs install 3) with a determinism harness asserting every
+    autofixing rule converges to zero findings after `applyPlan`.
+
 ## 0.2.0 (2026-04-18)
 
 ### 🚀 Features

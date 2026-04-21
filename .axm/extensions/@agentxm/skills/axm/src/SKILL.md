@@ -23,8 +23,7 @@ triggers:
   - axm subagents
   - axm auth
   # Workspace ops
-  - axm doctor
-  - axm sync
+  - axm lint
   - axm discover
   # Common intents
   - install extension
@@ -80,8 +79,8 @@ CLI reference for the axm extension manager (v0.1.5).
 | Task                           | Command                                                   |
 | ------------------------------ | --------------------------------------------------------- |
 | Initialize workspace           | `axm init --yes`                                          |
-| Diagnose workspace             | `axm doctor`                                              |
-| Sync workspace from settings   | `axm sync --yes`                                          |
+| Lint workspace                 | `axm lint`                                                |
+| Lint + autofix                 | `axm lint --fix`                                          |
 | Discover compatible extensions | `axm discover`                                            |
 | Install skill from registry    | `axm skills install @profile/skills/name --yes`           |
 | Install skill from GitHub      | `axm skills install owner/repo --yes`                     |
@@ -127,8 +126,8 @@ Setting up a workspace?
 └── Already has .axm/ → axm skills list --json (review current state)
 
 Triaging a workspace?
-├── Health check → axm doctor --json (checks[] + summary counts)
-├── Drifted from settings → axm sync --preview → axm sync --yes
+├── Check findings → axm lint --json (findings[] with rule id + severity)
+├── Reconcile drift / apply autofixes → axm lint --fix
 └── Need extensions for project deps → axm discover --json
 
 Want to find/install an extension?
@@ -248,9 +247,9 @@ Global flags: `--json`, `--quiet`, `--verbose`, `--debug`, `--non-interactive`,
 `--force`, `--preview`, `--scope <project|user>`.
 
 Top-level command groups: `init`, `skills`, `packs`, `commands`, `mcp-servers`,
-`subagents`, `discover`, `doctor`, `sync`, `auth`, `login`, `logout`, `whoami`,
-`token`, `upgrade`. The `auth` shortcut commands (`login`, `logout`, `whoami`,
-`token`) are aliases for the corresponding `auth <sub>` forms.
+`subagents`, `discover`, `lint`, `auth`, `login`, `logout`, `whoami`, `token`,
+`upgrade`. The `auth` shortcut commands (`login`, `logout`, `whoami`, `token`)
+are aliases for the corresponding `auth <sub>` forms.
 
 ### init
 
@@ -445,24 +444,37 @@ Scans the current project (or `--path <dir>`) for known dependency manifests
 and surfaces compatible registry extensions. JSON envelope:
 `{ _version, command, items, count, totalDetected, registryAvailable }`.
 
-### doctor
+### lint
 
 ```
-axm doctor [--scope project|user] [--json]
+axm lint [--fix] [--scope project|user] [--strict] [--json] [<path>]
 ```
 
-Runs workspace diagnostics. JSON envelope: `{ _version, command, data }` with
-`checks[]` and summary counts. Use as a first triage step before other
-commands when something looks off.
+Evaluates workspace and per-extension invariants against the shared-kernel
+rule catalogs (`skillRules`, `packRules`, `workspaceRules`). Findings are
+structured: `rule id`, `severity` (`info|warn|error`), `message`, `location`.
+Without `--fix`, the command is read-only. With `--fix`, autofixable findings
+produce per-extension `Operation` values that replay through the plan pipeline
+non-interactively (no prompts, no `--yes`).
 
-### sync
+| Flag       | Description                                                               |
+| ---------- | ------------------------------------------------------------------------- |
+| `--fix`    | Apply every autofixable finding via `resolvePlan` / `applyPlan`.          |
+| `--scope`  | `project` (default) or `user` (`$AXM_USER_HOME` or `$HOME/.axm/`).        |
+| `--strict` | Exit non-zero on warnings as well as errors.                              |
+| `--json`   | Machine-readable findings envelope. `--json` is a global flag.            |
+| `<path>`   | Workspace directory to lint (defaults to the current working directory). |
 
-```
-axm sync [--scope project|user] [--yes] [--preview] [--json]
-```
+A **drift banner** appears at the top of the output when a workspace
+`lint.rules` override weakens a platform-canonical `error` in `skill/*` or
+`pack/*`. Workspace overrides affect `axm lint` only — the registry publish
+gate stays platform-canonical.
 
-Reconciles the on-disk workspace with `settings.json`. Always preview first
-(`axm sync --preview`) before applying with `--yes`.
+Use `axm lint` as a first triage step; use `axm lint --fix` to reconcile
+drift. Previewing is built-in: the read-only `axm lint` run is the preview.
+
+`axm lint` replaces the removed `axm doctor` (diagnostic-only) and `axm sync`
+(reconcile-only) commands.
 
 ### auth
 

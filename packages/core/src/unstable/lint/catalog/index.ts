@@ -16,9 +16,11 @@
 
 import { skillRules } from "./skill.js";
 import { packRules } from "./pack.js";
+import { workspaceRules } from "./workspace.js";
 
 export { skillRules } from "./skill.js";
 export { packRules } from "./pack.js";
+export { workspaceRules } from "./workspace.js";
 
 // Phase 3a accessor + context-builder helpers.
 export { makeVftSkillFileAccessor, type VFTNode } from "./skill-accessor/vft.js";
@@ -44,10 +46,37 @@ export {
   type PackIndexView,
 } from "./pack-accessor/contexts.js";
 
+// Phase 3c accessor + context-builder helpers.
+export {
+  makePlatformWorkspaceLintAccessor,
+  type PlatformWorkspaceLintAccessorArgs,
+  type WorkspaceAccessorPlatform,
+  type WorkspaceIndexView,
+} from "./workspace-accessor/platform.js";
+export {
+  buildWorkspaceRuleContext,
+  buildNativeInstalledSkillInfo,
+  buildExternalInstalledSkillInfo,
+  buildInstalledPackInfo,
+  externalSkillDisplayRoot,
+  registryNativeSkillDisplayRoot,
+  registryPackDisplayRoot,
+  type BuildInstalledPackInfoArgs,
+  type BuildInstalledSkillInfoExternalArgs,
+  type BuildInstalledSkillInfoNativeArgs,
+  type BuildWorkspaceRuleContextArgs,
+  type WorkspaceIndex,
+} from "./workspace-accessor/contexts.js";
+export {
+  PER_EXTENSION_OPERATION_NAMES,
+  isPerExtensionOperationName,
+  type PerExtensionOperationName,
+} from "./workspace/helpers/install-ops.js";
+
 /**
  * Concatenated rule-id array across every currently-exported catalog, in the
  * order catalogs were introduced (Phase 3a: `skillRules`; Phase 3b:
- * `packRules`; Phase 3c will append `workspaceRules`).
+ * `packRules`; Phase 3c: `workspaceRules`).
  *
  * Used by the rule-id snapshot test; production callers should not depend on
  * this value.
@@ -57,4 +86,5 @@ export {
 export const allCatalogRuleIds: ReadonlyArray<string> = [
   ...skillRules.map((r) => r.id),
   ...packRules.map((r) => r.id),
+  ...workspaceRules.map((r) => r.id),
 ];

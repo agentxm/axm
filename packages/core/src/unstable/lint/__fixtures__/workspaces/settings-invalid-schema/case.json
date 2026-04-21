@@ -1,0 +1,17 @@
+{
+  "description": "settings.json has a bad schema value (agents[0] is a number). workspace/settings-schema-valid fires.",
+  "state": {
+    "settings": { "agents": [42] },
+    "existingPaths": [".axm", ".axm/settings.json"],
+    "listings": {},
+    "detectedProjectAgents": []
+  },
+  "scope": "project",
+  "expectedFindings": [
+    {
+      "ruleId": "workspace/settings-schema-valid",
+      "severity": "error",
+      "file": ".axm/settings.json"
+    }
+  ]
+}

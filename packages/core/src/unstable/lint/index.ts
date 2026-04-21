@@ -71,25 +71,45 @@ export {
 } from "./config.js";
 
 // Rule catalogs (Phase 3a lands `skillRules`; Phase 3b lands `packRules`;
-// Phase 3c will append `workspaceRules`). Importing this index triggers each
+// Phase 3c lands `workspaceRules`). Importing this index triggers each
 // catalog's module-load `registerLintRuleIds(...)` call so
 // `.axm/settings.json` `lint.rules` keys can reference any exported rule id.
 export {
   allCatalogRuleIds,
+  buildExternalInstalledSkillInfo,
+  buildInstalledPackInfo,
+  buildNativeInstalledSkillInfo,
   buildPackRuleContexts,
   buildSkillRuleContexts,
+  buildWorkspaceRuleContext,
+  externalSkillDisplayRoot,
+  isPerExtensionOperationName,
   makePlatformPackFileAccessor,
   makePlatformSkillFileAccessor,
+  makePlatformWorkspaceLintAccessor,
   makeVftPackFileAccessor,
   makeVftSkillFileAccessor,
   packRules,
+  PER_EXTENSION_OPERATION_NAMES,
+  registryNativeSkillDisplayRoot,
+  registryPackDisplayRoot,
   skillRules,
+  workspaceRules,
+  type BuildInstalledPackInfoArgs,
+  type BuildInstalledSkillInfoExternalArgs,
+  type BuildInstalledSkillInfoNativeArgs,
+  type BuildWorkspaceRuleContextArgs,
   type InstalledPackInfo,
   type InstalledSkillInfo,
   type PackAccessorPlatform,
   type PackIndexView,
   type PackVFTNode,
+  type PerExtensionOperationName,
+  type PlatformWorkspaceLintAccessorArgs,
   type SkillAccessorPlatform,
   type SkillIndexView,
   type VFTNode,
+  type WorkspaceAccessorPlatform,
+  type WorkspaceIndex,
+  type WorkspaceIndexView,
 } from "./catalog/index.js";

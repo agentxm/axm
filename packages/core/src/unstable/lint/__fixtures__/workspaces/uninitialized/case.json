@@ -1,0 +1,12 @@
+{
+  "description": "Fresh workspace: no .axm directory. workspace/initialized fires exactly once; other foundation rules early-return.",
+  "state": {
+    "existingPaths": [],
+    "listings": {},
+    "detectedProjectAgents": []
+  },
+  "scope": "project",
+  "expectedFindings": [
+    { "ruleId": "workspace/initialized", "severity": "error", "file": ".axm" }
+  ]
+}

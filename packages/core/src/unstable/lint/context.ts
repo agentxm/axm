@@ -21,7 +21,6 @@
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AgentDescriptor, AgentId } from "../agents/types.js";
-import type { Settings } from "../settings/schema.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -88,27 +87,35 @@ export interface PackFileAccessor {
 // -----------------------------------------------------------------------------
 
 /**
- * Forward-declared opaque types for workspace documents.
+ * Raw workspace `settings.json` document as returned by the accessor.
  *
- * Phase 3c replaces these aliases with concrete types (the workspace's
- * `settings` return goes through `SettingsSchema`; the lockfile goes through
- * `LockfileSchema`). Rules never construct these — they only read.
+ * The accessor parses JSON but does NOT decode via `SettingsSchema` — the
+ * decode arm is the job of `workspace/settings-schema-valid`. Rules that
+ * need a typed shape call `Schema.decodeUnknown(SettingsSchema)` locally;
+ * those decodes produce no findings because `workspace/settings-schema-valid`
+ * already emits them.
+ *
+ * A `SettingsReadError` on the accessor's `settings` Effect means the bytes
+ * were unreadable or failed JSON.parse. Absence of the file surfaces via
+ * `exists(".axm/settings.json") -> false` and is owned by
+ * `workspace/initialized`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SettingsDocument = Settings;
+export type SettingsDocument = unknown;
 
 /**
- * Forward-declared lockfile document.
+ * Raw workspace `axm-lock.yaml` document as returned by the accessor.
  *
- * Phase 3c's `WorkspaceLintAccessor` implementation narrows this to the
- * concrete `Lockfile` schema type (`../lockfile/schema.ts`).
+ * The accessor parses YAML but does NOT decode via `LockfileSchema` — the
+ * decode arm is the job of `workspace/lockfile-valid`. Rules that need a
+ * typed shape call `Schema.decodeUnknown(LockfileSchema)` locally; those
+ * decodes produce no findings because `workspace/lockfile-valid` already
+ * emits them.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface LockfileDocument {
-  readonly [key: string]: unknown;
-}
+export type LockfileDocument = unknown;
 
 /**
  * Tagged error surfaced by workspace-level reads.

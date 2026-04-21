@@ -64,6 +64,12 @@ const walkIssue = (issue: Issue, path: ReadonlyArray<PropertyKey>, visit: Visito
     }
     case "Composite":
     case "AnyOf": {
+      if (issue.issues.length === 0) {
+        // No union member matched / no nested issues — treat as a leaf so
+        // the caller sees at least one finding for the covering diagnostic.
+        visit(issue, path);
+        return;
+      }
       for (const child of issue.issues) {
         walkIssue(child, path, visit);
       }

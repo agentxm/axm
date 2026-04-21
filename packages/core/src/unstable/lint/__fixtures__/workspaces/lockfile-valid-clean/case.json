@@ -1,0 +1,36 @@
+{
+  "description": "Workspace with a declared skill, matching lock entry, canonical src present, and per-agent artifact materialized. Zero findings.",
+  "state": {
+    "settings": {
+      "agents": ["claude-code"],
+      "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
+    },
+    "lockfile": {
+      "lockfileVersion": 1,
+      "skills": {
+        "reviewer": {
+          "type": "registry",
+          "owner": "@acme",
+          "name": "reviewer",
+          "resolvedVersion": "1.0.0",
+          "integrity": "sha512-stub",
+          "sourceName": "default",
+          "agents": ["claude-code"],
+          "installedAt": "2026-04-21T00:00:00.000Z",
+          "updatedAt": "2026-04-21T00:00:00.000Z",
+          "sourceHash": "sha"
+        }
+      }
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json",
+      ".axm/extensions/@acme/skills/reviewer/src/SKILL.md",
+      ".claude/skills/reviewer"
+    ],
+    "listings": { ".claude/skills": ["reviewer"] },
+    "detectedProjectAgents": ["claude-code"]
+  },
+  "scope": "project",
+  "expectedFindings": []
+}

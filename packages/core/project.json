@@ -11,7 +11,8 @@
       "inputs": [
         "production",
         "^production",
-        "{workspaceRoot}/packages/cli/scripts/generate-schemas.ts"
+        "{workspaceRoot}/packages/cli/scripts/generate-schemas.ts",
+        "{workspaceRoot}/.prettierrc.json"
       ],
       "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
       "executor": "nx:run-commands",

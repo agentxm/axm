@@ -99,15 +99,9 @@
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                  },
-                  "sourceHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "renderedFiles": {
                     "anyOf": [
                       {
@@ -150,15 +144,9 @@
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                  },
-                  "sourceHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "renderedFiles": {
                     "anyOf": [
                       {
@@ -201,15 +189,9 @@
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                  },
-                  "sourceHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "renderedFiles": {
                     "anyOf": [
                       {
@@ -253,15 +235,9 @@
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                  },
-                  "sourceHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "renderedFiles": {
                     "anyOf": [
                       {
@@ -311,15 +287,9 @@
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                  },
-                  "sourceHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "renderedFiles": {
                     "anyOf": [
                       {
@@ -349,15 +319,9 @@
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                  },
-                  "sourceHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "renderedFiles": {
                     "anyOf": [
                       {
@@ -385,23 +349,15 @@
                   "type": { "type": "string", "enum": ["registry"] },
                   "owner": { "$ref": "#/definitions/Handle" },
                   "name": { "$ref": "#/definitions/ExtensionName" },
-                  "resolvedVersion": {
-                    "$ref": "#/definitions/ExactSemverVersion"
-                  },
+                  "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
                   "integrity": { "type": "string" },
                   "sourceName": { "type": "string" },
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                  },
-                  "sourceHash": {
-                    "anyOf": [{ "type": "string" }, { "type": "null" }]
-                  },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "renderedFiles": {
                     "anyOf": [
                       {
@@ -460,25 +416,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -518,25 +461,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -576,25 +506,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -635,25 +552,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -700,25 +604,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -745,25 +636,12 @@
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
                       "path": { "type": "string" },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -791,30 +669,15 @@
                       "type": { "type": "string", "enum": ["registry"] },
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": {
-                        "$ref": "#/definitions/ExactSemverVersion"
-                      },
+                      "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -876,25 +739,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -934,25 +784,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -992,25 +829,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -1051,25 +875,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -1116,25 +927,12 @@
                           { "type": "null" }
                         ]
                       },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -1161,25 +959,12 @@
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
                       "path": { "type": "string" },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -1207,30 +992,15 @@
                       "type": { "type": "string", "enum": ["registry"] },
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": {
-                        "$ref": "#/definitions/ExactSemverVersion"
-                      },
+                      "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "agents": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      },
-                      "sourceHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "renderedFiles": {
                         "anyOf": [
                           {
@@ -1292,18 +1062,10 @@
                           { "type": "null" }
                         ]
                       },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      }
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1326,18 +1088,10 @@
                           { "type": "null" }
                         ]
                       },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      }
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1360,18 +1114,10 @@
                           { "type": "null" }
                         ]
                       },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      }
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1395,18 +1141,10 @@
                           { "type": "null" }
                         ]
                       },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      }
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
                     },
                     "required": [
                       "type",
@@ -1435,18 +1173,10 @@
                           { "type": "null" }
                         ]
                       },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      }
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
                     },
                     "required": ["type", "url", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1456,18 +1186,10 @@
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
                       "path": { "type": "string" },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      }
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
                     },
                     "required": ["type", "path", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1478,23 +1200,13 @@
                       "type": { "type": "string", "enum": ["registry"] },
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": {
-                        "$ref": "#/definitions/ExactSemverVersion"
-                      },
+                      "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "installedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "updatedAt": {
-                        "$ref": "#/definitions/IsoDateTimeString"
-                      },
-                      "gitTreeHash": {
-                        "anyOf": [{ "type": "string" }, { "type": "null" }]
-                      },
-                      "retainedByPack": {
-                        "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                      }
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
                     },
                     "required": [
                       "type",
@@ -1518,9 +1230,7 @@
           "anyOf": [
             {
               "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/ExtensionPackLockEntry"
-              }
+              "additionalProperties": { "$ref": "#/definitions/ExtensionPackLockEntry" }
             },
             { "type": "null" }
           ]

@@ -50,10 +50,7 @@
         },
         "compatiblePackages": {
           "anyOf": [
-            {
-              "type": "array",
-              "items": { "$ref": "#/definitions/PackageUrlParts" }
-            },
+            { "type": "array", "items": { "$ref": "#/definitions/PackageUrlParts" } },
             { "type": "null" }
           ]
         },

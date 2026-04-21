@@ -172,9 +172,7 @@
       "title": "Skill Entry Object",
       "description": "A skill with its source location and whether it's enabled."
     },
-    "SkillEntry": {
-      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SkillEntryObject" }]
-    },
+    "SkillEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SkillEntryObject" }] },
     "SkillsMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/SkillEntry" }
@@ -215,9 +213,7 @@
     "LintConfig": {
       "type": "object",
       "properties": {
-        "rules": {
-          "anyOf": [{ "$ref": "#/definitions/LintRulesMap" }, { "type": "null" }]
-        }
+        "rules": { "anyOf": [{ "$ref": "#/definitions/LintRulesMap" }, { "type": "null" }] }
       },
       "additionalProperties": false,
       "title": "Lint Config",
@@ -228,15 +224,11 @@
       "properties": {
         "telemetry": {
           "anyOf": [
-            {
-              "anyOf": [{ "type": "boolean" }, { "type": "string", "enum": ["errors"] }]
-            },
+            { "anyOf": [{ "type": "boolean" }, { "type": "string", "enum": ["errors"] }] },
             { "type": "null" }
           ]
         },
-        "profile": {
-          "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }]
-        },
+        "profile": { "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }] },
         "agents": {
           "anyOf": [
             {
@@ -291,34 +283,17 @@
         },
         "sources": {
           "anyOf": [
-            {
-              "type": "array",
-              "items": { "$ref": "#/definitions/SourceHostConfig" }
-            },
+            { "type": "array", "items": { "$ref": "#/definitions/SourceHostConfig" } },
             { "type": "null" }
           ]
         },
-        "commands": {
-          "anyOf": [{ "$ref": "#/definitions/CommandsMap" }, { "type": "null" }]
-        },
-        "subagents": {
-          "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }, { "type": "null" }]
-        },
-        "mcpServers": {
-          "anyOf": [{ "$ref": "#/definitions/McpServersMap" }, { "type": "null" }]
-        },
-        "packs": {
-          "anyOf": [{ "$ref": "#/definitions/ExtensionPacksMap" }, { "type": "null" }]
-        },
-        "skills": {
-          "anyOf": [{ "$ref": "#/definitions/SkillsMap" }, { "type": "null" }]
-        },
-        "ignored": {
-          "anyOf": [{ "$ref": "#/definitions/IgnoredSettings" }, { "type": "null" }]
-        },
-        "lint": {
-          "anyOf": [{ "$ref": "#/definitions/LintConfig" }, { "type": "null" }]
-        }
+        "commands": { "anyOf": [{ "$ref": "#/definitions/CommandsMap" }, { "type": "null" }] },
+        "subagents": { "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }, { "type": "null" }] },
+        "mcpServers": { "anyOf": [{ "$ref": "#/definitions/McpServersMap" }, { "type": "null" }] },
+        "packs": { "anyOf": [{ "$ref": "#/definitions/ExtensionPacksMap" }, { "type": "null" }] },
+        "skills": { "anyOf": [{ "$ref": "#/definitions/SkillsMap" }, { "type": "null" }] },
+        "ignored": { "anyOf": [{ "$ref": "#/definitions/IgnoredSettings" }, { "type": "null" }] },
+        "lint": { "anyOf": [{ "$ref": "#/definitions/LintConfig" }, { "type": "null" }] }
       },
       "additionalProperties": false,
       "title": "AXM Settings",

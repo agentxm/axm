@@ -51,10 +51,7 @@
         },
         "compatiblePackages": {
           "anyOf": [
-            {
-              "type": "array",
-              "items": { "$ref": "#/definitions/PackageUrlParts" }
-            },
+            { "type": "array", "items": { "$ref": "#/definitions/PackageUrlParts" } },
             { "type": "null" }
           ]
         },
@@ -64,9 +61,7 @@
           "anyOf": [
             {
               "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/VersionConstraint"
-              }
+              "additionalProperties": { "$ref": "#/definitions/VersionConstraint" }
             },
             { "type": "null" }
           ]
@@ -75,9 +70,7 @@
           "anyOf": [
             {
               "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/VersionConstraint"
-              }
+              "additionalProperties": { "$ref": "#/definitions/VersionConstraint" }
             },
             { "type": "null" }
           ]
@@ -86,9 +79,7 @@
           "anyOf": [
             {
               "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/VersionConstraint"
-              }
+              "additionalProperties": { "$ref": "#/definitions/VersionConstraint" }
             },
             { "type": "null" }
           ]
@@ -97,9 +88,7 @@
           "anyOf": [
             {
               "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/VersionConstraint"
-              }
+              "additionalProperties": { "$ref": "#/definitions/VersionConstraint" }
             },
             { "type": "null" }
           ]

@@ -1,3 +1,13 @@
+## 0.3.0 (2026-04-21)
+
+### 🚀 Features
+
+- Lint engine + axm lint command ([2d7f6954](https://github.com/agentxm/axm/commit/2d7f6954))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## Unreleased (2026-04-21)
 
 ### 🚀 Features

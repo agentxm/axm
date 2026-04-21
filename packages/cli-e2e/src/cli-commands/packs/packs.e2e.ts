@@ -688,7 +688,17 @@ describe("axm packs install", () => {
     }
   });
 
-  it("prune logic removes dropped dependencies when sync re-evaluates an installed pack", async () => {
+  // Skipped in Phase 7: this scenario exercised the removed `axm sync`
+  // workspace-wide reconcile. The closest replacement — `axm packs
+  // install @test/packs/prune-pack --yes` — does re-install the pack
+  // at the newer version but promotes pack-member skills into the
+  // top-level `skills` map as direct entries, which differs from
+  // `sync`'s prune semantics. A follow-up OpenSpec change should
+  // define how prune-on-pack-update flows through the rule-driven
+  // pipeline (candidate: expand `workspace/packs-members-retained`
+  // into an autofixing rule or wire a dedicated `axm packs update`
+  // verb). Tracked in the Phase 7 summary.
+  it.skip("prune logic removes dropped dependencies when sync re-evaluates an installed pack", async () => {
     const author = createTempDir();
     const consumer = createTempDir();
     const registryDir = createTempDir("axm-registry-");

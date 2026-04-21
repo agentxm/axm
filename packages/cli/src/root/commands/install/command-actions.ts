@@ -37,7 +37,7 @@ import {
   selectRenderer,
   type CommandExtensionRef,
 } from "@agentxm/client-core/unstable/commands";
-import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallCommandCommandIntent } from "./intent.js";

@@ -23,7 +23,7 @@ import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { JobStepResult, Operation } from "../../workspace/plan.js";
+import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------

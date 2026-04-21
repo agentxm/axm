@@ -17,8 +17,8 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import type { PublishSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { publishSkill } from "@agentxm/client-core/unstable/skills";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
 import { MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";

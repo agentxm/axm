@@ -36,7 +36,7 @@ import {
 } from "@agentxm/client-core/unstable/packs";
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 
 /**
  * Union of operation types produced by the pack unpack plan builder.

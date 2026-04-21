@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { augmentPlanWithReconciliation, type AugmentedPlanResult } from "./augment-plan.js";
-import type { Plan } from "./plan.js";
+import type { Plan } from "../plan/plan.js";
 import type { Settings } from "../settings/index.js";
 
 // -----------------------------------------------------------------------------

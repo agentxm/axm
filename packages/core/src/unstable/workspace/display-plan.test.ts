@@ -17,7 +17,7 @@ import {
 import { type Verbosity, TestFlagsLayer } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { displayPlan } from "./display-plan.js";
-import type { Plan, ExecutedPlan } from "./plan.js";
+import type { Plan, ExecutedPlan } from "../plan/plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

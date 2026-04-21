@@ -13,7 +13,7 @@ import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
 import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 

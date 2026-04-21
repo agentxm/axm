@@ -23,7 +23,7 @@ import {
 import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------

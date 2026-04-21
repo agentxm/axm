@@ -22,7 +22,7 @@ import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import type { ExtensionPackRef } from "@agentxm/client-core/unstable/packs";
 import type { ExtensionFiles } from "@agentxm/client-core/unstable/sources";
 import {

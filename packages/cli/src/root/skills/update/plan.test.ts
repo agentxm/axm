@@ -14,7 +14,7 @@ import type { ExactSemverVersion } from "@agentxm/client-core/unstable/version-c
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 

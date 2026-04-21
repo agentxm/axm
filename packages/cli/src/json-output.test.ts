@@ -7,7 +7,7 @@ import type {
   CancelledPlan,
   ExecutedPlan,
   PreviewedPlan,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/client-core/unstable/plan";
 
 import { toPlanResolutionResult, planResolutionToSummary } from "./json-output.js";
 

@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 
 // -----------------------------------------------------------------------------
 // Types

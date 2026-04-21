@@ -16,7 +16,7 @@ import {
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import { parseFqnOrThrow } from "@agentxm/client-core/unstable/extensions";
 import { buildUnpackPlan } from "./plan.js";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 
 export interface UnpackHandlerArgs {

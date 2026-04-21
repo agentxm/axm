@@ -9,6 +9,8 @@ import {
   type Plan,
   type PlanSection,
   type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
+import {
   Workspace,
   resolveConfiguredCommand,
   resolveConfiguredMcpServer,

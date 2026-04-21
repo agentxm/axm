@@ -19,7 +19,7 @@ import { computeIntegrity, isPathSafe, stripFileProtocol } from "../../utils/ind
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import type { JobStepResult, Operation } from "../../workspace/plan.js";
+import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,

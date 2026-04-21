@@ -14,8 +14,8 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, JobStepResult } from "../../workspace/plan.js";
+import type { OperationHandler } from "../../plan/apply-plan.js";
+import type { Operation, JobStepResult } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,

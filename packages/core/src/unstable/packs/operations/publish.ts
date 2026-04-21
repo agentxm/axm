@@ -23,8 +23,8 @@ import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, JobStepResult } from "../../workspace/plan.js";
+import type { OperationHandler } from "../../plan/apply-plan.js";
+import type { Operation, JobStepResult } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { computeExtensionPackPaths } from "../paths.js";
 

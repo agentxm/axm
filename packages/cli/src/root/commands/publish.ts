@@ -20,8 +20,8 @@ import {
   publishCommand as publishCommandOp,
   COMMAND_MANIFEST_FILENAME,
 } from "@agentxm/client-core/unstable/commands";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import {

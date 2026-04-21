@@ -9,13 +9,15 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
-  formatWorkspaceSyncBlockersHowToFix,
-  getWorkspaceSyncReadiness,
-  syncWorkspace,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
   previewOrApplyPlan,
+} from "@agentxm/client-core/unstable/plan";
+import {
+  formatWorkspaceSyncBlockersHowToFix,
+  getWorkspaceSyncReadiness,
+  syncWorkspace,
   Workspace,
 } from "@agentxm/client-core/unstable/workspace";
 

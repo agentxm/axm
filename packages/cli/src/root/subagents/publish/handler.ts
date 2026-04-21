@@ -13,8 +13,8 @@ import {
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import type { PublishSubagentOperation } from "@agentxm/client-core/unstable/subagents";
 import { publishSubagent, MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import {

@@ -29,7 +29,7 @@ import {
   McpServerManager,
   type McpServerExtensionRef,
 } from "@agentxm/client-core/unstable/mcp-servers";
-import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallMcpServerCommandIntent } from "./intent.js";

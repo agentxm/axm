@@ -50,11 +50,10 @@ import {
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type {
   CommandExtensionTarget,
   McpServerExtensionTarget,
-  Plan,
-  PlannedJobStep,
   SkillExtensionTarget,
   SubagentExtensionTarget,
 } from "@agentxm/client-core/unstable/workspace";

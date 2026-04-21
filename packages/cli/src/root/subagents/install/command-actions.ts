@@ -31,7 +31,7 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import type { InstallSubagentCommandIntent } from "./intent.js";
 import {
   resolveSubagentInstallSource,

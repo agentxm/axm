@@ -21,7 +21,7 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import type { JobStepResult, Operation } from "../../workspace/plan.js";
+import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";

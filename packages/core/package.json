@@ -98,6 +98,10 @@
       "types": "./src/unstable/auth/index.ts",
       "default": "./dist/src/unstable/auth/index.js"
     },
+    "./unstable/plan": {
+      "types": "./src/unstable/plan/index.ts",
+      "default": "./dist/src/unstable/plan/index.js"
+    },
     "./unstable/workspace": {
       "types": "./src/unstable/workspace/index.ts",
       "default": "./dist/src/unstable/workspace/index.js"

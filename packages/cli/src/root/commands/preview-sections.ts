@@ -1,4 +1,4 @@
-import type { PlanSection } from "@agentxm/client-core/unstable/workspace";
+import type { PlanSection } from "@agentxm/client-core/unstable/plan";
 
 interface PathEntry {
   readonly path: string;

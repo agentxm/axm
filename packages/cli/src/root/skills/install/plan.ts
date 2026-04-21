@@ -11,7 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import type { Source } from "@agentxm/client-core/unstable/sources";

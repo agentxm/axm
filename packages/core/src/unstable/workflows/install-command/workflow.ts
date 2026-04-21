@@ -10,8 +10,8 @@
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
 import type { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
-import type { Plan, PlanResolution } from "../../workspace/plan.js";
-import { previewOrApplyPlan } from "../../workspace/resolve-plan.js";
+import type { Plan, PlanResolution } from "../../plan/plan.js";
+import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Install Command Workflow Actions Interface

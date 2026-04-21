@@ -21,7 +21,7 @@ import type {
   ReconcileExtensionType,
   UnresolvedReason,
 } from "./reconciliation-types.js";
-import type { JobStepResult } from "./plan.js";
+import type { JobStepResult } from "../plan/plan.js";
 
 /**
  * Mutable module-level adapters registry.

@@ -6,7 +6,7 @@ import {
   summarizeCommandOutcome,
   type SubjectType,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
 
 import {
   emitNoOpResult,

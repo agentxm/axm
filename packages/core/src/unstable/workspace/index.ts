@@ -5,27 +5,9 @@
  * @packageDocumentation
  */
 
-// Plan types
-export type {
-  CancelledPlan,
-  CompletedJobStep,
-  ErrorJobStep,
-  ExecutedJob,
-  ExecutedPlan,
-  Job,
-  JobStepResult,
-  Operation,
-  Plan,
-  PlanResolution,
-  PlanSection,
-  PlannedJobStep,
-  PreviewedPlan,
-  ReadyJobStep,
-  WarnJobStep,
-} from "./plan.js";
-
-// Apply plan
-export { applyPlan, type OperationHandler } from "./apply-plan.js";
+// Plan pipeline primitives (`Plan`, `applyPlan`, `previewOrApplyPlan`, and
+// `OperationHandler`) moved to `@agentxm/client-core/unstable/plan`. Consumers
+// import them from there directly.
 
 // Path utilities
 export {
@@ -251,8 +233,6 @@ export {
   ResolvePlanInteractionLive,
   ResolvePlanInteractionTest,
 } from "./resolve-plan-interaction.js";
-export { previewOrApplyPlan } from "./resolve-plan.js";
-
 // Plan display
 export { displayPlan } from "./display-plan.js";
 

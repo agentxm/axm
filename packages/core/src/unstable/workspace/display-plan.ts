@@ -12,7 +12,13 @@ import * as ServiceMap from "effect/Context";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { renderAppError } from "../app-error/index.js";
-import type { CompletedJobStep, ExecutedPlan, Plan, PlanSection, PlannedJobStep } from "./plan.js";
+import type {
+  CompletedJobStep,
+  ExecutedPlan,
+  Plan,
+  PlanSection,
+  PlannedJobStep,
+} from "../plan/plan.js";
 
 // -----------------------------------------------------------------------------
 // Implementation

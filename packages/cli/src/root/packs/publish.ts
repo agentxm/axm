@@ -8,12 +8,7 @@ import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
-import type {
-  Job,
-  JobStepResult,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/client-core/unstable/workspace";
+import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
   formatFqn,
   parseFqn,
@@ -41,7 +36,7 @@ import {
   publishMcpServer,
   type PublishMcpServerOperation,
 } from "@agentxm/client-core/unstable/mcp-servers";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,

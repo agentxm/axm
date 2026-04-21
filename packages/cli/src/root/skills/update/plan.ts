@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Lockfile, SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 

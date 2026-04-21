@@ -20,18 +20,18 @@ import { makeAppError } from "../app-error/index.js";
 import type { AppError } from "../app-error/index.js";
 import { createDefaultSettings, readSettings, type Settings } from "../settings/index.js";
 import { applyPlan } from "./apply-plan.js";
-import { augmentPlanWithReconciliation, type LockfileState } from "./augment-plan.js";
-import { scanPlanReadiness } from "./scan-plan-readiness.js";
-import { setReconciliationAdapters } from "./reconciliation.js";
+import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
+import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
+import { setReconciliationAdapters } from "../workspace/reconciliation.js";
 import type { CancelledPlan, ExecutedPlan, Plan, PreviewedPlan } from "./plan.js";
-import { Workspace } from "./service-interface.js";
+import { Workspace } from "../workspace/service-interface.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
 import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
-import { displayPlan } from "./display-plan.js";
-import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
+import { displayPlan } from "../workspace/display-plan.js";
+import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 
 const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
   code: "PROMPT_REQUIRED",

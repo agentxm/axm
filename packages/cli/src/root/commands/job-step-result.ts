@@ -5,7 +5,7 @@
  */
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
 
 /**
  * Maps an operation result to a {@link JobStepResult} discriminated union.

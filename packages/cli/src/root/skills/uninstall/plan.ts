@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Record as EffectRecord } from "effect";
-import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import { uninstallSkill } from "@agentxm/client-core/unstable/skills";
 import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";

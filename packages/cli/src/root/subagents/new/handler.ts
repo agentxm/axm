@@ -23,8 +23,8 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 

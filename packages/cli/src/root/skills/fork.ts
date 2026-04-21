@@ -33,10 +33,10 @@ import { installSkill } from "@agentxm/client-core/unstable/skills";
 import { publishSkill } from "@agentxm/client-core/unstable/skills";
 import { expandGlobs } from "@agentxm/client-core/unstable/utils";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
-import type { PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
-import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type { PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 
 export interface ForkHandlerArgs {

@@ -16,9 +16,9 @@ import {
   EXTENSION_PACK_MANIFEST_FILENAME,
   EXTENSION_PACK_MANIFEST_SCHEMA_URL,
 } from "../manifest-schema.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation } from "../../workspace/plan.js";
-import type { JobStepResult } from "../../workspace/plan.js";
+import type { OperationHandler } from "../../plan/apply-plan.js";
+import type { Operation } from "../../plan/plan.js";
+import type { JobStepResult } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { computeExtensionPackPaths } from "../paths.js";
 import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";

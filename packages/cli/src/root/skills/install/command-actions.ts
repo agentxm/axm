@@ -30,7 +30,7 @@ import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { Plan, PlanSection } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlanSection } from "@agentxm/client-core/unstable/plan";
 import {
   formatPackageDisplay,
   PackageUrlPartsSchema,

@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AppError } from "../app-error/index.js";
-import type { JobStepResult, PlannedJobStep } from "../workspace/plan.js";
+import type { JobStepResult, PlannedJobStep } from "../plan/plan.js";
 import type { ExtensionRef } from "./refs.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import type {

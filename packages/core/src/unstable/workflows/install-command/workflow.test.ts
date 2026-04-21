@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import type { Plan } from "../../workspace/index.js";
+import type { Plan } from "../../plan/index.js";
 import { Workspace } from "../../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {

@@ -7,8 +7,8 @@ import matter from "gray-matter";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {

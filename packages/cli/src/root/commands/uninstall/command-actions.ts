@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { Workspace } from "@agentxm/client-core/unstable/workspace";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
-import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import type {
   CommandExtensionTarget,
   ExtensionTarget,

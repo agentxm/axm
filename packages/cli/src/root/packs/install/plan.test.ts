@@ -35,7 +35,7 @@ import {
 } from "../../../test-stubs.js";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 
 const ACME = normalizeHandle("@acme");
 

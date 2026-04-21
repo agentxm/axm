@@ -5,6 +5,12 @@
  * (for ready/warn steps) or an error message (for error steps). Plans and jobs
  * are non-generic; operation-specific details are captured in step closures.
  *
+ * This module is the stable kernel home for the plan-pipeline primitives. It
+ * is imported by the CLI, the lint module, and any shared-kernel consumer that
+ * composes workspace Operations. The registry Worker SHALL NOT import it —
+ * publish never applies fixes, so the plan pipeline tree-shakes out of the
+ * Worker bundle.
+ *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */

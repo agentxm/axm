@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { parseFullyQualifiedNameParts } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile, ExtensionPackLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/workspace";
+import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { uninstallSkill, type UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import {
   uninstallExtensionPack,

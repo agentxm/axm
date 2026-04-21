@@ -24,9 +24,9 @@ import type { ExactSemverVersion } from "../../version-constraints/version-const
 import type { ExtensionPackRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation } from "../../workspace/plan.js";
-import type { JobStepResult } from "../../workspace/plan.js";
+import type { OperationHandler } from "../../plan/apply-plan.js";
+import type { Operation } from "../../plan/plan.js";
+import type { JobStepResult } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
 import { computeExtensionPackPaths } from "../paths.js";

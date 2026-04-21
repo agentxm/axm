@@ -33,7 +33,7 @@ import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skil
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
 import { uninstallSkill } from "@agentxm/client-core/unstable/skills";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -501,7 +501,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     readonly result: string;
     readonly message: string;
     readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
-  }): import("@agentxm/client-core/unstable/workspace").JobStepResult =>
+  }): import("@agentxm/client-core/unstable/plan").JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }
       : { result: "success", message: result.message };

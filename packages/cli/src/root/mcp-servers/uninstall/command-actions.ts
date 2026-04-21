@@ -18,7 +18,7 @@ import {
   McpServerManager,
   type McpServerExtensionRef,
 } from "@agentxm/client-core/unstable/mcp-servers";
-import type { Plan } from "@agentxm/client-core/unstable/workspace";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import type {
   ExtensionTarget,
   McpServerExtensionTarget,

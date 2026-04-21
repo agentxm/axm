@@ -10,9 +10,9 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation } from "../../workspace/plan.js";
-import type { JobStepResult } from "../../workspace/plan.js";
+import type { OperationHandler } from "../../plan/apply-plan.js";
+import type { Operation } from "../../plan/plan.js";
+import type { JobStepResult } from "../../plan/plan.js";
 import {
   COMMAND_MANIFEST_FILENAME,
   COMMAND_MANIFEST_SCHEMA_URL,

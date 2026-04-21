@@ -17,7 +17,7 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile, ResolvedExtensionMap } from "@agentxm/client-core/unstable/lockfile";
 import type { RegistryExtensionPackRef } from "@agentxm/client-core/unstable/packs";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { installSkill, type InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import {
   installExtensionPack,

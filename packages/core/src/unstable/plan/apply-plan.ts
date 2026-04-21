@@ -5,6 +5,15 @@
  * ready/warn steps and promoting error steps to error results without
  * execution. Preserves inter-job blocking and intra-job continuation.
  *
+ * This module is the stable kernel home for `applyPlan` and the
+ * `OperationHandler` type. Per-extension handlers (`install-skill`,
+ * `uninstall-skill`, `enable-skill`, `disable-skill`, `install-pack`,
+ * `uninstall-pack`, `install-command`, `uninstall-command`, `enable-command`,
+ * `disable-command`, `install-mcp-server`, `uninstall-mcp-server`,
+ * `enable-subagent`, `disable-subagent`) live in their domain packages under
+ * `../{skills,packs,commands,mcp-servers,subagents}/operations/*` and resolve
+ * from this location.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -124,4 +133,4 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
         steps,
       })),
     } satisfies ExecutedPlan;
-  }).pipe(Effect.withSpan("Workspace.applyPlan"));
+  }).pipe(Effect.withSpan("Plan.applyPlan"));

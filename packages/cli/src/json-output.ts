@@ -13,7 +13,7 @@ import type {
   ExecutedPlan,
   PlanResolution,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/client-core/unstable/plan";
 
 const StepStatusSchema = Schema.Literals([
   "ready",

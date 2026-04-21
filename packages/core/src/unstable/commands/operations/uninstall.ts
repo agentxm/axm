@@ -12,7 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { JobStepResult, Operation } from "../../workspace/plan.js";
+import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";

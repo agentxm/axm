@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import { DEFAULT_PROFILE } from "../settings/index.js";
 import { type AppError } from "../app-error/index.js";
 import type { Settings } from "../settings/index.js";
-import type { Plan, PlannedJobStep } from "./plan.js";
+import type { Plan, PlannedJobStep } from "../plan/plan.js";
 import type { ReconciliationContext } from "./reconciliation-types.js";
 import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./reconciliation.js";
 

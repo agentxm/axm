@@ -1,0 +1,9 @@
+{
+  "owner": "@acme",
+  "type": "pack",
+  "name": "utility-belt",
+  "version": "1.0.0",
+  "description": "a valid pack with dependency maps",
+  "skills": { "@acme/skills/example": "^1.0.0" },
+  "mcp-servers": { "@acme/mcp-servers/db": "^2.0.0" }
+}

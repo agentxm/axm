@@ -1,0 +1,10 @@
+{
+  "description": "Pack manifest `version` is not a valid SemVer; manifest-schema-valid fires error.",
+  "expectedFindings": [
+    {
+      "ruleId": "pack/manifest-schema-valid",
+      "severity": "error",
+      "file": "extension-pack.json"
+    }
+  ]
+}

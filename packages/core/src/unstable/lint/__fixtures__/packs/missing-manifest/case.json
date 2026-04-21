@@ -1,0 +1,11 @@
+{
+  "description": "Pack has no extension-pack.json at the pack root; manifest-present fires error.",
+  "expectedFindings": [
+    {
+      "ruleId": "pack/manifest-present",
+      "severity": "error",
+      "file": "extension-pack.json",
+      "messageIncludes": "missing"
+    }
+  ]
+}

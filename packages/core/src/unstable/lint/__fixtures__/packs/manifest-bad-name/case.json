@@ -1,0 +1,10 @@
+{
+  "description": "Pack manifest `name` contains uppercase (grammar violation); manifest-schema-valid fires error.",
+  "expectedFindings": [
+    {
+      "ruleId": "pack/manifest-schema-valid",
+      "severity": "error",
+      "file": "extension-pack.json"
+    }
+  ]
+}

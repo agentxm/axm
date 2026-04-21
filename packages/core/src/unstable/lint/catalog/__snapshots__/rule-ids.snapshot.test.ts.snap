@@ -7,5 +7,8 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "skill/frontmatter-parseable",
   "skill/manifest-schema-valid",
   "skill/manifest-keys-recognized",
+  "pack/manifest-present",
+  "pack/manifest-schema-valid",
+  "pack/manifest-keys-recognized",
 ]
 `;

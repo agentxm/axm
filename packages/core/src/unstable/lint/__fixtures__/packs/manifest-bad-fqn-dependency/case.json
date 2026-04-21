@@ -1,0 +1,10 @@
+{
+  "description": "Dependency map key is not an owner-qualified FQN; manifest-schema-valid fires error for the bad FQN grammar.",
+  "expectedFindings": [
+    {
+      "ruleId": "pack/manifest-schema-valid",
+      "severity": "error",
+      "file": "extension-pack.json"
+    }
+  ]
+}

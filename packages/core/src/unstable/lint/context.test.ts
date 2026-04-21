@@ -115,7 +115,7 @@ describe("Rule-context types", () => {
 
   it("PackRuleContext carries subject, files, displayRoot", () => {
     const ctx: PackRuleContext = {
-      subject: { name: "example" },
+      subject: { packJson: { owner: "@acme", type: "pack", name: "example", version: "0.1.0" } },
       files: makePackAccessor(),
       displayRoot: "",
     };

@@ -224,7 +224,10 @@ export interface SkillContent {
 /**
  * Context passed to `pack/*` rules.
  *
- * Phase 3b refines `subject` to the concrete `PackContent` type.
+ * `subject` is the caller-decoded pack content — concrete `PackContent` shape
+ * defined below. Packs are registry-only at v1 (no non-native arm), so the
+ * subject carries only the already-decoded manifest and rules read
+ * `extension-pack.json` bytes through `context.files` as needed.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -235,16 +238,31 @@ export interface PackRuleContext<S = PackContent> {
 }
 
 /**
- * Forward-declared shape of a decoded pack manifest.
+ * Concrete subject shape passed to `pack/*` rules.
  *
- * Phase 3b replaces this with the concrete `PackContent` (`ExtensionPackManifest`
- * wrapper) type.
+ * Rules read `extension-pack.json` bytes through `context.files` (the
+ * authoritative source shared across publish and `axm lint`). The `subject`
+ * carries only what rules can't efficiently re-derive from bytes:
+ *
+ * - `packJson` — the already-decoded `extension-pack.json` contents when
+ *   present (caller decodes once, rules don't re-read + re-parse).
+ *   `undefined` when the file is absent. Schema-valid rules pipe this into
+ *   `Schema.decodeUnknownResult(ExtensionPackManifestSchema)`;
+ *   keys-recognized enumerates top-level keys after narrowing to
+ *   `Record<string, unknown>`.
+ *
+ * Unlike `SkillContent`, there is no `isNative` discriminator — packs are
+ * registry-only and every pack context is expected to expose a manifest.
+ * The presence rule (`pack/manifest-present`) owns the absence arm.
+ *
+ * Phase 3c consumers build `PackContent` via `buildPackRuleContexts`
+ * against the `WorkspaceIndex` surface; publish (Phase 4, this-repo) builds
+ * one `PackContent` per incoming archive.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface PackContent {
-  readonly name: string;
-  readonly [key: string]: unknown;
+  readonly packJson: unknown;
 }
 
 /**

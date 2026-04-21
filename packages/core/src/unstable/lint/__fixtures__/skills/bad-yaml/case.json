@@ -1,0 +1,12 @@
+{
+  "description": "Malformed YAML inside the frontmatter block.",
+  "isNative": false,
+  "expectedFindings": [
+    {
+      "ruleId": "skill/frontmatter-parseable",
+      "severity": "error",
+      "file": "SKILL.md",
+      "messageIncludes": "YAML"
+    }
+  ]
+}

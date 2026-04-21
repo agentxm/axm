@@ -1,0 +1,6 @@
+{
+  "owner": "@acme",
+  "type": "skill",
+  "name": "example",
+  "version": "not-a-semver"
+}

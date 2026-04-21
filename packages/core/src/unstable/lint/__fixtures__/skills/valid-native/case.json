@@ -1,0 +1,5 @@
+{
+  "description": "Fully valid native skill with SKILL.md + skill.json. Zero findings.",
+  "isNative": true,
+  "expectedFindings": []
+}

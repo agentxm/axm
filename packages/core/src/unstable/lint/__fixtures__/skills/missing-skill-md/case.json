@@ -1,0 +1,7 @@
+{
+  "description": "Skill root missing SKILL.md. Only skill-md-present fires (not frontmatter-parseable, which guards on SKILL.md existence).",
+  "isNative": true,
+  "expectedFindings": [
+    { "ruleId": "skill/skill-md-present", "severity": "error", "file": "SKILL.md" }
+  ]
+}

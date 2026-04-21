@@ -69,3 +69,19 @@ export {
   registerLintRuleIds,
   registeredLintRuleIds,
 } from "./config.js";
+
+// Rule catalogs (Phase 3a lands `skillRules`; Phases 3b/3c append to this
+// barrel). Importing this index triggers each catalog's module-load
+// `registerLintRuleIds(...)` call so `.axm/settings.json` `lint.rules` keys
+// can reference any exported rule id.
+export {
+  allCatalogRuleIds,
+  buildSkillRuleContexts,
+  makePlatformSkillFileAccessor,
+  makeVftSkillFileAccessor,
+  skillRules,
+  type InstalledSkillInfo,
+  type SkillAccessorPlatform,
+  type SkillIndexView,
+  type VFTNode,
+} from "./catalog/index.js";

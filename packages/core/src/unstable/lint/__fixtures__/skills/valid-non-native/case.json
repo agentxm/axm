@@ -1,0 +1,5 @@
+{
+  "description": "Managed-external skill with SKILL.md only; no skill.json. Zero findings from manifest-dependent rules.",
+  "isNative": false,
+  "expectedFindings": []
+}

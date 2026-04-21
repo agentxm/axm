@@ -1,0 +1,12 @@
+{
+  "description": "UTF-8 BOM before the frontmatter `---` delimiter.",
+  "isNative": false,
+  "expectedFindings": [
+    {
+      "ruleId": "skill/frontmatter-parseable",
+      "severity": "error",
+      "file": "SKILL.md",
+      "messageIncludes": "BOM"
+    }
+  ]
+}

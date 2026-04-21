@@ -1,0 +1,7 @@
+{
+  "owner": "@acme",
+  "type": "skill",
+  "name": "example",
+  "version": "0.1.0",
+  "description": "A valid native skill fixture."
+}

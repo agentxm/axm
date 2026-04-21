@@ -1,0 +1,7 @@
+{
+  "description": "Native skill whose skill.json omits the required `version` field.",
+  "isNative": true,
+  "expectedFindings": [
+    { "ruleId": "skill/manifest-schema-valid", "severity": "error", "file": "skill.json" }
+  ]
+}

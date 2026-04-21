@@ -1,0 +1,12 @@
+{
+  "description": "Frontmatter parses but is a YAML list, not a mapping.",
+  "isNative": false,
+  "expectedFindings": [
+    {
+      "ruleId": "skill/frontmatter-parseable",
+      "severity": "error",
+      "file": "SKILL.md",
+      "messageIncludes": "mapping"
+    }
+  ]
+}

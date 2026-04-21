@@ -1,0 +1,12 @@
+{
+  "description": "The original regression that motivated this change: HTML comment before the frontmatter `---` delimiter.",
+  "isNative": false,
+  "expectedFindings": [
+    {
+      "ruleId": "skill/frontmatter-parseable",
+      "severity": "error",
+      "file": "SKILL.md",
+      "messageIncludes": "HTML comment"
+    }
+  ]
+}

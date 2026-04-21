@@ -190,17 +190,35 @@ export interface SkillRuleContext<S = SkillContent> {
 }
 
 /**
- * Forward-declared shape of a decoded skill content bundle.
+ * Concrete subject shape passed to `skill/*` rules.
  *
- * Phase 3a replaces this with the concrete `SkillContent` type (SKILL.md
- * frontmatter + optional `skill.json`). Keeping the shape structural in Phase
- * 2 avoids a circular dependency on the skill module.
+ * Rules read `SKILL.md` bytes through `context.files` (the authoritative
+ * source shared across publish and `axm lint`). The `subject` carries only
+ * what rules can't efficiently re-derive from bytes:
+ *
+ * - `isNative` — whether the caller expects this skill to carry a
+ *   `skill.json` manifest. Native (registry-installed) skills set this to
+ *   `true`; non-native (managed external) skills set it to `false`. Rules
+ *   that depend on `skill.json` (`skill/manifest-present`,
+ *   `skill/manifest-schema-valid`, `skill/manifest-keys-recognized`)
+ *   early-return `[]` when `isNative === false`, so the same catalog covers
+ *   both.
+ * - `skillJson` — the already-decoded `skill.json` contents when present
+ *   (caller decodes once, rules don't re-read + re-parse). `undefined` when
+ *   the file is absent. Schema-valid rules pipe this into
+ *   `Schema.decodeUnknownResult(SkillManifestSchema)`; keys-recognized
+ *   enumerates top-level keys after narrowing to `Record<string, unknown>`.
+ *
+ * Phase 3b and 3c consumers build `SkillContent` via
+ * `buildSkillRuleContexts` (this phase) against the `WorkspaceIndex`
+ * surface; publish (Phase 4, this-repo) builds one `SkillContent` per
+ * incoming archive.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface SkillContent {
-  readonly name: string;
-  readonly [key: string]: unknown;
+  readonly isNative: boolean;
+  readonly skillJson: unknown;
 }
 
 /**

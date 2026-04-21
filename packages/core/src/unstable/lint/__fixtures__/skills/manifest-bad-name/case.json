@@ -1,0 +1,7 @@
+{
+  "description": "Native skill with an extension name that violates the grammar.",
+  "isNative": true,
+  "expectedFindings": [
+    { "ruleId": "skill/manifest-schema-valid", "severity": "error", "file": "skill.json" }
+  ]
+}

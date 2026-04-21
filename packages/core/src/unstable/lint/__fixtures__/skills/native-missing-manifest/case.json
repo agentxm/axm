@@ -1,0 +1,7 @@
+{
+  "description": "Native skill with SKILL.md but no skill.json. manifest-present fires; schema-valid and keys-recognized early-return.",
+  "isNative": true,
+  "expectedFindings": [
+    { "ruleId": "skill/manifest-present", "severity": "error", "file": "skill.json" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "description": "Native skill manifest with two unrecognized top-level keys; schema-valid passes, keys-recognized emits one warning per unknown key.",
+  "isNative": true,
+  "expectedFindings": [
+    {
+      "ruleId": "skill/manifest-keys-recognized",
+      "severity": "warning",
+      "file": "skill.json",
+      "messageIncludes": "made_up_key"
+    },
+    {
+      "ruleId": "skill/manifest-keys-recognized",
+      "severity": "warning",
+      "file": "skill.json",
+      "messageIncludes": "another_unknown"
+    }
+  ]
+}

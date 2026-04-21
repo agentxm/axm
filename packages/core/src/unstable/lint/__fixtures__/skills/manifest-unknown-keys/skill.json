@@ -1,0 +1,8 @@
+{
+  "owner": "@acme",
+  "type": "skill",
+  "name": "example",
+  "version": "0.1.0",
+  "made_up_key": "x",
+  "another_unknown": 1
+}

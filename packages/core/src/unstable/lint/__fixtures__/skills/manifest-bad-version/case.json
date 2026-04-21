@@ -1,0 +1,7 @@
+{
+  "description": "Native skill with an invalid SemVer version.",
+  "isNative": true,
+  "expectedFindings": [
+    { "ruleId": "skill/manifest-schema-valid", "severity": "error", "file": "skill.json" }
+  ]
+}

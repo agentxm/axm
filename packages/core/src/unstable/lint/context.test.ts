@@ -104,7 +104,7 @@ describe("WorkspaceLintAccessor surface area", () => {
 describe("Rule-context types", () => {
   it("SkillRuleContext carries subject, files, displayRoot", () => {
     const ctx: SkillRuleContext = {
-      subject: { name: "example" },
+      subject: { isNative: true, skillJson: undefined },
       files: makeSkillAccessor(),
       displayRoot: ".axm/extensions/@acme/skills/axm/src",
     };

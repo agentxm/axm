@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
+[
+  "skill/skill-md-present",
+  "skill/manifest-present",
+  "skill/frontmatter-parseable",
+  "skill/manifest-schema-valid",
+  "skill/manifest-keys-recognized",
+]
+`;

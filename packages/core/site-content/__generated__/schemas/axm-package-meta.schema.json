@@ -2,27 +2,14 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/AxmPackageMeta",
   "definitions": {
-    "FullyQualifiedRef": {
-      "type": "string"
-    },
+    "FullyQualifiedRef": { "type": "string" },
     "AxmPackageMeta": {
       "type": "object",
       "properties": {
-        "$schema": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
+        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "recommendedExtensions": {
           "type": "array",
-          "items": {
-            "$ref": "#/definitions/FullyQualifiedRef"
-          }
+          "items": { "$ref": "#/definitions/FullyQualifiedRef" }
         }
       },
       "required": ["recommendedExtensions"],

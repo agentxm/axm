@@ -8,7 +8,11 @@
   "targets": {
     "generate-schemas": {
       "cache": true,
-      "inputs": ["production", "^production"],
+      "inputs": [
+        "production",
+        "^production",
+        "{workspaceRoot}/packages/cli/scripts/generate-schemas.ts"
+      ],
       "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
       "executor": "nx:run-commands",
       "options": {

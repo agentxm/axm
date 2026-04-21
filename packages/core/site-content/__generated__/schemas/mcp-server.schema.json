@@ -13,162 +13,52 @@
         }
       ]
     },
-    "ExactSemverVersion": {
-      "type": "string"
-    },
+    "ExactSemverVersion": { "type": "string" },
     "Author": {
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string"
-        },
-        "email": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "url": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
+        "name": { "type": "string" },
+        "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
       },
       "required": ["name"],
       "additionalProperties": false,
       "title": "Author",
       "description": "Author details: name, email, and URL."
     },
-    "PackageUrlParts": {
-      "type": "string"
-    },
-    "ExtensionName": {
-      "type": "string"
-    },
+    "PackageUrlParts": { "type": "string" },
+    "ExtensionName": { "type": "string" },
     "McpServerManifest": {
       "type": "object",
       "properties": {
-        "$schema": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "owner": {
-          "$ref": "#/definitions/Handle"
-        },
-        "version": {
-          "$ref": "#/definitions/ExactSemverVersion"
-        },
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
+        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "owner": { "$ref": "#/definitions/Handle" },
+        "version": { "$ref": "#/definitions/ExactSemverVersion" },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "keywords": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         },
-        "repository": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "homepage": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "license": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "bugs": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
+        "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "homepage": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "bugs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "authors": {
           "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Author"
-              }
-            },
-            {
-              "type": "null"
-            }
+            { "type": "array", "items": { "$ref": "#/definitions/Author" } },
+            { "type": "null" }
           ]
         },
         "compatiblePackages": {
           "anyOf": [
             {
               "type": "array",
-              "items": {
-                "$ref": "#/definitions/PackageUrlParts"
-              }
+              "items": { "$ref": "#/definitions/PackageUrlParts" }
             },
-            {
-              "type": "null"
-            }
+            { "type": "null" }
           ]
         },
-        "type": {
-          "type": "string",
-          "enum": ["mcp-server"]
-        },
-        "name": {
-          "$ref": "#/definitions/ExtensionName"
-        }
+        "type": { "type": "string", "enum": ["mcp-server"] },
+        "name": { "$ref": "#/definitions/ExtensionName" }
       },
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,

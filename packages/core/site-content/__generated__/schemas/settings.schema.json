@@ -27,16 +27,9 @@
     "GitHubSourceHostConfig": {
       "type": "object",
       "properties": {
-        "name": {
-          "$ref": "#/definitions/SourceName"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["github"]
-        },
-        "url": {
-          "type": "string"
-        }
+        "name": { "$ref": "#/definitions/SourceName" },
+        "type": { "type": "string", "enum": ["github"] },
+        "url": { "type": "string" }
       },
       "required": ["name", "type", "url"],
       "additionalProperties": false,
@@ -46,16 +39,9 @@
     "GitLabSourceHostConfig": {
       "type": "object",
       "properties": {
-        "name": {
-          "$ref": "#/definitions/SourceName"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["gitlab"]
-        },
-        "url": {
-          "type": "string"
-        }
+        "name": { "$ref": "#/definitions/SourceName" },
+        "type": { "type": "string", "enum": ["gitlab"] },
+        "url": { "type": "string" }
       },
       "required": ["name", "type", "url"],
       "additionalProperties": false,
@@ -65,16 +51,9 @@
     "BitbucketSourceHostConfig": {
       "type": "object",
       "properties": {
-        "name": {
-          "$ref": "#/definitions/SourceName"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["bitbucket"]
-        },
-        "url": {
-          "type": "string"
-        }
+        "name": { "$ref": "#/definitions/SourceName" },
+        "type": { "type": "string", "enum": ["bitbucket"] },
+        "url": { "type": "string" }
       },
       "required": ["name", "type", "url"],
       "additionalProperties": false,
@@ -84,16 +63,9 @@
     "AzureReposSourceHostConfig": {
       "type": "object",
       "properties": {
-        "name": {
-          "$ref": "#/definitions/SourceName"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["azurerepos"]
-        },
-        "url": {
-          "type": "string"
-        }
+        "name": { "$ref": "#/definitions/SourceName" },
+        "type": { "type": "string", "enum": ["azurerepos"] },
+        "url": { "type": "string" }
       },
       "required": ["name", "type", "url"],
       "additionalProperties": false,
@@ -103,16 +75,9 @@
     "RegistrySourceHostConfig": {
       "type": "object",
       "properties": {
-        "name": {
-          "$ref": "#/definitions/SourceName"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["registry"]
-        },
-        "location": {
-          "type": "string"
-        }
+        "name": { "$ref": "#/definitions/SourceName" },
+        "type": { "type": "string", "enum": ["registry"] },
+        "location": { "type": "string" }
       },
       "required": ["name", "type", "location"],
       "additionalProperties": false,
@@ -121,21 +86,11 @@
     },
     "SourceHostConfig": {
       "anyOf": [
-        {
-          "$ref": "#/definitions/GitHubSourceHostConfig"
-        },
-        {
-          "$ref": "#/definitions/GitLabSourceHostConfig"
-        },
-        {
-          "$ref": "#/definitions/BitbucketSourceHostConfig"
-        },
-        {
-          "$ref": "#/definitions/AzureReposSourceHostConfig"
-        },
-        {
-          "$ref": "#/definitions/RegistrySourceHostConfig"
-        }
+        { "$ref": "#/definitions/GitHubSourceHostConfig" },
+        { "$ref": "#/definitions/GitLabSourceHostConfig" },
+        { "$ref": "#/definitions/BitbucketSourceHostConfig" },
+        { "$ref": "#/definitions/AzureReposSourceHostConfig" },
+        { "$ref": "#/definitions/RegistrySourceHostConfig" }
       ],
       "title": "Source Host Config",
       "description": "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
@@ -143,19 +98,8 @@
     "CommandEntryObject": {
       "type": "object",
       "properties": {
-        "source": {
-          "type": "string"
-        },
-        "enabled": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
+        "source": { "type": "string" },
+        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -163,37 +107,17 @@
       "description": "A command with its source location and whether it's enabled."
     },
     "CommandEntry": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "$ref": "#/definitions/CommandEntryObject"
-        }
-      ]
+      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/CommandEntryObject" }]
     },
     "CommandsMap": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/definitions/CommandEntry"
-      }
+      "additionalProperties": { "$ref": "#/definitions/CommandEntry" }
     },
     "SubagentEntryObject": {
       "type": "object",
       "properties": {
-        "source": {
-          "type": "string"
-        },
-        "enabled": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
+        "source": { "type": "string" },
+        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -201,93 +125,47 @@
       "description": "A subagent with its source location and whether it's enabled."
     },
     "SubagentEntry": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "$ref": "#/definitions/SubagentEntryObject"
-        }
-      ]
+      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SubagentEntryObject" }]
     },
     "SubagentsMap": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/definitions/SubagentEntry"
-      }
+      "additionalProperties": { "$ref": "#/definitions/SubagentEntry" }
     },
     "McpServerEntryObject": {
       "type": "object",
-      "properties": {
-        "source": {
-          "type": "string"
-        }
-      },
+      "properties": { "source": { "type": "string" } },
       "required": ["source"],
       "additionalProperties": false,
       "title": "MCP Server Entry Object",
       "description": "An MCP server with its source location."
     },
     "McpServerEntry": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "$ref": "#/definitions/McpServerEntryObject"
-        }
-      ]
+      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/McpServerEntryObject" }]
     },
     "McpServersMap": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/definitions/McpServerEntry"
-      }
+      "additionalProperties": { "$ref": "#/definitions/McpServerEntry" }
     },
     "ExtensionPackEntryObject": {
       "type": "object",
-      "properties": {
-        "source": {
-          "type": "string"
-        }
-      },
+      "properties": { "source": { "type": "string" } },
       "required": ["source"],
       "additionalProperties": false,
       "title": "Extension Pack Entry Object",
       "description": "An extension pack with its source location."
     },
     "ExtensionPackEntry": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "$ref": "#/definitions/ExtensionPackEntryObject"
-        }
-      ]
+      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/ExtensionPackEntryObject" }]
     },
     "ExtensionPacksMap": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/definitions/ExtensionPackEntry"
-      }
+      "additionalProperties": { "$ref": "#/definitions/ExtensionPackEntry" }
     },
     "SkillEntryObject": {
       "type": "object",
       "properties": {
-        "source": {
-          "type": "string"
-        },
-        "enabled": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
+        "source": { "type": "string" },
+        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -295,88 +173,29 @@
       "description": "A skill with its source location and whether it's enabled."
     },
     "SkillEntry": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "$ref": "#/definitions/SkillEntryObject"
-        }
-      ]
+      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SkillEntryObject" }]
     },
     "SkillsMap": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/definitions/SkillEntry"
-      }
+      "additionalProperties": { "$ref": "#/definitions/SkillEntry" }
     },
     "IgnoredSettings": {
       "type": "object",
       "properties": {
         "skills": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         },
         "commands": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         },
         "subagents": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         },
         "mcpServers": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         },
         "packs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         }
       },
       "additionalProperties": false,
@@ -391,22 +210,13 @@
     },
     "LintRulesMap": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/definitions/LintRuleSeverity"
-      }
+      "additionalProperties": { "$ref": "#/definitions/LintRuleSeverity" }
     },
     "LintConfig": {
       "type": "object",
       "properties": {
         "rules": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/LintRulesMap"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/LintRulesMap" }, { "type": "null" }]
         }
       },
       "additionalProperties": false,
@@ -419,30 +229,13 @@
         "telemetry": {
           "anyOf": [
             {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "string",
-                  "enum": ["errors"]
-                }
-              ]
+              "anyOf": [{ "type": "boolean" }, { "type": "string", "enum": ["errors"] }]
             },
-            {
-              "type": "null"
-            }
+            { "type": "null" }
           ]
         },
         "profile": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Handle"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }]
         },
         "agents": {
           "anyOf": [
@@ -493,93 +286,38 @@
                 ]
               }
             },
-            {
-              "type": "null"
-            }
+            { "type": "null" }
           ]
         },
         "sources": {
           "anyOf": [
             {
               "type": "array",
-              "items": {
-                "$ref": "#/definitions/SourceHostConfig"
-              }
+              "items": { "$ref": "#/definitions/SourceHostConfig" }
             },
-            {
-              "type": "null"
-            }
+            { "type": "null" }
           ]
         },
         "commands": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/CommandsMap"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/CommandsMap" }, { "type": "null" }]
         },
         "subagents": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/SubagentsMap"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }, { "type": "null" }]
         },
         "mcpServers": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/McpServersMap"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/McpServersMap" }, { "type": "null" }]
         },
         "packs": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/ExtensionPacksMap"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/ExtensionPacksMap" }, { "type": "null" }]
         },
         "skills": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/SkillsMap"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/SkillsMap" }, { "type": "null" }]
         },
         "ignored": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/IgnoredSettings"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/IgnoredSettings" }, { "type": "null" }]
         },
         "lint": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/LintConfig"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/LintConfig" }, { "type": "null" }]
         }
       },
       "additionalProperties": false,

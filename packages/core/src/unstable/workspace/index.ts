@@ -87,27 +87,6 @@ export {
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
 
-// Doctor
-export {
-  ActionSchema,
-  CheckSchema,
-  CheckStatusSchema,
-  diagnoseWorkspaceDoctor,
-  FindingSchema,
-  FindingSeveritySchema,
-  FindingSubjectSchema,
-  ReportSummarySchema,
-  WorkspaceDoctorReportSchema,
-  type Action,
-  type Check,
-  type CheckStatus,
-  type Finding,
-  type FindingSeverity,
-  type FindingSubject,
-  type ReportSummary,
-  type WorkspaceDoctorReport,
-} from "./doctor/index.js";
-
 // Settings validation
 export {
   detectLockfileBlockers,
@@ -133,14 +112,6 @@ export {
   type ResolvedConfiguredSkill,
   type ResolvedConfiguredSubagent,
 } from "./configured-entry-resolution/index.js";
-
-// Sync
-export {
-  formatWorkspaceSyncBlockersHowToFix,
-  getWorkspaceSyncReadiness,
-  syncWorkspace,
-  type WorkspaceSyncReadiness,
-} from "./sync.js";
 
 // Reconciliation types
 export type {

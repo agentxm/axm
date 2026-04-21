@@ -41,5 +41,8 @@ export type {
 // Apply plan + operation handler registry
 export { applyPlan, type OperationHandler } from "./apply-plan.js";
 
-// Resolve plan (workspace-interactive preview/apply backbone)
-export { previewOrApplyPlan } from "./resolve-plan.js";
+// Resolve plan — both the workspace-interactive preview/apply backbone
+// (`previewOrApplyPlan`, used by install/uninstall/pack) and the narrow
+// lint-fix resolver (`resolvePlan`, used by `axm lint --fix` to wrap
+// `PlannedJobStep[]` into a single-job `Plan` without reconciliation).
+export { previewOrApplyPlan, resolvePlan, type ResolvePlanArgs } from "./resolve-plan.js";

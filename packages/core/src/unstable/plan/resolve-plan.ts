@@ -23,7 +23,7 @@ import { applyPlan } from "./apply-plan.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
 import { setReconciliationAdapters } from "../workspace/reconciliation.js";
-import type { CancelledPlan, ExecutedPlan, Plan, PreviewedPlan } from "./plan.js";
+import type { CancelledPlan, ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
 import { Workspace } from "../workspace/service-interface.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
@@ -167,4 +167,51 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   const executed = yield* applyPlan(augmentedPlan);
   yield* showPlan(executed);
   return executed;
+});
+
+// ---------------------------------------------------------------------------
+// Narrow resolver — lint-fix composition path
+// ---------------------------------------------------------------------------
+
+/**
+ * Arguments for {@link resolvePlan}.
+ */
+export interface ResolvePlanArgs {
+  readonly name: string;
+  readonly description?: string;
+  readonly steps: ReadonlyArray<PlannedJobStep>;
+  readonly concurrency?: "unbounded" | 1;
+}
+
+/**
+ * Wrap an array of already-resolved {@link PlannedJobStep}s into a single-job
+ * {@link Plan}.
+ *
+ * `resolvePlan` is the narrow resolver consumed by `axm lint --fix`. The lint
+ * runner hands a fully-resolved `PlannedJobStep[]` — each step already carries
+ * its own `run` closure wired against the per-extension
+ * {@link OperationHandler}s — and `resolvePlan` wraps them into a `Plan` that
+ * `applyPlan` can execute directly, without invoking the reconciliation-adapter
+ * augmentation {@link previewOrApplyPlan} performs for install/uninstall flows.
+ *
+ * Consumers that need lockfile reconciliation (install, uninstall, pack) keep
+ * calling `previewOrApplyPlan`; lint-fix composes the narrower pipeline
+ * described in `docs/design/lint-engine.md §6`:
+ * `collectFixOperations → resolvePlan → applyPlan`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const resolvePlan = (args: ResolvePlanArgs): Plan => ({
+  _tag: "Plan" as const,
+  name: args.name,
+  description:
+    args.description !== undefined && args.description.length > 0
+      ? Option.some(args.description)
+      : Option.none(),
+  jobs: [
+    {
+      concurrency: args.concurrency ?? 1,
+      steps: args.steps,
+    },
+  ],
 });

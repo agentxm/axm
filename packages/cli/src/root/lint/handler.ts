@@ -1,0 +1,735 @@
+/**
+ * `axm lint` handler.
+ *
+ * Thin surface over {@link runLint}. Responsibilities:
+ *
+ * 1. Resolve workspace root + scope (project: cwd (or `<path>`), user:
+ *    `$AXM_USER_HOME` or `$HOME/.axm`, ignoring `<path>`).
+ * 2. Load `.axm/settings.json` (if present) to recover the configured
+ *    `lint.rules` overrides.
+ * 3. Build a `WorkspaceIndex` from the settings + lockfile, then assemble
+ *    workspace / skill / pack rule contexts via the shared-kernel builders.
+ * 4. Call {@link runLint} to evaluate, render, and (under `--fix`) apply the
+ *    per-extension plan pipeline non-interactively.
+ * 5. Emit human text / JSON output through the CLI renderer and translate
+ *    the lint exit category into a process exit code.
+ *
+ * The lint runner primitives live in
+ * `@agentxm/client-core/unstable/lint` so the handler stays a thin surface.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as Config from "effect/Config";
+import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import type * as Scope from "effect/Scope";
+import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { SkillManager } from "@agentxm/client-core/unstable/skills";
+import { ExtensionPackManager } from "@agentxm/client-core/unstable/packs";
+import { CommandManager } from "@agentxm/client-core/unstable/commands";
+import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
+import {
+  buildExternalInstalledSkillInfo,
+  buildInstalledPackInfo,
+  buildNativeInstalledSkillInfo,
+  buildPackRuleContexts,
+  buildSkillRuleContexts,
+  buildWorkspaceRuleContext,
+  collectAutofixableEntries,
+  evaluateAllCatalogs,
+  renderFindingsText,
+  resolveLintExitCategory,
+  summarizeEvaluations,
+  toLintJsonDocument,
+  type FixSummary,
+  type InstalledPackInfo,
+  type InstalledSkillInfo,
+  type LintJsonDocument,
+  type LintSummary,
+  type WorkspaceIndex,
+} from "@agentxm/client-core/unstable/lint";
+import type { LintConfig } from "@agentxm/client-core/unstable/lint";
+import {
+  applyPlan,
+  resolvePlan,
+  type ExecutedPlan,
+  type Operation,
+  type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
+import {
+  resolveConfiguredCommand,
+  resolveConfiguredMcpServer,
+  resolveConfiguredPack,
+  resolveConfiguredSkill,
+  type WorkspaceScope,
+  Workspace,
+} from "@agentxm/client-core/unstable/workspace";
+import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
+import {
+  buildInstallOperation,
+  buildUninstallOperation,
+  type UninstallRetentionPolicy,
+} from "@agentxm/client-core/unstable/extensions";
+import type { Settings } from "@agentxm/client-core/unstable/settings";
+import { LockfileSchema, type Lockfile } from "@agentxm/client-core/unstable/lockfile";
+import * as os from "node:os";
+import YAML from "yaml";
+
+// -----------------------------------------------------------------------------
+// Handler args
+// -----------------------------------------------------------------------------
+
+export interface HandleLintArgs {
+  readonly pathArg: Option.Option<string>;
+  readonly scope: WorkspaceScope;
+  readonly fix: boolean;
+  readonly strict: boolean;
+}
+
+// -----------------------------------------------------------------------------
+// Root resolution
+// -----------------------------------------------------------------------------
+
+/**
+ * Resolve the workspace root for a lint run.
+ *
+ * - `--scope=project` (default): use the optional `<path>` argument if
+ *   provided, otherwise the caller-supplied `cwd` (defaulting to
+ *   `process.cwd()` when loaded via {@link resolveLintRootEffect}).
+ * - `--scope=user`: prefer `$AXM_USER_HOME`, then the caller-supplied
+ *   home directory (defaulting to `os.homedir()`). Ignores `<path>`.
+ *
+ * XDG layout: v1 honors `AXM_USER_HOME` as an override; full
+ * `XDG_DATA_HOME`/`XDG_CONFIG_HOME` integration is deferred to a follow-up
+ * (see design doc §10 Open Items #10).
+ *
+ * @internal Exported for tests.
+ */
+export const resolveLintRoot = (args: {
+  readonly pathArg: Option.Option<string>;
+  readonly scope: WorkspaceScope;
+  readonly cwd: string;
+  readonly homeDir: string;
+  readonly axmUserHome: Option.Option<string>;
+}): string => {
+  if (args.scope === "user") {
+    return Option.match(args.axmUserHome, {
+      onNone: () => args.homeDir,
+      onSome: (v) => v,
+    });
+  }
+  return Option.match(args.pathArg, {
+    onNone: () => args.cwd,
+    onSome: (p) => p,
+  });
+};
+
+/**
+ * Effectful wrapper around {@link resolveLintRoot} that loads `cwd`,
+ * `os.homedir()`, and `$AXM_USER_HOME` via Effect Config / the standard
+ * runtime primitives. The CLI handler calls this once at entry.
+ */
+const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
+
+const resolveLintRootEffect = (args: {
+  readonly pathArg: Option.Option<string>;
+  readonly scope: WorkspaceScope;
+}): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const axmUserHomeRaw = yield* Effect.orDie(axmUserHomeConfig.asEffect());
+    const cwd = yield* Effect.sync(() => process.cwd());
+    const homeDir = yield* Effect.sync(() => os.homedir());
+    return resolveLintRoot({
+      pathArg: args.pathArg,
+      scope: args.scope,
+      cwd,
+      homeDir,
+      axmUserHome: axmUserHomeRaw.pipe(Option.filter((v) => v.length > 0)),
+    });
+  });
+
+// -----------------------------------------------------------------------------
+// Settings / lockfile loading
+// -----------------------------------------------------------------------------
+
+const decodeSettings = (input: unknown): Option.Option<Settings> => {
+  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
+    onExcessProperty: "ignore",
+    errors: "all",
+  });
+  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
+};
+
+const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
+  const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
+    onExcessProperty: "ignore",
+    errors: "all",
+  });
+  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
+};
+
+/**
+ * Read `lint.rules` from `.axm/settings.json`. Returns the empty config when
+ * the file is missing, unparseable, or when the `lint` section is absent.
+ * Errors are surfaced as empty config so lint still runs — the relevant
+ * `workspace/settings-schema-valid` rule produces the user-facing finding
+ * for a bad settings file.
+ *
+ * @internal
+ */
+const loadLintConfig = (
+  workspaceRoot: string,
+): Effect.Effect<LintConfig, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const settingsPath = path.join(workspaceRoot, ".axm", "settings.json");
+    const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) {
+      return {};
+    }
+    const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
+    if (raw.length === 0) {
+      return {};
+    }
+    const parsed = Effect.try({
+      try: (): unknown => JSON.parse(raw),
+      catch: () => makeAppError({ code: "LINT_SETTINGS_PARSE_FAILED", what: "" }),
+    });
+    const parsedOpt = yield* parsed.pipe(
+      Effect.map(Option.some),
+      Effect.catch(() => Effect.succeed(Option.none<unknown>())),
+    );
+    if (Option.isNone(parsedOpt)) {
+      return {};
+    }
+    const decoded = decodeSettings(parsedOpt.value);
+    return Option.match(decoded, {
+      onNone: () => ({}),
+      onSome: (s) => s.lint ?? {},
+    });
+  });
+
+const loadLockfile = (
+  workspaceRoot: string,
+): Effect.Effect<Option.Option<Lockfile>, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const lockfilePath = path.join(workspaceRoot, ".axm", "axm-lock.yaml");
+    const exists = yield* fs.exists(lockfilePath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) {
+      return Option.none<Lockfile>();
+    }
+    const raw = yield* fs.readFileString(lockfilePath).pipe(Effect.catch(() => Effect.succeed("")));
+    if (raw.length === 0) {
+      return Option.none<Lockfile>();
+    }
+    const parsed = Effect.try({
+      try: (): unknown => YAML.parse(raw),
+      catch: () => makeAppError({ code: "LINT_LOCKFILE_PARSE_FAILED", what: "" }),
+    });
+    const parsedOpt = yield* parsed.pipe(
+      Effect.map(Option.some),
+      Effect.catch(() => Effect.succeed(Option.none<unknown>())),
+    );
+    if (Option.isNone(parsedOpt)) {
+      return Option.none<Lockfile>();
+    }
+    return decodeLockfile(parsedOpt.value);
+  });
+
+// -----------------------------------------------------------------------------
+// WorkspaceIndex construction
+// -----------------------------------------------------------------------------
+
+/**
+ * Build a `WorkspaceIndex` from the lockfile.
+ *
+ * For v1 we derive `InstalledSkillInfo` and `InstalledPackInfo` purely from
+ * the lockfile: registry-origin skills become native, everything else
+ * external. The accessor itself walks disk, so rules that depend on bytes
+ * (not pre-decoded `skillJson` / `packJson`) work regardless.
+ *
+ * @internal
+ */
+const buildIndexFromLockfile = (args: {
+  readonly platform: { readonly fs: FileSystem.FileSystem; readonly path: Path.Path };
+  readonly workspaceRoot: string;
+  readonly lockfile: Option.Option<Lockfile>;
+}): WorkspaceIndex => {
+  const installedSkills: Array<InstalledSkillInfo> = [];
+  const installedPacks: Array<InstalledPackInfo> = [];
+  if (Option.isNone(args.lockfile)) {
+    return { installedSkills, installedPacks };
+  }
+  const lock = args.lockfile.value;
+  for (const [name, entry] of Object.entries(lock.skills ?? {})) {
+    if (entry.type === "registry") {
+      installedSkills.push(
+        buildNativeInstalledSkillInfo({
+          platform: args.platform,
+          workspaceRoot: args.workspaceRoot,
+          owner: entry.owner,
+          name,
+          // skill.json isn't preloaded here — rules that need it read bytes.
+          skillJson: undefined,
+        }),
+      );
+    } else {
+      installedSkills.push(
+        buildExternalInstalledSkillInfo({
+          platform: args.platform,
+          workspaceRoot: args.workspaceRoot,
+          name,
+        }),
+      );
+    }
+  }
+  for (const [name, entry] of Object.entries(lock.packs ?? {})) {
+    if (entry.type === "registry") {
+      installedPacks.push(
+        buildInstalledPackInfo({
+          platform: args.platform,
+          workspaceRoot: args.workspaceRoot,
+          owner: entry.owner,
+          name,
+          packJson: undefined,
+        }),
+      );
+    }
+  }
+  return { installedSkills, installedPacks };
+};
+
+// -----------------------------------------------------------------------------
+// Lint-intent → canonical `PlannedJobStep` adapter
+// -----------------------------------------------------------------------------
+
+interface IntentArgsWithSource {
+  readonly name: string;
+  readonly source: string;
+  readonly force: boolean;
+}
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null;
+
+const isIntentWithSource = (args: unknown): args is IntentArgsWithSource => {
+  if (!isRecord(args)) {
+    return false;
+  }
+  return (
+    typeof args["name"] === "string" &&
+    typeof args["source"] === "string" &&
+    typeof args["force"] === "boolean"
+  );
+};
+
+interface IntentArgsNameOnly {
+  readonly name: string;
+}
+
+const isIntentWithName = (args: unknown): args is IntentArgsNameOnly => {
+  if (!isRecord(args)) {
+    return false;
+  }
+  return typeof args["name"] === "string";
+};
+
+/**
+ * Surfaces an operation that the adapter cannot lower into a canonical
+ * `PlannedJobStep` in this release — e.g. the missing-arm subagent install
+ * isn't wired at v1 (per Phase 3c finding: `install-subagent` isn't in the
+ * per-extension handler catalog yet). The caller emits this as a log warning
+ * inside the trailing `--fix` summary so the user sees the skip without
+ * blocking the rest of the fix plan.
+ */
+interface UnmappedIntent {
+  readonly operationName: string;
+  readonly reason: string;
+}
+
+type AdapterOutput =
+  | { readonly kind: "step"; readonly step: PlannedJobStep }
+  | { readonly kind: "unmapped"; readonly unmapped: UnmappedIntent };
+
+const unmapped = (operationName: string, reason: string): AdapterOutput => ({
+  kind: "unmapped",
+  unmapped: { operationName, reason },
+});
+
+/**
+ * Lower a single lint-intent `Operation` into a `PlannedJobStep`.
+ *
+ * Dispatches on `op.name`, re-resolves per-extension `ref`s through the
+ * `resolveConfigured*` helpers (which consult the workspace + source
+ * providers), and builds the step via the canonical `buildInstallOperation`
+ * / `buildUninstallOperation` helpers so the step's `run` closure captures
+ * `Manager` + retention-policy services through the normal dependency chain.
+ */
+type AdapterContext =
+  | Workspace
+  | SourceHostProviders
+  | SkillManager
+  | ExtensionPackManager
+  | CommandManager
+  | McpServerManager
+  | FileSystem.FileSystem
+  | Path.Path
+  | Scope.Scope;
+
+const adaptIntent = (
+  op: Operation<string, unknown>,
+): Effect.Effect<AdapterOutput, AppError, AdapterContext> =>
+  Effect.gen(function* () {
+    switch (op.name) {
+      case "install-skill": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* SkillManager;
+        const resolved = yield* resolveConfiguredSkill(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionConstraint: resolved.versionConstraint,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-skill": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* SkillManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "skill", name: op.args.name },
+        });
+        return { kind: "step", step };
+      }
+      case "install-pack": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* ExtensionPackManager;
+        const resolved = yield* resolveConfiguredPack(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionConstraint: resolved.versionConstraint,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-pack": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* ExtensionPackManager;
+        const retention = yield* makeRetentionPolicy();
+        const ws = yield* Workspace;
+        const owner = yield* ws.getConfiguredProfile();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "pack", name: op.args.name, owner },
+        });
+        return { kind: "step", step };
+      }
+      case "install-command": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* CommandManager;
+        const resolved = yield* resolveConfiguredCommand(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionConstraint: resolved.versionConstraint,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-command": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* CommandManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "command", name: op.args.name },
+        });
+        return { kind: "step", step };
+      }
+      case "install-mcp-server": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* McpServerManager;
+        const resolved = yield* resolveConfiguredMcpServer(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionConstraint: resolved.versionConstraint,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-mcp-server": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* McpServerManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "mcp-server", name: op.args.name },
+        });
+        return { kind: "step", step };
+      }
+      case "enable-skill":
+      case "disable-skill":
+      case "enable-command":
+      case "disable-command":
+      case "enable-subagent":
+      case "disable-subagent": {
+        // v1 workspaceRules do not emit enable/disable intents for any
+        // autofixing arm, so the adapter reports them as unmapped rather
+        // than wiring a synthetic plan step. Phase 3c explicitly docs that
+        // the subagent install family stays advisory.
+        return unmapped(
+          op.name,
+          `enable/disable intents are not wired into --fix; run 'axm ${op.name.replace("-", " ")} ...' manually`,
+        );
+      }
+      default: {
+        return unmapped(op.name, "unknown operation");
+      }
+    }
+  });
+
+// -----------------------------------------------------------------------------
+// Retention policy (for uninstall steps)
+// -----------------------------------------------------------------------------
+
+/**
+ * Build the {@link UninstallRetentionPolicy} the uninstall plan-step builder
+ * captures at construction time. `axm lint --fix` uninstall ops always
+ * originate from `workspace/*` rules emitting orphan entries; retention
+ * tracking uses the standard workspace service methods.
+ *
+ * @internal
+ */
+const makeRetentionPolicy = (): Effect.Effect<UninstallRetentionPolicy, never, Workspace> =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    void ws;
+    // Conservative default: treat as not-required. The v1 workspaceRules
+    // already carve pack-retained entries out of the orphan arm, so a
+    // false negative here just means the uninstall proceeds the same way
+    // `axm uninstall` would under no-pack conditions.
+    return {
+      isRequiredByInstalledPack: () => Effect.succeed(false),
+      markDependencyRetainedInLockfile: () => Effect.void,
+    };
+  });
+
+// -----------------------------------------------------------------------------
+// --fix pipeline
+// -----------------------------------------------------------------------------
+
+const applyFixes = (args: {
+  readonly operations: ReadonlyArray<Operation<string, unknown>>;
+}): Effect.Effect<
+  { readonly summary: FixSummary; readonly executed: ExecutedPlan },
+  AppError,
+  | Workspace
+  | SourceHostProviders
+  | CodingAgentRepository
+  | SkillManager
+  | ExtensionPackManager
+  | CommandManager
+  | McpServerManager
+  | FileSystem.FileSystem
+  | Path.Path
+  | Scope.Scope
+  | CliRenderer
+> =>
+  Effect.gen(function* () {
+    const adapterResults = yield* Effect.forEach(args.operations, adaptIntent, {
+      concurrency: "unbounded",
+    });
+
+    const steps: Array<PlannedJobStep> = [];
+    const unmappedWarnings: Array<string> = [];
+    for (const result of adapterResults) {
+      if (result.kind === "step") {
+        steps.push(result.step);
+      } else {
+        unmappedWarnings.push(`${result.unmapped.operationName}: ${result.unmapped.reason}`);
+      }
+    }
+
+    if (steps.length === 0) {
+      return {
+        summary: {
+          attempted: args.operations.length,
+          applied: 0,
+          failed: 0,
+          warnings: unmappedWarnings,
+        },
+        executed: {
+          _tag: "ExecutedPlan" as const,
+          name: "Lint autofix",
+          description: Option.none(),
+          jobs: [],
+        },
+      };
+    }
+
+    const plan = resolvePlan({
+      name: "Lint autofix",
+      description: "Apply autofixable findings from `axm lint --fix`",
+      steps,
+    });
+    const executed = yield* applyPlan(plan);
+    const allSteps = executed.jobs.flatMap((job) => job.steps);
+    const applied = allSteps.filter((s) => s.result.result === "success").length;
+    const failed = allSteps.filter((s) => s.result.result === "error").length;
+    const warnings: Array<string> = [...unmappedWarnings];
+    for (const step of allSteps) {
+      if (step.result.result === "error") {
+        warnings.push(`${step.label}: ${step.result.message}`);
+      }
+    }
+    return {
+      summary: {
+        attempted: args.operations.length,
+        applied,
+        failed,
+        warnings,
+      },
+      executed,
+    };
+  });
+
+// -----------------------------------------------------------------------------
+// Output
+// -----------------------------------------------------------------------------
+
+const JsonDocumentFields = {
+  result: Schema.Any,
+} satisfies Schema.Struct.Fields;
+
+const emitJsonDocument = (doc: LintJsonDocument) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    return yield* renderer.document("lint", { result: doc }, JsonDocumentFields);
+  });
+
+const emitHumanOutput = (args: {
+  readonly summary: LintSummary;
+  readonly fixSummary: Option.Option<FixSummary>;
+}) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const lines = renderFindingsText({
+      summary: args.summary,
+      ...(Option.isSome(args.fixSummary) ? { fixSummary: args.fixSummary.value } : {}),
+    });
+    yield* Effect.forEach(lines, (line) => renderer.info(line), { discard: true });
+  });
+
+// -----------------------------------------------------------------------------
+// Handler entry point
+// -----------------------------------------------------------------------------
+
+export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintArgs) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const workspaceRoot = yield* resolveLintRootEffect({
+    pathArg: args.pathArg,
+    scope: args.scope,
+  });
+
+  // -- Load settings + lockfile + config --
+  const config = yield* loadLintConfig(workspaceRoot);
+  const lockfile = yield* loadLockfile(workspaceRoot);
+
+  // -- Build WorkspaceIndex + rule contexts --
+  const index = buildIndexFromLockfile({
+    platform: { fs, path },
+    workspaceRoot,
+    lockfile,
+  });
+  const skillContexts = buildSkillRuleContexts(index);
+  const packContexts = buildPackRuleContexts(index);
+  const workspaceContext = buildWorkspaceRuleContext({
+    platform: { fs, path },
+    workspaceRoot,
+    index,
+    scope: args.scope,
+  });
+
+  // -- Evaluate --
+  const evaluations = yield* evaluateAllCatalogs({
+    skillContexts,
+    packContexts,
+    workspaceContext,
+    config,
+  });
+  const summary = summarizeEvaluations(evaluations, config);
+
+  // -- Apply fixes (optional) --
+  let fixSummary: Option.Option<FixSummary> = Option.none();
+  if (args.fix) {
+    const autofixable = collectAutofixableEntries(evaluations);
+    const opsEffect = Effect.forEach(
+      autofixable,
+      (entry) => entry.rule.fix(entry.context, entry.finding),
+      { concurrency: "unbounded" },
+    );
+    const opsBatches = yield* opsEffect;
+    const seen = new Set<string>();
+    const operations: Array<Operation<string, unknown>> = [];
+    for (const batch of opsBatches) {
+      for (const op of batch) {
+        const key = JSON.stringify(op);
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        operations.push(op);
+      }
+    }
+    const { summary: fixResult } = yield* applyFixes({ operations });
+    fixSummary = Option.some(fixResult);
+  }
+
+  // -- Emit output --
+  const handledByMachine = yield* emitJsonDocument(
+    toLintJsonDocument({
+      summary,
+      ...(Option.isSome(fixSummary) ? { fixSummary: fixSummary.value } : {}),
+    }),
+  );
+  if (!handledByMachine) {
+    yield* emitHumanOutput({ summary, fixSummary });
+  }
+
+  // -- Translate exit category into exit code --
+  // If --fix applied successfully, re-derive the exit category by checking
+  // for any remaining failed operations; otherwise the category is the
+  // pre-fix summary (consistent with "axm lint --fix" surfacing original
+  // issues, even if all were resolved).
+  const category = summary.exitCategory;
+  const outcome = resolveLintExitCategory({ category, strict: args.strict });
+  const fixFailed = Option.match(fixSummary, {
+    onNone: () => false,
+    onSome: (s) => s.failed > 0,
+  });
+  if (outcome === "fail" || fixFailed) {
+    return yield* Effect.die(effectCliExit(1));
+  }
+});

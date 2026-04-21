@@ -70,6 +70,30 @@ export {
   registeredLintRuleIds,
 } from "./config.js";
 
+// Lint runner (Phase 5) — reusable primitives the `axm lint` CLI composes
+// over. Keeps the CLI command file a thin surface over flag parsing and
+// rendering per task 5.11.
+export {
+  collectAutofixableEntries,
+  collectRenderedFindings,
+  countFindings,
+  detectPublishGateDrift,
+  evaluateAllCatalogs,
+  renderFindingsText,
+  resolveLintExitCategory,
+  summarizeEvaluations,
+  toLintJsonDocument,
+  type FindingCounts,
+  type FixSummary,
+  type GroupEvaluations,
+  type LintExitCategory,
+  type LintJsonDocument,
+  type LintJsonFinding,
+  type LintSummary,
+  type RenderFindingsArgs,
+  type RenderedFinding,
+} from "./cli.js";
+
 // Rule catalogs (Phase 3a lands `skillRules`; Phase 3b lands `packRules`;
 // Phase 3c lands `workspaceRules`). Importing this index triggers each
 // catalog's module-load `registerLintRuleIds(...)` call so

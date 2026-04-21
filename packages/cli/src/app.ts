@@ -29,8 +29,7 @@ import { logoutCommand } from "./root/auth/logout.js";
 import { whoamiCommand } from "./root/auth/whoami.js";
 import { tokenCommand } from "./root/auth/token.js";
 import { upgradeCommand } from "./root/upgrade/upgrade.js";
-import { doctorCommand } from "./root/doctor/command.js";
-import { syncCommand } from "./root/sync.js";
+import { lintCommand } from "./root/lint/command.js";
 import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
 import { outdatedCommand } from "./root/outdated/command.js";
@@ -86,8 +85,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     {
       group: "AUTH AND CONFIG",
       commands: [
-        doctorCommand,
-        syncCommand,
+        lintCommand,
         authCommand,
         loginCommand,
         logoutCommand,

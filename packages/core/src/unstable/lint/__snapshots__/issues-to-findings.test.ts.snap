@@ -1,0 +1,96 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`issuesToFindings > emits findings at nested paths 1`] = `
+[
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "compatibility.requires.[1]: Expected string, got 42",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+]
+`;
+
+exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = `
+[
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "name: Expected string, got 123",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "version: Expected string, got 456",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "owner: Expected string, got true",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "description: Expected string, got null",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+]
+`;
+
+exports[`issuesToFindings > emits one finding per missing top-level key 1`] = `
+[
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "version: Missing key",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "owner: Missing key",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+  {
+    "kind": "advisory",
+    "location": {
+      "file": "skill.json",
+    },
+    "message": "description: Missing key",
+    "ruleId": "skill/manifest-schema-valid",
+    "severity": "error",
+    "suggestions": [],
+  },
+]
+`;

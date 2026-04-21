@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import { AgentIdSchema, ExtensionNameSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
+import { LintConfigSchema } from "../lint/config.js";
 
 // -----------------------------------------------------------------------------
 // Source Host Config (array-based, discriminated on `type` field)
@@ -627,6 +628,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "packs",
   "mcpServers",
   "ignored",
+  "lint",
 ];
 
 /**
@@ -654,6 +656,7 @@ export const SettingsSchema = Schema.Struct({
   packs: Schema.optional(ExtensionPacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
   ignored: Schema.optional(IgnoredSettingsSchema),
+  lint: Schema.optional(LintConfigSchema),
 }).annotate({
   identifier: "Settings",
   title: "AXM Settings",

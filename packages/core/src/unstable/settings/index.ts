@@ -67,3 +67,16 @@ export {
 
 // Format-preserving JSON
 export type { JsonModification } from "./format-preserving-json.js";
+
+// Lint configuration — `Settings.lint` composes the shared-kernel `LintConfig`
+// schema; re-exported here so consumers importing from
+// `@agentxm/client-core/unstable/settings` see the complete settings surface.
+export type { LintConfig, LintRuleSeverity, LintRulesMap } from "../lint/config.js";
+export {
+  LintConfigSchema,
+  LintRuleSeveritySchema,
+  LintRulesMapSchema,
+  platformCanonicalLintConfig,
+  registerLintRuleIds,
+  registeredLintRuleIds,
+} from "../lint/config.js";

@@ -15,6 +15,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as JsonSchema from "effect/JsonSchema";
 import * as Schema from "effect/Schema";
+import { format as formatWithPrettier } from "prettier";
 import { SkillManifestSchema } from "../../core/src/unstable/skills/index.js";
 import { CommandManifestSchema } from "../../core/src/unstable/commands/index.js";
 import { McpServerManifestSchema } from "../../core/src/unstable/mcp-servers/index.js";
@@ -88,7 +89,10 @@ for (const { name, schema, outputDir } of schemas) {
 
   const jsonSchema = toDraft07SchemaFile(schema);
   const outputPath = path.join(outputDir, name);
-  fs.writeFileSync(outputPath, `${JSON.stringify(jsonSchema, null, 2)}\n`);
+  const formattedJsonSchema = await formatWithPrettier(JSON.stringify(jsonSchema), {
+    parser: "json",
+  });
+  fs.writeFileSync(outputPath, formattedJsonSchema);
   console.log(`Generated: ${path.relative(CLI_ROOT, outputPath)}`);
   count++;
 }

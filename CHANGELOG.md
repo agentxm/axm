@@ -1,3 +1,13 @@
+## 0.3.1 (2026-04-21)
+
+### 🩹 Fixes
+
+- Honor AXM_USER_HOME in user-scope workspaces ([48bef952](https://github.com/agentxm/axm/commit/48bef952))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.3.0 (2026-04-21)
 
 ### 🚀 Features

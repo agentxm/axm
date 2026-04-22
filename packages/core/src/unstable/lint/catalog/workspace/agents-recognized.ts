@@ -70,7 +70,9 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
-          message: `AXM does not recognize agent '${id}'. Remove it from settings.agents[] or correct it to the intended agent id.`,
+          message:
+            `AXM does not recognize agent '${id}'. ` +
+            `Edit \`.axm/settings.json\` and remove '${id}' from \`agents\`, or replace it there with the intended agent id.`,
           location: { file: SETTINGS_REL },
         });
       }

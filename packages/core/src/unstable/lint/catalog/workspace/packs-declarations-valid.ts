@@ -81,7 +81,7 @@ const bareNameFinding = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Pack '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry pack you mean. ` +
-    `Rewrite it as \`@owner/packs/${entry.name}\`.`,
+    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.packs\` to an owner-qualified source such as \`@owner/packs/${entry.name}\`.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -91,7 +91,7 @@ const nonRegistryFinding = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Pack '${entry.name}' source '${entry.source}' is not a registry pack reference. ` +
-    `Rewrite it as \`@owner/packs/${entry.name}\` pointing to a known registry.`,
+    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.packs\` to an owner-qualified source such as \`@owner/packs/${entry.name}\`.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -101,7 +101,7 @@ const missingOwnerFinding = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Pack '${entry.name}' source '${entry.source}' looks like a registry pack reference but is missing the \`@owner\` prefix. ` +
-    `Rewrite it as \`@owner/packs/${entry.name}\`.`,
+    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.packs\` to an owner-qualified source such as \`@owner/packs/${entry.name}\`.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -114,7 +114,7 @@ const duplicateFinding = (
   severity: "error",
   message:
     `Pack '${entry.name}' points to the same registry pack as these entries: ${duplicates.join(", ")}. ` +
-    "Remove duplicate declarations so each registry pack is listed once.",
+    "Edit `.axm/settings.json` and keep only one declaration under `settings.packs` for that registry pack.",
   location: { file: SETTINGS_REL },
 });
 

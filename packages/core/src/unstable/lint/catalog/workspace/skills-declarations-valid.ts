@@ -91,7 +91,8 @@ const findingForBareName = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Skill '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry skill you mean. ` +
-    `Rewrite it as \`@owner/skills/${entry.name}\` or declare the source host explicitly in settings.sources[].`,
+    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.skills\` to an owner-qualified source such as \`@owner/skills/${entry.name}\`. ` +
+    "If you use a named source host, add or update the matching entry under `settings.sources[]`.",
   location: { file: SETTINGS_REL },
 });
 
@@ -101,7 +102,7 @@ const findingForMissingOwner = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Skill '${entry.name}' source '${entry.source}' looks like a registry skill reference but is missing the \`@owner\` prefix. ` +
-    `Rewrite it as \`@owner/skills/${entry.name}\`.`,
+    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.skills\` to an owner-qualified source such as \`@owner/skills/${entry.name}\`.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -114,7 +115,7 @@ const findingForDuplicate = (
   severity: "error",
   message:
     `Skill '${entry.name}' points to the same registry skill as these entries: ${duplicates.join(", ")}. ` +
-    "Remove duplicate declarations so each registry skill is listed once.",
+    "Edit `.axm/settings.json` and keep only one declaration under `settings.skills` for that registry skill.",
   location: { file: SETTINGS_REL },
 });
 

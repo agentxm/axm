@@ -119,12 +119,14 @@ describe("axm lint handler", () => {
     readonly scope?: "project" | "user";
     readonly fix?: boolean;
     readonly strict?: boolean;
+    readonly details?: boolean;
   }) =>
     handleLint({
       pathArg: Option.none(),
       scope: args.scope ?? "project",
       fix: args.fix ?? false,
       strict: args.strict ?? false,
+      details: args.details ?? false,
     });
 
   it.effect("resolveLintRoot returns cwd by default", () => {
@@ -247,7 +249,7 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("renders path-grouped diagnostics with severity-aware log levels", () => {
+  it.effect("renders grouped diagnostics with severity-aware log levels", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({
       agents: ["claude-code"],
@@ -258,32 +260,30 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const logs = logsByTag(rendererState);
-        expect(logs.message).toContain("./.axm/axm-lock.yaml");
-        expect(logs.message).toContain("./.axm/settings.json");
+        expect(logs.message).toContain("Auto-fixable");
+        expect(logs.message).toContain("More output: `axm lint --details` | `axm lint --json`");
+        expect(logs.message).toContain("Run `axm lint --fix` to apply available fixes.");
+        expect(logs.message).toContain("  rule: workspace/lockfile-valid (auto-fixable)");
+        expect(logs.message).toContain("  rule: workspace/skills-artifacts-correct (auto-fixable)");
         expect(
-          logs.error.some((message) => message.includes("Found 2 errors in 2 locations.")),
-        ).toBe(true);
-        expect(
-          logs.error.some((message) =>
+          logs.message.some((message) =>
             message.includes(
-              "workspace/lockfile-valid (fixable): The lockfile is missing even though workspace settings declare installed extensions.",
-            ),
-          ),
-        ).toBe(true);
-        expect(
-          logs.error.some((message) =>
-            message.includes(
-              "workspace/skills-artifacts-correct (fixable): Skill 'demo' is listed as enabled, but it is missing from some declared agents.",
+              "The lockfile is missing even though workspace settings declare installed extensions.",
             ),
           ),
         ).toBe(true);
         expect(
           logs.message.some((message) =>
             message.includes(
-              "Run `axm lint --fix` to reinstall the declared extensions and regenerate it.",
+              "Skill 'demo' is listed as enabled, but it is missing from some declared agents.",
             ),
           ),
         ).toBe(true);
+        expect(
+          logs.error.some((message) => message.includes("2 issues. 2 can be fixed automatically.")),
+        ).toBe(true);
+        expect(logs.error.some((message) => message.includes("./.axm/axm-lock.yaml"))).toBe(true);
+        expect(logs.error.some((message) => message.includes("./.axm/settings.json"))).toBe(true);
       }),
     );
   });

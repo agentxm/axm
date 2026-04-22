@@ -89,6 +89,7 @@ export {
   type GroupEvaluations,
   type LintHumanBlock,
   type LintHumanDiagnostic,
+  type LintHumanReporter,
   type LintExitCategory,
   type LintJsonDocument,
   type LintJsonFinding,

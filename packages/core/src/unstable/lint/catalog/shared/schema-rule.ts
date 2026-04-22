@@ -106,7 +106,9 @@ export const enumerateUnknownTopLevelKeys = (
       kind: "advisory",
       ruleId,
       severity,
-      message: `The document has unrecognized top-level field '${key}'. Remove it or rename it to the intended field name.`,
+      message:
+        `The document has unrecognized top-level field '${key}'. ` +
+        `Edit \`${file}\` to remove it or rename it to the intended field name.`,
       location: { file },
     });
   }

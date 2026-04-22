@@ -7,7 +7,7 @@ exports[`issuesToFindings > emits findings at nested paths 1`] = `
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`compatibility.requires[1]\` has the wrong type. Detail: Expected string, got 42. Replace it with a value of the expected type.",
+    "message": "Skill manifest field \`compatibility.requires[1]\` has the wrong type. Detail: Expected string, got 42. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -21,7 +21,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`name\` has the wrong type. Detail: Expected string, got 123. Replace it with a value of the expected type.",
+    "message": "Skill manifest field \`name\` has the wrong type. Detail: Expected string, got 123. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -30,7 +30,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`version\` has the wrong type. Detail: Expected string, got 456. Replace it with a value of the expected type.",
+    "message": "Skill manifest field \`version\` has the wrong type. Detail: Expected string, got 456. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -39,7 +39,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`owner\` has the wrong type. Detail: Expected string, got true. Replace it with a value of the expected type.",
+    "message": "Skill manifest field \`owner\` has the wrong type. Detail: Expected string, got true. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -48,7 +48,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`description\` has the wrong type. Detail: Expected string, got null. Replace it with a value of the expected type.",
+    "message": "Skill manifest field \`description\` has the wrong type. Detail: Expected string, got null. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -62,7 +62,7 @@ exports[`issuesToFindings > emits one finding per missing top-level key 1`] = `
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest is missing required field \`version\`. Add \`version\` at the referenced location.",
+    "message": "Skill manifest is missing required field \`version\`. Edit \`skill.json\` and add \`version\`.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -71,7 +71,7 @@ exports[`issuesToFindings > emits one finding per missing top-level key 1`] = `
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest is missing required field \`owner\`. Add \`owner\` at the referenced location.",
+    "message": "Skill manifest is missing required field \`owner\`. Edit \`skill.json\` and add \`owner\`.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -80,7 +80,7 @@ exports[`issuesToFindings > emits one finding per missing top-level key 1`] = `
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest is missing required field \`description\`. Add \`description\` at the referenced location.",
+    "message": "Skill manifest is missing required field \`description\`. Edit \`skill.json\` and add \`description\`.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },

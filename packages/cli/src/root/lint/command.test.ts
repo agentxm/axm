@@ -73,7 +73,7 @@ describe("axm lint command surface", () => {
     expect(allSubcommandNames).toContain("lint");
   });
 
-  it("accepts --fix, --scope, --strict, --json, and an optional path argument", async () => {
+  it("accepts --fix, --scope, --strict, --details, --json, and an optional path argument", async () => {
     const doc = await Effect.runPromise(captureHelpDoc(["lint"]));
     const flagNames = doc.flags.map((flag) => flag.name);
     const globalFlagNames = (doc.globalFlags ?? []).map((flag) => flag.name);
@@ -81,6 +81,7 @@ describe("axm lint command surface", () => {
     expect(allFlagNames).toContain("fix");
     expect(allFlagNames).toContain("scope");
     expect(allFlagNames).toContain("strict");
+    expect(allFlagNames).toContain("details");
     // --json is a global flag so it's inherited from the root.
     expect(allFlagNames).toContain("json");
     const argumentNames = (doc.args ?? []).map((arg) => arg.name);

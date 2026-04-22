@@ -58,7 +58,7 @@ export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             severity: "error" as const,
             message:
               `The workspace settings file is not valid JSON. Detail: ${error.message}. ` +
-              "Fix the JSON syntax in that file.",
+              "Edit `.axm/settings.json` to fix the JSON syntax.",
             location: { file: SETTINGS_REL },
           },
         ];

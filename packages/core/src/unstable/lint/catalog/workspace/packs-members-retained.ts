@@ -36,6 +36,7 @@ import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-members-retained";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
+const SETTINGS_REL = ".axm/settings.json";
 
 const decodeSettings = (input: unknown): Option.Option<Settings> => {
   const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
@@ -91,15 +92,25 @@ const droppedFinding = (
   memberType: string,
   name: string,
   fqn: string | undefined,
-): AdvisoryFinding => ({
-  kind: "advisory",
-  ruleId: RULE_ID,
-  severity: "warning",
-  message:
-    `${memberType} '${name}'${fqn === undefined ? "" : ` (resolved as ${fqn})`} is still installed because of a pack, but no installed pack now declares it. ` +
-    `Declare '${name}' directly in settings.${memberType === "mcp-server" ? "mcpServers" : `${memberType}s`} if you still need it, or uninstall it if not.`,
-  location: { file: LOCKFILE_REL },
-});
+): AdvisoryFinding => {
+  const settingsSurface =
+    memberType === "mcp-server" ? "settings.mcpServers" : `settings.${memberType}s`;
+  const installCommand = fqn === undefined ? undefined : `axm install ${fqn}`;
+  const uninstallCommand = fqn === undefined ? undefined : `axm uninstall ${fqn}`;
+  return {
+    kind: "advisory",
+    ruleId: RULE_ID,
+    severity: "warning",
+    message:
+      `${memberType} '${name}'${fqn === undefined ? "" : ` (resolved as ${fqn})`} is still installed because of a pack, but no installed pack now declares it. ` +
+      (installCommand === undefined
+        ? `To keep it, add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` using its intended source. ` +
+          "If you do not need it, delete the stale installed files and remove the stale lockfile entry."
+        : `To keep it, run \`${installCommand}\` or add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` using source '${fqn}'. ` +
+          `If you do not need it, run \`${uninstallCommand}\`.`),
+    location: { file: LOCKFILE_REL },
+  };
+};
 
 interface MemberEntry {
   readonly memberType: "skill" | "command" | "subagent" | "mcp-server";

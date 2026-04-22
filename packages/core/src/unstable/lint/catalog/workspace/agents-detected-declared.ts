@@ -72,7 +72,8 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
           severity: "warning",
           message:
             `AXM found agent '${detection.id}' on disk, but it is not listed in settings.agents[]. ` +
-            `Add '${detection.id}' to settings.agents[] to manage it, or turn this rule off if the agent is intentionally unmanaged.`,
+            `To manage it, add '${detection.id}' under \`agents\` in \`.axm/settings.json\`. ` +
+            'If it is intentionally unmanaged, set `lint.rules["workspace/agents-detected-declared"]` to `off` in `.axm/settings.json`.',
           location: { file: SETTINGS_REL },
         });
       }

@@ -103,67 +103,80 @@ const toFinding = (
     kind: "advisory",
     ruleId,
     severity,
-    message: formatIssueMessage(describeSchemaDocument(file), issue, path),
+    message: formatIssueMessage(describeSchemaDocument(file), file, issue, path),
     location: { file },
   };
 };
 
 const formatIssueMessage = (
   documentLabel: string,
+  file: string,
   issue: Issue,
   path: ReadonlyArray<PropertyKey>,
 ): string => {
   const pathStr = formatPath(path);
   const valueRef = describeValueReference(documentLabel, pathStr);
+  const editSurface = formatEditSurface(file);
 
   switch (issue._tag) {
     case "MissingKey":
-      return formatMissingKeyMessage(documentLabel, path, pathStr);
+      return formatMissingKeyMessage(documentLabel, file, path, pathStr);
     case "UnexpectedKey":
-      return formatUnexpectedKeyMessage(documentLabel, pathStr);
+      return formatUnexpectedKeyMessage(documentLabel, editSurface, pathStr);
     case "InvalidType":
-      return `${valueRef} has the wrong type. Detail: ${String(issue)}. Replace it with a value of the expected type.`;
+      return `${valueRef} has the wrong type. Detail: ${String(issue)}. ${editSurface} and replace it with a value of the expected type.`;
     case "InvalidValue":
-      return `${valueRef} is invalid. Detail: ${String(issue)}. Update it so it satisfies the schema constraint.`;
+      return `${valueRef} is invalid. Detail: ${String(issue)}. ${editSurface} and update it so it satisfies the schema constraint.`;
     case "Forbidden":
-      return `${valueRef} uses a value or operation the schema does not allow. Detail: ${String(issue)}. Update it so the document satisfies the schema.`;
+      return `${valueRef} uses a value or operation the schema does not allow. Detail: ${String(issue)}. ${editSurface} and update it so the document satisfies the schema.`;
     case "OneOf":
-      return `${valueRef} matches more than one allowed shape. Detail: ${String(issue)}. Rewrite it so exactly one allowed shape matches.`;
+      return `${valueRef} matches more than one allowed shape. Detail: ${String(issue)}. ${editSurface} and rewrite it so exactly one allowed shape matches.`;
     case "AnyOf":
-      return `${valueRef} does not match any allowed shape. Detail: ${String(issue)}. Rewrite it so it matches one of the allowed shapes.`;
+      return `${valueRef} does not match any allowed shape. Detail: ${String(issue)}. ${editSurface} and rewrite it so it matches one of the allowed shapes.`;
     case "Filter":
-      return `${valueRef} fails a schema constraint. Detail: ${String(issue)}. Update it so it satisfies the constraint.`;
+      return `${valueRef} fails a schema constraint. Detail: ${String(issue)}. ${editSurface} and update it so it satisfies the constraint.`;
     case "Encoding":
-      return `${valueRef} cannot be encoded or decoded as required by the schema. Detail: ${String(issue)}. Update it to the shape the schema expects.`;
+      return `${valueRef} cannot be encoded or decoded as required by the schema. Detail: ${String(issue)}. ${editSurface} and update it to the shape the schema expects.`;
     case "Pointer":
-      return `${documentLabel} has a schema problem${pathStr === "" ? "" : ` at ${pathStr}`}. Detail: ${String(issue)}. Fix the value at the referenced location so the document satisfies the schema.`;
+      return `${documentLabel} has a schema problem${pathStr === "" ? "" : ` at ${pathStr}`}. Detail: ${String(issue)}. ${editSurface} and fix the value at that path so the document satisfies the schema.`;
     case "Composite":
-      return `${valueRef} has multiple schema problems. Detail: ${String(issue)}. Fix the referenced values so the document satisfies the schema.`;
+      return `${valueRef} has multiple schema problems. Detail: ${String(issue)}. ${editSurface} and fix the referenced values so the document satisfies the schema.`;
   }
 };
 
 const formatMissingKeyMessage = (
   documentLabel: string,
+  file: string,
   path: ReadonlyArray<PropertyKey>,
   pathStr: string,
 ): string => {
   const lastSegment = path[path.length - 1];
+  const editSurface = formatEditSurface(file);
+  const parentPath = formatPath(path.slice(0, -1));
   if (typeof lastSegment === "string" && pathStr !== "") {
-    return `${documentLabel} is missing required field \`${pathStr}\`. Add \`${lastSegment}\` at the referenced location.`;
+    return parentPath === ""
+      ? `${documentLabel} is missing required field \`${pathStr}\`. ${editSurface} and add \`${lastSegment}\`.`
+      : `${documentLabel} is missing required field \`${pathStr}\`. ${editSurface} and add \`${lastSegment}\` under \`${parentPath}\`.`;
   }
   if (lastSegment !== undefined && pathStr !== "") {
-    return `${documentLabel} is missing a required item at \`${pathStr}\`. Add the missing item at the referenced location.`;
+    return `${documentLabel} is missing a required item at \`${pathStr}\`. ${editSurface} and add the missing item at that path.`;
   }
-  return `${documentLabel} is missing a required value. Add the required value at the referenced location.`;
+  return `${documentLabel} is missing a required value. ${editSurface} and add the required value.`;
 };
 
-const formatUnexpectedKeyMessage = (documentLabel: string, pathStr: string): string =>
+const formatUnexpectedKeyMessage = (
+  documentLabel: string,
+  editSurface: string,
+  pathStr: string,
+): string =>
   pathStr === ""
-    ? `${documentLabel} has an unrecognized field. Remove it or rename it to the intended field name.`
-    : `${documentLabel} has unrecognized field \`${pathStr}\`. Remove it or rename it to the intended field name.`;
+    ? `${documentLabel} has an unrecognized field. ${editSurface} to remove it or rename it to the intended field name.`
+    : `${documentLabel} has unrecognized field \`${pathStr}\`. ${editSurface} to remove it or rename it to the intended field name.`;
 
 const describeValueReference = (documentLabel: string, pathStr: string): string =>
   pathStr === "" ? documentLabel : `${documentLabel} field \`${pathStr}\``;
+
+const formatEditSurface = (file: string): string => `Edit \`${file}\``;
 
 const formatPath = (path: ReadonlyArray<PropertyKey>): string =>
   path.reduce<string>((acc, segment) => {

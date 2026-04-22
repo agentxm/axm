@@ -27,6 +27,7 @@ import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-dependencies-resolved";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
+const SETTINGS_REL = ".axm/settings.json";
 
 const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
   const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
@@ -83,8 +84,27 @@ const buildInstalledFqnIndex = (lockfile: Lockfile): ReadonlySet<string> => {
   return set;
 };
 
+const singularDependencyType = (typeSegment: string): string => {
+  switch (typeSegment) {
+    case "skills":
+      return "skill";
+    case "commands":
+      return "command";
+    case "subagents":
+      return "subagent";
+    case "mcp-servers":
+      return "MCP server";
+    default:
+      return typeSegment;
+  }
+};
+
+const packInstallSpecifier = (entry: ExtensionPackLockEntry, packName: string): string =>
+  entry.type === "registry" ? `${entry.owner}/packs/${entry.name}` : packName;
+
 const missingDependencyFinding = (
   packName: string,
+  packSpecifier: string,
   dependencyFqn: string,
   dependencyType: string,
 ): AdvisoryFinding => ({
@@ -92,8 +112,9 @@ const missingDependencyFinding = (
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Pack '${packName}' requires ${dependencyType} '${dependencyFqn}', but that ${dependencyType} is missing from the lockfile. ` +
-    `Install the missing ${dependencyType}, or remove '${packName}' from settings.packs if you no longer need it.`,
+    `Pack '${packName}' requires ${singularDependencyType(dependencyType)} '${dependencyFqn}', but that ${singularDependencyType(dependencyType)} is missing from the lockfile. ` +
+    `To restore it, run \`axm packs install ${packSpecifier}\`. ` +
+    `If you no longer need '${packName}', run \`axm packs uninstall ${packName}\` or remove '${packName}' from \`settings.packs\` in \`${SETTINGS_REL}\`.`,
   location: { file: LOCKFILE_REL },
 });
 
@@ -134,7 +155,14 @@ export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> =
       for (const [packName, packEntry] of Object.entries(packLock)) {
         for (const { fqn, typeSegment } of collectResolved(packEntry)) {
           if (!installed.has(fqn)) {
-            findings.push(missingDependencyFinding(packName, fqn, typeSegment));
+            findings.push(
+              missingDependencyFinding(
+                packName,
+                packInstallSpecifier(packEntry, packName),
+                fqn,
+                typeSegment,
+              ),
+            );
           }
         }
       }

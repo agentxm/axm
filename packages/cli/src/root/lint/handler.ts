@@ -95,6 +95,7 @@ export interface HandleLintArgs {
   readonly scope: WorkspaceScope;
   readonly fix: boolean;
   readonly strict: boolean;
+  readonly details: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -632,11 +633,13 @@ const emitJsonDocument = (doc: LintJsonDocument) =>
 const emitHumanOutput = (args: {
   readonly summary: LintSummary;
   readonly fixSummary: Option.Option<FixSummary>;
+  readonly details: boolean;
 }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const blocks = toLintHumanBlocks({
       summary: args.summary,
+      reporter: args.details ? "full" : "grouped",
       ...(Option.isSome(args.fixSummary) ? { fixSummary: args.fixSummary.value } : {}),
     });
     yield* Effect.forEach(
@@ -646,9 +649,21 @@ const emitHumanOutput = (args: {
           switch (block.kind) {
             case "overview":
               yield* emitSummary(renderer, block.message, block.counts);
-              if (block.nextStep !== undefined) {
-                yield* renderer.message(`  Next step: ${block.nextStep}`);
+              yield* Effect.forEach(block.notes, (note) => renderer.message(note), {
+                discard: true,
+              });
+              return;
+            case "blank":
+              yield* renderer.message("");
+              return;
+            case "section":
+              yield* renderer.message(block.title);
+              if (block.note !== undefined) {
+                yield* renderer.message(block.note);
               }
+              return;
+            case "diagnostic":
+              yield* emitGroupedHumanDiagnostic(renderer, block.diagnostic);
               return;
             case "driftBanner":
               yield* renderer.warn(block.title);
@@ -660,7 +675,7 @@ const emitHumanOutput = (args: {
               yield* renderer.message(block.path);
               yield* Effect.forEach(
                 block.diagnostics,
-                (diagnostic) => emitHumanDiagnostic(renderer, diagnostic),
+                (diagnostic) => emitFullHumanDiagnostic(renderer, diagnostic),
                 {
                   discard: true,
                 },
@@ -683,12 +698,12 @@ const emitHumanOutput = (args: {
     );
   });
 
-const emitHumanDiagnostic = (
+const emitFullHumanDiagnostic = (
   renderer: typeof CliRenderer.Service,
   diagnostic: LintHumanDiagnostic,
 ) =>
   Effect.gen(function* () {
-    const label = `${diagnostic.ruleId}${diagnostic.fixable ? " (fixable)" : ""}: ${diagnostic.title}`;
+    const label = `${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}: ${diagnostic.title}`;
     switch (diagnostic.severity) {
       case "error":
         yield* renderer.error(label);
@@ -700,6 +715,40 @@ const emitHumanDiagnostic = (
         yield* renderer.info(label);
         break;
     }
+    yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
+      discard: true,
+    });
+    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
+      discard: true,
+    });
+  });
+
+const emitGroupedHumanDiagnostic = (
+  renderer: typeof CliRenderer.Service,
+  diagnostic: LintHumanDiagnostic,
+) =>
+  Effect.gen(function* () {
+    const label =
+      diagnostic.paths.length === 1
+        ? `${diagnostic.paths[0] ?? ""}`
+        : `${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}`;
+    switch (diagnostic.severity) {
+      case "error":
+        yield* renderer.error(label);
+        break;
+      case "warning":
+        yield* renderer.warn(label);
+        break;
+      case "info":
+        yield* renderer.info(label);
+        break;
+    }
+    if (diagnostic.paths.length === 1) {
+      yield* renderer.message(
+        `  rule: ${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}`,
+      );
+    }
+    yield* renderer.message(`  ${diagnostic.title}`);
     yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
       discard: true,
     });
@@ -796,7 +845,11 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     }),
   );
   if (!handledByMachine) {
-    yield* emitHumanOutput({ summary, fixSummary });
+    yield* emitHumanOutput({
+      summary,
+      fixSummary,
+      details: args.details,
+    });
   }
 
   // -- Translate exit category into exit code --

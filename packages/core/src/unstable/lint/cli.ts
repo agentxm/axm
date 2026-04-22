@@ -350,20 +350,14 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
  *
  * @experimental This API is unstable and may change without notice.
  */
+export type LintHumanReporter = "grouped" | "full" | "summary";
+
 export interface RenderFindingsArgs {
   readonly summary: LintSummary;
   readonly fixSummary?: FixSummary;
+  readonly reporter?: LintHumanReporter;
 }
 
-/**
- * Human-renderable diagnostic entry for a single rendered path group.
- *
- * This stays lint-owned: the handler maps the entry onto generic renderer
- * chrome (`error`, `warn`, `info`, `message`) without the renderer needing to
- * know about lint-specific concepts.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export interface LintHumanDiagnostic {
   readonly severity: Severity;
   readonly ruleId: string;
@@ -371,23 +365,15 @@ export interface LintHumanDiagnostic {
   readonly details: ReadonlyArray<string>;
   readonly helps: ReadonlyArray<string>;
   readonly fixable: boolean;
+  readonly paths: ReadonlyArray<string>;
 }
 
-/**
- * Structured human-output blocks for `axm lint`.
- *
- * The block model is intentionally separate from both terminal text and the
- * JSON document shape. It gives the CLI handler enough structure to render
- * human diagnostics cleanly without teaching `CliRenderer` about lint.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export type LintHumanBlock =
   | {
       readonly kind: "overview";
       readonly message: string;
       readonly counts: FindingCounts;
-      readonly nextStep?: string;
+      readonly notes: ReadonlyArray<string>;
     }
   | {
       readonly kind: "driftBanner";
@@ -395,9 +381,21 @@ export type LintHumanBlock =
       readonly ruleIds: ReadonlyArray<string>;
     }
   | {
+      readonly kind: "section";
+      readonly title: string;
+      readonly note?: string;
+    }
+  | {
+      readonly kind: "diagnostic";
+      readonly diagnostic: LintHumanDiagnostic;
+    }
+  | {
       readonly kind: "pathGroup";
       readonly path: string;
       readonly diagnostics: ReadonlyArray<LintHumanDiagnostic>;
+    }
+  | {
+      readonly kind: "blank";
     }
   | {
       readonly kind: "empty";
@@ -409,17 +407,25 @@ export type LintHumanBlock =
       readonly summary: FixSummary;
     };
 
-/**
- * Outcome of a `--fix` run; used by the renderer and the JSON emitter.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export interface FixSummary {
   readonly attempted: number;
   readonly applied: number;
   readonly failed: number;
   readonly warnings: ReadonlyArray<string>;
 }
+
+interface ParsedLintHumanFinding {
+  readonly path: string;
+  readonly bucket: string;
+  readonly severity: Severity;
+  readonly ruleId: string;
+  readonly title: string;
+  readonly details: ReadonlyArray<string>;
+  readonly helps: ReadonlyArray<string>;
+  readonly fixable: boolean;
+}
+
+const defaultHumanReporter: LintHumanReporter = "grouped";
 
 const compareRenderedFindings = (left: RenderedFinding, right: RenderedFinding): number => {
   const byPath = left.path.localeCompare(right.path);
@@ -437,16 +443,8 @@ const compareRenderedFindings = (left: RenderedFinding, right: RenderedFinding):
   return left.finding.message.localeCompare(right.finding.message);
 };
 
-interface ParsedLintHumanFinding {
-  readonly path: string;
-  readonly bucket: string;
-  readonly severity: Severity;
-  readonly ruleId: string;
-  readonly title: string;
-  readonly details: ReadonlyArray<string>;
-  readonly helps: ReadonlyArray<string>;
-  readonly fixable: boolean;
-}
+const pluralize = (n: number, singular: string, plural: string): string =>
+  n === 1 ? singular : plural;
 
 const splitSentences = (message: string): ReadonlyArray<string> => {
   const out: Array<string> = [];
@@ -610,6 +608,11 @@ const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => 
   return out;
 };
 
+const sortStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => [...values].sort();
+
+const uniquePaths = (findings: ReadonlyArray<ParsedLintHumanFinding>): ReadonlyArray<string> =>
+  uniqueStrings(findings.map((finding) => finding.path));
+
 const summarizeSkillByDetail = (finding: ParsedLintHumanFinding): string => {
   const name = matchSingleQuoted(finding.title);
   const detail = finding.details[0];
@@ -630,7 +633,43 @@ const compressDetails = (details: ReadonlyArray<string>, limit = 10): ReadonlyAr
   return [...details.slice(0, limit), `... and ${remaining} more`];
 };
 
-const coalesceDiagnostics = (
+const previewList = (values: ReadonlyArray<string>, limit = 3): string => {
+  if (values.length === 0) {
+    return "";
+  }
+  if (values.length <= limit) {
+    return values.join(", ");
+  }
+  const remaining = values.length - limit;
+  return `${values.slice(0, limit).join(", ")}, ... and ${remaining} more`;
+};
+
+const groupFindingsByPath = <A>(
+  findings: ReadonlyArray<ParsedLintHumanFinding>,
+  extract: (finding: ParsedLintHumanFinding) => A,
+): ReadonlyArray<readonly [string, ReadonlyArray<A>]> => {
+  const grouped = new Map<string, Array<A>>();
+  for (const finding of findings) {
+    const current = grouped.get(finding.path);
+    const value = extract(finding);
+    if (current === undefined) {
+      grouped.set(finding.path, [value]);
+    } else {
+      current.push(value);
+    }
+  }
+  return [...grouped.entries()].sort(([left], [right]) => left.localeCompare(right));
+};
+
+const formatPathSkillSummary = (path: string, names: ReadonlyArray<string>): string => {
+  const sorted = sortStrings(uniqueStrings(names));
+  return `${path}: ${sorted.length} (${previewList(sorted, 3)})`;
+};
+
+const formatPathMappingSummary = (path: string, pairs: ReadonlyArray<string>, limit = 2): string =>
+  `${path}: ${previewList(sortStrings(uniqueStrings(pairs)), limit)}`;
+
+const coalesceFullDiagnostic = (
   findings: ReadonlyArray<ParsedLintHumanFinding>,
 ): LintHumanDiagnostic => {
   const [first] = findings;
@@ -642,6 +681,7 @@ const coalesceDiagnostics = (
       details: [],
       helps: [],
       fixable: false,
+      paths: [],
     };
   }
 
@@ -653,10 +693,12 @@ const coalesceDiagnostics = (
       details: first.details,
       helps: first.helps,
       fixable: first.fixable,
+      paths: [first.path],
     };
   }
 
   const allHelps = uniqueStrings(findings.flatMap((finding) => finding.helps));
+  const paths = uniquePaths(findings);
 
   switch (`${first.ruleId}:${first.bucket}`) {
     case "workspace/lockfile-valid:missing-required-field": {
@@ -669,8 +711,9 @@ const coalesceDiagnostics = (
         ruleId: first.ruleId,
         title: "Lockfile is missing required fields.",
         details: compressDetails(fields),
-        helps: ["Add the missing fields at the referenced locations."],
+        helps: ["Edit `.axm/axm-lock.yaml` and add the missing fields, then re-run `axm lint`."],
         fixable: false,
+        paths,
       };
     }
     case "workspace/skills-artifacts-clean:stale": {
@@ -684,10 +727,12 @@ const coalesceDiagnostics = (
         title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not listed in settings.skills.`,
         details: compressDetails(names),
         helps: [
-          "Add them to settings.skills if axm should manage them.",
-          "Otherwise remove them from this directory.",
+          "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source.",
+          "Each entry can be a source string or an object with `source` and optional `enabled`.",
+          "To remove them: delete them from this directory.",
         ],
         fixable: false,
+        paths,
       };
     }
     case "workspace/skills-artifacts-clean:dangling": {
@@ -702,6 +747,7 @@ const coalesceDiagnostics = (
         details: compressDetails(names),
         helps: ["Run `axm lint --fix` to reinstall them and restore the missing source files."],
         fixable: true,
+        paths,
       };
     }
     case "workspace/skills-artifacts-clean:name-mismatch": {
@@ -726,9 +772,11 @@ const coalesceDiagnostics = (
         title: "Some skills in this directory do not match the names declared in settings.skills.",
         details: compressDetails(names),
         helps: [
-          "Remove the mismatched directories and reinstall the declared skill names if axm should manage them.",
+          "To keep them: rename the directories to the declared `settings.skills` names in `.axm/settings.json`.",
+          "To remove them: delete the mismatched directories.",
         ],
         fixable: false,
+        paths,
       };
     }
     case "workspace/skills-artifacts-correct:enabled-missing":
@@ -742,6 +790,7 @@ const coalesceDiagnostics = (
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: ["Run `axm lint --fix` to reconcile the declared agent artifacts."],
         fixable: true,
+        paths,
       };
     case "workspace/skills-lockfile-aligned:missing":
     case "workspace/skills-lockfile-aligned:orphan":
@@ -754,6 +803,7 @@ const coalesceDiagnostics = (
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: ["Run `axm lint --fix` to reconcile settings.skills with the lockfile."],
         fixable: true,
+        paths,
       };
     case "workspace/skills-integrity-valid:integrity":
       return {
@@ -763,6 +813,7 @@ const coalesceDiagnostics = (
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: ["Run `axm lint --fix` to reinstall the affected skills."],
         fixable: true,
+        paths,
       };
     default:
       return {
@@ -778,6 +829,196 @@ const coalesceDiagnostics = (
         ),
         helps: allHelps,
         fixable: findings.some((finding) => finding.fixable),
+        paths,
+      };
+  }
+};
+
+const coalesceGroupedDiagnostic = (
+  findings: ReadonlyArray<ParsedLintHumanFinding>,
+): LintHumanDiagnostic => {
+  const [first] = findings;
+  if (first === undefined) {
+    return {
+      severity: "info",
+      ruleId: "",
+      title: "",
+      details: [],
+      helps: [],
+      fixable: false,
+      paths: [],
+    };
+  }
+
+  if (findings.length === 1) {
+    return {
+      severity: first.severity,
+      ruleId: first.ruleId,
+      title: first.title,
+      details: first.details,
+      helps: first.helps,
+      fixable: first.fixable,
+      paths: [first.path],
+    };
+  }
+
+  const paths = uniquePaths(findings);
+  const allHelps = uniqueStrings(findings.flatMap((finding) => finding.helps));
+
+  switch (`${first.ruleId}:${first.bucket}`) {
+    case "workspace/lockfile-valid:missing-required-field": {
+      const fields = sortStrings(
+        uniqueStrings(
+          findings.flatMap((finding) => {
+            const match = /Lockfile is missing required field `([^`]+)`\./.exec(finding.title);
+            return match?.[1] === undefined ? [] : [match[1]];
+          }),
+        ),
+      );
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: "Lockfile is missing fields required by the current schema.",
+        details: [`Missing fields include: ${previewList(fields, 4)}`],
+        helps: [
+          "Fix: Edit `.axm/axm-lock.yaml` and add the missing fields, then re-run `axm lint`.",
+        ],
+        fixable: false,
+        paths,
+      };
+    }
+    case "workspace/skills-artifacts-clean:stale": {
+      const perPath = groupFindingsByPath(
+        findings,
+        (finding) => matchSingleQuoted(finding.title) ?? finding.title,
+      );
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: `Undeclared skills are present in ${paths.length} ${pluralize(paths.length, "agent skill directory", "agent skill directories")}.`,
+        details: compressDetails(
+          perPath.map(([path, names]) => {
+            const sorted = sortStrings(uniqueStrings(names));
+            return `${path}: ${sorted.length} undeclared ${pluralize(sorted.length, "skill", "skills")} (${previewList(sorted, 3)})`;
+          }),
+          8,
+        ),
+        helps: [
+          "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source.",
+          "Each entry can be a source string or an object with `source` and optional `enabled`.",
+          "To remove them: delete them from those directories.",
+        ],
+        fixable: false,
+        paths,
+      };
+    }
+    case "workspace/skills-artifacts-clean:dangling": {
+      const perPath = groupFindingsByPath(
+        findings,
+        (finding) => matchSingleQuoted(finding.title) ?? finding.title,
+      );
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: `Broken skill installs are present in ${paths.length} ${pluralize(paths.length, "agent skill directory", "agent skill directories")}.`,
+        details: compressDetails(
+          perPath.map(([path, names]) => formatPathSkillSummary(path, names)),
+          8,
+        ),
+        helps: ["Run `axm lint --fix` to reinstall the affected skills."],
+        fixable: true,
+        paths,
+      };
+    }
+    case "workspace/skills-artifacts-clean:name-mismatch": {
+      const perPath = groupFindingsByPath(findings, (finding) => {
+        const match =
+          /Skill '([^']+)' is present .* settings\.skills declares it as '([^']+)'\./.exec(
+            finding.title,
+          );
+        if (match === null) {
+          return finding.title;
+        }
+        const actual = match[1];
+        const expected = match[2];
+        if (actual === undefined || expected === undefined) {
+          return finding.title;
+        }
+        return `${actual} -> ${expected}`;
+      });
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title:
+          "Some installed skill directories do not match the names declared in `settings.skills`.",
+        details: compressDetails(
+          perPath.map(([path, pairs]) => formatPathMappingSummary(path, pairs)),
+          8,
+        ),
+        helps: [
+          "To keep them: rename those directories to the declared `settings.skills` names in `.axm/settings.json`.",
+          "To remove them: delete the mismatched directories.",
+        ],
+        fixable: false,
+        paths,
+      };
+    }
+    case "workspace/skills-artifacts-correct:enabled-missing":
+    case "workspace/skills-artifacts-correct:disabled-present":
+    case "workspace/skills-artifacts-correct:inconsistent":
+    case "workspace/skills-artifacts-correct:artifact-state":
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} inconsistent across the declared agents.`,
+        details: compressDetails(findings.map(summarizeSkillByDetail)),
+        helps: ["Run `axm lint --fix` to reconcile the declared agent artifacts."],
+        fixable: true,
+        paths,
+      };
+    case "workspace/skills-lockfile-aligned:missing":
+    case "workspace/skills-lockfile-aligned:orphan":
+    case "workspace/skills-lockfile-aligned:version":
+    case "workspace/skills-lockfile-aligned:alignment":
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: "`settings.skills` and the lockfile are out of sync.",
+        details: compressDetails(findings.map(summarizeSkillByDetail)),
+        helps: ["Run `axm lint --fix` to reconcile `settings.skills` with the lockfile."],
+        fixable: true,
+        paths,
+      };
+    case "workspace/skills-integrity-valid:integrity":
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: "Installed skill sources do not match their lockfile entries.",
+        details: compressDetails(findings.map(summarizeSkillByDetail)),
+        helps: ["Run `axm lint --fix` to reinstall the affected skills."],
+        fixable: true,
+        paths,
+      };
+    default:
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title:
+          findings.length === 1
+            ? first.title
+            : `${findings.length} related findings were reported.`,
+        details: compressDetails(
+          findings.map((finding) => {
+            const detail =
+              finding.details.length === 0
+                ? finding.title
+                : `${finding.title}: ${finding.details.join("; ")}`;
+            return paths.length === 1 ? detail : `${finding.path}: ${detail}`;
+          }),
+        ),
+        helps: allHelps,
+        fixable: findings.some((finding) => finding.fixable),
+        paths,
       };
   }
 };
@@ -799,7 +1040,7 @@ const joinList = (values: ReadonlyArray<string>): string => {
   return `${head}, and ${tail}`;
 };
 
-const formatOverviewSentence = (args: {
+const formatFullOverviewSentence = (args: {
   readonly counts: FindingCounts;
   readonly locationCount: number;
   readonly fixableCount: number;
@@ -820,19 +1061,166 @@ const formatOverviewSentence = (args: {
   if (args.fixableCount === 0) {
     return base;
   }
-  const fixable =
-    args.fixableCount === 1
-      ? "1 finding is fixable."
-      : `${args.fixableCount} findings are fixable.`;
-  return `${base} ${fixable}`;
+  return `${base} ${args.fixableCount} ${pluralize(args.fixableCount, "finding can", "findings can")} be auto-fixed.`;
 };
 
-/**
- * Build structured human-output blocks for a lint run.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const toLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
+const formatGroupedOverviewSentence = (args: {
+  readonly diagnosticCount: number;
+  readonly fixableCount: number;
+}): string => {
+  const parts = [`${args.diagnosticCount} ${pluralize(args.diagnosticCount, "issue", "issues")}.`];
+  if (args.fixableCount > 0) {
+    parts.push(
+      `${args.fixableCount} ${pluralize(args.fixableCount, "can", "can")} be fixed automatically.`,
+    );
+  }
+  const manualCount = args.diagnosticCount - args.fixableCount;
+  if (manualCount > 0) {
+    parts.push(`${manualCount} ${pluralize(manualCount, "needs", "need")} manual attention.`);
+  }
+  return parts.join(" ");
+};
+
+const buildFullDiagnostics = (
+  parsed: ReadonlyArray<ParsedLintHumanFinding>,
+): ReadonlyArray<LintHumanBlock> => {
+  const pathOrder: Array<string> = [];
+  const byPath = new Map<string, Array<ParsedLintHumanFinding>>();
+
+  for (const entry of parsed) {
+    const current = byPath.get(entry.path);
+    if (current === undefined) {
+      byPath.set(entry.path, [entry]);
+      pathOrder.push(entry.path);
+    } else {
+      current.push(entry);
+    }
+  }
+
+  const blocks: Array<LintHumanBlock> = [];
+  pathOrder.forEach((path, index) => {
+    const pathEntries = byPath.get(path);
+    if (pathEntries === undefined) {
+      return;
+    }
+
+    const groups = new Map<string, Array<ParsedLintHumanFinding>>();
+    const groupOrder: Array<string> = [];
+    for (const entry of pathEntries) {
+      const key = `${severityOrder(entry.severity)}:${entry.ruleId}:${entry.bucket}`;
+      const current = groups.get(key);
+      if (current === undefined) {
+        groups.set(key, [entry]);
+        groupOrder.push(key);
+      } else {
+        current.push(entry);
+      }
+    }
+
+    blocks.push({
+      kind: "pathGroup",
+      path,
+      diagnostics: groupOrder.flatMap((key) => {
+        const grouped = groups.get(key);
+        return grouped === undefined ? [] : [coalesceFullDiagnostic(grouped)];
+      }),
+    });
+
+    if (index < pathOrder.length - 1) {
+      blocks.push({ kind: "blank" });
+    }
+  });
+
+  return blocks;
+};
+
+const groupedBucketKey = (entry: ParsedLintHumanFinding): string => {
+  switch (entry.ruleId) {
+    case "workspace/skills-artifacts-clean":
+      return `${entry.ruleId}:${entry.bucket}`;
+    default:
+      return `${entry.path}:${entry.ruleId}:${entry.bucket}`;
+  }
+};
+
+const buildGroupedDiagnostics = (
+  parsed: ReadonlyArray<ParsedLintHumanFinding>,
+): ReadonlyArray<LintHumanDiagnostic> => {
+  const groups = new Map<string, Array<ParsedLintHumanFinding>>();
+  const order: Array<string> = [];
+
+  for (const entry of parsed) {
+    const key = groupedBucketKey(entry);
+    const current = groups.get(key);
+    if (current === undefined) {
+      groups.set(key, [entry]);
+      order.push(key);
+    } else {
+      current.push(entry);
+    }
+  }
+
+  return order.flatMap((key) => {
+    const grouped = groups.get(key);
+    return grouped === undefined ? [] : [coalesceGroupedDiagnostic(grouped)];
+  });
+};
+
+const appendDiagnosticSection = (
+  blocks: Array<LintHumanBlock>,
+  title: string,
+  diagnostics: ReadonlyArray<LintHumanDiagnostic>,
+  note?: string,
+) => {
+  if (diagnostics.length === 0) {
+    return;
+  }
+  if (blocks.length > 0) {
+    blocks.push({ kind: "blank" });
+  }
+  blocks.push(note === undefined ? { kind: "section", title } : { kind: "section", title, note });
+  diagnostics.forEach((diagnostic, index) => {
+    blocks.push({ kind: "diagnostic", diagnostic });
+    if (index < diagnostics.length - 1) {
+      blocks.push({ kind: "blank" });
+    }
+  });
+};
+
+const buildSectionedDiagnostics = (args: {
+  readonly blocks: Array<LintHumanBlock>;
+  readonly diagnostics: ReadonlyArray<LintHumanDiagnostic>;
+}) => {
+  const fixable = args.diagnostics.filter((diagnostic) => diagnostic.fixable);
+  const manual = args.diagnostics.filter(
+    (diagnostic) => diagnostic.severity === "error" && !diagnostic.fixable,
+  );
+  const warnings = args.diagnostics.filter((diagnostic) => diagnostic.severity === "warning");
+  const infos = args.diagnostics.filter((diagnostic) => diagnostic.severity === "info");
+
+  appendDiagnosticSection(
+    args.blocks,
+    "Auto-fixable",
+    fixable,
+    "Run `axm lint --fix` to apply available fixes.",
+  );
+  appendDiagnosticSection(args.blocks, "Requires manual attention", manual);
+  appendDiagnosticSection(args.blocks, "Warnings", warnings);
+  appendDiagnosticSection(args.blocks, "Information", infos);
+};
+
+const makeSummaryDiagnostic = (diagnostic: LintHumanDiagnostic): LintHumanDiagnostic => ({
+  ...diagnostic,
+  details:
+    diagnostic.paths.length === 1
+      ? ["1 affected location"]
+      : [
+          `${diagnostic.paths.length} affected ${pluralize(diagnostic.paths.length, "location", "locations")}`,
+        ],
+  helps: [],
+});
+
+const toFullLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
   const blocks: Array<LintHumanBlock> = [];
   const { summary, fixSummary } = args;
 
@@ -844,37 +1232,26 @@ export const toLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
     );
   } else {
     const parsed = [...summary.findings].sort(compareRenderedFindings).map(parseHumanFinding);
-    const pathOrder: Array<string> = [];
-    const byPath = new Map<string, Array<ParsedLintHumanFinding>>();
-
-    for (const entry of parsed) {
-      const current = byPath.get(entry.path);
-      if (current === undefined) {
-        byPath.set(entry.path, [entry]);
-        pathOrder.push(entry.path);
-      } else {
-        current.push(entry);
-      }
-    }
-
-    const locationCount = byPath.size;
+    const locationCount = uniqueStrings(parsed.map((finding) => finding.path)).length;
     const fixableCount = summary.findings.filter(
       (finding) => finding.finding.kind === "autofixable",
     ).length;
     blocks.push({
       kind: "overview",
-      message: formatOverviewSentence({
+      message: formatFullOverviewSentence({
         counts: summary.counts,
         locationCount,
         fixableCount,
       }),
       counts: summary.counts,
-      ...(fixableCount > 0 && fixSummary === undefined
-        ? { nextStep: "Run `axm lint --fix` for the fixable findings." }
-        : {}),
+      notes:
+        fixableCount > 0 && fixSummary === undefined
+          ? ["Next step: Run `axm lint --fix` for the auto-fixable findings."]
+          : [],
     });
 
     if (summary.driftBanner.length > 0) {
+      blocks.push({ kind: "blank" });
       blocks.push({
         kind: "driftBanner",
         title: "The registry will still block publish on these rules:",
@@ -882,37 +1259,15 @@ export const toLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
       });
     }
 
-    for (const path of pathOrder) {
-      const pathEntries = byPath.get(path);
-      if (pathEntries === undefined) {
-        continue;
-      }
-
-      const groups = new Map<string, Array<ParsedLintHumanFinding>>();
-      const groupOrder: Array<string> = [];
-      for (const entry of pathEntries) {
-        const key = `${severityOrder(entry.severity)}:${entry.ruleId}:${entry.bucket}`;
-        const current = groups.get(key);
-        if (current === undefined) {
-          groups.set(key, [entry]);
-          groupOrder.push(key);
-        } else {
-          current.push(entry);
-        }
-      }
-
-      blocks.push({
-        kind: "pathGroup",
-        path,
-        diagnostics: groupOrder.flatMap((key) => {
-          const grouped = groups.get(key);
-          return grouped === undefined ? [] : [coalesceDiagnostics(grouped)];
-        }),
-      });
+    const diagnostics = buildFullDiagnostics(parsed);
+    if (diagnostics.length > 0) {
+      blocks.push({ kind: "blank" });
+      blocks.push(...diagnostics);
     }
   }
 
   if (summary.findings.length === 0 && summary.driftBanner.length > 0) {
+    blocks.push({ kind: "blank" });
     blocks.push({
       kind: "driftBanner",
       title: "The registry will still block publish on these rules:",
@@ -921,6 +1276,7 @@ export const toLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
   }
 
   if (fixSummary !== undefined) {
+    blocks.push({ kind: "blank" });
     blocks.push({
       kind: "fixSummary",
       message: formatFixSummary(fixSummary),
@@ -931,25 +1287,135 @@ export const toLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
   return blocks;
 };
 
-/**
- * Render a finding-first human text report.
- *
- * Output shape (one block per rendered path, with rule metadata and message on
- * detail/help lines):
- *
- *     Found 3 errors in 2 locations. 1 finding is fixable.
- *     Next step: run `axm lint --fix` for the fixable findings.
- *
- *     ./.axm/axm-lock.yaml
- *       [error] workspace/lockfile-valid (fixable): Lockfile is missing
- *       required fields.
- *         - packs.effect.owner
- *         Add the missing fields at the referenced locations.
- *
- *     Applied 3 fixes; 1 warning surfaced from applyPlan.
- *
- * @experimental This API is unstable and may change without notice.
- */
+const toGroupedLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
+  const blocks: Array<LintHumanBlock> = [];
+  const { summary, fixSummary } = args;
+
+  if (summary.findings.length === 0) {
+    blocks.push(
+      summary.driftBanner.length === 0
+        ? { kind: "empty", message: "No findings." }
+        : { kind: "empty", message: "No local findings." },
+    );
+  } else {
+    const parsed = [...summary.findings].sort(compareRenderedFindings).map(parseHumanFinding);
+    const diagnostics = buildGroupedDiagnostics(parsed);
+    const fixableCount = diagnostics.filter((diagnostic) => diagnostic.fixable).length;
+
+    blocks.push({
+      kind: "overview",
+      message: formatGroupedOverviewSentence({
+        diagnosticCount: diagnostics.length,
+        fixableCount,
+      }),
+      counts: summary.counts,
+      notes: ["More output: `axm lint --details` | `axm lint --json`"],
+    });
+
+    if (summary.driftBanner.length > 0) {
+      blocks.push({ kind: "blank" });
+      blocks.push({
+        kind: "driftBanner",
+        title: "The registry will still block publish on these rules:",
+        ruleIds: summary.driftBanner,
+      });
+    }
+
+    buildSectionedDiagnostics({ blocks, diagnostics });
+  }
+
+  if (summary.findings.length === 0 && summary.driftBanner.length > 0) {
+    blocks.push({ kind: "blank" });
+    blocks.push({
+      kind: "driftBanner",
+      title: "The registry will still block publish on these rules:",
+      ruleIds: summary.driftBanner,
+    });
+  }
+
+  if (fixSummary !== undefined) {
+    blocks.push({ kind: "blank" });
+    blocks.push({
+      kind: "fixSummary",
+      message: formatFixSummary(fixSummary),
+      summary: fixSummary,
+    });
+  }
+
+  return blocks;
+};
+
+const toSummaryLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
+  const blocks: Array<LintHumanBlock> = [];
+  const { summary, fixSummary } = args;
+
+  if (summary.findings.length === 0) {
+    blocks.push(
+      summary.driftBanner.length === 0
+        ? { kind: "empty", message: "No findings." }
+        : { kind: "empty", message: "No local findings." },
+    );
+  } else {
+    const parsed = [...summary.findings].sort(compareRenderedFindings).map(parseHumanFinding);
+    const diagnostics = buildGroupedDiagnostics(parsed).map(makeSummaryDiagnostic);
+    const fixableCount = diagnostics.filter((diagnostic) => diagnostic.fixable).length;
+    blocks.push({
+      kind: "overview",
+      message: formatGroupedOverviewSentence({
+        diagnosticCount: diagnostics.length,
+        fixableCount,
+      }),
+      counts: summary.counts,
+      notes:
+        fixableCount > 0 && fixSummary === undefined
+          ? ["Run `axm lint --fix` to apply available fixes."]
+          : [],
+    });
+
+    if (summary.driftBanner.length > 0) {
+      blocks.push({ kind: "blank" });
+      blocks.push({
+        kind: "driftBanner",
+        title: "The registry will still block publish on these rules:",
+        ruleIds: summary.driftBanner,
+      });
+    }
+
+    buildSectionedDiagnostics({ blocks, diagnostics });
+  }
+
+  if (summary.findings.length === 0 && summary.driftBanner.length > 0) {
+    blocks.push({ kind: "blank" });
+    blocks.push({
+      kind: "driftBanner",
+      title: "The registry will still block publish on these rules:",
+      ruleIds: summary.driftBanner,
+    });
+  }
+
+  if (fixSummary !== undefined) {
+    blocks.push({ kind: "blank" });
+    blocks.push({
+      kind: "fixSummary",
+      message: formatFixSummary(fixSummary),
+      summary: fixSummary,
+    });
+  }
+
+  return blocks;
+};
+
+export const toLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
+  switch (args.reporter ?? defaultHumanReporter) {
+    case "full":
+      return toFullLintHumanBlocks(args);
+    case "summary":
+      return toSummaryLintHumanBlocks(args);
+    case "grouped":
+      return toGroupedLintHumanBlocks(args);
+  }
+};
+
 export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<string> => {
   const lines: Array<string> = [];
 
@@ -957,8 +1423,8 @@ export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<stri
     switch (block.kind) {
       case "overview":
         lines.push(block.message);
-        if (block.nextStep !== undefined) {
-          lines.push(`Next step: ${block.nextStep}`);
+        for (const note of block.notes) {
+          lines.push(note);
         }
         break;
       case "driftBanner":
@@ -967,11 +1433,38 @@ export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<stri
           lines.push(`  - ${id}`);
         }
         break;
+      case "section":
+        lines.push(block.title);
+        if (block.note !== undefined) {
+          lines.push(block.note);
+        }
+        break;
+      case "diagnostic": {
+        if (block.diagnostic.paths.length === 1) {
+          lines.push(`  [${block.diagnostic.severity}] ${block.diagnostic.paths[0] ?? ""}`);
+          lines.push(
+            `  rule: ${block.diagnostic.ruleId}${block.diagnostic.fixable ? " (auto-fixable)" : ""}`,
+          );
+          lines.push(`  ${block.diagnostic.title}`);
+        } else {
+          lines.push(
+            `  [${block.diagnostic.severity}] ${block.diagnostic.ruleId}${block.diagnostic.fixable ? " (auto-fixable)" : ""}`,
+          );
+          lines.push(`  ${block.diagnostic.title}`);
+        }
+        for (const detail of block.diagnostic.details) {
+          lines.push(`  - ${detail}`);
+        }
+        for (const help of block.diagnostic.helps) {
+          lines.push(`  ${help}`);
+        }
+        break;
+      }
       case "pathGroup":
         lines.push(block.path);
         for (const diagnostic of block.diagnostics) {
           lines.push(
-            `  [${diagnostic.severity}] ${diagnostic.ruleId}${diagnostic.fixable ? " (fixable)" : ""}: ${diagnostic.title}`,
+            `  [${diagnostic.severity}] ${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}: ${diagnostic.title}`,
           );
           for (const detail of diagnostic.details) {
             lines.push(`    - ${detail}`);
@@ -980,6 +1473,9 @@ export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<stri
             lines.push(`    ${help}`);
           }
         }
+        break;
+      case "blank":
+        lines.push("");
         break;
       case "empty":
         lines.push(block.message);
@@ -1001,9 +1497,6 @@ const formatFixSummary = (fix: FixSummary): string => {
   const warningsLabel = pluralize(fix.warnings.length, "warning", "warnings");
   return `Applied ${fix.applied} ${appliedLabel}; ${fix.warnings.length} ${warningsLabel}, ${fix.failed} failed.`;
 };
-
-const pluralize = (n: number, singular: string, plural: string): string =>
-  n === 1 ? singular : plural;
 
 // -----------------------------------------------------------------------------
 // JSON document (task 5.6)

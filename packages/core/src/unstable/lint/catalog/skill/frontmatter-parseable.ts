@@ -99,7 +99,7 @@ const evaluateCascade = (content: string): ReadonlyArray<AdvisoryFinding> => {
   if (!isMapping(parsed.value)) {
     return [
       finding(
-        "SKILL.md frontmatter must be a YAML mapping, not a list or scalar. Rewrite it as `key: value` pairs.",
+        "SKILL.md frontmatter must be a YAML mapping, not a list or scalar. Rewrite the frontmatter block in `SKILL.md` as `key: value` pairs.",
       ),
     ];
   }

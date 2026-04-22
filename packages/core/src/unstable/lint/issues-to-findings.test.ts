@@ -125,7 +125,9 @@ describe("issuesToFindings", () => {
 
     for (const finding of findings) {
       expect(finding.message).toContain("Skill manifest field `name` has the wrong type");
-      expect(finding.message).toContain("Replace it with a value of the expected type");
+      expect(finding.message).toContain(
+        "Edit `skill.json` and replace it with a value of the expected type",
+      );
       expect("suggestions" in finding).toBe(false);
     }
   });
@@ -142,7 +144,9 @@ describe("issuesToFindings", () => {
 
     expect(finding?.message).toContain("Skill manifest field `name` is invalid");
     expect(finding?.message).toContain("must not be empty");
-    expect(finding?.message).toContain("schema constraint");
+    expect(finding?.message).toContain(
+      "Edit `skill.json` and update it so it satisfies the schema constraint",
+    );
   });
 
   it("formats unexpected key findings with concrete remediation", () => {
@@ -154,7 +158,7 @@ describe("issuesToFindings", () => {
     const [finding] = issuesToFindings("skill/manifest-schema-valid", "error", "skill.json", issue);
 
     expect(finding?.message).toBe(
-      "Skill manifest has unrecognized field `made_up_key`. Remove it or rename it to the intended field name.",
+      "Skill manifest has unrecognized field `made_up_key`. Edit `skill.json` to remove it or rename it to the intended field name.",
     );
   });
 
@@ -172,7 +176,9 @@ describe("issuesToFindings", () => {
       "Skill manifest field `name` uses a value or operation the schema does not allow",
     );
     expect(finding?.message).toContain("forbidden in this context");
-    expect(finding?.message).toContain("Update it so the document satisfies the schema");
+    expect(finding?.message).toContain(
+      "Edit `skill.json` and update it so the document satisfies the schema",
+    );
   });
 
   it("formats one-of findings with branch-specific wording", () => {
@@ -186,7 +192,9 @@ describe("issuesToFindings", () => {
     expect(finding?.message).toContain(
       "Skill manifest field `name` matches more than one allowed shape",
     );
-    expect(finding?.message).toContain("exactly one allowed shape matches");
+    expect(finding?.message).toContain(
+      "Edit `skill.json` and rewrite it so exactly one allowed shape matches",
+    );
   });
 
   it("formats any-of fallbacks with branch-specific wording", () => {
@@ -200,7 +208,9 @@ describe("issuesToFindings", () => {
     expect(finding?.message).toContain(
       "Skill manifest field `name` does not match any allowed shape",
     );
-    expect(finding?.message).toContain("matches one of the allowed shapes");
+    expect(finding?.message).toContain(
+      "Edit `skill.json` and rewrite it so it matches one of the allowed shapes",
+    );
   });
 
   it("smoke: real decoder result propagates findings", () => {

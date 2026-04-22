@@ -26,10 +26,19 @@ const lintConfig = {
   strict: Flag.boolean("strict").pipe(
     Flag.withDescription("Treat warnings as failing for exit code."),
   ),
+  details: Flag.boolean("details").pipe(
+    Flag.withDescription("Show the full human report instead of the grouped summary."),
+  ),
 } as const;
 
-export const lintCommand = Command.make("lint", lintConfig, ({ path, scope, fix, strict }) =>
-  handleLint({ pathArg: path, scope, fix, strict }).pipe(withWorkspace(scope), withRuntime("lint")),
+export const lintCommand = Command.make(
+  "lint",
+  lintConfig,
+  ({ path, scope, fix, strict, details }) =>
+    handleLint({ pathArg: path, scope, fix, strict, details }).pipe(
+      withWorkspace(scope),
+      withRuntime("lint"),
+    ),
 ).pipe(
   withArgvTracking(lintConfig),
   Command.withDescription(
@@ -48,6 +57,10 @@ export const lintCommand = Command.make("lint", lintConfig, ({ path, scope, fix,
     {
       command: "axm lint --strict",
       description: "Treat warnings as failing for exit code",
+    },
+    {
+      command: "axm lint --details",
+      description: "Show the detailed path-by-path report",
     },
     {
       command: "axm lint --json",

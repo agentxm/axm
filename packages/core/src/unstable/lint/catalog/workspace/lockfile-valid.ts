@@ -103,7 +103,7 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
           severity: "error",
           message:
             `The lockfile is not valid YAML. Detail: ${lockfileResult.failure.message}. ` +
-            "Fix the YAML syntax in that file.",
+            "Edit `.axm/axm-lock.yaml` to fix the YAML syntax.",
           location: { file: LOCKFILE_REL },
         };
         const readFailure: ReadonlyArray<LintFinding> = [advisory];

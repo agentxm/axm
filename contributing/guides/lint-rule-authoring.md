@@ -1,11 +1,13 @@
 ---
 status: active
 last-reviewed: 2026-04-22
-version: 0.1.2
+version: 0.1.5
 description: Authoring lint rules for AgentXM skills, packs, and workspaces — context
   kinds, advisory vs autofixing, schema delegation, naming, message content,
   testing.
 depends-on:
+  - ./guide-authoring.md
+  - ./documentation-guidelines.md
   - ./testing.md
   - ./effect.md
   - ./effect-errors.md
@@ -233,7 +235,8 @@ decides whether the rule applies.
 ### Fix Checklist
 
 - [ ] **Operation vocabulary only** — Returns `install-*`, `uninstall-*`,
-      `enable-*`, `disable-*` Operations; never references `syncWorkspace()`
+      `enable-*`, `disable-*` Operations; never calls a top-level
+      reconciliation function directly
 - [ ] **Readiness tagged** — Each Operation carries `readiness: "ready"` or
       `readiness: "warn"` with a one-line `warnMessage`
 - [ ] **Destructive ops warn** — Lockfile rewrites, mass artifact prunes, and
@@ -290,20 +293,80 @@ When parser or schema detail matters, keep it subordinate to the high-level
 statement: lead with the invariant failure, then append the raw detail, then
 end with the fix sentence. Do not emit raw decoder text alone.
 
+### Source Of Truth First
+
+The right fix depends on who owns the broken surface.
+
+| Surface kind                  | Examples                                                              | Message guidance                                                 |
+| ----------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| User-authored source of truth | `.axm/settings.json`, `skill.json`, `extension-pack.json`, `SKILL.md` | Name the file and config surface to edit                         |
+| Derived or axm-managed state  | `.axm/axm-lock.yaml`, `.axm/extensions/...`, agent artifact dirs      | Point to the command or source-of-truth edit that regenerates it |
+
+When the broken file is derived, do not normalize hand-editing it just because
+the rule reports that file in `location`. Name the user-owned declaration or
+the supported command instead.
+
+Examples:
+
+- Avoid: "Edit `.axm/axm-lock.yaml` and add the missing fields."
+- Prefer: "Run `axm lint --fix` to reinstall the declared extensions and
+  regenerate the lockfile."
+
+### Write For Grouped Diagnostics
+
+The default `axm lint` output may render the path and rule id outside the main
+sentence:
+
+```text
+✖  ./.axm/settings.json
+  rule: workspace/skills-artifacts-correct
+  2 skills are inconsistent across the declared agents.
+```
+
+Write messages that still read cleanly in that shape. The diagnosis should
+stand on its own even when the renderer moves the path and `rule:` line
+outside the sentence.
+
+### Prefer List- and Fix-Friendly Detail
+
+When a finding naturally produces follow-up bullets or short remediation lines,
+prefer prose that can be split cleanly by the renderer.
+
+| Avoid                               | Prefer                                      |
+| ----------------------------------- | ------------------------------------------- |
+| Dense parenthetical detail          | `Missing fields include: ...`               |
+| One long sentence with two paths    | `To keep them: ...` / `To remove them: ...` |
+| Title sentence with embedded totals | One local fact; let the renderer count      |
+
+### Name The Mechanism
+
+Do not stop at the desired end state. Tell the user how to get there.
+
+Examples:
+
+- Weak: "Add it to `settings.skills`."
+- Better: "Run `axm skills install <source>` to install and declare it."
+- Better: "Run `axm lint --fix` to declare it automatically."
+- Better: "Or add an entry for it under `settings.skills` in
+  `.axm/settings.json` — each entry can be a source string or an object with
+  `source` and optional `enabled`."
+- Better: "If you do not want axm to manage it, delete it from that directory."
+
+Lead with the CLI command (`axm skills install`, `axm lint --fix`) as the
+preferred path. When naming a manual config edit as a secondary path, include
+enough structure context that the user can act without reading the schema.
+Most messages should name both the CLI mechanism and the config surface.
+
 ### Prefer User-Observable Language
 
 Describe facts the workspace author can verify, not internal lint-engine
 bookkeeping.
 
-- Prefer "is present but not listed in `settings.skills`" over "stale artifact
-  with no backing declaration"
-- Prefer "is missing from some declared agents" over "missing per-agent
-  artifacts"
-- Prefer "installed source directory is missing" over "canonical source is
-  missing" unless the canonical distinction itself is the invariant
-- Name the actionable config surface when helpful (`settings.skills`,
-  `settings.packs`), but avoid internal implementation terms the user
-  cannot inspect directly
+| Avoid                                        | Prefer                                           |
+| -------------------------------------------- | ------------------------------------------------ |
+| "stale artifact with no backing declaration" | "is present but not listed in `settings.skills`" |
+| "missing per-agent artifacts"                | "is missing from some declared agents"           |
+| "canonical source is missing"                | "installed source directory is missing"          |
 
 When path context helps explain the fix, refer to the path by role rather than
 by render position:
@@ -323,6 +386,20 @@ the invariant.
       tone, not whether remediation appears
 - [ ] **CLI invocation verbatim** — When a user-facing verb exists, embed it as
       a runnable command (`axm workspace sync-agents-md --from=claude`)
+- [ ] **Concrete mechanism named** — Message tells the user how to apply the
+      change, not only what the final state should be
+- [ ] **Source-of-truth mechanism named** — Messages point to the
+      user-authored config or supported command that actually controls the
+      outcome
+- [ ] **Preferred path first** — Recommended or automatic resolution appears
+      before secondary manual or opt-out paths
+- [ ] **User-owned edit surface named** — If no CLI exists, message names the
+      user-authored file and config key to edit
+- [ ] **No generated-file edits** — Derived state like the lockfile or
+      installed artifact trees is repaired through commands or source-of-truth
+      edits, not by telling users to hand-edit generated files
+- [ ] **Alternatives explicit** — When more than one valid resolution exists,
+      each path is stated separately rather than implied
 - [ ] **No rendered paths** — Path context comes from `location` and the
       renderer; the message describes the action, not file positions
 - [ ] **Path by role, not layout** — When path context matters, refer to "the
@@ -337,6 +414,12 @@ the invariant.
       before `---`, or fix the YAML syntax at the referenced location")
 - [ ] **Schema detail is subordinate** — Decoder / parser detail supports the
       message; it does not replace the violation + remediation sentence
+- [ ] **Grouped-renderer friendly** — The diagnosis still reads cleanly when
+      the path and `rule:` line render separately from the message
+- [ ] **List-friendly detail** — Extra examples or field names can be rendered
+      as bullets without the message turning into a sentence fragment
+- [ ] **Fix lines read naturally** — Remediation phrasing can stand alone as
+      short follow-up lines (`Fix: ...`, `To keep them: ...`)
 - [ ] **Autofix stays terse** — `AutofixableFinding` messages state the
       violation; the remediation prose can be brief since `--fix` applies the
       action
@@ -376,23 +459,29 @@ __fixtures__/
 
 ## Common Pitfalls
 
-| Pitfall                                   | Problem                                                                                     |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Rule walks the workspace itself           | Duplicates `WorkspaceIndex`; makes the rule hard to test                                    |
-| `check` throws on inapplicable input      | Use `[]` — no separate `applies` predicate                                                  |
-| Schema-valid rule implements schema logic | Delegate to `Schema.decodeUnknown` + `issuesToFindings`                                     |
-| Unknown keys inlined in `-schema-valid`   | Splits severity; ship a paired `-keys-recognized` warning rule                              |
-| Autofix arbitrarily picks between paths   | Use `AdvisoryFinding` whose `message` enumerates each path (mechanical XOR)                 |
-| Fix edits `SKILL.md` or user settings     | User-authored content is out of scope; ship advisory                                        |
-| Message omits remediation                 | `message` carries both violation and fix; surfaces depend on it                             |
-| Message starts with "Error:" / "Warning:" | Severity already lives on the finding and in the renderer                                   |
-| Warning/info message omits next step      | Severity changes urgency, not whether the message is actionable                             |
-| Message uses internal lint jargon         | Prefer facts the user can verify over "artifact", "backing declaration", "canonical source" |
-| Message assumes a renderer layout         | Say "the manifest file" or "that directory", not "shown below"                              |
-| Message embeds a rendered path            | Path goes in `location`; renderer composes via `composePath`                                |
-| Rule touches `syncWorkspace()`            | Compose from per-extension Operations only                                                  |
-| Third-level id (`workspace/install/foo`)  | Type-shard instead: `workspace/<type>-<subject>-<predicate>`                                |
-| Description restates the mechanism        | State the invariant; mechanism lives in `check`                                             |
+| Pitfall                                        | Problem                                                                                                  |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Rule walks the workspace itself                | Duplicates `WorkspaceIndex`; makes the rule hard to test                                                 |
+| `check` throws on inapplicable input           | Use `[]` — no separate `applies` predicate                                                               |
+| Schema-valid rule implements schema logic      | Delegate to `Schema.decodeUnknown` + `issuesToFindings`                                                  |
+| Unknown keys inlined in `-schema-valid`        | Splits severity; ship a paired `-keys-recognized` warning rule                                           |
+| Autofix arbitrarily picks between paths        | Use `AdvisoryFinding` whose `message` enumerates each path (mechanical XOR)                              |
+| Fix edits `SKILL.md` or user settings          | User-authored content is out of scope; ship advisory                                                     |
+| Message omits remediation                      | `message` carries both violation and fix; surfaces depend on it                                          |
+| Message starts with "Error:" / "Warning:"      | Severity already lives on the finding and in the renderer                                                |
+| Warning/info message omits next step           | Severity changes urgency, not whether the message is actionable                                          |
+| Message uses internal lint jargon              | Prefer facts the user can verify over "artifact", "backing declaration", "canonical source"              |
+| Message assumes a renderer layout              | Say "the manifest file" or "that directory", not "shown below"                                           |
+| Message embeds a rendered path                 | Path goes in `location`; renderer composes via `composePath`                                             |
+| Message only works as a flat log line          | Default `axm lint` may render path and rule separately; keep the diagnosis standalone                    |
+| Detail is buried in parentheses                | Prefer bullet-friendly lead-ins like `Missing fields include: ...`                                       |
+| Message describes only the target state        | Saying "add it to `settings.skills`" is not enough; name the command or file edit too                    |
+| Message tells users to edit derived state      | Generated files like `.axm/axm-lock.yaml` should point to regeneration commands or source-of-truth edits |
+| Supported alternatives are implicit            | If users can auto-fix, edit config, or remove the item, enumerate those paths explicitly                 |
+| Message assumes config-edit know-how           | Naming `settings.skills` alone is not enough; say where and how to change it                             |
+| Rule calls a top-level reconciliation function | Compose from per-extension Operations only                                                               |
+| Third-level id (`workspace/install/foo`)       | Type-shard instead: `workspace/<type>-<subject>-<predicate>`                                             |
+| Description restates the mechanism             | State the invariant; mechanism lives in `check`                                                          |
 
 ### Pitfalls Checklist
 
@@ -402,8 +491,10 @@ __fixtures__/
       needed
 - [ ] **No arbitrary autofix** — Multi-path fixes are advisory
 - [ ] **No user-content edits** — User-authored files ship advisory findings
+- [ ] **No derived-state edits** — Generated files are repaired through
+      commands or source-of-truth edits
 - [ ] **No rendered paths in messages** — Use `location` plus the renderer
-- [ ] **No `syncWorkspace()` calls** — Per-extension Operations only
+- [ ] **No top-level reconciliation calls** — Per-extension Operations only
 
 ---
 

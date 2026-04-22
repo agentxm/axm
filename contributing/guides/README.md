@@ -16,6 +16,7 @@ Each guide is a single markdown file named after its topic:
 - `testing.md` — Testing orientation and skill references
 - `cli-design.md` — Command design, flags, prompts, and handler conventions
 - `cli-renderer.md` — Renderer boundaries, JSON contracts, and stderr diagnostics
+- `lint-rule-authoring.md` — Authoring lint rules for skills, packs, and workspaces
 - `releasing.md` — Release versioning, prepare/publish flow, and status checks
 - `spec-driven-development.md` — SDD workflow with OpenSpec
 - `feature-delivery.md` — Proposal, design, and implementation checks

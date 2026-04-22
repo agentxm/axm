@@ -1,5 +1,5 @@
 {
-  "description": "Agent using universal skills dir (.agents/skills) has an artifact that IS declared in settings. Classifier sees it as configured, not unmanaged, so no stale finding fires.",
+  "description": "Agent using universal skills dir (.agents/skills) has an artifact that IS declared in settings. Classifier sees it as configured, not unmanaged, so skills-managed does not fire.",
   "state": {
     "settings": {
       "agents": ["amp"],

@@ -15,7 +15,7 @@
  * | `workspace/skills-lockfile-aligned`     | error    | autofixing  |
  * | `workspace/skills-integrity-valid`      | error    | autofixing  |
  * | `workspace/skills-artifacts-correct`    | error    | autofixing  |
- * | `workspace/skills-artifacts-clean`      | error    | mixed       |
+ * | `workspace/skills-managed`              | error    | —           |
  * | `workspace/packs-declarations-valid`    | error    | —           |
  * | `workspace/packs-dependencies-resolved` | error    | —           |
  * | `workspace/packs-members-retained`      | warning  | —           |
@@ -45,7 +45,7 @@ import { skillsDeclarationsValidRule } from "./workspace/skills-declarations-val
 import { skillsLockfileAlignedRule } from "./workspace/skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "./workspace/skills-integrity-valid.js";
 import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct.js";
-import { skillsArtifactsCleanRule } from "./workspace/skills-artifacts-clean.js";
+import { skillsManagedRule } from "./workspace/skills-managed.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
 import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js";
@@ -71,7 +71,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsLockfileAlignedRule,
   skillsIntegrityValidRule,
   skillsArtifactsCorrectRule,
-  skillsArtifactsCleanRule,
+  skillsManagedRule,
   // Packs install family (Settings ↔ Lockfile).
   packsDeclarationsValidRule,
   packsDependenciesResolvedRule,

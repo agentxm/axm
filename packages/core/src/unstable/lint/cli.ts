@@ -528,7 +528,7 @@ const dirnamePosix = (path: string): string => {
 
 const groupDisplayPath = (entry: RenderedFinding): string => {
   switch (entry.finding.ruleId) {
-    case "workspace/skills-artifacts-clean":
+    case "workspace/skills-managed":
       return dirnamePosix(entry.path);
     default:
       return entry.path;
@@ -545,17 +545,11 @@ const bucketForFinding = (entry: RenderedFinding, parsed: { readonly title: stri
         return "invalid-yaml";
       }
       return "validation";
-    case "workspace/skills-artifacts-clean":
-      if (parsed.title.includes("but its installed source directory is missing.")) {
-        return "dangling";
+    case "workspace/skills-managed":
+      if (parsed.title.includes("but it is not managed by this workspace.")) {
+        return "unmanaged";
       }
-      if (parsed.title.includes("but it is not listed in settings.skills.")) {
-        return "stale";
-      }
-      if (parsed.title.includes("but settings.skills declares it as")) {
-        return "name-mismatch";
-      }
-      return "artifact";
+      return "managed";
     case "workspace/skills-artifacts-correct":
       return "artifact-state";
     case "workspace/skills-lockfile-aligned":
@@ -661,14 +655,6 @@ const groupFindingsByPath = <A>(
   return [...grouped.entries()].sort(([left], [right]) => left.localeCompare(right));
 };
 
-const formatPathSkillSummary = (path: string, names: ReadonlyArray<string>): string => {
-  const sorted = sortStrings(uniqueStrings(names));
-  return `${path}: ${sorted.length} (${previewList(sorted, 3)})`;
-};
-
-const formatPathMappingSummary = (path: string, pairs: ReadonlyArray<string>, limit = 2): string =>
-  `${path}: ${previewList(sortStrings(uniqueStrings(pairs)), limit)}`;
-
 const coalesceFullDiagnostic = (
   findings: ReadonlyArray<ParsedLintHumanFinding>,
 ): LintHumanDiagnostic => {
@@ -718,7 +704,7 @@ const coalesceFullDiagnostic = (
         paths,
       };
     }
-    case "workspace/skills-artifacts-clean:stale": {
+    case "workspace/skills-managed:unmanaged": {
       const names = findings.flatMap((finding) => {
         const name = matchSingleQuoted(finding.title);
         return name === undefined ? [] : [name];
@@ -726,55 +712,11 @@ const coalesceFullDiagnostic = (
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not listed in settings.skills.`,
+        title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not managed by this workspace.`,
         details: compressDetails(names),
         helps: [
           "To remove them: run `axm prune` or `axm skills prune <name>`.",
           "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
-        ],
-        fixable: false,
-        paths,
-      };
-    }
-    case "workspace/skills-artifacts-clean:dangling": {
-      const names = findings.flatMap((finding) => {
-        const name = matchSingleQuoted(finding.title);
-        return name === undefined ? [] : [name];
-      });
-      return {
-        severity: first.severity,
-        ruleId: first.ruleId,
-        title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here, but the installed source directory is missing.`,
-        details: compressDetails(names),
-        helps: ["Run `axm lint --fix` to reinstall them and restore the missing source files."],
-        fixable: true,
-        paths,
-      };
-    }
-    case "workspace/skills-artifacts-clean:name-mismatch": {
-      const names = findings.map((finding) => {
-        const match =
-          /Skill '([^']+)' is present .* settings\.skills declares it as '([^']+)'\./.exec(
-            finding.title,
-          );
-        if (match === null) {
-          return finding.title;
-        }
-        const actual = match[1];
-        const expected = match[2];
-        if (actual === undefined || expected === undefined) {
-          return finding.title;
-        }
-        return `${actual} -> ${expected}`;
-      });
-      return {
-        severity: first.severity,
-        ruleId: first.ruleId,
-        title: "Some skills in this directory do not match the names declared in settings.skills.",
-        details: compressDetails(names),
-        helps: [
-          "To keep them: rename the directories to the declared `settings.skills` names in `.axm/settings.json`.",
-          "To remove them: delete the mismatched directories.",
         ],
         fixable: false,
         paths,
@@ -888,7 +830,7 @@ const coalesceGroupedDiagnostic = (
         paths,
       };
     }
-    case "workspace/skills-artifacts-clean:stale": {
+    case "workspace/skills-managed:unmanaged": {
       const perPath = groupFindingsByPath(
         findings,
         (finding) => matchSingleQuoted(finding.title) ?? finding.title,
@@ -896,68 +838,17 @@ const coalesceGroupedDiagnostic = (
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: `Undeclared skills are present in ${paths.length} ${pluralize(paths.length, "agent skill directory", "agent skill directories")}.`,
+        title: `Unmanaged skills are present in ${paths.length} ${pluralize(paths.length, "skill directory", "skill directories")}.`,
         details: compressDetails(
           perPath.map(([path, names]) => {
             const sorted = sortStrings(uniqueStrings(names));
-            return `${path}: ${sorted.length} undeclared ${pluralize(sorted.length, "skill", "skills")} (${previewList(sorted, 3)})`;
+            return `${path}: ${sorted.length} unmanaged ${pluralize(sorted.length, "skill", "skills")} (${previewList(sorted, 3)})`;
           }),
           8,
         ),
         helps: [
           "To remove them: run `axm prune` or `axm skills prune <name>`.",
           "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
-        ],
-        fixable: false,
-        paths,
-      };
-    }
-    case "workspace/skills-artifacts-clean:dangling": {
-      const perPath = groupFindingsByPath(
-        findings,
-        (finding) => matchSingleQuoted(finding.title) ?? finding.title,
-      );
-      return {
-        severity: first.severity,
-        ruleId: first.ruleId,
-        title: `Broken skill installs are present in ${paths.length} ${pluralize(paths.length, "agent skill directory", "agent skill directories")}.`,
-        details: compressDetails(
-          perPath.map(([path, names]) => formatPathSkillSummary(path, names)),
-          8,
-        ),
-        helps: ["Run `axm lint --fix` to reinstall the affected skills."],
-        fixable: true,
-        paths,
-      };
-    }
-    case "workspace/skills-artifacts-clean:name-mismatch": {
-      const perPath = groupFindingsByPath(findings, (finding) => {
-        const match =
-          /Skill '([^']+)' is present .* settings\.skills declares it as '([^']+)'\./.exec(
-            finding.title,
-          );
-        if (match === null) {
-          return finding.title;
-        }
-        const actual = match[1];
-        const expected = match[2];
-        if (actual === undefined || expected === undefined) {
-          return finding.title;
-        }
-        return `${actual} -> ${expected}`;
-      });
-      return {
-        severity: first.severity,
-        ruleId: first.ruleId,
-        title:
-          "Some installed skill directories do not match the names declared in `settings.skills`.",
-        details: compressDetails(
-          perPath.map(([path, pairs]) => formatPathMappingSummary(path, pairs)),
-          8,
-        ),
-        helps: [
-          "To keep them: rename those directories to the declared `settings.skills` names in `.axm/settings.json`.",
-          "To remove them: delete the mismatched directories.",
         ],
         fixable: false,
         paths,
@@ -1136,7 +1027,7 @@ const buildFullDiagnostics = (
 
 const groupedBucketKey = (entry: ParsedLintHumanFinding): string => {
   switch (entry.ruleId) {
-    case "workspace/skills-artifacts-clean":
+    case "workspace/skills-managed":
       return `${entry.ruleId}:${entry.bucket}`;
     default:
       return `${entry.path}:${entry.ruleId}:${entry.bucket}`;

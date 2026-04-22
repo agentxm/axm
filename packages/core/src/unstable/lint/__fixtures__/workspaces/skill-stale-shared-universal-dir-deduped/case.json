@@ -1,8 +1,8 @@
 {
-  "description": "Agent using universal skills dir (.agents/skills) has an unmanaged artifact not backed by any declaration. skills-managed fires for the detected workspace path.",
+  "description": "Multiple agents share the universal skills dir (.agents/skills). An unmanaged artifact in that shared directory produces one finding for the actual workspace path, not one per agent.",
   "state": {
     "settings": {
-      "agents": ["amp"],
+      "agents": ["amp", "kimi-cli"],
       "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
     },
     "lockfile": {
@@ -15,7 +15,7 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["amp"],
+          "agents": ["amp", "kimi-cli"],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha"
@@ -30,7 +30,7 @@
       ".agents/skills/stale-artifact"
     ],
     "listings": { ".agents/skills": ["reviewer", "stale-artifact"] },
-    "detectedProjectAgents": ["amp"]
+    "detectedProjectAgents": ["amp", "kimi-cli"]
   },
   "scope": "project",
   "expectedFindings": [

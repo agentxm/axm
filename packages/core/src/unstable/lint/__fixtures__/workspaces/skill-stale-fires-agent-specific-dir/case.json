@@ -1,5 +1,5 @@
 {
-  "description": "Agent using agent-specific skills dir (.claude/skills) has a stale artifact not backed by any declaration. Stale arm fires normally for non-universal dirs.",
+  "description": "Agent using agent-specific skills dir (.claude/skills) has an unmanaged artifact not backed by any declaration. skills-managed fires for the detected workspace path.",
   "state": {
     "settings": {
       "agents": ["claude-code"],
@@ -35,9 +35,9 @@
   "scope": "project",
   "expectedFindings": [
     {
-      "ruleId": "workspace/skills-artifacts-clean",
+      "ruleId": "workspace/skills-managed",
       "severity": "error",
-      "file": "claude-code/skills/stale-artifact"
+      "file": ".claude/skills/stale-artifact"
     }
   ]
 }

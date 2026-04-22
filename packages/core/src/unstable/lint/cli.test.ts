@@ -125,7 +125,7 @@ describe("detectPublishGateDrift", () => {
     const config: LintConfig = {
       rules: {
         "workspace/agents-detected-declared": "off",
-        "workspace/skills-artifacts-clean": "off",
+        "workspace/skills-managed": "off",
       },
     };
     expect(detectPublishGateDrift(config)).toEqual([]);
@@ -420,6 +420,62 @@ describe("toLintHumanBlocks", () => {
           helps: [],
           fixable: false,
           paths: ["./.axm/extensions/@acme/skills/demo/src/skill.json"],
+        },
+      ],
+    });
+  });
+
+  it("groups unmanaged skills by their actual workspace skill directory", () => {
+    const evaluations: GroupEvaluations = {
+      skills: [],
+      packs: [],
+      workspace: [
+        makeEvaluated<WorkspaceRuleContext>({
+          id: "workspace/skills-managed",
+          severity: "error",
+        })(workspaceCtx, [
+          {
+            kind: "advisory",
+            ruleId: "workspace/skills-managed",
+            severity: "error",
+            message:
+              "Skill 'alpha' is present here, but it is not managed by this workspace. " +
+              "To remove it, run `axm prune` or `axm skills prune alpha`. " +
+              "To keep it, add 'alpha' under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
+            location: { file: ".agents/skills/alpha" },
+          },
+          {
+            kind: "advisory",
+            ruleId: "workspace/skills-managed",
+            severity: "error",
+            message:
+              "Skill 'beta' is present here, but it is not managed by this workspace. " +
+              "To remove it, run `axm prune` or `axm skills prune beta`. " +
+              "To keep it, add 'beta' under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
+            location: { file: ".agents/skills/beta" },
+          },
+        ]),
+      ],
+    };
+
+    const summary = summarizeEvaluations(evaluations, {});
+    const blocks = toLintHumanBlocks({ summary, reporter: "full" });
+
+    expect(blocks[2]).toEqual({
+      kind: "pathGroup",
+      path: "./.agents/skills",
+      diagnostics: [
+        {
+          severity: "error",
+          ruleId: "workspace/skills-managed",
+          title: "2 skills are present here but not managed by this workspace.",
+          details: ["alpha", "beta"],
+          helps: [
+            "To remove them: run `axm prune` or `axm skills prune <name>`.",
+            "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
+          ],
+          fixable: false,
+          paths: ["./.agents/skills"],
         },
       ],
     });

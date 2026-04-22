@@ -1,5 +1,5 @@
 {
-  "description": "Agent using universal skills dir (.agents/skills) has an artifact for a declared enabled skill but canonical source is missing. Dangling arm fires normally — universal dir does not suppress dangling findings.",
+  "description": "Agent using universal skills dir (.agents/skills) has an artifact for a declared enabled skill but canonical source is missing. skills-integrity-valid owns the missing-source invariant and can auto-fix it.",
   "state": {
     "settings": {
       "agents": ["amp"],
@@ -36,11 +36,6 @@
       "ruleId": "workspace/skills-integrity-valid",
       "severity": "error",
       "file": ".axm/axm-lock.yaml"
-    },
-    {
-      "ruleId": "workspace/skills-artifacts-clean",
-      "severity": "error",
-      "file": "amp/skills/reviewer"
     }
   ],
   "expectedAfterFix": []

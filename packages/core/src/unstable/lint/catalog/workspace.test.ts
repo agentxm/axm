@@ -25,7 +25,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   { id: "workspace/skills-integrity-valid", severity: "error" },
   { id: "workspace/skills-artifacts-correct", severity: "error" },
-  { id: "workspace/skills-artifacts-clean", severity: "error" },
+  { id: "workspace/skills-managed", severity: "error" },
   // Packs install family
   { id: "workspace/packs-declarations-valid", severity: "error" },
   { id: "workspace/packs-dependencies-resolved", severity: "error" },
@@ -57,7 +57,6 @@ describe("workspaceRules", () => {
       "workspace/skills-lockfile-aligned",
       "workspace/skills-integrity-valid",
       "workspace/skills-artifacts-correct",
-      "workspace/skills-artifacts-clean",
     ]);
   });
 

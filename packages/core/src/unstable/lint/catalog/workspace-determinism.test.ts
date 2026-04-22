@@ -21,7 +21,6 @@ import * as Effect from "effect/Effect";
 import type { AutofixableFinding, AutofixingRule, LintFinding } from "../rule.js";
 import type { WorkspaceRuleContext } from "../context.js";
 import { lockfileValidRule } from "./workspace/lockfile-valid.js";
-import { skillsArtifactsCleanRule } from "./workspace/skills-artifacts-clean.js";
 import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct.js";
 import { skillsIntegrityValidRule } from "./workspace/skills-integrity-valid.js";
 import { skillsLockfileAlignedRule } from "./workspace/skills-lockfile-aligned.js";
@@ -199,22 +198,6 @@ const seedDisabledStillPresent = (): WorkspaceState => {
   return state;
 };
 
-/** Seed for `workspace/skills-artifacts-clean` dangling arm. */
-const seedDanglingArtifact = (): WorkspaceState => {
-  const state = emptyWorkspaceState();
-  state.settings = {
-    agents: ["claude-code"],
-    skills: {
-      reviewer: "@acme/skills/reviewer@1.0.0",
-    },
-  };
-  // Artifact exists in agent dir...
-  state.existingPaths.add(".claude/skills/reviewer");
-  state.listings.set(CLAUDE_CODE_SKILLS_DIR, ["reviewer"]);
-  // ...but the canonical src is missing. Intentional: that's the arm.
-  return state;
-};
-
 // -----------------------------------------------------------------------------
 // Harness specs
 // -----------------------------------------------------------------------------
@@ -223,12 +206,6 @@ interface HarnessCase {
   readonly label: string;
   readonly rule: AutofixingRule<WorkspaceRuleContext>;
   readonly seed: () => WorkspaceState;
-  /**
-   * Seeds that describe an arm whose autofix is advisory-only (e.g., the
-   * stale arm of skills-artifacts-clean). When `true`, the harness asserts
-   * that `check` emits advisory findings but does NOT try to apply them
-   * — there are no autofixable findings to apply.
-   */
   readonly expectsAdvisoryOnly?: boolean;
 }
 
@@ -265,11 +242,6 @@ const cases: ReadonlyArray<HarnessCase> = [
     label: "workspace/skills-artifacts-correct — disable-skill removes artifacts",
     rule: skillsArtifactsCorrectRule as AutofixingRule<WorkspaceRuleContext>,
     seed: seedDisabledStillPresent,
-  },
-  {
-    label: "workspace/skills-artifacts-clean — dangling arm reinstalls canonical src",
-    rule: skillsArtifactsCleanRule as AutofixingRule<WorkspaceRuleContext>,
-    seed: seedDanglingArtifact,
   },
 ];
 

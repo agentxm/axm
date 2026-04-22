@@ -285,22 +285,6 @@ const SEMANTIC_PROBES: Record<string, ReadonlyArray<SemanticProbe>> = {
       },
     },
   ],
-  "workspace/skills-artifacts-clean": [
-    {
-      label: "dangling artifact",
-      buildState: () => {
-        const state = emptyWorkspaceState();
-        state.settings = {
-          agents: [CLAUDE_CODE.id],
-          skills: {
-            alpha: "@acme/skills/alpha",
-          },
-        };
-        state.listings.set(CLAUDE_CODE.skills.dir, ["alpha"]);
-        return state;
-      },
-    },
-  ],
 };
 
 describe("workspace catalog guard — semantic probe", () => {

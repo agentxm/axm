@@ -37,7 +37,8 @@
     {
       "ruleId": "workspace/skills-managed",
       "severity": "error",
-      "file": ".agents/skills/stale-artifact"
+      "file": ".agents/skills/stale-artifact",
+      "messageIncludes": "`axm skills install <source>`"
     }
   ]
 }

@@ -27,8 +27,6 @@ import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-dependencies-resolved";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
-const SETTINGS_REL = ".axm/settings.json";
-
 const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
   const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
     onExcessProperty: "ignore",
@@ -114,7 +112,7 @@ const missingDependencyFinding = (
   message:
     `Pack '${packName}' requires ${singularDependencyType(dependencyType)} '${dependencyFqn}', but that ${singularDependencyType(dependencyType)} is not installed. ` +
     `To restore it, run \`axm packs install ${packSpecifier}\`. ` +
-    `If you no longer need '${packName}', run \`axm packs uninstall ${packName}\` or remove '${packName}' from \`settings.packs\` in \`${SETTINGS_REL}\`.`,
+    `If you no longer need '${packName}', run \`axm packs uninstall ${packName}\`.`,
   location: { file: LOCKFILE_REL },
 });
 

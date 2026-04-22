@@ -1,6 +1,6 @@
 /**
  * `workspace/skills-managed` — installed skill directories are managed by the
- * workspace.
+ * axm workspace.
  *
  * A skill artifact is unmanaged iff the workspace classifier classifies the
  * detected skill name as `lifecycle: "unmanaged"`. The rule emits one advisory
@@ -47,14 +47,16 @@ const unmanagedFinding = (name: string, location: string): AdvisoryFinding => ({
   severity: "error",
   message:
     `Skill '${name}' is present here, but it is not managed by this workspace. ` +
-    `To remove it, run \`axm prune\` or \`axm skills prune ${name}\`. ` +
-    `To keep it, add '${name}' under \`settings.skills\` in \`.axm/settings.json\` with the intended source, then run \`axm install\`.`,
+    `To keep it, run \`axm skills install <source>\` with the intended source for '${name}'. ` +
+    `To remove it, run \`axm prune\` or \`axm skills prune ${name}\`.`,
   location: { file: location },
 });
 
 export const skillsManagedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Installed skill directories are managed by the workspace.",
+  // Keep the public description short and invariant-focused; the module docs
+  // carry the narrower artifact-level implementation detail.
+  description: "Skills are managed by the workspace.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

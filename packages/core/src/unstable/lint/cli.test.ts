@@ -440,8 +440,8 @@ describe("toLintHumanBlocks", () => {
             severity: "error",
             message:
               "Skill 'alpha' is present here, but it is not managed by this workspace. " +
-              "To remove it, run `axm prune` or `axm skills prune alpha`. " +
-              "To keep it, add 'alpha' under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
+              "To keep it, run `axm skills install <source>` with the intended source for 'alpha'. " +
+              "To remove it, run `axm prune` or `axm skills prune alpha`.",
             location: { file: ".agents/skills/alpha" },
           },
           {
@@ -450,8 +450,8 @@ describe("toLintHumanBlocks", () => {
             severity: "error",
             message:
               "Skill 'beta' is present here, but it is not managed by this workspace. " +
-              "To remove it, run `axm prune` or `axm skills prune beta`. " +
-              "To keep it, add 'beta' under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
+              "To keep it, run `axm skills install <source>` with the intended source for 'beta'. " +
+              "To remove it, run `axm prune` or `axm skills prune beta`.",
             location: { file: ".agents/skills/beta" },
           },
         ]),
@@ -471,8 +471,8 @@ describe("toLintHumanBlocks", () => {
           title: "2 skills are present here but not managed by this workspace.",
           details: ["alpha", "beta"],
           helps: [
+            "To keep them: run `axm skills install <source>` for each skill you want axm to manage.",
             "To remove them: run `axm prune` or `axm skills prune <name>`.",
-            "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
           ],
           fixable: false,
           paths: ["./.agents/skills"],

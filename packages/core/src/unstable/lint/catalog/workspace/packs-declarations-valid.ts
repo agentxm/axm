@@ -81,7 +81,7 @@ const bareNameFinding = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Pack '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry pack you mean. ` +
-    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.packs\` to an owner-qualified source such as \`@owner/packs/${entry.name}\`.`,
+    "Run `axm packs install @owner/packs/<name>` with the owner-qualified source you intend.",
   location: { file: SETTINGS_REL },
 });
 
@@ -91,7 +91,7 @@ const nonRegistryFinding = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Pack '${entry.name}' source '${entry.source}' is not a registry pack reference. ` +
-    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.packs\` to an owner-qualified source such as \`@owner/packs/${entry.name}\`.`,
+    "Run `axm packs install @owner/packs/<name>` with the owner-qualified source you intend.",
   location: { file: SETTINGS_REL },
 });
 
@@ -101,7 +101,7 @@ const missingOwnerFinding = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Pack '${entry.name}' source '${entry.source}' looks like a registry pack reference but is missing the \`@owner\` prefix. ` +
-    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.packs\` to an owner-qualified source such as \`@owner/packs/${entry.name}\`.`,
+    "Run `axm packs install @owner/packs/<name>` with the owner-qualified source you intend.",
   location: { file: SETTINGS_REL },
 });
 
@@ -114,7 +114,8 @@ const duplicateFinding = (
   severity: "error",
   message:
     `Pack '${entry.name}' points to the same registry pack as these entries: ${duplicates.join(", ")}. ` +
-    "Edit `.axm/settings.json` and keep only one declaration under `settings.packs` for that registry pack.",
+    "Run `axm packs uninstall <name>` for each duplicate declaration you do not want to keep. " +
+    "If needed, run `axm packs install <source>` for the declaration you do want to keep.",
   location: { file: SETTINGS_REL },
 });
 

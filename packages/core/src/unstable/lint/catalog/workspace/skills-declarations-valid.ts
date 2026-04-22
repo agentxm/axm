@@ -14,8 +14,9 @@
  * 3. Duplicate FQNs — when two settings entries normalize to the same
  *    owner/type/name FQN, both entries emit a finding.
  *
- * One finding per affected entity (per-entity cascade). Advisory — fixing
- * requires a settings edit.
+ * One finding per affected entity (per-entity cascade). Advisory — no lint
+ * autofix; resolve invalid or duplicate declarations with install/uninstall
+ * commands.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -91,8 +92,7 @@ const findingForBareName = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Skill '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry skill you mean. ` +
-    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.skills\` to an owner-qualified source such as \`@owner/skills/${entry.name}\`. ` +
-    "If you use a named source host, add or update the matching entry under `settings.sources[]`.",
+    "Run `axm skills install @owner/skills/<name>` with the owner-qualified source you intend.",
   location: { file: SETTINGS_REL },
 });
 
@@ -102,7 +102,7 @@ const findingForMissingOwner = (entry: Categorized): AdvisoryFinding => ({
   severity: "error",
   message:
     `Skill '${entry.name}' source '${entry.source}' looks like a registry skill reference but is missing the \`@owner\` prefix. ` +
-    `Edit \`.axm/settings.json\` and change the '${entry.name}' entry under \`settings.skills\` to an owner-qualified source such as \`@owner/skills/${entry.name}\`.`,
+    "Run `axm skills install @owner/skills/<name>` with the owner-qualified source you intend.",
   location: { file: SETTINGS_REL },
 });
 
@@ -115,7 +115,8 @@ const findingForDuplicate = (
   severity: "error",
   message:
     `Skill '${entry.name}' points to the same registry skill as these entries: ${duplicates.join(", ")}. ` +
-    "Edit `.axm/settings.json` and keep only one declaration under `settings.skills` for that registry skill.",
+    "Run `axm skills uninstall <name>` for each duplicate entry you do not want to keep. " +
+    "If needed, run `axm skills install <source>` for the declaration you do want to keep.",
   location: { file: SETTINGS_REL },
 });
 

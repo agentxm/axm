@@ -15,7 +15,8 @@
     {
       "ruleId": "workspace/packs-declarations-valid",
       "severity": "error",
-      "file": ".axm/settings.json"
+      "file": ".axm/settings.json",
+      "messageIncludes": "Run `axm packs install @owner/packs/<name>`"
     }
   ]
 }

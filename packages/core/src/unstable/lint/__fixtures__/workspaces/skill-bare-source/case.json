@@ -18,7 +18,8 @@
     {
       "ruleId": "workspace/skills-declarations-valid",
       "severity": "error",
-      "file": ".axm/settings.json"
+      "file": ".axm/settings.json",
+      "messageIncludes": "Run `axm skills install @owner/skills/<name>`"
     },
     {
       "ruleId": "workspace/skills-lockfile-aligned",

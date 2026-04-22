@@ -33,7 +33,8 @@
     {
       "ruleId": "workspace/packs-members-retained",
       "severity": "warning",
-      "file": ".axm/axm-lock.yaml"
+      "file": ".axm/axm-lock.yaml",
+      "messageIncludes": "To keep it, run `axm install @acme/skills/dropped-skill`."
     },
     {
       "ruleId": "workspace/skills-lockfile-aligned",

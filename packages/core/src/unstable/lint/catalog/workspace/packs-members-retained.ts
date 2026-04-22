@@ -104,10 +104,9 @@ const droppedFinding = (
     message:
       `${memberType} '${name}'${fqn === undefined ? "" : ` (resolved as ${fqn})`} is still installed because of a pack, but no installed pack now declares it. ` +
       (installCommand === undefined
-        ? `To keep it, add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` with its intended source, then reinstall the declared extensions. ` +
-          "If you do not need it, reinstall the remaining declarations so axm regenerates the managed state without it."
-        : `To keep it, run \`${installCommand}\` or add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` using source '${fqn}'. ` +
-          `If you do not need it, run \`${uninstallCommand}\`.`),
+        ? `To keep it, add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` with its intended source, then run \`axm install\`. ` +
+          "If you do not need it, run `axm install` to regenerate the managed state from the remaining declarations."
+        : `To keep it, run \`${installCommand}\`. If you do not need it, run \`${uninstallCommand}\`.`),
     location: { file: LOCKFILE_REL },
   };
 };

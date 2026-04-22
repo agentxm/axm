@@ -34,7 +34,8 @@
     {
       "ruleId": "workspace/packs-dependencies-resolved",
       "severity": "error",
-      "file": ".axm/axm-lock.yaml"
+      "file": ".axm/axm-lock.yaml",
+      "messageIncludes": "To restore it, run `axm packs install @acme/packs/toolbox`."
     }
   ]
 }

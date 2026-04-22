@@ -24,6 +24,7 @@ import {
   renderFindingsText,
   resolveLintExitCategory,
   summarizeEvaluations,
+  toLintHumanBlocks,
   toLintJsonDocument,
 } from "./cli.js";
 
@@ -55,7 +56,6 @@ const advisory = (
   ruleId,
   severity,
   message: `${ruleId} fired`,
-  suggestions: ["do a thing"],
   ...(location !== undefined ? { location } : {}),
 });
 
@@ -64,7 +64,6 @@ const autofixable = (ruleId: string, severity: Severity): AutofixableFinding => 
   ruleId,
   severity,
   message: `${ruleId} fired`,
-  suggestions: [`fix ${ruleId}`],
 });
 
 // Tests exercise pure summary/renderer helpers, so we use lightweight accessor
@@ -223,7 +222,7 @@ describe("countFindings and summarizeEvaluations", () => {
 });
 
 describe("renderFindingsText", () => {
-  it("groups findings by context, sorts by severity, and renders the drift banner first", () => {
+  it("renders the overview, drift banner, and coalesced diagnostics", () => {
     const evaluations: GroupEvaluations = {
       skills: [],
       packs: [],
@@ -239,11 +238,14 @@ describe("renderFindingsText", () => {
       rules: { "skill/manifest-schema-valid": "off" },
     });
     const lines = renderFindingsText({ summary });
-    expect(lines.some((line) => line.startsWith("DRIFT"))).toBe(true);
-    expect(lines.some((line) => line.includes("skill/manifest-schema-valid"))).toBe(true);
-    expect(lines.some((line) => line.startsWith("WORKSPACE"))).toBe(true);
-    expect(lines.some((line) => line.includes("workspace/lockfile-valid"))).toBe(true);
-    expect(lines.some((line) => line.startsWith("Summary:"))).toBe(true);
+    expect(lines[0]).toBe("Found 1 error in 1 location. 1 finding is fixable.");
+    expect(lines[1]).toBe("Next step: Run `axm lint --fix` for the fixable findings.");
+    expect(lines[2]).toBe("DRIFT: The registry will still block publish on these rules:");
+    expect(lines).toContain("  - skill/manifest-schema-valid");
+    expect(lines).toContain(".");
+    expect(lines).toContain(
+      "  [error] workspace/lockfile-valid (fixable): workspace/lockfile-valid fired",
+    );
   });
 
   it("prints 'No findings.' for an empty clean summary", () => {
@@ -260,6 +262,81 @@ describe("renderFindingsText", () => {
     });
     expect(lines.some((line) => line.startsWith("Applied 2 fixes"))).toBe(true);
     expect(lines.some((line) => line.includes("lockfile rewrite"))).toBe(true);
+  });
+});
+
+describe("toLintHumanBlocks", () => {
+  it("builds an overview and path-grouped diagnostics with detail/help fields", () => {
+    const evaluations: GroupEvaluations = {
+      skills: [
+        makeEvaluated<SkillRuleContext>({ id: "skill/manifest-present", severity: "error" })(
+          skillCtx,
+          [
+            {
+              kind: "advisory",
+              ruleId: "skill/manifest-present",
+              severity: "warning",
+              message: "manifest missing",
+              location: { file: "skill.json" },
+            },
+          ],
+        ),
+      ],
+      packs: [],
+      workspace: [
+        makeEvaluated<WorkspaceRuleContext>({
+          id: "workspace/lockfile-valid",
+          severity: "error",
+          kind: "autofixing",
+        })(workspaceCtx, [
+          {
+            kind: "autofixable",
+            ruleId: "workspace/lockfile-valid",
+            severity: "error",
+            message: "lockfile missing",
+            location: { file: ".axm/axm-lock.yaml" },
+          },
+        ]),
+      ],
+    };
+
+    const summary = summarizeEvaluations(evaluations, {});
+    const blocks = toLintHumanBlocks({ summary });
+
+    expect(blocks[0]).toEqual({
+      kind: "overview",
+      message: "Found 1 error and 1 warning in 2 locations. 1 finding is fixable.",
+      counts: { total: 2, errors: 1, warnings: 1, infos: 0 },
+      nextStep: "Run `axm lint --fix` for the fixable findings.",
+    });
+    expect(blocks[1]).toEqual({
+      kind: "pathGroup",
+      path: "./.axm/axm-lock.yaml",
+      diagnostics: [
+        {
+          severity: "error",
+          ruleId: "workspace/lockfile-valid",
+          title: "lockfile missing",
+          details: [],
+          helps: [],
+          fixable: true,
+        },
+      ],
+    });
+    expect(blocks[2]).toEqual({
+      kind: "pathGroup",
+      path: "./.axm/extensions/@acme/skills/demo/src/skill.json",
+      diagnostics: [
+        {
+          severity: "warning",
+          ruleId: "skill/manifest-present",
+          title: "manifest missing",
+          details: [],
+          helps: [],
+          fixable: false,
+        },
+      ],
+    });
   });
 });
 

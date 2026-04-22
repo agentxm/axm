@@ -89,11 +89,9 @@ const findingForBareName = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Skill '${entry.name}' has a bare-name source '${entry.source}'; declare a host or use @owner/skills/name.`,
-  suggestions: [
-    `Prefix the source with @owner/ to resolve via the default registry.`,
-    `Declare the source host explicitly in settings.sources[].`,
-  ],
+  message:
+    `Skill '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry skill you mean. ` +
+    `Rewrite it as \`@owner/skills/${entry.name}\` or declare the source host explicitly in settings.sources[].`,
   location: { file: SETTINGS_REL },
 });
 
@@ -101,8 +99,9 @@ const findingForMissingOwner = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Skill '${entry.name}' has a registry-shaped source '${entry.source}' missing the @owner prefix.`,
-  suggestions: [`Rewrite the source as @owner/skills/${entry.name}.`],
+  message:
+    `Skill '${entry.name}' source '${entry.source}' looks like a registry skill reference but is missing the \`@owner\` prefix. ` +
+    `Rewrite it as \`@owner/skills/${entry.name}\`.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -113,11 +112,9 @@ const findingForDuplicate = (
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Skill '${entry.name}' resolves to a registry FQN declared more than once: ${duplicates.join(", ")}.`,
-  suggestions: [
-    `Remove duplicate entries and keep one per FQN.`,
-    `Rename conflicting entries to distinct keys.`,
-  ],
+  message:
+    `Skill '${entry.name}' points to the same registry skill as these entries: ${duplicates.join(", ")}. ` +
+    "Remove duplicate declarations so each registry skill is listed once.",
   location: { file: SETTINGS_REL },
 });
 

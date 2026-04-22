@@ -91,11 +91,9 @@ const missingDependencyFinding = (
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Pack '${packName}' declares ${dependencyType} dependency '${dependencyFqn}' which is not installed.`,
-  suggestions: [
-    `Install the missing ${dependencyType} '${dependencyFqn}'.`,
-    `Remove the pack declaration that introduces '${dependencyFqn}'.`,
-  ],
+  message:
+    `Pack '${packName}' requires ${dependencyType} '${dependencyFqn}', but that ${dependencyType} is missing from the lockfile. ` +
+    `Install the missing ${dependencyType}, or remove '${packName}' from settings.packs if you no longer need it.`,
   location: { file: LOCKFILE_REL },
 });
 

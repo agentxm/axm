@@ -79,8 +79,9 @@ const bareNameFinding = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Pack '${entry.name}' has a bare-name source '${entry.source}'.`,
-  suggestions: [`Rewrite the source as @owner/packs/${entry.name}.`],
+  message:
+    `Pack '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry pack you mean. ` +
+    `Rewrite it as \`@owner/packs/${entry.name}\`.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -88,8 +89,9 @@ const nonRegistryFinding = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Pack '${entry.name}' must use a registry source; got '${entry.source}'.`,
-  suggestions: [`Rewrite the source as @owner/packs/${entry.name} pointing to a known registry.`],
+  message:
+    `Pack '${entry.name}' source '${entry.source}' is not a registry pack reference. ` +
+    `Rewrite it as \`@owner/packs/${entry.name}\` pointing to a known registry.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -97,8 +99,9 @@ const missingOwnerFinding = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Pack '${entry.name}' has a registry-shaped source '${entry.source}' missing the @owner prefix.`,
-  suggestions: [`Rewrite the source as @owner/packs/${entry.name}.`],
+  message:
+    `Pack '${entry.name}' source '${entry.source}' looks like a registry pack reference but is missing the \`@owner\` prefix. ` +
+    `Rewrite it as \`@owner/packs/${entry.name}\`.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -109,8 +112,9 @@ const duplicateFinding = (
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Pack '${entry.name}' resolves to a registry FQN declared more than once: ${duplicates.join(", ")}.`,
-  suggestions: [`Remove duplicate entries and keep one per FQN.`],
+  message:
+    `Pack '${entry.name}' points to the same registry pack as these entries: ${duplicates.join(", ")}. ` +
+    "Remove duplicate declarations so each registry pack is listed once.",
   location: { file: SETTINGS_REL },
 });
 

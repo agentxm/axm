@@ -41,10 +41,7 @@ export const manifestPresentRule: AdvisoryRule<SkillRuleContext> = {
             ruleId: RULE_ID,
             severity: "error",
             message:
-              "skill.json is missing; native skills must expose a manifest at the skill root.",
-            suggestions: [
-              `Create ${SKILL_JSON} with the required manifest fields (owner, type, name, version).`,
-            ],
+              "skill.json is missing for this native skill. Create skill.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
             location: { file: SKILL_JSON },
           },
         ];

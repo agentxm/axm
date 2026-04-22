@@ -12,10 +12,10 @@
  *    read as text; we reject any match for `syncWorkspace(`,
  *    `sync-workspace`, or a `name: "<any other string>"` pattern that
  *    doesn't appear in the allowlist.
- * 2. Semantic probe — for every autofixing workspace rule, we instantiate
- *    an AutofixableFinding for each known-suggestion prefix and invoke
- *    `rule.fix` against a minimal fixture context; the returned
- *    Operations' `name`s MUST all appear in the allowlist.
+ * 2. Semantic probe — for every autofixing workspace rule, we build one or
+ *    more minimal in-memory workspace states that produce real autofixable
+ *    findings, then invoke `rule.fix`; the returned Operations' `name`s
+ *    MUST all appear in the allowlist.
  *
  * This test is the production acceptance for "Autofixing rules compose
  * only from pre-sync per-extension Operations" and blocks any future rule
@@ -27,6 +27,7 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { getAllAgents } from "../../agents/registry.js";
 import { isPerExtensionOperationName } from "./workspace/helpers/install-ops.js";
 import { workspaceRules } from "./workspace.js";
 import type { AutofixableFinding, AutofixingRule } from "../rule.js";
@@ -34,6 +35,7 @@ import type { WorkspaceRuleContext } from "../context.js";
 import {
   emptyWorkspaceState,
   makeStateBackedWorkspaceLintAccessor,
+  type WorkspaceState,
 } from "./workspace-accessor/test-state.js";
 
 // -----------------------------------------------------------------------------
@@ -112,57 +114,194 @@ describe("workspace catalog guard — static grep", () => {
 });
 
 // -----------------------------------------------------------------------------
-// Semantic probe — invoke every autofixing rule's fix() with its known
-// suggestion prefixes and check returned Operation names.
+// Semantic probe — build real workspace states that trigger autofixable
+// findings and check returned Operation names.
 // -----------------------------------------------------------------------------
 
-const SUGGESTION_SEEDS: Record<
-  string,
-  ReadonlyArray<{
-    readonly message: string;
-    readonly suggestion: string;
-  }>
-> = {
+const ISO_DATE = "2026-01-01T00:00:00.000Z";
+
+const findAgent = (id: string) => {
+  const agent = getAllAgents().find((candidate) => candidate.id === id);
+  if (agent === undefined) {
+    throw new Error(`expected known agent '${id}'`);
+  }
+  return agent;
+};
+
+const CLAUDE_CODE = findAgent("claude-code");
+const CURSOR = findAgent("cursor");
+
+const makeRegistrySkillLockEntry = (name: string, resolvedVersion: string) => ({
+  type: "registry",
+  owner: "@acme",
+  name,
+  resolvedVersion,
+  integrity: "test-integrity",
+  sourceName: "registry",
+  agents: [],
+  installedAt: ISO_DATE,
+  updatedAt: ISO_DATE,
+});
+
+const makeLocalSkillLockEntry = (path: string) => ({
+  type: "local",
+  path,
+  agents: [],
+  installedAt: ISO_DATE,
+  updatedAt: ISO_DATE,
+});
+
+const makeLockfile = (skills: Record<string, unknown>): unknown => ({
+  lockfileVersion: 1,
+  skills,
+});
+
+interface SemanticProbe {
+  readonly label: string;
+  readonly buildState: () => WorkspaceState;
+}
+
+const SEMANTIC_PROBES: Record<string, ReadonlyArray<SemanticProbe>> = {
   "workspace/lockfile-valid": [
     {
-      message: "stub",
-      suggestion: "Reinstall every declared extension to rewrite the lockfile.",
+      label: "missing lockfile",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          skills: {
+            alpha: "@acme/skills/alpha",
+          },
+        };
+        return state;
+      },
     },
   ],
   "workspace/skills-lockfile-aligned": [
-    { message: "stub", suggestion: "Install skill 'x' from x." },
-    { message: "stub", suggestion: "Uninstall orphan skill 'x' to remove it from the workspace." },
-    { message: "stub", suggestion: "Reinstall skill 'x' at the declared version." },
+    {
+      label: "missing skill lock entry",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          skills: {
+            alpha: "@acme/skills/alpha",
+          },
+        };
+        state.lockfile = makeLockfile({});
+        return state;
+      },
+    },
+    {
+      label: "orphan skill lock entry",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          skills: {},
+        };
+        state.lockfile = makeLockfile({
+          alpha: makeLocalSkillLockEntry("./skills/alpha"),
+        });
+        return state;
+      },
+    },
+    {
+      label: "version mismatch",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          skills: {
+            alpha: "@acme/skills/alpha@2.0.0",
+          },
+        };
+        state.lockfile = makeLockfile({
+          alpha: makeRegistrySkillLockEntry("alpha", "1.0.0"),
+        });
+        return state;
+      },
+    },
   ],
   "workspace/skills-integrity-valid": [
-    { message: "stub", suggestion: "Reinstall skill 'x' to re-hash from source." },
+    {
+      label: "missing canonical source",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          skills: {
+            alpha: "@acme/skills/alpha",
+          },
+        };
+        state.lockfile = makeLockfile({
+          alpha: {
+            ...makeRegistrySkillLockEntry("alpha", "1.0.0"),
+            sourceHash: "sha256-test",
+          },
+        });
+        return state;
+      },
+    },
   ],
   "workspace/skills-artifacts-correct": [
-    { message: "stub", suggestion: "Re-enable skill 'x' to recreate agent artifacts." },
-    { message: "stub", suggestion: "Disable skill 'x' to clean up stale artifacts." },
+    {
+      label: "enabled skill missing everywhere",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          agents: [CLAUDE_CODE.id],
+          skills: {
+            alpha: "@acme/skills/alpha",
+          },
+        };
+        return state;
+      },
+    },
+    {
+      label: "disabled skill still present",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          agents: [CLAUDE_CODE.id],
+          skills: {
+            alpha: {
+              source: "@acme/skills/alpha",
+              enabled: false,
+            },
+          },
+        };
+        state.existingPaths.add(`${CLAUDE_CODE.skills.dir}/alpha`);
+        return state;
+      },
+    },
+    {
+      label: "cross-agent inconsistency",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          agents: [CLAUDE_CODE.id, CURSOR.id],
+          skills: {
+            alpha: "@acme/skills/alpha",
+          },
+        };
+        state.existingPaths.add(`${CLAUDE_CODE.skills.dir}/alpha`);
+        return state;
+      },
+    },
   ],
   "workspace/skills-artifacts-clean": [
-    { message: "stub", suggestion: "Reinstall skill 'x' to re-materialize canonical source." },
+    {
+      label: "dangling artifact",
+      buildState: () => {
+        const state = emptyWorkspaceState();
+        state.settings = {
+          agents: [CLAUDE_CODE.id],
+          skills: {
+            alpha: "@acme/skills/alpha",
+          },
+        };
+        state.listings.set(CLAUDE_CODE.skills.dir, ["alpha"]);
+        return state;
+      },
+    },
   ],
 };
-
-const makeStubContext = (): WorkspaceRuleContext => ({
-  subject: { root: "/tmp/ws", scope: "project" },
-  workspace: makeStateBackedWorkspaceLintAccessor(emptyWorkspaceState()),
-  displayRoot: "",
-});
-
-const makeStubFinding = (
-  ruleId: string,
-  message: string,
-  suggestion: string,
-): AutofixableFinding => ({
-  kind: "autofixable",
-  ruleId,
-  severity: "error",
-  message,
-  suggestions: [suggestion],
-});
 
 describe("workspace catalog guard — semantic probe", () => {
   const autofixingRules = workspaceRules.filter(
@@ -170,18 +309,38 @@ describe("workspace catalog guard — semantic probe", () => {
   );
 
   for (const rule of autofixingRules) {
-    const seeds = SUGGESTION_SEEDS[rule.id] ?? [];
-    for (const seed of seeds) {
-      it.effect(`${rule.id} emits only vocabulary ops for suggestion "${seed.suggestion}"`, () =>
+    const probes = SEMANTIC_PROBES[rule.id] ?? [];
+    for (const probe of probes) {
+      it.effect(`${rule.id} emits only vocabulary ops for ${probe.label}`, () =>
         Effect.gen(function* () {
-          const ctx = makeStubContext();
-          const finding = makeStubFinding(rule.id, seed.message, seed.suggestion);
-          const ops = yield* rule.fix(ctx, finding);
-          for (const op of ops) {
+          const state = probe.buildState();
+          const ctx: WorkspaceRuleContext = {
+            subject: { root: "/tmp/ws", scope: "project" },
+            workspace: makeStateBackedWorkspaceLintAccessor(state),
+            displayRoot: "",
+          };
+          const findings = yield* rule.check(ctx);
+          const autofixableFindings = findings.filter(
+            (finding): finding is AutofixableFinding => finding.kind === "autofixable",
+          );
+
+          expect(
+            autofixableFindings.length,
+            `${rule.id} produced no autofixable findings for probe '${probe.label}'`,
+          ).toBeGreaterThan(0);
+
+          for (const finding of autofixableFindings) {
+            const ops = yield* rule.fix(ctx, finding);
             expect(
-              isPerExtensionOperationName(op.name),
-              `rule ${rule.id} emitted disallowed operation '${op.name}'`,
-            ).toBe(true);
+              ops.length,
+              `${rule.id} returned no operations for finding '${finding.message}'`,
+            ).toBeGreaterThan(0);
+            for (const op of ops) {
+              expect(
+                isPerExtensionOperationName(op.name),
+                `rule ${rule.id} emitted disallowed operation '${op.name}'`,
+              ).toBe(true);
+            }
           }
         }),
       );

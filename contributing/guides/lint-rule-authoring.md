@@ -1,7 +1,7 @@
 ---
 status: active
 last-reviewed: 2026-04-22
-version: 0.1.0
+version: 0.1.2
 description: Authoring lint rules for AgentXM skills, packs, and workspaces — context
   kinds, advisory vs autofixing, schema delegation, naming, message content,
   testing.
@@ -124,6 +124,10 @@ Each rule ships with one of `error` | `warning` | `info`. Publish blocks on
 `error` from per-extension rules (`skill/*`, `pack/*`); workspace overrides in
 `.axm/settings.json` only affect local `axm lint`.
 
+Use `warning`, not `warn`, for lint finding severity. `warn` is reserved for
+Operation readiness (`readiness: "warn"`) and renderer diagnostics
+(`renderer.warn(...)`), not rule findings.
+
 ### Schema-Valid vs Keys-Recognized Split
 
 A schema-backed rule ships as a pair:
@@ -142,6 +146,8 @@ checks in the schema-valid rule.
 
 - [ ] **One severity per rule** — Never splits between `error` and `warning`
       findings within the same rule
+- [ ] **No `warn` alias** — Lint findings use `warning`; `warn` is not a
+      severity literal
 - [ ] **Schema delegation** — A `-schema-valid` rule delegates to
       `Schema.decodeUnknown` + `issuesToFindings` rather than re-implementing
       schema checks
@@ -250,18 +256,87 @@ A structured `suggestions` field may return later when an IDE or agent
 integration demands it; for v1, prose in `message` is the only remediation
 surface.
 
+Severity changes the message's urgency, not its structure. `error`,
+`warning`, and `info` findings should all still say what is wrong and what to
+do next; severity decides whether the condition blocks, not whether the
+message gets remediation text.
+
+### Write by Severity
+
+| Severity  | Message stance                                                      | Typical phrasing                                              |
+| --------- | ------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `error`   | Blocking invariant. Direct. Assume the user needs to act now.       | "X is invalid. Fix Y." / "X is missing. Run `axm ...`."       |
+| `warning` | Non-blocking but likely actionable. Explain the expected next step. | "X is not declared. Add Y, or disable this rule if intended." |
+| `info`    | Non-blocking guidance or visibility. Action may be optional.        | "X differs from the usual shape. No action needed unless..."  |
+
+Severity-specific notes:
+
+- `error` messages may use stronger language like "must" or "required" when
+  the invariant is actually mandatory
+- `warning` messages should avoid sounding fatal; they still need a clear
+  action or explicit "intentional; no action needed" escape hatch
+- `info` messages should be calm and specific; if the finding is informational
+  only, say that directly instead of implying hidden breakage
+
+### Message Shape
+
+Prefer this order:
+
+1. Broken invariant
+2. Helpful detail, if needed
+3. Remediation or explicit "no action needed"
+
+When parser or schema detail matters, keep it subordinate to the high-level
+statement: lead with the invariant failure, then append the raw detail, then
+end with the fix sentence. Do not emit raw decoder text alone.
+
+### Prefer User-Observable Language
+
+Describe facts the workspace author can verify, not internal lint-engine
+bookkeeping.
+
+- Prefer "is present but not listed in `settings.skills`" over "stale artifact
+  with no backing declaration"
+- Prefer "is missing from some declared agents" over "missing per-agent
+  artifacts"
+- Prefer "installed source directory is missing" over "canonical source is
+  missing" unless the canonical distinction itself is the invariant
+- Name the actionable config surface when helpful (`settings.skills`,
+  `settings.packs`), but avoid internal implementation terms the user
+  cannot inspect directly
+
+When path context helps explain the fix, refer to the path by role rather than
+by render position:
+
+- Good: "the agent skills directory", "the manifest file", "the lockfile"
+- Avoid: "shown below", "reported above", "see path below", "on the left"
+
+Keep the literal path in `location` unless the path string itself is part of
+the invariant.
+
 ### Message Content Checklist
 
 - [ ] **Violation first** — First clause names the invariant that was broken
 - [ ] **Remediation included** — Second clause states the fix in imperative
       voice ("Strip…", "Reinstall…", "Remove…")
+- [ ] **Severity shapes urgency only** — `error` / `warning` / `info` changes
+      tone, not whether remediation appears
 - [ ] **CLI invocation verbatim** — When a user-facing verb exists, embed it as
       a runnable command (`axm workspace sync-agents-md --from=claude`)
 - [ ] **No rendered paths** — Path context comes from `location` and the
       renderer; the message describes the action, not file positions
+- [ ] **Path by role, not layout** — When path context matters, refer to "the
+      agent skills directory" or "the manifest file", not "shown below"
+- [ ] **No severity label in text** — Don't prefix with "Error:" / "Warning:"
+      / "Info:"; the renderer already carries severity
+- [ ] **User-observable wording** — Prefer facts the user can see in the
+      workspace over internal lifecycle terms like "artifact", "backing
+      declaration", or "canonical source"
 - [ ] **Mechanical XOR as prose** — When an `AdvisoryFinding` has two viable
       paths, the message enumerates them ("Either strip the leading bytes
       before `---`, or fix the YAML syntax at the referenced location")
+- [ ] **Schema detail is subordinate** — Decoder / parser detail supports the
+      message; it does not replace the violation + remediation sentence
 - [ ] **Autofix stays terse** — `AutofixableFinding` messages state the
       violation; the remediation prose can be brief since `--fix` applies the
       action
@@ -301,19 +376,23 @@ __fixtures__/
 
 ## Common Pitfalls
 
-| Pitfall                                   | Problem                                                                     |
-| ----------------------------------------- | --------------------------------------------------------------------------- |
-| Rule walks the workspace itself           | Duplicates `WorkspaceIndex`; makes the rule hard to test                    |
-| `check` throws on inapplicable input      | Use `[]` — no separate `applies` predicate                                  |
-| Schema-valid rule implements schema logic | Delegate to `Schema.decodeUnknown` + `issuesToFindings`                     |
-| Unknown keys inlined in `-schema-valid`   | Splits severity; ship a paired `-keys-recognized` warning rule              |
-| Autofix arbitrarily picks between paths   | Use `AdvisoryFinding` whose `message` enumerates each path (mechanical XOR) |
-| Fix edits `SKILL.md` or user settings     | User-authored content is out of scope; ship advisory                        |
-| Message omits remediation                 | `message` carries both violation and fix; surfaces depend on it             |
-| Message embeds a rendered path            | Path goes in `location`; renderer composes via `composePath`                |
-| Rule touches `syncWorkspace()`            | Compose from per-extension Operations only                                  |
-| Third-level id (`workspace/install/foo`)  | Type-shard instead: `workspace/<type>-<subject>-<predicate>`                |
-| Description restates the mechanism        | State the invariant; mechanism lives in `check`                             |
+| Pitfall                                   | Problem                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Rule walks the workspace itself           | Duplicates `WorkspaceIndex`; makes the rule hard to test                                    |
+| `check` throws on inapplicable input      | Use `[]` — no separate `applies` predicate                                                  |
+| Schema-valid rule implements schema logic | Delegate to `Schema.decodeUnknown` + `issuesToFindings`                                     |
+| Unknown keys inlined in `-schema-valid`   | Splits severity; ship a paired `-keys-recognized` warning rule                              |
+| Autofix arbitrarily picks between paths   | Use `AdvisoryFinding` whose `message` enumerates each path (mechanical XOR)                 |
+| Fix edits `SKILL.md` or user settings     | User-authored content is out of scope; ship advisory                                        |
+| Message omits remediation                 | `message` carries both violation and fix; surfaces depend on it                             |
+| Message starts with "Error:" / "Warning:" | Severity already lives on the finding and in the renderer                                   |
+| Warning/info message omits next step      | Severity changes urgency, not whether the message is actionable                             |
+| Message uses internal lint jargon         | Prefer facts the user can verify over "artifact", "backing declaration", "canonical source" |
+| Message assumes a renderer layout         | Say "the manifest file" or "that directory", not "shown below"                              |
+| Message embeds a rendered path            | Path goes in `location`; renderer composes via `composePath`                                |
+| Rule touches `syncWorkspace()`            | Compose from per-extension Operations only                                                  |
+| Third-level id (`workspace/install/foo`)  | Type-shard instead: `workspace/<type>-<subject>-<predicate>`                                |
+| Description restates the mechanism        | State the invariant; mechanism lives in `check`                                             |
 
 ### Pitfalls Checklist
 

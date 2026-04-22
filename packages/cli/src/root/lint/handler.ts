@@ -47,13 +47,14 @@ import {
   buildWorkspaceRuleContext,
   collectAutofixableEntries,
   evaluateAllCatalogs,
-  renderFindingsText,
   resolveLintExitCategory,
   summarizeEvaluations,
+  toLintHumanBlocks,
   toLintJsonDocument,
   type FixSummary,
   type InstalledPackInfo,
   type InstalledSkillInfo,
+  type LintHumanDiagnostic,
   type LintJsonDocument,
   type LintSummary,
   type WorkspaceIndex,
@@ -634,12 +635,92 @@ const emitHumanOutput = (args: {
 }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const lines = renderFindingsText({
+    const blocks = toLintHumanBlocks({
       summary: args.summary,
       ...(Option.isSome(args.fixSummary) ? { fixSummary: args.fixSummary.value } : {}),
     });
-    yield* Effect.forEach(lines, (line) => renderer.info(line), { discard: true });
+    yield* Effect.forEach(
+      blocks,
+      (block) =>
+        Effect.gen(function* () {
+          switch (block.kind) {
+            case "overview":
+              yield* emitSummary(renderer, block.message, block.counts);
+              if (block.nextStep !== undefined) {
+                yield* renderer.message(`  Next step: ${block.nextStep}`);
+              }
+              return;
+            case "driftBanner":
+              yield* renderer.warn(block.title);
+              yield* Effect.forEach(block.ruleIds, (id) => renderer.message(`  ${id}`), {
+                discard: true,
+              });
+              return;
+            case "pathGroup":
+              yield* renderer.message(block.path);
+              yield* Effect.forEach(
+                block.diagnostics,
+                (diagnostic) => emitHumanDiagnostic(renderer, diagnostic),
+                {
+                  discard: true,
+                },
+              );
+              return;
+            case "empty":
+              yield* renderer.success(block.message);
+              return;
+            case "fixSummary":
+              yield* block.summary.failed > 0
+                ? renderer.error(block.message)
+                : renderer.success(block.message);
+              yield* Effect.forEach(block.summary.warnings, (warning) => renderer.warn(warning), {
+                discard: true,
+              });
+              return;
+          }
+        }),
+      { discard: true },
+    );
   });
+
+const emitHumanDiagnostic = (
+  renderer: typeof CliRenderer.Service,
+  diagnostic: LintHumanDiagnostic,
+) =>
+  Effect.gen(function* () {
+    const label = `${diagnostic.ruleId}${diagnostic.fixable ? " (fixable)" : ""}: ${diagnostic.title}`;
+    switch (diagnostic.severity) {
+      case "error":
+        yield* renderer.error(label);
+        break;
+      case "warning":
+        yield* renderer.warn(label);
+        break;
+      case "info":
+        yield* renderer.info(label);
+        break;
+    }
+    yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
+      discard: true,
+    });
+    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
+      discard: true,
+    });
+  });
+
+const emitSummary = (
+  renderer: typeof CliRenderer.Service,
+  message: string,
+  counts: LintSummary["counts"],
+) => {
+  if (counts.errors > 0) {
+    return renderer.error(message);
+  }
+  if (counts.warnings > 0) {
+    return renderer.warn(message);
+  }
+  return renderer.info(message);
+};
 
 // -----------------------------------------------------------------------------
 // Handler entry point

@@ -83,6 +83,9 @@ const writeStderr = (content: string) =>
 
 const writeStderrLine = (content: string) => writeStderr(`${content}\n`);
 
+const writePlainLine = (message: string, styles: ReadonlyArray<string> = []) =>
+  writeStderrLine(styles.length === 0 ? message : annotate(message, styles));
+
 const getTerminalWidth = (): number =>
   process.stderr.columns ?? process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH;
 
@@ -133,7 +136,9 @@ const writeStyledLine = (symbol: string, styles: ReadonlyArray<string>, message:
   writeStderrLine(styledLine(symbol, styles, message));
 
 export const logLine = (level: LogLevel, message: string) =>
-  writeStyledLine(Symbols[level], levelStyles[level], message);
+  level === "message"
+    ? writePlainLine(message)
+    : writeStyledLine(Symbols[level], levelStyles[level], message);
 
 export const intro = (title: string) => writeStyledLine(Symbols.intro, introStyles, title);
 

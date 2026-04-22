@@ -70,11 +70,7 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
-          message: `Agent id '${id}' is not in the known-agent catalog.`,
-          suggestions: [
-            `Remove '${id}' from settings.agents[].`,
-            `Correct the typo if '${id}' was meant to be another agent id.`,
-          ],
+          message: `AXM does not recognize agent '${id}'. Remove it from settings.agents[] or correct it to the intended agent id.`,
           location: { file: SETTINGS_REL },
         });
       }

@@ -48,9 +48,6 @@ import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 const RULE_ID = "workspace/lockfile-valid";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
 
-const MISSING_LOCKFILE_MISSING_SUGGESTION =
-  "Reinstall every declared extension to rewrite the lockfile.";
-
 const hasAnyDeclaration = (settings: Settings): boolean => {
   const skills = Object.keys(settings.skills ?? {}).length;
   const packs = Object.keys(settings.packs ?? {}).length;
@@ -73,8 +70,7 @@ const makeMissingFinding = (): AutofixableFinding => ({
   ruleId: RULE_ID,
   severity: "error",
   message:
-    "Lockfile is missing while settings declare installed extensions; reinstall to regenerate it.",
-  suggestions: [MISSING_LOCKFILE_MISSING_SUGGESTION],
+    "The lockfile is missing even though workspace settings declare installed extensions. Run `axm lint --fix` to reinstall the declared extensions and regenerate it.",
   location: { file: LOCKFILE_REL },
 });
 
@@ -105,8 +101,9 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
-          message: `Could not read axm-lock.yaml: ${lockfileResult.failure.message}`,
-          suggestions: ["Fix YAML syntax at the referenced location."],
+          message:
+            `The lockfile is not valid YAML. Detail: ${lockfileResult.failure.message}. ` +
+            "Fix the YAML syntax in that file.",
           location: { file: LOCKFILE_REL },
         };
         const readFailure: ReadonlyArray<LintFinding> = [advisory];
@@ -131,14 +128,8 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
       );
       return decodedFindings;
     }),
-  fix: (context, finding) =>
+  fix: (context, _finding) =>
     Effect.gen(function* () {
-      // Autofix only applies to the missing arm; the advisory arms above
-      // never produce `AutofixableFinding`s.
-      if (finding.suggestions[0] !== MISSING_LOCKFILE_MISSING_SUGGESTION) {
-        return EMPTY_OPERATIONS;
-      }
-
       const settingsResult = yield* Effect.result(context.workspace.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_OPERATIONS;

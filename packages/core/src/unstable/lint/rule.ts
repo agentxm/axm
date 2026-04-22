@@ -85,28 +85,20 @@ export interface FindingBase {
  * Finding produced by an `AutofixingRule` that `axm lint --fix` will remediate
  * mechanically.
  *
- * `suggestions` is a one-element tuple naming what `--fix` will do; the
- * tuple arity is enforced at the type level so consumers never have to guard
- * against an empty suggestions array for autofixable findings.
- *
  * @experimental This API is unstable and may change without notice.
  */
 export interface AutofixableFinding extends FindingBase {
   readonly kind: "autofixable";
-  readonly suggestions: readonly [string];
 }
 
 /**
  * Finding produced by an `AdvisoryRule` (or by an `AutofixingRule`'s advisory
  * arm when the invariant admits no mechanical resolution).
  *
- * `suggestions` may be empty or carry multiple strings; the user picks one.
- *
  * @experimental This API is unstable and may change without notice.
  */
 export interface AdvisoryFinding extends FindingBase {
   readonly kind: "advisory";
-  readonly suggestions: ReadonlyArray<string>;
 }
 
 /**

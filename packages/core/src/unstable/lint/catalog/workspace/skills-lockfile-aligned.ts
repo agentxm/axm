@@ -30,6 +30,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
+import type { Operation } from "../../../plan/plan.js";
 import { LockfileSchema, type Lockfile, type SkillLockEntry } from "../../../lockfile/schema.js";
 import { SettingsSchema, type Settings } from "../../../settings/schema.js";
 import { installSkillOp, uninstallSkillOp } from "./helpers/install-ops.js";
@@ -38,10 +39,6 @@ import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/skills-lockfile-aligned";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
-
-const SUG_MISSING_PREFIX = "Install skill ";
-const SUG_ORPHAN_PREFIX = "Uninstall orphan skill ";
-const SUG_VERSION_PREFIX = "Reinstall skill ";
 
 const decodeSettings = (input: unknown): Option.Option<Settings> => {
   const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
@@ -63,8 +60,9 @@ const missingFinding = (name: string, source: string): AutofixableFinding => ({
   kind: "autofixable",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Skill '${name}' is declared in settings but missing from the lockfile.`,
-  suggestions: [`${SUG_MISSING_PREFIX}'${name}' from ${source}.`],
+  message:
+    `Skill '${name}' is listed in settings.skills but missing from the lockfile. ` +
+    `Run \`axm lint --fix\` to reinstall it from '${source}' and add the lock entry.`,
   location: { file: LOCKFILE_REL },
 });
 
@@ -72,8 +70,9 @@ const orphanFinding = (name: string): AutofixableFinding => ({
   kind: "autofixable",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Skill '${name}' is present in the lockfile but not declared in settings.`,
-  suggestions: [`${SUG_ORPHAN_PREFIX}'${name}' to remove it from the workspace.`],
+  message:
+    `Skill '${name}' is listed in the lockfile but not in settings.skills. ` +
+    "Run `axm lint --fix` to remove that lockfile entry.",
   location: { file: LOCKFILE_REL },
 });
 
@@ -81,10 +80,16 @@ const versionFinding = (name: string, details: string): AutofixableFinding => ({
   kind: "autofixable",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Skill '${name}' lock version does not satisfy the declared constraint: ${details}.`,
-  suggestions: [`${SUG_VERSION_PREFIX}'${name}' at the declared version.`],
+  message:
+    `Skill '${name}' is listed in settings.skills and the lockfile, but the lockfile version does not match the declared version. ` +
+    `Detail: ${details}. Run \`axm lint --fix\` to reinstall it at the declared version.`,
   location: { file: LOCKFILE_REL },
 });
+
+interface AlignmentViolation {
+  readonly finding: AutofixableFinding;
+  readonly operation: Operation<string, unknown>;
+}
 
 // -----------------------------------------------------------------------------
 // Retention helpers
@@ -125,6 +130,71 @@ const buildRetainedSkillFqns = (settings: Settings, lockfile: Lockfile): Readonl
   return retained;
 };
 
+const collectAlignmentViolations = (
+  settings: Settings,
+  lockfile: Lockfile,
+): ReadonlyArray<AlignmentViolation> => {
+  const declaredSkills = settings.skills ?? {};
+  const lockSkills = lockfile.skills;
+  const retainedFqns = buildRetainedSkillFqns(settings, lockfile);
+  const violations: Array<AlignmentViolation> = [];
+  const affected = new Set<string>();
+
+  for (const [name, entry] of Object.entries(declaredSkills)) {
+    if (name in lockSkills) {
+      continue;
+    }
+    violations.push({
+      finding: missingFinding(name, entry.source),
+      operation: installSkillOp({ name, source: entry.source, force: false }),
+    });
+    affected.add(`declared:${name}`);
+  }
+
+  for (const [name, entry] of Object.entries(lockSkills)) {
+    if (name in declaredSkills) {
+      continue;
+    }
+    if (entry.retainedByPack === true && retainedFqns.has(lockEntryFqn(entry, name))) {
+      continue;
+    }
+    violations.push({
+      finding: orphanFinding(name),
+      operation: uninstallSkillOp({ name }),
+    });
+    affected.add(`lock:${name}`);
+  }
+
+  for (const [name, entry] of Object.entries(declaredSkills)) {
+    if (affected.has(`declared:${name}`)) {
+      continue;
+    }
+    const lockEntry = lockSkills[name];
+    if (lockEntry === undefined || !isRegistryEntry(lockEntry)) {
+      continue;
+    }
+    const parsed = parseRegistrySource(entry.source);
+    if (parsed === undefined) {
+      continue;
+    }
+    const constraint = parsed.versionConstraint;
+    if (constraint === undefined || constraint === lockEntry.resolvedVersion) {
+      continue;
+    }
+    violations.push({
+      finding: versionFinding(name, `declared ${constraint}, locked ${lockEntry.resolvedVersion}`),
+      operation: installSkillOp({ name, source: entry.source, force: true }),
+    });
+  }
+
+  return violations;
+};
+
+const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boolean =>
+  left.ruleId === right.ruleId &&
+  left.message === right.message &&
+  left.location?.file === right.location?.file;
+
 export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Skill lock entries correspond 1:1 to declared skills at satisfying versions.",
@@ -152,119 +222,32 @@ export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
         return EMPTY_LINT_FINDINGS;
       }
 
-      const declaredSkills = settings.value.skills ?? {};
-      const lockSkills = lockfile.value.skills;
-      const retainedFqns = buildRetainedSkillFqns(settings.value, lockfile.value);
-
-      const findings: Array<LintFinding> = [];
-      const affected = new Set<string>();
-
-      // Arm 1: missing — declared but no lock entry.
-      for (const [name, entry] of Object.entries(declaredSkills)) {
-        if (!(name in lockSkills)) {
-          findings.push(missingFinding(name, entry.source));
-          affected.add(`declared:${name}`);
-        }
-      }
-
-      // Arm 2: orphan — lock entry but no declaration, and not retained by
-      // an installed declared pack.
-      for (const [name, entry] of Object.entries(lockSkills)) {
-        if (name in declaredSkills) {
-          continue;
-        }
-        if (entry.retainedByPack === true && retainedFqns.has(lockEntryFqn(entry, name))) {
-          continue;
-        }
-        findings.push(orphanFinding(name));
-        affected.add(`lock:${name}`);
-      }
-
-      // Arm 3: version skew — declared AND in lock, but registry-shaped
-      // source constraint not satisfied by resolvedVersion.
-      for (const [name, entry] of Object.entries(declaredSkills)) {
-        if (affected.has(`declared:${name}`)) {
-          continue;
-        }
-        const lockEntry = lockSkills[name];
-        if (lockEntry === undefined || !isRegistryEntry(lockEntry)) {
-          continue;
-        }
-        const parsed = parseRegistrySource(entry.source);
-        if (parsed === undefined) {
-          continue;
-        }
-        const constraint = parsed.versionConstraint;
-        if (constraint === undefined) {
-          continue;
-        }
-        // Simple exact-match semver check: the only non-heuristic arm we
-        // can enforce without pulling in the semver lib here. Range checks
-        // defer to the CLI adapter (Phase 5).
-        if (constraint !== lockEntry.resolvedVersion) {
-          findings.push(
-            versionFinding(name, `declared ${constraint}, locked ${lockEntry.resolvedVersion}`),
-          );
-        }
-      }
-
-      return findings;
+      const violations = collectAlignmentViolations(settings.value, lockfile.value);
+      return violations.map((violation): LintFinding => violation.finding);
     }),
   fix: (context, finding) =>
     Effect.gen(function* () {
-      const s0 = finding.suggestions[0];
-      if (s0.startsWith(SUG_MISSING_PREFIX)) {
-        const name = extractSkillName(s0);
-        if (name === undefined) {
-          return EMPTY_OPERATIONS;
-        }
-        const settingsResult = yield* Effect.result(context.workspace.settings);
-        if (Result.isFailure(settingsResult)) {
-          return EMPTY_OPERATIONS;
-        }
-        const settings = decodeSettings(settingsResult.success);
-        if (Option.isNone(settings)) {
-          return EMPTY_OPERATIONS;
-        }
-        const entry = settings.value.skills?.[name];
-        if (entry === undefined) {
-          return EMPTY_OPERATIONS;
-        }
-        return [installSkillOp({ name, source: entry.source, force: false })];
+      const settingsResult = yield* Effect.result(context.workspace.settings);
+      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
+        return EMPTY_OPERATIONS;
       }
-      if (s0.startsWith(SUG_ORPHAN_PREFIX)) {
-        const name = extractSkillName(s0);
-        if (name === undefined) {
-          return EMPTY_OPERATIONS;
-        }
-        return [uninstallSkillOp({ name })];
+      const settings = decodeSettings(settingsResult.success);
+      if (Option.isNone(settings)) {
+        return EMPTY_OPERATIONS;
       }
-      if (s0.startsWith(SUG_VERSION_PREFIX)) {
-        const name = extractSkillName(s0);
-        if (name === undefined) {
-          return EMPTY_OPERATIONS;
-        }
-        const settingsResult = yield* Effect.result(context.workspace.settings);
-        if (Result.isFailure(settingsResult)) {
-          return EMPTY_OPERATIONS;
-        }
-        const settings = decodeSettings(settingsResult.success);
-        if (Option.isNone(settings)) {
-          return EMPTY_OPERATIONS;
-        }
-        const entry = settings.value.skills?.[name];
-        if (entry === undefined) {
-          return EMPTY_OPERATIONS;
-        }
-        return [installSkillOp({ name, source: entry.source, force: true })];
+      const lockOption = lockfileResult.success;
+      if (Option.isNone(lockOption)) {
+        return EMPTY_OPERATIONS;
       }
-      return EMPTY_OPERATIONS;
+      const lockfile = decodeLockfile(lockOption.value);
+      if (Option.isNone(lockfile)) {
+        return EMPTY_OPERATIONS;
+      }
+
+      const violation = collectAlignmentViolations(settings.value, lockfile.value).find(
+        (candidate) => isSameFinding(candidate.finding, finding),
+      );
+      return violation === undefined ? EMPTY_OPERATIONS : [violation.operation];
     }),
-};
-
-const NAME_FROM_SUGGESTION_RE = /'([^']+)'/;
-
-const extractSkillName = (suggestion: string): string | undefined => {
-  const match = NAME_FROM_SUGGESTION_RE.exec(suggestion);
-  return match?.[1];
 };

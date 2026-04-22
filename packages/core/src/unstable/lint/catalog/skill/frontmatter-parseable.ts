@@ -85,23 +85,21 @@ const evaluateCascade = (content: string): ReadonlyArray<AdvisoryFinding> => {
     // delimiter was found but the closing delimiter is missing).
     return [
       finding(
-        "SKILL.md frontmatter is malformed: opening `---` found but closing `---` is missing.",
-        ["Add a closing `---` after the frontmatter YAML block."],
+        "SKILL.md frontmatter is malformed because the closing `---` delimiter is missing. Add a closing `---` after the frontmatter block.",
       ),
     ];
   }
   if (parsed.kind === "parse-error") {
     return [
-      finding(`SKILL.md frontmatter YAML is invalid: ${parsed.message}`, [
-        "Fix YAML syntax at the referenced location.",
-      ]),
+      finding(
+        `SKILL.md frontmatter YAML is invalid. Detail: ${parsed.message}. Fix the YAML syntax in the frontmatter block.`,
+      ),
     ];
   }
   if (!isMapping(parsed.value)) {
     return [
       finding(
-        "SKILL.md frontmatter must be a YAML mapping (key: value pairs), not a list or scalar.",
-        ["Rewrite the frontmatter block as `key: value` pairs."],
+        "SKILL.md frontmatter must be a YAML mapping, not a list or scalar. Rewrite it as `key: value` pairs.",
       ),
     ];
   }
@@ -115,8 +113,7 @@ const evaluateCascade = (content: string): ReadonlyArray<AdvisoryFinding> => {
 const detectLeadingBytes = (content: string): AdvisoryFinding | undefined => {
   if (content.startsWith(UTF8_BOM)) {
     return finding(
-      "SKILL.md begins with a UTF-8 BOM; frontmatter `---` must appear at byte 0.",
-      ["Strip the UTF-8 BOM from the start of SKILL.md."],
+      "SKILL.md starts with a UTF-8 BOM before the frontmatter delimiter. Remove the BOM so the file starts with `---`.",
       { line: 1 },
     );
   }
@@ -127,14 +124,12 @@ const detectLeadingBytes = (content: string): AdvisoryFinding | undefined => {
   // common HTML-comment case explicitly so the finding message is clear.
   if (/^\s*<!--/.test(content)) {
     return finding(
-      "SKILL.md begins with an HTML comment before the frontmatter `---`; the delimiter must appear at byte 0.",
-      ["Strip leading bytes before the first `---`."],
+      "SKILL.md starts with an HTML comment before the frontmatter delimiter. Move or remove the comment so the file starts with `---`.",
       { line: 1 },
     );
   }
   return finding(
-    "SKILL.md frontmatter `---` must appear at byte 0; leading whitespace or other content is not allowed.",
-    ["Strip leading bytes before the first `---`."],
+    "SKILL.md must start with the frontmatter delimiter `---`. Remove any leading content so the file starts with `---`.",
     { line: 1 },
   );
 };
@@ -181,14 +176,12 @@ const isMapping = (value: unknown): value is Readonly<Record<string, unknown>> =
 
 const finding = (
   message: string,
-  suggestions: ReadonlyArray<string>,
   position?: { readonly line?: number; readonly column?: number },
 ): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message,
-  suggestions,
   location: {
     file: SKILL_MD,
     ...(position?.line !== undefined ? { line: position.line } : {}),

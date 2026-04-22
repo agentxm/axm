@@ -34,8 +34,8 @@ export const skillMdPresentRule: AdvisoryRule<SkillRuleContext> = {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
-          message: "SKILL.md is missing; every skill must expose a SKILL.md at its root.",
-          suggestions: [`Create ${SKILL_MD} with required frontmatter (name, description).`],
+          message:
+            "SKILL.md is missing. Create SKILL.md with the required frontmatter (`name`, `description`).",
           location: { file: SKILL_MD },
         },
       ];

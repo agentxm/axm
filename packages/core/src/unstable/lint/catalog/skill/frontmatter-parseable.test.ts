@@ -88,7 +88,7 @@ describe("skill/frontmatter-parseable", () => {
     Effect.gen(function* () {
       const findings = yield* frontmatterParseableRule.check(makeContext(`  ${VALID_FRONTMATTER}`));
       expect(findings).toHaveLength(1);
-      expect(findings[0]?.message).toMatch(/byte 0/i);
+      expect(findings[0]?.message).toMatch(/starts? with .*---/i);
     }),
   );
 

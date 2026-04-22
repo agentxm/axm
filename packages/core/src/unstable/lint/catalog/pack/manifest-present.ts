@@ -38,10 +38,7 @@ export const manifestPresentRule: AdvisoryRule<PackRuleContext> = {
             ruleId: RULE_ID,
             severity: "error",
             message:
-              "extension-pack.json is missing; every pack must expose a manifest at the pack root.",
-            suggestions: [
-              `Create ${EXTENSION_PACK_JSON} with the required manifest fields (owner, type, name, version).`,
-            ],
+              "extension-pack.json is missing. Create extension-pack.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
             location: { file: EXTENSION_PACK_JSON },
           },
         ];

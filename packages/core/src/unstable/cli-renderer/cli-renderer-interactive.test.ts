@@ -72,7 +72,7 @@ describe("InteractiveRenderer", () => {
 
         expect(stdoutWrites).toHaveLength(0);
         const output = stripAnsi(stderrWrites.join(""));
-        expect(output).toContain("○  Hello\n");
+        expect(output).toContain("Hello\n");
         expect(output).toContain("●  Processing\n");
         expect(output).toContain("✔  Installed\n");
         expect(output).toContain("◆  Next step\n");

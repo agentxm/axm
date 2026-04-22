@@ -95,11 +95,9 @@ const droppedFinding = (
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "warning",
-  message: `${memberType} '${name}'${fqn === undefined ? "" : ` (FQN ${fqn})`} is retained by a pack but no installed pack declares it.`,
-  suggestions: [
-    `Declare '${name}' directly in settings.${memberType === "mcp-server" ? "mcpServers" : `${memberType}s`}.`,
-    `Uninstall '${name}' if the owning pack is no longer installed.`,
-  ],
+  message:
+    `${memberType} '${name}'${fqn === undefined ? "" : ` (resolved as ${fqn})`} is still installed because of a pack, but no installed pack now declares it. ` +
+    `Declare '${name}' directly in settings.${memberType === "mcp-server" ? "mcpServers" : `${memberType}s`} if you still need it, or uninstall it if not.`,
   location: { file: LOCKFILE_REL },
 });
 

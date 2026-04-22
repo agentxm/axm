@@ -5,8 +5,7 @@
  * and finding unions" requirement:
  *
  * - `AutofixingRule` forces a `fix` method to exist at the type level.
- * - `AutofixableFinding.suggestions` has exactly one entry.
- * - `AdvisoryFinding.suggestions` admits zero or more entries.
+ * - Findings carry shared `message` + `location` fields regardless of kind.
  * - Narrowing via the `kind` discriminant works without non-null assertions or
  *   type assertions.
  */
@@ -38,7 +37,6 @@ const advisoryFinding = (overrides: Partial<AdvisoryFinding> = {}): AdvisoryFind
   ruleId: "skill/frontmatter-parseable",
   severity: "error",
   message: "frontmatter must begin at byte 0; found leading HTML comment.",
-  suggestions: ["Strip leading bytes before the first `---`"],
   ...overrides,
 });
 
@@ -47,7 +45,6 @@ const autofixableFinding = (overrides: Partial<AutofixableFinding> = {}): Autofi
   ruleId: "workspace/skills-artifacts-correct",
   severity: "error",
   message: "skill enabled but not linked for agent.",
-  suggestions: ["Link skill artifact for agent"],
   ...overrides,
 });
 
@@ -73,25 +70,16 @@ const autofixingRule: AutofixingRule<FakeContext> = {
 // -----------------------------------------------------------------------------
 
 describe("LintFinding discriminated union", () => {
-  it("AutofixableFinding.suggestions tuple has exactly one entry", () => {
-    const finding = autofixableFinding();
+  it("shared finding fields live on both advisory and autofixable variants", () => {
+    const advisory = advisoryFinding({ location: { file: "SKILL.md", line: 1 } });
+    const autofixable = autofixableFinding({ location: { file: ".axm/settings.json" } });
 
-    expect(finding.suggestions).toHaveLength(1);
-    expect(finding.suggestions[0]).toBe("Link skill artifact for agent");
-  });
-
-  it("AdvisoryFinding.suggestions admits zero entries", () => {
-    const finding = advisoryFinding({ suggestions: [] });
-
-    expect(finding.suggestions).toHaveLength(0);
-  });
-
-  it("AdvisoryFinding.suggestions admits multiple entries", () => {
-    const finding = advisoryFinding({
-      suggestions: ["Strip leading bytes", "Fix YAML syntax"],
-    });
-
-    expect(finding.suggestions).toHaveLength(2);
+    expect(advisory.message).toContain("frontmatter");
+    expect(advisory.location?.file).toBe("SKILL.md");
+    expect(autofixable.message).toContain("linked");
+    expect(autofixable.location?.file).toBe(".axm/settings.json");
+    expect("suggestions" in advisory).toBe(false);
+    expect("suggestions" in autofixable).toBe(false);
   });
 
   it("narrows LintFinding on kind without type assertions", () => {
@@ -106,7 +94,7 @@ describe("LintFinding discriminated union", () => {
 
     expect(advisoryOnly).toHaveLength(1);
     expect(autofixableOnly).toHaveLength(1);
-    expect(autofixableOnly[0]?.suggestions).toHaveLength(1);
+    expect(autofixableOnly[0]?.kind).toBe("autofixable");
   });
 
   it("FindingLocation carries accessor-relative posix file and optional coordinates", () => {
@@ -126,12 +114,13 @@ describe("LintFinding discriminated union", () => {
 // -----------------------------------------------------------------------------
 
 describe("LintRule discriminated union", () => {
-  it("AdvisoryRule check returns Effect of AdvisoryFinding array", () =>
+  it.effect("AdvisoryRule check returns Effect of AdvisoryFinding array", () =>
     Effect.gen(function* () {
       const findings = yield* advisoryRule.check({ label: "ctx" });
 
       expect(findings).toEqual([]);
-    }).pipe(Effect.runPromise));
+    }),
+  );
 
   it("AutofixingRule carries both check and fix at the type level", () => {
     // The presence of `fix` on `AutofixingRule` is enforced by the type system;

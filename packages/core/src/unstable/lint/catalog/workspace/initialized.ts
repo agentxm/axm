@@ -42,8 +42,8 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
-          message: "Workspace is not initialized; .axm directory is missing.",
-          suggestions: ["Run `axm init` to scaffold the workspace."],
+          message:
+            "Workspace is not initialized because the .axm directory is missing. Run `axm init` to initialize the workspace.",
           location: { file: AXM_DIR },
         });
         return findings;
@@ -53,8 +53,8 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
-          message: "Workspace is missing .axm/settings.json.",
-          suggestions: ["Run `axm init` to scaffold settings.json."],
+          message:
+            "Workspace settings are missing because the workspace settings file does not exist. Run `axm init` to scaffold the workspace settings.",
           location: { file: SETTINGS_REL },
         });
       }

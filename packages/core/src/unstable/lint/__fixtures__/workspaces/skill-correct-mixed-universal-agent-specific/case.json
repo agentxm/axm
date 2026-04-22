@@ -37,7 +37,7 @@
       "ruleId": "workspace/skills-artifacts-correct",
       "severity": "error",
       "file": ".axm/settings.json",
-      "messageIncludes": "missing in claude-code"
+      "messageIncludes": "missing from agents: claude-code"
     }
   ]
 }

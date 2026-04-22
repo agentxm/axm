@@ -10,11 +10,11 @@
  *
  * The helper walks the recursive `SchemaIssue.Issue` tree, accumulating a
  * path at each `Pointer` node and emitting one finding per leaf issue.
- * Composite nodes recurse into their children. Each finding's `message` comes
- * from the default `toString()` representation of the leaf issue, which is
- * the Effect-formatted diagnostic. `location.file` is the caller-supplied
- * file (the manifest file); v1 does not parse byte positions out of `Issue`
- * values.
+ * Composite nodes recurse into their children. Each finding's `message`
+ * is branch-specific and guide-conformant: invariant failure first, raw
+ * schema detail second when needed, remediation last. `location.file` is the
+ * caller-supplied file (the manifest file); v1 does not parse byte positions
+ * out of `Issue` values.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -99,24 +99,97 @@ const toFinding = (
   issue: Issue,
   path: ReadonlyArray<PropertyKey>,
 ): AdvisoryFinding => {
-  const pathStr = formatPath(path);
-  const message = pathStr === "" ? String(issue) : `${pathStr}: ${String(issue)}`;
   return {
     kind: "advisory",
     ruleId,
     severity,
-    message,
-    suggestions: [],
+    message: formatIssueMessage(describeSchemaDocument(file), issue, path),
     location: { file },
   };
 };
 
+const formatIssueMessage = (
+  documentLabel: string,
+  issue: Issue,
+  path: ReadonlyArray<PropertyKey>,
+): string => {
+  const pathStr = formatPath(path);
+  const valueRef = describeValueReference(documentLabel, pathStr);
+
+  switch (issue._tag) {
+    case "MissingKey":
+      return formatMissingKeyMessage(documentLabel, path, pathStr);
+    case "UnexpectedKey":
+      return formatUnexpectedKeyMessage(documentLabel, pathStr);
+    case "InvalidType":
+      return `${valueRef} has the wrong type. Detail: ${String(issue)}. Replace it with a value of the expected type.`;
+    case "InvalidValue":
+      return `${valueRef} is invalid. Detail: ${String(issue)}. Update it so it satisfies the schema constraint.`;
+    case "Forbidden":
+      return `${valueRef} uses a value or operation the schema does not allow. Detail: ${String(issue)}. Update it so the document satisfies the schema.`;
+    case "OneOf":
+      return `${valueRef} matches more than one allowed shape. Detail: ${String(issue)}. Rewrite it so exactly one allowed shape matches.`;
+    case "AnyOf":
+      return `${valueRef} does not match any allowed shape. Detail: ${String(issue)}. Rewrite it so it matches one of the allowed shapes.`;
+    case "Filter":
+      return `${valueRef} fails a schema constraint. Detail: ${String(issue)}. Update it so it satisfies the constraint.`;
+    case "Encoding":
+      return `${valueRef} cannot be encoded or decoded as required by the schema. Detail: ${String(issue)}. Update it to the shape the schema expects.`;
+    case "Pointer":
+      return `${documentLabel} has a schema problem${pathStr === "" ? "" : ` at ${pathStr}`}. Detail: ${String(issue)}. Fix the value at the referenced location so the document satisfies the schema.`;
+    case "Composite":
+      return `${valueRef} has multiple schema problems. Detail: ${String(issue)}. Fix the referenced values so the document satisfies the schema.`;
+  }
+};
+
+const formatMissingKeyMessage = (
+  documentLabel: string,
+  path: ReadonlyArray<PropertyKey>,
+  pathStr: string,
+): string => {
+  const lastSegment = path[path.length - 1];
+  if (typeof lastSegment === "string" && pathStr !== "") {
+    return `${documentLabel} is missing required field \`${pathStr}\`. Add \`${lastSegment}\` at the referenced location.`;
+  }
+  if (lastSegment !== undefined && pathStr !== "") {
+    return `${documentLabel} is missing a required item at \`${pathStr}\`. Add the missing item at the referenced location.`;
+  }
+  return `${documentLabel} is missing a required value. Add the required value at the referenced location.`;
+};
+
+const formatUnexpectedKeyMessage = (documentLabel: string, pathStr: string): string =>
+  pathStr === ""
+    ? `${documentLabel} has an unrecognized field. Remove it or rename it to the intended field name.`
+    : `${documentLabel} has unrecognized field \`${pathStr}\`. Remove it or rename it to the intended field name.`;
+
+const describeValueReference = (documentLabel: string, pathStr: string): string =>
+  pathStr === "" ? documentLabel : `${documentLabel} field \`${pathStr}\``;
+
 const formatPath = (path: ReadonlyArray<PropertyKey>): string =>
-  path
-    .map((segment) => {
-      if (typeof segment === "number") {
-        return `[${String(segment)}]`;
-      }
-      return String(segment);
-    })
-    .join(".");
+  path.reduce<string>((acc, segment) => {
+    if (typeof segment === "number") {
+      return `${acc}[${String(segment)}]`;
+    }
+    return acc === "" ? String(segment) : `${acc}.${String(segment)}`;
+  }, "");
+
+const basename = (file: string): string => {
+  const normalized = file.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] ?? normalized;
+};
+
+const describeSchemaDocument = (file: string): string => {
+  switch (basename(file)) {
+    case "skill.json":
+      return "Skill manifest";
+    case "extension-pack.json":
+      return "Pack manifest";
+    case "settings.json":
+      return "Workspace settings";
+    case "axm-lock.yaml":
+      return "Lockfile";
+    default:
+      return "Document";
+  }
+};

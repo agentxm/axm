@@ -37,6 +37,7 @@ import type {
   LintFinding,
 } from "../../rule.js";
 import type { AgentDescriptor } from "../../../agents/types.js";
+import type { Operation } from "../../../plan/plan.js";
 import { LockfileSchema, type Lockfile } from "../../../lockfile/schema.js";
 import { SettingsSchema, type Settings } from "../../../settings/schema.js";
 import { installSkillOp } from "./helpers/install-ops.js";
@@ -45,7 +46,6 @@ import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 import { isUniversalSkillsRelativeDir } from "../../../extensions/universal-skills-dir.js";
 
 const RULE_ID = "workspace/skills-artifacts-clean";
-const SUG_REINSTALL_PREFIX = "Reinstall skill ";
 
 const decodeSettings = (input: unknown): Option.Option<Settings> => {
   const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
@@ -104,8 +104,9 @@ const danglingFinding = (name: string, agentId: string): AutofixableFinding => (
   kind: "autofixable",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Agent '${agentId}' has a dangling artifact for skill '${name}' (canonical source missing).`,
-  suggestions: [`${SUG_REINSTALL_PREFIX}'${name}' to re-materialize canonical source.`],
+  message:
+    `Skill '${name}' is present in agent '${agentId}'s skills directory, but its installed source directory is missing. ` +
+    "Run `axm lint --fix` to reinstall it and restore the missing source files.",
   location: { file: `${agentId}/skills/${name}` },
 });
 
@@ -113,11 +114,9 @@ const staleFinding = (name: string, agentId: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Agent '${agentId}' has a stale skill artifact '${name}' not backed by any declaration.`,
-  suggestions: [
-    `Remove the stale artifact manually if you no longer need skill '${name}'.`,
-    `Add '${name}' to settings.skills if it should be declared.`,
-  ],
+  message:
+    `Skill '${name}' is present in agent '${agentId}'s skills directory, but it is not listed in settings.skills. ` +
+    `Add '${name}' to settings.skills if axm should manage it, or remove it from that directory if not.`,
   location: { file: `${agentId}/skills/${name}` },
 });
 
@@ -129,16 +128,16 @@ const nameMismatchFinding = (
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Agent '${agentId}' has skill artifact '${artifact}' that doesn't match the sanitized name '${expected}'.`,
-  suggestions: [
-    `Remove '${artifact}' and reinstall to regenerate under the canonical name '${expected}'.`,
-  ],
+  message:
+    `Skill '${artifact}' is present in agent '${agentId}'s skills directory, but settings.skills declares it as '${expected}'. ` +
+    `Remove '${artifact}' from that directory and reinstall '${expected}' if axm should manage it.`,
   location: { file: `${agentId}/skills/${artifact}` },
 });
 
-const NAME_FROM_SUGGESTION_RE = /'([^']+)'/;
-const extractSkillName = (suggestion: string): string | undefined =>
-  NAME_FROM_SUGGESTION_RE.exec(suggestion)?.[1];
+interface ArtifactCleanViolation {
+  readonly finding: LintFinding;
+  readonly operation?: Operation<string, unknown>;
+}
 
 /**
  * Build candidate canonical `SKILL.md` probe paths for `name`, trying the
@@ -155,6 +154,11 @@ const canonicalSrcProbesForName = (name: string, settings: Settings): ReadonlyAr
   probes.push(`.axm/extensions/external/skills/${name}/SKILL.md`);
   return probes;
 };
+
+const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boolean =>
+  left.ruleId === right.ruleId &&
+  left.message === right.message &&
+  left.location?.file === right.location?.file;
 
 export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -201,7 +205,7 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
           })
         : new Set<string>();
 
-      const findings: Array<LintFinding> = [];
+      const violations: Array<ArtifactCleanViolation> = [];
 
       for (const agent of declaredAgents) {
         const listResult = yield* Effect.result(context.workspace.list(agent.skills.dir));
@@ -228,7 +232,15 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
               { concurrency: "unbounded" },
             );
             if (probeResults.every((exists) => !exists)) {
-              findings.push(danglingFinding(artifact, agent.id));
+              const entry = settings.value.skills?.[artifact];
+              if (entry === undefined) {
+                violations.push({ finding: danglingFinding(artifact, agent.id) });
+              } else {
+                violations.push({
+                  finding: danglingFinding(artifact, agent.id),
+                  operation: installSkillOp({ name: artifact, source: entry.source, force: true }),
+                });
+              }
               continue;
             }
             continue;
@@ -241,29 +253,20 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
             (d) => d.toLowerCase() === artifact.toLowerCase() && !isCanonicallyNamed(artifact, d),
           );
           if (caseMatch !== undefined) {
-            findings.push(nameMismatchFinding(agent.id, artifact, caseMatch));
+            violations.push({ finding: nameMismatchFinding(agent.id, artifact, caseMatch) });
             continue;
           }
           // Skip stale-artifact check for universal dir — artifacts are shared
           if (isUniversalSkillsRelativeDir(agent.skills.dir)) {
             continue;
           }
-          findings.push(staleFinding(artifact, agent.id));
+          violations.push({ finding: staleFinding(artifact, agent.id) });
         }
       }
-      return findings;
+      return violations.map((violation) => violation.finding);
     }),
   fix: (context, finding) =>
     Effect.gen(function* () {
-      // Only the dangling arm emits AutofixableFinding; stale / name-mismatch
-      // arms ship AdvisoryFinding and never reach `fix`.
-      if (!finding.suggestions[0].startsWith(SUG_REINSTALL_PREFIX)) {
-        return EMPTY_OPERATIONS;
-      }
-      const name = extractSkillName(finding.suggestions[0]);
-      if (name === undefined) {
-        return EMPTY_OPERATIONS;
-      }
       const settingsResult = yield* Effect.result(context.workspace.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_OPERATIONS;
@@ -272,8 +275,86 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
       if (Option.isNone(settings)) {
         return EMPTY_OPERATIONS;
       }
-      const entry = settings.value.skills?.[name];
-      const source = entry?.source ?? name;
-      return [installSkillOp({ name, source, force: true })];
+      const declaredAgentIds = new Set(settings.value.agents ?? []);
+      if (declaredAgentIds.size === 0) {
+        return EMPTY_OPERATIONS;
+      }
+      const knownAgents = yield* context.workspace.knownAgents;
+      const declaredAgents: ReadonlyArray<AgentDescriptor> = knownAgents.filter((a) =>
+        declaredAgentIds.has(a.id),
+      );
+
+      const declaredSkills = settings.value.skills ?? {};
+      const declaredEnabledNames = new Set(
+        Object.entries(declaredSkills)
+          .filter(([, v]) => v.enabled)
+          .map(([k]) => k),
+      );
+      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const retainedNames: ReadonlySet<string> = Result.isSuccess(lockfileResult)
+        ? Option.match(lockfileResult.success, {
+            onNone: () => new Set<string>(),
+            onSome: (raw) =>
+              Option.match(decodeLockfile(raw), {
+                onNone: () => new Set<string>(),
+                onSome: (lock) => buildRetainedSkillNames(settings.value, lock),
+              }),
+          })
+        : new Set<string>();
+
+      const violations: Array<ArtifactCleanViolation> = [];
+      for (const agent of declaredAgents) {
+        const listResult = yield* Effect.result(context.workspace.list(agent.skills.dir));
+        if (Result.isFailure(listResult)) {
+          continue;
+        }
+        for (const artifact of listResult.success) {
+          if (retainedNames.has(artifact)) {
+            continue;
+          }
+          if (declaredEnabledNames.has(artifact)) {
+            const probes = canonicalSrcProbesForName(artifact, settings.value);
+            const probeResults = yield* Effect.all(
+              probes.map((probe) => context.workspace.exists(probe)),
+              { concurrency: "unbounded" },
+            );
+            if (probeResults.every((exists) => !exists)) {
+              const entry = settings.value.skills?.[artifact];
+              if (entry === undefined) {
+                violations.push({ finding: danglingFinding(artifact, agent.id) });
+              } else {
+                violations.push({
+                  finding: danglingFinding(artifact, agent.id),
+                  operation: installSkillOp({ name: artifact, source: entry.source, force: true }),
+                });
+              }
+            }
+            continue;
+          }
+          const caseMatch = Array.from(declaredEnabledNames).find(
+            (d) => d.toLowerCase() === artifact.toLowerCase() && !isCanonicallyNamed(artifact, d),
+          );
+          if (caseMatch !== undefined) {
+            violations.push({ finding: nameMismatchFinding(agent.id, artifact, caseMatch) });
+            continue;
+          }
+          if (isUniversalSkillsRelativeDir(agent.skills.dir)) {
+            continue;
+          }
+          violations.push({ finding: staleFinding(artifact, agent.id) });
+        }
+      }
+      const violation = violations.find(
+        (
+          candidate,
+        ): candidate is {
+          readonly finding: AutofixableFinding;
+          readonly operation?: Operation<string, unknown>;
+        } => candidate.finding.kind === "autofixable" && isSameFinding(candidate.finding, finding),
+      );
+      if (violation?.operation === undefined) {
+        return EMPTY_OPERATIONS;
+      }
+      return [violation.operation];
     }),
 };

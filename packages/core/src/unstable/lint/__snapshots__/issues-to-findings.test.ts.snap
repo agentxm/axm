@@ -7,10 +7,9 @@ exports[`issuesToFindings > emits findings at nested paths 1`] = `
     "location": {
       "file": "skill.json",
     },
-    "message": "compatibility.requires.[1]: Expected string, got 42",
+    "message": "Skill manifest field \`compatibility.requires[1]\` has the wrong type. Detail: Expected string, got 42. Replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
 ]
 `;
@@ -22,40 +21,36 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "name: Expected string, got 123",
+    "message": "Skill manifest field \`name\` has the wrong type. Detail: Expected string, got 123. Replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
   {
     "kind": "advisory",
     "location": {
       "file": "skill.json",
     },
-    "message": "version: Expected string, got 456",
+    "message": "Skill manifest field \`version\` has the wrong type. Detail: Expected string, got 456. Replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
   {
     "kind": "advisory",
     "location": {
       "file": "skill.json",
     },
-    "message": "owner: Expected string, got true",
+    "message": "Skill manifest field \`owner\` has the wrong type. Detail: Expected string, got true. Replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
   {
     "kind": "advisory",
     "location": {
       "file": "skill.json",
     },
-    "message": "description: Expected string, got null",
+    "message": "Skill manifest field \`description\` has the wrong type. Detail: Expected string, got null. Replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
 ]
 `;
@@ -67,30 +62,27 @@ exports[`issuesToFindings > emits one finding per missing top-level key 1`] = `
     "location": {
       "file": "skill.json",
     },
-    "message": "version: Missing key",
+    "message": "Skill manifest is missing required field \`version\`. Add \`version\` at the referenced location.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
   {
     "kind": "advisory",
     "location": {
       "file": "skill.json",
     },
-    "message": "owner: Missing key",
+    "message": "Skill manifest is missing required field \`owner\`. Add \`owner\` at the referenced location.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
   {
     "kind": "advisory",
     "location": {
       "file": "skill.json",
     },
-    "message": "description: Missing key",
+    "message": "Skill manifest is missing required field \`description\`. Add \`description\` at the referenced location.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
-    "suggestions": [],
   },
 ]
 `;

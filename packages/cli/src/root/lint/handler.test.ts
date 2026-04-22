@@ -20,7 +20,11 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
@@ -160,7 +164,7 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).toMatch(/DRIFT/);
+        expect(allMessages).toMatch(/The registry will still block publish/);
         expect(allMessages).toMatch(/skill\/manifest-schema-valid/);
       }),
     );
@@ -239,6 +243,47 @@ describe("axm lint handler", () => {
         const allMessages = rendererState.logs.map((e) => e.message).join("\n");
         // The renderer emits one line per linted section plus the summary.
         expect(allMessages).toMatch(/(No findings|Summary:)/);
+      }),
+    );
+  });
+
+  it.effect("renders path-grouped diagnostics with severity-aware log levels", () => {
+    const { provide, rendererState } = makeLayers();
+    writeSettings({
+      agents: ["claude-code"],
+      skills: { demo: "@acme/skills/demo@1.0.0" },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({}).pipe(Effect.exit);
+        const logs = logsByTag(rendererState);
+        expect(logs.message).toContain("./.axm/axm-lock.yaml");
+        expect(logs.message).toContain("./.axm/settings.json");
+        expect(
+          logs.error.some((message) => message.includes("Found 2 errors in 2 locations.")),
+        ).toBe(true);
+        expect(
+          logs.error.some((message) =>
+            message.includes(
+              "workspace/lockfile-valid (fixable): The lockfile is missing even though workspace settings declare installed extensions.",
+            ),
+          ),
+        ).toBe(true);
+        expect(
+          logs.error.some((message) =>
+            message.includes(
+              "workspace/skills-artifacts-correct (fixable): Skill 'demo' is listed as enabled, but it is missing from some declared agents.",
+            ),
+          ),
+        ).toBe(true);
+        expect(
+          logs.message.some((message) =>
+            message.includes(
+              "Run `axm lint --fix` to reinstall the declared extensions and regenerate it.",
+            ),
+          ),
+        ).toBe(true);
       }),
     );
   });

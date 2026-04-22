@@ -41,8 +41,7 @@ describe("skill/skill-md-present", () => {
       expect(finding?.ruleId).toBe("skill/skill-md-present");
       expect(finding?.severity).toBe("error");
       expect(finding?.location).toEqual({ file: "SKILL.md" });
-      expect(finding?.message.length).toBeGreaterThan(0);
-      expect(finding?.suggestions).toHaveLength(1);
+      expect(finding?.message).toContain("Create SKILL.md");
     }),
   );
 });

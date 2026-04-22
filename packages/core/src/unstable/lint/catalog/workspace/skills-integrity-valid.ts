@@ -30,6 +30,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
+import type { Operation } from "../../../plan/plan.js";
 import { LockfileSchema, type Lockfile, type SkillLockEntry } from "../../../lockfile/schema.js";
 import { SettingsSchema, type Settings } from "../../../settings/schema.js";
 import { installSkillOp } from "./helpers/install-ops.js";
@@ -37,8 +38,6 @@ import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/skills-integrity-valid";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
-
-const SUG_INTEGRITY_PREFIX = "Reinstall skill ";
 
 const decodeSettings = (input: unknown): Option.Option<Settings> => {
   const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
@@ -60,14 +59,16 @@ const integrityFinding = (name: string, reason: string): AutofixableFinding => (
   kind: "autofixable",
   ruleId: RULE_ID,
   severity: "error",
-  message: `Skill '${name}' has an integrity mismatch: ${reason}.`,
-  suggestions: [`${SUG_INTEGRITY_PREFIX}'${name}' to re-hash from source.`],
+  message:
+    `Skill '${name}' is listed in the lockfile, but its installed source files do not match the lockfile entry. Detail: ${reason}. ` +
+    "Run `axm lint --fix` to reinstall it.",
   location: { file: LOCKFILE_REL },
 });
 
-const NAME_FROM_SUGGESTION_RE = /'([^']+)'/;
-const extractSkillName = (suggestion: string): string | undefined =>
-  NAME_FROM_SUGGESTION_RE.exec(suggestion)?.[1];
+interface IntegrityViolation {
+  readonly finding: AutofixableFinding;
+  readonly operation: Operation<string, unknown>;
+}
 
 /**
  * Compute a stable integrity marker for the skill's installed `src/` tree.
@@ -90,7 +91,7 @@ const checkIntegrity = (
     return Option.none();
   }
   if (!probeExists) {
-    return Option.some(integrityFinding(name, "canonical install directory is missing"));
+    return Option.some(integrityFinding(name, "the installed source directory is missing"));
   }
   return Option.none();
 };
@@ -100,6 +101,43 @@ const skillSrcProbe = (name: string, entry: SkillLockEntry): string => {
     return `.axm/extensions/${entry.owner}/skills/${name}/src/SKILL.md`;
   }
   return `.axm/extensions/external/skills/${name}/SKILL.md`;
+};
+
+const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boolean =>
+  left.ruleId === right.ruleId &&
+  left.message === right.message &&
+  left.location?.file === right.location?.file;
+
+const collectIntegrityViolations = (
+  settings: Settings,
+  probes: ReadonlyArray<{
+    readonly name: string;
+    readonly entry: SkillLockEntry;
+    readonly exists: boolean;
+  }>,
+): ReadonlyArray<IntegrityViolation> => {
+  const declaredSkills = settings.skills ?? {};
+  const violations: Array<IntegrityViolation> = [];
+
+  for (const { name, entry, exists } of probes) {
+    if (!(name in declaredSkills)) {
+      continue;
+    }
+    const finding = checkIntegrity(name, entry, exists);
+    if (Option.isNone(finding)) {
+      continue;
+    }
+    const declared = declaredSkills[name];
+    if (declared === undefined) {
+      continue;
+    }
+    violations.push({
+      finding: finding.value,
+      operation: installSkillOp({ name, source: declared.source, force: true }),
+    });
+  }
+
+  return violations;
 };
 
 export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
@@ -127,42 +165,48 @@ export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
         return EMPTY_LINT_FINDINGS;
       }
 
-      const lockSkills = lockfile.value.skills;
-      const declaredSkills = settings.value.skills ?? {};
-      const findings: Array<LintFinding> = [];
-      for (const [name, entry] of Object.entries(lockSkills)) {
-        // Carve out: integrity only applies to declared skills. Orphan
-        // lock entries are owned by workspace/skills-lockfile-aligned
-        // (orphan arm); running integrity alongside it would produce
-        // contradictory autofix Operations (install + uninstall).
-        if (!(name in declaredSkills)) {
-          continue;
-        }
-        const probe = skillSrcProbe(name, entry);
-        const exists = yield* context.workspace.exists(probe);
-        const finding = checkIntegrity(name, entry, exists);
-        if (Option.isSome(finding)) {
-          findings.push(finding.value);
-        }
-      }
-      return findings;
+      const probes = yield* Effect.all(
+        Object.entries(lockfile.value.skills).map(([name, entry]) =>
+          context.workspace
+            .exists(skillSrcProbe(name, entry))
+            .pipe(Effect.map((exists) => ({ name, entry, exists }))),
+        ),
+        { concurrency: "unbounded" },
+      );
+      const violations = collectIntegrityViolations(settings.value, probes);
+      return violations.map((violation): LintFinding => violation.finding);
     }),
   fix: (context, finding) =>
     Effect.gen(function* () {
-      const name = extractSkillName(finding.suggestions[0]);
-      if (name === undefined) {
-        return EMPTY_OPERATIONS;
-      }
       const settingsResult = yield* Effect.result(context.workspace.settings);
-      if (Result.isFailure(settingsResult)) {
+      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
         return EMPTY_OPERATIONS;
       }
       const settings = decodeSettings(settingsResult.success);
       if (Option.isNone(settings)) {
         return EMPTY_OPERATIONS;
       }
-      const entry = settings.value.skills?.[name];
-      const source = entry?.source ?? name;
-      return [installSkillOp({ name, source, force: true })];
+      const lockOption = lockfileResult.success;
+      if (Option.isNone(lockOption)) {
+        return EMPTY_OPERATIONS;
+      }
+      const lockfile = decodeLockfile(lockOption.value);
+      if (Option.isNone(lockfile)) {
+        return EMPTY_OPERATIONS;
+      }
+
+      const probes = yield* Effect.all(
+        Object.entries(lockfile.value.skills).map(([name, entry]) =>
+          context.workspace
+            .exists(skillSrcProbe(name, entry))
+            .pipe(Effect.map((exists) => ({ name, entry, exists }))),
+        ),
+        { concurrency: "unbounded" },
+      );
+      const violation = collectIntegrityViolations(settings.value, probes).find((candidate) =>
+        isSameFinding(candidate.finding, finding),
+      );
+      return violation === undefined ? EMPTY_OPERATIONS : [violation.operation];
     }),
 };

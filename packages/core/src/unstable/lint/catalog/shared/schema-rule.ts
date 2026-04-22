@@ -106,11 +106,7 @@ export const enumerateUnknownTopLevelKeys = (
       kind: "advisory",
       ruleId,
       severity,
-      message: `unrecognized top-level key '${key}'; remove it or rename to a canonical field.`,
-      suggestions: [
-        `Remove the '${key}' key from the manifest.`,
-        `Rename '${key}' to the intended canonical field.`,
-      ],
+      message: `The document has unrecognized top-level field '${key}'. Remove it or rename it to the intended field name.`,
       location: { file },
     });
   }

@@ -74,7 +74,6 @@ const finding = (ruleId: string, overrides: Partial<AdvisoryFinding> = {}): Advi
   ruleId,
   severity: "error",
   message: `finding from ${ruleId}`,
-  suggestions: [],
   ...overrides,
 });
 
@@ -83,7 +82,6 @@ const autofix = (ruleId: string): AutofixableFinding => ({
   ruleId,
   severity: "error",
   message: `autofix finding from ${ruleId}`,
-  suggestions: ["fix it"],
 });
 
 const makeOp = (

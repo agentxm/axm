@@ -22,7 +22,7 @@ const EXTENSION_PACK_JSON = "extension-pack.json";
 
 export const manifestPresentRule: AdvisoryRule<PackRuleContext> = {
   id: RULE_ID,
-  description: "Pack has an extension-pack.json manifest at its root.",
+  description: "Packs include a root extension-pack.json manifest.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

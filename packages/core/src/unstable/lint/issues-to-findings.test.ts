@@ -158,8 +158,27 @@ describe("issuesToFindings", () => {
     const [finding] = issuesToFindings("skill/manifest-schema-valid", "error", "skill.json", issue);
 
     expect(finding?.message).toBe(
-      "Skill manifest has unrecognized field `made_up_key`. Edit `skill.json` to remove it or rename it to the intended field name.",
+      "Skill manifest has unrecognized field `made_up_key`. Edit `skill.json` and remove it or rename it to the intended field name.",
     );
+  });
+
+  it("does not tell users to hand-edit the lockfile for schema findings", () => {
+    const issue = expectIssue(
+      Schema.Struct({
+        lockfileVersion: Schema.Number,
+      }),
+      { lockfileVersion: "one" },
+    );
+
+    const [finding] = issuesToFindings(
+      "workspace/lockfile-valid",
+      "error",
+      ".axm/axm-lock.yaml",
+      issue,
+    );
+
+    expect(finding?.message).toContain("Regenerate `.axm/axm-lock.yaml` from `.axm/settings.json`");
+    expect(finding?.message).not.toContain("Edit `.axm/axm-lock.yaml`");
   });
 
   it("formats forbidden findings with concrete remediation", () => {

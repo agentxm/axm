@@ -56,7 +56,7 @@ const enableFinding = (name: string, reason: string): AutofixableFinding => ({
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Skill '${name}' is listed as enabled, but it is missing from some declared agents. Detail: ${reason}. ` +
+    `Skill '${name}' is listed as enabled, but it is missing from some declared agents. Missing from agents: ${reason}. ` +
     "Run `axm lint --fix` to make it present for every declared agent.",
   location: { file: SETTINGS_REL },
 });
@@ -66,7 +66,7 @@ const disableFinding = (name: string, reason: string): AutofixableFinding => ({
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Skill '${name}' is listed as disabled, but it is still present in some declared agents. Detail: ${reason}. ` +
+    `Skill '${name}' is listed as disabled, but it is still present in some declared agents. Present for agents: ${reason}. ` +
     "Run `axm lint --fix` to remove it from those agents.",
   location: { file: SETTINGS_REL },
 });
@@ -76,7 +76,7 @@ const inconsistentFinding = (name: string, details: string): AutofixableFinding 
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Skill '${name}' is present for some declared agents but missing from others. Detail: ${details}. ` +
+    `Skill '${name}' is present for some declared agents but missing from others. ${details}. ` +
     "Run `axm lint --fix` to make its presence consistent across the declared agents.",
   location: { file: SETTINGS_REL },
 });
@@ -108,7 +108,7 @@ const collectArtifactViolations = (
       }
       if (presentAgents.length === 0) {
         violations.push({
-          finding: enableFinding(name, `missing from agents: ${missingAgents.join(", ")}`),
+          finding: enableFinding(name, missingAgents.join(", ")),
           operation: enableSkillOp({ name }),
         });
         continue;
@@ -116,7 +116,7 @@ const collectArtifactViolations = (
       violations.push({
         finding: inconsistentFinding(
           name,
-          `present for agents: ${presentAgents.join(", ")}; missing from agents: ${missingAgents.join(", ")}`,
+          `Present for agents: ${presentAgents.join(", ")}. Missing from agents: ${missingAgents.join(", ")}`,
         ),
         operation: enableSkillOp({ name }),
       });
@@ -125,7 +125,7 @@ const collectArtifactViolations = (
 
     if (presentAgents.length > 0) {
       violations.push({
-        finding: disableFinding(name, `present for agents: ${presentAgents.join(", ")}`),
+        finding: disableFinding(name, presentAgents.join(", ")),
         operation: disableSkillOp({ name }),
       });
     }
@@ -136,7 +136,7 @@ const collectArtifactViolations = (
 
 export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Enabled skills have artifacts in every declared agent; disabled skills have none.",
+  description: "Skill directories match each skill's enabled state across declared agents.",
   kind: "autofixing",
   severity: "error",
   check: (context) =>

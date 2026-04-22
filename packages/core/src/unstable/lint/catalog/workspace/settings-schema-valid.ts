@@ -36,7 +36,7 @@ const SETTINGS_REL = ".axm/settings.json";
 
 export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: ".axm/settings.json parses and conforms to SettingsSchema.",
+  description: "Workspace settings are structurally valid.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

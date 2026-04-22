@@ -27,7 +27,7 @@ const SKILL_JSON = "skill.json";
 
 export const manifestSchemaValidRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
-  description: "skill.json conforms to SkillManifestSchema.",
+  description: "skill.json defines a valid skill manifest.",
   kind: "advisory",
   severity: "error",
   check: (context) => {

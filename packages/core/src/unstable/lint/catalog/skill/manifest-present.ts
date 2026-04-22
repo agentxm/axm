@@ -22,7 +22,7 @@ const SKILL_JSON = "skill.json";
 
 export const manifestPresentRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
-  description: "Native skill has a skill.json manifest at its root.",
+  description: "Native skills include a root skill.json manifest.",
   kind: "advisory",
   severity: "error",
   check: (context) => {

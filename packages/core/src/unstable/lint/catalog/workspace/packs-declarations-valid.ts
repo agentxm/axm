@@ -120,7 +120,7 @@ const duplicateFinding = (
 
 export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Declared packs name a resolvable, owner-qualified, unique source.",
+  description: "Declared packs use unique, resolvable registry sources.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

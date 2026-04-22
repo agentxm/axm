@@ -31,7 +31,7 @@ const EXTENSION_PACK_JSON = "extension-pack.json";
 
 export const manifestSchemaValidRule: AdvisoryRule<PackRuleContext> = {
   id: RULE_ID,
-  description: "extension-pack.json conforms to ExtensionPackManifestSchema.",
+  description: "extension-pack.json defines a valid pack manifest.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

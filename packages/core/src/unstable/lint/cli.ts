@@ -711,7 +711,9 @@ const coalesceFullDiagnostic = (
         ruleId: first.ruleId,
         title: "Lockfile is missing required fields.",
         details: compressDetails(fields),
-        helps: ["Edit `.axm/axm-lock.yaml` and add the missing fields, then re-run `axm lint`."],
+        helps: [
+          "Regenerate `.axm/axm-lock.yaml` from `.axm/settings.json` by reinstalling the declared extensions.",
+        ],
         fixable: false,
         paths,
       };
@@ -727,9 +729,9 @@ const coalesceFullDiagnostic = (
         title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not listed in settings.skills.`,
         details: compressDetails(names),
         helps: [
-          "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source.",
+          "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
           "Each entry can be a source string or an object with `source` and optional `enabled`.",
-          "To remove them: delete them from this directory.",
+          "If you do not want axm to manage them: delete them from this directory.",
         ],
         fixable: false,
         paths,
@@ -881,7 +883,7 @@ const coalesceGroupedDiagnostic = (
         title: "Lockfile is missing fields required by the current schema.",
         details: [`Missing fields include: ${previewList(fields, 4)}`],
         helps: [
-          "Fix: Edit `.axm/axm-lock.yaml` and add the missing fields, then re-run `axm lint`.",
+          "Fix: Regenerate `.axm/axm-lock.yaml` from `.axm/settings.json` by reinstalling the declared extensions.",
         ],
         fixable: false,
         paths,
@@ -904,9 +906,9 @@ const coalesceGroupedDiagnostic = (
           8,
         ),
         helps: [
-          "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source.",
+          "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
           "Each entry can be a source string or an object with `source` and optional `enabled`.",
-          "To remove them: delete them from those directories.",
+          "If you do not want axm to manage them: delete them from those directories.",
         ],
         fixable: false,
         paths,

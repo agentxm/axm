@@ -40,7 +40,7 @@ const decodeSettings = (input: unknown): Option.Option<Settings> => {
 
 export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Every agent id in settings.agents[] is in the known-agent catalog.",
+  description: "Every `settings.agents[]` entry names a supported agent.",
   kind: "advisory",
   severity: "error",
   check: (context) =>
@@ -71,7 +71,7 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "error",
           message:
-            `AXM does not recognize agent '${id}'. ` +
+            `Agent id '${id}' in \`settings.agents[]\` is not supported. ` +
             `Edit \`.axm/settings.json\` and remove '${id}' from \`agents\`, or replace it there with the intended agent id.`,
           location: { file: SETTINGS_REL },
         });

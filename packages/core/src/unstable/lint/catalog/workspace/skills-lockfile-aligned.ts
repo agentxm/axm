@@ -81,8 +81,8 @@ const versionFinding = (name: string, details: string): AutofixableFinding => ({
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Skill '${name}' is listed in settings.skills and the lockfile, but the lockfile version does not match the declared version. ` +
-    `Detail: ${details}. Run \`axm lint --fix\` to reinstall it at the declared version.`,
+    `Skill '${name}' is listed in settings.skills and the lockfile, but the versions do not match. ` +
+    `${details}. Run \`axm lint --fix\` to reinstall it at the declared version.`,
   location: { file: LOCKFILE_REL },
 });
 
@@ -182,7 +182,10 @@ const collectAlignmentViolations = (
       continue;
     }
     violations.push({
-      finding: versionFinding(name, `declared ${constraint}, locked ${lockEntry.resolvedVersion}`),
+      finding: versionFinding(
+        name,
+        `Declared version: ${constraint}. Locked version: ${lockEntry.resolvedVersion}`,
+      ),
       operation: installSkillOp({ name, source: entry.source, force: true }),
     });
   }
@@ -197,7 +200,7 @@ const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boo
 
 export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Skill lock entries correspond 1:1 to declared skills at satisfying versions.",
+  description: "Declared skills and lockfile entries stay aligned.",
   kind: "autofixing",
   severity: "error",
   check: (context) =>

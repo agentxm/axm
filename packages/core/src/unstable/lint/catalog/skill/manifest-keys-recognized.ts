@@ -34,7 +34,7 @@ const allowedKeys = structFieldKeys(SkillManifestSchema);
 
 export const manifestKeysRecognizedRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
-  description: "skill.json contains only keys recognized by SkillManifestSchema.",
+  description: "skill.json uses only supported top-level fields.",
   kind: "advisory",
   severity: "warning",
   check: (context) => {

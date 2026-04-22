@@ -121,7 +121,7 @@ const findingForDuplicate = (
 
 export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Declared skills name a resolvable, owner-qualified, unique source.",
+  description: "Declared skills use unique, resolvable sources.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

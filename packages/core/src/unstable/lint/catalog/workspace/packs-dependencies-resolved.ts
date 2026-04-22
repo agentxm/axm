@@ -112,7 +112,7 @@ const missingDependencyFinding = (
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Pack '${packName}' requires ${singularDependencyType(dependencyType)} '${dependencyFqn}', but that ${singularDependencyType(dependencyType)} is missing from the lockfile. ` +
+    `Pack '${packName}' requires ${singularDependencyType(dependencyType)} '${dependencyFqn}', but that ${singularDependencyType(dependencyType)} is not installed. ` +
     `To restore it, run \`axm packs install ${packSpecifier}\`. ` +
     `If you no longer need '${packName}', run \`axm packs uninstall ${packName}\` or remove '${packName}' from \`settings.packs\` in \`${SETTINGS_REL}\`.`,
   location: { file: LOCKFILE_REL },
@@ -129,7 +129,7 @@ const collectResolved = (
 
 export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Every pack-declared dependency FQN is installed.",
+  description: "Installed packs keep their declared dependencies installed.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

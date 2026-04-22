@@ -39,7 +39,7 @@ const allowedKeys = structFieldKeys(ExtensionPackManifestSchema);
 
 export const manifestKeysRecognizedRule: AdvisoryRule<PackRuleContext> = {
   id: RULE_ID,
-  description: "extension-pack.json contains only keys recognized by ExtensionPackManifestSchema.",
+  description: "extension-pack.json uses only supported top-level fields.",
   kind: "advisory",
   severity: "warning",
   check: (context) =>

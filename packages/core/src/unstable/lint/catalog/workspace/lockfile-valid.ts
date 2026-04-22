@@ -47,6 +47,7 @@ import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/lockfile-valid";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
+const SETTINGS_REL = ".axm/settings.json";
 
 const hasAnyDeclaration = (settings: Settings): boolean => {
   const skills = Object.keys(settings.skills ?? {}).length;
@@ -76,7 +77,7 @@ const makeMissingFinding = (): AutofixableFinding => ({
 
 export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "axm-lock.yaml is present and conforms to LockfileSchema.",
+  description: "The lockfile exists when declarations require it and stays structurally valid.",
   kind: "autofixing",
   severity: "error",
   check: (context) =>
@@ -103,7 +104,7 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
           severity: "error",
           message:
             `The lockfile is not valid YAML. Detail: ${lockfileResult.failure.message}. ` +
-            "Edit `.axm/axm-lock.yaml` to fix the YAML syntax.",
+            `Regenerate \`${LOCKFILE_REL}\` from \`${SETTINGS_REL}\` by reinstalling the declared extensions.`,
           location: { file: LOCKFILE_REL },
         };
         const readFailure: ReadonlyArray<LintFinding> = [advisory];

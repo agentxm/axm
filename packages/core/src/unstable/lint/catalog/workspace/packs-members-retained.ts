@@ -104,8 +104,8 @@ const droppedFinding = (
     message:
       `${memberType} '${name}'${fqn === undefined ? "" : ` (resolved as ${fqn})`} is still installed because of a pack, but no installed pack now declares it. ` +
       (installCommand === undefined
-        ? `To keep it, add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` using its intended source. ` +
-          "If you do not need it, delete the stale installed files and remove the stale lockfile entry."
+        ? `To keep it, add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` with its intended source, then reinstall the declared extensions. ` +
+          "If you do not need it, reinstall the remaining declarations so axm regenerates the managed state without it."
         : `To keep it, run \`${installCommand}\` or add '${name}' under \`${settingsSurface}\` in \`${SETTINGS_REL}\` using source '${fqn}'. ` +
           `If you do not need it, run \`${uninstallCommand}\`.`),
     location: { file: LOCKFILE_REL },
@@ -163,7 +163,7 @@ const typeSegment = (memberType: MemberEntry["memberType"]): string => {
 
 export const packsMembersRetainedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Every member lock entry with retainedByPack is declared by an installed pack.",
+  description: "Pack-retained extensions are still required by an installed pack.",
   kind: "advisory",
   severity: "warning",
   check: (context) =>

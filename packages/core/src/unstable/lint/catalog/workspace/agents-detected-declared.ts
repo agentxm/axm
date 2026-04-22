@@ -40,7 +40,7 @@ const decodeSettings = (input: unknown): Option.Option<Settings> => {
 
 export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Every agent detected on disk appears in settings.agents[].",
+  description: "Agents detected on disk are declared in `settings.agents[]`.",
   kind: "advisory",
   severity: "warning",
   check: (context) =>
@@ -71,7 +71,7 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "warning",
           message:
-            `AXM found agent '${detection.id}' on disk, but it is not listed in settings.agents[]. ` +
+            `Agent '${detection.id}' is present on disk but missing from \`settings.agents[]\`. ` +
             `To manage it, add '${detection.id}' under \`agents\` in \`.axm/settings.json\`. ` +
             'If it is intentionally unmanaged, set `lint.rules["workspace/agents-detected-declared"]` to `off` in `.axm/settings.json`.',
           location: { file: SETTINGS_REL },

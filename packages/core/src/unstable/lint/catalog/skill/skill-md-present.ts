@@ -21,7 +21,7 @@ const SKILL_MD = "SKILL.md";
 
 export const skillMdPresentRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
-  description: "Skill has a SKILL.md at its root.",
+  description: "Skills include a root SKILL.md file.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

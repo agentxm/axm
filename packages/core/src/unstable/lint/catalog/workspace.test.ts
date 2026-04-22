@@ -71,7 +71,7 @@ describe("workspaceRules", () => {
     for (const rule of workspaceRules) {
       expect(rule.description.length, `rule ${rule.id}`).toBeGreaterThan(0);
       expect(rule.description.length, `rule ${rule.id} description too long`).toBeLessThanOrEqual(
-        120,
+        100,
       );
     }
   });

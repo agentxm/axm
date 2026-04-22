@@ -27,7 +27,7 @@ const SETTINGS_REL = ".axm/settings.json";
 
 export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Workspace is initialized (.axm directory and settings.json present).",
+  description: "The workspace includes `.axm/` and `.axm/settings.json`.",
   kind: "advisory",
   severity: "error",
   check: (context) =>
@@ -43,7 +43,7 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "error",
           message:
-            "Workspace is not initialized because the .axm directory is missing. Run `axm init` to initialize the workspace.",
+            "The workspace is missing `.axm/`. Run `axm init` to create the managed workspace files.",
           location: { file: AXM_DIR },
         });
         return findings;
@@ -54,7 +54,7 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "error",
           message:
-            "Workspace settings are missing because the workspace settings file does not exist. Run `axm init` to scaffold the workspace settings.",
+            "The workspace settings file is missing. Run `axm init` to create `.axm/settings.json`.",
           location: { file: SETTINGS_REL },
         });
       }

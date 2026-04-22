@@ -116,9 +116,9 @@ const staleFinding = (name: string, agentId: string): AdvisoryFinding => ({
   severity: "error",
   message:
     `Skill '${name}' is present in agent '${agentId}'s skills directory, but it is not listed in settings.skills. ` +
-    `To keep it, add '${name}' under \`settings.skills\` in \`.axm/settings.json\` with the intended source. ` +
+    `To keep it, add '${name}' under \`settings.skills\` in \`.axm/settings.json\` with the intended source, then run \`axm install\` to regenerate the managed skill directories. ` +
     "Each `settings.skills` entry can be a source string or an object with `source` and optional `enabled`. " +
-    "To remove it, delete it from that directory.",
+    "If you do not want axm to manage it, delete it from that directory.",
   location: { file: `${agentId}/skills/${name}` },
 });
 
@@ -132,8 +132,8 @@ const nameMismatchFinding = (
   severity: "error",
   message:
     `Skill '${artifact}' is present in agent '${agentId}'s skills directory, but settings.skills declares it as '${expected}'. ` +
-    `To keep it, rename that directory to '${expected}' so it matches \`settings.skills\` in \`.axm/settings.json\`. ` +
-    `To remove it, delete '${artifact}' from that directory.`,
+    `To keep it, make \`settings.skills\` in \`.axm/settings.json\` and the managed directory agree, then run \`axm install\` so axm recreates the directory with the intended name. ` +
+    `If you do not want axm to manage it, delete '${artifact}' from that directory.`,
   location: { file: `${agentId}/skills/${artifact}` },
 });
 
@@ -165,7 +165,7 @@ const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boo
 
 export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Skill artifacts on disk are live, declared, and canonically named.",
+  description: "Installed skill directories are declared, live, and correctly named.",
   kind: "autofixing",
   severity: "error",
   check: (context) =>

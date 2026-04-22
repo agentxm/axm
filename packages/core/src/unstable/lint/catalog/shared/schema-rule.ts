@@ -107,7 +107,7 @@ export const enumerateUnknownTopLevelKeys = (
       ruleId,
       severity,
       message:
-        `The document has unrecognized top-level field '${key}'. ` +
+        `${describeSchemaDocument(file)} has unrecognized top-level field '${key}'. ` +
         `Edit \`${file}\` to remove it or rename it to the intended field name.`,
       location: { file },
     });
@@ -117,3 +117,14 @@ export const enumerateUnknownTopLevelKeys = (
 
 const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
+
+const describeSchemaDocument = (file: string): string => {
+  switch (file) {
+    case "skill.json":
+      return "Skill manifest";
+    case "extension-pack.json":
+      return "Pack manifest";
+    default:
+      return "Document";
+  }
+};

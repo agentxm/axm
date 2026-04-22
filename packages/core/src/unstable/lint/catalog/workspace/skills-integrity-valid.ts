@@ -142,7 +142,7 @@ const collectIntegrityViolations = (
 
 export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Each skill's canonical src/ content matches its lockfile sourceHash.",
+  description: "Installed skill source files match the lockfile.",
   kind: "autofixing",
   severity: "error",
   check: (context) =>

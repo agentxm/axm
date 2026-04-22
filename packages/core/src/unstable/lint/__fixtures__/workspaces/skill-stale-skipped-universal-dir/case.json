@@ -1,0 +1,37 @@
+{
+  "description": "Agent using universal skills dir (.agents/skills) has a stale artifact not backed by any declaration. Stale arm is skipped because the universal dir is shared across agents.",
+  "state": {
+    "settings": {
+      "agents": ["amp"],
+      "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
+    },
+    "lockfile": {
+      "lockfileVersion": 1,
+      "skills": {
+        "reviewer": {
+          "type": "registry",
+          "owner": "@acme",
+          "name": "reviewer",
+          "resolvedVersion": "1.0.0",
+          "integrity": "sha512-stub",
+          "sourceName": "default",
+          "agents": ["amp"],
+          "installedAt": "2026-04-21T00:00:00.000Z",
+          "updatedAt": "2026-04-21T00:00:00.000Z",
+          "sourceHash": "sha"
+        }
+      }
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json",
+      ".axm/extensions/@acme/skills/reviewer/src/SKILL.md",
+      ".agents/skills/reviewer",
+      ".agents/skills/stale-artifact"
+    ],
+    "listings": { ".agents/skills": ["reviewer", "stale-artifact"] },
+    "detectedProjectAgents": ["amp"]
+  },
+  "scope": "project",
+  "expectedFindings": []
+}

@@ -12,6 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
+import { UNIVERSAL_SKILLS_DIR_SEGMENT } from "../extensions/universal-skills-dir.js";
 import { getHome } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
@@ -39,7 +40,10 @@ const detectionSegments = (agent: AgentDescriptor): ReadonlyArray<string> =>
         firstPathSegment(agent.skills.dir),
         firstPathSegment(agent.commands?.dir ?? ""),
         firstPathSegment(agent.subagents?.dir ?? ""),
-      ].filter((segment): segment is string => segment !== undefined),
+      ].filter(
+        (segment): segment is string =>
+          segment !== undefined && segment !== UNIVERSAL_SKILLS_DIR_SEGMENT,
+      ),
     ),
   );
 

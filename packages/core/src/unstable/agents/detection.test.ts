@@ -19,6 +19,7 @@ import * as Layer from "effect/Layer";
 import { AppError } from "../app-error/index.js";
 import { detectAgent, detectAgentInRoot, detectAgents, detectAgentsInRoot } from "./detection.js";
 import { AGENTS } from "./registry.js";
+import type { AgentDescriptor } from "./types.js";
 import { expectDefined } from "../test-helpers.js";
 
 /** Resolve home dir for use in test path construction. */
@@ -114,16 +115,19 @@ describe("detectAgent", () => {
       }),
     );
 
-    it.effect("detects amp when .agents/ exists in project dir", () =>
-      Effect.gen(function* () {
-        // amp has skills.dir: ".agents/skills", first segment: ".agents"
-        const projectPath = path.join(testProjectDir, ".agents");
-        const existingPaths = new Set([projectPath]);
-        const result = yield* detectAgent(AGENTS["amp"], testProjectDir).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(true);
-      }),
+    it.effect(
+      "does not detect amp when only .agents/ exists (universal skills dir is filtered)",
+      () =>
+        Effect.gen(function* () {
+          // amp has skills.dir: ".agents/skills" — the universal dir.
+          // .agents/ alone should NOT trigger detection.
+          const projectPath = path.join(testProjectDir, ".agents");
+          const existingPaths = new Set([projectPath]);
+          const result = yield* detectAgent(AGENTS["amp"], testProjectDir).pipe(
+            Effect.provide(createMockFileSystem(existingPaths)),
+          );
+          expect(result).toBe(false);
+        }),
     );
   });
 
@@ -267,10 +271,11 @@ describe("detectAgent", () => {
     );
   });
 
-  describe("shared skills.dir detecting multiple agents", () => {
-    it.effect("detects all agents sharing .agents/ when .agents/ exists in project", () =>
+  describe("universal skills dir filtering", () => {
+    it.effect("does not detect universal-dir-only agents when .agents/ exists in project", () =>
       Effect.gen(function* () {
-        // amp, kimi-cli, replit all use ".agents/skills"
+        // amp, kimi-cli, replit all use only ".agents/skills" (universal dir).
+        // .agents/ alone should NOT trigger detection for any of them.
         const projectPath = path.join(testProjectDir, ".agents");
         const existingPaths = new Set([projectPath]);
 
@@ -283,9 +288,54 @@ describe("detectAgent", () => {
           { concurrency: "unbounded" },
         ).pipe(Effect.provide(createMockFileSystem(existingPaths)));
 
-        expect(ampResult).toBe(true);
-        expect(kimiResult).toBe(true);
-        expect(replitResult).toBe(true);
+        expect(ampResult).toBe(false);
+        expect(kimiResult).toBe(false);
+        expect(replitResult).toBe(false);
+      }),
+    );
+
+    it.effect("detects universal-dir-only agent via legacy ~/.{agent-id} fallback", () =>
+      Effect.gen(function* () {
+        // amp has only .agents/skills (universal). The legacy ~/.<agent-id>
+        // fallback should still trigger detection.
+        const globalPath = path.join(home, ".amp");
+        const existingPaths = new Set([globalPath]);
+        const result = yield* detectAgent(AGENTS["amp"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("detects agent with universal skills dir plus non-universal commands dir", () =>
+      Effect.gen(function* () {
+        // Synthetic agent: universal skills dir + a unique commands dir.
+        // The universal segment (.agents) should be filtered, but detection
+        // succeeds via the commands dir.
+        const syntheticAgent: AgentDescriptor = {
+          id: "amp",
+          name: "Amp (synthetic)",
+          skills: { dir: ".agents/skills" },
+          commands: { dir: ".amp-commands/commands" },
+        };
+        const commandsPath = path.join(testProjectDir, ".amp-commands");
+        const existingPaths = new Set([commandsPath]);
+        const result = yield* detectAgent(syntheticAgent, testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("detects agent with non-universal skills dir normally", () =>
+      Effect.gen(function* () {
+        // claude-code has skills.dir: ".claude/skills" — not the universal dir.
+        const projectPath = path.join(testProjectDir, ".claude");
+        const existingPaths = new Set([projectPath]);
+        const result = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
       }),
     );
   });

@@ -42,6 +42,7 @@ import { SettingsSchema, type Settings } from "../../../settings/schema.js";
 import { installSkillOp } from "./helpers/install-ops.js";
 import { parseRegistrySource } from "./helpers/registry-source.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
+import { isUniversalSkillsRelativeDir } from "../../../extensions/universal-skills-dir.js";
 
 const RULE_ID = "workspace/skills-artifacts-clean";
 const SUG_REINSTALL_PREFIX = "Reinstall skill ";
@@ -241,6 +242,10 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
           );
           if (caseMatch !== undefined) {
             findings.push(nameMismatchFinding(agent.id, artifact, caseMatch));
+            continue;
+          }
+          // Skip stale-artifact check for universal dir — artifacts are shared
+          if (isUniversalSkillsRelativeDir(agent.skills.dir)) {
             continue;
           }
           findings.push(staleFinding(artifact, agent.id));

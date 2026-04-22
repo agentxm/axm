@@ -473,6 +473,8 @@ export const installSkill: OperationHandler<
         });
       }
     }
+    // Dedup target directories — agents sharing UNIVERSAL_SKILLS_DIR (".agents/skills")
+    // resolve to the same path and receive a single symlink rather than duplicates.
     const distinctDirs = Array.dedupe(installableTargets.map((target) => target.targetDir));
     const perDirectoryResults = yield* Effect.forEach(
       distinctDirs,

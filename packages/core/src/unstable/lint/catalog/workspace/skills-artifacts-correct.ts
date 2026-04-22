@@ -31,6 +31,10 @@ import type { AgentDescriptor } from "../../../agents/types.js";
 import { SettingsSchema, type Settings } from "../../../settings/schema.js";
 import { disableSkillOp, enableSkillOp } from "./helpers/install-ops.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
+import {
+  isUniversalSkillsRelativeDir,
+  resolveUniversalDirPresence,
+} from "../../../extensions/universal-skills-dir.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
 const SETTINGS_REL = ".axm/settings.json";
@@ -106,6 +110,10 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
       const declaredSkills = settings.value.skills ?? {};
       const findings: Array<LintFinding> = [];
 
+      const universalAgentIds = new Set(
+        declaredAgents.filter((a) => isUniversalSkillsRelativeDir(a.skills.dir)).map((a) => a.id),
+      );
+
       for (const [name, entry] of Object.entries(declaredSkills)) {
         const perAgentExists = yield* Effect.all(
           declaredAgents.map((agent) =>
@@ -115,8 +123,9 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
           ),
           { concurrency: "unbounded" },
         );
-        const missingAgents = perAgentExists.filter((p) => !p.exists).map((p) => p.agentId);
-        const presentAgents = perAgentExists.filter((p) => p.exists).map((p) => p.agentId);
+        const collapsed = resolveUniversalDirPresence(perAgentExists, universalAgentIds);
+        const missingAgents = collapsed.filter((p) => !p.exists).map((p) => p.agentId);
+        const presentAgents = collapsed.filter((p) => p.exists).map((p) => p.agentId);
 
         if (entry.enabled) {
           if (missingAgents.length === 0) {

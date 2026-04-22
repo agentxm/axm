@@ -94,6 +94,14 @@ export { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
 // Constants
 export { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
 
+export {
+  UNIVERSAL_SKILLS_DIR,
+  UNIVERSAL_SKILLS_DIR_SEGMENT,
+  isUniversalSkillsDir,
+  isUniversalSkillsRelativeDir,
+  resolveUniversalDirPresence,
+} from "./universal-skills-dir.js";
+
 // Ref base types
 export type {
   ExtensionRefBase,

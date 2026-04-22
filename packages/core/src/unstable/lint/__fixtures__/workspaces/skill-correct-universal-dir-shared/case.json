@@ -1,0 +1,36 @@
+{
+  "description": "Multiple agents sharing universal skills dir (.agents/skills). Artifact exists once and satisfies both agents — no findings from skills-artifacts-correct.",
+  "state": {
+    "settings": {
+      "agents": ["amp", "kimi-cli"],
+      "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
+    },
+    "lockfile": {
+      "lockfileVersion": 1,
+      "skills": {
+        "reviewer": {
+          "type": "registry",
+          "owner": "@acme",
+          "name": "reviewer",
+          "resolvedVersion": "1.0.0",
+          "integrity": "sha512-stub",
+          "sourceName": "default",
+          "agents": ["amp", "kimi-cli"],
+          "installedAt": "2026-04-21T00:00:00.000Z",
+          "updatedAt": "2026-04-21T00:00:00.000Z",
+          "sourceHash": "sha"
+        }
+      }
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json",
+      ".axm/extensions/@acme/skills/reviewer/src/SKILL.md",
+      ".agents/skills/reviewer"
+    ],
+    "listings": { ".agents/skills": ["reviewer"] },
+    "detectedProjectAgents": ["amp", "kimi-cli"]
+  },
+  "scope": "project",
+  "expectedFindings": []
+}

@@ -37,6 +37,7 @@ import type {
 } from "../../context.js";
 import type { AgentDescriptor } from "../../../agents/types.js";
 import { getAllAgents } from "../../../agents/registry.js";
+import { UNIVERSAL_SKILLS_DIR_SEGMENT } from "../../../extensions/universal-skills-dir.js";
 
 // -----------------------------------------------------------------------------
 // WorkspaceIndex
@@ -307,7 +308,7 @@ const firstPathSegment = (dir: string | undefined): string | undefined => {
 const detectionProbes = (agent: AgentDescriptor): ReadonlyArray<string> => {
   const segments = new Set<string>();
   const skills = firstPathSegment(agent.skills.dir);
-  if (skills !== undefined) {
+  if (skills !== undefined && skills !== UNIVERSAL_SKILLS_DIR_SEGMENT) {
     segments.add(skills);
   }
   const commands = firstPathSegment(agent.commands?.dir);

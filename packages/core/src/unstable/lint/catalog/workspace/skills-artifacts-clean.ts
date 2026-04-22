@@ -43,7 +43,8 @@ import { SettingsSchema, type Settings } from "../../../settings/schema.js";
 import { installSkillOp } from "./helpers/install-ops.js";
 import { parseRegistrySource } from "./helpers/registry-source.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
-import { isUniversalSkillsRelativeDir } from "../../../extensions/universal-skills-dir.js";
+import { classifyExtensions } from "../../../workspace/classifier.js";
+import { deriveSourceMetaForSkills } from "../../../workspace/source-metadata.js";
 
 const RULE_ID = "workspace/skills-artifacts-clean";
 
@@ -116,9 +117,8 @@ const staleFinding = (name: string, agentId: string): AdvisoryFinding => ({
   severity: "error",
   message:
     `Skill '${name}' is present in agent '${agentId}'s skills directory, but it is not listed in settings.skills. ` +
-    `To keep it, add '${name}' under \`settings.skills\` in \`.axm/settings.json\` with the intended source, then run \`axm install\` to regenerate the managed skill directories. ` +
-    "Each `settings.skills` entry can be a source string or an object with `source` and optional `enabled`. " +
-    "If you do not want axm to manage it, delete it from that directory.",
+    `To remove it, run \`axm prune\` or \`axm skills prune ${name}\`. ` +
+    `To keep it, add '${name}' under \`settings.skills\` in \`.axm/settings.json\` with the intended source, then run \`axm install\`.`,
   location: { file: `${agentId}/skills/${name}` },
 });
 
@@ -162,6 +162,82 @@ const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boo
   left.ruleId === right.ruleId &&
   left.message === right.message &&
   left.location?.file === right.location?.file;
+
+/**
+ * Shared classifier setup for both `check` and `fix`. Lists per-agent skill
+ * directories, merges them into classifier-compatible detected entries, and
+ * computes the set of unmanaged skill names.
+ */
+const resolveClassifierState = <ListError, ListReq>(
+  declaredAgents: ReadonlyArray<AgentDescriptor>,
+  declaredSkills: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
+  lockfileResult: Result.Result<Option.Option<unknown>, unknown>,
+  settings: Settings,
+  listDir: (dir: string) => Effect.Effect<ReadonlyArray<string>, ListError, ListReq>,
+) =>
+  Effect.gen(function* () {
+    const perAgentListings: Array<{ agent: AgentDescriptor; artifacts: ReadonlyArray<string> }> =
+      [];
+    for (const agent of declaredAgents) {
+      const listResult = yield* Effect.result(listDir(agent.skills.dir));
+      if (Result.isFailure(listResult)) {
+        continue;
+      }
+      perAgentListings.push({ agent, artifacts: listResult.success });
+    }
+
+    const locationsByName = new Map<string, Array<string>>();
+    for (const { agent, artifacts } of perAgentListings) {
+      for (const artifact of artifacts) {
+        const location = `${agent.skills.dir}/${artifact}`;
+        const existing = locationsByName.get(artifact);
+        if (existing) {
+          if (!existing.includes(location)) {
+            existing.push(location);
+          }
+        } else {
+          locationsByName.set(artifact, [location]);
+        }
+      }
+    }
+    const detectedEntries = [...locationsByName.entries()].map(([name, locations]) => ({
+      name,
+      locations,
+    }));
+
+    const lockSkills: Readonly<Record<string, { type: string }>> = Result.isSuccess(lockfileResult)
+      ? Option.match(lockfileResult.success, {
+          onNone: () => ({}),
+          onSome: (raw) =>
+            Option.match(decodeLockfile(raw), {
+              onNone: () => ({}),
+              onSome: (lock) => lock.skills,
+            }),
+        })
+      : {};
+
+    const classifiedResult = yield* Effect.result(
+      classifyExtensions({
+        type: "skill",
+        configured: declaredSkills,
+        lockedNames: Object.keys(lockSkills),
+        detectedEntries,
+        ignoredPatterns: settings.ignored?.skills ?? [],
+        sourceMetaByName: deriveSourceMetaForSkills(
+          settings,
+          lockSkills,
+          detectedEntries.map((e) => e.name),
+        ),
+      }),
+    );
+    const unmanagedNames: ReadonlySet<string> = Result.isSuccess(classifiedResult)
+      ? new Set(
+          classifiedResult.success.filter((c) => c.lifecycle === "unmanaged").map((c) => c.name),
+        )
+      : new Set<string>();
+
+    return { perAgentListings, unmanagedNames };
+  });
 
 export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -208,17 +284,17 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
           })
         : new Set<string>();
 
+      const { perAgentListings, unmanagedNames } = yield* resolveClassifierState(
+        declaredAgents,
+        declaredSkills,
+        lockfileResult,
+        settings.value,
+        context.workspace.list,
+      );
+
       const violations: Array<ArtifactCleanViolation> = [];
 
-      for (const agent of declaredAgents) {
-        const listResult = yield* Effect.result(context.workspace.list(agent.skills.dir));
-        if (Result.isFailure(listResult)) {
-          // Directory doesn't exist or isn't readable. Not an artifact-clean
-          // issue — the corresponding enabled arm surfaces missing dirs.
-          continue;
-        }
-        const artifacts = listResult.success;
-
+      for (const { agent, artifacts } of perAgentListings) {
         for (const artifact of artifacts) {
           // Retention carve-out: pack-retained skill artifacts are valid
           // even when not in settings.skills.
@@ -259,11 +335,11 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
             violations.push({ finding: nameMismatchFinding(agent.id, artifact, caseMatch) });
             continue;
           }
-          // Skip stale-artifact check for universal dir — artifacts are shared
-          if (isUniversalSkillsRelativeDir(agent.skills.dir)) {
-            continue;
+          // Stale arm: classifier says this name is unmanaged at the
+          // workspace level — no agent configures, locks, or ignores it.
+          if (unmanagedNames.has(artifact)) {
+            violations.push({ finding: staleFinding(artifact, agent.id) });
           }
-          violations.push({ finding: staleFinding(artifact, agent.id) });
         }
       }
       return violations.map((violation) => violation.finding);
@@ -305,13 +381,17 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
           })
         : new Set<string>();
 
+      const { perAgentListings, unmanagedNames } = yield* resolveClassifierState(
+        declaredAgents,
+        declaredSkills,
+        lockfileResult,
+        settings.value,
+        context.workspace.list,
+      );
+
       const violations: Array<ArtifactCleanViolation> = [];
-      for (const agent of declaredAgents) {
-        const listResult = yield* Effect.result(context.workspace.list(agent.skills.dir));
-        if (Result.isFailure(listResult)) {
-          continue;
-        }
-        for (const artifact of listResult.success) {
+      for (const { agent, artifacts } of perAgentListings) {
+        for (const artifact of artifacts) {
           if (retainedNames.has(artifact)) {
             continue;
           }
@@ -341,10 +421,9 @@ export const skillsArtifactsCleanRule: AutofixingRule<WorkspaceRuleContext> = {
             violations.push({ finding: nameMismatchFinding(agent.id, artifact, caseMatch) });
             continue;
           }
-          if (isUniversalSkillsRelativeDir(agent.skills.dir)) {
-            continue;
+          if (unmanagedNames.has(artifact)) {
+            violations.push({ finding: staleFinding(artifact, agent.id) });
           }
-          violations.push({ finding: staleFinding(artifact, agent.id) });
         }
       }
       const violation = violations.find(

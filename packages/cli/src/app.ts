@@ -34,6 +34,7 @@ import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
 import { outdatedCommand } from "./root/outdated/command.js";
 import { uninstallCommand } from "./root/uninstall/command.js";
+import { pruneCommand } from "./root/prune/command.js";
 import { updateCommand } from "./root/update/command.js";
 
 const ROOT_COMMAND = "axm";
@@ -74,6 +75,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         updateCommand,
         uninstallCommand,
         outdatedCommand,
+        pruneCommand,
         skillsCommand,
         packsCommand,
         commandsCommand,

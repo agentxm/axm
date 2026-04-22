@@ -282,7 +282,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     /**
      * Detect skill names on disk from configured agent skill directories.
      */
-    const detectSkillNamesOnDisk = (agentIds: ReadonlyArray<string>) =>
+    const detectSkillEntriesOnDisk = (agentIds: ReadonlyArray<string>) =>
       Effect.gen(function* () {
         const agentRoots = Array.getSomes(
           Array.map(agentIds, (agentId) =>
@@ -304,7 +304,28 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             ),
           { concurrency: "unbounded" },
         ).pipe(Effect.map(Array.flatten));
-        return Array.dedupe(discovered.map((d) => d.skill.name));
+
+        // Group locations by name, making them relative to the workspace root (baseDir)
+        const locationsByName = new Map<string, ReadonlyArray<string>>();
+        for (const d of discovered) {
+          const rawLocation = d.location.startsWith("file://")
+            ? d.location.slice("file://".length)
+            : d.location;
+          const relative = path.relative(baseDir, rawLocation);
+          const existing = locationsByName.get(d.skill.name);
+          if (existing) {
+            if (!existing.includes(relative)) {
+              locationsByName.set(d.skill.name, [...existing, relative]);
+            }
+          } else {
+            locationsByName.set(d.skill.name, [relative]);
+          }
+        }
+
+        return [...locationsByName.entries()].map(([name, locations]) => ({
+          name,
+          locations,
+        }));
       });
 
     /**
@@ -316,13 +337,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         const lockfile = yield* readLockfileSafe(workspaceDir);
         switch (type) {
           case "skill": {
-            const detectedNames = yield* detectSkillNamesOnDisk(settings.agents ?? []);
+            const detectedEntries = yield* detectSkillEntriesOnDisk(settings.agents ?? []);
+            const detectedNames = detectedEntries.map((e) => e.name);
             const configuredSkills = settings.skills ?? {};
             return yield* classifyExtensions({
               type,
               configured: configuredSkills,
               lockedNames: Object.keys(lockfile.skills),
-              detectedNames,
+              detectedEntries,
               ignoredPatterns: settings.ignored?.skills ?? [],
               sourceMetaByName: deriveSourceMetaForSkills(settings, lockfile.skills, detectedNames),
             });
@@ -358,7 +380,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               type,
               configured: commandSettings,
               lockedNames: allLockedNames,
-              detectedNames: [],
+              detectedEntries: [],
               ignoredPatterns: settings.ignored?.commands ?? [],
               sourceMetaByName,
             });
@@ -370,7 +392,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               type,
               configured: mcpSettings,
               lockedNames: Object.keys(mcpServerLockEntries),
-              detectedNames: [],
+              detectedEntries: [],
               ignoredPatterns: settings.ignored?.mcpServers ?? [],
               sourceMetaByName: deriveSourceMetaForNonSkill(mcpSettings, mcpServerLockEntries),
             });
@@ -382,7 +404,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               type,
               configured: packSettings,
               lockedNames: Object.keys(packLockEntries),
-              detectedNames: [],
+              detectedEntries: [],
               ignoredPatterns: settings.ignored?.packs ?? [],
               sourceMetaByName: deriveSourceMetaForPacks(packSettings, packLockEntries),
             });
@@ -418,7 +440,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               type,
               configured: subagentSettings,
               lockedNames: allLockedNames,
-              detectedNames: [],
+              detectedEntries: [],
               ignoredPatterns: settings.ignored?.subagents ?? [],
               sourceMetaByName,
             });

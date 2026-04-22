@@ -23,6 +23,12 @@ const byLifecycle = (rows: ReadonlyArray<ClassifiedExtension>, lc: string) =>
 
 const names = (rows: ReadonlyArray<ClassifiedExtension>) => rows.map((r) => r.name);
 
+const asUnmanaged = (row: ClassifiedExtension) => {
+  expect(row.lifecycle).toBe("unmanaged");
+  if (row.lifecycle !== "unmanaged") throw new Error("unreachable");
+  return row;
+};
+
 const defaultMeta = { packagingKind: "native" as const };
 const nonNativeMeta = { packagingKind: "non-native" as const };
 
@@ -41,7 +47,7 @@ describe("classifyExtensions", () => {
             beta: { source: "registry:beta", enabled: false },
           },
           lockedNames: [],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             alpha: defaultMeta,
@@ -72,7 +78,7 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["gamma", "delta"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             gamma: defaultMeta,
@@ -101,7 +107,7 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["gamma"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             gamma: defaultMeta,
@@ -123,7 +129,7 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["bad-entry"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             "bad-entry": nonNativeMeta,
@@ -146,7 +152,7 @@ describe("classifyExtensions", () => {
             alpha: { source: "registry:alpha" },
           },
           lockedNames: ["alpha", "beta"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             alpha: defaultMeta,
@@ -182,7 +188,10 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["ignored-skill", "kept-skill"],
-          detectedNames: ["ignored-skill", "detected-only"],
+          detectedEntries: [
+            { name: "ignored-skill", locations: [".claude/skills/ignored-skill"] },
+            { name: "detected-only", locations: [".claude/skills/detected-only"] },
+          ],
           ignoredPatterns: ["ignored-skill"],
           sourceMetaByName: {
             "ignored-skill": defaultMeta,
@@ -208,7 +217,7 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["openspec-core", "openspec-utils"],
-          detectedNames: ["core-openspec"],
+          detectedEntries: [{ name: "core-openspec", locations: [".claude/skills/core-openspec"] }],
           ignoredPatterns: ["openspec-*"],
           sourceMetaByName: {
             "openspec-core": defaultMeta,
@@ -239,7 +248,12 @@ describe("classifyExtensions", () => {
             alpha: { source: "registry:alpha" },
           },
           lockedNames: ["alpha", "beta"],
-          detectedNames: ["alpha", "beta", "gamma", "delta"],
+          detectedEntries: [
+            { name: "alpha", locations: [".claude/skills/alpha"] },
+            { name: "beta", locations: [".claude/skills/beta"] },
+            { name: "gamma", locations: [".claude/skills/gamma"] },
+            { name: "delta", locations: [".claude/skills/delta"] },
+          ],
           ignoredPatterns: [],
           sourceMetaByName: {
             alpha: defaultMeta,
@@ -261,11 +275,106 @@ describe("classifyExtensions", () => {
 
         // U = E \ (C ∪ P)
         const configuredAndImplicit = new Set([...names(configured), ...names(implicit)]);
-        const allDetected = new Set(input.detectedNames);
+        const allDetected = new Set(input.detectedEntries.map((e) => e.name));
         const expectedUnmanaged = [...allDetected]
           .filter((n) => !configuredAndImplicit.has(n))
           .sort();
         expect(names(unmanaged)).toEqual(expectedUnmanaged);
+      }),
+    );
+  });
+
+  describe("locations on classified entries", () => {
+    it.effect("unmanaged entries carry locations from detectedEntries", () =>
+      Effect.gen(function* () {
+        const input: ClassifierInput = {
+          type: "skill",
+          configured: {},
+          lockedNames: [],
+          detectedEntries: [
+            { name: "orphan-a", locations: [".claude/skills/orphan-a"] },
+            { name: "orphan-b", locations: [".claude/skills/orphan-b", ".agents/skills/orphan-b"] },
+          ],
+          ignoredPatterns: [],
+          sourceMetaByName: {},
+        };
+
+        const result = yield* run(classifyExtensions(input));
+        const unmanaged = byLifecycle(result, "unmanaged");
+
+        expect(unmanaged).toHaveLength(2);
+
+        const orphanA = asUnmanaged(expectDefined(unmanaged.find((r) => r.name === "orphan-a")));
+        expect(orphanA.locations).toEqual([".claude/skills/orphan-a"]);
+
+        const orphanB = asUnmanaged(expectDefined(unmanaged.find((r) => r.name === "orphan-b")));
+        expect(orphanB.locations).toEqual([".claude/skills/orphan-b", ".agents/skills/orphan-b"]);
+      }),
+    );
+
+    it.effect("configured and implicit entries do not carry locations", () =>
+      Effect.gen(function* () {
+        const input: ClassifierInput = {
+          type: "skill",
+          configured: {
+            alpha: { source: "registry:alpha" },
+          },
+          lockedNames: ["alpha", "beta"],
+          detectedEntries: [
+            { name: "alpha", locations: [".claude/skills/alpha"] },
+            { name: "beta", locations: [".claude/skills/beta"] },
+            { name: "gamma", locations: [".claude/skills/gamma"] },
+          ],
+          ignoredPatterns: [],
+          sourceMetaByName: {
+            alpha: defaultMeta,
+            beta: defaultMeta,
+            gamma: nonNativeMeta,
+          },
+        };
+
+        const result = yield* run(classifyExtensions(input));
+        const configured = byLifecycle(result, "configured");
+        const implicit = byLifecycle(result, "implicit");
+        const unmanaged = byLifecycle(result, "unmanaged");
+
+        // Configured entries should not have locations
+        for (const row of configured) {
+          expect(row).not.toHaveProperty("locations");
+        }
+
+        // Implicit entries should not have locations
+        for (const row of implicit) {
+          expect(row).not.toHaveProperty("locations");
+        }
+
+        // Unmanaged entries should have locations
+        expect(unmanaged).toHaveLength(1);
+        const gammaRow = asUnmanaged(at(unmanaged, 0));
+        expect(gammaRow.locations).toEqual([".claude/skills/gamma"]);
+      }),
+    );
+
+    it.effect("merges locations for duplicate detected names", () =>
+      Effect.gen(function* () {
+        const input: ClassifierInput = {
+          type: "skill",
+          configured: {},
+          lockedNames: [],
+          detectedEntries: [
+            { name: "my-skill", locations: [".claude/skills/my-skill"] },
+            { name: "my-skill", locations: [".agents/skills/my-skill"] },
+          ],
+          ignoredPatterns: [],
+          sourceMetaByName: {},
+        };
+
+        const result = yield* run(classifyExtensions(input));
+        const unmanaged = byLifecycle(result, "unmanaged");
+
+        expect(unmanaged).toHaveLength(1);
+        const row = asUnmanaged(at(unmanaged, 0));
+        expect(row.locations).toEqual([".claude/skills/my-skill", ".agents/skills/my-skill"]);
       }),
     );
   });
@@ -280,7 +389,11 @@ describe("classifyExtensions", () => {
             beta: { source: "registry:beta" },
           },
           lockedNames: ["alpha", "gamma", "delta"],
-          detectedNames: ["alpha", "gamma", "epsilon"],
+          detectedEntries: [
+            { name: "alpha", locations: [".claude/skills/alpha"] },
+            { name: "gamma", locations: [".claude/skills/gamma"] },
+            { name: "epsilon", locations: [".claude/skills/epsilon"] },
+          ],
           ignoredPatterns: [],
           sourceMetaByName: {
             alpha: defaultMeta,
@@ -326,7 +439,7 @@ describe("classifyExtensions", () => {
               alpha: { source: "registry:alpha" },
             },
             lockedNames: ["alpha", "beta"],
-            detectedNames: [],
+            detectedEntries: [],
             ignoredPatterns: [],
             sourceMetaByName: {
               alpha: type === "pack" ? defaultMeta : defaultMeta,
@@ -352,7 +465,8 @@ describe("classifyExtensions", () => {
             alpha: { source: "registry:alpha" },
           },
           lockedNames: ["alpha", "beta"],
-          detectedNames: type === "skill" ? ["gamma"] : [],
+          detectedEntries:
+            type === "skill" ? [{ name: "gamma", locations: [".claude/skills/gamma"] }] : [],
           ignoredPatterns: [],
           sourceMetaByName: {
             alpha: defaultMeta,
@@ -383,7 +497,10 @@ describe("classifyExtensions", () => {
             mango: { source: "registry:mango" },
           },
           lockedNames: ["zebra", "alpha", "mango", "beta", "gamma"],
-          detectedNames: ["delta", "epsilon"],
+          detectedEntries: [
+            { name: "delta", locations: [".claude/skills/delta"] },
+            { name: "epsilon", locations: [".claude/skills/epsilon"] },
+          ],
           ignoredPatterns: [],
           sourceMetaByName: {
             zebra: defaultMeta,
@@ -425,7 +542,7 @@ describe("classifyExtensions", () => {
             external: { source: "github:org/repo" },
           },
           lockedNames: ["native", "external"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             native: defaultMeta,
@@ -451,7 +568,7 @@ describe("classifyExtensions", () => {
             "my-pack": { source: "registry:my-pack" },
           },
           lockedNames: ["my-pack", "implicit-pack"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             "my-pack": defaultMeta,
@@ -475,7 +592,7 @@ describe("classifyExtensions", () => {
             external: { source: "github:org/repo" },
           },
           lockedNames: [],
-          detectedNames: ["local-skill"],
+          detectedEntries: [{ name: "local-skill", locations: [".claude/skills/local-skill"] }],
           ignoredPatterns: [],
           sourceMetaByName: {
             native: defaultMeta,
@@ -505,7 +622,7 @@ describe("classifyExtensions", () => {
             "openspec-core": { source: "registry:openspec-core" },
           },
           lockedNames: [],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: ["openspec-*"],
           sourceMetaByName: {
             "openspec-core": defaultMeta,
@@ -532,7 +649,10 @@ describe("classifyExtensions", () => {
             "keep-me": { source: "registry:keep-me" },
           },
           lockedNames: ["keep-me", "openspec-core", "openspec-utils"],
-          detectedNames: ["openspec-tools", "other-skill"],
+          detectedEntries: [
+            { name: "openspec-tools", locations: [".claude/skills/openspec-tools"] },
+            { name: "other-skill", locations: [".claude/skills/other-skill"] },
+          ],
           ignoredPatterns: ["openspec-*"],
           sourceMetaByName: {
             "keep-me": defaultMeta,
@@ -567,7 +687,11 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["openspec-core", "test-skill", "debug-util"],
-          detectedNames: ["openspec-tools", "test-runner", "debug-log"],
+          detectedEntries: [
+            { name: "openspec-tools", locations: [".claude/skills/openspec-tools"] },
+            { name: "test-runner", locations: [".claude/skills/test-runner"] },
+            { name: "debug-log", locations: [".claude/skills/debug-log"] },
+          ],
           ignoredPatterns: ["openspec-*", "test-*"],
           sourceMetaByName: {
             "openspec-core": defaultMeta,
@@ -602,7 +726,7 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["native-skill", "non-native-skill"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             "native-skill": defaultMeta,
@@ -622,7 +746,7 @@ describe("classifyExtensions", () => {
           type: "skill",
           configured: {},
           lockedNames: ["non-native-skill"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: ["non-native-*"],
           sourceMetaByName: {
             "non-native-skill": nonNativeMeta,
@@ -643,7 +767,7 @@ describe("classifyExtensions", () => {
             "non-native-skill": { source: "github:org/repo" },
           },
           lockedNames: ["non-native-skill"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             "non-native-skill": nonNativeMeta,
@@ -666,7 +790,7 @@ describe("classifyExtensions", () => {
             "configured-pack": { source: "registry:configured-pack" },
           },
           lockedNames: ["configured-pack", "implicit-pack-a", "implicit-pack-b"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           sourceMetaByName: {
             "configured-pack": defaultMeta,
@@ -696,7 +820,7 @@ describe("classifyExtensions", () => {
             "my-pack": { source: "registry:my-pack" },
           },
           lockedNames: ["my-pack", "no-meta-pack"],
-          detectedNames: [],
+          detectedEntries: [],
           ignoredPatterns: [],
           // Intentionally no sourceMetaByName for no-meta-pack
           sourceMetaByName: {

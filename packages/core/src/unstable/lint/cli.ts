@@ -729,9 +729,8 @@ const coalesceFullDiagnostic = (
         title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not listed in settings.skills.`,
         details: compressDetails(names),
         helps: [
+          "To remove them: run `axm prune` or `axm skills prune <name>`.",
           "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
-          "Each entry can be a source string or an object with `source` and optional `enabled`.",
-          "If you do not want axm to manage them: delete them from this directory.",
         ],
         fixable: false,
         paths,
@@ -906,9 +905,8 @@ const coalesceGroupedDiagnostic = (
           8,
         ),
         helps: [
+          "To remove them: run `axm prune` or `axm skills prune <name>`.",
           "To keep them: add entries under `settings.skills` in `.axm/settings.json` with the intended source, then run `axm install`.",
-          "Each entry can be a source string or an object with `source` and optional `enabled`.",
-          "If you do not want axm to manage them: delete them from those directories.",
         ],
         fixable: false,
         paths,

@@ -1,0 +1,53 @@
+{
+  "description": "Agent using universal skills dir (.agents/skills) has an artifact that IS declared in settings. Classifier sees it as configured, not unmanaged, so no stale finding fires.",
+  "state": {
+    "settings": {
+      "agents": ["amp"],
+      "skills": {
+        "reviewer": "@acme/skills/reviewer@1.0.0",
+        "active-shared": "@acme/skills/active-shared@1.0.0"
+      }
+    },
+    "lockfile": {
+      "lockfileVersion": 1,
+      "skills": {
+        "reviewer": {
+          "type": "registry",
+          "owner": "@acme",
+          "name": "reviewer",
+          "resolvedVersion": "1.0.0",
+          "integrity": "sha512-stub",
+          "sourceName": "default",
+          "agents": ["amp"],
+          "installedAt": "2026-04-21T00:00:00.000Z",
+          "updatedAt": "2026-04-21T00:00:00.000Z",
+          "sourceHash": "sha"
+        },
+        "active-shared": {
+          "type": "registry",
+          "owner": "@acme",
+          "name": "active-shared",
+          "resolvedVersion": "1.0.0",
+          "integrity": "sha512-stub",
+          "sourceName": "default",
+          "agents": ["amp"],
+          "installedAt": "2026-04-21T00:00:00.000Z",
+          "updatedAt": "2026-04-21T00:00:00.000Z",
+          "sourceHash": "sha"
+        }
+      }
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json",
+      ".axm/extensions/@acme/skills/reviewer/src/SKILL.md",
+      ".axm/extensions/@acme/skills/active-shared/src/SKILL.md",
+      ".agents/skills/reviewer",
+      ".agents/skills/active-shared"
+    ],
+    "listings": { ".agents/skills": ["reviewer", "active-shared"] },
+    "detectedProjectAgents": ["amp"]
+  },
+  "scope": "project",
+  "expectedFindings": []
+}

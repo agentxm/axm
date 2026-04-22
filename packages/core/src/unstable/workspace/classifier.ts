@@ -36,7 +36,16 @@ type ClassifiedExtension =
       readonly source: Option.Option<string>;
       readonly enabled: true;
       readonly packagingKind: PackagingKind;
-      readonly lifecycle: "implicit" | "unmanaged";
+      readonly lifecycle: "implicit";
+    }
+  | {
+      readonly type: ExtensionType;
+      readonly name: string;
+      readonly source: Option.Option<string>;
+      readonly enabled: true;
+      readonly packagingKind: PackagingKind;
+      readonly locations: ReadonlyArray<string>;
+      readonly lifecycle: "unmanaged";
     };
 
 interface ClassifierInput {
@@ -45,7 +54,10 @@ interface ClassifierInput {
     Record<string, { readonly source: string; readonly enabled?: boolean }>
   >;
   readonly lockedNames: ReadonlyArray<string>;
-  readonly detectedNames: ReadonlyArray<string>;
+  readonly detectedEntries: ReadonlyArray<{
+    readonly name: string;
+    readonly locations: ReadonlyArray<string>;
+  }>;
   readonly ignoredPatterns: ReadonlyArray<string>;
   readonly sourceMetaByName: Readonly<Record<string, { readonly packagingKind: PackagingKind }>>;
 }
@@ -118,9 +130,19 @@ const classifyExtensions = (
       ),
     );
 
-    // Step 3: Unmanaged — detected names not in configured, not implicit, not ignored
+    // Step 3: Unmanaged — detected entries not in configured, not implicit, not ignored
+    // Merge locations for entries with the same name, then filter.
+    const locationsByName = new Map<string, ReadonlyArray<string>>();
+    for (const entry of input.detectedEntries) {
+      const existing = locationsByName.get(entry.name);
+      if (existing) {
+        locationsByName.set(entry.name, Array.dedupe([...existing, ...entry.locations]));
+      } else {
+        locationsByName.set(entry.name, entry.locations);
+      }
+    }
     const unmanagedNames = Array.filter(
-      Array.dedupe(input.detectedNames),
+      Array.dedupe(input.detectedEntries.map((e) => e.name)),
       (name) =>
         !configuredNames.has(name) &&
         !implicitNames.has(name) &&
@@ -163,6 +185,7 @@ const classifyExtensions = (
         source: Option.none<string>(),
         enabled: true as const,
         packagingKind: sourceMeta.packagingKind,
+        locations: locationsByName.get(name) ?? [],
         lifecycle: "unmanaged" as const,
       };
     });

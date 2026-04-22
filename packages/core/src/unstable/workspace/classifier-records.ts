@@ -100,10 +100,11 @@ const toImplicitSkill = (row: NonConfiguredRow): ImplicitSkill => ({
   packagingKind: row.packagingKind,
 });
 
-const toUnmanagedSkill = (row: NonConfiguredRow): UnmanagedSkill => ({
+const toUnmanagedSkill = (row: UnmanagedRow): UnmanagedSkill => ({
   source: row.source,
   enabled: true,
   packagingKind: row.packagingKind,
+  locations: row.locations,
 });
 
 const toInstalledSkill = (row: InstalledRow): InstalledSkill =>

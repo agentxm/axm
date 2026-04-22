@@ -31,6 +31,7 @@ export interface UnmanagedSkill {
   readonly source: Option.Option<string>;
   readonly enabled: true;
   readonly packagingKind: PackagingKind;
+  readonly locations: ReadonlyArray<string>;
 }
 
 export type InstalledSkill =

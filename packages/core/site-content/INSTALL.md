@@ -14,9 +14,9 @@
 
 ## What is axm
 
-axm is the open extension manager for AI coding agents. It lets you search,
-install, publish, and manage skills, commands, MCP servers, and extension packs
-across all your AI agents from a single CLI.
+axm is the open extension manager for AI coding agents. It lets you discover,
+install, publish, and manage skills, commands, subagents, MCP servers, and
+extension packs across your AI agents from a single CLI.
 
 ## Step 1: Install
 

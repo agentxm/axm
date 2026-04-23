@@ -1,3 +1,13 @@
+## 0.4.0 (2026-04-23)
+
+### 🚀 Features
+
+- Rename install.md to lowercase and align the public install URL ([c56377df](https://github.com/agentxm/axm/commit/c56377df))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.3.3 (2026-04-23)
 
 ### 🩹 Fixes

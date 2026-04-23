@@ -15,26 +15,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import {
-  LockfileSchema,
-  type Lockfile,
-  type ExtensionPackLockEntry,
-} from "../../../lockfile/schema.js";
+import { type Lockfile, type ExtensionPackLockEntry } from "../../../lockfile/schema.js";
+import { decodeLockfile } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-dependencies-resolved";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
-const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
-  const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
 // FQNs in resolved-maps are the 3-segment form `@owner/skills/name`;
 // installed-member lockfile keys are simple names. We need to compare
 // owner/type/name across the maps. Build an installed-FQN index from

@@ -21,22 +21,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
+import { decodeSettings } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/agents-recognized";
 const SETTINGS_REL = ".axm/settings.json";
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
 
 export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,

@@ -27,34 +27,24 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
 import type { Operation } from "../../../plan/plan.js";
-import { LockfileSchema, type Lockfile, type SkillLockEntry } from "../../../lockfile/schema.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
+import { type Lockfile } from "../../../lockfile/schema.js";
+import { type Settings } from "../../../settings/schema.js";
+import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
 import { installSkillOp, uninstallSkillOp } from "./helpers/install-ops.js";
 import { parseRegistrySource } from "./helpers/registry-source.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
+import { isSameFinding } from "./helpers/finding.js";
+import {
+  buildRetainedSkillFqns,
+  isRegistrySkillLockEntry,
+  isImplicitRetainedSkill,
+} from "./helpers/retained-skills.js";
 
 const RULE_ID = "workspace/skills-lockfile-aligned";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
-  const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
 
 const missingFinding = (name: string, source: string): AutofixableFinding => ({
   kind: "autofixable",
@@ -95,41 +85,6 @@ interface AlignmentViolation {
 // Retention helpers
 // -----------------------------------------------------------------------------
 
-const isRegistryEntry = (
-  entry: SkillLockEntry,
-): entry is Extract<SkillLockEntry, { readonly type: "registry" }> => entry.type === "registry";
-
-const lockEntryFqn = (entry: SkillLockEntry, name: string): string => {
-  if (isRegistryEntry(entry)) {
-    return `${entry.owner}/skills/${entry.name}`;
-  }
-  return `skills/${name}`;
-};
-
-/**
- * Build the set of FQNs retained by at least one installed declared pack.
- * An entry is retained only when:
- *
- * - its lockfile entry has `retainedByPack: true`, AND
- * - at least one pack lock entry's `resolvedSkills` map has a key matching
- *   the entry's FQN, AND
- * - that pack name appears in `settings.packs`.
- */
-const buildRetainedSkillFqns = (settings: Settings, lockfile: Lockfile): ReadonlySet<string> => {
-  const declaredPackNames = new Set(Object.keys(settings.packs ?? {}));
-  const retained = new Set<string>();
-  const packLock = lockfile.packs ?? {};
-  for (const [packName, packEntry] of Object.entries(packLock)) {
-    if (!declaredPackNames.has(packName)) {
-      continue;
-    }
-    for (const fqn of Object.keys(packEntry.resolvedSkills)) {
-      retained.add(fqn);
-    }
-  }
-  return retained;
-};
-
 const collectAlignmentViolations = (
   settings: Settings,
   lockfile: Lockfile,
@@ -155,7 +110,7 @@ const collectAlignmentViolations = (
     if (name in declaredSkills) {
       continue;
     }
-    if (entry.retainedByPack === true && retainedFqns.has(lockEntryFqn(entry, name))) {
+    if (isImplicitRetainedSkill(name, entry, declaredSkills, retainedFqns)) {
       continue;
     }
     violations.push({
@@ -170,7 +125,7 @@ const collectAlignmentViolations = (
       continue;
     }
     const lockEntry = lockSkills[name];
-    if (lockEntry === undefined || !isRegistryEntry(lockEntry)) {
+    if (lockEntry === undefined || !isRegistrySkillLockEntry(lockEntry)) {
       continue;
     }
     const parsed = parseRegistrySource(entry.source);
@@ -192,11 +147,6 @@ const collectAlignmentViolations = (
 
   return violations;
 };
-
-const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boolean =>
-  left.ruleId === right.ruleId &&
-  left.message === right.message &&
-  left.location?.file === right.location?.file;
 
 export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,

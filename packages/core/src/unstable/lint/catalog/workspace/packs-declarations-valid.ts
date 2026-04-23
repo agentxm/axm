@@ -17,63 +17,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
-import { parseRegistrySource } from "./helpers/registry-source.js";
+import { decodeSettings } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
+import { categorizeEntry, type Categorized } from "./helpers/source-categorize.js";
 
 const RULE_ID = "workspace/packs-declarations-valid";
 const SETTINGS_REL = ".axm/settings.json";
-
-const BARE_NAME_RE = /^[a-z0-9][a-z0-9-]*(?:@[^\s/:]+)?$/i;
-const NON_REGISTRY_MARKERS = [
-  /^\.\//,
-  /^\.\.\//,
-  /^\//,
-  /^file:\/\//,
-  /:\/\//,
-  /^[a-z][a-z0-9+.-]*:/i,
-];
-const isClearlyNonRegistrySource = (source: string): boolean =>
-  NON_REGISTRY_MARKERS.some((pattern) => pattern.test(source));
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-interface Categorized {
-  readonly name: string;
-  readonly source: string;
-  readonly kind: "registry" | "bare" | "non-registry" | "registry-no-owner";
-  readonly registryFqn?: string;
-}
-
-const categorizeEntry = (name: string, source: string): Categorized => {
-  const parsed = parseRegistrySource(source);
-  if (parsed !== undefined) {
-    return {
-      name,
-      source,
-      kind: "registry",
-      registryFqn: `${parsed.owner}/${parsed.type}/${parsed.name}`,
-    };
-  }
-  if (isClearlyNonRegistrySource(source)) {
-    // Packs must use registry sources per the extensions-installed doctor
-    // rule; an unqualified non-registry source surfaces as an error.
-    return { name, source, kind: "non-registry" };
-  }
-  if (BARE_NAME_RE.test(source)) {
-    return { name, source, kind: "bare" };
-  }
-  return { name, source, kind: "registry-no-owner" };
-};
 
 const bareNameFinding = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",

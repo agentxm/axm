@@ -31,7 +31,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type {
   AdvisoryFinding,
@@ -40,8 +39,9 @@ import type {
   LintFinding,
 } from "../../rule.js";
 import { LockfileSchema } from "../../../lockfile/schema.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
+import { type Settings } from "../../../settings/schema.js";
 import { schemaDecodeFindings } from "../shared/schema-rule.js";
+import { decodeSettings } from "./helpers/decode.js";
 import { collectMissingLockfileInstallOps } from "./helpers/install-ops.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 
@@ -56,14 +56,6 @@ const hasAnyDeclaration = (settings: Settings): boolean => {
   const subagents = Object.keys(settings.subagents ?? {}).length;
   const mcpServers = Object.keys(settings.mcpServers ?? {}).length;
   return skills + packs + commands + subagents + mcpServers > 0;
-};
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
 };
 
 const makeMissingFinding = (): AutofixableFinding => ({

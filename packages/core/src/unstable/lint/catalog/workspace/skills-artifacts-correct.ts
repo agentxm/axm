@@ -15,7 +15,9 @@
  *
  * One finding per affected skill (per-entity cascade); the first arm that
  * fires for a skill emits its finding and the other arms for the same skill
- * do not.
+ * do not. Configured skills keep the existing autofix arms; pack-provided
+ * implicit skills emit advisory findings because the repair is a pack-level
+ * reinstall.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -24,29 +26,29 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
+import type {
+  AdvisoryFinding,
+  AutofixableFinding,
+  AutofixingRule,
+  LintFinding,
+} from "../../rule.js";
 import type { AgentDescriptor } from "../../../agents/types.js";
 import type { Operation } from "../../../plan/plan.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
+import { type Lockfile } from "../../../lockfile/schema.js";
+import { type Settings } from "../../../settings/schema.js";
+import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
+import { isSameFinding } from "./helpers/finding.js";
 import { disableSkillOp, enableSkillOp } from "./helpers/install-ops.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 import {
   isUniversalSkillsRelativeDir,
   resolveUniversalDirPresence,
 } from "../../../extensions/universal-skills-dir.js";
+import { buildRetainedSkillFqns, isImplicitRetainedSkill } from "./helpers/retained-skills.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
 const SETTINGS_REL = ".axm/settings.json";
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
 
 const artifactPath = (agent: AgentDescriptor, skillName: string): string =>
   `${agent.skills.dir}/${skillName}`;
@@ -82,14 +84,19 @@ const inconsistentFinding = (name: string, details: string): AutofixableFinding 
 });
 
 interface ArtifactViolation {
-  readonly finding: AutofixableFinding;
-  readonly operation: Operation<string, unknown>;
+  readonly finding: LintFinding;
+  readonly operation?: Operation<string, unknown>;
 }
 
-const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boolean =>
-  left.ruleId === right.ruleId &&
-  left.message === right.message &&
-  left.location?.file === right.location?.file;
+const implicitEnableFinding = (name: string, reason: string): AdvisoryFinding => ({
+  kind: "advisory",
+  ruleId: RULE_ID,
+  severity: "error",
+  message:
+    `Pack-provided skill '${name}' is missing from some declared agents. Missing from agents: ${reason}. ` +
+    "Run `axm install` to reinstall the owning pack declarations and recreate the missing artifacts.",
+  location: { file: SETTINGS_REL },
+});
 
 const collectArtifactViolations = (
   existenceBySkill: ReadonlyArray<{
@@ -97,13 +104,20 @@ const collectArtifactViolations = (
     readonly enabled: boolean;
     readonly presentAgents: ReadonlyArray<string>;
     readonly missingAgents: ReadonlyArray<string>;
+    readonly implicit: boolean;
   }>,
 ): ReadonlyArray<ArtifactViolation> => {
   const violations: Array<ArtifactViolation> = [];
 
-  for (const { name, enabled, presentAgents, missingAgents } of existenceBySkill) {
+  for (const { name, enabled, presentAgents, missingAgents, implicit } of existenceBySkill) {
     if (enabled) {
       if (missingAgents.length === 0) {
+        continue;
+      }
+      if (implicit) {
+        violations.push({
+          finding: implicitEnableFinding(name, missingAgents.join(", ")),
+        });
         continue;
       }
       if (presentAgents.length === 0) {
@@ -134,6 +148,36 @@ const collectArtifactViolations = (
   return violations;
 };
 
+const collectImplicitSkillNames = (
+  settings: Settings,
+  lockfile: Lockfile,
+): ReadonlyArray<string> => {
+  const declaredSkills = settings.skills ?? {};
+  const retainedFqns = buildRetainedSkillFqns(settings, lockfile);
+  return Object.entries(lockfile.skills)
+    .filter(([name, entry]) => isImplicitRetainedSkill(name, entry, declaredSkills, retainedFqns))
+    .map(([name]) => name)
+    .sort((left, right) => left.localeCompare(right));
+};
+
+const collectImplicitSkillNamesFromLockfile = (
+  settings: Settings,
+  lockfileResult: Result.Result<Option.Option<unknown>, unknown>,
+): ReadonlyArray<string> => {
+  if (Result.isFailure(lockfileResult)) {
+    return [];
+  }
+  const lockOption = lockfileResult.success;
+  if (Option.isNone(lockOption)) {
+    return [];
+  }
+  const lockfile = decodeLockfile(lockOption.value);
+  if (Option.isNone(lockfile)) {
+    return [];
+  }
+  return collectImplicitSkillNames(settings, lockfile.value);
+};
+
 export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Skill directories match each skill's enabled state across declared agents.",
@@ -149,6 +193,11 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
       if (Option.isNone(settings)) {
         return EMPTY_LINT_FINDINGS;
       }
+      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const implicitSkillNames = collectImplicitSkillNamesFromLockfile(
+        settings.value,
+        lockfileResult,
+      );
 
       const declaredAgentIds = new Set(settings.value.agents ?? []);
       if (declaredAgentIds.size === 0) {
@@ -161,7 +210,14 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
         declaredAgents.filter((a) => isUniversalSkillsRelativeDir(a.skills.dir)).map((a) => a.id),
       );
       const existenceBySkill = yield* Effect.all(
-        Object.entries(settings.value.skills ?? {}).map(([name, entry]) =>
+        [
+          ...Object.entries(settings.value.skills ?? {}).map(([name, entry]) => ({
+            name,
+            enabled: entry.enabled,
+            implicit: false,
+          })),
+          ...implicitSkillNames.map((name) => ({ name, enabled: true, implicit: true })),
+        ].map(({ name, enabled, implicit }) =>
           Effect.all(
             declaredAgents.map((agent) =>
               context.workspace
@@ -174,9 +230,10 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
               const collapsed = resolveUniversalDirPresence(perAgentExists, universalAgentIds);
               return {
                 name,
-                enabled: entry.enabled,
+                enabled,
                 presentAgents: collapsed.filter((p) => p.exists).map((p) => p.agentId),
                 missingAgents: collapsed.filter((p) => !p.exists).map((p) => p.agentId),
+                implicit,
               };
             }),
           ),
@@ -196,6 +253,11 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
       if (Option.isNone(settings)) {
         return EMPTY_OPERATIONS;
       }
+      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const implicitSkillNames = collectImplicitSkillNamesFromLockfile(
+        settings.value,
+        lockfileResult,
+      );
 
       const declaredAgentIds = new Set(settings.value.agents ?? []);
       if (declaredAgentIds.size === 0) {
@@ -207,7 +269,14 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
         declaredAgents.filter((a) => isUniversalSkillsRelativeDir(a.skills.dir)).map((a) => a.id),
       );
       const existenceBySkill = yield* Effect.all(
-        Object.entries(settings.value.skills ?? {}).map(([name, entry]) =>
+        [
+          ...Object.entries(settings.value.skills ?? {}).map(([name, entry]) => ({
+            name,
+            enabled: entry.enabled,
+            implicit: false,
+          })),
+          ...implicitSkillNames.map((name) => ({ name, enabled: true, implicit: true })),
+        ].map(({ name, enabled, implicit }) =>
           Effect.all(
             declaredAgents.map((agent) =>
               context.workspace
@@ -220,18 +289,22 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
               const collapsed = resolveUniversalDirPresence(perAgentExists, universalAgentIds);
               return {
                 name,
-                enabled: entry.enabled,
+                enabled,
                 presentAgents: collapsed.filter((p) => p.exists).map((p) => p.agentId),
                 missingAgents: collapsed.filter((p) => !p.exists).map((p) => p.agentId),
+                implicit,
               };
             }),
           ),
         ),
         { concurrency: "unbounded" },
       );
-      const violation = collectArtifactViolations(existenceBySkill).find((candidate) =>
-        isSameFinding(candidate.finding, finding),
+      const violation = collectArtifactViolations(existenceBySkill).find(
+        (candidate) =>
+          candidate.finding.kind === "autofixable" &&
+          candidate.operation !== undefined &&
+          isSameFinding(candidate.finding, finding),
       );
-      return violation === undefined ? EMPTY_OPERATIONS : [violation.operation];
+      return violation?.operation === undefined ? EMPTY_OPERATIONS : [violation.operation];
     }),
 };

@@ -13,33 +13,15 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import type { AgentDescriptor } from "../../../agents/types.js";
-import { LockfileSchema, type Lockfile } from "../../../lockfile/schema.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
 import { classifyExtensions } from "../../../workspace/classifier.js";
 import { deriveSourceMetaForSkills } from "../../../workspace/source-metadata.js";
+import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
 
 const RULE_ID = "workspace/skills-managed";
 const EMPTY_ADVISORY_FINDINGS: ReadonlyArray<AdvisoryFinding> = [];
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
-  const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
 
 const unmanagedFinding = (name: string, location: string): AdvisoryFinding => ({
   kind: "advisory",

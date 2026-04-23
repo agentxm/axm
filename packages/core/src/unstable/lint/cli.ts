@@ -607,6 +607,21 @@ const sortStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => [.
 const uniquePaths = (findings: ReadonlyArray<ParsedLintHumanFinding>): ReadonlyArray<string> =>
   uniqueStrings(findings.map((finding) => finding.path));
 
+const mergedRuleHelps = (
+  findings: ReadonlyArray<ParsedLintHumanFinding>,
+  autofixHelp: string,
+): ReadonlyArray<string> => {
+  if (findings.every((finding) => finding.fixable)) {
+    return [autofixHelp];
+  }
+  const helps = uniqueStrings(findings.flatMap((finding) => finding.helps));
+  return helps.length > 0
+    ? helps
+    : findings.some((finding) => finding.fixable)
+      ? [autofixHelp]
+      : [];
+};
+
 const summarizeSkillByDetail = (finding: ParsedLintHumanFinding): string => {
   const name = matchSingleQuoted(finding.title);
   const detail = finding.details[0];
@@ -731,8 +746,11 @@ const coalesceFullDiagnostic = (
         ruleId: first.ruleId,
         title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} inconsistent across the declared agents.`,
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: ["Run `axm lint --fix` to reconcile the declared agent artifacts."],
-        fixable: true,
+        helps: mergedRuleHelps(
+          findings,
+          "Run `axm lint --fix` to reconcile the declared agent artifacts.",
+        ),
+        fixable: findings.some((finding) => finding.fixable),
         paths,
       };
     case "workspace/skills-lockfile-aligned:missing":
@@ -754,8 +772,8 @@ const coalesceFullDiagnostic = (
         ruleId: first.ruleId,
         title: "Installed skill sources do not match their lockfile entries.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: ["Run `axm lint --fix` to reinstall the affected skills."],
-        fixable: true,
+        helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
+        fixable: findings.some((finding) => finding.fixable),
         paths,
       };
     default:
@@ -863,8 +881,11 @@ const coalesceGroupedDiagnostic = (
         ruleId: first.ruleId,
         title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} inconsistent across the declared agents.`,
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: ["Run `axm lint --fix` to reconcile the declared agent artifacts."],
-        fixable: true,
+        helps: mergedRuleHelps(
+          findings,
+          "Run `axm lint --fix` to reconcile the declared agent artifacts.",
+        ),
+        fixable: findings.some((finding) => finding.fixable),
         paths,
       };
     case "workspace/skills-lockfile-aligned:missing":
@@ -886,8 +907,8 @@ const coalesceGroupedDiagnostic = (
         ruleId: first.ruleId,
         title: "Installed skill sources do not match their lockfile entries.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: ["Run `axm lint --fix` to reinstall the affected skills."],
-        fixable: true,
+        helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
+        fixable: findings.some((finding) => finding.fixable),
         paths,
       };
     default:

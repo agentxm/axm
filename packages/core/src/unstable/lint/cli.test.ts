@@ -480,6 +480,64 @@ describe("toLintHumanBlocks", () => {
       ],
     });
   });
+
+  it("keeps advisory findings from autofixing rules non-fixable and preserves their help", () => {
+    const evaluations: GroupEvaluations = {
+      skills: [],
+      packs: [],
+      workspace: [
+        makeEvaluated<WorkspaceRuleContext>({
+          id: "workspace/skills-integrity-valid",
+          severity: "error",
+          kind: "autofixing",
+        })(workspaceCtx, [
+          {
+            kind: "advisory",
+            ruleId: "workspace/skills-integrity-valid",
+            severity: "error",
+            message:
+              "Pack-provided skill 'alpha' is listed in the lockfile, but its installed source files do not match the lockfile entry. " +
+              "Detail: the installed source directory is missing. " +
+              "Run `axm install` to reinstall it from the owning pack declarations.",
+            location: { file: ".axm/axm-lock.yaml" },
+          },
+          {
+            kind: "advisory",
+            ruleId: "workspace/skills-integrity-valid",
+            severity: "error",
+            message:
+              "Pack-provided skill 'beta' is listed in the lockfile, but its installed source files do not match the lockfile entry. " +
+              "Detail: the installed source directory is missing. " +
+              "Run `axm install` to reinstall it from the owning pack declarations.",
+            location: { file: ".axm/axm-lock.yaml" },
+          },
+        ]),
+      ],
+    };
+
+    const summary = summarizeEvaluations(evaluations, {});
+    const blocks = toLintHumanBlocks({ summary });
+    const diagnosticBlock = blocks.find(
+      (block): block is Extract<(typeof blocks)[number], { kind: "diagnostic" }> =>
+        block.kind === "diagnostic",
+    );
+
+    expect(diagnosticBlock).toEqual({
+      kind: "diagnostic",
+      diagnostic: {
+        severity: "error",
+        ruleId: "workspace/skills-integrity-valid",
+        title: "Installed skill sources do not match their lockfile entries.",
+        details: [
+          "alpha: the installed source directory is missing.",
+          "beta: the installed source directory is missing.",
+        ],
+        helps: ["Run `axm install` to reinstall it from the owning pack declarations."],
+        fixable: false,
+        paths: ["./.axm/axm-lock.yaml"],
+      },
+    });
+  });
 });
 
 describe("toLintJsonDocument", () => {

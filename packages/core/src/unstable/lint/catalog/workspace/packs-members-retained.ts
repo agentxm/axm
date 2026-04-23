@@ -20,39 +20,22 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import {
-  LockfileSchema,
   type Lockfile,
   type SkillLockEntry,
   type CommandLockEntry,
   type SubagentLockEntry,
   type McpServerLockEntry,
 } from "../../../lockfile/schema.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
+import { type Settings } from "../../../settings/schema.js";
+import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-members-retained";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
 const SETTINGS_REL = ".axm/settings.json";
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
-  const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
 
 type AnyMemberEntry = SkillLockEntry | CommandLockEntry | SubagentLockEntry | McpServerLockEntry;
 
@@ -71,6 +54,9 @@ const entryFqn = (entry: AnyMemberEntry, name: string, typeSegment: string): str
 const buildPackRetainedFqns = (lockfile: Lockfile): ReadonlySet<string> => {
   const declared = new Set<string>();
   const packs = lockfile.packs ?? {};
+  // Kept separate from the skill-specific retained helper: this rule needs
+  // every pack lock entry and all four resolved member maps, not just
+  // declared-pack `resolvedSkills`.
   for (const entry of Object.values(packs)) {
     for (const fqn of Object.keys(entry.resolvedSkills)) {
       declared.add(fqn);

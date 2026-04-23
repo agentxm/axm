@@ -2,7 +2,9 @@
  * `workspace/*` rule catalog — the v1 thirteen-rule set.
  *
  * Per `docs/design/lint-engine.md §10.workspace`, `axm lint` (locally only —
- * never publish) runs exactly these rules against each workspace context:
+ * never publish) runs exactly these rules against each workspace context.
+ * Rules are grouped by classification invariant — foundation first, then
+ * one group per invariant that install-family rules enforce:
  *
  * | ID                                      | Severity | Autofix     |
  * | --------------------------------------- | -------- | ----------- |
@@ -12,11 +14,11 @@
  * | `workspace/agents-recognized`           | error    | —           |
  * | `workspace/agents-detected-declared`    | warning  | —           |
  * | `workspace/skills-declarations-valid`   | error    | —           |
+ * | `workspace/packs-declarations-valid`    | error    | —           |
  * | `workspace/skills-lockfile-aligned`     | error    | autofixing  |
  * | `workspace/skills-integrity-valid`      | error    | autofixing  |
  * | `workspace/skills-artifacts-correct`    | error    | autofixing  |
  * | `workspace/skills-managed`              | error    | —           |
- * | `workspace/packs-declarations-valid`    | error    | —           |
  * | `workspace/packs-dependencies-resolved` | error    | —           |
  * | `workspace/packs-members-retained`      | warning  | —           |
  *
@@ -54,27 +56,34 @@ import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js"
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
  * order within a single `evaluateContexts` call (deterministic ordering is
  * test-observable; see `evaluate.ts`). The catalog groups foundation rules
- * first, then the skills install family, then the packs install family — the
- * same order the design doc tables list them in.
+ * first, then install-family rules by classification invariant: declaration
+ * validity, lockfile alignment, integrity, artifact correctness, the
+ * unmanaged-class-empty check, pack dependency resolution, and implicit
+ * retention.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
-  // Foundation (type-agnostic workspace well-formedness).
+  // Foundation (classification-independent workspace well-formedness).
   initializedRule,
   settingsSchemaValidRule,
   lockfileValidRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,
-  // Skills install family (Settings ↔ Lockfile ↔ Disk).
+  // Declaration valid (configured).
   skillsDeclarationsValidRule,
-  skillsLockfileAlignedRule,
-  skillsIntegrityValidRule,
-  skillsArtifactsCorrectRule,
-  skillsManagedRule,
-  // Packs install family (Settings ↔ Lockfile).
   packsDeclarationsValidRule,
+  // Lockfile aligned (configured).
+  skillsLockfileAlignedRule,
+  // Integrity intact (configured + implicit).
+  skillsIntegrityValidRule,
+  // Artifacts correct (configured + implicit).
+  skillsArtifactsCorrectRule,
+  // Managed — unmanaged class must be empty.
+  skillsManagedRule,
+  // Pack dependencies resolved (configured packs).
   packsDependenciesResolvedRule,
+  // Implicit retained by pack.
   packsMembersRetainedRule,
 ];
 

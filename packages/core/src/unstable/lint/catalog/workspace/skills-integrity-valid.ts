@@ -6,8 +6,9 @@
  * installed directory (`.axm/extensions/<owner>/skills/<name>/src/` for
  * registry sources; `.axm/extensions/external/skills/<name>/` for
  * non-registry) exists and its hash matches. Integrity-mismatch entries
- * each emit one `AutofixableFinding`; autofix: `install-skill` with
- * `force: true`.
+ * each emit one finding. Configured mismatches are autofixable via
+ * `install-skill` with `force: true`; pack-provided implicit mismatches are
+ * advisory because the repair is a pack-level reinstall.
  *
  * The integrity check MUST walk the workspace filesystem — `context.workspace`
  * exposes `exists` only; the accessor layer surfaces the pre-computed
@@ -27,33 +28,24 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
+import type {
+  AdvisoryFinding,
+  AutofixableFinding,
+  AutofixingRule,
+  LintFinding,
+} from "../../rule.js";
 import type { Operation } from "../../../plan/plan.js";
-import { LockfileSchema, type Lockfile, type SkillLockEntry } from "../../../lockfile/schema.js";
-import { SettingsSchema, type Settings } from "../../../settings/schema.js";
+import { type Lockfile, type SkillLockEntry } from "../../../lockfile/schema.js";
+import { type Settings } from "../../../settings/schema.js";
+import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
+import { isSameFinding } from "./helpers/finding.js";
 import { installSkillOp } from "./helpers/install-ops.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
+import { buildRetainedSkillFqns, isImplicitRetainedSkill } from "./helpers/retained-skills.js";
 
 const RULE_ID = "workspace/skills-integrity-valid";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
-  const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
 
 const integrityFinding = (name: string, reason: string): AutofixableFinding => ({
   kind: "autofixable",
@@ -65,9 +57,19 @@ const integrityFinding = (name: string, reason: string): AutofixableFinding => (
   location: { file: LOCKFILE_REL },
 });
 
+const implicitIntegrityFinding = (name: string, reason: string): AdvisoryFinding => ({
+  kind: "advisory",
+  ruleId: RULE_ID,
+  severity: "error",
+  message:
+    `Pack-provided skill '${name}' is listed in the lockfile, but its installed source files do not match the lockfile entry. Detail: ${reason}. ` +
+    "Run `axm install` to reinstall it from the owning pack declarations.",
+  location: { file: LOCKFILE_REL },
+});
+
 interface IntegrityViolation {
-  readonly finding: AutofixableFinding;
-  readonly operation: Operation<string, unknown>;
+  readonly finding: LintFinding;
+  readonly operation?: Operation<string, unknown>;
 }
 
 /**
@@ -82,16 +84,15 @@ interface IntegrityViolation {
  * NOT exist as an integrity mismatch. A deeper byte-by-byte hash check
  * defers to the CLI-layer adapter that owns filesystem walks.
  */
-const checkIntegrity = (
-  name: string,
+const integrityReason = (
   lockEntry: SkillLockEntry,
   probeExists: boolean,
-): Option.Option<AutofixableFinding> => {
+): Option.Option<string> => {
   if (lockEntry.sourceHash === undefined) {
     return Option.none();
   }
   if (!probeExists) {
-    return Option.some(integrityFinding(name, "the installed source directory is missing"));
+    return Option.some("the installed source directory is missing");
   }
   return Option.none();
 };
@@ -103,13 +104,9 @@ const skillSrcProbe = (name: string, entry: SkillLockEntry): string => {
   return `.axm/extensions/external/skills/${name}/SKILL.md`;
 };
 
-const isSameFinding = (left: AutofixableFinding, right: AutofixableFinding): boolean =>
-  left.ruleId === right.ruleId &&
-  left.message === right.message &&
-  left.location?.file === right.location?.file;
-
 const collectIntegrityViolations = (
   settings: Settings,
+  lockfile: Lockfile,
   probes: ReadonlyArray<{
     readonly name: string;
     readonly entry: SkillLockEntry;
@@ -117,24 +114,30 @@ const collectIntegrityViolations = (
   }>,
 ): ReadonlyArray<IntegrityViolation> => {
   const declaredSkills = settings.skills ?? {};
+  const retainedFqns = buildRetainedSkillFqns(settings, lockfile);
   const violations: Array<IntegrityViolation> = [];
 
   for (const { name, entry, exists } of probes) {
-    if (!(name in declaredSkills)) {
+    const reason = integrityReason(entry, exists);
+    if (Option.isNone(reason)) {
       continue;
     }
-    const finding = checkIntegrity(name, entry, exists);
-    if (Option.isNone(finding)) {
+    if (name in declaredSkills) {
+      const declared = declaredSkills[name];
+      if (declared === undefined) {
+        continue;
+      }
+      violations.push({
+        finding: integrityFinding(name, reason.value),
+        operation: installSkillOp({ name, source: declared.source, force: true }),
+      });
       continue;
     }
-    const declared = declaredSkills[name];
-    if (declared === undefined) {
-      continue;
+    if (isImplicitRetainedSkill(name, entry, declaredSkills, retainedFqns)) {
+      violations.push({
+        finding: implicitIntegrityFinding(name, reason.value),
+      });
     }
-    violations.push({
-      finding: finding.value,
-      operation: installSkillOp({ name, source: declared.source, force: true }),
-    });
   }
 
   return violations;
@@ -173,7 +176,7 @@ export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
         ),
         { concurrency: "unbounded" },
       );
-      const violations = collectIntegrityViolations(settings.value, probes);
+      const violations = collectIntegrityViolations(settings.value, lockfile.value, probes);
       return violations.map((violation): LintFinding => violation.finding);
     }),
   fix: (context, finding) =>
@@ -204,9 +207,12 @@ export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
         ),
         { concurrency: "unbounded" },
       );
-      const violation = collectIntegrityViolations(settings.value, probes).find((candidate) =>
-        isSameFinding(candidate.finding, finding),
+      const violation = collectIntegrityViolations(settings.value, lockfile.value, probes).find(
+        (candidate) =>
+          candidate.finding.kind === "autofixable" &&
+          candidate.operation !== undefined &&
+          isSameFinding(candidate.finding, finding),
       );
-      return violation === undefined ? EMPTY_OPERATIONS : [violation.operation];
+      return violation?.operation === undefined ? EMPTY_OPERATIONS : [violation.operation];
     }),
 };

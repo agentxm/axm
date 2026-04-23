@@ -14,21 +14,26 @@ import type { Severity } from "../rule.js";
 // Keep the id list in declaration order so a diff against the catalog file is
 // a line-level comparison.
 const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity }> = [
-  // Foundation
+  // Foundation (classification-independent).
   { id: "workspace/initialized", severity: "error" },
   { id: "workspace/settings-schema-valid", severity: "error" },
   { id: "workspace/lockfile-valid", severity: "error" },
   { id: "workspace/agents-recognized", severity: "error" },
   { id: "workspace/agents-detected-declared", severity: "warning" },
-  // Skills install family
+  // Declaration valid (configured).
   { id: "workspace/skills-declarations-valid", severity: "error" },
-  { id: "workspace/skills-lockfile-aligned", severity: "error" },
-  { id: "workspace/skills-integrity-valid", severity: "error" },
-  { id: "workspace/skills-artifacts-correct", severity: "error" },
-  { id: "workspace/skills-managed", severity: "error" },
-  // Packs install family
   { id: "workspace/packs-declarations-valid", severity: "error" },
+  // Lockfile aligned (configured).
+  { id: "workspace/skills-lockfile-aligned", severity: "error" },
+  // Integrity intact (configured + implicit).
+  { id: "workspace/skills-integrity-valid", severity: "error" },
+  // Artifacts correct (configured + implicit).
+  { id: "workspace/skills-artifacts-correct", severity: "error" },
+  // Managed — unmanaged class must be empty.
+  { id: "workspace/skills-managed", severity: "error" },
+  // Pack dependencies resolved (configured packs).
   { id: "workspace/packs-dependencies-resolved", severity: "error" },
+  // Implicit retained by pack.
   { id: "workspace/packs-members-retained", severity: "warning" },
 ];
 

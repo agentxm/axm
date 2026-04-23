@@ -1,0 +1,60 @@
+{
+  "description": "Pack-retained implicit skill is missing its canonical source directory. workspace/skills-integrity-valid emits an advisory finding that points to `axm install`.",
+  "state": {
+    "settings": {
+      "agents": ["claude-code"],
+      "skills": {},
+      "packs": { "toolbox": "@acme/packs/toolbox@1.0.0" }
+    },
+    "lockfile": {
+      "lockfileVersion": 1,
+      "skills": {
+        "retained-skill": {
+          "type": "registry",
+          "owner": "@acme",
+          "name": "retained-skill",
+          "resolvedVersion": "1.0.0",
+          "integrity": "sha512-stub",
+          "sourceName": "default",
+          "agents": ["claude-code"],
+          "installedAt": "2026-04-21T00:00:00.000Z",
+          "updatedAt": "2026-04-21T00:00:00.000Z",
+          "sourceHash": "sha",
+          "retainedByPack": true
+        }
+      },
+      "packs": {
+        "toolbox": {
+          "type": "registry",
+          "owner": "@acme",
+          "name": "toolbox",
+          "resolvedVersion": "1.0.0",
+          "integrity": "sha512-stub",
+          "sourceName": "default",
+          "installedAt": "2026-04-21T00:00:00.000Z",
+          "updatedAt": "2026-04-21T00:00:00.000Z",
+          "resolvedSkills": { "@acme/skills/retained-skill": "1.0.0" },
+          "resolvedCommands": {},
+          "resolvedMcpServers": {},
+          "resolvedSubagents": {}
+        }
+      }
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json",
+      ".claude/skills/retained-skill"
+    ],
+    "listings": { ".claude/skills": ["retained-skill"] },
+    "detectedProjectAgents": []
+  },
+  "scope": "project",
+  "expectedFindings": [
+    {
+      "ruleId": "workspace/skills-integrity-valid",
+      "severity": "error",
+      "file": ".axm/axm-lock.yaml",
+      "messageIncludes": "Run `axm install`"
+    }
+  ]
+}

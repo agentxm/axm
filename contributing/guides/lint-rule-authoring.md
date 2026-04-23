@@ -1,7 +1,7 @@
 ---
 status: active
 last-reviewed: 2026-04-22
-version: 0.1.6
+version: 0.1.7
 description: Authoring lint rules for AgentXM skills, packs, and workspaces — context
   kinds, advisory vs autofixing, schema delegation, naming, message content,
   testing.
@@ -54,6 +54,46 @@ nudges are authoring guidance, not rules.
       `Schema.decodeUnknown` during context construction
 - [ ] **Not a health check** — Registry reachability, auth, version currency
       belong in their native commands, not in lint
+
+---
+
+## Classification Invariant Matrix
+
+Workspace install rules enforce invariants on one or more **extension lifecycle
+classes** produced by the workspace classifier. The three classes are:
+
+- **Configured** — explicitly declared in `settings.json`
+- **Implicit** — present in the lockfile as a transitive pack dependency, not
+  directly declared
+- **Unmanaged** — detected on disk but not tracked by settings or lockfile
+
+Each class implies a set of invariants. When adding install rules for a new
+extension type, walk the matrix to verify every applicable invariant has a
+covering rule. Content rules (`skill/*`, `pack/*`) and foundation rules
+(`workspace/initialized`, etc.) are classification-independent and do not
+appear in this matrix.
+
+| Invariant             | Configured | Implicit | Unmanaged |
+| --------------------- | ---------- | -------- | --------- |
+| Declaration valid     | required   | —        | —         |
+| Lockfile aligned      | required   | —        | —         |
+| Integrity intact      | required   | required | —         |
+| Artifacts correct     | required   | required | —         |
+| Managed (class empty) | —          | —        | required  |
+| Retained by pack      | —          | required | —         |
+| Dependencies resolved | required   | —        | —         |
+
+The barrel file (`workspace.ts`) groups install rules by invariant and
+annotates each group with the class(es) it covers. When adding a new extension
+type, walk the matrix and verify each applicable row has a covering
+type-sharded rule.
+
+### Classification Invariant Checklist
+
+- [ ] **Matrix walked** — Every applicable invariant row has a covering rule
+      for the new extension type
+- [ ] **Barrel grouped** — New install rules appear under the correct
+      invariant group in the workspace barrel
 
 ---
 
@@ -507,6 +547,7 @@ __fixtures__/
 Use this when adding or reviewing a lint rule.
 
 - [ ] **When to Write a Rule Checklist** — All items pass
+- [ ] **Classification Invariant Checklist** — All items pass (install rules only)
 - [ ] **Context Checklist** — All items pass
 - [ ] **Autofix Eligibility Checklist** — All items pass (or rule is advisory)
 - [ ] **Severity Checklist** — All items pass

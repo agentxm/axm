@@ -1,3 +1,13 @@
+## 0.3.3 (2026-04-23)
+
+### 🩹 Fixes
+
+- Refine lint workflows, add prune, and polish CLI help output. ([6bb0fe9c](https://github.com/agentxm/axm/commit/6bb0fe9c))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.3.2 (2026-04-21)
 
 ### 🩹 Fixes

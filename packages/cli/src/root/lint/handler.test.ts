@@ -260,9 +260,11 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const logs = logsByTag(rendererState);
-        expect(logs.message).toContain("Auto-fixable");
+        // Section headers render via step()
+        expect(logs.step.some((m) => m.includes("Auto-fixable (run `axm lint --fix`)"))).toBe(true);
+        // Footer renders via message()
         expect(logs.message).toContain("More output: `axm lint --details` | `axm lint --json`");
-        expect(logs.message).toContain("Run `axm lint --fix` to apply available fixes.");
+        // Rule lines always present
         expect(logs.message).toContain("  rule: workspace/lockfile-valid (auto-fixable)");
         expect(logs.message).toContain("  rule: workspace/skills-artifacts-correct (auto-fixable)");
         expect(
@@ -282,6 +284,7 @@ describe("axm lint handler", () => {
         expect(
           logs.error.some((message) => message.includes("2 issues. 2 can be fixed automatically.")),
         ).toBe(true);
+        // Diagnostic headers always show location
         expect(logs.error.some((message) => message.includes("./.axm/axm-lock.yaml"))).toBe(true);
         expect(logs.error.some((message) => message.includes("./.axm/settings.json"))).toBe(true);
       }),

@@ -402,6 +402,10 @@ export type LintHumanBlock =
       readonly message: string;
     }
   | {
+      readonly kind: "footer";
+      readonly message: string;
+    }
+  | {
       readonly kind: "fixSummary";
       readonly message: string;
       readonly summary: FixSummary;
@@ -1099,6 +1103,13 @@ const appendDiagnosticSection = (
   });
 };
 
+const stripFixHelps = (diagnostic: LintHumanDiagnostic): LintHumanDiagnostic => {
+  const filtered = diagnostic.helps.filter((h) => !h.includes("axm lint --fix"));
+  return filtered.length === diagnostic.helps.length
+    ? diagnostic
+    : { ...diagnostic, helps: filtered };
+};
+
 const buildSectionedDiagnostics = (args: {
   readonly blocks: Array<LintHumanBlock>;
   readonly diagnostics: ReadonlyArray<LintHumanDiagnostic>;
@@ -1113,8 +1124,8 @@ const buildSectionedDiagnostics = (args: {
   appendDiagnosticSection(
     args.blocks,
     "Auto-fixable",
-    fixable,
-    "Run `axm lint --fix` to apply available fixes.",
+    fixable.map(stripFixHelps),
+    "run `axm lint --fix`",
   );
   appendDiagnosticSection(args.blocks, "Requires manual attention", manual);
   appendDiagnosticSection(args.blocks, "Warnings", warnings);
@@ -1221,7 +1232,7 @@ const toGroupedLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
         fixableCount,
       }),
       counts: summary.counts,
-      notes: ["More output: `axm lint --details` | `axm lint --json`"],
+      notes: [],
     });
 
     if (summary.driftBanner.length > 0) {
@@ -1251,6 +1262,14 @@ const toGroupedLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
       kind: "fixSummary",
       message: formatFixSummary(fixSummary),
       summary: fixSummary,
+    });
+  }
+
+  if (summary.findings.length > 0) {
+    blocks.push({ kind: "blank" });
+    blocks.push({
+      kind: "footer",
+      message: "More output: `axm lint --details` | `axm lint --json`",
     });
   }
 
@@ -1345,25 +1364,23 @@ export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<stri
           lines.push(`  - ${id}`);
         }
         break;
-      case "section":
-        lines.push(block.title);
-        if (block.note !== undefined) {
-          lines.push(block.note);
-        }
+      case "section": {
+        const label = block.note !== undefined ? `${block.title} (${block.note})` : block.title;
+        lines.push(label);
         break;
+      }
       case "diagnostic": {
-        if (block.diagnostic.paths.length === 1) {
-          lines.push(`  [${block.diagnostic.severity}] ${block.diagnostic.paths[0] ?? ""}`);
-          lines.push(
-            `  rule: ${block.diagnostic.ruleId}${block.diagnostic.fixable ? " (auto-fixable)" : ""}`,
-          );
-          lines.push(`  ${block.diagnostic.title}`);
-        } else {
-          lines.push(
-            `  [${block.diagnostic.severity}] ${block.diagnostic.ruleId}${block.diagnostic.fixable ? " (auto-fixable)" : ""}`,
-          );
-          lines.push(`  ${block.diagnostic.title}`);
-        }
+        const location =
+          block.diagnostic.paths.length === 1
+            ? (block.diagnostic.paths[0] ?? "")
+            : block.diagnostic.paths.length > 1
+              ? `(${block.diagnostic.paths.length} locations)`
+              : "(workspace)";
+        lines.push(`  [${block.diagnostic.severity}] ${location}`);
+        lines.push(
+          `  rule: ${block.diagnostic.ruleId}${block.diagnostic.fixable ? " (auto-fixable)" : ""}`,
+        );
+        lines.push(`  ${block.diagnostic.title}`);
         for (const detail of block.diagnostic.details) {
           lines.push(`  - ${detail}`);
         }
@@ -1390,6 +1407,9 @@ export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<stri
         lines.push("");
         break;
       case "empty":
+        lines.push(block.message);
+        break;
+      case "footer":
         lines.push(block.message);
         break;
       case "fixSummary":

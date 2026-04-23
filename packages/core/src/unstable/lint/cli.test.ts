@@ -239,14 +239,17 @@ describe("renderFindingsText", () => {
     });
     const lines = renderFindingsText({ summary });
     expect(lines[0]).toBe("1 issue. 1 can be fixed automatically.");
-    expect(lines).toContain("More output: `axm lint --details` | `axm lint --json`");
-    expect(lines).toContain("Auto-fixable");
-    expect(lines).toContain("Run `axm lint --fix` to apply available fixes.");
+    expect(lines).toContain("Auto-fixable (run `axm lint --fix`)");
     expect(lines).toContain("DRIFT: The registry will still block publish on these rules:");
     expect(lines).toContain("  - skill/manifest-schema-valid");
     expect(lines).toContain("  [error] .");
     expect(lines).toContain("  rule: workspace/lockfile-valid (auto-fixable)");
     expect(lines).toContain("  workspace/lockfile-valid fired");
+    // Footer appears at the end, not under the overview
+    expect(lines).toContain("More output: `axm lint --details` | `axm lint --json`");
+    expect(lines.indexOf("More output: `axm lint --details` | `axm lint --json`")).toBeGreaterThan(
+      lines.indexOf("  workspace/lockfile-valid fired"),
+    );
   });
 
   it("prints 'No findings.' for an empty clean summary", () => {
@@ -308,13 +311,13 @@ describe("toLintHumanBlocks", () => {
       kind: "overview",
       message: "2 issues. 1 can be fixed automatically. 1 needs manual attention.",
       counts: { total: 2, errors: 1, warnings: 1, infos: 0 },
-      notes: ["More output: `axm lint --details` | `axm lint --json`"],
+      notes: [],
     });
     expect(blocks[1]).toEqual({ kind: "blank" });
     expect(blocks[2]).toEqual({
       kind: "section",
       title: "Auto-fixable",
-      note: "Run `axm lint --fix` to apply available fixes.",
+      note: "run `axm lint --fix`",
     });
     expect(blocks[3]).toEqual({
       kind: "diagnostic",
@@ -341,6 +344,11 @@ describe("toLintHumanBlocks", () => {
         fixable: false,
         paths: ["./.axm/extensions/@acme/skills/demo/src/skill.json"],
       },
+    });
+    // Footer at the end
+    expect(blocks[blocks.length - 1]).toEqual({
+      kind: "footer",
+      message: "More output: `axm lint --details` | `axm lint --json`",
     });
   });
 

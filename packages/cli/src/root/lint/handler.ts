@@ -656,12 +656,12 @@ const emitHumanOutput = (args: {
             case "blank":
               yield* renderer.message("");
               return;
-            case "section":
-              yield* renderer.message(block.title);
-              if (block.note !== undefined) {
-                yield* renderer.message(block.note);
-              }
+            case "section": {
+              const label =
+                block.note !== undefined ? `${block.title} (${block.note})` : block.title;
+              yield* renderer.step(label);
               return;
+            }
             case "diagnostic":
               yield* emitGroupedHumanDiagnostic(renderer, block.diagnostic);
               return;
@@ -683,6 +683,9 @@ const emitHumanOutput = (args: {
               return;
             case "empty":
               yield* renderer.success(block.message);
+              return;
+            case "footer":
+              yield* renderer.message(block.message);
               return;
             case "fixSummary":
               yield* block.summary.failed > 0
@@ -728,26 +731,26 @@ const emitGroupedHumanDiagnostic = (
   diagnostic: LintHumanDiagnostic,
 ) =>
   Effect.gen(function* () {
-    const label =
+    const location =
       diagnostic.paths.length === 1
-        ? `${diagnostic.paths[0] ?? ""}`
-        : `${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}`;
+        ? (diagnostic.paths[0] ?? "")
+        : diagnostic.paths.length > 1
+          ? `(${diagnostic.paths.length} locations)`
+          : "(workspace)";
     switch (diagnostic.severity) {
       case "error":
-        yield* renderer.error(label);
+        yield* renderer.error(location);
         break;
       case "warning":
-        yield* renderer.warn(label);
+        yield* renderer.warn(location);
         break;
       case "info":
-        yield* renderer.info(label);
+        yield* renderer.info(location);
         break;
     }
-    if (diagnostic.paths.length === 1) {
-      yield* renderer.message(
-        `  rule: ${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}`,
-      );
-    }
+    yield* renderer.message(
+      `  rule: ${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}`,
+    );
     yield* renderer.message(`  ${diagnostic.title}`);
     yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
       discard: true,

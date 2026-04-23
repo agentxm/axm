@@ -7,7 +7,8 @@ output, or reusable skills.
 ## Key Resources
 
 - [Instructions Guide](./instructions.md) - Ownership of instruction artifacts
-- [INSTALL.md](../../INSTALL.md) - User and agent install entry point
+- [install.md](../../install.md) - User-shared, agent-executed install entry
+  point
 
 ---
 
@@ -15,7 +16,7 @@ output, or reusable skills.
 
 In this repo, the main artifacts are:
 
-- `INSTALL.md` for setup and first-run verification
+- `install.md` for setup and first-run verification
 - `AGENTS.md` and `CLAUDE.md` for repo-wide operating rules
 - `SKILL.md` files for reusable workflows
 
@@ -45,7 +46,7 @@ Do not document from memory.
 3. If the same instruction exists in more than one place, diff the copies.
 4. Keep examples short enough to paste and run.
 
-For `INSTALL.md`, prefer a clean-shell or clean-workspace validation when the
+For `install.md`, prefer a clean-shell or clean-workspace validation when the
 install path changes.
 
 For skills, keep the canonical `SKILL.md` in the skill's owning directory. If a
@@ -58,7 +59,7 @@ keep the copies byte-for-byte aligned or make the canonical source explicit.
 
 - Commands are valid against the current repo
 - Examples use current flag names and expected output shape
-- Doc scope matches the artifact: install in `INSTALL.md`, repo policy in
+- Doc scope matches the artifact: install in `install.md`, repo policy in
   `AGENTS.md` or `CLAUDE.md`, bounded workflow in `SKILL.md`
 - No internal-only repo references or private operational details leak in
 

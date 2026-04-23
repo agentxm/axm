@@ -96,8 +96,8 @@ the summary here, follow the guide.
 | [Guides README](contributing/guides/README.md)                              | Before adding a guide, read for template and local conventions                         |
 | [Documentation Guidelines](contributing/guides/documentation-guidelines.md) | Before writing or editing docs, read for audience, flow, and source-of-truth rules     |
 | [Guide Authoring](contributing/guides/guide-authoring.md)                   | Before deciding a topic needs a guide, read for scope and structure                    |
-| [Instructions Guide](contributing/guides/instructions.md)                   | Before choosing README vs CONTRIBUTING vs AGENTS/CLAUDE vs INSTALL vs SKILL, read it   |
-| [Agent Accessibility Guide](contributing/guides/agent-accessibility.md)     | When updating INSTALL.md or SKILL.md, read for accessibility checks                    |
+| [Instructions Guide](contributing/guides/instructions.md)                   | Before choosing README vs CONTRIBUTING vs AGENTS/CLAUDE vs install vs SKILL, read it   |
+| [Agent Accessibility Guide](contributing/guides/agent-accessibility.md)     | When updating install.md or SKILL.md, read for accessibility checks                    |
 | **Delivery**                                                                |                                                                                        |
 | [Releasing Guide](contributing/guides/releasing.md)                         | Before planning or publishing a release, read the release flow                         |
 | [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | Before starting or progressing an OpenSpec change, read for workflow steps             |

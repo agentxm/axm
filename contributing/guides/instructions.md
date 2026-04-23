@@ -1,7 +1,7 @@
 # Instructions Guide
 
 How to choose the right instruction artifact in this repo: `README.md`,
-`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `INSTALL.md`, and `SKILL.md`.
+`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `install.md`, and `SKILL.md`.
 Use it when deciding where guidance should live and how narrowly it should be
 scoped.
 
@@ -22,7 +22,7 @@ scoped.
 | `CONTRIBUTING.md` | Contributor workflow           | setup, verify, release, review expectations          |
 | `AGENTS.md`       | Repo rules for coding agents   | constraints, patterns, commands, quality bar         |
 | `CLAUDE.md`       | Parallel agent-facing rules    | same class of content as `AGENTS.md`                 |
-| `INSTALL.md`      | Fresh-install path             | prerequisites, install steps, first-run verification |
+| `install.md`      | Fresh-install path             | prerequisites, install steps, first-run verification |
 | `SKILL.md`        | Reusable task guidance         | bounded workflow, triggers, references               |
 
 If a document mostly explains a package or folder, prefer `README.md`. If it

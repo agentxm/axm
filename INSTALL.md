@@ -1,1 +1,0 @@
-packages/core/site-content/INSTALL.md

@@ -527,7 +527,7 @@ These items apply to every documentation artifact.
 
 - [Guide Authoring](guide-authoring.md) — When adding or revising a guide;
   consult for guide structure and scope
-- [Agent Accessibility](agent-accessibility.md) — When updating INSTALL.md or
+- [Agent Accessibility](agent-accessibility.md) — When updating install.md or
   SKILL.md after CLI or workflow changes
 - [Instructions Guide](instructions.md) — When deciding which document should
   own a piece of content

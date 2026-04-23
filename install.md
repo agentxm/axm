@@ -1,0 +1,1 @@
+packages/core/site-content/install.md

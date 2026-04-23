@@ -56,7 +56,7 @@ npx axm.sh --version
 **Ask your agent to install axm:**
 
 ```
-Follow these install instructions to set up axm: https://raw.githubusercontent.com/agentxm/axm/refs/heads/main/packages/core/site-content/INSTALL.md
+Follow these install instructions to set up axm: https://axm.sh/install.md
 ```
 
 ## Getting started

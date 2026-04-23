@@ -32,9 +32,7 @@ describe("root uninstall command help", () => {
   it("documents the registry FQN uninstall contract", async () => {
     const output = await Effect.runPromise(captureHelpOutput(["uninstall"]));
 
-    expect(output).toContain(
-      "Uninstall a registry FQN (@owner/<plural-type>/<name>[@version]) from the current workspace",
-    );
+    expect(output).toContain("Remove an extension from the workspace");
     expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version])");
     expect(output).toContain("axm uninstall @acme/skills/code-review");
     expect(output).toContain("version is ignored for uninstall routing");

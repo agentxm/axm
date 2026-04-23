@@ -49,9 +49,7 @@ const getLearnMore = (doc: HelpDoc): string =>
   ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
 
 const getAdjustedHelpDoc = (doc: HelpDoc): HelpDoc => {
-  if (!isSubcommandDoc(doc)) {
-    return doc;
-  }
+  if (!isSubcommandDoc(doc)) return doc;
 
   const visibleGlobalFlags = getVisibleGlobalFlags(doc);
   const { globalFlags: _globalFlags, ...rest } = doc;
@@ -200,12 +198,101 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   };
 };
 
+// ---------------------------------------------------------------------------
+// ANSI helpers (match packages/core ansi-chrome.ts constants)
+// ---------------------------------------------------------------------------
+
+const ESC = "\u001b[";
+const ANSI_DIM = `${ESC}2m`;
+const ANSI_RESET = `${ESC}0m`;
+
+// ---------------------------------------------------------------------------
+// Root help section reordering
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+/** Detect ALL-CAPS section headers (with optional trailing colon). */
+const isSectionHeader = (line: string): boolean => {
+  const plain = line.replace(ANSI_RE, "").trim();
+  return plain.length > 0 && /^[A-Z][A-Z ]+:?$/.test(plain);
+};
+
+/** Desired root help section order. Sections not listed are omitted. */
+const ROOT_SECTION_ORDER = [
+  "USAGE",
+  "GETTING STARTED:",
+  "EXTENSIONS:",
+  "WORKSPACE:",
+  "AUTH:",
+  "GLOBAL FLAGS",
+  "EXAMPLES",
+];
+
+/**
+ * Reorder sections in the rendered root help output. Parses the base
+ * formatter's text by detecting ALL-CAPS header lines, then reassembles
+ * only the sections listed in {@link ROOT_SECTION_ORDER}.
+ */
+const reorderRootSections = (output: string): string => {
+  const lines = output.split("\n");
+  const sections = new Map<string, string[]>();
+  let currentKey = "";
+
+  for (const line of lines) {
+    if (isSectionHeader(line)) {
+      currentKey = line.replace(ANSI_RE, "").trim();
+      sections.set(currentKey, [line]);
+    } else if (currentKey) {
+      const current = sections.get(currentKey);
+      if (current !== undefined) current.push(line);
+    }
+  }
+
+  // Trim trailing blank lines from each section
+  for (const [, sectionLines] of sections) {
+    while (sectionLines.length > 0 && sectionLines[sectionLines.length - 1]?.trim() === "") {
+      sectionLines.pop();
+    }
+  }
+
+  // Ordered sections first, then any unrecognized sections to avoid silent drops
+  const orderedKeys = new Set(ROOT_SECTION_ORDER);
+  const ordered = ROOT_SECTION_ORDER.flatMap((key) => {
+    const s = sections.get(key);
+    return s !== undefined ? [s.join("\n")] : [];
+  });
+  const unrecognized = [...sections.entries()]
+    .filter(([key]) => !orderedKeys.has(key))
+    .map(([, sectionLines]) => sectionLines.join("\n"));
+
+  return [...ordered, ...unrecognized].join("\n\n");
+};
+
+// ---------------------------------------------------------------------------
+// Branding
+// ---------------------------------------------------------------------------
+
+const ROOT_BRANDING = [
+  "  ▄▀█ ▀▄▀ █▀▄▀█",
+  "  █▀█ █ █ █ ▀ █",
+  `  Agent Extension Manager ${ANSI_DIM}by Agent${ANSI_RESET}XM`,
+  "",
+  "  https://axm.sh | https://agentxm.ai",
+].join("\n");
+
+// ---------------------------------------------------------------------------
+// Formatter
+// ---------------------------------------------------------------------------
+
 /**
  * Creates a custom CLI output formatter that wraps the Effect default
- * formatter with two enhancements:
+ * formatter with axm-specific adjustments:
  *
- * 1. Global flag suppression on subcommand help output
- * 2. "Learn more" footer appended from the `LearnMore` command annotation
+ * 1. Root help section reordering and hidden subcommand filtering
+ * 2. Global flag suppression on subcommand help output
+ * 3. "Learn more" footer from the {@link LearnMore} command annotation
  */
 export const makeAxmFormatter = (options?: {
   readonly json?: boolean | undefined;
@@ -222,8 +309,12 @@ export const makeAxmFormatter = (options?: {
       }
 
       const adjusted = getAdjustedHelpDoc(doc);
-
       let output = base.formatHelpDoc(adjusted);
+
+      // Root help: reorder sections, omit DESCRIPTION, and prepend branding
+      if (!isSubcommandDoc(doc)) {
+        output = ROOT_BRANDING + "\n\n" + reorderRootSections(output);
+      }
 
       const learnMore = getLearnMore(doc);
       if (learnMore !== "") {

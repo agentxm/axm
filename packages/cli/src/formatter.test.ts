@@ -94,6 +94,94 @@ describe("makeAxmFormatter", () => {
     });
   });
 
+  describe("root help branding and section reordering", () => {
+    it("prepends branding to root help output", () => {
+      const doc = makeHelpDoc({ usage: "axm [flags]" });
+      const output = formatter.formatHelpDoc(doc);
+      expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
+      expect(output).toContain("https://axm.sh");
+    });
+
+    it("does not prepend branding to subcommand help", () => {
+      const doc = makeHelpDoc({ usage: "axm init [flags]" });
+      const output = formatter.formatHelpDoc(doc);
+      expect(output).not.toContain("▄▀█ ▀▄▀ █▀▄▀█");
+    });
+
+    it("reorders sections to match desired order", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        subcommands: [
+          {
+            group: "AUTH",
+            commands: [
+              { name: "login", alias: undefined, shortDescription: "Log in", description: "" },
+            ],
+          },
+          {
+            group: "GETTING STARTED",
+            commands: [
+              { name: "init", alias: undefined, shortDescription: "Initialize", description: "" },
+            ],
+          },
+        ],
+        globalFlags,
+      });
+      const output = formatter.formatHelpDoc(doc);
+      const usageIdx = output.indexOf("USAGE");
+      const gettingStartedIdx = output.indexOf("GETTING STARTED");
+      const authIdx = output.indexOf("AUTH:");
+      const globalFlagsIdx = output.indexOf("GLOBAL FLAGS");
+
+      expect(usageIdx).toBeGreaterThan(-1);
+      expect(gettingStartedIdx).toBeGreaterThan(-1);
+      expect(authIdx).toBeGreaterThan(-1);
+      expect(globalFlagsIdx).toBeGreaterThan(-1);
+
+      // USAGE before GETTING STARTED before AUTH before GLOBAL FLAGS
+      expect(usageIdx).toBeLessThan(gettingStartedIdx);
+      expect(gettingStartedIdx).toBeLessThan(authIdx);
+      expect(authIdx).toBeLessThan(globalFlagsIdx);
+    });
+
+    it("preserves unrecognized sections at the end", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        subcommands: [
+          {
+            group: "CUSTOM SECTION",
+            commands: [
+              {
+                name: "custom",
+                alias: undefined,
+                shortDescription: "Custom command",
+                description: "",
+              },
+            ],
+          },
+        ],
+        globalFlags,
+      });
+      const output = formatter.formatHelpDoc(doc);
+      // The custom section should still appear (not be silently dropped)
+      expect(output).toContain("CUSTOM SECTION");
+      // And it should come after GLOBAL FLAGS
+      const globalFlagsIdx = output.indexOf("GLOBAL FLAGS");
+      const customIdx = output.indexOf("CUSTOM SECTION");
+      expect(customIdx).toBeGreaterThan(globalFlagsIdx);
+    });
+
+    it("trims trailing blank lines from sections", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        globalFlags,
+      });
+      const output = formatter.formatHelpDoc(doc);
+      // Should not end with multiple blank lines
+      expect(output).not.toMatch(/\n\n\n$/);
+    });
+  });
+
   describe("json mode", () => {
     it("renders human version output without decoration", () => {
       expect(formatter.formatVersion("axm", "1.2.3")).toBe("1.2.3");

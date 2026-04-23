@@ -6,9 +6,31 @@ Manage agent skills, commands, sub-agents, MCP servers, and rules for your Claud
 
 ## Installation
 
+**macOS / Linux:**
+
 ```bash
-npm install -g axm.sh
+curl -fsSL https://axm.sh/install.sh | sh
 ```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://axm.sh/install.ps1 | iex
+```
+
+**Homebrew:**
+
+```bash
+brew install agentxm/tap/axm
+```
+
+**npx (no install, for agents and CI):**
+
+```bash
+npx axm.sh --version
+```
+
+See [INSTALL.md](./INSTALL.md) for verification, authentication, and troubleshooting.
 
 ## Getting Started
 

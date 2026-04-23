@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22 <23"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "axm": "bun packages/cli/src/main.ts",

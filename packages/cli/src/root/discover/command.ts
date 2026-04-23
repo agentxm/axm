@@ -19,7 +19,7 @@ export const discoverCommand = Command.make("discover", discoverConfig, ({ path 
   handleDiscover({ path }).pipe(withRuntime("discover")),
 ).pipe(
   withArgvTracking(discoverConfig),
-  Command.withDescription("Discover compatible extensions for your project's dependencies"),
+  Command.withDescription("Find extensions for your project"),
   Command.withExamples([
     { command: "axm discover", description: "Discover extensions for the current project" },
     {

@@ -32,9 +32,7 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription(
-    "Install configured extensions, or install a registry FQN (@owner/<plural-type>/<name>[@version])",
-  ),
+  Command.withDescription("Install a registry extension or sync configured extensions"),
   Command.withExamples([
     {
       command: "axm install",

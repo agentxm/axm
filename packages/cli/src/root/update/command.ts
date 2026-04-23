@@ -29,9 +29,7 @@ export const updateCommand = Command.make(
     handleUpdate({ source, yes, force, preview }).pipe(withWorkspace(scope), withRuntime("update")),
 ).pipe(
   withArgvTracking(updateConfig),
-  Command.withDescription(
-    "Update configured extensions, or update a registry FQN (@owner/<plural-type>/<name>[@version])",
-  ),
+  Command.withDescription("Update extensions to newer versions"),
   Command.withExamples([
     {
       command: "axm update",

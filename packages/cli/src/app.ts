@@ -40,7 +40,7 @@ import { updateCommand } from "./root/update/command.js";
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
 const LEARN_MORE_FOOTER =
-  "LEARN MORE\n  Use 'axm <command> --help' for more information about a command.";
+  "LEARN MORE\n  Use 'axm <command> --help' for more information about a command.\n  Report issues at https://github.com/agentxm/axm/issues";
 
 removeBuiltInFlag(GlobalFlag.Completions);
 removeBuiltInFlag(GlobalFlag.LogLevel);
@@ -61,40 +61,32 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       description: "Remove an installed extension by registry FQN",
     },
     {
-      command: "axm packs install @acme/packs/frontend-tools",
-      description: "Install a curated set of extensions at once",
+      command: "axm discover",
+      description: "See what's available for your project",
     },
     { command: "axm whoami", description: "Check who you're authenticated as" },
   ]),
   Command.withSubcommands([
-    { group: "GETTING STARTED", commands: [initCommand] },
+    { group: "GETTING STARTED", commands: [initCommand, discoverCommand] },
     {
       group: "EXTENSIONS",
+      commands: [skillsCommand, commandsCommand, mcpServersCommand, subagentsCommand, packsCommand],
+    },
+    {
+      group: "WORKSPACE",
       commands: [
         installCommand,
         updateCommand,
         uninstallCommand,
         outdatedCommand,
+        lintCommand,
         pruneCommand,
-        skillsCommand,
-        packsCommand,
-        commandsCommand,
-        mcpServersCommand,
-        subagentsCommand,
-        discoverCommand,
+        upgradeCommand,
       ],
     },
     {
-      group: "AUTH AND CONFIG",
-      commands: [
-        lintCommand,
-        authCommand,
-        loginCommand,
-        logoutCommand,
-        whoamiCommand,
-        tokenCommand,
-        upgradeCommand,
-      ],
+      group: "AUTH",
+      commands: [authCommand, loginCommand, logoutCommand, whoamiCommand, tokenCommand],
     },
   ]),
   Command.withGlobalFlags(axmGlobalFlags),

@@ -21,7 +21,7 @@ export const outdatedCommand = Command.make("outdated", outdatedConfig, ({ scope
   handleOutdated({ type }).pipe(withWorkspace(scope), withRuntime("outdated")),
 ).pipe(
   withArgvTracking(outdatedConfig),
-  Command.withDescription("Show outdated extensions with available updates"),
+  Command.withDescription("Show extensions with available updates"),
   Command.withExamples([
     { command: "axm outdated", description: "Check all extensions for updates" },
     { command: "axm outdated --type skill", description: "Check only skills for updates" },

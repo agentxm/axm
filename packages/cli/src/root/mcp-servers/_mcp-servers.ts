@@ -4,7 +4,7 @@ import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 
 export const mcpServersCommand = Command.make("mcp-servers").pipe(
-  Command.withDescription("Install and manage MCP servers"),
+  Command.withDescription("Manage MCP servers"),
   Command.withExamples([
     {
       command: "axm mcp-servers install @acme/mcp-servers/my-server",

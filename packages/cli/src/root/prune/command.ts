@@ -21,7 +21,7 @@ export const pruneCommand = Command.make("prune", pruneConfig, ({ patterns, scop
   handleRootPrune({ patterns }, { yes }).pipe(withWorkspace(scope), withRuntime("prune")),
 ).pipe(
   withArgvTracking(pruneConfig),
-  Command.withDescription("Remove unmanaged extension artifacts from the workspace"),
+  Command.withDescription("Clean up any extensions not managed by axm"),
   Command.withExamples([
     {
       command: "axm prune",

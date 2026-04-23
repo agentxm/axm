@@ -13,7 +13,7 @@ import { publishCommand } from "./publish.js";
 import { pruneCommand } from "./prune/command.js";
 
 export const skillsCommand = Command.make("skills").pipe(
-  Command.withDescription("Install, update, and manage skills"),
+  Command.withDescription("Manage skills"),
   Command.withExamples([
     {
       command: "axm skills install @acme/skills/code-review",

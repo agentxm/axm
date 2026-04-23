@@ -32,9 +32,7 @@ describe("root update command help", () => {
   it("documents the no-arg and FQN update contract", async () => {
     const output = await Effect.runPromise(captureHelpOutput(["update"]));
 
-    expect(output).toContain(
-      "Update configured extensions, or update a registry FQN (@owner/<plural-type>/<name>[@version])",
-    );
+    expect(output).toContain("Update extensions to newer versions");
     expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) (optional)");
     expect(output).toContain("axm update");
     expect(output).toContain("axm update @acme/skills/code-review");

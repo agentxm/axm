@@ -77,7 +77,7 @@ if `axm` is not recognized.
 ### Option C: Homebrew (macOS / Linux)
 
 ```bash
-brew install axm-sh/tap/axm
+brew install agentxm/tap/axm
 ```
 
 **Verify:**

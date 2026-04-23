@@ -41,9 +41,7 @@ export const lintCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(lintConfig),
-  Command.withDescription(
-    "Lint the workspace and (optionally) autofix findings by replaying the per-extension plan pipeline.",
-  ),
+  Command.withDescription("Check and fix workspace configuration"),
   Command.withExamples([
     { command: "axm lint", description: "Lint the current project workspace" },
     {

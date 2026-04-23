@@ -11,7 +11,7 @@ import { disableCommand } from "./disable/command.js";
 import { renameCommand } from "./rename/command.js";
 
 export const subagentsCommand = Command.make("subagents").pipe(
-  Command.withDescription("Install, update, and manage subagents"),
+  Command.withDescription("Manage subagents"),
   Command.withExamples([
     {
       command: "axm subagents install @acme/subagents/researcher",

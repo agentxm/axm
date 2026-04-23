@@ -31,9 +31,7 @@ export const uninstallCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
-  Command.withDescription(
-    "Uninstall a registry FQN (@owner/<plural-type>/<name>[@version]) from the current workspace",
-  ),
+  Command.withDescription("Remove an extension from the workspace"),
   Command.withExamples([
     {
       command: "axm uninstall @acme/skills/code-review",

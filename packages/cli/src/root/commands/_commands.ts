@@ -10,7 +10,7 @@ import { newCommand } from "./new.js";
 import { publishCommand } from "./publish.js";
 
 export const commandsCommand = Command.make("commands").pipe(
-  Command.withDescription("Install and manage commands"),
+  Command.withDescription("Manage commands"),
   Command.withExamples([
     {
       command: "axm commands install @acme/commands/my-cmd",

@@ -5,7 +5,7 @@
 Use this smoke when checking install behavior against a local registry-backed
 workspace.
 
-1. In a publisher workspace, run `axm init --yes --agent claude-code`.
+1. In a publisher workspace, run `axm setup --yes --agent claude-code`.
 2. Add a local registry source in `.axm/settings.json`:
    `{"name":"local","type":"registry","location":"file:///tmp/axm-registry"}` and set `profile` to `@test`.
 3. Publish one or more extensions, for example:

@@ -30,7 +30,7 @@ describe("axm skills fork", () => {
       const registryDir = createTempDir("axm-registry-");
       try {
         // Initialize workspace
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Set up registry source and owner in settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -123,7 +123,7 @@ describe("axm skills fork", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -181,7 +181,7 @@ describe("axm skills fork", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -219,7 +219,7 @@ describe("axm skills fork", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -255,7 +255,7 @@ describe("axm skills fork", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));

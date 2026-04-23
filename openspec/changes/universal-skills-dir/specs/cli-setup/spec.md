@@ -27,7 +27,7 @@ The system SHALL detect installed agents by checking subagent directories in add
 - **AND** agent `amp` has `skills.dir` of `.agents/skills` and no commands or subagents dirs
 - **AND** `.agents/` exists on disk
 - **THEN** `amp` SHALL NOT appear in the detected agents list
-- **AND** SHALL NOT be pre-checked in the interactive multiselect during `axm init`
+- **AND** SHALL NOT be pre-checked in the interactive multiselect during `axm setup`
 
 #### Scenario: Universal-dir agent with additional signal detected
 

@@ -61,7 +61,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
       const unrecognized = requestedIds.filter((id) => Option.isNone(getAgentById(id)));
       if (unrecognized.length > 0) {
         yield* renderer.warn(
-          `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm init --help' to see available agents.`,
+          `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
         );
       }
     } else {

@@ -19,7 +19,7 @@ The CLI SHALL display help and exit cleanly when invoked without arguments.
 #### Scenario: CLI displays available commands
 
 - **WHEN** the user runs `axm`
-- **THEN** the output includes the `init`, `skills`, `login`, `logout`, `whoami`, and `token` commands with descriptions
+- **THEN** the output includes the `setup`, `skills`, `login`, `logout`, `whoami`, and `token` commands with descriptions
 
 #### Scenario: CLI displays examples
 
@@ -232,16 +232,16 @@ Commands with selection prompts SHALL NOT use `--yes` to auto-select defaults. S
 - **THEN** the CLI SHALL auto-select all discovered skills (default behavior)
 - **AND** SHALL NOT prompt
 
-#### Scenario: init with --yes still prompts for agent selection
+#### Scenario: setup with --yes still prompts for agent selection
 
-- **WHEN** the user runs `axm init --yes` and multiple agents are detected
+- **WHEN** the user runs `axm setup --yes` and multiple agents are detected
 - **AND** `--agent` is not provided
 - **THEN** the CLI SHALL prompt for agent selection
 - **AND** SHALL only skip confirmation prompts
 
-#### Scenario: init with --non-interactive auto-selects all agents
+#### Scenario: setup with --non-interactive auto-selects all agents
 
-- **WHEN** the user runs `axm init --non-interactive` and multiple agents are detected
+- **WHEN** the user runs `axm setup --non-interactive` and multiple agents are detected
 - **AND** `--agent` is not provided
 - **THEN** the CLI SHALL auto-select all detected agents (default behavior)
 - **AND** SHALL NOT prompt

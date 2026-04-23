@@ -14,11 +14,11 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
 import { expectDefined } from "../test-helpers.js";
-import { handleInit } from "./init.js";
+import { handleSetup } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
 
-const makeInitTestContext = (opts?: {
+const makeSetupTestContext = (opts?: {
   readonly flags?: {
     verbose?: boolean;
     debug?: boolean;
@@ -47,7 +47,7 @@ const makeInitTestContext = (opts?: {
   };
 };
 
-describe("init.handler", () => {
+describe("setup.handler", () => {
   let tempDir: string;
   let homeDir: string;
   let originalCwd: string;
@@ -56,7 +56,7 @@ describe("init.handler", () => {
   beforeEach(() => {
     originalCwd = process.cwd();
     originalHome = process.env["HOME"];
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "init-handler-test-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "setup-handler-test-"));
     homeDir = path.join(tempDir, "home");
     fs.mkdirSync(homeDir, { recursive: true });
     process.chdir(tempDir);
@@ -75,11 +75,11 @@ describe("init.handler", () => {
 
   describe("workspace initialization", () => {
     it.effect("creates .axm, settings.json, and lockfile", () => {
-      const { provide } = makeInitTestContext();
+      const { provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInit({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
 
           const axmDir = path.join(tempDir, ".axm");
           expect(fs.existsSync(axmDir)).toBe(true);
@@ -90,7 +90,7 @@ describe("init.handler", () => {
     });
 
     it.effect("preserves existing settings", () => {
-      const { provide } = makeInitTestContext();
+      const { provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -106,7 +106,7 @@ describe("init.handler", () => {
           );
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
-          yield* handleInit({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
 
           const settings = readJson(path.join(axmDir, "settings.json"));
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
@@ -121,11 +121,11 @@ describe("init.handler", () => {
     it.effect(
       "creates settings in the user workspace without touching the project workspace",
       () => {
-        const { provide } = makeInitTestContext();
+        const { provide } = makeSetupTestContext();
 
         return provide(
           Effect.gen(function* () {
-            yield* handleInit({ scope: "user" });
+            yield* handleSetup({ scope: "user" });
 
             const userSettingsPath = path.join(homeDir, ".axm", "settings.json");
             const projectSettingsPath = path.join(tempDir, ".axm", "settings.json");
@@ -139,20 +139,20 @@ describe("init.handler", () => {
 
   describe("agent selection", () => {
     it.effect("interactive mode prompts for agent selection", () => {
-      const { provide, promptState } = makeInitTestContext({
+      const { provide, promptState } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInit({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
           expect(promptState.selectAgentsCalls).toHaveLength(1);
         }),
       );
     });
 
     it.effect("non-interactive mode auto-selects detected agents without prompting", () => {
-      const { provide, promptState } = makeInitTestContext({
+      const { provide, promptState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -160,7 +160,7 @@ describe("init.handler", () => {
         Effect.gen(function* () {
           fs.mkdirSync(path.join(tempDir, ".claude"), { recursive: true });
 
-          yield* handleInit({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
 
           const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
           expect(promptState.selectAgentsCalls).toHaveLength(0);
@@ -170,14 +170,14 @@ describe("init.handler", () => {
     });
 
     it.effect("uses the explicit agent multiselect result", () => {
-      const { provide } = makeInitTestContext({
+      const { provide } = makeSetupTestContext({
         flags: { nonInteractive: false },
         selectAgents: ["claude-code"],
       });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInit({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
 
           const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
           expect(expectDefined(settings.agents)).toEqual(["claude-code"]);
@@ -187,12 +187,12 @@ describe("init.handler", () => {
   });
 
   describe("telemetry notice", () => {
-    it.effect("displays telemetry guidance after init", () => {
-      const { provide, rendererState } = makeInitTestContext();
+    it.effect("displays telemetry guidance after setup", () => {
+      const { provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInit({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
 
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
@@ -205,11 +205,11 @@ describe("init.handler", () => {
     it.effect("suppresses telemetry guidance when AXM_TELEMETRY=0", () => {
       const previousTelemetry = process.env["AXM_TELEMETRY"];
       process.env["AXM_TELEMETRY"] = "0";
-      const { provide, rendererState } = makeInitTestContext();
+      const { provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInit({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
 
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
@@ -234,7 +234,7 @@ describe("init.handler", () => {
 
   describe("subagent detection", () => {
     it.effect("notes unmanaged subagent files", () => {
-      const { provide, rendererState } = makeInitTestContext();
+      const { provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -242,7 +242,7 @@ describe("init.handler", () => {
           fs.mkdirSync(agentsDir, { recursive: true });
           fs.writeFileSync(path.join(agentsDir, "my-agent.md"), "# My Agent\nInstructions");
 
-          yield* handleInit({ scope: "project", agents: ["claude-code"] });
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           const warnMessages = rendererState.logs
             .filter((entry) => entry._tag === "warn")
@@ -254,7 +254,7 @@ describe("init.handler", () => {
     });
 
     it.effect("notes managed subagent files", () => {
-      const { provide, rendererState } = makeInitTestContext();
+      const { provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -265,7 +265,7 @@ describe("init.handler", () => {
             '<!-- Managed by axm — see "axm subagents --help" -->\n# Managed Agent',
           );
 
-          yield* handleInit({ scope: "project", agents: ["claude-code"] });
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
@@ -281,7 +281,7 @@ describe("init.handler", () => {
 
   describe("error handling", () => {
     it.effect("fails when the existing settings file is invalid JSON", () => {
-      const { provide } = makeInitTestContext();
+      const { provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -290,7 +290,7 @@ describe("init.handler", () => {
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
-          const error = yield* handleInit({ scope: "project" }).pipe(Effect.flip);
+          const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
         }),
       );

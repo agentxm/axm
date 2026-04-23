@@ -19,7 +19,7 @@ describe("axm skills uninstall (registry-sourced)", () => {
     const registryDir = createTempDir("axm-registry-");
     try {
       // Initialize workspace with claude-code agent
-      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
       // Set up registry source and owner
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -86,7 +86,7 @@ describe("axm skills uninstall (registry-sourced)", () => {
     const registryDir = createTempDir("axm-registry-");
     try {
       // Initialize workspace
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 

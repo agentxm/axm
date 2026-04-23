@@ -368,7 +368,7 @@ Format errors with recovery guidance:
 ```
 ✗ Could not find configuration file
   Looked for: ./axm.config.ts, ./axm.config.json
-  Run 'axm init' to create one.
+  Run 'axm setup' to create one.
 ```
 
 ### Error Handling Checklist

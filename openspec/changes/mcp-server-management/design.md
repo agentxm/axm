@@ -266,7 +266,7 @@ Extend the existing operation handlers:
 
 The agent config step uses `Effect.forEach(..., { concurrency: "unbounded" })` to write to all agents concurrently, matching the skill install pattern.
 
-**Agent filtering:** The target agent set starts from `settings.agents` (the user's configured agent list), then filters to agents whose `AgentDescriptor` has an `mcp` field (i.e., the agent supports MCP server configuration). Agents in `settings.agents` without MCP support are silently skipped. If `settings.agents` is empty or unset, no agent configs are written — the user must configure agents first via `axm init`.
+**Agent filtering:** The target agent set starts from `settings.agents` (the user's configured agent list), then filters to agents whose `AgentDescriptor` has an `mcp` field (i.e., the agent supports MCP server configuration). Agents in `settings.agents` without MCP support are silently skipped. If `settings.agents` is empty or unset, no agent configs are written — the user must configure agents first via `axm setup`.
 
 **Failure handling:** Agent config write failures are logged as warnings but don't fail the operation (consistent with existing lockfile/settings write failure handling).
 
@@ -1464,7 +1464,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
                 makeAppError({
                   code: "NAMESPACE_REQUIRED",
                   what: "No profile configured for MCP server creation",
-                  howToFix: "Use --profile or configure via `axm init`",
+                  howToFix: "Use --profile or configure via `axm setup`",
                 }),
               )
             : Effect.succeed(s),

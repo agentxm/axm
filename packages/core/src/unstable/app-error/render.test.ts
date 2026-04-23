@@ -9,7 +9,7 @@ describe("renderAppError", () => {
       code: "WORKSPACE_NOT_INIT",
       what: "Workspace not initialized",
       details: ["Looked for: .axm/settings.json"],
-      howToFix: Option.some("Run 'axm init' to create one."),
+      howToFix: Option.some("Run 'axm setup' to create one."),
       cause: undefined,
     });
 
@@ -19,7 +19,7 @@ describe("renderAppError", () => {
       [
         "\u2717 Workspace not initialized (WORKSPACE_NOT_INIT)",
         "  Looked for: .axm/settings.json",
-        "  Run 'axm init' to create one.",
+        "  Run 'axm setup' to create one.",
       ].join("\n"),
     );
   });

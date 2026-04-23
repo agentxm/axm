@@ -10,7 +10,7 @@
  * when `settings.json` is missing, so a fresh workspace surfaces exactly one
  * finding from this rule.
  *
- * Advisory-only — scaffolding a workspace is a multi-step `axm init` command;
+ * Advisory-only — scaffolding a workspace is a multi-step `axm setup` command;
  * keeping it a suggestion scopes autofix to Operation-expressible mutations.
  *
  * @experimental This API is unstable and may change without notice.
@@ -43,7 +43,7 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "error",
           message:
-            "The workspace is missing `.axm/`. Run `axm init` to create the managed workspace files.",
+            "The workspace is missing `.axm/`. Run `axm setup` to create the managed workspace files.",
           location: { file: AXM_DIR },
         });
         return findings;
@@ -54,7 +54,7 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "error",
           message:
-            "The workspace settings file is missing. Run `axm init` to create `.axm/settings.json`.",
+            "The workspace settings file is missing. Run `axm setup` to create `.axm/settings.json`.",
           location: { file: SETTINGS_REL },
         });
       }

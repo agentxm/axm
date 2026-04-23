@@ -14,7 +14,7 @@ import { createTempDir, runCli } from "../../../e2e/utils.js";
 
 /** Set up a workspace with registry source and owner. */
 const setupWorkspace = async (tempPath: string, registryPath: string, owner: string) => {
-  await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: tempPath });
+  await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: tempPath });
   const settingsPath = path.join(tempPath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];

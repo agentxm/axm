@@ -47,7 +47,7 @@ describe("compiled binary smoke", () => {
 
       expect(result.exitCode).toBe(1);
       expect(getOutput(result)).toContain("WORKSPACE_NOT_INITIALIZED");
-      expect(getOutput(result)).toContain("axm init");
+      expect(getOutput(result)).toContain("axm setup");
     } finally {
       temp.cleanup();
     }

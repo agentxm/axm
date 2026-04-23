@@ -78,9 +78,9 @@ describe("cli telemetry helpers", () => {
         makeAppError({
           code: "WORKSPACE_NOT_FOUND",
           what: "Workspace not initialized",
-          howToFix: "Run axm init",
+          howToFix: "Run axm setup",
         }),
-        "init",
+        "setup",
       ).pipe(Effect.provide(layer));
 
       expect(capture.errors).toEqual([
@@ -89,7 +89,7 @@ describe("cli telemetry helpers", () => {
           message: "Workspace not initialized",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         },
       ]);
     }),
@@ -99,7 +99,7 @@ describe("cli telemetry helpers", () => {
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
 
-      yield* reportCliError(new PromptCancelled({ message: "cancelled" }), "init").pipe(
+      yield* reportCliError(new PromptCancelled({ message: "cancelled" }), "setup").pipe(
         Effect.provide(layer),
       );
 
@@ -190,7 +190,7 @@ describe("cli telemetry helpers", () => {
       const [layer, capture] = makeCaptureLayer();
 
       yield* trackCliCommandCompleted({
-        command: "init",
+        command: "setup",
         result: "cancelled",
         durationMs: 100,
       }).pipe(Effect.provide(layer));

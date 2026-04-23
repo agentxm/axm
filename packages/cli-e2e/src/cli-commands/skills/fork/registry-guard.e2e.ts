@@ -20,7 +20,7 @@ describe("registry guard", () => {
       const registryDir = createTempDir("axm-registry-");
       try {
         // Initialize workspace without explicit registry source
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -57,7 +57,7 @@ describe("registry guard", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace without registry source
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Create an extension so publish has something to find
         const extensionDir = path.join(
@@ -114,7 +114,7 @@ describe("registry guard", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Configure registry source
         const settingsPath = path.join(temp.path, ".axm", "settings.json");

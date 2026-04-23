@@ -17,7 +17,7 @@ import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-s
 import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
-import { initCommand } from "./root/init.js";
+import { setupCommand } from "./root/setup.js";
 import { skillsCommand } from "./root/skills/_skills.js";
 import { packsCommand } from "./root/packs/_packs.js";
 import { commandsCommand } from "./root/commands/_commands.js";
@@ -51,7 +51,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   ),
   Command.annotate(LearnMore, LEARN_MORE_FOOTER),
   Command.withExamples([
-    { command: "axm init", description: "Start managing extensions in your project" },
+    { command: "axm setup", description: "Start managing extensions in your project" },
     {
       command: "axm install @acme/skills/code-review",
       description: "Add a code review skill to your agents",
@@ -67,7 +67,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     { command: "axm whoami", description: "Check who you're authenticated as" },
   ]),
   Command.withSubcommands([
-    { group: "GETTING STARTED", commands: [initCommand, discoverCommand] },
+    { group: "GETTING STARTED", commands: [setupCommand, discoverCommand] },
     {
       group: "EXTENSIONS",
       commands: [skillsCommand, commandsCommand, mcpServersCommand, subagentsCommand, packsCommand],

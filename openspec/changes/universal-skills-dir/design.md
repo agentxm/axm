@@ -63,7 +63,7 @@ No behavioral change to install.
 
 ## Risks / Trade-offs
 
-**[Agent that only uses the universal dir becomes undetectable]** → This is intentional. If amp's only filesystem footprint is `.agents/skills/`, axm cannot distinguish "amp is installed" from "some other agent or manual setup created `.agents/skills/`." Users must explicitly declare such agents in `settings.agents` via `axm init --agents amp` or by editing settings. The `agents-detected-declared` lint rule will not warn about these agents (since they're not detected), which is correct — there's nothing to warn about.
+**[Agent that only uses the universal dir becomes undetectable]** → This is intentional. If amp's only filesystem footprint is `.agents/skills/`, axm cannot distinguish "amp is installed" from "some other agent or manual setup created `.agents/skills/`." Users must explicitly declare such agents in `settings.agents` via `axm setup --agents amp` or by editing settings. The `agents-detected-declared` lint rule will not warn about these agents (since they're not detected), which is correct — there's nothing to warn about.
 
 **[Future agent config parsing changes the resolved dir]** → The derived check handles this automatically. When an agent's `resolveEffectiveSkillsDir` starts reading config files and returns a non-universal path, `isUniversalSkillsDir` returns `false` and detection/lint treat that agent as having its own dir. No code changes needed beyond the agent's service implementation.
 
@@ -71,4 +71,4 @@ No behavioral change to install.
 
 ## Open Questions
 
-- Should `axm init` in interactive mode still show universal-dir-only agents in the multiselect (unchecked) as available options, even though they weren't detected? This would let users opt in without needing `--agents`. Deferring to implementation — the current init flow already shows all known agents, just with detected ones pre-checked.
+- Should `axm setup` in interactive mode still show universal-dir-only agents in the multiselect (unchecked) as available options, even though they weren't detected? This would let users opt in without needing `--agents`. Deferring to implementation — the current setup flow already shows all known agents, just with detected ones pre-checked.

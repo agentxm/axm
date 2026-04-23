@@ -767,7 +767,7 @@ Commands that modify extension state (files, lockfile, settings) support preview
 
 | Command        | Preview | Reason                    |
 | -------------- | ------- | ------------------------- |
-| `init`         | ✓       | Creates `.axm/` directory |
+| `setup`        | ✓       | Creates `.axm/` directory |
 | `doctor`       | —       | Read-only diagnostic      |
 | `settings set` | ✓       | Modifies settings file    |
 | `settings get` | —       | Read-only                 |
@@ -819,12 +819,12 @@ axm fork ./.claude/skills/some-skill [name]
 
 Commands for managing the AXM workspace.
 
-##### init
+##### setup
 
 Initialize a new AXM workspace.
 
 ```bash
-axm init
+axm setup
 ```
 
 Creates the `.axm/` directory structure in the current project.

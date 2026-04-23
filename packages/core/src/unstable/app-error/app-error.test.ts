@@ -8,7 +8,7 @@ describe("AppError", () => {
       code: "WORKSPACE_NOT_INIT",
       what: "Workspace not initialized",
       details: ["Looked for: .axm/settings.json"],
-      howToFix: Option.some("Run 'axm init' to create one."),
+      howToFix: Option.some("Run 'axm setup' to create one."),
       cause: new Error("original"),
     });
 
@@ -16,7 +16,7 @@ describe("AppError", () => {
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
     expect(error.what).toBe("Workspace not initialized");
     expect(error.details).toEqual(["Looked for: .axm/settings.json"]);
-    expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm init' to create one.");
+    expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm setup' to create one.");
     expect(error.cause).toBeInstanceOf(Error);
   });
 
@@ -51,13 +51,13 @@ describe("makeAppError", () => {
       code: "WORKSPACE_NOT_INIT",
       what: "Workspace not initialized",
       details: ["Looked for: .axm/settings.json"],
-      howToFix: "Run 'axm init' to create one.",
+      howToFix: "Run 'axm setup' to create one.",
       cause: new Error("original"),
     });
 
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
-    expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm init' to create one.");
+    expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm setup' to create one.");
     expect(error.details).toEqual(["Looked for: .axm/settings.json"]);
   });
 

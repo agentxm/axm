@@ -1,5 +1,5 @@
 /**
- * E2E tests for the `axm init` command.
+ * E2E tests for the `axm setup` command.
  */
 
 import * as fs from "node:fs";
@@ -7,12 +7,12 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 
-describe("axm init", () => {
+describe("axm setup", () => {
   describe("with --yes and --non-interactive", () => {
     it("creates settings file in .axm directory", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Should exit successfully
         expect(result.exitCode).toBe(0);
@@ -37,7 +37,7 @@ describe("axm init", () => {
     it("creates settings.json with detected agents", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 
@@ -56,7 +56,7 @@ describe("axm init", () => {
     it("creates lockfile", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 
@@ -71,11 +71,11 @@ describe("axm init", () => {
     it("outputs initialization message", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
         // Should indicate initialization occurred
-        expect(result.stdout + result.stderr).toContain("init");
+        expect(result.stdout + result.stderr).toContain("setup");
       } finally {
         temp.cleanup();
       }
@@ -83,14 +83,14 @@ describe("axm init", () => {
   });
 
   describe("on initialized workspace", () => {
-    it("succeeds when running init again", async () => {
+    it("succeeds when running setup again", async () => {
       const temp = createTempDir();
       try {
-        // First init
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        // First setup
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
-        // Second init should succeed
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        // Second setup should succeed
+        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
       } finally {
@@ -101,8 +101,8 @@ describe("axm init", () => {
     it("does not modify settings when already initialized", async () => {
       const temp = createTempDir();
       try {
-        // First init
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        // First setup
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Get original settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -112,8 +112,8 @@ describe("axm init", () => {
         // Wait a bit to ensure mtime would change if file is written
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Second init
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        // Second setup
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Settings should not be modified
         const newContent = fs.readFileSync(settingsPath, "utf-8");
@@ -129,7 +129,7 @@ describe("axm init", () => {
 
   describe("--help", () => {
     it("displays usage information", async () => {
-      const result = await runCli(["init", "--help"]);
+      const result = await runCli(["setup", "--help"]);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("Set up axm in the current project");
@@ -142,7 +142,7 @@ describe("axm init", () => {
     it("auto-selects detected agents without prompting", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(["setup", "--non-interactive"], { cwd: temp.path });
 
         // Should succeed — non-interactive auto-selects all detected agents
         expect(result.exitCode).toBe(0);
@@ -161,7 +161,7 @@ describe("axm init", () => {
     it("succeeds with both --yes and --non-interactive", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 

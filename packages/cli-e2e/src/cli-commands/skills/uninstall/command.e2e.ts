@@ -17,7 +17,7 @@ describe("axm skills uninstall", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -68,7 +68,7 @@ describe("axm skills uninstall", () => {
     it("removes symlink from agent directory", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["setup", "--yes", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
@@ -98,7 +98,7 @@ describe("axm skills uninstall", () => {
     it("shows no-op for literal name not in lockfile", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -117,7 +117,7 @@ describe("axm skills uninstall", () => {
     it("exits successfully with no-op for nonexistent skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -137,7 +137,7 @@ describe("axm skills uninstall", () => {
     it("shows plan without making changes", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["setup", "--yes", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
@@ -176,7 +176,7 @@ describe("axm skills uninstall", () => {
     it("does not modify lockfile or settings", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -206,7 +206,7 @@ describe("axm skills uninstall", () => {
     it("shows uninstall plan with skill and agents", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -231,7 +231,7 @@ describe("axm skills uninstall", () => {
     it("shows summary with count", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -258,7 +258,7 @@ describe("axm skills uninstall", () => {
     it("skips confirmation prompt", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -291,7 +291,7 @@ describe("axm skills uninstall", () => {
     it("proceeds directly to uninstall", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -347,7 +347,7 @@ describe("axm skills uninstall", () => {
     it("removes only the specified skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -398,7 +398,7 @@ describe("axm skills uninstall", () => {
     it("cleans up empty skills directory", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -438,7 +438,7 @@ describe("axm skills uninstall", () => {
         );
 
         expect(result.exitCode).toBe(1);
-        expect(getOutput(result)).toContain("axm init");
+        expect(getOutput(result)).toContain("axm setup");
       } finally {
         temp.cleanup();
       }

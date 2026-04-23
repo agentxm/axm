@@ -7,7 +7,7 @@
  * - 7.6: stale workspace artifacts + missing lockfile + declared skill
  *        produce expected error findings.
  * - 7.7: `axm lint --fix` on the same workspace emits zero findings on
- *        replay (determinism contract). `axm init` seeds the lockfile so
+ *        replay (determinism contract). `axm setup` seeds the lockfile so
  *        the empty-lockfile edge case noted in Phase 5 doesn't reappear.
  * - 7.8: `axm lint --scope user` runs against `$AXM_USER_HOME`; the
  *        `workspace/agents-detected-declared` rule is suppressed in the
@@ -43,7 +43,7 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir();
       try {
         // Init creates settings + an empty lockfile (Phase 5 expectation).
-        const init = await runCli(["init", "--yes", "--non-interactive"], {
+        const init = await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
         expect(init.exitCode).toBe(0);
@@ -83,7 +83,7 @@ describe("axm lint (e2e, Phase 7)", () => {
     it("reports error when lockfile is deleted while skills remain declared", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -109,9 +109,9 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir();
       const sourceRoot = createTempDir("axm-phase7-skills-src-");
       try {
-        // `axm init` seeds settings.json and the empty lockfile, so the
+        // `axm setup` seeds settings.json and the empty lockfile, so the
         // Phase 5 LOCKFILE_PARSE_FAILED edge case doesn't surface here.
-        const init = await runCli(["init", "--yes", "--non-interactive"], {
+        const init = await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
         expect(init.exitCode).toBe(0);
@@ -195,7 +195,7 @@ describe("axm lint (e2e, Phase 7)", () => {
     it("returns non-zero when only warnings are present under --strict", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Downgrade the error-severity workspace/* rules the declared
         // skill would trigger, so the run settles at warnings-only.

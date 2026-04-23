@@ -132,7 +132,7 @@ EXECUTE NOW: Start with Step 1. Mark TODO items complete as you go. Stop when
 
 ```bash
 # Initialize axm in your project directory
-axm init --non-interactive --yes
+axm setup --non-interactive --yes
 
 # Install a skill
 axm skills install @acme/skills/code-review --yes --non-interactive

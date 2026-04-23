@@ -52,7 +52,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
                   code: "NAMESPACE_REQUIRED",
                   what: "No profile configured for extension pack creation",
                   howToFix:
-                    "Configure a profile in settings.json with `axm init`, or use --profile",
+                    "Configure a profile in settings.json with `axm setup`, or use --profile",
                 }),
               )
             : Effect.succeed(s),

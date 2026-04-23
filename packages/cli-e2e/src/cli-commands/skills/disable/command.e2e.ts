@@ -16,7 +16,7 @@ describe("axm skills disable", () => {
     const temp = createTempDir();
     try {
       // Initialize workspace with claude-code agent to verify .claude/ symlinks
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
@@ -74,7 +74,7 @@ describe("axm skills disable", () => {
   it("shows already disabled message for already disabled skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--non-interactive"], {
+      await runCli(["setup", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 
@@ -102,7 +102,7 @@ describe("axm skills disable", () => {
   it("errors when skill is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--non-interactive"], {
+      await runCli(["setup", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 

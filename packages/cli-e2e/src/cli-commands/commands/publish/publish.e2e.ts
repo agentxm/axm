@@ -51,7 +51,7 @@ describe("axm commands publish", () => {
     const registryDir = createTempDir("axm-registry-");
 
     try {
-      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
       configureWorkspaceRegistry(temp.path, registryDir.path, "@test");
       createManagedCommand(temp.path, "@test", "my-command", "1.0.0");
 
@@ -99,7 +99,7 @@ describe("axm commands publish", () => {
     const registryDir = createTempDir("axm-registry-");
 
     try {
-      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
       configureWorkspaceRegistry(temp.path, registryDir.path, "@test");
 
       const newResult = await runCli(

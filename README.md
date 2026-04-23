@@ -65,7 +65,7 @@ Initialize axm in your project. axm detects your installed agents and creates
 an `.axm/` workspace to manage extensions across all of them.
 
 ```bash
-axm init
+axm setup
 ```
 
 See what's recommended for your project:

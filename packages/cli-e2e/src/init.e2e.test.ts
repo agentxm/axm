@@ -1,1 +1,1 @@
-import "./cli-commands/init/command.e2e.js";
+import "./cli-commands/setup/command.e2e.js";

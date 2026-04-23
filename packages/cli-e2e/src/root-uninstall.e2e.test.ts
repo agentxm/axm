@@ -54,7 +54,7 @@ const configureWorkspaceRegistry = (workspacePath: string, registryPath: string)
 };
 
 const initWorkspace = async (workspacePath: string, registryPath: string) => {
-  const result = await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: workspacePath });
+  const result = await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: workspacePath });
   expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
   configureWorkspaceRegistry(workspacePath, registryPath);
 };

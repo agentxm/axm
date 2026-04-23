@@ -8,7 +8,7 @@
  * `apis/registry/src/routes/extensions/by-owner/by-type/by-name/by-version/publish.spec.ts`
  * in the registry repo; the flows here pin the CLI side:
  *
- * 1. `axm init` seeds a workspace.
+ * 1. `axm setup` seeds a workspace.
  * 2. `axm skills install <local-source>` plus `axm skills fork` round-trips
  *    a skill through a file-registry bucket.
  * 3. `axm lint` on the resulting workspace surfaces the expected extension
@@ -44,7 +44,7 @@ describe("Phase 7 cross-repo smoke (CLI ↔ file:// registry)", () => {
     const sourceFixture = copySkillsRepoFixture();
     try {
       // 1. Init.
-      const init = await runCli(["init", "--yes", "--agent", "claude-code"], {
+      const init = await runCli(["setup", "--yes", "--agent", "claude-code"], {
         cwd: workspace.path,
       });
       expect(init.exitCode).toBe(0);

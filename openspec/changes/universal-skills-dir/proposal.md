@@ -18,7 +18,7 @@ Multiple coding agents (amp, kimi-cli, replit, and growing) default their skills
 
 ### Modified Capabilities
 
-- `cli-init`: Agent auto-detection during init must exclude agents whose only signal is the universal skills dir.
+- `cli-setup`: Agent auto-detection during setup must exclude agents whose only signal is the universal skills dir.
 - `workspace-reconciliation`: Reconciliation and lint rules must distinguish universal-location artifacts from agent-specific artifacts.
 
 ## Impact

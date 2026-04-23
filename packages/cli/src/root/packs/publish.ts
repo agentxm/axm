@@ -177,7 +177,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           makeAppError({
             code: "NAMESPACE_RESOLUTION_FAILED",
             what: `Failed to resolve owner: ${e._tag}`,
-            howToFix: "Configure an owner in your settings with `axm init`.",
+            howToFix: "Configure an owner in your settings with `axm setup`.",
             cause: e,
           }),
         ),

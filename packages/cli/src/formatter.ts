@@ -14,6 +14,8 @@ import {
   JsonSchemaVersionSchema,
 } from "@agentxm/client-core/unstable/cli-runtime";
 
+import { BRANDING } from "@agentxm/client-core/unstable/branding";
+
 /**
  * Annotation key for "learn more" footer text.
  * Attach to commands via `Command.annotate(LearnMore, "...")`.
@@ -199,14 +201,6 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
 };
 
 // ---------------------------------------------------------------------------
-// ANSI helpers (match packages/core ansi-chrome.ts constants)
-// ---------------------------------------------------------------------------
-
-const ESC = "\u001b[";
-const ANSI_DIM = `${ESC}2m`;
-const ANSI_RESET = `${ESC}0m`;
-
-// ---------------------------------------------------------------------------
 // Root help section reordering
 // ---------------------------------------------------------------------------
 
@@ -271,18 +265,6 @@ const reorderRootSections = (output: string): string => {
 };
 
 // ---------------------------------------------------------------------------
-// Branding
-// ---------------------------------------------------------------------------
-
-const ROOT_BRANDING = [
-  "  ▄▀█ ▀▄▀ █▀▄▀█",
-  "  █▀█ █ █ █ ▀ █",
-  `  Agent Extension Manager ${ANSI_DIM}by Agent${ANSI_RESET}XM`,
-  "",
-  "  https://axm.sh | https://agentxm.ai",
-].join("\n");
-
-// ---------------------------------------------------------------------------
 // Formatter
 // ---------------------------------------------------------------------------
 
@@ -313,7 +295,7 @@ export const makeAxmFormatter = (options?: {
 
       // Root help: reorder sections, omit DESCRIPTION, and prepend branding
       if (!isSubcommandDoc(doc)) {
-        output = ROOT_BRANDING + "\n\n" + reorderRootSections(output);
+        output = "\n" + BRANDING + "\n\n" + reorderRootSections(output);
       }
 
       const learnMore = getLearnMore(doc);

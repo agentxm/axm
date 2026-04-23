@@ -15,7 +15,7 @@ describe("axm skills rename", () => {
     const temp = createTempDir();
     try {
       // Initialize workspace with claude-code agent to verify .claude/ symlinks
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
@@ -82,7 +82,7 @@ describe("axm skills rename", () => {
   it("errors when old name is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--non-interactive"], {
+      await runCli(["setup", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 
@@ -100,7 +100,7 @@ describe("axm skills rename", () => {
   it("errors when new name conflicts with existing skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--non-interactive"], {
+      await runCli(["setup", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 

@@ -19,7 +19,7 @@ describe("axm skills publish", () => {
       const registryDir = createTempDir("axm-registry-");
       try {
         // Initialize workspace
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Set up registry source and owner
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -118,7 +118,7 @@ describe("axm skills publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -188,7 +188,7 @@ describe("axm skills publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -249,7 +249,7 @@ describe("axm skills publish", () => {
       owner: string,
       skills?: Record<string, string>,
     ) => {
-      await runCli(["init", "--yes", "--non-interactive"], { cwd: tempPath });
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: tempPath });
       const settingsPath = path.join(tempPath, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];

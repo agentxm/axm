@@ -47,7 +47,7 @@ describe("makeAxmFormatter", () => {
 
     it("preserves only --json on subcommand help", () => {
       const doc = makeHelpDoc({
-        usage: "axm init [flags]",
+        usage: "axm setup [flags]",
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
@@ -103,7 +103,7 @@ describe("makeAxmFormatter", () => {
     });
 
     it("does not prepend branding to subcommand help", () => {
-      const doc = makeHelpDoc({ usage: "axm init [flags]" });
+      const doc = makeHelpDoc({ usage: "axm setup [flags]" });
       const output = formatter.formatHelpDoc(doc);
       expect(output).not.toContain("▄▀█ ▀▄▀ █▀▄▀█");
     });
@@ -121,7 +121,7 @@ describe("makeAxmFormatter", () => {
           {
             group: "GETTING STARTED",
             commands: [
-              { name: "init", alias: undefined, shortDescription: "Initialize", description: "" },
+              { name: "setup", alias: undefined, shortDescription: "Initialize", description: "" },
             ],
           },
         ],

@@ -108,16 +108,16 @@ describe("TelemetryClientLive", () => {
     it.effect("reportError sends POST to /errors with correct payload shape", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("all", "init", mock);
+        const telemetry = yield* getTelemetry("all", "setup", mock);
 
         yield* telemetry.reportError({
           name: "WORKSPACE_NOT_FOUND",
           message: "Workspace not initialized",
           details: ["some detail"],
-          howToFix: "Run axm init",
+          howToFix: "Run axm setup",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -143,7 +143,7 @@ describe("TelemetryClientLive", () => {
         expect(property(body, "fingerprint")).toEqual(["WORKSPACE_NOT_FOUND"]);
         expect(typeof property(expectRecord(property(body, "user")), "id")).toBe("string");
         expect(typeof property(body, "sentAt")).toBe("string");
-        expect(expectRecord(property(body, "context"))).toHaveProperty("command", "init");
+        expect(expectRecord(property(body, "context"))).toHaveProperty("command", "setup");
         expect(expectRecord(property(body, "context"))).toHaveProperty("client");
       }),
     );
@@ -153,7 +153,7 @@ describe("TelemetryClientLive", () => {
     it.effect("sends nothing for trackEvent or reportError", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("off", "init", mock);
+        const telemetry = yield* getTelemetry("off", "setup", mock);
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -161,7 +161,7 @@ describe("TelemetryClientLive", () => {
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -174,7 +174,7 @@ describe("TelemetryClientLive", () => {
     it.effect("skips trackEvent but sends reportError", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("errors", "init", mock);
+        const telemetry = yield* getTelemetry("errors", "setup", mock);
 
         yield* telemetry.trackEvent("command:start");
         yield* Effect.yieldNow;
@@ -185,7 +185,7 @@ describe("TelemetryClientLive", () => {
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -200,7 +200,7 @@ describe("TelemetryClientLive", () => {
       Effect.gen(function* () {
         process.env["VITEST"] = "true";
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("all", "init", mock);
+        const telemetry = yield* getTelemetry("all", "setup", mock);
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -208,7 +208,7 @@ describe("TelemetryClientLive", () => {
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -251,7 +251,7 @@ describe("TelemetryClientLive", () => {
     it.effect("HTTP payload preserves JSON types (numbers stay numbers)", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("all", "init", mock);
+        const telemetry = yield* getTelemetry("all", "setup", mock);
 
         yield* telemetry.trackEvent("test_event", {
           count: 42,
@@ -296,14 +296,14 @@ describe("TelemetryClientLive", () => {
     it.effect("reportError delegates to generated ErrorsIngest via POST /v1/errors", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("all", "init", mock);
+        const telemetry = yield* getTelemetry("all", "setup", mock);
 
         yield* telemetry.reportError({
           name: "ERR",
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -327,7 +327,7 @@ describe("TelemetryClientLive", () => {
         const telemetryLayer = Layer.provide(
           TelemetryClientLive({
             mode: "all",
-            command: "init",
+            command: "setup",
             client: { name: "cli", version: "1.2.3" },
           }),
           Layer.succeed(HttpClient.HttpClient, hangingClient),
@@ -350,7 +350,7 @@ describe("TelemetryClientLive", () => {
         const telemetryLayer = Layer.provide(
           TelemetryClientLive({
             mode: "all",
-            command: "init",
+            command: "setup",
             client: { name: "cli", version: "1.2.3" },
           }),
           Layer.succeed(HttpClient.HttpClient, failingClient),
@@ -363,7 +363,7 @@ describe("TelemetryClientLive", () => {
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -381,7 +381,7 @@ describe("TelemetryClientLive", () => {
         const telemetryLayer = Layer.provide(
           TelemetryClientLive({
             mode: "all",
-            command: "init",
+            command: "setup",
             client: { name: "cli", version: "1.2.3" },
           }),
           Layer.succeed(HttpClient.HttpClient, errorClient),
@@ -394,7 +394,7 @@ describe("TelemetryClientLive", () => {
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -417,7 +417,7 @@ describe("TelemetryClientLive", () => {
         const telemetryLayer = Layer.provide(
           TelemetryClientLive({
             mode: "all",
-            command: "init",
+            command: "setup",
             client: { name: "cli", version: "1.2.3" },
           }),
           Layer.succeed(HttpClient.HttpClient, transportErrorClient),
@@ -430,7 +430,7 @@ describe("TelemetryClientLive", () => {
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 
@@ -461,7 +461,7 @@ describe("TelemetryClientLive", () => {
         const telemetryLayer = Layer.provide(
           TelemetryClientLive({
             mode: "all",
-            command: "init",
+            command: "setup",
             client: { name: "cli", version: "1.2.3" },
           }),
           Layer.succeed(HttpClient.HttpClient, error400Client),
@@ -474,7 +474,7 @@ describe("TelemetryClientLive", () => {
           message: "msg",
           level: "error",
           handled: true,
-          command: "init",
+          command: "setup",
         });
         yield* Effect.yieldNow;
 

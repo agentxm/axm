@@ -17,6 +17,7 @@ import * as ServiceMap from "effect/Context";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { scopeFlag } from "../cli-flags.js";
+import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { withRuntime } from "../runtime.js";
 
 const SubagentFileSchema = Schema.Struct({
@@ -31,7 +32,7 @@ const SubagentSummarySchema = Schema.Struct({
   files: Schema.Array(SubagentFileSchema),
 });
 
-const InitResultSchema = Schema.Struct({
+const SetupResultSchema = Schema.Struct({
   scope: Schema.String,
   agents: Schema.Array(
     Schema.Struct({
@@ -44,8 +45,8 @@ const InitResultSchema = Schema.Struct({
   subagentFiles: Schema.optional(Schema.Array(SubagentSummarySchema)),
 });
 
-const InitDocumentFields = {
-  result: InitResultSchema,
+const SetupDocumentFields = {
+  result: SetupResultSchema,
 } satisfies Schema.Struct.Fields;
 
 /**
@@ -77,7 +78,7 @@ const renderSubagentSummary = (
       }
     }
   });
-export const handleInit = Effect.fn("Init.handle")(function* (args: {
+export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   readonly scope: WorkspaceScope;
   readonly agents?: ReadonlyArray<string>;
 }) {
@@ -119,7 +120,7 @@ export const handleInit = Effect.fn("Init.handle")(function* (args: {
 
   if (
     yield* renderer.document(
-      "init",
+      "setup",
       {
         result: {
           scope: location.scope,
@@ -129,14 +130,17 @@ export const handleInit = Effect.fn("Init.handle")(function* (args: {
           ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
         },
       },
-      InitDocumentFields,
+      SetupDocumentFields,
     )
   ) {
     return;
   }
 
   // Show intro
-  yield* renderer.info(`axm init (${location.scope})`);
+  yield* renderer.message("");
+  yield* renderer.message(BRANDING);
+  yield* renderer.message("");
+  yield* renderer.info(`axm setup (${location.scope})`);
   if (allAgents.length > 0) {
     yield* renderer.info(`Agents: ${agentNames}`);
   }
@@ -157,7 +161,7 @@ export const handleInit = Effect.fn("Init.handle")(function* (args: {
   }
 }, Effect.asVoid);
 
-const initConfig = {
+const setupConfig = {
   scope: scopeFlag,
   agent: Flag.string("agent").pipe(
     Flag.withDescription("Specify agent(s) to configure (skips auto-detection)"),
@@ -168,20 +172,20 @@ const initConfig = {
   preview: previewFlag,
 } as const;
 
-export const initCommand = Command.make("init", initConfig, ({ scope, agent }) =>
-  handleInit({ scope, ...(agent.length > 0 ? { agents: agent } : {}) }).pipe(withRuntime("init")),
+export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent }) =>
+  handleSetup({ scope, ...(agent.length > 0 ? { agents: agent } : {}) }).pipe(withRuntime("setup")),
 ).pipe(
-  withArgvTracking(initConfig),
+  withArgvTracking(setupConfig),
   Command.withDescription("Set up axm in the current project"),
   Command.withExamples([
-    { command: "axm init", description: "Detect installed agents and create .axm/settings.json" },
+    { command: "axm setup", description: "Detect installed agents and create .axm/settings.json" },
     {
-      command: "axm init --non-interactive",
+      command: "axm setup --non-interactive",
       description: "Initialize with all detected agents (no prompts)",
     },
-    { command: "axm init --scope user", description: "Initialize in ~/.axm/ for user scope" },
+    { command: "axm setup --scope user", description: "Initialize in ~/.axm/ for user scope" },
     {
-      command: "axm init --agent claude-code --agent cursor",
+      command: "axm setup --agent claude-code --agent cursor",
       description: "Initialize with specific agents",
     },
   ]),

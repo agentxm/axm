@@ -168,7 +168,7 @@ const requireInitializedWorkspace = (settingsPath: string, workspaceDir: string)
             makeAppError({
               code: "WORKSPACE_NOT_INITIALIZED",
               what: `Workspace settings not found: ${settingsPath}`,
-              howToFix: "Run `axm init` to create the workspace.",
+              howToFix: "Run `axm setup` to create the workspace.",
             }),
           ),
         onSome: () => Effect.void,

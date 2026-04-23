@@ -42,7 +42,7 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
 - **WHEN** the user runs `axm skills new my-skill` and no profile is configured (or the configured profile is `@community`)
 - **THEN** the CLI fails with an error indicating a profile is required
-- **AND** suggests using `--profile` or configuring a profile via `axm init`
+- **AND** suggests using `--profile` or configuring a profile via `axm setup`
 
 ### Requirement: Starter SKILL.md template
 

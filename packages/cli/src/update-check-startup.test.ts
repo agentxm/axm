@@ -194,7 +194,7 @@ describe("isUpgradeCommand", () => {
 
   it("returns false for other commands", () => {
     expect(isUpgradeCommand(["skills", "list"])).toBe(false);
-    expect(isUpgradeCommand(["init"])).toBe(false);
+    expect(isUpgradeCommand(["setup"])).toBe(false);
     expect(isUpgradeCommand([])).toBe(false);
   });
 });

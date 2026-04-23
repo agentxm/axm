@@ -90,7 +90,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
                   code: "NAMESPACE_REQUIRED",
                   what: "No profile configured for subagent creation",
                   howToFix:
-                    "Configure a profile in settings.json with `axm init`, or use --profile",
+                    "Configure a profile in settings.json with `axm setup`, or use --profile",
                 }),
               )
             : Effect.succeed(s),

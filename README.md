@@ -51,6 +51,12 @@ curl -fsSL https://axm.sh/install.sh | sh
 irm https://axm.sh/install.ps1 | iex
 ```
 
+**Windows (CMD):**
+
+```cmd
+curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd
+```
+
 **Homebrew:**
 
 ```bash

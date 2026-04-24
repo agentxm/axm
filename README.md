@@ -11,7 +11,11 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/agentxm/axm/ci.yml?branch=main&label=CI)](https://github.com/agentxm/axm/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-# axm CLI — Extension manager for coding agents and AI assistants
+# Extension manager for coding agents and AI assistants
+
+- Manage agent skills, subagents, commands, MCP servers and more. Use the right tool(s) for the job.
+- Bundle extensions with extension packs to share workflows across projects, teams, and others.
+- Switch effortlessly between coding agents, bringing your workflow with you. Avoid lock-in.
 
 > [!WARNING]
 > axm is in **early alpha** testing. Capabilities and APIs may change. To be

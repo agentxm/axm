@@ -192,7 +192,24 @@ export interface WorkspaceLintAccessor {
  */
 export interface SkillRuleContext<S = SkillContent> {
   readonly subject: S;
+  /**
+   * Content-root accessor. Rooted at the directory containing `SKILL.md`.
+   * For native (registry-installed) skills this is the `src/` sub-directory
+   * of the extension package; for non-native skills it is the skill's own
+   * directory. Rules validating skill content (`skill-md-present`,
+   * `frontmatter-parseable`, and any future rule evaluating files that
+   * render into agent directories) read through this accessor.
+   */
   readonly files: SkillFileAccessor;
+  /**
+   * Package-root accessor. Rooted at the skill's extension package root —
+   * the directory containing `skill.json` for native skills. For non-native
+   * skills that have no package/content split, this MAY alias `files`.
+   * Rules validating package-shape concerns (`manifest-present` and any
+   * future rule inspecting files at or above the content root) read through
+   * this accessor.
+   */
+  readonly packageFiles: SkillFileAccessor;
   readonly displayRoot: string;
 }
 

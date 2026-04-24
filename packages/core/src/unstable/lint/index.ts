@@ -117,6 +117,7 @@ export {
   makePlatformWorkspaceLintAccessor,
   makeVftPackFileAccessor,
   makeVftSkillFileAccessor,
+  makeVftSkillFileAccessorScoped,
   packRules,
   PER_EXTENSION_OPERATION_NAMES,
   registryNativeSkillDisplayRoot,

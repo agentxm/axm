@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v6.3.0
@@ -42,6 +44,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Create local main ref for affected/base diff
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin main:main
 
       - name: Check release plan
         if: github.event_name == 'pull_request'

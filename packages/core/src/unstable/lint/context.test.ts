@@ -102,15 +102,16 @@ describe("WorkspaceLintAccessor surface area", () => {
 // -----------------------------------------------------------------------------
 
 describe("Rule-context types", () => {
-  it("SkillRuleContext carries subject, files, displayRoot", () => {
+  it("SkillRuleContext carries subject, files, packageFiles, displayRoot", () => {
     const ctx: SkillRuleContext = {
       subject: { isNative: true, skillJson: undefined },
       files: makeSkillAccessor(),
+      packageFiles: makeSkillAccessor(),
       displayRoot: ".axm/extensions/@acme/skills/axm/src",
     };
 
     expect(ctx.displayRoot).toBe(".axm/extensions/@acme/skills/axm/src");
-    expect(Object.keys(ctx).sort()).toEqual(["displayRoot", "files", "subject"]);
+    expect(Object.keys(ctx).sort()).toEqual(["displayRoot", "files", "packageFiles", "subject"]);
   });
 
   it("PackRuleContext carries subject, files, displayRoot", () => {

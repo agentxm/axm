@@ -23,7 +23,11 @@ export { packRules } from "./pack.js";
 export { workspaceRules } from "./workspace.js";
 
 // Phase 3a accessor + context-builder helpers.
-export { makeVftSkillFileAccessor, type VFTNode } from "./skill-accessor/vft.js";
+export {
+  makeVftSkillFileAccessor,
+  makeVftSkillFileAccessorScoped,
+  type VFTNode,
+} from "./skill-accessor/vft.js";
 export {
   makePlatformSkillFileAccessor,
   type SkillAccessorPlatform,

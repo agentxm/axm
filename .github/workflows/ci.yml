@@ -45,6 +45,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Create local main ref for affected/base diff
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin main:main
+
       - name: Check release plan
         if: github.event_name == 'pull_request'
         run: pnpm release:plan:check

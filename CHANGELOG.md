@@ -1,3 +1,14 @@
+## 0.4.4 (2026-04-24)
+
+### 🩹 Fixes
+
+- Fix skill-content vs package-root accessor mismatch in lint engine ([#3](https://github.com/agentxm/axm/pull/3))
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Craig Smitham
+
 ## 0.4.3 (2026-04-24)
 
 ### 🩹 Fixes

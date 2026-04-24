@@ -1,3 +1,15 @@
+## 0.4.5 (2026-04-24)
+
+### 🩹 Fixes
+
+- Ship `install.cmd` from `@agentxm/client-core` so `axm.sh` can host the Windows ([01567596](https://github.com/agentxm/axm/commit/01567596))
+  CMD installer, and refresh the managed `@agentxm/skills/axm` guidance for the
+  current CLI surface and failure-handling/accessibility rules.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.4.4 (2026-04-24)
 
 ### 🩹 Fixes

@@ -1,9 +1,14 @@
 {
   "name": "@agentxm/client-core",
   "version": "0.4.2",
-  "description": "Core library for the axm agent extension manager",
+  "description": "Core library for the axm agent extension manager. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
   "repository": {
     "type": "git",
     "url": "https://github.com/agentxm/axm.git",
@@ -11,175 +16,176 @@
   },
   "exports": {
     "./unstable/app-error": {
-      "types": "./src/unstable/app-error/index.ts",
+      "types": "./dist/src/unstable/app-error/index.d.ts",
       "default": "./dist/src/unstable/app-error/index.js"
     },
     "./unstable/prompt-cancelled": {
-      "types": "./src/unstable/cli-prompt/prompt-cancelled.ts",
+      "types": "./dist/src/unstable/cli-prompt/prompt-cancelled.d.ts",
       "default": "./dist/src/unstable/cli-prompt/prompt-cancelled.js"
     },
     "./unstable/version-constraints": {
-      "types": "./src/unstable/version-constraints/version-constraints.ts",
+      "types": "./dist/src/unstable/version-constraints/version-constraints.d.ts",
       "default": "./dist/src/unstable/version-constraints/version-constraints.js"
     },
     "./unstable/branding": {
-      "types": "./src/unstable/branding.ts",
+      "types": "./dist/src/unstable/branding.d.ts",
       "default": "./dist/src/unstable/branding.js"
     },
     "./unstable/date-time": {
-      "types": "./src/unstable/date-time.ts",
+      "types": "./dist/src/unstable/date-time.d.ts",
       "default": "./dist/src/unstable/date-time.js"
     },
     "./unstable/utils": {
-      "types": "./src/unstable/utils/index.ts",
+      "types": "./dist/src/unstable/utils/index.d.ts",
       "default": "./dist/src/unstable/utils/index.js"
     },
     "./unstable/agents": {
-      "types": "./src/unstable/agents/index.ts",
+      "types": "./dist/src/unstable/agents/index.d.ts",
       "default": "./dist/src/unstable/agents/index.js"
     },
     "./unstable/extensions": {
-      "types": "./src/unstable/extensions/index.ts",
+      "types": "./dist/src/unstable/extensions/index.d.ts",
       "default": "./dist/src/unstable/extensions/index.js"
     },
     "./unstable/extensions/common": {
-      "types": "./src/unstable/extensions/common.ts",
+      "types": "./dist/src/unstable/extensions/common.d.ts",
       "default": "./dist/src/unstable/extensions/common.js"
     },
     "./unstable/extensions/fqn": {
-      "types": "./src/unstable/extensions/fqn.ts",
+      "types": "./dist/src/unstable/extensions/fqn.d.ts",
       "default": "./dist/src/unstable/extensions/fqn.js"
     },
     "./unstable/extensions/handle": {
-      "types": "./src/unstable/extensions/handle.ts",
+      "types": "./dist/src/unstable/extensions/handle.d.ts",
       "default": "./dist/src/unstable/extensions/handle.js"
     },
     "./unstable/extensions/registry-source": {
-      "types": "./src/unstable/extensions/registry-source.ts",
+      "types": "./dist/src/unstable/extensions/registry-source.d.ts",
       "default": "./dist/src/unstable/extensions/registry-source.js"
     },
     "./unstable/lockfile": {
-      "types": "./src/unstable/lockfile/index.ts",
+      "types": "./dist/src/unstable/lockfile/index.d.ts",
       "default": "./dist/src/unstable/lockfile/index.js"
     },
     "./unstable/schema": {
-      "types": "./src/unstable/schema/index.ts",
+      "types": "./dist/src/unstable/schema/index.d.ts",
       "default": "./dist/src/unstable/schema/index.js"
     },
     "./unstable/settings": {
-      "types": "./src/unstable/settings/index.ts",
+      "types": "./dist/src/unstable/settings/index.d.ts",
       "default": "./dist/src/unstable/settings/index.js"
     },
     "./unstable/sources": {
-      "types": "./src/unstable/sources/index.ts",
+      "types": "./dist/src/unstable/sources/index.d.ts",
       "default": "./dist/src/unstable/sources/index.js"
     },
     "./unstable/cli-flags": {
-      "types": "./src/unstable/cli-flags/index.ts",
+      "types": "./dist/src/unstable/cli-flags/index.d.ts",
       "default": "./dist/src/unstable/cli-flags/index.js"
     },
     "./unstable/cli-runtime": {
-      "types": "./src/unstable/cli-runtime/index.ts",
+      "types": "./dist/src/unstable/cli-runtime/index.d.ts",
       "default": "./dist/src/unstable/cli-runtime/index.js"
     },
     "./unstable/telemetry": {
-      "types": "./src/unstable/telemetry/index.ts",
+      "types": "./dist/src/unstable/telemetry/index.d.ts",
       "default": "./dist/src/unstable/telemetry/index.js"
     },
     "./unstable/cli-renderer": {
-      "types": "./src/unstable/cli-renderer/index.ts",
+      "types": "./dist/src/unstable/cli-renderer/index.d.ts",
       "default": "./dist/src/unstable/cli-renderer/index.js"
     },
     "./unstable/git": {
-      "types": "./src/unstable/git/index.ts",
+      "types": "./dist/src/unstable/git/index.d.ts",
       "default": "./dist/src/unstable/git/index.js"
     },
     "./unstable/registry": {
-      "types": "./src/unstable/registry/index.ts",
+      "types": "./dist/src/unstable/registry/index.d.ts",
       "default": "./dist/src/unstable/registry/index.js"
     },
     "./unstable/auth": {
-      "types": "./src/unstable/auth/index.ts",
+      "types": "./dist/src/unstable/auth/index.d.ts",
       "default": "./dist/src/unstable/auth/index.js"
     },
     "./unstable/plan": {
-      "types": "./src/unstable/plan/index.ts",
+      "types": "./dist/src/unstable/plan/index.d.ts",
       "default": "./dist/src/unstable/plan/index.js"
     },
     "./unstable/lint": {
-      "types": "./src/unstable/lint/index.ts",
+      "types": "./dist/src/unstable/lint/index.d.ts",
       "default": "./dist/src/unstable/lint/index.js"
     },
     "./unstable/workspace": {
-      "types": "./src/unstable/workspace/index.ts",
+      "types": "./dist/src/unstable/workspace/index.d.ts",
       "default": "./dist/src/unstable/workspace/index.js"
     },
     "./unstable/source-resolution": {
-      "types": "./src/unstable/source-resolution/index.ts",
+      "types": "./dist/src/unstable/source-resolution/index.d.ts",
       "default": "./dist/src/unstable/source-resolution/index.js"
     },
     "./unstable/skills": {
-      "types": "./src/unstable/skills/index.ts",
+      "types": "./dist/src/unstable/skills/index.d.ts",
       "default": "./dist/src/unstable/skills/index.js"
     },
     "./unstable/packs": {
-      "types": "./src/unstable/packs/index.ts",
+      "types": "./dist/src/unstable/packs/index.d.ts",
       "default": "./dist/src/unstable/packs/index.js"
     },
     "./unstable/commands": {
-      "types": "./src/unstable/commands/index.ts",
+      "types": "./dist/src/unstable/commands/index.d.ts",
       "default": "./dist/src/unstable/commands/index.js"
     },
     "./unstable/mcp-servers": {
-      "types": "./src/unstable/mcp-servers/index.ts",
+      "types": "./dist/src/unstable/mcp-servers/index.d.ts",
       "default": "./dist/src/unstable/mcp-servers/index.js"
     },
     "./unstable/workflows": {
-      "types": "./src/unstable/workflows/index.ts",
+      "types": "./dist/src/unstable/workflows/index.d.ts",
       "default": "./dist/src/unstable/workflows/index.js"
     },
     "./unstable/publish": {
-      "types": "./src/unstable/publish/index.ts",
+      "types": "./dist/src/unstable/publish/index.d.ts",
       "default": "./dist/src/unstable/publish/index.js"
     },
     "./unstable/site-content/schemas/*": "./site-content/__generated__/schemas/*",
     "./unstable/site-content/*": "./site-content/*",
     "./unstable/install-method": {
-      "types": "./src/unstable/install-method/install-method.ts",
+      "types": "./dist/src/unstable/install-method/install-method.d.ts",
       "default": "./dist/src/unstable/install-method/install-method.js"
     },
     "./unstable/install-meta": {
-      "types": "./src/unstable/install-meta/install-meta.ts",
+      "types": "./dist/src/unstable/install-meta/install-meta.d.ts",
       "default": "./dist/src/unstable/install-meta/install-meta.js"
     },
     "./unstable/update-check": {
-      "types": "./src/unstable/update-check/update-check.ts",
+      "types": "./dist/src/unstable/update-check/update-check.d.ts",
       "default": "./dist/src/unstable/update-check/update-check.js"
     },
     "./unstable/version-resolution": {
-      "types": "./src/unstable/version-resolution/version-resolution.ts",
+      "types": "./dist/src/unstable/version-resolution/version-resolution.d.ts",
       "default": "./dist/src/unstable/version-resolution/version-resolution.js"
     },
     "./unstable/packaging": {
-      "types": "./src/unstable/packaging/index.ts",
+      "types": "./dist/src/unstable/packaging/index.d.ts",
       "default": "./dist/src/unstable/packaging/index.js"
     },
     "./unstable/discover": {
-      "types": "./src/unstable/discover/index.ts",
+      "types": "./dist/src/unstable/discover/index.d.ts",
       "default": "./dist/src/unstable/discover/index.js"
     },
     "./unstable/subagents": {
-      "types": "./src/unstable/subagents/index.ts",
+      "types": "./dist/src/unstable/subagents/index.d.ts",
       "default": "./dist/src/unstable/subagents/index.js"
     },
     "./unstable/cli/prompt": {
-      "types": "./src/unstable/cli/prompt/index.ts",
+      "types": "./dist/src/unstable/cli/prompt/index.d.ts",
       "default": "./dist/src/unstable/cli/prompt/index.js"
     }
   },
   "files": [
     "dist/src/",
-    "site-content/"
+    "site-content/",
+    "!**/*.map"
   ],
   "publishConfig": {
     "access": "public"
@@ -201,7 +207,7 @@
     "simple-git": "^3.33.0"
   },
   "devDependencies": {
-    "@agentxm/client-utils": "workspace:*",
+    "@agentxm/client-utils": "workspace:^",
     "@effect/openapi-generator": "4.0.0-beta.50",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",

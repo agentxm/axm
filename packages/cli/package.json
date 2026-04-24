@@ -1,9 +1,14 @@
 {
   "name": "axm.sh",
   "version": "0.4.2",
-  "description": "Open agent extension manager for skills and more",
+  "description": "Extension manager for AI coding agents — install skills, subagents, slash commands, and MCP servers across Claude Code, Codex, Cursor, Copilot, and more.",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
   "repository": {
     "type": "git",
     "url": "https://github.com/agentxm/axm.git",
@@ -11,61 +16,41 @@
   },
   "keywords": [
     "agent",
-    "extension",
+    "agents",
+    "ai-agent",
+    "agent-extensions",
+    "agent-skills",
+    "extensions",
+    "extension-manager",
+    "cli",
+    "anthropic",
+    "mcp",
+    "mcp-server",
+    "skill",
     "skills",
-    "cli"
+    "subagent",
+    "subagents",
+    "slash-commands",
+    "extension-pack",
+    "claude-code",
+    "github-copilot",
+    "cursor",
+    "gemini-cli",
+    "codex",
+    "opencode",
+    "windsurf",
+    "cline",
+    "goose",
+    "qwen-code"
   ],
-  "exports": {
-    "./agents/index.js": {
-      "types": "./src/agents/index.ts",
-      "default": "./src/agents/index.js"
-    },
-    "./agents/types.js": {
-      "types": "./src/agents/types.ts",
-      "default": "./src/agents/types.js"
-    },
-    "./extensions/common.js": {
-      "types": "./src/extensions/common.ts",
-      "default": "./src/extensions/common.js"
-    },
-    "./extensions/sources.js": {
-      "types": "./src/extensions/sources.ts",
-      "default": "./src/extensions/sources.js"
-    },
-    "./schemas/lockfile.js": {
-      "types": "./src/lockfile/schema.ts",
-      "default": "./src/lockfile/schema.js"
-    },
-    "./schemas/settings.js": {
-      "types": "./src/settings/schema.ts",
-      "default": "./src/settings/schema.js"
-    },
-    "./extensions/skills": {
-      "types": "./src/extensions/skills/index.ts",
-      "default": "./src/extensions/skills/index.js"
-    },
-    "./extensions/skills/lockfile.js": {
-      "types": "./src/lockfile/lockfile.ts",
-      "default": "./src/lockfile/lockfile.js"
-    },
-    "./extensions/skills/settings.js": {
-      "types": "./src/settings/settings.ts",
-      "default": "./src/settings/settings.js"
-    },
-    "./extensions/skills/state/pure-functions.js": {
-      "types": "./src/extensions/skills/state/pure-functions.ts",
-      "default": "./src/extensions/skills/state/pure-functions.js"
-    },
-    "./extensions/skills/state/types.js": {
-      "types": "./src/extensions/skills/state/types.ts",
-      "default": "./src/extensions/skills/state/types.js"
-    }
-  },
   "bin": {
     "axm": "./dist/src/main.js"
   },
   "files": [
-    "dist/src/"
+    "dist/src/",
+    "!dist/src/test-helpers.*",
+    "!dist/src/test-stubs.*",
+    "!**/*.map"
   ],
   "publishConfig": {
     "access": "public"
@@ -77,8 +62,8 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@agentxm/client-core": "workspace:*",
-    "@agentxm/client-utils": "workspace:*",
+    "@agentxm/client-core": "workspace:^",
+    "@agentxm/client-utils": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "gray-matter": "^4.0.3",

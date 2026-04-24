@@ -1,9 +1,14 @@
 {
   "name": "@agentxm/client-utils",
   "version": "0.4.2",
-  "description": "Shared primitive utilities for axm workspaces",
+  "description": "Shared primitive utilities for axm workspaces. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
   "repository": {
     "type": "git",
     "url": "https://github.com/agentxm/axm.git",
@@ -11,16 +16,17 @@
   },
   "exports": {
     "./unstable/env": {
-      "types": "./src/unstable/env/index.ts",
+      "types": "./dist/src/unstable/env/index.d.ts",
       "default": "./dist/src/unstable/env/index.js"
     },
     "./unstable/interaction": {
-      "types": "./src/unstable/interaction/interaction.ts",
+      "types": "./dist/src/unstable/interaction/interaction.d.ts",
       "default": "./dist/src/unstable/interaction/interaction.js"
     }
   },
   "files": [
-    "dist/src/"
+    "dist/src/",
+    "!**/*.map"
   ],
   "publishConfig": {
     "access": "public"

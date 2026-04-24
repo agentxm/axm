@@ -107,10 +107,10 @@ importers:
   packages/cli:
     dependencies:
       '@agentxm/client-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@agentxm/client-utils':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../utils
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -230,7 +230,7 @@ importers:
         version: 3.33.0
     devDependencies:
       '@agentxm/client-utils':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../utils
       '@effect/openapi-generator':
         specifier: 4.0.0-beta.50

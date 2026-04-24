@@ -1,3 +1,13 @@
+## 0.4.3 (2026-04-24)
+
+### 🩹 Fixes
+
+- Ship package metadata and published package docs for axm CLI artifacts ([a5b705d5](https://github.com/agentxm/axm/commit/a5b705d5))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.4.2 (2026-04-24)
 
 ### 🩹 Fixes

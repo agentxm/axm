@@ -1,3 +1,13 @@
+## 0.4.2 (2026-04-24)
+
+### 🩹 Fixes
+
+- Publish persistent-install guidance in @agentxm/client-core site content. ([327fdf19](https://github.com/agentxm/axm/commit/327fdf19))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.4.1 (2026-04-24)
 
 ### 🩹 Fixes

@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/client-utils",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Shared primitive utilities for axm workspaces",
   "type": "module",
   "license": "MIT",

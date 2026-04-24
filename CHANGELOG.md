@@ -1,3 +1,13 @@
+## 0.4.1 (2026-04-24)
+
+### 🩹 Fixes
+
+- Ship install.ps1 in @agentxm/client-core for axm.sh public route ([d6156416](https://github.com/agentxm/axm/commit/d6156416))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.4.0 (2026-04-23)
 
 ### 🚀 Features

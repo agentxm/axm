@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/client-core",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Core library for the axm agent extension manager",
   "type": "module",
   "license": "MIT",

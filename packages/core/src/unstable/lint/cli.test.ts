@@ -92,6 +92,7 @@ const stubWorkspaceAccessor: WorkspaceLintAccessor = {
 const skillCtx: SkillRuleContext = {
   subject: { isNative: true, skillJson: undefined },
   files: stubSkillAccessor,
+  packageFiles: stubSkillAccessor,
   displayRoot: ".axm/extensions/@acme/skills/demo/src",
 };
 

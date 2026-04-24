@@ -23,6 +23,7 @@ const absentAccessor: SkillFileAccessor = {
 const makeContext = (subject: SkillContent): SkillRuleContext => ({
   subject,
   files: absentAccessor,
+  packageFiles: absentAccessor,
   displayRoot: "",
 });
 

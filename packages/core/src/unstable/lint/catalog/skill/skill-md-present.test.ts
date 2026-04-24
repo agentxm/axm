@@ -18,11 +18,15 @@ const makeAccessor = (present: boolean): SkillFileAccessor => ({
     }),
 });
 
-const makeContext = (present: boolean): SkillRuleContext => ({
-  subject: { isNative: false, skillJson: undefined },
-  files: makeAccessor(present),
-  displayRoot: "",
-});
+const makeContext = (present: boolean): SkillRuleContext => {
+  const accessor = makeAccessor(present);
+  return {
+    subject: { isNative: false, skillJson: undefined },
+    files: accessor,
+    packageFiles: accessor,
+    displayRoot: "",
+  };
+};
 
 describe("skill/skill-md-present", () => {
   it.effect("produces zero findings when SKILL.md is present", () =>

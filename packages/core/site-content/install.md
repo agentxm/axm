@@ -34,14 +34,27 @@ extensions; public extensions install without an account.
 
 ## Detect existing install
 
-Before installing, check whether axm is already on the machine:
+Before installing, check whether axm is already on the machine. This is a
+**probe** — "not installed" is an expected outcome, not a failure. Invoke it
+so the shell exits 0 on either branch and the signal lives in stdout (see
+**Probe commands** under Invariants):
+
+On macOS / Linux:
 
 ```bash
-axm --version
+command -v axm >/dev/null 2>&1 && axm --version || echo "NOT_INSTALLED"
 ```
 
-- **Succeeds** (prints `X.Y.Z`) → axm is installed. Upgrade it to the latest
-  version and skip the Install section:
+On Windows (PowerShell):
+
+```powershell
+if (Get-Command axm -ErrorAction SilentlyContinue) { axm --version } else { "NOT_INSTALLED" }
+```
+
+Branch on the output:
+
+- **Prints `X.Y.Z`** → axm is installed. Upgrade it to the latest version
+  and skip the Install section:
 
   ```bash
   axm upgrade
@@ -50,13 +63,12 @@ axm --version
   `axm upgrade` auto-detects how axm was installed. For script installs it
   downloads and swaps the binary in place. For Homebrew or npm installs it
   prints the exact command to run (`brew upgrade agentxm/tap/axm` or
-  `npm update -g axm.sh`) — run whichever it emits, then re-run
-  `axm --version`. Continue to **Verify** when done.
+  `npm update -g axm.sh`) — run whichever it emits, then re-run the probe
+  above. Continue to **Verify** when done.
 
-- **Fails** with `command not found` → axm is not installed. Continue to
-  **Install**.
-- **Fails** with any other error → treat as not installed and reinstall via
-  the Install section.
+- **Prints `NOT_INSTALLED`** → axm is not installed. Continue to **Install**.
+- **Prints anything else** → treat as not installed and reinstall via the
+  Install section.
 
 ## Choose install method
 
@@ -187,10 +199,12 @@ axm --version
 
 ---
 
-EXECUTE NOW: Run `axm --version`. If it succeeds, run `axm upgrade`. If it
-fails, detect available package managers per **Choose install method**, ask
-the user if more than one is available, and run the chosen installer. Stop
-when `axm --version` succeeds, then proceed to **Check sign-in state**.
+EXECUTE NOW: Run the probe from **Detect existing install** (not bare
+`axm --version` — see **Probe commands** under Invariants). If the output
+is `X.Y.Z`, run `axm upgrade`. If the output is `NOT_INSTALLED`, detect
+available package managers per **Choose install method**, ask the user if
+more than one is available, and run the chosen installer. Stop when the
+probe prints `X.Y.Z`, then proceed to **Check sign-in state**.
 
 ---
 
@@ -198,15 +212,29 @@ when `axm --version` succeeds, then proceed to **Check sign-in state**.
 
 axm is installed. Before continuing, detect whether this machine is already
 signed in to AgentXM.ai — the result decides whether to ask the user about
-signing in or skip straight to workspace setup.
+signing in or skip straight to workspace setup. This is a **probe** — "not
+signed in" is an expected outcome, not a failure. Invoke it so the shell
+exits 0 on either branch and the signal lives in stdout (see **Probe
+commands** under Invariants):
+
+On macOS / Linux:
 
 ```bash
-axm whoami --json
+axm whoami --json 2>/dev/null || echo '{"type":"error","code":"AUTH_LOGIN_REQUIRED"}'
 ```
 
-- **Exit 0 with an identity** → already signed in. Skip to **Workspace setup**.
-- **Exit non-zero** (for example, error code `AUTH_LOGIN_REQUIRED`) → not
-  signed in. Continue to **Ask the user what to do next**.
+On Windows (PowerShell):
+
+```powershell
+try { axm whoami --json } catch { '{"type":"error","code":"AUTH_LOGIN_REQUIRED"}' }
+```
+
+Branch on the JSON `type` field in stdout:
+
+- **`type` is not `"error"`** (identity payload) → already signed in. Skip
+  to **Workspace setup**.
+- **`type` is `"error"`** (typically with `code` = `AUTH_LOGIN_REQUIRED`) →
+  not signed in. Continue to **Ask the user what to do next**.
 
 ## Ask the user what to do next
 
@@ -272,16 +300,18 @@ Offer both paths and let the user pick:
   paste a token the user has not shared with you.
 
 Wait for the user to confirm sign-in is complete. Tell them you're about to
-re-run `axm whoami --json` to verify the sign-in succeeded before moving
-on:
+re-run the sign-in probe to verify the sign-in succeeded before moving on.
+Use the same wrapper form as **Check sign-in state** so an unfinished
+sign-in doesn't surface as a tool error:
 
 ```bash
-axm whoami --json
+axm whoami --json 2>/dev/null || echo '{"type":"error","code":"AUTH_LOGIN_REQUIRED"}'
 ```
 
-If it returns an identity, continue to **Workspace setup**. If not, the
-sign-in did not complete — explain which check failed and ask the user to
-retry the same path or switch paths.
+If the JSON `type` is not `"error"` (identity payload), continue to
+**Workspace setup**. If `type` is `"error"`, the sign-in did not complete —
+explain which check failed and ask the user to retry the same path or
+switch paths.
 
 ---
 
@@ -304,6 +334,14 @@ unmanaged skills), extension management, and publishing.
 
 ## Invariants
 
+- **Probe commands exit 0.** `axm --version` and `axm whoami --json` have
+  expected non-zero exit paths ("not installed", "not signed in") that are
+  part of the flow, not failures. Always invoke them using the wrappers in
+  **Detect existing install** and **Check sign-in state** so the shell
+  exits 0 on either branch and the signal lives in stdout; branch on the
+  output, not the exit code. Bare invocations surface expected non-zero
+  exits as tool errors in the agent's transcript, which is jarring and
+  implies something went wrong.
 - **Explain why you're asking.** Whenever you need the user's consent, input,
   or out-of-band action — picking an install method, running `axm login`,
   opening a signup URL, approving a command you'd otherwise run yourself —

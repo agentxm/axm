@@ -21,9 +21,23 @@ const makeAccessor = (skillJsonPresent: boolean): SkillFileAccessor => ({
     }),
 });
 
+const emptyAccessor = (): SkillFileAccessor => ({
+  exists: () => Effect.succeed(false),
+  readBytes: (path) =>
+    Effect.fail({
+      _tag: "FileAccessError" as const,
+      path,
+      reason: "read-error" as const,
+      message: "stubbed",
+    }),
+});
+
 const makeContext = (isNative: boolean, skillJsonPresent: boolean): SkillRuleContext => ({
   subject: { isNative, skillJson: undefined },
-  files: makeAccessor(skillJsonPresent),
+  // `files` (content root) intentionally does NOT carry `skill.json`; the rule
+  // reads through `packageFiles` (package root).
+  files: emptyAccessor(),
+  packageFiles: makeAccessor(skillJsonPresent),
   displayRoot: "",
 });
 

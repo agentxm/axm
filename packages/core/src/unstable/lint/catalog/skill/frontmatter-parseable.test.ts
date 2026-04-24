@@ -35,11 +35,15 @@ const makeAccessor = (content: string | undefined): SkillFileAccessor => ({
   },
 });
 
-const makeContext = (content: string | undefined): SkillRuleContext => ({
-  subject: { isNative: false, skillJson: undefined },
-  files: makeAccessor(content),
-  displayRoot: "",
-});
+const makeContext = (content: string | undefined): SkillRuleContext => {
+  const accessor = makeAccessor(content);
+  return {
+    subject: { isNative: false, skillJson: undefined },
+    files: accessor,
+    packageFiles: accessor,
+    displayRoot: "",
+  };
+};
 
 const VALID_FRONTMATTER = `---
 name: example

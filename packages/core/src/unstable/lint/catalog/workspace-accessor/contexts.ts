@@ -167,15 +167,17 @@ export interface BuildInstalledSkillInfoNativeArgs {
 export const buildNativeInstalledSkillInfo = (
   args: BuildInstalledSkillInfoNativeArgs,
 ): InstalledSkillInfo => {
-  const absoluteRoot = args.platform.path.resolve(
+  const packageRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `.axm/extensions/${args.owner}/skills/${args.name}/src`,
+    `.axm/extensions/${args.owner}/skills/${args.name}`,
   );
+  const contentRoot = args.platform.path.resolve(packageRoot, "src");
   return {
     isNative: true,
     skillJson: args.skillJson,
     displayRoot: registryNativeSkillDisplayRoot(args.owner, args.name),
-    files: makePlatformSkillFileAccessor(args.platform, absoluteRoot),
+    files: makePlatformSkillFileAccessor(args.platform, contentRoot),
+    packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
   };
 };
 
@@ -203,11 +205,13 @@ export const buildExternalInstalledSkillInfo = (
     args.workspaceRoot,
     `.axm/extensions/external/skills/${args.name}`,
   );
+  const accessor = makePlatformSkillFileAccessor(args.platform, absoluteRoot);
   return {
     isNative: false,
     skillJson: undefined,
     displayRoot: externalSkillDisplayRoot(args.name),
-    files: makePlatformSkillFileAccessor(args.platform, absoluteRoot),
+    files: accessor,
+    packageFiles: accessor,
   };
 };
 

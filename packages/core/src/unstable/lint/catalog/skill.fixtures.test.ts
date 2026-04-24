@@ -93,12 +93,18 @@ describe("skill catalog — fixtures", () => {
     const { case: fixture, tree } = loadCase(caseName);
     it.effect(`${caseName}: ${fixture.description}`, () =>
       Effect.gen(function* () {
+        const accessor = makeVftSkillFileAccessor(tree);
+        // Fixture layouts store `SKILL.md` and `skill.json` at the same tree
+        // root, so both accessors share it. Publish-path tests exercise the
+        // native split where `skill.json` is at the package root while
+        // `SKILL.md` lives under `src/`.
         const context: SkillRuleContext = {
           subject: {
             isNative: fixture.isNative,
             skillJson: decodeSkillJson(tree),
           },
-          files: makeVftSkillFileAccessor(tree),
+          files: accessor,
+          packageFiles: accessor,
           displayRoot: "",
         };
 

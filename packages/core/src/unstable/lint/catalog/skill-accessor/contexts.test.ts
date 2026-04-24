@@ -28,18 +28,30 @@ const absentAccessor: SkillFileAccessor = {
 
 describe("buildSkillRuleContexts", () => {
   it("returns one context per installed skill", () => {
+    const otherAccessor: SkillFileAccessor = {
+      exists: () => Effect.succeed(true),
+      readBytes: (path) =>
+        Effect.fail({
+          _tag: "FileAccessError" as const,
+          path,
+          reason: "read-error" as const,
+          message: "other",
+        }),
+    };
     const items: ReadonlyArray<InstalledSkillInfo> = [
       {
         isNative: true,
         skillJson: { owner: "@acme", type: "skill", name: "a", version: "0.1.0" },
         displayRoot: ".axm/extensions/@acme/skills/a/src",
         files: absentAccessor,
+        packageFiles: otherAccessor,
       },
       {
         isNative: false,
         skillJson: undefined,
         displayRoot: ".axm/extensions/external/skills/b",
         files: absentAccessor,
+        packageFiles: absentAccessor,
       },
     ];
     const index: SkillIndexView = { installedSkills: items };
@@ -56,10 +68,13 @@ describe("buildSkillRuleContexts", () => {
     });
     expect(contexts[0]?.displayRoot).toBe(".axm/extensions/@acme/skills/a/src");
     expect(contexts[0]?.files).toBe(absentAccessor);
+    expect(contexts[0]?.packageFiles).toBe(otherAccessor);
 
     expect(contexts[1]?.subject.isNative).toBe(false);
     expect(contexts[1]?.subject.skillJson).toBeUndefined();
     expect(contexts[1]?.displayRoot).toBe(".axm/extensions/external/skills/b");
+    expect(contexts[1]?.files).toBe(absentAccessor);
+    expect(contexts[1]?.packageFiles).toBe(absentAccessor);
   });
 
   it("returns an empty array when the index has no installed skills", () => {

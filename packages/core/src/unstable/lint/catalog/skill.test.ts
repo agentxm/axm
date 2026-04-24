@@ -63,9 +63,11 @@ describe("skillRules catalog membership", () => {
   });
 
   it("every rule is callable over a SkillRuleContext (type-level)", () => {
+    const accessor = absentFilesAccessor();
     const ctx: SkillRuleContext = {
       subject: { isNative: false, skillJson: undefined },
-      files: absentFilesAccessor(),
+      files: accessor,
+      packageFiles: accessor,
       displayRoot: "",
     };
 

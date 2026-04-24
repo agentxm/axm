@@ -13,8 +13,12 @@
  *   once per skill, so rules don't re-read + re-parse).
  * - `displayRoot` — posix-relative root used by the renderer; the caller
  *   picks per provenance (see the table below).
- * - `files` — the pre-bound `SkillFileAccessor`. The caller chooses VFT or
+ * - `files` — the pre-bound content-root `SkillFileAccessor` (rooted at the
+ *   directory containing `SKILL.md`). The caller chooses VFT or
  *   platform-backed.
+ * - `packageFiles` — the pre-bound package-root `SkillFileAccessor` (rooted
+ *   at the directory containing `skill.json` for native skills). For
+ *   non-native skills, callers MAY alias `files`.
  *
  * Provenance → `displayRoot` table:
  *
@@ -46,6 +50,7 @@ export interface InstalledSkillInfo {
   readonly skillJson: unknown;
   readonly displayRoot: string;
   readonly files: SkillFileAccessor;
+  readonly packageFiles: SkillFileAccessor;
 }
 
 /**
@@ -81,6 +86,7 @@ export const buildSkillRuleContexts = (index: SkillIndexView): ReadonlyArray<Ski
         skillJson: info.skillJson,
       },
       files: info.files,
+      packageFiles: info.packageFiles,
       displayRoot: info.displayRoot,
     }),
   );

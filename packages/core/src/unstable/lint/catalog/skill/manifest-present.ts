@@ -1,6 +1,12 @@
 /**
  * `skill/manifest-present` — native skills must have a `skill.json` at the
- * skill root.
+ * extension package root.
+ *
+ * Reads through `context.packageFiles` (package-root accessor) rather than
+ * `context.files` (content-root accessor). For native skills, the package
+ * root contains `skill.json` and a `src/` directory holding the skill
+ * content; `context.files` is rooted at `src/`, so `skill.json` is only
+ * reachable via `packageFiles`.
  *
  * Native-only via `check` early-return: when `subject.isNative === false`
  * (managed-external skills without a declared manifest), the rule produces
@@ -30,7 +36,7 @@ export const manifestPresentRule: AdvisoryRule<SkillRuleContext> = {
       return Effect.succeed([]);
     }
     return Effect.map(
-      context.files.exists(SKILL_JSON),
+      context.packageFiles.exists(SKILL_JSON),
       (present): ReadonlyArray<AdvisoryFinding> => {
         if (present) {
           return [];

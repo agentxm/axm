@@ -85,6 +85,64 @@ export const makeVftSkillFileAccessor = (tree: VFTNode): SkillFileAccessor => {
   };
 };
 
+/**
+ * Build a VFT-backed `SkillFileAccessor` rooted at a sub-path of the tree.
+ *
+ * Publish callers use this when the archive layout nests the skill content
+ * under a directory (for native managed skills: `src/` holds the content
+ * accessor root while the archive root holds the extension package). The
+ * `prefix` is a posix path relative to the tree root; every rule-supplied
+ * path is resolved as `<prefix>/<path>` before dispatching to the tree.
+ *
+ * Bounds enforcement matches {@link makeVftSkillFileAccessor} — path traversal
+ * checks run on the caller-supplied path before the prefix is applied, so
+ * rules still cannot escape above the scoped root.
+ *
+ * The prefix itself is normalized posix (leading `./` and trailing `/` stripped);
+ * an empty or `.` prefix is equivalent to {@link makeVftSkillFileAccessor}.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const makeVftSkillFileAccessorScoped = (
+  tree: VFTNode,
+  prefix: string,
+): SkillFileAccessor => {
+  const normalizedPrefix = normalizePrefix(prefix);
+  if (normalizedPrefix === "") {
+    return makeVftSkillFileAccessor(tree);
+  }
+  const join = (path: string): string =>
+    path === "" ? normalizedPrefix : `${normalizedPrefix}/${path}`;
+  return {
+    exists: (path) => {
+      const normalized = normalizeAndCheck(path);
+      if (normalized.kind !== "ok") {
+        return Effect.succeed(false);
+      }
+      return Effect.succeed(tree.hasFile(join(normalized.path)));
+    },
+    readBytes: (path) => {
+      const normalized = normalizeAndCheck(path);
+      if (normalized.kind === "escape") {
+        return failFileAccess(path, "path-escape", `path escapes the accessor root: ${path}`);
+      }
+      const bytes = tree.getFile(join(normalized.path));
+      if (bytes === undefined) {
+        return failFileAccess(path, "read-error", `file not found at ${path}`);
+      }
+      return Effect.succeed(bytes);
+    },
+  };
+};
+
+const normalizePrefix = (prefix: string): string => {
+  const stripped = prefix.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  if (stripped === "" || stripped === ".") {
+    return "";
+  }
+  return stripped;
+};
+
 // -----------------------------------------------------------------------------
 // Path normalization + bounds
 // -----------------------------------------------------------------------------

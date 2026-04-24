@@ -20,29 +20,10 @@ extension packs across your AI agents from a single CLI.
 
 ## Step 1: Install
 
-Choose one installation method. Agents typically run in Node.js environments, so
-npx is the recommended default.
+Each method below installs a persistent `axm` binary on the machine. Pick the
+one that matches the environment (operating system or package manager).
 
-### Option A: npx (recommended for agents)
-
-Requires Node.js. No global install needed.
-
-```bash
-npx axm.sh --version
-```
-
-Prefix all axm commands with `npx axm.sh` instead of `axm`:
-
-```bash
-npx axm.sh auth login
-npx axm.sh whoami
-```
-
-### Option B: Native install scripts
-
-For environments without Node.js. Downloads a standalone binary.
-
-**macOS / Linux (bash):**
+### Option A: macOS / Linux (install script)
 
 ```bash
 curl -fsSL https://axm.sh/install.sh | sh
@@ -54,7 +35,7 @@ Installs to `~/.axm/bin/axm`. If `axm` is not found after install, add to PATH:
 export PATH="$HOME/.axm/bin:$PATH"
 ```
 
-**Windows (PowerShell):**
+### Option B: Windows (PowerShell)
 
 ```powershell
 irm https://axm.sh/install.ps1 | iex
@@ -63,9 +44,7 @@ irm https://axm.sh/install.ps1 | iex
 Installs to `%LOCALAPPDATA%\axm\axm.exe`. Follow the printed PATH instructions
 if `axm` is not recognized.
 
-**Windows (CMD):**
-
-Download and run `install.cmd` from `https://axm.sh/install.cmd`:
+### Option C: Windows (CMD)
 
 ```cmd
 curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd
@@ -74,10 +53,25 @@ curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd
 Installs to `%LOCALAPPDATA%\axm\axm.exe`. Follow the printed PATH instructions
 if `axm` is not recognized.
 
-### Option C: Homebrew (macOS / Linux)
+### Option D: Homebrew (macOS / Linux)
 
 ```bash
 brew install agentxm/tap/axm
+```
+
+### Option E: npm (any OS with Node.js)
+
+Installs the `axm.sh` package globally. Requires Node.js.
+
+```bash
+npm install -g axm.sh
+```
+
+If `axm` is not found after install, ensure the npm global bin directory is on
+PATH:
+
+```bash
+export PATH="$(npm config get prefix)/bin:$PATH"
 ```
 
 **Verify:**
@@ -147,7 +141,6 @@ axm skills list --json
 
 The fix depends on how you installed:
 
-- **npx:** Use `npx axm.sh` instead of `axm`. Ensure Node.js is installed.
 - **Install script (macOS/Linux):** Add `~/.axm/bin` to PATH:
   ```bash
   export PATH="$HOME/.axm/bin:$PATH"
@@ -160,7 +153,7 @@ The fix depends on how you installed:
   $env:Path = "$env:LOCALAPPDATA\axm;$env:Path"
   ```
 - **Homebrew:** Run `brew link axm` or check `brew --prefix axm`.
-- **npm (legacy):** Ensure your global npm bin directory is on PATH:
+- **npm:** Ensure the global npm bin directory is on PATH:
   ```bash
   export PATH="$(npm config get prefix)/bin:$PATH"
   ```

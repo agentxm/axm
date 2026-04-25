@@ -232,17 +232,24 @@ export const runReadRecoverOperation = (
 
 const backupInvalidLockfile = (
   lockfilePath: string,
-): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<string, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const timestamp = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const stamp = `${timestamp.getFullYear()}${pad(timestamp.getMonth() + 1)}${pad(timestamp.getDate())}${pad(timestamp.getHours())}${pad(timestamp.getMinutes())}${pad(timestamp.getSeconds())}`;
-    const backupPath = path.join(path.dirname(lockfilePath), `${LOCKFILE_NAME}.bak.${stamp}`);
+    const tempDir = yield* fs.makeTempDirectory({ prefix: "axm-lockfile-backup-" }).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "LOCKFILE_BACKUP_FAILED",
+          what: "Failed to create temporary directory for invalid lockfile backup",
+          cause: error,
+        }),
+      ),
+    );
 
-    yield* fs.rename(lockfilePath, backupPath).pipe(
+    const backupPath = path.join(tempDir, LOCKFILE_NAME);
+
+    yield* fs.copyFile(lockfilePath, backupPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
@@ -251,6 +258,18 @@ const backupInvalidLockfile = (
         }),
       ),
     );
+
+    yield* fs.remove(lockfilePath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "LOCKFILE_BACKUP_FAILED",
+          what: `Failed to remove invalid lockfile after backing up to ${backupPath}`,
+          cause: error,
+        }),
+      ),
+    );
+
+    return backupPath;
   });
 
 export const runReconcileMaterializeOperation = (
@@ -283,6 +302,7 @@ export const runReconcileMaterializeOperation = (
     }
 
     const lockfilePath = path.join(lockfileDir, LOCKFILE_NAME);
+    let backupPath: string | undefined;
     if (lockfileState === "invalid") {
       const exists = yield* fs.exists(lockfilePath).pipe(
         Effect.mapError((error) =>
@@ -294,21 +314,24 @@ export const runReconcileMaterializeOperation = (
         ),
       );
       if (exists) {
-        yield* backupInvalidLockfile(lockfilePath);
+        backupPath = yield* backupInvalidLockfile(lockfilePath);
       }
     }
 
     yield* writeLockfile(lockfileDir, snapshot.lockfile);
 
+    const backupNote =
+      backupPath === undefined ? "" : ` (backed up invalid lockfile to ${backupPath})`;
+
     if (hasUnresolved) {
       return {
         result: "success",
-        message: `Reconciled lockfile with ${snapshot.unresolved.length} missing declaration(s) deferred to install`,
+        message: `Reconciled lockfile with ${snapshot.unresolved.length} missing declaration(s) deferred to install${backupNote}`,
       } satisfies JobStepResult;
     }
 
     return {
       result: "success",
-      message: "Reconciled and materialized lockfile",
+      message: `Reconciled and materialized lockfile${backupNote}`,
     } satisfies JobStepResult;
   });

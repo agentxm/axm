@@ -181,9 +181,10 @@ describe("reconciliation", () => {
         );
 
         expect(result.result).toBe("success");
+        expect(result.message).toMatch(/backed up invalid lockfile to .+axm-lock\.yaml/);
 
         const files = fs.readdirSync(axmDir);
-        expect(files.some((file) => file.startsWith("axm-lock.yaml.bak."))).toBe(true);
+        expect(files.every((file) => !file.startsWith("axm-lock.yaml.bak."))).toBe(true);
 
         const parsed = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
         expect(parsed.skills.tool).toBeDefined();

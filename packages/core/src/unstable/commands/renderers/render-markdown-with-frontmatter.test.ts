@@ -13,8 +13,7 @@ describe("renderMarkdownWithFrontmatter", () => {
   it("renders minimal command with body only", () => {
     const result = renderMarkdownWithFrontmatter(baseInput);
 
-    expect(result.content).toContain("<!-- Managed by axm");
-    expect(result.content).toContain("Review the code changes.");
+    expect(result.content).toBe("Review the code changes.");
     expect(result.content).not.toContain("---");
     expect(result.fileExtension).toBe(".md");
     expect(result.warnings).toEqual([]);
@@ -87,10 +86,15 @@ describe("renderMarkdownWithFrontmatter", () => {
     expect(result.content).toContain("$2");
   });
 
-  it("starts with managed-by marker", () => {
-    const result = renderMarkdownWithFrontmatter(baseInput);
+  it("starts with frontmatter when present", () => {
+    const result = renderMarkdownWithFrontmatter({
+      frontmatter: { description: "Needs frontmatter" },
+      body: "Body.",
+      agentId: "claude-code",
+      commandName: "frontmatter",
+    });
     const firstLine = result.content.split("\n")[0];
-    expect(firstLine).toMatch(/^<!-- Managed by axm/);
+    expect(firstLine).toBe("---");
   });
 
   it("renders empty body without trailing content", () => {
@@ -148,7 +152,7 @@ describe("renderMarkdownWithFrontmatter", () => {
 
       const result = renderMarkdownWithFrontmatter(input);
       expect(result.fileExtension).toBe(".md");
-      expect(result.content).toContain("Managed by axm");
+      expect(result.content).toContain("Body text.");
     }
   });
 });

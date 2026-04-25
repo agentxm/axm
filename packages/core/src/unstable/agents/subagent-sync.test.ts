@@ -245,7 +245,7 @@ describe("addSubagent", () => {
             expect(modes.length).toBe(1);
             const firstMode = modes[0] as Record<string, unknown>; // Assertion needed: test boundary array element
             expect(firstMode["slug"]).toBe("test-subagent");
-            expect(firstMode["_axm_managed"]).toBeDefined();
+            expect(firstMode["_axm_managed"]).toBeUndefined();
           }
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -345,8 +345,8 @@ describe("removeSubagent", () => {
   );
 });
 
-describe("conflict detection", () => {
-  it.effect("detects conflict when unmanaged file exists", () =>
+describe("overwrite behavior", () => {
+  it.effect("overwrites existing file without marker checks", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-conflict-subagent-"));
@@ -362,7 +362,7 @@ describe("conflict detection", () => {
           const outcome = yield* claudeCodeCodingAgent.addSubagent(
             makeAddArgs(workspaceRoot, "claude-code"),
           );
-          expect(outcome._tag).toBe("conflict");
+          expect(outcome._tag).toBe("success");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -370,7 +370,7 @@ describe("conflict detection", () => {
     ),
   );
 
-  it.effect("proceeds when managed file exists (re-render)", () =>
+  it.effect("re-renders existing file successfully", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-managed-subagent-"));
@@ -381,7 +381,6 @@ describe("conflict detection", () => {
           );
           expect(first._tag).toBe("success");
 
-          // Re-render — should succeed since file has managed marker
           const second = yield* claudeCodeCodingAgent.addSubagent(
             makeAddArgs(workspaceRoot, "claude-code"),
           );
@@ -409,30 +408,7 @@ describe("conflict detection", () => {
     ),
   );
 
-  it.effect("force overwrites conflicting file", () =>
-    withNode(
-      Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-force-subagent-"));
-        try {
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.makeDirectory(nodePath.join(workspaceRoot, ".claude/agents"), {
-            recursive: true,
-          });
-          yield* fs.writeFileString(
-            nodePath.join(workspaceRoot, ".claude/agents/test-subagent.md"),
-            "user-owned content without marker",
-          );
-          const args = { ...makeAddArgs(workspaceRoot, "claude-code"), force: true };
-          const outcome = yield* claudeCodeCodingAgent.addSubagent(args);
-          expect(outcome._tag).toBe("success");
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
-    ),
-  );
-
-  it.effect("roo detects conflict when unmanaged mode exists", () =>
+  it.effect("roo replaces existing mode with the same slug", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-roo-conflict-"));
@@ -451,34 +427,14 @@ describe("conflict detection", () => {
           });
           yield* fs.writeFileString(nodePath.join(workspaceRoot, ".roomodes"), existingContent);
           const outcome = yield* rooCodingAgent.addSubagent(makeAddArgs(workspaceRoot, "roo"));
-          expect(outcome._tag).toBe("conflict");
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
-    ),
-  );
-
-  it.effect("roo force overwrites conflicting mode", () =>
-    withNode(
-      Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-roo-force-"));
-        try {
-          const fs = yield* FileSystem.FileSystem;
-          const existingContent = JSON.stringify({
-            customModes: [
-              {
-                slug: "test-subagent",
-                name: "Test Subagent",
-                roleDefinition: "Manual definition",
-                groups: ["read"],
-              },
-            ],
-          });
-          yield* fs.writeFileString(nodePath.join(workspaceRoot, ".roomodes"), existingContent);
-          const args = { ...makeAddArgs(workspaceRoot, "roo"), force: true };
-          const outcome = yield* rooCodingAgent.addSubagent(args);
           expect(outcome._tag).toBe("success");
+          if (outcome._tag !== "success") return;
+          const content = yield* fs.readFileString(nodePath.join(workspaceRoot, ".roomodes"));
+          const parsed = JSON.parse(content) as { customModes: Array<Record<string, unknown>> };
+          expect(parsed.customModes).toHaveLength(1);
+          expect(parsed.customModes[0]?.["roleDefinition"]).toBe(
+            "You are a helpful test subagent.",
+          );
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

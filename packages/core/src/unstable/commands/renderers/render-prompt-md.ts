@@ -2,13 +2,12 @@
  * Prompt Markdown renderer for Copilot.
  *
  * For: GitHub Copilot.
- * Produces `.prompt.md` with managed-by marker, YAML frontmatter, and substituted body.
+ * Produces `.prompt.md` with YAML frontmatter and substituted body.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import YAML from "yaml";
-import { generateMarker } from "../../extensions/managed-marker.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import type { RenderInput, RenderOutput } from "./types.js";
@@ -23,7 +22,6 @@ import type { RenderInput, RenderOutput } from "./types.js";
  */
 export const renderPromptMd = (input: RenderInput): RenderOutput => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const marker = generateMarker("commands", "markdown");
   const { frontmatter, agentId } = input;
   const fm: Record<string, unknown> = {};
 
@@ -62,7 +60,7 @@ export const renderPromptMd = (input: RenderInput): RenderOutput => {
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(input.body, agentId);
   warnings.push(...subWarnings);
 
-  const parts: Array<string> = [marker];
+  const parts: Array<string> = [];
 
   if (Object.keys(fm).length > 0) {
     const yamlStr = YAML.stringify(fm, { lineWidth: 0 }).trim();

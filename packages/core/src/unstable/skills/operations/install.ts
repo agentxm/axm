@@ -46,7 +46,6 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
-import { prependManagedMarkerToSkillMd } from "../managed-marker-ops.js";
 import type { InstallResult } from "./install-result.js";
 
 // -----------------------------------------------------------------------------
@@ -168,7 +167,6 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
 
     const sourcePath = stripFileProtocol(ref.location);
     yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
-    yield* prependManagedMarkerToSkillMd(skillSrcPath);
 
     return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
   });
@@ -260,8 +258,6 @@ const installFromRegistry = (
         fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
       );
     }
-
-    yield* prependManagedMarkerToSkillMd(skillSrcPath);
 
     return { skillSrcPath, versionConstraint } satisfies MaterializedSkill;
   });

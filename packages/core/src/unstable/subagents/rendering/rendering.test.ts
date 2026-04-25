@@ -70,19 +70,19 @@ describe("Kiro dual-format rendering", () => {
     expect(paths).toContain(".kiro/agents/code-reviewer.json");
   });
 
-  it("MD file has managed marker", () => {
+  it("MD file starts with frontmatter", () => {
     const result = renderSubagent({ ...baseInput, agentId: "kiro" });
     if (result?._tag !== "Rendered") return;
     const mdOutput = result.outputs.find((o) => o.path.endsWith(".md"));
-    expect(mdOutput?.content).toContain("<!-- Managed by axm");
+    expect(mdOutput?.content.startsWith("---\n")).toBe(true);
   });
 
-  it("JSON file has _axm_managed field", () => {
+  it("JSON file has no _axm_managed field", () => {
     const result = renderSubagent({ ...baseInput, agentId: "kiro" });
     if (result?._tag !== "Rendered") return;
     const jsonOutput = result.outputs.find((o) => o.path.endsWith(".json"));
     const parsed = JSON.parse(jsonOutput?.content ?? "{}");
-    expect(parsed._axm_managed).toBe("axm subagents --help");
+    expect(parsed._axm_managed).toBeUndefined();
   });
 
   it("accumulates warnings from both formats", () => {

@@ -1,59 +1,73 @@
----
+## <!-- hello -->
+
 name: axm
 description: |
-  Manage AI agent extensions via the axm CLI. Set up workspaces, install,
-  update, publish, and manage skills, commands, MCP servers, extension packs,
-  and other extension types. Use for any axm or AgentXM question or action.
+Manage AI agent extensions via the axm CLI. Set up workspaces, install,
+update, publish, and manage skills, commands, MCP servers, extension packs,
+and other extension types. Use for any axm or AgentXM question or action.
 cli-version-audited: "0.4.5"
 triggers:
-  # Direct invocations
-  - axm
-  - /axm
-  # Workspace lifecycle
-  - axm setup
-  - axm install
-  - axm update
-  - axm uninstall
-  - axm outdated
-  - axm prune
-  # Domain commands
-  - axm skills
-  - axm packs
-  - axm commands
-  - axm mcp-servers
-  - axm subagents
-  - axm auth
-  - axm login
-  - axm logout
-  - axm whoami
-  - axm token
-  - axm upgrade
-  # Workspace ops
-  - axm lint
-  - axm discover
-  # Common intents
-  - set up workspace
-  - install extension
-  - install skill
-  - install pack
-  - install command
-  - install mcp server
-  - install subagent
-  - uninstall extension
-  - publish extension
-  - manage extensions
-  - update extensions
-  - outdated extensions
-  - prune unmanaged extensions
-  - discover extensions
-  - check workspace
-  - check auth
-  # Questions
-  - how do I axm
-  - what extensions
-  - does axm
-invocable: true
-argument-hint: "[action] [args...]"
+
+# Direct invocations
+
+- axm
+- /axm
+
+# Workspace lifecycle
+
+- axm setup
+- axm install
+- axm update
+- axm uninstall
+- axm outdated
+- axm prune
+
+# Domain commands
+
+- axm skills
+- axm packs
+- axm commands
+- axm mcp-servers
+- axm subagents
+- axm auth
+- axm login
+- axm logout
+- axm whoami
+- axm token
+- axm upgrade
+
+# Workspace ops
+
+- axm lint
+- axm discover
+
+# Common intents
+
+- set up workspace
+- install extension
+- install skill
+- install pack
+- install command
+- install mcp server
+- install subagent
+- uninstall extension
+- publish extension
+- manage extensions
+- update extensions
+- outdated extensions
+- prune unmanaged extensions
+- discover extensions
+- check workspace
+- check auth
+
+# Questions
+
+- how do I axm
+- what extensions
+- does axm
+  invocable: true
+  argument-hint: "[action] [args...]"
+
 ---
 
 # axm
@@ -86,12 +100,12 @@ CLI reference for the axm extension manager (v0.4.5).
 
 ## Output Modes
 
-| Goal                | Flag              | Notes                                   |
-| ------------------- | ----------------- | --------------------------------------- |
-| Structured data     | `--json` / `-j`   | Final machine-readable result on stdout |
-| Minimal output      | `--quiet` / `-q`  | Suppress non-essential human output     |
-| Verbose diagnostics | `--verbose` / `-v` | Extra error context                    |
-| Full debug          | `--debug`         | Full debug details; implies verbose     |
+| Goal                | Flag               | Notes                                   |
+| ------------------- | ------------------ | --------------------------------------- |
+| Structured data     | `--json` / `-j`    | Final machine-readable result on stdout |
+| Minimal output      | `--quiet` / `-q`   | Suppress non-essential human output     |
+| Verbose diagnostics | `--verbose` / `-v` | Extra error context                     |
+| Full debug          | `--debug`          | Full debug details; implies verbose     |
 
 ## CLI Introspection
 
@@ -133,28 +147,28 @@ axm auth whoami --json 2>/dev/null || echo '{"type":"error","code":"AUTH_LOGIN_R
 
 ## Quick Reference
 
-| Task                              | Command                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------- |
-| Set up workspace                  | `axm setup --yes`                                                                           |
-| Discover compatible extensions    | `axm discover --json`                                                                       |
-| Install registry extension by FQN | `axm install @profile/skills/name --yes`                                                    |
-| Install skill from GitHub         | `axm skills install owner/repo --yes`                                                       |
-| Install all skills from source    | `axm skills install owner/repo --all --yes`                                                 |
-| Install subagent from local path  | `axm subagents install ./path/to/subagents --yes`                                           |
-| Install extension pack            | `axm packs install @profile/packs/name --yes`                                               |
-| List installed skills             | `axm skills list --json`                                                                    |
-| Check available updates           | `axm outdated --json`                                                                       |
-| Update configured extensions      | `axm update --yes`                                                                          |
-| Update specific skill             | `axm skills update --skill name --yes`                                                      |
-| Preview uninstall by FQN          | `axm uninstall @profile/skills/name --preview`                                              |
-| Preview unmanaged cleanup         | `axm prune --json`                                                                          |
-| Lint workspace                    | `axm lint --json`                                                                           |
-| Lint + autofix                    | `axm lint --fix`                                                                            |
-| Check auth status (probe)         | See `Probe Commands` above                                                                  |
-| Sign in / out                     | `axm auth login --yes` / `axm auth logout`                                                  |
-| Create a new skill                | `axm skills new name --yes`                                                                 |
-| Publish a skill                   | `axm skills publish name --preview`                                                         |
-| Upgrade axm                       | `axm upgrade`                                                                               |
+| Task                              | Command                                           |
+| --------------------------------- | ------------------------------------------------- |
+| Set up workspace                  | `axm setup --yes`                                 |
+| Discover compatible extensions    | `axm discover --json`                             |
+| Install registry extension by FQN | `axm install @profile/skills/name --yes`          |
+| Install skill from GitHub         | `axm skills install owner/repo --yes`             |
+| Install all skills from source    | `axm skills install owner/repo --all --yes`       |
+| Install subagent from local path  | `axm subagents install ./path/to/subagents --yes` |
+| Install extension pack            | `axm packs install @profile/packs/name --yes`     |
+| List installed skills             | `axm skills list --json`                          |
+| Check available updates           | `axm outdated --json`                             |
+| Update configured extensions      | `axm update --yes`                                |
+| Update specific skill             | `axm skills update --skill name --yes`            |
+| Preview uninstall by FQN          | `axm uninstall @profile/skills/name --preview`    |
+| Preview unmanaged cleanup         | `axm prune --json`                                |
+| Lint workspace                    | `axm lint --json`                                 |
+| Lint + autofix                    | `axm lint --fix`                                  |
+| Check auth status (probe)         | See `Probe Commands` above                        |
+| Sign in / out                     | `axm auth login --yes` / `axm auth logout`        |
+| Create a new skill                | `axm skills new name --yes`                       |
+| Publish a skill                   | `axm skills publish name --preview`               |
+| Upgrade axm                       | `axm upgrade`                                     |
 
 ## Decision Trees
 
@@ -585,12 +599,12 @@ Without `--fix`, the command is read-only. With `--fix`, autofixable findings
 produce per-extension `Operation` values that replay through the plan pipeline
 non-interactively (no prompts, no `--yes`).
 
-| Flag       | Description                                                               |
-| ---------- | ------------------------------------------------------------------------- |
-| `--fix`    | Apply every autofixable finding via `resolvePlan` / `applyPlan`.          |
-| `--scope`  | `project` (default) or `user` (`$AXM_USER_HOME` or `$HOME/.axm/`).        |
-| `--strict` | Exit non-zero on warnings as well as errors.                              |
-| `--json`   | Machine-readable findings envelope. `--json` is a global flag.            |
+| Flag       | Description                                                              |
+| ---------- | ------------------------------------------------------------------------ |
+| `--fix`    | Apply every autofixable finding via `resolvePlan` / `applyPlan`.         |
+| `--scope`  | `project` (default) or `user` (`$AXM_USER_HOME` or `$HOME/.axm/`).       |
+| `--strict` | Exit non-zero on warnings as well as errors.                             |
+| `--json`   | Machine-readable findings envelope. `--json` is a global flag.           |
 | `<path>`   | Workspace directory to lint (defaults to the current working directory). |
 
 A **drift banner** appears at the top of the output when a workspace
@@ -631,12 +645,12 @@ axm upgrade [--force]
 
 ## Configuration
 
-| Path                                                  | Purpose                        |
-| ----------------------------------------------------- | ------------------------------ |
-| `.axm/settings.json`                                  | Project-scope workspace config |
-| `axm-lock.yaml`                                       | Resolved extension versions    |
-| `$AXM_USER_HOME/.axm/settings.json` or `~/.axm/settings.json` | User-scope workspace config |
-| `~/.config/axm/credentials.json`                      | Persisted registry credentials |
+| Path                                                          | Purpose                        |
+| ------------------------------------------------------------- | ------------------------------ |
+| `.axm/settings.json`                                          | Project-scope workspace config |
+| `axm-lock.yaml`                                               | Resolved extension versions    |
+| `$AXM_USER_HOME/.axm/settings.json` or `~/.axm/settings.json` | User-scope workspace config    |
+| `~/.config/axm/credentials.json`                              | Persisted registry credentials |
 
 `credentials.json` is a versioned JSON document. It stores a `registries` map
 keyed by registry URL; each registry entry has an `accounts` map keyed by
@@ -663,14 +677,14 @@ Exit codes:
 JSON errors include `type: "error"`, `_version`, `code`, `message`, and often
 `details`, `howToFix`, and `exitCode`.
 
-| Error Code            | Recovery                                                                 |
-| --------------------- | ------------------------------------------------------------------------ |
+| Error Code            | Recovery                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------ |
 | `AUTH_LOGIN_REQUIRED` | Set `AXM_TOKEN` or run `axm auth login`; use the wrapped probe when checking sign-in state |
-| Extension not found   | Verify FQN: `@profile/skills/name`                                       |
-| Version conflict      | Use `--force` or adjust constraint                                       |
-| Registry unreachable  | Check `AXM_REGISTRY_LOCATION` or `AXM_REGISTRY_URL`, verify connectivity |
-| Workspace not init'd  | Run `axm setup --yes`                                                    |
-| Prompt hanging        | Add `--yes` or `--non-interactive`                                       |
+| Extension not found   | Verify FQN: `@profile/skills/name`                                                         |
+| Version conflict      | Use `--force` or adjust constraint                                                         |
+| Registry unreachable  | Check `AXM_REGISTRY_LOCATION` or `AXM_REGISTRY_URL`, verify connectivity                   |
+| Workspace not init'd  | Run `axm setup --yes`                                                                      |
+| Prompt hanging        | Add `--yes` or `--non-interactive`                                                         |
 
 Use `--debug` for full error details including stack traces.
 

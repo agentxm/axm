@@ -2,8 +2,7 @@
  * JSON adapter for subagent rendering.
  *
  * For: Kiro CLI.
- * Produces `.json` with `_axm_managed` marker field, `name`, `description`,
- * `prompt` (from body), and `model`.
+ * Produces `.json` with `name`, `description`, `prompt` (from body), and `model`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -18,9 +17,6 @@ const decodeRenderedFilePath = Schema.decodeUnknownSync(
   Schema.String.pipe(Schema.brand("RenderedFilePath")),
 );
 
-/** The JSON managed marker field value. */
-const AXM_MANAGED_VALUE = "axm subagents --help";
-
 /**
  * Render a subagent as JSON for Kiro CLI.
  *
@@ -30,7 +26,6 @@ export const renderJson = (input: SubagentRenderInput): SubagentRenderOutcome =>
   const warnings: Array<LossyRenderingWarning> = [];
 
   const obj: Record<string, unknown> = {
-    _axm_managed: AXM_MANAGED_VALUE,
     name: input.name,
     description: input.description,
     prompt: input.body,

@@ -124,7 +124,7 @@ The format families SHALL be:
 - **THEN** the renderer SHALL merge a mode entry into `.roomodes`
 - **AND** the body's first paragraph SHALL become `roleDefinition`
 - **AND** the remainder SHALL become `customInstructions`
-- **AND** the mode entry SHALL include `"_axm_managed": "axm subagents --help"`
+- **AND** the mode entry SHALL NOT include `"_axm_managed"`
 
 #### Scenario: Roo Code body split with single paragraph
 
@@ -140,11 +140,11 @@ The format families SHALL be:
 - **THEN** the `developer_instructions` TOML field SHALL use a multiline literal string (triple-quoted `"""..."""`)
 - **AND** the Markdown content SHALL be preserved verbatim (no escaping of `#`, `*`, etc.)
 
-#### Scenario: Managed marker survives formatter reformatting
+#### Scenario: Rendered Markdown file has no managed header
 
-- **WHEN** a rendered Markdown file is reformatted by Prettier or an editor
-- **THEN** the HTML comment `<!-- Managed by axm — see "axm subagents --help" -->` SHALL remain on the first line
-- **AND** sync SHALL still recognize the file as AXM-managed
+- **WHEN** a subagent is rendered for Claude Code
+- **THEN** the rendered Markdown file SHALL begin with YAML frontmatter or Markdown content from the source
+- **AND** SHALL NOT begin with `<!-- Managed by axm — see "axm subagents --help" -->`
 
 #### Scenario: Override and portable field set same native field
 
@@ -245,29 +245,24 @@ When SUBAGENT.md frontmatter contains an `overrides` map, the agent adapter SHAL
 
 ### Requirement: Managed-file header
 
-Each rendered subagent file SHALL start with a static managed-by header appropriate to its format. The header identifies AXM ownership and points to the relevant CLI help for discoverability.
+Rendered subagent files and Roo mode entries SHALL contain only the agent-native content produced from the subagent source. AXM SHALL NOT prepend managed headers to Markdown or TOML outputs, and SHALL NOT add `"_axm_managed"` metadata to JSON or Roo outputs.
 
-| Format                  | Header                                                              |
-| ----------------------- | ------------------------------------------------------------------- |
-| Markdown (all variants) | `<!-- Managed by axm — see "axm subagents --help" -->`              |
-| TOML                    | `# Managed by axm — see "axm subagents --help"`                     |
-| JSON (Kiro CLI)         | `"_axm_managed": "axm subagents --help"` metadata field             |
-| Roo `.roomodes`         | `"_axm_managed": "axm subagents --help"` on each managed mode entry |
-
-#### Scenario: Markdown rendered file includes managed header
+#### Scenario: Markdown rendered file has no managed header
 
 - **WHEN** a subagent is rendered for Claude Code
-- **THEN** the first line of the rendered file SHALL be `<!-- Managed by axm — see "axm subagents --help" -->`
+- **THEN** the rendered file SHALL begin with the generated subagent content
+- **AND** SHALL NOT begin with `<!-- Managed by axm — see "axm subagents --help" -->`
 
-#### Scenario: TOML rendered file includes managed header
+#### Scenario: TOML rendered file has no managed header
 
 - **WHEN** a subagent is rendered for Codex
-- **THEN** the first line of the rendered file SHALL be `# Managed by axm — see "axm subagents --help"`
+- **THEN** the rendered file SHALL begin with TOML content
+- **AND** SHALL NOT begin with `# Managed by axm — see "axm subagents --help"`
 
-#### Scenario: JSON managed marker
+#### Scenario: JSON rendered file has no managed metadata field
 
 - **WHEN** a subagent is rendered for Kiro CLI
-- **THEN** the rendered JSON SHALL contain `"_axm_managed": "axm subagents --help"`
+- **THEN** the rendered JSON SHALL NOT contain `"_axm_managed"`
 
 ### Requirement: Kiro dual-format rendering
 
@@ -286,27 +281,28 @@ Kiro SHALL produce two rendered files per subagent: a `.md` file for the IDE and
 
 ### Requirement: Roo Code read-modify-write
 
-When rendering for Roo Code, the adapter SHALL use read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope), preserving manually-defined modes. Each AXM-managed mode entry SHALL include `"_axm_managed": "axm subagents --help"` to distinguish it from manual entries.
+When rendering for Roo Code, the adapter SHALL use read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope), preserving manually-defined modes with different slugs. AXM-managed Roo entries SHALL be identified by slug alone rather than `"_axm_managed"` metadata.
 
 #### Scenario: Existing manual modes preserved
 
 - **WHEN** `.roomodes` contains a manually-defined mode `"architect"`
 - **AND** a subagent `code-reviewer` is rendered for Roo Code
-- **THEN** `.roomodes` SHALL contain both the `architect` mode (unchanged) and the `code-reviewer` mode (with `"_axm_managed": "axm subagents --help"`)
+- **THEN** `.roomodes` SHALL contain both the `architect` mode (unchanged) and the `code-reviewer` mode
 
-#### Scenario: Managed mode updated on re-render
+#### Scenario: Managed mode updated on re-render by slug
 
-- **WHEN** `.roomodes` contains an AXM-managed mode `code-reviewer` with `"_axm_managed": "axm subagents --help"`
+- **WHEN** `.roomodes` contains a mode `code-reviewer`
+- **AND** that mode was previously rendered by AXM for the same slug
 - **AND** the subagent's instructions have changed
 - **THEN** re-rendering SHALL update only the `code-reviewer` entry
-- **AND** manual modes SHALL remain unchanged
+- **AND** manual modes with different slugs SHALL remain unchanged
 
-#### Scenario: Managed mode removed on uninstall
+#### Scenario: Managed mode removed on uninstall by slug
 
 - **WHEN** a subagent `code-reviewer` is uninstalled
-- **AND** `.roomodes` contains the managed mode entry
+- **AND** `.roomodes` contains the `code-reviewer` mode entry
 - **THEN** the `code-reviewer` entry SHALL be removed from `.roomodes`
-- **AND** manual modes SHALL remain unchanged
+- **AND** manual modes with different slugs SHALL remain unchanged
 
 ### Requirement: Agent adapter subagent methods
 

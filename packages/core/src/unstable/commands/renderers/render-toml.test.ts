@@ -16,7 +16,7 @@ describe("renderToml", () => {
     expect(result.fileExtension).toBe(".toml");
   });
 
-  it("renders managed-by marker as hash comment", () => {
+  it("starts with TOML content", () => {
     const input: RenderInput = {
       frontmatter: {},
       body: "Body.",
@@ -26,7 +26,7 @@ describe("renderToml", () => {
 
     const result = renderToml(input);
     const firstLine = result.content.split("\n")[0];
-    expect(firstLine).toMatch(/^# Managed by axm/);
+    expect(firstLine).toBe('prompt = "Body."');
   });
 
   it("renders description and prompt fields", () => {

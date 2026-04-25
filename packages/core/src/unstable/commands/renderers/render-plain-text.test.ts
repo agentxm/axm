@@ -16,7 +16,7 @@ describe("renderPlainText", () => {
     expect(result.fileExtension).toBe(".txt");
   });
 
-  it("renders managed-by marker as hash comment", () => {
+  it("renders plain text body", () => {
     const input: RenderInput = {
       frontmatter: {},
       body: "Body.",
@@ -25,8 +25,7 @@ describe("renderPlainText", () => {
     };
 
     const result = renderPlainText(input);
-    const firstLine = result.content.split("\n")[0];
-    expect(firstLine).toMatch(/^# Managed by axm/);
+    expect(result.content).toBe("Body.");
   });
 
   it("renders body after marker", () => {
@@ -152,8 +151,6 @@ describe("renderPlainText", () => {
     };
 
     const result = renderPlainText(input);
-    const lines = result.content.split("\n");
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(/^# Managed by axm/);
+    expect(result.content).toBe("");
   });
 });

@@ -17,7 +17,6 @@ import {
   type RendererCommandFrontmatter,
   type RenderOutput,
 } from "../commands/renderers/index.js";
-import { detectConflict } from "../extensions/conflict-detection.js";
 import type {
   AddCommandArgs,
   CommandSyncOutcome,
@@ -60,7 +59,7 @@ const renderCommand = (args: AddCommandArgs, agentId: string): RenderOutput => {
 /**
  * Write a command file to an agent's commands directory.
  *
- * Handles conflict detection, directory creation, and file writing.
+ * Handles directory creation and file writing.
  * Returns a `CommandSyncOutcome` with the rendered file path and any warnings.
  */
 export const writeCommandFile = (
@@ -75,15 +74,6 @@ export const writeCommandFile = (
     // Render content using the format-family renderer for this agent
     const rendered = renderCommand(args, config.agentId);
     const filePath = path.join(commandsDir, `${args.commandName}${rendered.fileExtension}`);
-
-    // Check for conflicts
-    const conflictResult = yield* detectConflict(filePath);
-    if (conflictResult._tag === "Conflict" && !args.force) {
-      return {
-        _tag: "conflict",
-        reason: `File exists without axm marker: ${filePath}. Use --force to overwrite.`,
-      } as const;
-    }
 
     // Ensure directory exists
     yield* fs.makeDirectory(commandsDir, { recursive: true }).pipe(

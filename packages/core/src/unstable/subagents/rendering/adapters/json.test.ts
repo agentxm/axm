@@ -21,11 +21,11 @@ describe("renderJson", () => {
     expect(result.outputs[0]?.path).toBe(".kiro/agents/code-reviewer.json");
   });
 
-  it("includes _axm_managed marker field", () => {
+  it("does not include an AXM marker field", () => {
     const result = renderJson(baseInput);
     if (result._tag !== "Rendered") return;
     const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
-    expect(parsed._axm_managed).toBe("axm subagents --help");
+    expect(parsed._axm_managed).toBeUndefined();
   });
 
   it("maps body to prompt field", () => {

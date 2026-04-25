@@ -372,7 +372,6 @@ describe("addCommand", () => {
               expect(outcome.renderedFilePath).toContain(expectedSubpath);
               const fs = yield* FileSystem.FileSystem;
               const content = yield* fs.readFileString(outcome.renderedFilePath);
-              expect(content).toContain("Managed by axm");
               expect(content).toContain("This is a test command body.");
             }
           } finally {
@@ -410,7 +409,7 @@ describe("addCommand", () => {
     ),
   );
 
-  it.effect("detects conflict when non-managed file exists", () =>
+  it.effect("overwrites existing file without marker checks", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-conflict-cmd-"));
@@ -424,30 +423,10 @@ describe("addCommand", () => {
             "user-owned content without marker",
           );
           const outcome = yield* claudeCodeCodingAgent.addCommand(makeAddArgs(workspaceRoot));
-          expect(outcome._tag).toBe("conflict");
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
-    ),
-  );
-
-  it.effect("force overwrites conflicting file", () =>
-    withNode(
-      Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-force-cmd-"));
-        try {
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.makeDirectory(nodePath.join(workspaceRoot, ".claude/commands"), {
-            recursive: true,
-          });
-          yield* fs.writeFileString(
-            nodePath.join(workspaceRoot, ".claude/commands/test-cmd.md"),
-            "user-owned content without marker",
-          );
-          const args = { ...makeAddArgs(workspaceRoot), force: true };
-          const outcome = yield* claudeCodeCodingAgent.addCommand(args);
           expect(outcome._tag).toBe("success");
+          if (outcome._tag !== "success") return;
+          const content = yield* fs.readFileString(outcome.renderedFilePath);
+          expect(content).toContain("This is a test command body.");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -534,7 +513,7 @@ describe("augment cross-tool dedup", () => {
     ),
   );
 
-  it.effect("writes to Augment when Claude Code file is user-owned (not managed)", () =>
+  it.effect("writes to Augment when Claude Code file has different content", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-augment-unmanaged-"));

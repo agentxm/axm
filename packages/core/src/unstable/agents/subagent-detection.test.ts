@@ -13,11 +13,6 @@ import * as Effect from "effect/Effect";
 import { scanAgentSubagentFiles, scanAllSubagentFiles } from "./subagent-detection.js";
 import type { AgentDescriptor } from "./types.js";
 import { afterEach, beforeEach } from "vitest";
-import { generateMarker } from "../extensions/managed-marker.js";
-
-// =============================================================================
-// Test Fixtures
-// =============================================================================
 
 let tempDir: string;
 
@@ -32,7 +27,6 @@ afterEach(() => {
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
-/** Agent with subagents directory */
 const claudeCode: AgentDescriptor = {
   id: "claude-code",
   name: "Claude Code",
@@ -41,7 +35,6 @@ const claudeCode: AgentDescriptor = {
   subagents: { dir: ".claude/agents" },
 };
 
-/** Agent with subagents as a single file (Roo Code) */
 const roo: AgentDescriptor = {
   id: "roo",
   name: "Roo Code",
@@ -50,160 +43,87 @@ const roo: AgentDescriptor = {
   subagents: { dir: ".roomodes", isFile: true },
 };
 
-/** Agent without subagents support */
 const cline: AgentDescriptor = {
   id: "cline",
   name: "Cline",
   skills: { dir: ".cline/skills" },
 };
 
-// =============================================================================
-// scanAgentSubagentFiles Tests
-// =============================================================================
-
 describe("scanAgentSubagentFiles", () => {
-  describe("agent without subagents descriptor", () => {
-    it.effect("returns empty array for agent without subagents", () =>
-      withNode(
-        Effect.gen(function* () {
-          const result = yield* scanAgentSubagentFiles(cline, tempDir);
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
+  it.effect("returns empty array for agent without subagents", () =>
+    withNode(
+      Effect.gen(function* () {
+        const result = yield* scanAgentSubagentFiles(cline, tempDir);
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
 
-  describe("subagent directory does not exist", () => {
-    it.effect("returns empty array when directory is missing", () =>
-      withNode(
-        Effect.gen(function* () {
-          const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
+  it.effect("returns empty array when directory is missing", () =>
+    withNode(
+      Effect.gen(function* () {
+        const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
 
-  describe("subagent directory with files", () => {
-    it.effect("detects unmanaged subagent files", () =>
-      withNode(
-        Effect.gen(function* () {
-          const agentsDir = path.join(tempDir, ".claude", "agents");
-          fs.mkdirSync(agentsDir, { recursive: true });
-          fs.writeFileSync(path.join(agentsDir, "my-agent.md"), "# My Agent\nSome instructions");
+  it.effect("detects subagent files in a directory", () =>
+    withNode(
+      Effect.gen(function* () {
+        const agentsDir = path.join(tempDir, ".claude", "agents");
+        fs.mkdirSync(agentsDir, { recursive: true });
+        fs.writeFileSync(path.join(agentsDir, "my-agent.md"), "# My Agent\nSome instructions");
 
-          const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
-          expect(result).toHaveLength(1);
-          expect(result[0]?.path).toBe(path.join(".claude/agents", "my-agent.md"));
-          expect(result[0]?.managed).toBe(false);
-        }),
-      ),
-    );
+        const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
+        expect(result).toEqual([{ path: path.join(".claude/agents", "my-agent.md") }]);
+      }),
+    ),
+  );
 
-    it.effect("detects managed subagent files", () =>
-      withNode(
-        Effect.gen(function* () {
-          const agentsDir = path.join(tempDir, ".claude", "agents");
-          fs.mkdirSync(agentsDir, { recursive: true });
-          const marker = generateMarker("subagents", "markdown");
-          fs.writeFileSync(
-            path.join(agentsDir, "managed-agent.md"),
-            `${marker}\n# Managed Agent\nInstructions`,
-          );
+  it.effect("detects multiple files and skips subdirectories", () =>
+    withNode(
+      Effect.gen(function* () {
+        const agentsDir = path.join(tempDir, ".claude", "agents");
+        fs.mkdirSync(path.join(agentsDir, "nested"), { recursive: true });
+        fs.writeFileSync(path.join(agentsDir, "one.md"), "# One");
+        fs.writeFileSync(path.join(agentsDir, "two.md"), "# Two");
 
-          const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
-          expect(result).toHaveLength(1);
-          expect(result[0]?.path).toBe(path.join(".claude/agents", "managed-agent.md"));
-          expect(result[0]?.managed).toBe(true);
-        }),
-      ),
-    );
+        const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
+        const detected = result.map((file) => file.path).sort();
+        expect(detected).toEqual([
+          path.join(".claude/agents", "one.md"),
+          path.join(".claude/agents", "two.md"),
+        ]);
+      }),
+    ),
+  );
 
-    it.effect("classifies mixed managed and unmanaged files", () =>
-      withNode(
-        Effect.gen(function* () {
-          const agentsDir = path.join(tempDir, ".claude", "agents");
-          fs.mkdirSync(agentsDir, { recursive: true });
+  it.effect("detects .roomodes as a single file", () =>
+    withNode(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, ".roomodes"), '{"customModes": []}');
 
-          const marker = generateMarker("subagents", "markdown");
-          fs.writeFileSync(path.join(agentsDir, "managed.md"), `${marker}\n# Managed`);
-          fs.writeFileSync(path.join(agentsDir, "unmanaged.md"), "# Unmanaged");
+        const result = yield* scanAgentSubagentFiles(roo, tempDir);
+        expect(result).toEqual([{ path: ".roomodes" }]);
+      }),
+    ),
+  );
 
-          const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
-          expect(result).toHaveLength(2);
-
-          const managedFiles = result.filter((f) => f.managed);
-          const unmanagedFiles = result.filter((f) => !f.managed);
-          expect(managedFiles).toHaveLength(1);
-          expect(unmanagedFiles).toHaveLength(1);
-        }),
-      ),
-    );
-
-    it.effect("skips subdirectories", () =>
-      withNode(
-        Effect.gen(function* () {
-          const agentsDir = path.join(tempDir, ".claude", "agents");
-          fs.mkdirSync(agentsDir, { recursive: true });
-          fs.mkdirSync(path.join(agentsDir, "subdir"), { recursive: true });
-          fs.writeFileSync(path.join(agentsDir, "agent.md"), "# Agent");
-
-          const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
-          expect(result).toHaveLength(1);
-          expect(result[0]?.path).toBe(path.join(".claude/agents", "agent.md"));
-        }),
-      ),
-    );
-  });
-
-  describe("single-file subagent path (Roo Code .roomodes)", () => {
-    it.effect("detects unmanaged .roomodes file", () =>
-      withNode(
-        Effect.gen(function* () {
-          fs.writeFileSync(path.join(tempDir, ".roomodes"), '{"customModes": []}');
-
-          const result = yield* scanAgentSubagentFiles(roo, tempDir);
-          expect(result).toHaveLength(1);
-          expect(result[0]?.path).toBe(".roomodes");
-          expect(result[0]?.managed).toBe(false);
-        }),
-      ),
-    );
-
-    it.effect("detects managed .roomodes file", () =>
-      withNode(
-        Effect.gen(function* () {
-          const marker = generateMarker("subagents", "text");
-          fs.writeFileSync(path.join(tempDir, ".roomodes"), `${marker}\n{"customModes": []}`);
-
-          const result = yield* scanAgentSubagentFiles(roo, tempDir);
-          expect(result).toHaveLength(1);
-          expect(result[0]?.path).toBe(".roomodes");
-          expect(result[0]?.managed).toBe(true);
-        }),
-      ),
-    );
-
-    it.effect("returns empty when .roomodes does not exist", () =>
-      withNode(
-        Effect.gen(function* () {
-          const result = yield* scanAgentSubagentFiles(roo, tempDir);
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
+  it.effect("returns empty array when .roomodes does not exist", () =>
+    withNode(
+      Effect.gen(function* () {
+        const result = yield* scanAgentSubagentFiles(roo, tempDir);
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
 });
-
-// =============================================================================
-// scanAllSubagentFiles Tests
-// =============================================================================
 
 describe("scanAllSubagentFiles", () => {
   it.effect("returns only agents with found subagent files", () =>
     withNode(
       Effect.gen(function* () {
-        // Create subagent file for claude-code only
         const agentsDir = path.join(tempDir, ".claude", "agents");
         fs.mkdirSync(agentsDir, { recursive: true });
         fs.writeFileSync(path.join(agentsDir, "agent.md"), "# Agent");
@@ -211,9 +131,7 @@ describe("scanAllSubagentFiles", () => {
         const result = yield* scanAllSubagentFiles([claudeCode, roo, cline], tempDir);
         expect(result).toHaveLength(1);
         expect(result[0]?.agentId).toBe("claude-code");
-        expect(result[0]?.agentName).toBe("Claude Code");
-        expect(result[0]?.subagentDir).toBe(".claude/agents");
-        expect(result[0]?.files).toHaveLength(1);
+        expect(result[0]?.files).toEqual([{ path: path.join(".claude/agents", "agent.md") }]);
       }),
     ),
   );
@@ -230,16 +148,14 @@ describe("scanAllSubagentFiles", () => {
   it.effect("includes multiple agents with subagent files", () =>
     withNode(
       Effect.gen(function* () {
-        // Create subagent files for both claude-code and roo
         const agentsDir = path.join(tempDir, ".claude", "agents");
         fs.mkdirSync(agentsDir, { recursive: true });
         fs.writeFileSync(path.join(agentsDir, "agent.md"), "# Agent");
-
         fs.writeFileSync(path.join(tempDir, ".roomodes"), '{"customModes": []}');
 
         const result = yield* scanAllSubagentFiles([claudeCode, roo], tempDir);
         expect(result).toHaveLength(2);
-        const ids = result.map((r) => r.agentId);
+        const ids = result.map((summary) => summary.agentId);
         expect(ids).toContain("claude-code");
         expect(ids).toContain("roo");
       }),

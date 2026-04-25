@@ -2,13 +2,12 @@
  * Markdown + YAML frontmatter renderer.
  *
  * For: Claude Code, Codex, OpenCode, Augment, Junie, Kilo Code, Roo Code.
- * Produces `.md` with managed-by marker, YAML frontmatter, and substituted body.
+ * Produces `.md` with YAML frontmatter and substituted body.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import YAML from "yaml";
-import { generateMarker } from "../../extensions/managed-marker.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import type { RenderInput, RenderOutput } from "./types.js";
@@ -65,7 +64,6 @@ const buildFrontmatterObject = (input: RenderInput): Record<string, unknown> | u
  */
 export const renderMarkdownWithFrontmatter = (input: RenderInput): RenderOutput => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const marker = generateMarker("commands", "markdown");
   const fmObject = buildFrontmatterObject(input);
 
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(
@@ -74,7 +72,7 @@ export const renderMarkdownWithFrontmatter = (input: RenderInput): RenderOutput 
   );
   warnings.push(...subWarnings);
 
-  const parts: Array<string> = [marker];
+  const parts: Array<string> = [];
 
   if (fmObject !== undefined) {
     const yamlStr = YAML.stringify(fmObject, { lineWidth: 0 }).trim();

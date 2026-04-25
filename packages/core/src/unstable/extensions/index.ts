@@ -136,15 +136,6 @@ export {
   toLabelWithCompatibility,
 } from "./operations.js";
 
-// Managed markers
-export {
-  ManagedMarkerSchema,
-  generateMarker,
-  isManagedByAxm,
-  stripMarker,
-  type ManagedMarker,
-} from "./managed-marker.js";
-
 // Rendered files tracking
 export {
   RenderedFilePathSchema,
@@ -155,9 +146,6 @@ export {
   type RenderedFilesMap,
   type SourceHash,
 } from "./rendered-files.js";
-
-// Conflict detection
-export { detectConflict, type ConflictDetectionResult } from "./conflict-detection.js";
 
 // Frontmatter parsing
 export {

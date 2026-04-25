@@ -22,17 +22,16 @@ describe("renderMarkdownYaml", () => {
     expect(result.outputs).toHaveLength(1);
     const output = result.outputs[0];
     expect(output?.path).toBe(".claude/agents/code-reviewer.md");
-    expect(output?.content).toContain("<!-- Managed by axm");
     expect(output?.content).toContain("---");
     expect(output?.content).toContain("description: Reviews code changes for quality");
     expect(output?.content).toContain("You are a code reviewer.");
   });
 
-  it("starts with managed marker as first line", () => {
+  it("starts with frontmatter as first line", () => {
     const result = renderMarkdownYaml(baseInput);
     if (result._tag !== "Rendered") return;
     const firstLine = result.outputs[0]?.content.split("\n")[0];
-    expect(firstLine).toMatch(/^<!-- Managed by axm/);
+    expect(firstLine).toBe("---");
   });
 
   describe("model tiers", () => {

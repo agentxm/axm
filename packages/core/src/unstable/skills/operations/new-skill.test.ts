@@ -12,7 +12,6 @@ import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
 import type { NewSkillOperation } from "./new-skill.js";
 import { newSkill } from "./new-skill.js";
-import { isManagedByAxm } from "../../extensions/managed-marker.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -193,7 +192,7 @@ describe("newSkill", () => {
           "SKILL.md",
         );
         const content = fs.readFileSync(skillMdPath, "utf-8");
-        expect(isManagedByAxm(content)).toBe(false);
+        expect(content).not.toContain("Managed by axm");
       }),
     );
   });

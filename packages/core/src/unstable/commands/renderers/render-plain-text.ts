@@ -2,13 +2,11 @@
  * Plain text renderer for Kiro.
  *
  * For: Kiro.
- * Produces plain text with managed-by marker comment and body.
+ * Produces plain text body.
  * All portable variables render as literal text with lossy-rendering warnings.
  *
  * @experimental This API is unstable and may change without notice.
  */
-
-import { generateMarker } from "../../extensions/managed-marker.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import type { RenderInput, RenderOutput } from "./types.js";
@@ -23,7 +21,6 @@ import type { RenderInput, RenderOutput } from "./types.js";
  */
 export const renderPlainText = (input: RenderInput): RenderOutput => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const marker = generateMarker("commands", "text");
   const { frontmatter, agentId } = input;
 
   // Warn for all unsupported frontmatter fields
@@ -63,13 +60,8 @@ export const renderPlainText = (input: RenderInput): RenderOutput => {
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(input.body, agentId);
   warnings.push(...subWarnings);
 
-  const parts: Array<string> = [marker];
-  if (substitutedBody.length > 0) {
-    parts.push(substitutedBody);
-  }
-
   return {
-    content: parts.join("\n"),
+    content: substitutedBody,
     warnings,
     fileExtension: ".txt",
   };

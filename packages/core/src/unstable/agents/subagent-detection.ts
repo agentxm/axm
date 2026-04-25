@@ -1,8 +1,7 @@
 /**
  * Subagent file detection for agent directories.
  *
- * Scans agent subagent directories to find existing subagent files and
- * classify them as managed (by axm) or unmanaged (user-created).
+ * Scans agent subagent directories to find existing subagent files.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -10,7 +9,6 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { isManagedByAxm } from "../extensions/managed-marker.js";
 import { makeAppError } from "../app-error/index.js";
 import type { AgentDescriptor } from "./types.js";
 
@@ -19,15 +17,13 @@ import type { AgentDescriptor } from "./types.js";
 // -----------------------------------------------------------------------------
 
 /**
- * A detected subagent file with its management status.
+ * A detected subagent file.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface DetectedSubagentFile {
   /** File path relative to the project directory */
   readonly path: string;
-  /** Whether the file contains an axm managed marker */
-  readonly managed: boolean;
 }
 
 /**
@@ -51,8 +47,7 @@ export interface AgentSubagentSummary {
 // -----------------------------------------------------------------------------
 
 /**
- * Scan a single agent's subagent directory for existing files and classify
- * each as managed or unmanaged.
+ * Scan a single agent's subagent directory for existing files.
  *
  * Returns `Option.None`-style empty array when the directory does not exist.
  *
@@ -75,10 +70,7 @@ export const scanAgentSubagentFiles = (agent: AgentDescriptor, projectDir: strin
     }
 
     if (subagents.isFile === true) {
-      // Single file (e.g., .roomodes) — read and check for marker
-      const content = yield* fs.readFileString(subagentPath);
-      const managed = isManagedByAxm(content);
-      return [{ path: subagents.dir, managed }] as const;
+      return [{ path: subagents.dir }] as const;
     }
 
     // Directory — list files and check each for marker
@@ -96,15 +88,9 @@ export const scanAgentSubagentFiles = (agent: AgentDescriptor, projectDir: strin
     return yield* Effect.forEach(
       files,
       (file) =>
-        Effect.gen(function* () {
-          const filePath = p.join(subagentPath, file);
-          const content = yield* fs.readFileString(filePath);
-          const managed = isManagedByAxm(content);
-          return {
-            path: p.join(subagents.dir, file),
-            managed,
-          } satisfies DetectedSubagentFile;
-        }),
+        Effect.succeed({
+          path: p.join(subagents.dir, file),
+        } satisfies DetectedSubagentFile),
       { concurrency: "unbounded" },
     );
   }).pipe(

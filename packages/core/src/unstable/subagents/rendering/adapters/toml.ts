@@ -2,14 +2,13 @@
  * TOML adapter for subagent rendering.
  *
  * For: Codex.
- * Produces `.toml` with managed-by marker comment, `name`, `description`,
- * `developer_instructions`, `model`, and `sandbox_mode` fields.
+ * Produces `.toml` with `name`, `description`, `developer_instructions`,
+ * `model`, and `sandbox_mode` fields.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
-import { generateMarker } from "../../../extensions/managed-marker.js";
 import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
 import { mapModelTier } from "../model-mapping.js";
 import { mapToolAccess } from "../tool-access-mapping.js";
@@ -37,9 +36,7 @@ const tomlStringValue = (value: string): string => {
  */
 export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const marker = generateMarker("subagents", "toml");
-
-  const lines: Array<string> = [marker, ""];
+  const lines: Array<string> = [];
 
   lines.push(`name = ${tomlStringValue(input.name)}`);
   lines.push(`description = ${tomlStringValue(input.description)}`);

@@ -4,14 +4,13 @@
  * For: Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment,
  * Junie, Kilo Code, Kiro IDE.
  *
- * Produces `.md` with managed-by marker, YAML frontmatter, and body.
+ * Produces `.md` with YAML frontmatter and body.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { generateMarker } from "../../../extensions/managed-marker.js";
 import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
 import { mapModelTier } from "../model-mapping.js";
 import { mapToolAccess } from "../tool-access-mapping.js";
@@ -157,11 +156,10 @@ export const renderMarkdownYaml = (input: SubagentRenderInput): SubagentRenderOu
   };
 
   const warnings: Array<LossyRenderingWarning> = [];
-  const marker = generateMarker("subagents", "markdown");
   const fmObject = buildFrontmatterObject(input, config, warnings);
 
   const yamlStr = YAML.stringify(fmObject, { lineWidth: 0 }).trim();
-  const parts: Array<string> = [marker, `---\n${yamlStr}\n---`];
+  const parts: Array<string> = [`---\n${yamlStr}\n---`];
 
   if (input.body.length > 0) {
     parts.push(input.body);

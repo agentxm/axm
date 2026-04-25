@@ -21,11 +21,11 @@ describe("renderToml", () => {
     expect(result.outputs[0]?.path).toBe(".codex/agents/code-reviewer.toml");
   });
 
-  it("starts with managed marker hash comment", () => {
+  it("starts with TOML content", () => {
     const result = renderToml(baseInput);
     if (result._tag !== "Rendered") return;
     const firstLine = result.outputs[0]?.content.split("\n")[0];
-    expect(firstLine).toMatch(/^# Managed by axm/);
+    expect(firstLine).toBe('name = "code-reviewer"');
   });
 
   it("includes name, description, and developer_instructions", () => {

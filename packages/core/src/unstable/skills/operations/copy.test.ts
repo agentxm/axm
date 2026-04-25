@@ -11,7 +11,6 @@ import { Workspace, type WorkspaceContextService } from "../../workspace/service
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { copySkill } from "./copy.js";
 import type { CopySkillOperation } from "./copy.js";
-import { generateMarker, isManagedByAxm } from "../../extensions/managed-marker.js";
 import { extensionName, handle } from "../../test-helpers.js";
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
@@ -179,13 +178,12 @@ describe("copySkill", () => {
     );
   });
 
-  describe("managed marker stripping", () => {
-    it.effect("strips managed marker from SKILL.md after copy (fork scenario)", () =>
+  describe("SKILL.md content preservation", () => {
+    it.effect("preserves SKILL.md content verbatim during copy", () =>
       Effect.gen(function* () {
         const src = setupSource();
-        // Simulate a source SKILL.md that has a managed marker (from materialization)
-        const marker = generateMarker("skills", "markdown");
-        fs.writeFileSync(path.join(src, "SKILL.md"), `${marker}\n# my-skill`);
+        const sourceContent = '<!-- Managed by axm — see "axm skills --help" -->\n# my-skill';
+        fs.writeFileSync(path.join(src, "SKILL.md"), sourceContent);
 
         const { axmDir, base } = setupBase();
 
@@ -195,11 +193,9 @@ describe("copySkill", () => {
 
         expect(result.result).toBe("success");
 
-        // The copied SKILL.md should NOT have the managed marker
         const targetDir = path.join(base, ".axm", "extensions", "@community", "skills", "my-skill");
         const content = fs.readFileSync(path.join(targetDir, "src", "SKILL.md"), "utf-8");
-        expect(isManagedByAxm(content)).toBe(false);
-        expect(content).toBe("# my-skill");
+        expect(content).toBe(sourceContent);
       }),
     );
 

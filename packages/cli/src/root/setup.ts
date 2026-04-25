@@ -22,7 +22,6 @@ import { withRuntime } from "../runtime.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,
-  managed: Schema.Boolean,
 });
 
 const SubagentSummarySchema = Schema.Struct({
@@ -51,9 +50,6 @@ const SetupDocumentFields = {
 
 /**
  * Render subagent file summary to the CLI output.
- *
- * Shows managed files as part of configuration and notes unmanaged files
- * without attempting to import or convert them.
  */
 const renderSubagentSummary = (
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
@@ -63,17 +59,9 @@ const renderSubagentSummary = (
     if (summaries.length === 0) return;
 
     for (const summary of summaries) {
-      const managed = summary.files.filter((f) => f.managed);
-      const unmanaged = summary.files.filter((f) => !f.managed);
-
-      if (managed.length > 0) {
+      if (summary.files.length > 0) {
         yield* renderer.info(
-          `${summary.agentName}: ${String(managed.length)} managed subagent file(s) in ${summary.subagentDir}`,
-        );
-      }
-      if (unmanaged.length > 0) {
-        yield* renderer.warn(
-          `${summary.agentName}: ${String(unmanaged.length)} existing subagent file(s) in ${summary.subagentDir} (not managed by axm)`,
+          `${summary.agentName}: ${String(summary.files.length)} existing subagent file(s) in ${summary.subagentDir}`,
         );
       }
     }

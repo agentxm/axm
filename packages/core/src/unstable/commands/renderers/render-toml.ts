@@ -2,12 +2,11 @@
  * TOML renderer for Gemini CLI.
  *
  * For: Gemini CLI.
- * Produces `.toml` with managed-by marker comment, `description` and `prompt` fields.
+ * Produces `.toml` with `description` and `prompt` fields.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import { generateMarker } from "../../extensions/managed-marker.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import type { RenderInput, RenderOutput } from "./types.js";
@@ -35,7 +34,6 @@ const tomlStringValue = (value: string): string => {
  */
 export const renderToml = (input: RenderInput): RenderOutput => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const marker = generateMarker("commands", "toml");
   const { frontmatter, agentId } = input;
 
   // Warn for unsupported features
@@ -74,7 +72,7 @@ export const renderToml = (input: RenderInput): RenderOutput => {
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(input.body, agentId);
   warnings.push(...subWarnings);
 
-  const lines: Array<string> = [marker, ""];
+  const lines: Array<string> = [];
 
   if (frontmatter.description !== undefined) {
     lines.push(`description = ${tomlStringValue(frontmatter.description)}`);

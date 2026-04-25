@@ -16,9 +16,6 @@ import { mapModelTier } from "../model-mapping.js";
 import { mapToolAccess } from "../tool-access-mapping.js";
 import type { SubagentRenderInput } from "../types.js";
 
-/** The JSON managed marker field value. */
-const AXM_MANAGED_VALUE = "axm subagents --help";
-
 /** Default groups when tool access mapping returns no groups. */
 const DEFAULT_GROUPS: ReadonlyArray<string> = ["read", "edit", "command", "mcp"];
 
@@ -44,7 +41,6 @@ export interface RooModeEntry {
   readonly roleDefinition: string;
   readonly customInstructions?: string | undefined;
   readonly groups: ReadonlyArray<string>;
-  readonly _axm_managed: string;
   readonly [key: string]: unknown;
 }
 
@@ -119,7 +115,6 @@ export const buildRooModeEntry = (input: SubagentRenderInput): RooModeResult => 
     ...(customInstructions.length > 0 ? { customInstructions } : {}),
     groups,
     description: input.description,
-    _axm_managed: AXM_MANAGED_VALUE,
     ...input.agentOverrides,
   };
 
@@ -127,11 +122,10 @@ export const buildRooModeEntry = (input: SubagentRenderInput): RooModeResult => 
 };
 
 /**
- * Merge AXM-managed mode entries into an existing modes array.
+ * Merge a mode entry into an existing modes array by slug.
  *
- * Preserves manually-defined modes (those without `_axm_managed`),
- * updates existing AXM-managed modes with matching slug, and adds
- * new AXM-managed modes.
+ * Replaces any existing entry with the same slug and preserves entries
+ * with different slugs.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -143,8 +137,7 @@ export const mergeRooModes = (
   let replaced = false;
 
   for (const mode of existingModes) {
-    if (mode["slug"] === managedEntry.slug && mode["_axm_managed"] !== undefined) {
-      // Replace existing AXM-managed mode with same slug
+    if (mode["slug"] === managedEntry.slug) {
       result.push(managedEntry);
       replaced = true;
     } else {
@@ -160,15 +153,11 @@ export const mergeRooModes = (
 };
 
 /**
- * Remove an AXM-managed mode entry by slug from a modes array.
- *
- * Only removes entries that have the `_axm_managed` field.
- * Manual modes with the same slug are preserved.
+ * Remove a mode entry by slug from a modes array.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const removeRooMode = (
   existingModes: ReadonlyArray<Record<string, unknown>>,
   slug: string,
-): ReadonlyArray<Record<string, unknown>> =>
-  existingModes.filter((mode) => !(mode["slug"] === slug && mode["_axm_managed"] !== undefined));
+): ReadonlyArray<Record<string, unknown>> => existingModes.filter((mode) => mode["slug"] !== slug);

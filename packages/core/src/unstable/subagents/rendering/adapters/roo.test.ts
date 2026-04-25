@@ -42,7 +42,7 @@ describe("buildRooModeEntry", () => {
     expect(result.entry.customInstructions).toBe(
       "Review all code changes carefully.\nLook for bugs and style issues.",
     );
-    expect(result.entry._axm_managed).toBe("axm subagents --help");
+    expect(result.entry["_axm_managed"]).toBeUndefined();
   });
 
   it("omits customInstructions when body has no blank line", () => {
@@ -127,21 +127,20 @@ describe("mergeRooModes", () => {
     expect(result[1]?.["slug"]).toBe("code-reviewer");
   });
 
-  it("updates existing AXM-managed mode with same slug", () => {
-    const existingManaged = {
+  it("updates existing mode with same slug", () => {
+    const existingMode = {
       slug: "code-reviewer",
       name: "code-reviewer",
       roleDefinition: "Old definition",
       groups: ["read"],
-      _axm_managed: "axm subagents --help",
     };
     const entry = buildRooModeEntry(baseInput).entry;
-    const result = mergeRooModes([existingManaged], entry);
+    const result = mergeRooModes([existingMode], entry);
     expect(result).toHaveLength(1);
     expect(result[0]?.["roleDefinition"]).toBe("You are a code reviewer.");
   });
 
-  it("does not replace manual mode with same slug", () => {
+  it("replaces manual mode with same slug", () => {
     const manualMode = {
       slug: "code-reviewer",
       name: "Code Reviewer",
@@ -150,26 +149,24 @@ describe("mergeRooModes", () => {
     };
     const entry = buildRooModeEntry(baseInput).entry;
     const result = mergeRooModes([manualMode], entry);
-    // Manual mode preserved, new managed mode added
-    expect(result).toHaveLength(2);
-    expect(result[0]?.["roleDefinition"]).toBe("Manual definition");
+    expect(result).toHaveLength(1);
+    expect(result[0]?.["roleDefinition"]).toBe("You are a code reviewer.");
   });
 });
 
 describe("removeRooMode", () => {
-  it("removes AXM-managed mode by slug", () => {
-    const managedMode = {
+  it("removes mode by slug", () => {
+    const existingMode = {
       slug: "code-reviewer",
       name: "code-reviewer",
       roleDefinition: "...",
       groups: ["read"],
-      _axm_managed: "axm subagents --help",
     };
-    const result = removeRooMode([managedMode], "code-reviewer");
+    const result = removeRooMode([existingMode], "code-reviewer");
     expect(result).toHaveLength(0);
   });
 
-  it("preserves manual mode with same slug", () => {
+  it("removes manual mode with same slug", () => {
     const manualMode = {
       slug: "code-reviewer",
       name: "Code Reviewer",
@@ -177,19 +174,17 @@ describe("removeRooMode", () => {
       groups: ["read"],
     };
     const result = removeRooMode([manualMode], "code-reviewer");
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(0);
   });
 
-  it("preserves other managed modes", () => {
+  it("preserves other modes", () => {
     const mode1 = {
       slug: "code-reviewer",
-      _axm_managed: "axm subagents --help",
       roleDefinition: "...",
       groups: [],
     };
     const mode2 = {
       slug: "test-writer",
-      _axm_managed: "axm subagents --help",
       roleDefinition: "...",
       groups: [],
     };

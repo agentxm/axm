@@ -11,13 +11,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { detectConflict } from "../extensions/conflict-detection.js";
 import {
   renderSubagent,
   buildRooModeEntry,
   mergeRooModes,
   removeRooMode,
-  type SubagentRenderOutput,
 } from "../subagents/rendering/index.js";
 import type {
   AddSubagentArgs,
@@ -53,7 +51,7 @@ const parseRoomodes = (content: string): { customModes: Array<Record<string, unk
 /**
  * Write rendered subagent files to an agent's subagents directory.
  *
- * Handles conflict detection, directory creation, and file writing.
+ * Handles directory creation and file writing.
  * Returns a `SubagentSyncOutcome` with the rendered file paths and any warnings.
  */
 export const writeSubagentFiles = (
@@ -79,22 +77,10 @@ export const writeSubagentFiles = (
       } as const;
     }
 
-    // For each output, resolve the path relative to workspace root and check conflicts
-    const resolvedOutputs: Array<{ output: SubagentRenderOutput; filePath: string }> = [];
-    for (const output of renderResult.outputs) {
-      const filePath = path.resolve(args.workspaceRoot, output.path);
-
-      // Check for conflicts
-      const conflictResult = yield* detectConflict(filePath);
-      if (conflictResult._tag === "Conflict" && !args.force) {
-        return {
-          _tag: "conflict",
-          reason: `File exists without axm marker: ${filePath}. Use --force to overwrite.`,
-        } as const;
-      }
-
-      resolvedOutputs.push({ output, filePath });
-    }
+    const resolvedOutputs = renderResult.outputs.map((output) => ({
+      output,
+      filePath: path.resolve(args.workspaceRoot, output.path),
+    }));
 
     // Ensure directory exists and write all files
     yield* fs.makeDirectory(subagentsDir, { recursive: true }).pipe(
@@ -242,25 +228,12 @@ export const addRooSubagent = (
     // Build the Roo mode entry
     const rooResult = buildRooModeEntry(args.input);
 
-    // Check for conflict — existing mode with same slug but no _axm_managed
     const existingContent = yield* fs
       .readFileString(roomodesPath)
       .pipe(Effect.catch(() => Effect.succeed("")));
 
     const existingParsed =
       existingContent.length > 0 ? parseRoomodes(existingContent) : { customModes: [] };
-
-    if (existingContent.length > 0) {
-      const conflictingMode = existingParsed.customModes.find(
-        (m) => m["slug"] === args.input.name && m["_axm_managed"] === undefined,
-      );
-      if (conflictingMode !== undefined && !args.force) {
-        return {
-          _tag: "conflict",
-          reason: `Mode "${args.input.name}" exists in ${roomodesPath} without axm marker. Use --force to overwrite.`,
-        } as const;
-      }
-    }
 
     // Merge and write back
     const existingModes = existingParsed.customModes;

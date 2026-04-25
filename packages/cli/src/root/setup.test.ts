@@ -233,7 +233,7 @@ describe("setup.handler", () => {
   });
 
   describe("subagent detection", () => {
-    it.effect("notes unmanaged subagent files", () => {
+    it.effect("notes existing subagent files", () => {
       const { provide, rendererState } = makeSetupTestContext();
 
       return provide(
@@ -244,35 +244,12 @@ describe("setup.handler", () => {
 
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          const warnMessages = rendererState.logs
-            .filter((entry) => entry._tag === "warn")
-            .map((entry) => entry.message);
-          expect(warnMessages.some((message) => message.includes("not managed by axm"))).toBe(true);
-          expect(warnMessages.some((message) => message.includes("Claude Code"))).toBe(true);
-        }),
-      );
-    });
-
-    it.effect("notes managed subagent files", () => {
-      const { provide, rendererState } = makeSetupTestContext();
-
-      return provide(
-        Effect.gen(function* () {
-          const agentsDir = path.join(tempDir, ".claude", "agents");
-          fs.mkdirSync(agentsDir, { recursive: true });
-          fs.writeFileSync(
-            path.join(agentsDir, "managed-agent.md"),
-            '<!-- Managed by axm — see "axm subagents --help" -->\n# Managed Agent',
-          );
-
-          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
-
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
             .map((entry) => entry.message);
-          expect(infoMessages.some((message) => message.includes("managed subagent file(s)"))).toBe(
-            true,
-          );
+          expect(
+            infoMessages.some((message) => message.includes("existing subagent file(s)")),
+          ).toBe(true);
           expect(infoMessages.some((message) => message.includes("Claude Code"))).toBe(true);
         }),
       );

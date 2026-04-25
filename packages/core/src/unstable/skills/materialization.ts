@@ -16,7 +16,6 @@ import {
   stripFileProtocol,
 } from "../utils/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
-import { prependManagedMarkerToSkillMdWith } from "./managed-marker-ops.js";
 
 export type ProvideFs = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -72,7 +71,6 @@ const materializeGitHosted = (
       skillSrcPath,
       provide,
     );
-    yield* prependManagedMarkerToSkillMdWith(fs, pathService, skillSrcPath);
     return skillSrcPath;
   });
 
@@ -187,7 +185,6 @@ const materializeRegistry = (
       );
     }
 
-    yield* prependManagedMarkerToSkillMdWith(fs, pathService, skillSrcPath);
     return skillSrcPath;
   });
 

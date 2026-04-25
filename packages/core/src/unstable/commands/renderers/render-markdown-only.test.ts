@@ -3,7 +3,7 @@ import { renderMarkdownOnly } from "./render-markdown-only.js";
 import type { RenderInput } from "./types.js";
 
 describe("renderMarkdownOnly", () => {
-  it("renders body with managed marker and no frontmatter", () => {
+  it("renders body with no frontmatter", () => {
     const input: RenderInput = {
       frontmatter: {},
       body: "Review the code.",
@@ -13,8 +13,7 @@ describe("renderMarkdownOnly", () => {
 
     const result = renderMarkdownOnly(input);
 
-    expect(result.content).toContain("Managed by axm");
-    expect(result.content).toContain("Review the code.");
+    expect(result.content).toBe("Review the code.");
     expect(result.content).not.toContain("---");
     expect(result.fileExtension).toBe(".md");
     expect(result.warnings).toEqual([]);
@@ -126,8 +125,6 @@ describe("renderMarkdownOnly", () => {
     };
 
     const result = renderMarkdownOnly(input);
-    const lines = result.content.split("\n");
-    expect(lines[0]).toMatch(/^<!-- Managed by axm/);
-    expect(lines).toHaveLength(1);
+    expect(result.content).toBe("");
   });
 });

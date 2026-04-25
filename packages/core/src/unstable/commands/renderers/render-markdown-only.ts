@@ -2,12 +2,10 @@
  * Markdown-only renderer (no frontmatter).
  *
  * For: Cursor.
- * Produces `.md` with managed-by marker and substituted body only.
+ * Produces `.md` with substituted body only.
  *
  * @experimental This API is unstable and may change without notice.
  */
-
-import { generateMarker } from "../../extensions/managed-marker.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import type { RenderInput, RenderOutput } from "./types.js";
@@ -22,7 +20,6 @@ import type { RenderInput, RenderOutput } from "./types.js";
  */
 export const renderMarkdownOnly = (input: RenderInput): RenderOutput => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const marker = generateMarker("commands", "markdown");
   const { frontmatter, agentId } = input;
 
   // Warn for unsupported frontmatter fields
@@ -53,13 +50,8 @@ export const renderMarkdownOnly = (input: RenderInput): RenderOutput => {
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(input.body, agentId);
   warnings.push(...subWarnings);
 
-  const parts: Array<string> = [marker];
-  if (substitutedBody.length > 0) {
-    parts.push(substitutedBody);
-  }
-
   return {
-    content: parts.join("\n"),
+    content: substitutedBody,
     warnings,
     fileExtension: ".md",
   };

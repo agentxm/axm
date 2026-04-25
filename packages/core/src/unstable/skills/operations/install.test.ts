@@ -47,7 +47,6 @@ import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
-import { isManagedByAxm } from "../../extensions/managed-marker.js";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (
@@ -1069,8 +1068,8 @@ describe("installSkill", () => {
     );
   });
 
-  describe("managed marker", () => {
-    it.effect("prepends managed marker to SKILL.md for git-hosted source", () =>
+  describe("SKILL.md materialization", () => {
+    it.effect("does not prepend a marker to SKILL.md for git-hosted source", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -1093,14 +1092,11 @@ describe("installSkill", () => {
 
         const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         const content = fs.readFileSync(path.join(canonical, "SKILL.md"), "utf-8");
-        expect(isManagedByAxm(content)).toBe(true);
-        expect(content).toContain('<!-- Managed by axm \u2014 see "axm skills --help" -->');
-        // Original content should follow the marker
-        expect(content).toContain("# my-skill");
+        expect(content).toBe("# my-skill");
       }),
     );
 
-    it.effect("prepends managed marker to SKILL.md for registry source", () =>
+    it.effect("does not prepend a marker to SKILL.md for registry source", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -1128,7 +1124,7 @@ describe("installSkill", () => {
           "src",
         );
         const content = fs.readFileSync(path.join(srcDir, "SKILL.md"), "utf-8");
-        expect(isManagedByAxm(content)).toBe(true);
+        expect(content).toBe("# my-skill");
       }),
     );
 
@@ -1145,21 +1141,20 @@ describe("installSkill", () => {
 
         // The original source SKILL.md should NOT have a marker
         const sourceContent = fs.readFileSync(path.join(src, "SKILL.md"), "utf-8");
-        expect(isManagedByAxm(sourceContent)).toBe(false);
+        expect(sourceContent).toBe("# my-skill");
 
         // The copied canonical SKILL.md should also NOT have a marker (local source)
         const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         const canonicalContent = fs.readFileSync(path.join(canonical, "SKILL.md"), "utf-8");
-        expect(isManagedByAxm(canonicalContent)).toBe(false);
+        expect(canonicalContent).toBe("# my-skill");
       }),
     );
 
-    it.effect("marker survives copy-mode fallback from canonical to agent dir", () =>
+    it.effect("copy-mode fallback preserves marker-free content in the agent dir", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        // Install from git-hosted to get marker in canonical
         const result = yield* installSkill(
           makeOp({
             source: {
@@ -1176,10 +1171,9 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Agent dir may be a symlink or copy — either way content should have marker
         const agentSkillDir = path.join(base, ".claude", "skills", "my-skill");
         const agentContent = fs.readFileSync(path.join(agentSkillDir, "SKILL.md"), "utf-8");
-        expect(isManagedByAxm(agentContent)).toBe(true);
+        expect(agentContent).toBe("# my-skill");
       }),
     );
   });

@@ -14,8 +14,7 @@ describe("renderPromptMd", () => {
     const result = renderPromptMd(input);
 
     expect(result.fileExtension).toBe(".prompt.md");
-    expect(result.content).toContain("Managed by axm");
-    expect(result.content).toContain("Review the code.");
+    expect(result.content).toBe("Review the code.");
   });
 
   it("renders description in frontmatter", () => {

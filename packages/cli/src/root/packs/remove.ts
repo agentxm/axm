@@ -49,7 +49,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   yield* renderer.info("axm packs remove");
 
   // Step 1: Find the pack
-  const configuredPacks = yield* ws.getConfiguredPacks();
+  const configuredPacks = yield* ws.records.getConfiguredPacks();
   const packEntry = configuredPacks[args.pack];
 
   if (packEntry === undefined) {

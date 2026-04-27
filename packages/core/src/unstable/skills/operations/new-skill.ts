@@ -93,7 +93,7 @@ export const newSkill: OperationHandler<
     const fqn = `${owner}/skills/${name}`;
 
     // 1. Check if skill already exists in settings
-    const configuredSkills = yield* ws.getConfiguredSkills();
+    const configuredSkills = yield* ws.records.getConfiguredSkills();
     if (name in configuredSkills) {
       return yield* makeAppError({
         code: "SKILL_ALREADY_EXISTS",

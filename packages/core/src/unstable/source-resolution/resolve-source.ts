@@ -383,7 +383,7 @@ export const routeNameInput = (
     }
 
     // Tier 2: configured skill with a source string
-    const configured = yield* ws.getConfiguredSkills().pipe(
+    const configured = yield* ws.records.getConfiguredSkills().pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",

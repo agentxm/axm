@@ -177,10 +177,10 @@ describe("detectAgent", () => {
     );
   });
 
-  describe("global detection (~/.{agent-id})", () => {
-    it.effect("detects claude-code when ~/.claude-code exists", () =>
+  describe("global detection (user-scope roots)", () => {
+    it.effect("detects claude-code when ~/.claude exists", () =>
       Effect.gen(function* () {
-        const globalPath = path.join(home, ".claude-code");
+        const globalPath = path.join(home, ".claude");
         const existingPaths = new Set([globalPath]);
         const result = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
@@ -291,19 +291,6 @@ describe("detectAgent", () => {
         expect(ampResult).toBe(false);
         expect(kimiResult).toBe(false);
         expect(replitResult).toBe(false);
-      }),
-    );
-
-    it.effect("detects universal-dir-only agent via legacy ~/.{agent-id} fallback", () =>
-      Effect.gen(function* () {
-        // amp has only .agents/skills (universal). The legacy ~/.<agent-id>
-        // fallback should still trigger detection.
-        const globalPath = path.join(home, ".amp");
-        const existingPaths = new Set([globalPath]);
-        const result = yield* detectAgent(AGENTS["amp"], testProjectDir).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(true);
       }),
     );
 

@@ -4,7 +4,7 @@
  *
  * Per Decision 3 (agents have declared + actual only; no resolved layer) and
  * Decision 4 (per-subject modules carry the genuine variance) of the
- * workspace-context design:
+ * workspace read-model design:
  *
  * - `DeclaredAgent` / `ActualAgent` / `DetectedAgent` are the per-agent
  *   payload shapes the projectors return through `Option`.

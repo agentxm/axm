@@ -1,8 +1,8 @@
 /**
- * Workspace record readers.
+ * Read-model record readers.
  *
- * Centralizes the mutation facade's record projection over `WorkspaceReadModel`
- * subject rows.
+ * Centralizes read-model record projection over `WorkspaceReadModel` subject
+ * rows.
  */
 
 import * as Effect from "effect/Effect";
@@ -19,7 +19,7 @@ import { expandGlob } from "../utils/index.js";
 import type { LockfileReadError, SettingsReadError } from "./context/errors.js";
 import type { ScopedWorkspaceReadModel } from "./context/context.js";
 import { deriveSourceMetaFromLockType } from "./source-metadata.js";
-import type { WorkspaceRecordRow, PackagingKind } from "./workspace-record-types.js";
+import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 
 type WorkspaceManagedExtensionType = InstallableExtensionType;
 
@@ -27,17 +27,17 @@ type ReadScopedContext = <A>(
   f: (scoped: ScopedWorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
 ) => Effect.Effect<A, AppError>;
 
-export interface WorkspaceRecordReaders {
-  readonly getWorkspaceRecordRows: (
+export interface ReadModelRecordReaders {
+  readonly getReadModelRecordRows: (
     type: WorkspaceManagedExtensionType,
-  ) => Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, AppError>;
+  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError>;
 }
 
-export const makeWorkspaceRecordReaders = (args: {
+export const makeReadModelRecordReaders = (args: {
   readonly baseDir: string;
   readonly path: Path.Path;
   readonly readScopedContext: ReadScopedContext;
-}): WorkspaceRecordReaders => {
+}): ReadModelRecordReaders => {
   const packagingKindForSource = (
     type: WorkspaceManagedExtensionType,
     source: string,
@@ -65,7 +65,7 @@ export const makeWorkspaceRecordReaders = (args: {
   const resolvedRowToImplicit = (
     type: WorkspaceManagedExtensionType,
     row: { readonly name: string; readonly lockEntry: { readonly type: string } },
-  ): Option.Option<WorkspaceRecordRow> =>
+  ): Option.Option<ReadModelRecordRow> =>
     deriveSourceMetaFromLockType(row.lockEntry.type).packagingKind === "native"
       ? Option.some({
           type,
@@ -102,7 +102,7 @@ export const makeWorkspaceRecordReaders = (args: {
   const packMemberToImplicit = (
     type: WorkspaceManagedExtensionType,
     name: string,
-  ): WorkspaceRecordRow => ({
+  ): ReadModelRecordRow => ({
     type,
     name,
     source: Option.none(),
@@ -111,7 +111,7 @@ export const makeWorkspaceRecordReaders = (args: {
     lifecycle: "implicit",
   });
 
-  const installedRowToWorkspaceRecordRow = <
+  const installedRowToReadModelRecordRow = <
     TDeclared extends {
       readonly entry: { readonly source: string; readonly enabled?: boolean };
     },
@@ -126,7 +126,7 @@ export const makeWorkspaceRecordReaders = (args: {
       readonly activation: "enabled" | "disabled";
       readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
     },
-  ): WorkspaceRecordRow => {
+  ): ReadModelRecordRow => {
     if (row.installationOrigin._tag === "direct") {
       const source = row.installationOrigin.declared.entry.source;
       return {
@@ -142,13 +142,13 @@ export const makeWorkspaceRecordReaders = (args: {
     return packMemberToImplicit(type, row.key.name);
   };
 
-  const unmanagedRowToWorkspaceRecordRow = (
+  const unmanagedRowToReadModelRecordRow = (
     type: WorkspaceManagedExtensionType,
     row: {
       readonly key: { readonly name: string };
       readonly actual: { readonly contentRoot?: string | null };
     },
-  ): WorkspaceRecordRow => ({
+  ): ReadModelRecordRow => ({
     type,
     name: row.key.name,
     source: Option.none(),
@@ -161,18 +161,18 @@ export const makeWorkspaceRecordReaders = (args: {
     lifecycle: "unmanaged",
   });
 
-  type ResolvedWorkspaceRecordInput = {
+  type ResolvedReadModelRecordInput = {
     readonly name: string;
     readonly keyName?: string;
     readonly lockEntry: { readonly type: string };
   };
 
-  type UnmanagedWorkspaceRecordInput = {
+  type UnmanagedReadModelRecordInput = {
     readonly key: { readonly name: string };
     readonly actual: { readonly contentRoot?: string | null };
   };
 
-  const collectWorkspaceRecordRows = <
+  const collectReadModelRecordRows = <
     TDeclared extends {
       readonly entry: { readonly source: string; readonly enabled?: boolean };
     },
@@ -187,11 +187,11 @@ export const makeWorkspaceRecordReaders = (args: {
       readonly activation: "enabled" | "disabled";
       readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
     }>;
-    readonly resolved: Option.Option<ReadonlyArray<ResolvedWorkspaceRecordInput>>;
-    readonly unmanaged: ReadonlyArray<UnmanagedWorkspaceRecordInput>;
+    readonly resolved: Option.Option<ReadonlyArray<ResolvedReadModelRecordInput>>;
+    readonly unmanaged: ReadonlyArray<UnmanagedReadModelRecordInput>;
     readonly ignored: ReadonlyArray<string>;
     readonly packMemberNames?: ReadonlyArray<ExtensionName>;
-  }): ReadonlyArray<WorkspaceRecordRow> => {
+  }): ReadonlyArray<ReadModelRecordRow> => {
     const claimed = new Set<string>(input.installed.map((row) => row.key.name));
     const directImplicit = Option.getOrElse(input.resolved, () => [])
       .filter((row) => !claimed.has(row.name))
@@ -203,16 +203,16 @@ export const makeWorkspaceRecordReaders = (args: {
       .map((name) => packMemberToImplicit(input.type, name));
 
     return [
-      ...input.installed.map((row) => installedRowToWorkspaceRecordRow(input.type, row)),
+      ...input.installed.map((row) => installedRowToReadModelRecordRow(input.type, row)),
       ...directImplicit,
       ...packImplicit,
       ...input.unmanaged
         .filter((row) => !isIgnoredName(input.ignored, row.key.name))
-        .map((row) => unmanagedRowToWorkspaceRecordRow(input.type, row)),
+        .map((row) => unmanagedRowToReadModelRecordRow(input.type, row)),
     ];
   };
 
-  const getWorkspaceRecordRows = (type: WorkspaceManagedExtensionType) =>
+  const getReadModelRecordRows = (type: WorkspaceManagedExtensionType) =>
     args.readScopedContext((scoped) =>
       Effect.gen(function* () {
         switch (type) {
@@ -223,7 +223,7 @@ export const makeWorkspaceRecordReaders = (args: {
             const unmanaged = yield* scoped.skills.unmanaged;
             const ignored =
               Option.getOrElse(settings, () => createDefaultSettings()).ignored?.skills ?? [];
-            return collectWorkspaceRecordRows({ type, installed, resolved, unmanaged, ignored });
+            return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
           }
           case "command": {
             const settings = yield* scoped.state.settings;
@@ -233,7 +233,7 @@ export const makeWorkspaceRecordReaders = (args: {
             const unmanaged = yield* scoped.commands.unmanaged;
             const ignored =
               Option.getOrElse(settings, () => createDefaultSettings()).ignored?.commands ?? [];
-            return collectWorkspaceRecordRows({
+            return collectReadModelRecordRows({
               type,
               installed,
               resolved,
@@ -252,7 +252,7 @@ export const makeWorkspaceRecordReaders = (args: {
             const unmanaged = yield* scoped.mcpServers.unmanaged;
             const ignored =
               Option.getOrElse(settings, () => createDefaultSettings()).ignored?.mcpServers ?? [];
-            return collectWorkspaceRecordRows({ type, installed, resolved, unmanaged, ignored });
+            return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
           }
           case "pack": {
             const settings = yield* scoped.state.settings;
@@ -261,7 +261,7 @@ export const makeWorkspaceRecordReaders = (args: {
             const unmanaged = yield* scoped.packs.unmanaged;
             const ignored =
               Option.getOrElse(settings, () => createDefaultSettings()).ignored?.packs ?? [];
-            return collectWorkspaceRecordRows({ type, installed, resolved, unmanaged, ignored });
+            return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
           }
           case "subagent": {
             const settings = yield* scoped.state.settings;
@@ -271,7 +271,7 @@ export const makeWorkspaceRecordReaders = (args: {
             const unmanaged = yield* scoped.subagents.unmanaged;
             const ignored =
               Option.getOrElse(settings, () => createDefaultSettings()).ignored?.subagents ?? [];
-            return collectWorkspaceRecordRows({
+            return collectReadModelRecordRows({
               type,
               installed,
               resolved,
@@ -287,5 +287,5 @@ export const makeWorkspaceRecordReaders = (args: {
       }),
     );
 
-  return { getWorkspaceRecordRows };
+  return { getReadModelRecordRows };
 };

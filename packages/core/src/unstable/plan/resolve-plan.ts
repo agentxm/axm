@@ -54,7 +54,7 @@ const reconciliationAdapters = [
 ];
 
 /**
- * Preview or apply (display, confirm, and execute) a plan using the workspace context.
+ * Preview or apply (display, confirm, and execute) a plan using the workspace read model.
  *
  * Steps:
  * 1. Augment plan with lockfile reconciliation if needed

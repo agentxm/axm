@@ -11,7 +11,7 @@ export interface Warning {
   readonly code?: string;
 }
 
-/** Append-only, snapshot-readable warning buffer for one scoped workspace context. */
+/** Append-only, snapshot-readable warning buffer for one scoped workspace read model. */
 export interface Diagnostics {
   readonly append: (warning: Warning) => Effect.Effect<void>;
   readonly snapshot: Effect.Effect<ReadonlyArray<Warning>>;

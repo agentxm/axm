@@ -4,7 +4,7 @@
  * union of every module's typed `nativeConfig` shape, and serve as the single
  * registration site so adding a new agent does not touch `WorkspaceReadModel`.
  *
- * Per Decision 4 of the workspace-context design and Phase 8 hand-off notes:
+ * Per Decision 4 of the workspace read-model design and Phase 8 hand-off notes:
  *   - The barrel exposes `registeredAgentModules: ReadonlyArray<AgentModule>`.
  *   - The barrel re-exports per-agent `*NativeConfig` variants and
  *     `AgentNativeConfig` as their open union.

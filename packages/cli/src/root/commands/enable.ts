@@ -41,8 +41,8 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
 
   yield* renderer.info("axm commands enable");
 
-  // Load installed commands (configured + implicit) from the workspace record projection.
-  const installedCommands = yield* ws.getInstalledCommands();
+  // Load installed commands (configured + implicit) from the read-model record projection.
+  const installedCommands = yield* ws.records.getInstalledCommands();
   const entry = installedCommands[args.name];
 
   // Validate: command is installed (ignored names are excluded from installed)

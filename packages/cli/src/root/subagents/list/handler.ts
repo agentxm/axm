@@ -43,7 +43,7 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
   const ws = yield* WorkspaceMutations;
 
   // getInstalledSubagents returns configured (direct) + implicit (transitive/pack-provided).
-  const subagents = yield* ws.getInstalledSubagents();
+  const subagents = yield* ws.records.getInstalledSubagents();
   const lockedSubagents = yield* ws.getLockedSubagents();
   const entries = Object.entries(subagents);
   const filteredEntries =

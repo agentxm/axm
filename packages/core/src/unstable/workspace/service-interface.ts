@@ -42,10 +42,6 @@ import type {
   ConfiguredExtensionRef,
   ConfiguredSkill,
   ConfiguredSubagent,
-  ImplicitCommand,
-  ImplicitExtensionRef,
-  ImplicitSkill,
-  ImplicitSubagent,
   InstalledCommand,
   InstalledExtensionRef,
   InstalledSkill,
@@ -53,7 +49,7 @@ import type {
   UnmanagedCommand,
   UnmanagedExtensionRef,
   UnmanagedSkill,
-} from "./workspace-record-types.js";
+} from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { LockfileState } from "./augment-plan.js";
 
@@ -165,6 +161,68 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<void, AppError, never>;
 }
 
+export interface WorkspaceReadModelRecords {
+  /** Configured skills from settings with source metadata. */
+  readonly getConfiguredSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredSkill>,
+    AppError
+  >;
+  /** Unmanaged skills (on-disk only, not configured or implicit). */
+  readonly getUnmanagedSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedSkill>,
+    AppError
+  >;
+  /** Installed skills (configured + implicit). */
+  readonly getInstalledSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledSkill>,
+    AppError
+  >;
+  readonly getConfiguredCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredCommand>,
+    AppError
+  >;
+  readonly getUnmanagedCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedCommand>,
+    AppError
+  >;
+  readonly getInstalledCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledCommand>,
+    AppError
+  >;
+  readonly getConfiguredMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+    AppError
+  >;
+  readonly getUnmanagedMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    AppError
+  >;
+  readonly getInstalledMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledExtensionRef>,
+    AppError
+  >;
+  readonly getConfiguredPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+    AppError
+  >;
+  readonly getUnmanagedPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    AppError
+  >;
+  readonly getInstalledPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledExtensionRef>,
+    AppError
+  >;
+  readonly getConfiguredSubagents: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredSubagent>,
+    AppError
+  >;
+  readonly getInstalledSubagents: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledSubagent>,
+    AppError
+  >;
+}
+
 // ---------------------------------------------------------------------------
 // Args types
 // ---------------------------------------------------------------------------
@@ -245,32 +303,13 @@ export interface WorkspaceMutationsService {
     ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
     AppError
   >;
+  readonly records: WorkspaceReadModelRecords;
   /** Resolve owner: project settings -> user-scope settings -> DEFAULT_PROFILE. */
   readonly getConfiguredProfile: () => Effect.Effect<Handle, AppError>;
   /** Resolve owner without fallback: project settings -> user-scope settings -> Option.none(). */
   readonly getDefaultProfile: () => Effect.Effect<Option.Option<Handle>, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
-  /** Configured skills from settings with source metadata. */
-  readonly getConfiguredSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredSkill>,
-    AppError
-  >;
-  /** Implicit skills (lockfile-only native entries). */
-  readonly getImplicitSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ImplicitSkill>,
-    AppError
-  >;
-  /** Unmanaged skills (on-disk only, not configured or implicit). */
-  readonly getUnmanagedSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedSkill>,
-    AppError
-  >;
-  /** Installed skills (configured + implicit). */
-  readonly getInstalledSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledSkill>,
-    AppError
-  >;
   /** Ignored skill patterns from settings. */
   readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
@@ -308,59 +347,8 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Append an agent ID if not already present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
-  // --- Command workspace records ---
-  readonly getConfiguredCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredCommand>,
-    AppError
-  >;
-  readonly getImplicitCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ImplicitCommand>,
-    AppError
-  >;
-  readonly getUnmanagedCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedCommand>,
-    AppError
-  >;
-  readonly getInstalledCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledCommand>,
-    AppError
-  >;
   readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
-  // --- MCP Server workspace records ---
-  readonly getConfiguredMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getImplicitMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ImplicitExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    AppError
-  >;
-  readonly getInstalledMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    AppError
-  >;
   readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
-  // --- Pack workspace records ---
-  readonly getConfiguredPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getImplicitPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ImplicitExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    AppError
-  >;
-  readonly getInstalledPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    AppError
-  >;
   readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read lockfile and return the packs lock map. */
   readonly getLockedExtensionPacks: () => Effect.Effect<ExtensionPacksLockMap, AppError>;
@@ -396,21 +384,6 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a command entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setCommandEntry: (name: string, entry: CommandEntry) => Effect.Effect<void, AppError>;
-  /** Configured subagents from settings with source metadata. */
-  readonly getConfiguredSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredSubagent>,
-    AppError
-  >;
-  /** Implicit subagents (lockfile-only native entries). */
-  readonly getImplicitSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ImplicitSubagent>,
-    AppError
-  >;
-  /** Installed subagents (configured + implicit). */
-  readonly getInstalledSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledSubagent>,
-    AppError
-  >;
   /** Read lockfile and return the subagents lock map. */
   readonly getLockedSubagents: () => Effect.Effect<SubagentsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific subagent, or Option.none(). */

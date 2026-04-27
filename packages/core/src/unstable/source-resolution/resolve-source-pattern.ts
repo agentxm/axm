@@ -38,9 +38,9 @@ const buildCandidates = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const base = ws.baseDir;
-  const installedSkills = yield* ws.getInstalledSkills();
-  const unmanagedSkills = yield* ws.getUnmanagedSkills();
-  const configuredSkills = yield* ws.getConfiguredSkills();
+  const installedSkills = yield* ws.records.getInstalledSkills();
+  const unmanagedSkills = yield* ws.records.getUnmanagedSkills();
+  const configuredSkills = yield* ws.records.getConfiguredSkills();
   const configuredAgents = yield* ws.getConfiguredAgents();
 
   const agentRoots = sortNames(
@@ -73,7 +73,7 @@ const buildCandidates = Effect.gen(function* () {
     }
   }
 
-  // Candidate set: installed + unmanaged (both exclude ignored names via workspace record)
+  // Candidate set: installed + unmanaged (both exclude ignored names via read-model record)
   const names = sortNames(
     Array.dedupe([
       ...Object.keys(installedSkills),

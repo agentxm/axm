@@ -129,9 +129,9 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   });
 
   // Load configured extensions for no-op detection
-  const configuredSkills = yield* ws.getConfiguredSkills();
-  const configuredCommands = yield* ws.getConfiguredCommands();
-  const configuredMcpServers = yield* ws.getConfiguredMcpServers();
+  const configuredSkills = yield* ws.records.getConfiguredSkills();
+  const configuredCommands = yield* ws.records.getConfiguredCommands();
+  const configuredMcpServers = yield* ws.records.getConfiguredMcpServers();
 
   // Build and execute plan
   const plan = yield* buildUnpackPlan({

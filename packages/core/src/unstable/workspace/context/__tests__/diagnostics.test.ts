@@ -31,7 +31,7 @@ const makeDiagnosticsEff: Effect.Effect<Diagnostics> = Effect.gen(function* () {
 // Behavioral tests
 // ---------------------------------------------------------------------------
 
-describe("workspace-context diagnostics buffer", () => {
+describe("workspace read-model diagnostics buffer", () => {
   describe("fresh buffer per scope", () => {
     it.effect("two diagnostics buffers built from independent Refs do not share state", () =>
       Effect.gen(function* () {

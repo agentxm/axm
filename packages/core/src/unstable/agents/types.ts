@@ -129,7 +129,7 @@ export interface AgentDescriptor {
   /**
    * Per-agent native configuration root, relative to the workspace root
    * (e.g., `.claude` for Claude Code, `.cursor` for Cursor). The
-   * workspace-context scanners look for this agent's `settings.json`,
+   * workspace read-model scanners look for this agent's `settings.json`,
    * `mcp.json`, and other native config files inside this directory.
    *
    * Three states (with `exactOptionalPropertyTypes: true`):

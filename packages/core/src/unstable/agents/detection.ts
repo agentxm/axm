@@ -71,8 +71,8 @@ export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
   );
 
 /**
- * Check if a specific agent is installed by checking both project-level and
- * user-scope roots, plus the legacy `~/.<agent-id>` fallback.
+ * Check if a specific agent is installed by checking project-level and
+ * user-scope roots.
  *
  * Returns `true` if any supported location exists.
  *
@@ -84,16 +84,10 @@ export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
  */
 export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const p = yield* Path.Path;
     const home = yield* getHome;
 
     const results = yield* Effect.all(
-      [
-        detectAgentInRootRaw(agent, projectDir),
-        detectAgentInRootRaw(agent, home),
-        fs.exists(p.join(home, `.${agent.id}`)),
-      ],
+      [detectAgentInRootRaw(agent, projectDir), detectAgentInRootRaw(agent, home)],
       { concurrency: "unbounded" },
     );
 

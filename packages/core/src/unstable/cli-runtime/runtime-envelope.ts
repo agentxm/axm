@@ -42,7 +42,6 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
       return;
     }
 
-    // Try Verbosity service first; fall back to raw flags for backward compatibility
     const verbosityOption = yield* Effect.serviceOption(Verbosity);
     const { verbose, debug } = Option.match(verbosityOption, {
       onNone: () => ({ verbose: false, debug: false }),

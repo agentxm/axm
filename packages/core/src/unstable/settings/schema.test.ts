@@ -550,7 +550,7 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("other extension types at root level (legacy)", () => {
+  describe("extension maps at root level", () => {
     it("accepts valid commands at root", () => {
       const input = {
         commands: { "batcomputer-sync": "@wayne/commands/batcomputer-sync" },

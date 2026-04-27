@@ -1,7 +1,7 @@
 /**
  * Source-independence tests for `makeScopedStateApi`.
  *
- * Decision 2 of the workspace-context design specifies that source loaders
+ * Decision 2 of the workspace read-model design specifies that source loaders
  * are independent: `state.settings` and `state.lockfile` SHALL each load
  * their own source without consulting the other, so corruption in one source
  * MUST NOT prevent the other source's cell from reading its own state.

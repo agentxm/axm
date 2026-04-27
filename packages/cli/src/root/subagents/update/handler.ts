@@ -45,7 +45,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   yield* renderer.info(`axm subagents update (${ws.scope})`);
 
   // Step 1: Load configured subagents and filter to enabled
-  const allSubagents = yield* ws.getConfiguredSubagents();
+  const allSubagents = yield* ws.records.getConfiguredSubagents();
   const lockedSubagents = yield* ws.getLockedSubagents();
 
   const subagentEntries = yield* Effect.forEach(Object.entries(allSubagents), ([name, entry]) =>

@@ -91,7 +91,7 @@ export const disableSkill: OperationHandler<
     const base = ws.baseDir;
 
     // Read lifecycle to determine promotion needs
-    const installedSkills = yield* ws.getInstalledSkills();
+    const installedSkills = yield* ws.records.getInstalledSkills();
     const installed = installedSkills[op.args.skillName];
     const isImplicit = installed !== undefined && installed.lifecycle === "implicit";
 

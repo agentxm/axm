@@ -15,7 +15,6 @@ import type { AgentDescriptor } from "../types.js";
 export const descriptor: AgentDescriptor = {
   id: "trae",
   name: "Trae",
-  // TODO(workspace-context-v2): confirm native config root for trae.
   // First segment of skills.dir (`.trae`) collides with `trae-cn` (likely
   // localized variants of the same agent that genuinely share `.trae/`).
   // Opt out of native-config scanning until an authoritative answer

@@ -19,12 +19,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { lockfileInvalidOnly, settingsInvalidOnly, validAll } from "../../__fixtures__/builder.js";
-import {
-  runScenario,
-  SCENARIO_USER_HOME,
-  SCENARIO_WORKSPACE_ROOT,
-  withResult,
-} from "./_harness.js";
+import { runScenario, SCENARIO_USER_HOME, SCENARIO_WORKSPACE_ROOT } from "./_harness.js";
 
 // ---------------------------------------------------------------------------
 // Helpers — read snapshots from a fresh context
@@ -33,7 +28,7 @@ import {
 const readBaselineSettings = () =>
   runScenario(validAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
     Effect.gen(function* () {
-      const r = yield* withResult(ctx.scope("project").state.settings);
+      const r = yield* Effect.result(ctx.scope("project").state.settings);
       if (r._tag !== "Success") {
         throw new Error(`baseline settings expected to succeed, got ${r._tag}`);
       }
@@ -44,7 +39,7 @@ const readBaselineSettings = () =>
 const readBaselineLockfile = () =>
   runScenario(validAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
     Effect.gen(function* () {
-      const r = yield* withResult(ctx.scope("project").state.lockfile);
+      const r = yield* Effect.result(ctx.scope("project").state.lockfile);
       if (r._tag !== "Success") {
         throw new Error(`baseline lockfile expected to succeed, got ${r._tag}`);
       }
@@ -60,7 +55,7 @@ describe("source independence", () => {
         lockfileInvalidOnly(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME),
         (ctx) =>
           Effect.gen(function* () {
-            const r = yield* withResult(ctx.scope("project").state.settings);
+            const r = yield* Effect.result(ctx.scope("project").state.settings);
             if (r._tag !== "Success") {
               throw new Error("settings should not fail when only lockfile is corrupt");
             }
@@ -83,7 +78,7 @@ describe("source independence", () => {
         settingsInvalidOnly(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME),
         (ctx) =>
           Effect.gen(function* () {
-            const r = yield* withResult(ctx.scope("project").state.lockfile);
+            const r = yield* Effect.result(ctx.scope("project").state.lockfile);
             if (r._tag !== "Success") {
               throw new Error("lockfile should not fail when only settings are corrupt");
             }

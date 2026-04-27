@@ -66,7 +66,7 @@ const autofixable = (ruleId: string, severity: Severity): AutofixableFinding => 
 });
 
 // Tests exercise pure summary/renderer helpers, so we use lightweight file
-// accessor stubs and an unused workspace context.
+// accessor stubs and an unused workspace read model.
 const stubSkillAccessor: SkillFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: () => Effect.succeed(new Uint8Array()),
@@ -77,7 +77,7 @@ const stubPackAccessor: PackFileAccessor = {
 };
 const throwingWorkspace: WorkspaceRuleContext["workspace"] = {
   scope: () => {
-    throw new Error("unused workspace context");
+    throw new Error("unused workspace read model");
   },
   __debugCachedEffectCount: Effect.succeed(0),
 };

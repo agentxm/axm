@@ -40,7 +40,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   yield* renderer.info(`axm commands update (${ws.scope})`);
 
   // Step 1: Load configured commands and filter to enabled
-  const allCommands = yield* ws.getConfiguredCommands();
+  const allCommands = yield* ws.records.getConfiguredCommands();
 
   const commandEntries = yield* Effect.forEach(Object.entries(allCommands), ([name, entry]) =>
     Effect.gen(function* () {

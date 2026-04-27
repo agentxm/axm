@@ -13,7 +13,7 @@
  * The conjunction of both — installed inventory remains computable AND raw
  * lockfile cell still tells the consumer the lockfile is corrupt — is the
  * AXM-454 regression test for the new context. The lint migration target
- * (`migrate-lint-to-workspace-context`) builds its rule contexts off
+ * (`migrate-lint-to-workspace-read-model`) builds its rule contexts off
  * `installed`, so the prior class of "lockfile decode failure silently drops
  * every rule input" can no longer happen.
  */
@@ -30,7 +30,6 @@ import {
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
   tagsOf,
-  withResult,
 } from "./_harness.js";
 
 const LOCKFILE_TAGS: ReadonlySet<string> = new Set([
@@ -66,7 +65,7 @@ const axm454Spec: FixtureSpec = {
   },
 };
 
-describe("AXM-454 closure (workspace-context)", () => {
+describe("AXM-454 closure (workspace read model)", () => {
   it.effect(
     "installed skills are computable from declared + actual when the lockfile is corrupt",
     () =>
@@ -111,7 +110,7 @@ describe("AXM-454 closure (workspace-context)", () => {
     runScenario(axm454Spec, (ctx) =>
       Effect.gen(function* () {
         const project = ctx.scope("project");
-        const failure = expectFailure(yield* withResult(project.state.lockfile));
+        const failure = expectFailure(yield* Effect.result(project.state.lockfile));
         // The exact tag must be one of the three lockfile family tags.
         const tag =
           failure instanceof LockfileIoError
@@ -143,7 +142,7 @@ describe("AXM-454 closure (workspace-context)", () => {
 
           // 3. state.lockfile via Effect.result is a Failure with a
           //    LockfileReadError tag.
-          const lockResult = yield* withResult(project.state.lockfile);
+          const lockResult = yield* Effect.result(project.state.lockfile);
           expect(lockResult._tag).toBe("Failure");
           if (lockResult._tag === "Failure") {
             // `failure` is `LockfileReadError`, a tagged union — no cast.

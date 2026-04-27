@@ -385,7 +385,7 @@ export const CommandManagerLive = Layer.effect(
       }: {
         readonly target: CommandExtensionTarget;
       }) {
-        const installedCommands = yield* ws.getInstalledCommands();
+        const installedCommands = yield* ws.records.getInstalledCommands();
         if (target.name in installedCommands) {
           return true;
         }

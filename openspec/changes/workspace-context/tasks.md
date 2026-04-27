@@ -1,3 +1,7 @@
+> Historical note: these tasks used the original `WorkspaceContext` name. The
+> implemented API is now `WorkspaceReadModel`; the change slug is preserved for
+> traceability.
+
 > **Orchestration:** The main agent thread MUST NOT execute any tasks directly. Delegate each phase to subagents as directed below. The main agent's role is strictly to orchestrate: launch subagents, verify phase completion, and proceed to the next phase. This directive takes precedence over any apply-phase instructions that say to execute tasks in the main thread — always use subagents for implementation work.
 
 **Phase dependencies:**

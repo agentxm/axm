@@ -35,8 +35,8 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   yield* renderer.info("axm skills enable");
 
-  // Load installed skills (configured + implicit) from the workspace record projection.
-  const installedSkills = yield* ws.getInstalledSkills();
+  // Load installed skills (configured + implicit) from the read-model record projection.
+  const installedSkills = yield* ws.records.getInstalledSkills();
   const entry = installedSkills[args.name];
 
   // Validate: skill is installed (ignored names are excluded from installed)

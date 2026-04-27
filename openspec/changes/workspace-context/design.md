@@ -1,5 +1,9 @@
 ## Table of Contents
 
+> Historical note: this design used the original `WorkspaceContext` name. The
+> implemented API is now `WorkspaceReadModel`; the change slug is preserved for
+> traceability.
+
 - Context
 - Goals / Non-Goals
 - Architecture Overview

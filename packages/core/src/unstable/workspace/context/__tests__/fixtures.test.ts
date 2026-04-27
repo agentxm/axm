@@ -1,5 +1,5 @@
 /**
- * Tests for the workspace-context fixture builder.
+ * Tests for the workspace read-model fixture builder.
  *
  * The fixture builder is the test-only support library that synthesizes
  * minimal workspace trees from declarative specs. Downstream phases

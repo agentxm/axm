@@ -1,7 +1,7 @@
 /**
- * Workspace record conversion helpers.
+ * Read-model record conversion helpers.
  *
- * Convert arrays of `WorkspaceRecordRow` rows into the typed record maps
+ * Convert arrays of `ReadModelRecordRow` rows into the typed record maps
  * used by workspace service getters (e.g., `getConfiguredSkills`,
  * `getInstalledCommands`).
  *
@@ -11,7 +11,7 @@
 import type * as Record from "effect/Record";
 
 import type {
-  WorkspaceRecordRow,
+  ReadModelRecordRow,
   ConfiguredCommand,
   ConfiguredExtensionRef,
   ConfiguredSkill,
@@ -28,26 +28,23 @@ import type {
   UnmanagedExtensionRef,
   UnmanagedSkill,
   UnmanagedSubagent,
-} from "./workspace-record-types.js";
+} from "./read-model-record-types.js";
 
-type ConfiguredRow = Extract<WorkspaceRecordRow, { lifecycle: "configured" }>;
-type NonConfiguredRow = Exclude<WorkspaceRecordRow, ConfiguredRow>;
-type ImplicitRow = NonConfiguredRow & { lifecycle: "implicit" };
+type ConfiguredRow = Extract<ReadModelRecordRow, { lifecycle: "configured" }>;
+type NonConfiguredRow = Exclude<ReadModelRecordRow, ConfiguredRow>;
 type UnmanagedRow = NonConfiguredRow & { lifecycle: "unmanaged" };
-type InstalledRow = ConfiguredRow | ImplicitRow;
+type InstalledRow = ConfiguredRow | (NonConfiguredRow & { lifecycle: "implicit" });
 
-const isConfigured = (row: WorkspaceRecordRow): row is ConfiguredRow =>
+const isConfigured = (row: ReadModelRecordRow): row is ConfiguredRow =>
   row.lifecycle === "configured";
 
-const isImplicit = (row: WorkspaceRecordRow): row is ImplicitRow => row.lifecycle === "implicit";
+const isUnmanaged = (row: ReadModelRecordRow): row is UnmanagedRow => row.lifecycle === "unmanaged";
 
-const isUnmanaged = (row: WorkspaceRecordRow): row is UnmanagedRow => row.lifecycle === "unmanaged";
+const isInstalled = (row: ReadModelRecordRow): row is InstalledRow => row.lifecycle !== "unmanaged";
 
-const isInstalled = (row: WorkspaceRecordRow): row is InstalledRow => row.lifecycle !== "unmanaged";
-
-const collectRecord = <R extends WorkspaceRecordRow, A>(
-  rows: ReadonlyArray<WorkspaceRecordRow>,
-  predicate: (row: WorkspaceRecordRow) => row is R,
+const collectRecord = <R extends ReadModelRecordRow, A>(
+  rows: ReadonlyArray<ReadModelRecordRow>,
+  predicate: (row: ReadModelRecordRow) => row is R,
   mapValue: (row: R) => A,
 ): Record.ReadonlyRecord<string, A> => {
   const result: Record<string, A> = {};
@@ -132,48 +129,39 @@ const toInstalledExtensionRef = (row: InstalledRow): InstalledExtensionRef =>
 // Skill record converters
 // ---------------------------------------------------------------------------
 
-export const toConfiguredSkillRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toConfiguredSkillRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isConfigured, toConfiguredSkill);
 
-export const toImplicitSkillRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
-  collectRecord(rows, isImplicit, toImplicitSkill);
-
-export const toUnmanagedSkillRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toUnmanagedSkillRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isUnmanaged, toUnmanagedSkill);
 
-export const toInstalledSkillRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toInstalledSkillRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isInstalled, toInstalledSkill);
 
 // ---------------------------------------------------------------------------
 // Command record converters
 // ---------------------------------------------------------------------------
 
-export const toConfiguredCommandRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toConfiguredCommandRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isConfigured, toConfiguredCommand);
 
 // ---------------------------------------------------------------------------
 // Generic extension ref record converters (MCP servers, packs)
 // ---------------------------------------------------------------------------
 
-export const toConfiguredExtensionRefRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toConfiguredExtensionRefRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isConfigured, toConfiguredExtensionRef);
 
-export const toImplicitExtensionRefRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
-  collectRecord(rows, isImplicit, toImplicitExtensionRef);
-
-export const toUnmanagedExtensionRefRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toUnmanagedExtensionRefRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isUnmanaged, toUnmanagedExtensionRef);
 
-export const toInstalledExtensionRefRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toInstalledExtensionRefRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isInstalled, toInstalledExtensionRef);
 
-export const toImplicitCommandRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
-  collectRecord(rows, isImplicit, toImplicitCommand);
-
-export const toUnmanagedCommandRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toUnmanagedCommandRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isUnmanaged, toUnmanagedCommand);
 
-export const toInstalledCommandRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toInstalledCommandRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isInstalled, toInstalledCommand);
 
 // ---------------------------------------------------------------------------
@@ -203,14 +191,11 @@ const toInstalledSubagent = (row: InstalledRow): InstalledSubagent =>
     ? { lifecycle: "configured", ...toConfiguredSubagent(row) }
     : { lifecycle: "implicit", ...toImplicitSubagent(row) };
 
-export const toConfiguredSubagentRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toConfiguredSubagentRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isConfigured, toConfiguredSubagent);
 
-export const toImplicitSubagentRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
-  collectRecord(rows, isImplicit, toImplicitSubagent);
-
-export const toUnmanagedSubagentRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toUnmanagedSubagentRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isUnmanaged, toUnmanagedSubagent);
 
-export const toInstalledSubagentRecord = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+export const toInstalledSubagentRecord = (rows: ReadonlyArray<ReadModelRecordRow>) =>
   collectRecord(rows, isInstalled, toInstalledSubagent);

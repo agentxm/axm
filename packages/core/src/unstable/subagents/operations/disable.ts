@@ -88,7 +88,7 @@ export const disableSubagent: OperationHandler<
     const agentRepo = yield* CodingAgentRepository;
 
     // Read lifecycle to determine promotion needs
-    const installedSubagents = yield* ws.getInstalledSubagents();
+    const installedSubagents = yield* ws.records.getInstalledSubagents();
     const installed = installedSubagents[op.args.subagentName];
     const isImplicit = installed !== undefined && installed.lifecycle === "implicit";
 

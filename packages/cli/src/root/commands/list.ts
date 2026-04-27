@@ -39,8 +39,8 @@ const CommandListTable = {
 export const handleListCommands = Effect.fn("ListCommands.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const installedCommands = yield* ws.getInstalledCommands();
-  const unmanagedCommands = yield* ws.getUnmanagedCommands();
+  const installedCommands = yield* ws.records.getInstalledCommands();
+  const unmanagedCommands = yield* ws.records.getUnmanagedCommands();
 
   const installedItems = Object.entries(installedCommands).map(([name, entry]) => ({
     name,

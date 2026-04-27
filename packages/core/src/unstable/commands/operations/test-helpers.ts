@@ -72,7 +72,7 @@ export const makeAgentRepoMock = (
  */
 export const makeWorkspaceMock = (
   axmDir: string,
-  overrides?: Partial<WorkspaceMutationsService>,
+  overrides?: Partial<WorkspaceMutationsService> & Partial<WorkspaceMutationsService["records"]>,
 ): WorkspaceMutationsService =>
   makeBaseWorkspaceMock(axmDir, {
     baseDir: path.dirname(axmDir),

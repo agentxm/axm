@@ -27,7 +27,7 @@ import {
 // Runtime instantiation and tag narrowing
 // ---------------------------------------------------------------------------
 
-describe("workspace-context per-source error families", () => {
+describe("workspace read-model per-source error families", () => {
   describe("SettingsIoError", () => {
     it("instantiates with path and cause and exposes the SettingsIoError tag", () => {
       const cause = new Error("ENOENT");

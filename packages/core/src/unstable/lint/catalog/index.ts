@@ -50,7 +50,7 @@ export {
   type PackIndexView,
 } from "./pack-accessor/contexts.js";
 
-// Phase 3c workspace context-builder helpers.
+// Phase 3c workspace read-model builder helpers.
 export {
   buildWorkspaceIndexFromContext,
   buildWorkspaceRuleContext,
@@ -66,7 +66,7 @@ export {
   type BuildInstalledSkillInfoNativeArgs,
   type BuildWorkspaceRuleContextArgs,
   type WorkspaceIndex,
-} from "./workspace-context/contexts.js";
+} from "./workspace-read-model/contexts.js";
 export {
   PER_EXTENSION_OPERATION_NAMES,
   isPerExtensionOperationName,

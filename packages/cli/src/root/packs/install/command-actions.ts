@@ -610,10 +610,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         const [configuredSkills, configuredCommands, configuredMcpServers, configuredSubagents] =
           yield* Effect.all(
             [
-              ws.getConfiguredSkills(),
-              ws.getConfiguredCommands(),
-              ws.getConfiguredMcpServers(),
-              ws.getConfiguredSubagents(),
+              ws.records.getConfiguredSkills(),
+              ws.records.getConfiguredCommands(),
+              ws.records.getConfiguredMcpServers(),
+              ws.records.getConfiguredSubagents(),
             ],
             { concurrency: "unbounded" },
           );

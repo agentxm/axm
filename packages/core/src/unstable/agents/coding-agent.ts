@@ -239,7 +239,7 @@ export interface CodingAgent {
  * instantiates this with its concrete `WorkspaceMutations` type; core keeps it
  * abstract to avoid a circular dependency.
  *
- * @typeParam W - WorkspaceMutations service requirement for methods that need workspace context
+ * @typeParam W - WorkspaceMutations service requirement for methods that need workspace read model
  */
 export interface CodingAgentRepositoryShape<W = never> {
   readonly get: (id: AgentId) => Effect.Effect<CodingAgent, AppError>;
@@ -256,7 +256,7 @@ export interface CodingAgentRepositoryShape<W = never> {
  * Repository for coding-agent implementations.
  *
  * Instantiates the generic CodingAgentRepositoryShape with the core WorkspaceMutations
- * service for methods that need workspace context.
+ * service for methods that need workspace read model.
  */
 export type CodingAgentRepositoryService = CodingAgentRepositoryShape<WorkspaceMutations>;
 

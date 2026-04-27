@@ -2,7 +2,7 @@
  * Fixture builder: synthesizes minimal workspace trees from declarative specs
  * against an in-memory `FileSystem` for tests.
  *
- * Phase 5 of the workspace-context change. Downstream phases (scanners,
+ * Phase 5 of the workspace read-model change. Downstream phases (scanners,
  * per-extension subject modules, the live `WorkspaceReadModel` service, and
  * golden-fixture scenario tests) call `buildFixture(spec)` to materialize a
  * minimal directory tree; named scenario constructors below provide the

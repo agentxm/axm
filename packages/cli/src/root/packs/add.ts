@@ -55,7 +55,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   yield* renderer.info("axm packs add");
 
   // Step 1: Find the pack
-  const configuredPacks = yield* ws.getConfiguredPacks();
+  const configuredPacks = yield* ws.records.getConfiguredPacks();
   const packEntry = configuredPacks[args.pack];
 
   if (packEntry === undefined) {

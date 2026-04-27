@@ -30,8 +30,8 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
 
   yield* renderer.info("axm subagents enable");
 
-  // Load installed subagents (configured + implicit) from the workspace record projection.
-  const installedSubagents = yield* ws.getInstalledSubagents();
+  // Load installed subagents (configured + implicit) from the read-model record projection.
+  const installedSubagents = yield* ws.records.getInstalledSubagents();
   const entry = installedSubagents[args.name];
 
   // Validate: subagent is installed (ignored names are excluded from installed)

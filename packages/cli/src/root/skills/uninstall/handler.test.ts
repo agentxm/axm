@@ -535,10 +535,10 @@ describe("uninstall.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Workspace record: ignored skill excluded from candidates
+  // Read-model record: ignored skill excluded from candidates
   // ---------------------------------------------------------------------------
 
-  describe("workspace records: ignored skill excluded from candidates", () => {
+  describe("read-model records: ignored skill excluded from candidates", () => {
     it.effect("glob expansion excludes ignored implicit skill names", () => {
       const { provide } = makeLayers();
       // effect-basics: configured (in settings + lockfile)

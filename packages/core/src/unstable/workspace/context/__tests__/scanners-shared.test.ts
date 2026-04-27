@@ -93,7 +93,7 @@ const makeDiag = Effect.gen(function* () {
 // Scanner contract tests
 // ---------------------------------------------------------------------------
 
-describe("workspace-context shared scanner contract", () => {
+describe("workspace read-model shared scanner contract", () => {
   it.effect(
     "canonical-extensions: partial filesystem failure publishes diagnostic warning, not error",
     () =>

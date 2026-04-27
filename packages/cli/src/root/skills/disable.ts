@@ -31,8 +31,8 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   yield* renderer.info("axm skills disable");
 
-  // Load installed skills (configured + implicit) from the workspace record projection.
-  const installedSkills = yield* ws.getInstalledSkills();
+  // Load installed skills (configured + implicit) from the read-model record projection.
+  const installedSkills = yield* ws.records.getInstalledSkills();
   const installedEntry = installedSkills[args.name];
 
   // Validate: skill is installed (ignored names are excluded from installed)

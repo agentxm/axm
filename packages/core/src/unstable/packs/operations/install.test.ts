@@ -62,7 +62,7 @@ const makeOp = (): InstallExtensionPackOperation => ({
 const withServices = (
   axmDir: string,
   packDirectory: string,
-  wsOverrides?: Partial<WorkspaceMutationsService>,
+  wsOverrides?: Partial<WorkspaceMutationsService> & Partial<WorkspaceMutationsService["records"]>,
 ) => {
   const sourceProviders: SourceHostProvidersService = {
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),

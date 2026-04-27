@@ -233,7 +233,7 @@ export const McpServerManagerLive = Layer.effect(
       }: {
         readonly target: McpServerExtensionTarget;
       }) {
-        const installedMcpServers = yield* ws.getInstalledMcpServers();
+        const installedMcpServers = yield* ws.records.getInstalledMcpServers();
         if (target.name in installedMcpServers) {
           return true;
         }

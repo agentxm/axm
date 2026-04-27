@@ -3,7 +3,7 @@
  * (canonical AXM) and `.axm/extensions/external/<type-plural>/<name>`
  * (external AXM) materializations across all extension types.
  *
- * Per Decision 5 of the workspace-context design, scanner output is
+ * Per Decision 5 of the workspace read-model design, scanner output is
  * occurrence-shaped. Each emitted occurrence carries the scanner-tier origin
  * discriminator (`canonical-axm` | `external-axm`) plus the extension type;
  * Phase 7 maps these into per-subject origin unions.

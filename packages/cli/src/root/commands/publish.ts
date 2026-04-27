@@ -57,7 +57,7 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
 
     if (globPatterns.length === 0) return literalInputs;
 
-    const installedCommands = yield* ws.getInstalledCommands();
+    const installedCommands = yield* ws.records.getInstalledCommands();
     const installedNames = Object.keys(installedCommands);
     const globMatches = expandGlobs(globPatterns, installedNames);
 

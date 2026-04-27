@@ -1,5 +1,9 @@
 ## Why
 
+> Historical note: this change used the original `WorkspaceContext` name. The
+> implemented API is now `WorkspaceReadModel`; the change slug is preserved for
+> traceability.
+
 Workspace consumers (lint, install, update, prune, outdated, setup) reach into settings, lockfile, agent presence, agent config, and disk through ad-hoc, partially overlapping helpers. Three independent state surfaces feed all of this — declared (settings), resolved (lockfile), and actual (observable filesystem and agent state) — but the helpers fuse them into a single load that fails closed when any one fails, and they expose only `Option<T>`, so a structurally-invalid layer is indistinguishable from an absent one.
 
 The canonical instance is AXM-454: lint's `buildIndexFromLockfile` projects a `WorkspaceIndex` from the lockfile alone, and on lockfile decode failure returns empty — silently dropping every input that the skill and pack rule catalogs (8 rules) need, including the rule written specifically to catch the regression that drove the lockfile shape change. The bug itself is narrow (one helper, one source); the _class_ of bug is latent across prune, outdated, list, uninstall, and setup paths, all of which fold one or more layers into the same `Option`-shaped result. The Why is "fix the class," not "fix the one helper."

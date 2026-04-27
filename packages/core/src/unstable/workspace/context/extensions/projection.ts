@@ -2,7 +2,7 @@
  * Shared projection helper: composes installed/active/unmanaged/ignored from
  * declared/resolved/actual plus the installed-pack set.
  *
- * Per the projection invariant in the workspace-context design (Decision 7):
+ * Per the projection invariant in the workspace read-model design (Decision 7):
  *
  * ```ts
  * direct = declared.filter(notIgnored).map(withInstallationOrigin("direct"));

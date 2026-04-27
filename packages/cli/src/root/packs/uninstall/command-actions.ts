@@ -170,10 +170,10 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         };
 
         // Build settings context for orphan check (just need the keys)
-        const configuredSkills = yield* ws.getConfiguredSkills();
-        const configuredCommands = yield* ws.getConfiguredCommands();
-        const configuredMcpServers = yield* ws.getConfiguredMcpServers();
-        const configuredSubagents = yield* ws.getConfiguredSubagents();
+        const configuredSkills = yield* ws.records.getConfiguredSkills();
+        const configuredCommands = yield* ws.records.getConfiguredCommands();
+        const configuredMcpServers = yield* ws.records.getConfiguredMcpServers();
+        const configuredSubagents = yield* ws.records.getConfiguredSubagents();
 
         const settings: UninstallSettingsContext = {
           skills: Object.fromEntries(Object.keys(configuredSkills).map((k) => [k, k])),

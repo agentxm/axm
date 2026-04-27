@@ -82,9 +82,9 @@ export const unpackExtensionPack: OperationHandler<
     const now = new Date();
 
     // Read current configured extensions to preserve existing direct entries
-    const currentSkills = yield* ws.getConfiguredSkills();
-    const currentCommands = yield* ws.getConfiguredCommands();
-    const currentMcpServers = yield* ws.getConfiguredMcpServers();
+    const currentSkills = yield* ws.records.getConfiguredSkills();
+    const currentCommands = yield* ws.records.getConfiguredCommands();
+    const currentMcpServers = yield* ws.records.getConfiguredMcpServers();
 
     // Add resolved skills as direct entries (only if not already present)
     // Use the short name from the FQN as the settings key since SkillsMapSchema

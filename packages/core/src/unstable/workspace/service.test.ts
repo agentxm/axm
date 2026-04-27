@@ -601,7 +601,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         expect(skills).toEqual({
           "code-review": {
@@ -625,7 +625,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         expect(skills).toEqual({});
       }),
@@ -1321,7 +1321,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getConfiguredSkills();
+        const skills = yield* ws.records.getConfiguredSkills();
 
         expect(Object.keys(skills)).toEqual(["code-review", "my-linter"]);
 
@@ -1346,7 +1346,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getConfiguredSkills();
+        const skills = yield* ws.records.getConfiguredSkills();
 
         expect(skills).toEqual({});
       }),
@@ -1354,7 +1354,7 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getInstalledSkills (normalized workspace record shapes)
+  // getInstalledSkills (normalized read-model record shapes)
   // ---------------------------------------------------------------------------
 
   describe("getInstalledSkills (normalized)", () => {
@@ -1369,7 +1369,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         expect(Object.keys(skills)).toEqual(["code-review", "my-linter"]);
 
@@ -1394,7 +1394,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         expect(skills).toEqual({});
       }),
@@ -1410,7 +1410,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         for (const entry of Object.values(skills)) {
           if (entry.lifecycle === "configured") {
@@ -1635,7 +1635,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getConfiguredPacks();
+        const packs = yield* ws.records.getConfiguredPacks();
 
         expect(packs).toEqual({
           "starter-pack": {
@@ -1651,7 +1651,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getConfiguredPacks();
+        const packs = yield* ws.records.getConfiguredPacks();
 
         expect(packs).toEqual({});
       }),
@@ -1667,7 +1667,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getInstalledPacks();
+        const packs = yield* ws.records.getInstalledPacks();
 
         expect(packs).toEqual({
           "starter-pack": {
@@ -1684,7 +1684,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getInstalledPacks();
+        const packs = yield* ws.records.getInstalledPacks();
 
         expect(packs).toEqual({});
       }),
@@ -1934,7 +1934,7 @@ describe("WorkspaceMutationsService", () => {
   // getInstalledSkills with transitive pack skills
   // ---------------------------------------------------------------------------
 
-  describe("getInstalledSkills (workspace records)", () => {
+  describe("getInstalledSkills (read-model records)", () => {
     it.effect("lockfile-only native skill appears as implicit", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -1955,7 +1955,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         expect(skills).toHaveProperty("code-review");
         expect(recordEntry(skills, "code-review").lifecycle).toBe("implicit");
@@ -1983,7 +1983,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         expect(recordEntry(skills, "code-review").lifecycle).toBe("configured");
       }),
@@ -2021,7 +2021,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const configured = yield* ws.getConfiguredSkills();
+        const configured = yield* ws.records.getConfiguredSkills();
 
         expect(Object.keys(configured)).toEqual(["my-skill"]);
         expect(configured).not.toHaveProperty("implicit-skill");
@@ -2030,77 +2030,8 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Workspace record getter contracts (skills)
+  // Read-model record getter contracts (skills)
   // ---------------------------------------------------------------------------
-
-  describe("getImplicitSkills", () => {
-    it.effect("returns lockfile-only native skills as implicit", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-        writeLockfileTo(projectDir, {
-          "implicit-skill": {
-            type: "registry",
-            owner: "@acme",
-            name: "implicit-skill",
-            resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
-            sourceName: "default",
-            agents: ["claude-code"],
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitSkills();
-
-        expect(Object.keys(implicit)).toEqual(["implicit-skill"]);
-        expect(implicit["implicit-skill"]).toEqual({
-          source: Option.none(),
-          enabled: true,
-          packagingKind: "native",
-        });
-      }),
-    );
-
-    it.effect("excludes configured skills from implicit set", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          skills: { "my-skill": "@acme/skills/my-skill" },
-        });
-        writeLockfileTo(projectDir, {
-          "my-skill": {
-            type: "registry",
-            owner: "@acme",
-            name: "my-skill",
-            resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
-            sourceName: "default",
-            agents: ["claude-code"],
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitSkills();
-
-        expect(implicit).toEqual({});
-      }),
-    );
-
-    it.effect("returns empty when no lockfile-only native skills", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitSkills();
-
-        expect(implicit).toEqual({});
-      }),
-    );
-  });
 
   describe("getUnmanagedSkills", () => {
     it.effect("returns empty when no unmanaged skills detected", () =>
@@ -2108,7 +2039,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.getUnmanagedSkills();
+        const unmanaged = yield* ws.records.getUnmanagedSkills();
 
         expect(unmanaged).toEqual({});
       }),
@@ -2143,10 +2074,10 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Workspace record getter contracts (commands)
+  // Read-model record getter contracts (commands)
   // ---------------------------------------------------------------------------
 
-  describe("getConfiguredCommands (workspace records)", () => {
+  describe("getConfiguredCommands (read-model records)", () => {
     it.effect("returns configured commands with source metadata", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2155,7 +2086,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const commands = yield* ws.getConfiguredCommands();
+        const commands = yield* ws.records.getConfiguredCommands();
 
         expect(commands["my-cmd"]).toEqual({
           source: "github:acme/my-cmd",
@@ -2170,51 +2101,9 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const commands = yield* ws.getConfiguredCommands();
+        const commands = yield* ws.records.getConfiguredCommands();
 
         expect(commands).toEqual({});
-      }),
-    );
-  });
-
-  describe("getImplicitCommands", () => {
-    it.effect("returns lockfile-only native commands as implicit", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-        writeLockfileTo(projectDir, {}, undefined, {
-          "implicit-cmd": {
-            type: "registry",
-            owner: "@acme",
-            name: "implicit-cmd",
-            resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
-            sourceName: "default",
-            agents: ["claude-code"],
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitCommands();
-
-        expect(Object.keys(implicit)).toEqual(["implicit-cmd"]);
-        expect(implicit["implicit-cmd"]).toEqual({
-          source: Option.none(),
-          enabled: true,
-          packagingKind: "native",
-        });
-      }),
-    );
-
-    it.effect("returns empty when no lockfile-only commands", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitCommands();
-
-        expect(implicit).toEqual({});
       }),
     );
   });
@@ -2225,7 +2114,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.getUnmanagedCommands();
+        const unmanaged = yield* ws.records.getUnmanagedCommands();
 
         expect(unmanaged).toEqual({});
       }),
@@ -2262,7 +2151,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.getInstalledCommands();
+        const installed = yield* ws.records.getInstalledCommands();
 
         expect(recordEntry(installed, "configured-cmd").lifecycle).toBe("configured");
         expect(recordEntry(installed, "implicit-cmd").lifecycle).toBe("implicit");
@@ -2303,7 +2192,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.getInstalledCommands();
+        const installed = yield* ws.records.getInstalledCommands();
 
         expect(installed).toHaveProperty("formatter");
         expect(recordEntry(installed, "formatter").lifecycle).toBe("implicit");
@@ -2349,7 +2238,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.getInstalledCommands();
+        const installed = yield* ws.records.getInstalledCommands();
 
         expect(recordEntry(installed, "formatter").lifecycle).toBe("configured");
       }),
@@ -2386,7 +2275,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.getInstalledCommands();
+        const installed = yield* ws.records.getInstalledCommands();
 
         expect(installed).toHaveProperty("formatter");
         expect(installed).toHaveProperty("linter");
@@ -2424,10 +2313,10 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Workspace record getter contracts (MCP servers)
+  // Read-model record getter contracts (MCP servers)
   // ---------------------------------------------------------------------------
 
-  describe("getConfiguredMcpServers (workspace records)", () => {
+  describe("getConfiguredMcpServers (read-model records)", () => {
     it.effect("returns configured MCP servers with source metadata", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2436,7 +2325,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const servers = yield* ws.getConfiguredMcpServers();
+        const servers = yield* ws.records.getConfiguredMcpServers();
 
         expect(servers["my-mcp"]).toEqual({
           source: "github:acme/my-mcp",
@@ -2450,49 +2339,9 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const servers = yield* ws.getConfiguredMcpServers();
+        const servers = yield* ws.records.getConfiguredMcpServers();
 
         expect(servers).toEqual({});
-      }),
-    );
-  });
-
-  describe("getImplicitMcpServers", () => {
-    it.effect("returns lockfile-only native MCP servers as implicit", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-        writeLockfileTo(projectDir, {}, undefined, undefined, {
-          "implicit-mcp": {
-            type: "registry",
-            owner: "@acme",
-            name: "implicit-mcp",
-            resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
-            sourceName: "default",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitMcpServers();
-
-        expect(Object.keys(implicit)).toEqual(["implicit-mcp"]);
-        expect(implicit["implicit-mcp"]).toEqual({
-          source: Option.none(),
-          packagingKind: "native",
-        });
-      }),
-    );
-
-    it.effect("returns empty when no lockfile-only MCP servers", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitMcpServers();
-
-        expect(implicit).toEqual({});
       }),
     );
   });
@@ -2503,7 +2352,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.getUnmanagedMcpServers();
+        const unmanaged = yield* ws.records.getUnmanagedMcpServers();
 
         expect(unmanaged).toEqual({});
       }),
@@ -2538,7 +2387,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.getInstalledMcpServers();
+        const installed = yield* ws.records.getInstalledMcpServers();
 
         expect(recordEntry(installed, "configured-mcp").lifecycle).toBe("configured");
         expect(recordEntry(installed, "implicit-mcp").lifecycle).toBe("implicit");
@@ -2574,56 +2423,8 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Workspace record getter contracts (packs)
+  // Read-model record getter contracts (packs)
   // ---------------------------------------------------------------------------
-
-  describe("getImplicitPacks", () => {
-    it.effect("returns lockfile-only packs as implicit", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "@axm/packs/default": {
-              type: "registry",
-              owner: "@axm",
-              name: "default",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitPacks();
-
-        expect(Object.keys(implicit)).toEqual(["@axm/packs/default"]);
-        expect(implicit["@axm/packs/default"]).toEqual({
-          source: Option.none(),
-          packagingKind: "native",
-        });
-      }),
-    );
-
-    it.effect("returns empty when no lockfile-only packs", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const implicit = yield* ws.getImplicitPacks();
-
-        expect(implicit).toEqual({});
-      }),
-    );
-  });
 
   describe("getUnmanagedPacks", () => {
     it.effect("returns empty (phase 1 - no pack unmanaged detection)", () =>
@@ -2631,14 +2432,14 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.getUnmanagedPacks();
+        const unmanaged = yield* ws.records.getUnmanagedPacks();
 
         expect(unmanaged).toEqual({});
       }),
     );
   });
 
-  describe("getInstalledPacks (workspace records)", () => {
+  describe("getInstalledPacks (read-model records)", () => {
     it.effect("includes lockfile-only implicit packs", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
@@ -2664,7 +2465,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.getInstalledPacks();
+        const installed = yield* ws.records.getInstalledPacks();
 
         expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
       }),
@@ -2712,7 +2513,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.getInstalledPacks();
+        const installed = yield* ws.records.getInstalledPacks();
 
         expect(recordEntry(installed, "my-pack").lifecycle).toBe("configured");
         expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
@@ -2808,7 +2609,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const servers = yield* ws.getConfiguredMcpServers();
+        const servers = yield* ws.records.getConfiguredMcpServers();
 
         expect(servers).toHaveProperty("my-mcp");
       }),
@@ -2816,10 +2617,10 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Workspace record shapes: no managed marker
+  // Read-model record shapes: no managed marker
   // ---------------------------------------------------------------------------
 
-  describe("workspace record shapes have no managed marker", () => {
+  describe("read-model record shapes have no managed marker", () => {
     it.effect("getConfiguredSkills entries have no managed field", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2828,7 +2629,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getConfiguredSkills();
+        const skills = yield* ws.records.getConfiguredSkills();
 
         for (const entry of Object.values(skills)) {
           expect(entry).not.toHaveProperty("managed");
@@ -2844,7 +2645,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
+        const skills = yield* ws.records.getInstalledSkills();
 
         for (const entry of Object.values(skills)) {
           expect(entry).not.toHaveProperty("managed");

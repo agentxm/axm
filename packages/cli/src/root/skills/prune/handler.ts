@@ -2,7 +2,7 @@
  * Handler for `axm skills prune`.
  *
  * Removes on-disk artifacts for skills reported as unmanaged by the
- * workspace workspace record projection. Supports glob pattern filtering, confirmation UX,
+ * workspace read-model record projection. Supports glob pattern filtering, confirmation UX,
  * and JSON output modes.
  *
  * @experimental This API is unstable and may change without notice.
@@ -72,7 +72,7 @@ export const collectPrunableArtifacts = Effect.fn("SkillsPrune.collect")(functio
   const ws = yield* WorkspaceMutations;
 
   // 1. Get unmanaged skills from the workspace read model (includes locations)
-  const unmanagedSkills = yield* ws.getUnmanagedSkills();
+  const unmanagedSkills = yield* ws.records.getUnmanagedSkills();
   const allUnmanagedNames = Object.keys(unmanagedSkills);
 
   // 2. Apply glob pattern filtering

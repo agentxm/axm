@@ -5,7 +5,7 @@
  *
  *   WorkspaceMutations bootstrap invariant. Absorbs doctor `workspace-ready.*` checks.
  *
- * Applies to every workspace context (both scopes). Owns the presence arm;
+ * Applies to every workspace read model (both scopes). Owns the presence arm;
  * `workspace/settings-schema-valid` owns the contents arm and early-returns
  * when `settings.json` is missing, so a fresh workspace surfaces exactly one
  * finding from this rule.

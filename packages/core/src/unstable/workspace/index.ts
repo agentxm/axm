@@ -12,25 +12,22 @@
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
 
-// Workspace record conversion helpers
+// Read-model record conversion helpers
 export {
   toConfiguredCommandRecord,
   toConfiguredExtensionRefRecord,
   toConfiguredSkillRecord,
-  toImplicitCommandRecord,
-  toImplicitExtensionRefRecord,
-  toImplicitSkillRecord,
   toInstalledCommandRecord,
   toInstalledExtensionRefRecord,
   toInstalledSkillRecord,
   toUnmanagedCommandRecord,
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
-} from "./workspace-record-converters.js";
+} from "./read-model-record-converters.js";
 
-// Workspace record types
+// Read-model record types
 export type {
-  WorkspaceRecordRow,
+  ReadModelRecordRow,
   ConfiguredCommand,
   ConfiguredExtensionRef,
   ConfiguredSkill,
@@ -47,7 +44,7 @@ export type {
   UnmanagedCommand,
   UnmanagedExtensionRef,
   UnmanagedSkill,
-} from "./workspace-record-types.js";
+} from "./read-model-record-types.js";
 
 // Reconciliation
 export {

@@ -123,7 +123,7 @@ export const disableCommand: OperationHandler<
     // Update settings to mark as disabled
     // For configured commands: update existing entry
     // For implicit commands (lockfile-only): promote to direct entry
-    const existingSettings = yield* ws
+    const existingSettings = yield* ws.records
       .getConfiguredCommands()
       .pipe(Effect.catch(() => Effect.succeed({})));
     if (op.args.commandName in existingSettings) {

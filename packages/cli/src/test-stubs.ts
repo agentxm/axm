@@ -12,18 +12,14 @@ import YAML from "yaml";
 import type {
   WorkspaceMutationsService,
   ConfiguredSkill,
-  ImplicitSkill,
   UnmanagedSkill,
   InstalledSkill,
   ConfiguredCommand,
-  ImplicitCommand,
   UnmanagedCommand,
   InstalledCommand,
   ConfiguredSubagent,
-  ImplicitSubagent,
   InstalledSubagent,
   ConfiguredExtensionRef,
-  ImplicitExtensionRef,
   UnmanagedExtensionRef,
   InstalledExtensionRef,
 } from "@agentxm/client-core/unstable/workspace";
@@ -53,6 +49,8 @@ import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;
 type RA = Effect.Effect<ReadonlyArray<string>, AppError>;
+type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
+  Partial<WorkspaceMutationsService["records"]>;
 
 const empty = <T>(): R<T> => Effect.succeed<Record.ReadonlyRecord<string, T>>({});
 const emptyArr = (): RA => Effect.succeed([]);
@@ -72,44 +70,34 @@ const path = (() => {
 })();
 
 /**
- * No-op stubs for all workspace record getters. Spread into mock objects:
+ * No-op stubs for all read-model record getters. Spread into mock objects:
  * ```ts
  * const ws: WorkspaceMutationsService = {
- *   ...workspaceRecordStubs,
+ *   records: readModelRecordStubs,
  *   // your overrides
  * };
  * ```
  */
-export const workspaceRecordStubs = {
-  getLockfileState: () => Effect.succeed("ok" as const),
-  // Skill workspace records
+export const readModelRecordStubs = {
+  // Skill read-model records
   getConfiguredSkills: empty<ConfiguredSkill>,
-  getImplicitSkills: empty<ImplicitSkill>,
   getUnmanagedSkills: empty<UnmanagedSkill>,
   getInstalledSkills: empty<InstalledSkill>,
-  getIgnoredSkillPatterns: emptyArr,
-  // Command workspace records
+  // Command read-model records
   getConfiguredCommands: empty<ConfiguredCommand>,
-  getImplicitCommands: empty<ImplicitCommand>,
   getUnmanagedCommands: empty<UnmanagedCommand>,
   getInstalledCommands: empty<InstalledCommand>,
-  getIgnoredCommandPatterns: emptyArr,
-  // MCP Server workspace records
+  // MCP Server read-model records
   getConfiguredMcpServers: empty<ConfiguredExtensionRef>,
-  getImplicitMcpServers: empty<ImplicitExtensionRef>,
   getUnmanagedMcpServers: empty<UnmanagedExtensionRef>,
   getInstalledMcpServers: empty<InstalledExtensionRef>,
-  getIgnoredMcpServerPatterns: emptyArr,
-  // Subagent workspace records
+  // Subagent read-model records
   getConfiguredSubagents: empty<ConfiguredSubagent>,
-  getImplicitSubagents: empty<ImplicitSubagent>,
   getInstalledSubagents: empty<InstalledSubagent>,
-  // Pack workspace records
+  // Pack read-model records
   getConfiguredPacks: empty<ConfiguredExtensionRef>,
-  getImplicitPacks: empty<ImplicitExtensionRef>,
   getUnmanagedPacks: empty<UnmanagedExtensionRef>,
   getInstalledPacks: empty<InstalledExtensionRef>,
-  getIgnoredPackPatterns: emptyArr,
 } as const;
 
 /**
@@ -125,22 +113,61 @@ export const workspaceRecordStubs = {
  */
 export const makeBaseWorkspaceMock = (
   axmDir = "/tmp/axm",
-  overrides?: Partial<WorkspaceMutationsService>,
+  overrides?: WorkspaceMockOverrides,
 ): WorkspaceMutationsService => {
   const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
+  const {
+    getConfiguredSkills,
+    getUnmanagedSkills,
+    getInstalledSkills,
+    getConfiguredCommands,
+    getUnmanagedCommands,
+    getInstalledCommands,
+    getConfiguredSubagents,
+    getInstalledSubagents,
+    getConfiguredMcpServers,
+    getUnmanagedMcpServers,
+    getInstalledMcpServers,
+    getConfiguredPacks,
+    getUnmanagedPacks,
+    getInstalledPacks,
+    records: recordOverrides,
+    ...serviceOverrides
+  } = overrides ?? {};
+  const records = {
+    ...readModelRecordStubs,
+    ...(getConfiguredSkills === undefined ? {} : { getConfiguredSkills }),
+    ...(getUnmanagedSkills === undefined ? {} : { getUnmanagedSkills }),
+    ...(getInstalledSkills === undefined ? {} : { getInstalledSkills }),
+    ...(getConfiguredCommands === undefined ? {} : { getConfiguredCommands }),
+    ...(getUnmanagedCommands === undefined ? {} : { getUnmanagedCommands }),
+    ...(getInstalledCommands === undefined ? {} : { getInstalledCommands }),
+    ...(getConfiguredSubagents === undefined ? {} : { getConfiguredSubagents }),
+    ...(getInstalledSubagents === undefined ? {} : { getInstalledSubagents }),
+    ...(getConfiguredMcpServers === undefined ? {} : { getConfiguredMcpServers }),
+    ...(getUnmanagedMcpServers === undefined ? {} : { getUnmanagedMcpServers }),
+    ...(getInstalledMcpServers === undefined ? {} : { getInstalledMcpServers }),
+    ...(getConfiguredPacks === undefined ? {} : { getConfiguredPacks }),
+    ...(getUnmanagedPacks === undefined ? {} : { getUnmanagedPacks }),
+    ...(getInstalledPacks === undefined ? {} : { getInstalledPacks }),
+    ...(recordOverrides ?? {}),
+  };
   const base = {
-    ...workspaceRecordStubs,
     scope: "project",
     path: axmDir,
     baseDir,
+    records,
+    getLockfileState: () => Effect.succeed("ok" as const),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
     getConfiguredProfile: () => Effect.succeed(normalizeHandle("@community")),
     getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
+    getIgnoredSkillPatterns: emptyArr,
+    getIgnoredCommandPatterns: emptyArr,
+    getIgnoredMcpServerPatterns: emptyArr,
+    getIgnoredPackPatterns: emptyArr,
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
     getLockedSkills: () => Effect.succeed({}),
     getLockedSkill: () => Effect.succeed(Option.none()),
@@ -195,7 +222,7 @@ export const makeBaseWorkspaceMock = (
     isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
   } satisfies WorkspaceMutationsService;
-  return { ...base, ...overrides };
+  return { ...base, ...serviceOverrides };
 };
 
 const TEST_DATE = new Date("2025-01-01T00:00:00.000Z");

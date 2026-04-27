@@ -27,7 +27,8 @@ const makeOp = (name: string): UnpackExtensionPackOperation => ({
 });
 
 const makeWorkspaceMock = (
-  overrides: Partial<WorkspaceMutationsService> = {},
+  overrides: Partial<WorkspaceMutationsService> &
+    Partial<WorkspaceMutationsService["records"]> = {},
 ): WorkspaceMutationsService =>
   makeBaseWorkspaceMock("/mock/.axm", {
     getConfiguredSources: () => Effect.succeed([]),

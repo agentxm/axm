@@ -17,7 +17,6 @@ import type { AgentDescriptor } from "../types.js";
 export const descriptor: AgentDescriptor = {
   id: "replit",
   name: "Replit",
-  // TODO(workspace-context-v2): confirm native config root for replit.
   // First segment of skills.dir (`.agents`) collides with `amp` and
   // `kimi-cli`, so the heuristic cannot pick a unique rootDir. Opt out of
   // native-config scanning until an authoritative answer lands.

@@ -326,7 +326,7 @@ interface NormalizedMcpServerSettingsEntry {
 
 With `normalizeMcpServerSettingsEntry` (settings form → normalized) and `collapseMcpServerSettingsEntry` (normalized → settings form) functions. The collapsed form uses the compact string when `enabled: true` and `env` is empty. Scope (project vs user) is determined by the workspace service's `global` flag, not stored per-entry.
 
-**Workspace service methods:** New methods on `WorkspaceContextService` following the existing skill pattern:
+**Workspace service methods:** New methods on `WorkspaceMutationsService` following the existing skill pattern:
 
 ```typescript
 // Reading

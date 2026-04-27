@@ -195,7 +195,7 @@ export const SkillManagerLive = Layer.effect(
       }: {
         readonly target: SkillExtensionTarget;
       }) {
-        const installedSkills = yield* ws.getInstalledSkills();
+        const installedSkills = yield* ws.records.getInstalledSkills();
         if (target.name in installedSkills) {
           return true;
         }

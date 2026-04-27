@@ -33,7 +33,7 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
   yield* renderer.info("axm skills rename");
 
   // Load configured skills
-  const configuredSkills = yield* ws.getConfiguredSkills();
+  const configuredSkills = yield* ws.records.getConfiguredSkills();
   const entry = configuredSkills[args.oldName];
 
   // Validate: old name exists

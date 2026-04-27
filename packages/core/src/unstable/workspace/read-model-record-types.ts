@@ -1,5 +1,5 @@
 /**
- * Workspace record types for workspace getters.
+ * Read-model record types for workspace getters.
  *
  * Defines the shapes returned by workspace methods like `getConfiguredSkills`,
  * `getInstalledCommands`, etc. Separated from service.ts for maintainability.
@@ -41,7 +41,7 @@ export type LocatedState = {
   readonly locations: ReadonlyArray<string>;
 };
 
-export type WorkspaceRecordRow =
+export type ReadModelRecordRow =
   | {
       readonly type: string;
       readonly name: string;
@@ -69,7 +69,7 @@ export type WorkspaceRecordRow =
     };
 
 // ---------------------------------------------------------------------------
-// Skill workspace records
+// Skill read-model records
 // ---------------------------------------------------------------------------
 
 /** Configured extension with source metadata. Skills and commands include `enabled`. */
@@ -84,7 +84,7 @@ export type InstalledSkill =
   | LifecycleImplicit<ImplicitSkill>;
 
 // ---------------------------------------------------------------------------
-// Command workspace records
+// Command read-model records
 // ---------------------------------------------------------------------------
 
 export type ConfiguredCommand = ConfiguredExtensionState<EnabledState>;
@@ -98,7 +98,7 @@ export type InstalledCommand =
   | LifecycleImplicit<ImplicitCommand>;
 
 // ---------------------------------------------------------------------------
-// Subagent workspace records
+// Subagent read-model records
 // ---------------------------------------------------------------------------
 
 /** Configured subagent with source metadata. Includes `enabled`. */
@@ -113,7 +113,7 @@ export type InstalledSubagent =
   | LifecycleImplicit<ImplicitSubagent>;
 
 // ---------------------------------------------------------------------------
-// Generic extension ref workspace records (MCP servers, packs)
+// Generic extension ref read-model records (MCP servers, packs)
 // ---------------------------------------------------------------------------
 
 /** MCP servers and packs do not have `enabled` — use `ExtensionRef` shapes. */

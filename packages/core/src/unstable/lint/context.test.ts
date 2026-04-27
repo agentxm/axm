@@ -47,7 +47,7 @@ const makePackAccessor = (): PackFileAccessor => ({
 
 const throwingWorkspace: WorkspaceRuleContext["workspace"] = {
   scope: () => {
-    throw new Error("unused workspace context");
+    throw new Error("unused workspace read model");
   },
   __debugCachedEffectCount: Effect.succeed(0),
 };

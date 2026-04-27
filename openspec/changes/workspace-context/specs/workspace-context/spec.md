@@ -1,5 +1,9 @@
 ## ADDED Requirements
 
+> Historical note: this delta spec used the original `WorkspaceContext` name.
+> The implemented API is now `WorkspaceReadModel`; the change slug is preserved
+> for traceability.
+
 ### Requirement: WorkspaceContext exposes independent workspace state layers
 
 The system SHALL provide a `WorkspaceContext` capability that exposes workspace state through `ctx.scope(scope)`. A scoped workspace context SHALL expose subject namespaces (`skills`, `commands`, `mcpServers`, `subagents`, `files`, `rules`, `packs`, `agents`), scoped raw `state` cells, scoped `sourceHosts`, scoped `profile`, and scoped `diagnostics`. Scope SHALL distinguish project state from user state.

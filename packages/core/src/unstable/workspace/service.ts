@@ -9,10 +9,9 @@
  * `settings/service.ts` and `lockfile/service.ts` have been removed.
  *
  * Supporting logic is split into focused modules:
- * - `workspace-record-types.ts` — workspace record type definitions
  * - `source-metadata.ts` — source metadata derivation helpers
  * - `initialization.ts` — workspace initialization (agent detection, settings creation)
- * - `workspace-record-converters.ts` — workspace row → record map converters
+ * - `read-model-record-converters.ts` — workspace row → record map converters
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -87,14 +86,11 @@ import {
   type ExtensionTarget,
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
-import { makeWorkspaceRecordReaders } from "./workspace-record-readers.js";
+import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import {
   toConfiguredCommandRecord,
   toConfiguredExtensionRefRecord,
   toConfiguredSkillRecord,
-  toImplicitCommandRecord,
-  toImplicitExtensionRefRecord,
-  toImplicitSkillRecord,
   toInstalledCommandRecord,
   toInstalledExtensionRefRecord,
   toInstalledSkillRecord,
@@ -102,9 +98,8 @@ import {
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
   toConfiguredSubagentRecord,
-  toImplicitSubagentRecord,
   toInstalledSubagentRecord,
-} from "./workspace-record-converters.js";
+} from "./read-model-record-converters.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: 1,
   skills: {},
@@ -309,8 +304,38 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         return yield* f(context.scope(scopeForDir(workspaceDir)));
       }).pipe(Effect.provide(contextLayer), Effect.mapError(contextCellErrorToAppError));
 
-    const workspaceRecordReaders = makeWorkspaceRecordReaders({ baseDir, path, readScopedContext });
-    const getWorkspaceRecordRows = workspaceRecordReaders.getWorkspaceRecordRows;
+    const readModelRecordReaders = makeReadModelRecordReaders({ baseDir, path, readScopedContext });
+    const getReadModelRecordRows = readModelRecordReaders.getReadModelRecordRows;
+    const records = {
+      getConfiguredSkills: () =>
+        getReadModelRecordRows("skill").pipe(Effect.map(toConfiguredSkillRecord)),
+      getUnmanagedSkills: () =>
+        getReadModelRecordRows("skill").pipe(Effect.map(toUnmanagedSkillRecord)),
+      getInstalledSkills: () =>
+        getReadModelRecordRows("skill").pipe(Effect.map(toInstalledSkillRecord)),
+      getConfiguredCommands: () =>
+        getReadModelRecordRows("command").pipe(Effect.map(toConfiguredCommandRecord)),
+      getUnmanagedCommands: () =>
+        getReadModelRecordRows("command").pipe(Effect.map(toUnmanagedCommandRecord)),
+      getInstalledCommands: () =>
+        getReadModelRecordRows("command").pipe(Effect.map(toInstalledCommandRecord)),
+      getConfiguredMcpServers: () =>
+        getReadModelRecordRows("mcp-server").pipe(Effect.map(toConfiguredExtensionRefRecord)),
+      getUnmanagedMcpServers: () =>
+        getReadModelRecordRows("mcp-server").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
+      getInstalledMcpServers: () =>
+        getReadModelRecordRows("mcp-server").pipe(Effect.map(toInstalledExtensionRefRecord)),
+      getConfiguredPacks: () =>
+        getReadModelRecordRows("pack").pipe(Effect.map(toConfiguredExtensionRefRecord)),
+      getUnmanagedPacks: () =>
+        getReadModelRecordRows("pack").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
+      getInstalledPacks: () =>
+        getReadModelRecordRows("pack").pipe(Effect.map(toInstalledExtensionRefRecord)),
+      getConfiguredSubagents: () =>
+        getReadModelRecordRows("subagent").pipe(Effect.map(toConfiguredSubagentRecord)),
+      getInstalledSubagents: () =>
+        getReadModelRecordRows("subagent").pipe(Effect.map(toInstalledSubagentRecord)),
+    };
 
     /**
      * Resolve the immutable registry name for a skill's directory.
@@ -400,6 +425,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
+      records,
+
       getConfiguredProfile: () =>
         Effect.gen(function* () {
           const projectSettings = yield* readSettingsSafe(localDir);
@@ -429,18 +456,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             cachedSources = null; // invalidate cache
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.addConfiguredSource")),
-
-      getConfiguredSkills: () =>
-        getWorkspaceRecordRows("skill").pipe(Effect.map(toConfiguredSkillRecord)),
-
-      getImplicitSkills: () =>
-        getWorkspaceRecordRows("skill").pipe(Effect.map(toImplicitSkillRecord)),
-
-      getUnmanagedSkills: () =>
-        getWorkspaceRecordRows("skill").pipe(Effect.map(toUnmanagedSkillRecord)),
-
-      getInstalledSkills: () =>
-        getWorkspaceRecordRows("skill").pipe(Effect.map(toInstalledSkillRecord)),
 
       getIgnoredSkillPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
@@ -703,63 +718,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      // -----------------------------------------------------------------------
-      // Command workspace record getters
-      // -----------------------------------------------------------------------
-
-      getConfiguredCommands: () =>
-        getWorkspaceRecordRows("command").pipe(Effect.map(toConfiguredCommandRecord)),
-
-      getImplicitCommands: () =>
-        getWorkspaceRecordRows("command").pipe(Effect.map(toImplicitCommandRecord)),
-
-      getUnmanagedCommands: () =>
-        getWorkspaceRecordRows("command").pipe(Effect.map(toUnmanagedCommandRecord)),
-
-      getInstalledCommands: () =>
-        getWorkspaceRecordRows("command").pipe(Effect.map(toInstalledCommandRecord)),
-
       getIgnoredCommandPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s): ReadonlyArray<string> => s.ignored?.commands ?? []),
         ),
 
-      // -----------------------------------------------------------------------
-      // MCP Server workspace record getters
-      // -----------------------------------------------------------------------
-
-      getConfiguredMcpServers: () =>
-        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toConfiguredExtensionRefRecord)),
-
-      getImplicitMcpServers: () =>
-        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toImplicitExtensionRefRecord)),
-
-      getUnmanagedMcpServers: () =>
-        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
-
-      getInstalledMcpServers: () =>
-        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toInstalledExtensionRefRecord)),
-
       getIgnoredMcpServerPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s): ReadonlyArray<string> => s.ignored?.mcpServers ?? []),
         ),
-
-      // -----------------------------------------------------------------------
-      // Pack workspace record getters
-      // -----------------------------------------------------------------------
-
-      getConfiguredPacks: () =>
-        getWorkspaceRecordRows("pack").pipe(Effect.map(toConfiguredExtensionRefRecord)),
-
-      getImplicitPacks: () =>
-        getWorkspaceRecordRows("pack").pipe(Effect.map(toImplicitExtensionRefRecord)),
-
-      getUnmanagedPacks: () =>
-        getWorkspaceRecordRows("pack").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
-
-      getInstalledPacks: () =>
-        getWorkspaceRecordRows("pack").pipe(Effect.map(toInstalledExtensionRefRecord)),
 
       getIgnoredPackPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
@@ -965,19 +932,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setCommandEntry")),
-
-      // -----------------------------------------------------------------------
-      // Subagent workspace records
-      // -----------------------------------------------------------------------
-
-      getConfiguredSubagents: () =>
-        getWorkspaceRecordRows("subagent").pipe(Effect.map(toConfiguredSubagentRecord)),
-
-      getImplicitSubagents: () =>
-        getWorkspaceRecordRows("subagent").pipe(Effect.map(toImplicitSubagentRecord)),
-
-      getInstalledSubagents: () =>
-        getWorkspaceRecordRows("subagent").pipe(Effect.map(toInstalledSubagentRecord)),
 
       // -----------------------------------------------------------------------
       // Subagent methods
@@ -1405,7 +1359,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
   });
 
 /**
- * Create a layer that loads workspace context from disk.
+ * Create a layer that loads workspace read model from disk.
  *
  * The workspace must already be initialized.
  *

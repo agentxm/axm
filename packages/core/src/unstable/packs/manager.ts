@@ -188,7 +188,7 @@ export const ExtensionPackManagerLive = Layer.effect(
       }: {
         readonly target: PackExtensionTarget;
       }) {
-        const installedPacks = yield* ws.getInstalledPacks();
+        const installedPacks = yield* ws.records.getInstalledPacks();
         if (target.name in installedPacks) {
           return true;
         }

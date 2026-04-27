@@ -4,7 +4,7 @@
  * helper.
  *
  * Per Decision 4 (single service + per-subject modules) and Decision 9
- * (read-model rows) of the workspace-context design, this module owns:
+ * (read-model rows) of the workspace read-model design, this module owns:
  *
  * - the subject-specific declared/resolved/actual payload types
  *   (`DeclaredSkills`, `ResolvedSkills`, `ActualSkills`);

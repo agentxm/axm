@@ -79,7 +79,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   }
 
   // 3. Check existence
-  const configuredSkills = yield* ws.getConfiguredSkills();
+  const configuredSkills = yield* ws.records.getConfiguredSkills();
   if (args.name in configuredSkills) {
     return yield* makeAppError({
       code: "SKILL_ALREADY_EXISTS",

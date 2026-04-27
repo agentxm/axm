@@ -80,7 +80,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
         yield* renderer.info("axm skills uninstall");
 
         // Load installed skills for glob expansion
-        const installedSkills = yield* ws.getInstalledSkills();
+        const installedSkills = yield* ws.records.getInstalledSkills();
         const installedNames = Object.keys(installedSkills);
 
         // Expand glob pattern against installed skill names (excludes ignored)

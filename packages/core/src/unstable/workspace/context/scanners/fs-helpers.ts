@@ -1,5 +1,5 @@
 /**
- * Shared filesystem helpers used by the workspace-context scanners.
+ * Shared filesystem helpers used by the workspace read-model scanners.
  *
  * Each scanner needs the same handful of resilient `FileSystem` probes:
  * "does this file exist", "list this directory's children", "filter to

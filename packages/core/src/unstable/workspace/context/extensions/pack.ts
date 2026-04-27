@@ -2,7 +2,7 @@
  * Pack subject module: declared/resolved/actual payloads, scanner composition,
  * and **direct-only** installed projections via the shared helper.
  *
- * Per Decision 9 of the workspace-context design: packs cannot be members of
+ * Per Decision 9 of the workspace read-model design: packs cannot be members of
  * other packs. The pack subject's own `installed` projection therefore passes
  * an empty installed-pack set into the projection helper, so no pack-member
  * row is ever produced for a pack. Direct pack declarations remain the only

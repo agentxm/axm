@@ -45,8 +45,8 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
 
   yield* renderer.info("axm commands disable");
 
-  // Load installed commands (configured + implicit) from the workspace record projection.
-  const installedCommands = yield* ws.getInstalledCommands();
+  // Load installed commands (configured + implicit) from the read-model record projection.
+  const installedCommands = yield* ws.records.getInstalledCommands();
   const installedEntry = installedCommands[args.name];
 
   // Validate: command is installed (ignored names are excluded from installed)

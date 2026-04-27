@@ -220,7 +220,7 @@ additional auth-specific wrapper:
   adds the registry/platform infrastructure used by most commands.
 - **`withAuthRuntime(command)`** — same runtime boundary plus auth services for
   auth-only commands.
-- **`withWorkspace(scope)`** — provides workspace context, extension managers,
+- **`withWorkspace(scope)`** — provides workspace read model, extension managers,
   and source resolution. Only commands that operate on a workspace use this.
 
 Commands compose them in their handler callback:

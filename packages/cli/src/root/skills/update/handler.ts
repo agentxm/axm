@@ -68,7 +68,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   yield* renderer.info(`axm skills update (${ws.scope})`);
 
   // Step 1: Load configured skills and filter to enabled
-  const allSkills = yield* ws.getConfiguredSkills();
+  const allSkills = yield* ws.records.getConfiguredSkills();
   const lockedSkills = yield* ws.getLockedSkills();
 
   const skillEntries = yield* Effect.forEach(Object.entries(allSkills), ([name, entry]) =>

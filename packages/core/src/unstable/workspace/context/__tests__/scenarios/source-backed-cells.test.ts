@@ -33,7 +33,6 @@ import {
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
   tagsOf,
-  withResult,
 } from "./_harness.js";
 
 const SETTINGS_TAGS: ReadonlySet<string> = new Set([
@@ -53,7 +52,7 @@ describe("source-backed cells", () => {
     it.effect("missing settings → Option.none() on state.settings", () =>
       runScenario(absentAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
         Effect.gen(function* () {
-          const success = expectSuccess(yield* withResult(ctx.scope("project").state.settings));
+          const success = expectSuccess(yield* Effect.result(ctx.scope("project").state.settings));
           expect(Option.isNone(success)).toBe(true);
         }),
       ),
@@ -62,7 +61,7 @@ describe("source-backed cells", () => {
     it.effect("missing settings → Option.none() on skills.declared", () =>
       runScenario(absentAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
         Effect.gen(function* () {
-          const success = expectSuccess(yield* withResult(ctx.scope("project").skills.declared));
+          const success = expectSuccess(yield* Effect.result(ctx.scope("project").skills.declared));
           expect(Option.isNone(success)).toBe(true);
         }),
       ),
@@ -108,7 +107,7 @@ describe("source-backed cells", () => {
     it.effect("missing project lockfile → Option.none() on state.lockfile", () =>
       runScenario(absentAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
         Effect.gen(function* () {
-          const success = expectSuccess(yield* withResult(ctx.scope("project").state.lockfile));
+          const success = expectSuccess(yield* Effect.result(ctx.scope("project").state.lockfile));
           expect(Option.isNone(success)).toBe(true);
         }),
       ),
@@ -117,7 +116,7 @@ describe("source-backed cells", () => {
     it.effect("missing project lockfile → Option.none() on skills.resolved", () =>
       runScenario(absentAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
         Effect.gen(function* () {
-          const success = expectSuccess(yield* withResult(ctx.scope("project").skills.resolved));
+          const success = expectSuccess(yield* Effect.result(ctx.scope("project").skills.resolved));
           expect(Option.isNone(success)).toBe(true);
         }),
       ),
@@ -162,7 +161,7 @@ describe("source-backed cells", () => {
     it.effect("user state.lockfile is permanently Option.none() with no failure path", () =>
       runScenario(validAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
         Effect.gen(function* () {
-          const success = expectSuccess(yield* withResult(ctx.scope("user").state.lockfile));
+          const success = expectSuccess(yield* Effect.result(ctx.scope("user").state.lockfile));
           expect(Option.isNone(success)).toBe(true);
         }),
       ),
@@ -171,7 +170,7 @@ describe("source-backed cells", () => {
     it.effect("user skills.resolved is permanently Option.none()", () =>
       runScenario(validAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), (ctx) =>
         Effect.gen(function* () {
-          const success = expectSuccess(yield* withResult(ctx.scope("user").skills.resolved));
+          const success = expectSuccess(yield* Effect.result(ctx.scope("user").skills.resolved));
           expect(Option.isNone(success)).toBe(true);
         }),
       ),

@@ -2,7 +2,7 @@
  * Shared scanner types: occurrence shape, common per-occurrence fields, and
  * scanner-tier origin discriminators.
  *
- * Per Decision 5 of the workspace-context design, scanner output is
+ * Per Decision 5 of the workspace read-model design, scanner output is
  * occurrence-shaped (`ReadonlyArray<Occurrence>`) — one entry per observable
  * physical materialization. There is no central `DetectionOrigin` union; each
  * scanner exports the discriminator it observes, and per-subject modules in

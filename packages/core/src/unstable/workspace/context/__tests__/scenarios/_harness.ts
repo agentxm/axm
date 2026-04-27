@@ -6,8 +6,6 @@
  * - `runScenario(spec, body)` builds a `WorkspaceReadModelLive` over the
  *   in-memory fixture FS via `WorkspaceReadModelTest`, provides it, runs `body`
  *   with the assembled `WorkspaceReadModel` value, and returns the body result.
- * - `withResult` is an alias for `Effect.result` so tests can pattern-match
- *   on the `Result` ADT.
  * - `expectFirst(arr)` asserts the array is non-empty and returns its first
  *   element, replacing the silent `if (entry === undefined) return` pattern.
  * - `expectDiagnostics(ctx, scope, predicate)` reads the scoped diagnostics
@@ -70,12 +68,6 @@ export const runScenario = <A, E = never>(
     const ctx = yield* WorkspaceReadModel;
     return yield* body(ctx);
   }).pipe(Effect.provide(WorkspaceReadModelTest(spec, options)));
-
-/**
- * Thin alias for `Effect.result` so callers can pattern-match on the genuine
- * `Result` ADT (`result._tag === "Failure"` narrows `result.failure: E`).
- */
-export const withResult = Effect.result;
 
 /**
  * Assert that `arr` is non-empty and return its first element. Replaces the

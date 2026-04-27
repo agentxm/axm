@@ -157,7 +157,12 @@ export const collectSkillCurrency = (
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency("skill", ws.getConfiguredSkills, ws.getLockedSkills, client);
+    return yield* collectCurrency(
+      "skill",
+      ws.records.getConfiguredSkills,
+      ws.getLockedSkills,
+      client,
+    );
   });
 
 /**
@@ -170,7 +175,7 @@ export const collectCommandCurrency = (
     const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "command",
-      ws.getConfiguredCommands,
+      ws.records.getConfiguredCommands,
       ws.getLockedCommands,
       client,
     );
@@ -186,7 +191,7 @@ export const collectMcpServerCurrency = (
     const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "mcp-server",
-      ws.getConfiguredMcpServers,
+      ws.records.getConfiguredMcpServers,
       ws.getLockedMcpServers,
       client,
     );
@@ -202,7 +207,7 @@ export const collectSubagentCurrency = (
     const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "subagent",
-      ws.getConfiguredSubagents,
+      ws.records.getConfiguredSubagents,
       ws.getLockedSubagents,
       client,
     );
@@ -218,7 +223,7 @@ export const collectPackCurrency = (
     const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "pack",
-      ws.getConfiguredPacks,
+      ws.records.getConfiguredPacks,
       ws.getLockedExtensionPacks,
       client,
     );

@@ -1,6 +1,6 @@
 /** Source metadata derivation helpers. */
 
-import type { PackagingKind } from "./workspace-record-types.js";
+import type { PackagingKind } from "./read-model-record-types.js";
 
 export type SourceMeta = { readonly packagingKind: PackagingKind };
 

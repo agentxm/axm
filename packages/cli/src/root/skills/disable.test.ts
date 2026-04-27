@@ -131,10 +131,10 @@ describe("disable.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Workspace record: ignored skill excluded from installed
+  // Read-model record: ignored skill excluded from installed
   // ---------------------------------------------------------------------------
 
-  describe("workspace records: ignored skill excluded", () => {
+  describe("read-model records: ignored skill excluded", () => {
     it.effect("fails for ignored implicit skill (treated as not installed)", () => {
       const { provide } = makeLayers();
       // Implicit skill: in lockfile only (registry type = native), with ignored pattern

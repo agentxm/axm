@@ -15,6 +15,7 @@ import type { AgentDescriptor } from "../types.js";
 export const descriptor: AgentDescriptor = {
   id: "antigravity",
   name: "Antigravity",
+  rootDir: ".agent",
   skills: {
     dir: ".agent/skills",
   },

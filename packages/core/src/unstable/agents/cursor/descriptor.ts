@@ -15,6 +15,7 @@ import type { AgentDescriptor } from "../types.js";
 export const descriptor: AgentDescriptor = {
   id: "cursor",
   name: "Cursor",
+  rootDir: ".cursor",
   skills: {
     dir: ".cursor/skills",
   },

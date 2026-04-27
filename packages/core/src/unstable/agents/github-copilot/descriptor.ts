@@ -15,6 +15,7 @@ import type { AgentDescriptor } from "../types.js";
 export const descriptor: AgentDescriptor = {
   id: "github-copilot",
   name: "GitHub Copilot",
+  rootDir: ".github",
   skills: {
     dir: ".github/skills",
   },

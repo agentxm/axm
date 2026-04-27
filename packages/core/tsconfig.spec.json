@@ -5,6 +5,11 @@
     "composite": true,
     "outDir": "./out-tsc/vitest"
   },
-  "include": ["src/**/*.test.ts", "src/**/test-helpers.ts", "vitest.config.ts"],
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.type-test.ts",
+    "src/**/test-helpers.ts",
+    "vitest.config.ts"
+  ],
   "references": [{ "path": "./tsconfig.lib.json" }]
 }

@@ -15,6 +15,7 @@ import type { AgentDescriptor } from "../types.js";
 export const descriptor: AgentDescriptor = {
   id: "kiro-cli",
   name: "Kiro CLI",
+  rootDir: ".kiro",
   skills: {
     dir: ".kiro/skills",
   },

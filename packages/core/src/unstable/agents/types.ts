@@ -126,6 +126,24 @@ export interface AgentDescriptor {
   readonly id: AgentId;
   /** Human-readable display name (e.g., "Claude Code") */
   readonly name: string;
+  /**
+   * Per-agent native configuration root, relative to the workspace root
+   * (e.g., `.claude` for Claude Code, `.cursor` for Cursor). The
+   * workspace-context scanners look for this agent's `settings.json`,
+   * `mcp.json`, and other native config files inside this directory.
+   *
+   * Three states (with `exactOptionalPropertyTypes: true`):
+   *
+   * - `string` — use this directory as the explicit native config root.
+   * - omitted (key not present) — fall back to the first-segment heuristic
+   *   (the first segment of `skills.dir`).
+   * - `undefined` — explicit opt-out. Scanners SHALL NOT attempt to
+   *   discover native config for this agent. Use this when an agent's
+   *   first `skills.dir` segment collides with another agent's (e.g.,
+   *   several agents share a parent like `.agents`) and there is no
+   *   authoritative answer about the real native config root.
+   */
+  readonly rootDir?: string | undefined;
   /** Skills installation configuration */
   readonly skills: AgentSkillsDescriptor;
   /** Commands installation configuration (optional — not all agents support commands) */

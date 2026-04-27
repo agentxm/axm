@@ -15,6 +15,7 @@ import type { AgentDescriptor } from "../types.js";
 export const descriptor: AgentDescriptor = {
   id: "iflow-cli",
   name: "iFlow CLI",
+  rootDir: ".iflow",
   skills: {
     dir: ".iflow/skills",
   },

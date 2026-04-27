@@ -18,16 +18,11 @@
  *    the publish-gate itself remains platform-canonical — proven by the
  *    registry route tests, not here.
  *
- * **Known issue surfaced by this smoke test** (reported in the Phase 7
- * summary and out of scope for remediation inside Phase 7): `axm skills
- * fork` emits a `<!-- Managed by axm -->` HTML comment before the
- * frontmatter delimiter in SKILL.md. The HTTP publish gate rejects this
- * pattern via `skill/frontmatter-parseable` — the exact motivating
- * symptom in the change proposal — so a subsequent `axm skills publish`
- * over HTTP fails fast. The file-registry path used here does not run
- * the publish-lint gate, so it accepts the bad payload; `axm lint` in
- * the post-fork workspace surfaces the finding, which is the behavior
- * Phase 7 needs to verify.
+ * AXM-453 removed the `<!-- Managed by axm -->` banner that previously
+ * tripped `skill/frontmatter-parseable` on every forked skill. To keep
+ * the lint-reaches-the-forked-tree assertion deterministic, the test
+ * induces the same class of violation directly on the post-fork
+ * SKILL.md and asserts the rule fires.
  */
 
 import * as fs from "node:fs";
@@ -81,12 +76,34 @@ describe("Phase 7 cross-repo smoke (CLI ↔ file:// registry)", () => {
         ),
       ).toBe(true);
 
-      // 4. `axm lint` on the post-fork workspace. The shipped CLI emits
-      //    a banner-managed SKILL.md prefix that trips
-      //    `skill/frontmatter-parseable` — the same failure the HTTP
-      //    publish gate rejects. The finding is expected here; the
-      //    lint engine is functioning correctly on a real
-      //    round-tripped extension.
+      // 4. `axm lint` on the post-fork workspace. AXM-453 removed the
+      //    `<!-- Managed by axm -->` banner that previously tripped
+      //    `skill/frontmatter-parseable`, so we deterministically
+      //    induce a manifest violation in the forked skill (non-SemVer
+      //    `version`) and assert lint surfaces the corresponding rule.
+      //    This proves the lint engine reaches the forked skill tree
+      //    end-to-end.
+      // AXM-453 removed the `<!-- Managed by axm -->` banner that
+      // previously tripped `skill/frontmatter-parseable` end-to-end. To
+      // keep the cross-repo wiring assertion deterministic, we induce
+      // the same class of violation directly: prepend an HTML comment
+      // before the frontmatter delimiter on the forked SKILL.md. The
+      // file-bytes-driven `skill/frontmatter-parseable` rule (which
+      // reads from the workspace accessor, not preloaded `skillJson`)
+      // surfaces the finding and proves lint reaches the forked tree.
+      const forkedSkillMdPath = path.join(
+        workspace.path,
+        ".axm",
+        "extensions",
+        "@phase7",
+        "skills",
+        "my-skill",
+        "src",
+        "SKILL.md",
+      );
+      const original = fs.readFileSync(forkedSkillMdPath, "utf-8");
+      fs.writeFileSync(forkedSkillMdPath, `<!-- Managed by axm -->\n${original}`);
+
       const lintResult = await runCli(["lint", "--json"], {
         cwd: workspace.path,
       });
@@ -94,10 +111,7 @@ describe("Phase 7 cross-repo smoke (CLI ↔ file:// registry)", () => {
       const ruleIds: Array<string> = (lintDoc.result.findings ?? []).map(
         (f: { ruleId: string }) => f.ruleId,
       );
-      // The lint engine exercised the VFT-less platform accessor and
-      // reached the forked skill tree — proof the cross-repo wiring
-      // hangs together end-to-end.
-      expect(ruleIds.length).toBeGreaterThan(0);
+      expect(ruleIds).toContain("skill/frontmatter-parseable");
 
       // 5. Drift banner fires when a publish-gate rule is overridden
       //    locally. Empty before overrides.

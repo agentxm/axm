@@ -141,7 +141,7 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
     }
   });
 
-  it("backs up invalid lockfile before regeneration", async () => {
+  it("backs up invalid lockfile to OS tmp dir before regeneration", async () => {
     const temp = createTempDir();
     try {
       await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
@@ -159,13 +159,19 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
 
       expect(result.exitCode).toBe(0);
 
-      const backupFiles = fs
+      // Backups go to an OS tmp dir; the CLI surfaces the path in its
+      // reconcile success message.
+      const backupMatch = getOutput(result).match(
+        /backed up invalid lockfile to (\S+axm-lock\.yaml)\)/,
+      );
+      const backupPath = expectDefined(backupMatch?.[1], "expected backup path in CLI output");
+      expect(fs.readFileSync(backupPath, "utf-8")).toBe(invalidLockfile);
+
+      // No sibling `.bak.<ts>` files in the workspace (the old behavior).
+      const siblingBackups = fs
         .readdirSync(axmDir)
         .filter((file) => /^axm-lock\.yaml\.bak\.\d{14}$/.test(file));
-      expect(backupFiles).toHaveLength(1);
-      expect(fs.readFileSync(path.join(axmDir, expectDefined(backupFiles[0])), "utf-8")).toBe(
-        invalidLockfile,
-      );
+      expect(siblingBackups).toHaveLength(0);
 
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
       expect(lock.commands?.["managed-command"]).toBeDefined();

@@ -71,7 +71,7 @@ export const collectPrunableArtifacts = Effect.fn("SkillsPrune.collect")(functio
 ) {
   const ws = yield* Workspace;
 
-  // 1. Get unmanaged skills from the classifier (includes locations)
+  // 1. Get unmanaged skills from the workspace read model (includes locations)
   const unmanagedSkills = yield* ws.getUnmanagedSkills();
   const allUnmanagedNames = Object.keys(unmanagedSkills);
 

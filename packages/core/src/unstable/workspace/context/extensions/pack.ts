@@ -230,7 +230,7 @@ const packPolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "pack", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "pack", name: input.name },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -242,7 +242,7 @@ const packPolicy = (
     actual: entry,
   }),
   buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "pack", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "pack", name: input.name },
     reason: "declared-ignored",
     declared: input.declared,
   }),
@@ -251,7 +251,7 @@ const packPolicy = (
   // statically without a throw — the body is uninhabitable at runtime.
   buildPackMemberIgnoredRow: (input) => input.member,
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "pack", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "pack", name: input.name },
     reason: "actual-ignored",
     actual: input.actual,
   }),

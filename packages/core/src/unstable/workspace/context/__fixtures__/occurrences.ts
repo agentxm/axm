@@ -12,11 +12,7 @@
  * correct shape — workspace omits `agentId`; agent carries it non-null.
  */
 import * as Option from "effect/Option";
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-  type ExtensionType,
-} from "../../../extensions/common.js";
+import { decodeExtensionNameSync, type ExtensionType } from "../../../extensions/common.js";
 import { decodeHandleSync } from "../../../extensions/handle.js";
 import type { AgentId } from "../../../agents/types.js";
 import type {
@@ -41,7 +37,7 @@ const splitSegments = (absolute: string): ReadonlyArray<string> => absolute.spli
 const join = (parent: string, child: string): string =>
   parent.endsWith(POSIX_SEP) ? `${parent}${child}` : `${parent}${POSIX_SEP}${child}`;
 
-const decodeFileBackedExtensionName = (name: string): ExtensionName => {
+const normalizeFileBackedName = (name: string): string => {
   const normalized = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -49,7 +45,7 @@ const decodeFileBackedExtensionName = (name: string): ExtensionName => {
     .slice(0, 64)
     .replace(/-+$/g, "");
 
-  return decodeExtensionNameSync(normalized === "" ? "unnamed" : normalized);
+  return normalized === "" ? "unnamed" : normalized;
 };
 
 // ---------------------------------------------------------------------------
@@ -172,10 +168,7 @@ export const makeAgentDirOccurrence = (input: MakeAgentDirOccurrenceInput): Agen
     scope: input.scope,
     type: input.type,
     agentId: input.agentId,
-    name:
-      input.singleFile === true
-        ? decodeFileBackedExtensionName(input.name)
-        : decodeExtensionNameSync(input.name),
+    name: input.singleFile === true ? normalizeFileBackedName(input.name) : input.name,
     contentLocation: input.contentLocation,
     pathSegments: splitSegments(input.contentLocation),
     subjectFile,

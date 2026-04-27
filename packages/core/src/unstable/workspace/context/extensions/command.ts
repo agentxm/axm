@@ -216,7 +216,7 @@ const commandPolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "command", name: input.name },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -228,18 +228,18 @@ const commandPolicy = (
     actual: entry,
   }),
   buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "command", name: input.name },
     reason: "declared-ignored",
     declared: input.declared,
   }),
   buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "command", name: input.name },
     reason: "pack-member-ignored",
     member: input.member,
     pack: input.pack,
   }),
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "command", name: input.name },
     reason: "actual-ignored",
     actual: input.actual,
   }),

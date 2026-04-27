@@ -13,7 +13,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
-import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
+import type { ExtensionName } from "../../../extensions/common.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -176,7 +176,7 @@ const rulePolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "rule", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "rule", name: input.name },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -196,7 +196,7 @@ const rulePolicy = (
   // uninhabitable at runtime — no throw needed.
   buildPackMemberIgnoredRow: (input) => input.member,
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "rule", name: decodeExtensionNameSync(input.name) },
+    key: { scope, type: "rule", name: input.name },
     reason: "actual-ignored",
     actual: input.actual,
   }),

@@ -192,7 +192,7 @@ const memberNamesFromResolvedMap = (
 
 /** Pack ref + resolved member names per cross-subject namespace. */
 interface PackMemberSets {
-  readonly key: { readonly scope: Scope; readonly type: "pack"; readonly name: ExtensionName };
+  readonly key: { readonly scope: Scope; readonly type: "pack"; readonly name: string };
   readonly skills: ReadonlyArray<ExtensionName>;
   readonly commands: ReadonlyArray<ExtensionName>;
   readonly mcpServers: ReadonlyArray<ExtensionName>;

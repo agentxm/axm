@@ -275,7 +275,11 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledSkill>,
     AppError
   >;
-  /** All classified skills. */
+  /**
+   * All classified skills.
+   *
+   * @deprecated Prefer `WorkspaceContext.scope(scope).skills` projections for reads.
+   */
   readonly getClassifiedSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedSkill>,
     AppError
@@ -344,6 +348,9 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledCommand>,
     AppError
   >;
+  /**
+   * @deprecated Prefer `WorkspaceContext.scope(scope).commands` projections for reads.
+   */
   readonly getClassifiedCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedCommand>,
     AppError
@@ -374,6 +381,9 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
     AppError
   >;
+  /**
+   * @deprecated Prefer `WorkspaceContext.scope(scope).mcpServers` projections for reads.
+   */
   readonly getClassifiedMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
     AppError
@@ -404,6 +414,9 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
     AppError
   >;
+  /**
+   * @deprecated Prefer `WorkspaceContext.scope(scope).packs` projections for reads.
+   */
   readonly getClassifiedPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
     AppError
@@ -466,7 +479,11 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledSubagent>,
     AppError
   >;
-  /** All classified subagents. */
+  /**
+   * All classified subagents.
+   *
+   * @deprecated Prefer `WorkspaceContext.scope(scope).subagents` projections for reads.
+   */
   readonly getClassifiedSubagents: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedSubagent>,
     AppError

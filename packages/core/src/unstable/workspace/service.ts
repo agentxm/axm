@@ -402,7 +402,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     >(
       type: WorkspaceManagedExtensionType,
       row: {
-        readonly key: { readonly name: ExtensionName };
+        readonly key: { readonly name: string };
         readonly installationOrigin:
           | { readonly _tag: "direct"; readonly declared: TDeclared }
           | { readonly _tag: "pack-member"; readonly member: TPackMember };
@@ -435,7 +435,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const unmanagedRowToClassified = (
       type: WorkspaceManagedExtensionType,
       row: {
-        readonly key: { readonly name: ExtensionName };
+        readonly key: { readonly name: string };
         readonly actual: { readonly contentRoot?: string | null };
       },
     ): ClassifiedExtension => ({
@@ -458,7 +458,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     };
 
     type UnmanagedClassifiableRow = {
-      readonly key: { readonly name: ExtensionName };
+      readonly key: { readonly name: string };
       readonly actual: { readonly contentRoot?: string | null };
     };
 
@@ -470,7 +470,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     >(args: {
       readonly type: WorkspaceManagedExtensionType;
       readonly installed: ReadonlyArray<{
-        readonly key: { readonly name: ExtensionName };
+        readonly key: { readonly name: string };
         readonly installationOrigin:
           | { readonly _tag: "direct"; readonly declared: TDeclared }
           | { readonly _tag: "pack-member"; readonly member: TPackMember };

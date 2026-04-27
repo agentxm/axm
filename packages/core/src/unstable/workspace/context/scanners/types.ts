@@ -103,7 +103,7 @@ export interface AgentDirOccurrence {
   readonly scope: Scope;
   readonly type: AgentDirSubjectType;
   readonly agentId: AgentId;
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly contentLocation: string;
   readonly pathSegments: ReadonlyArray<string>;
   readonly subjectFile: Option.Option<string>;

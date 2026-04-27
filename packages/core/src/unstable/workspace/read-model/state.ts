@@ -57,7 +57,7 @@ export interface ScopedStateDeps {
 // Raw bytes loaders (shared by the decoded loaders and the public raw cells)
 // ---------------------------------------------------------------------------
 
-const loadRawSettingsBytes = Effect.fn("workspace.context.state.settings.raw")(function* (deps: {
+const loadRawSettingsBytes = Effect.fn("workspace.read-model.state.settings.raw")(function* (deps: {
   readonly fs: FileSystem.FileSystem;
   readonly settingsPath: string;
 }) {
@@ -72,7 +72,7 @@ const loadRawSettingsBytes = Effect.fn("workspace.context.state.settings.raw")(f
   return Option.some<RawSourceBytes>({ path: settingsPath, bytes });
 });
 
-const loadRawLockfileBytes = Effect.fn("workspace.context.state.lockfile.raw")(function* (deps: {
+const loadRawLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw")(function* (deps: {
   readonly fs: FileSystem.FileSystem;
   readonly lockfilePath: string;
 }) {
@@ -116,7 +116,7 @@ const loadSettings = (
       ),
     );
     return Option.some(decoded);
-  }).pipe(Effect.withSpan("workspace.context.state.settings"));
+  }).pipe(Effect.withSpan("workspace.read-model.state.settings"));
 
 // ---------------------------------------------------------------------------
 // Lockfile loader (decode pipeline) — sources bytes from the cached raw cell
@@ -147,7 +147,7 @@ const loadLockfile = (
       ),
     );
     return Option.some(decoded);
-  }).pipe(Effect.withSpan("workspace.context.state.lockfile"));
+  }).pipe(Effect.withSpan("workspace.read-model.state.lockfile"));
 
 // ---------------------------------------------------------------------------
 // Public API

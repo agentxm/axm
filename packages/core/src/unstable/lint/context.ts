@@ -20,7 +20,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as ServiceMap from "effect/Context";
-import type { WorkspaceReadModel } from "../workspace/context/context.js";
+import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -142,9 +142,8 @@ export interface SkillRuleContext<S = SkillContent> {
  *   `Schema.decodeUnknownResult(SkillManifestSchema)`; keys-recognized
  *   enumerates top-level keys after narrowing to `Record<string, unknown>`.
  *
- * Phase 3b and 3c consumers build `SkillContent` via
- * `buildSkillRuleContexts` (this phase) against the `WorkspaceIndex`
- * surface; publish (Phase 4, this-repo) builds one `SkillContent` per
+ * Workspace consumers build `SkillContent` via `buildSkillRuleContexts`
+ * against the lint workspace view; publish builds one `SkillContent` per
  * incoming archive.
  *
  * @experimental This API is unstable and may change without notice.
@@ -188,9 +187,9 @@ export interface PackRuleContext<S = PackContent> {
  * registry-only and every pack context is expected to expose a manifest.
  * The presence rule (`pack/manifest-present`) owns the absence arm.
  *
- * Phase 3c consumers build `PackContent` via `buildPackRuleContexts`
- * against the `WorkspaceIndex` surface; publish (Phase 4, this-repo) builds
- * one `PackContent` per incoming archive.
+ * Workspace consumers build `PackContent` via `buildPackRuleContexts`
+ * against the lint workspace view; publish builds one `PackContent` per
+ * incoming archive.
  *
  * @experimental This API is unstable and may change without notice.
  */

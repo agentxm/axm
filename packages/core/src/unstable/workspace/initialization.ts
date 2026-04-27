@@ -32,7 +32,7 @@ import {
   WorkspaceReadModel,
   WorkspaceReadModelConfig,
   WorkspaceReadModelLive,
-} from "./context/context.js";
+} from "./read-model/service.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
 import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
@@ -46,7 +46,7 @@ const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 const allAgentDescriptors = (): ReadonlyArray<AgentDescriptor> => Object.values(AGENTS);
 
-const readSettingsFromContext = (
+const readSettingsFromReadModel = (
   scope: "project" | "user",
   projectRoot: string,
   userHome: string,
@@ -67,8 +67,8 @@ const readSettingsFromContext = (
       ),
     );
     return yield* Effect.gen(function* () {
-      const context = yield* WorkspaceReadModel;
-      return yield* context.scope(scope).state.settings;
+      const readModel = yield* WorkspaceReadModel;
+      return yield* readModel.scope(scope).state.settings;
     }).pipe(
       Effect.provide(layer),
       Effect.mapError((error) =>
@@ -85,7 +85,7 @@ const readSettingsFromContext = (
  * Initialize project workspace by detecting and selecting agents.
  *
  * @param localDir - Path to local .axm directory
- * @param options - WorkspaceMutations context options
+ * @param options - WorkspaceMutations options
  * @returns Effect yielding selected agent IDs
  */
 export const initializeProjectWorkspace = (localDir: string, options: WorkspaceMutationsOptions) =>
@@ -206,7 +206,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
  * Reads existing local settings or runs the initialization flow when missing.
  *
  * @param localDir - Path to local .axm directory
- * @param options - WorkspaceMutations context options
+ * @param options - WorkspaceMutations options
  * @returns Effect yielding local Settings
  */
 export const ensureProjectWorkspaceInitialized = (
@@ -216,7 +216,7 @@ export const ensureProjectWorkspaceInitialized = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const globalDir = yield* getAxmDir("user");
-    const localSettingsResult = yield* readSettingsFromContext(
+    const localSettingsResult = yield* readSettingsFromReadModel(
       "project",
       path.dirname(localDir),
       path.dirname(globalDir),
@@ -250,7 +250,7 @@ export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
     if (options.scope === "user") {
       yield* ensureGlobalWorkspaceInitialized(workspaceDir);
       const localDir = yield* getAxmDir("project", options.projectRoot);
-      const settings = yield* readSettingsFromContext(
+      const settings = yield* readSettingsFromReadModel(
         "user",
         path.dirname(localDir),
         path.dirname(workspaceDir),

@@ -31,7 +31,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import { absentAll, validAll } from "../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../__fixtures__/test-layer.js";
-import { WorkspaceReadModel } from "../context.js";
+import { WorkspaceReadModel } from "../service.js";
 import { WorkspaceRootEscape } from "../errors.js";
 
 const WORKSPACE_ROOT = "/test/workspace";
@@ -57,10 +57,10 @@ describe("ctx.scope(scope) laziness", () => {
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(absentAll(WORKSPACE_ROOT, USER_HOME));
       const program = Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
+        const readModel = yield* WorkspaceReadModel;
         // Selecting both scopes should be pure — no IO.
-        const project = ctx.scope("project");
-        const user = ctx.scope("user");
+        const project = readModel.scope("project");
+        const user = readModel.scope("user");
         // Reference the namespaces so the selector cannot be elided.
         void project.skills;
         void user.skills;
@@ -76,12 +76,12 @@ describe("ctx.scope(scope) laziness", () => {
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(absentAll(WORKSPACE_ROOT, USER_HOME));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
-        const a = ctx.scope("project");
-        const b = ctx.scope("project");
+        const readModel = yield* WorkspaceReadModel;
+        const a = readModel.scope("project");
+        const b = readModel.scope("project");
         expect(a).toBe(b);
-        const u1 = ctx.scope("user");
-        const u2 = ctx.scope("user");
+        const u1 = readModel.scope("user");
+        const u2 = readModel.scope("user");
         expect(u1).toBe(u2);
         // Different scopes are different objects.
         expect(a).not.toBe(u1);
@@ -102,9 +102,9 @@ describe("scoped cells are dependency-closed at the call site", () => {
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(validAll(WORKSPACE_ROOT, USER_HOME));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
+        const readModel = yield* WorkspaceReadModel;
         // No additional layers should be required.
-        const result = yield* Effect.result(ctx.scope("project").skills.declared);
+        const result = yield* Effect.result(readModel.scope("project").skills.declared);
         expect(result._tag).toBe("Success");
       }).pipe(Effect.provide(layer));
     }),
@@ -120,8 +120,8 @@ describe("Effect.cached parallel sharing", () => {
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(validAll(WORKSPACE_ROOT, USER_HOME));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
-        const p = ctx.scope("project");
+        const readModel = yield* WorkspaceReadModel;
+        const p = readModel.scope("project");
         const counter = yield* Ref.make(0);
         const wrapped = p.skills.installed.pipe(
           Effect.tap(() => Ref.update(counter, (n) => n + 1)),
@@ -152,11 +152,11 @@ describe("cached effect budget", () => {
       const layer = WorkspaceReadModelTest(validAll(WORKSPACE_ROOT, USER_HOME));
       yield* Effect.gen(function* () {
         // The Live layer publishes the count on the constructed service value
-        // via `ctx.__debugCachedEffectCount`. The counter is per-instance
+        // via `readModel.__debugCachedEffectCount`. The counter is per-instance
         // (no module-level Ref) so concurrent Live builds in the same process
         // do not race.
-        const ctx = yield* WorkspaceReadModel;
-        const count = yield* ctx.__debugCachedEffectCount;
+        const readModel = yield* WorkspaceReadModel;
+        const count = yield* readModel.__debugCachedEffectCount;
         expect(count).toBeGreaterThan(0);
         expect(count).toBeLessThanOrEqual(50);
       }).pipe(Effect.provide(layer));
@@ -198,8 +198,8 @@ describe("workspace-root escape", () => {
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(validAll(WORKSPACE_ROOT, USER_HOME));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
-        const p = ctx.scope("project");
+        const readModel = yield* WorkspaceReadModel;
+        const p = readModel.scope("project");
         // Type assertion: the actual cell's failure channel is `never`.
         const actual: Effect.Effect<unknown, never> = p.skills.actual;
         const result = yield* Effect.result(actual);

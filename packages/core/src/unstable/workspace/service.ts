@@ -68,12 +68,12 @@ import {
   WorkspaceReadModelConfig,
   WorkspaceReadModelLive,
   type ScopedWorkspaceReadModel,
-} from "./context/context.js";
+} from "./read-model/service.js";
 import type {
   LockfileReadError,
   SettingsReadError,
   WorkspaceRootEscape,
-} from "./context/errors.js";
+} from "./read-model/errors.js";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsOptions,
@@ -204,8 +204,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
     const readSettingsCell = (dir: string) =>
       Effect.gen(function* () {
-        const context = yield* WorkspaceReadModel;
-        return yield* context.scope(scopeForDir(dir)).state.settings;
+        const readModel = yield* WorkspaceReadModel;
+        return yield* readModel.scope(scopeForDir(dir)).state.settings;
       }).pipe(
         Effect.provide(contextLayer),
         Effect.mapError((error) => contextReadErrorToAppError("settings", error)),
@@ -213,8 +213,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
     const readLockfileCell = (dir: string) =>
       Effect.gen(function* () {
-        const context = yield* WorkspaceReadModel;
-        return yield* context.scope(scopeForDir(dir)).state.lockfile;
+        const readModel = yield* WorkspaceReadModel;
+        return yield* readModel.scope(scopeForDir(dir)).state.lockfile;
       }).pipe(
         Effect.map(Option.getOrElse(createEmptyLockfile)),
         Effect.provide(contextLayer),
@@ -300,8 +300,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       ) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
     ): Effect.Effect<A, AppError> =>
       Effect.gen(function* () {
-        const context = yield* WorkspaceReadModel;
-        return yield* f(context.scope(scopeForDir(workspaceDir)));
+        const readModel = yield* WorkspaceReadModel;
+        return yield* f(readModel.scope(scopeForDir(workspaceDir)));
       }).pipe(Effect.provide(contextLayer), Effect.mapError(contextCellErrorToAppError));
 
     const readModelRecordReaders = makeReadModelRecordReaders({ baseDir, path, readScopedContext });

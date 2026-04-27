@@ -23,7 +23,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { WorkspaceReadModel } from "../../context.js";
+import { WorkspaceReadModel } from "../../service.js";
 import type { WorkspaceReadModelTestOptions } from "../../__fixtures__/test-layer.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
 import type { FixtureSpec, PathEscapeError } from "../../__fixtures__/builder.js";
@@ -65,8 +65,8 @@ export const runScenario = <A, E = never>(
   options?: WorkspaceReadModelTestOptions,
 ): Effect.Effect<A, E | WorkspaceRootEscape | PathEscapeError> =>
   Effect.gen(function* () {
-    const ctx = yield* WorkspaceReadModel;
-    return yield* body(ctx);
+    const readModel = yield* WorkspaceReadModel;
+    return yield* body(readModel);
   }).pipe(Effect.provide(WorkspaceReadModelTest(spec, options)));
 
 /**

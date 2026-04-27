@@ -11,13 +11,13 @@
  */
 
 import * as Effect from "effect/Effect";
-import { WorkspaceReadModel } from "../context.js";
+import { WorkspaceReadModel } from "../service.js";
 
 type _CellR<T> = T extends Effect.Effect<infer _A, infer _E, infer R> ? R : never;
 
 const _program = Effect.gen(function* () {
-  const ctx = yield* WorkspaceReadModel;
-  const p = ctx.scope("project");
+  const readModel = yield* WorkspaceReadModel;
+  const p = readModel.scope("project");
   yield* p.skills.declared;
   yield* p.skills.resolved;
   yield* p.skills.actual;

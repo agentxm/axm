@@ -33,8 +33,8 @@ import { workspaceRules } from "./workspace.js";
 import type { AutofixableFinding, AutofixingRule } from "../rule.js";
 import type { WorkspaceRuleContext } from "../context.js";
 import { emptyWorkspaceState, type WorkspaceState } from "./workspace-fixtures/interpret-ops.js";
-import { WorkspaceReadModel } from "../../workspace/context/context.js";
-import { WorkspaceReadModelTest } from "../../workspace/context/__fixtures__/test-layer.js";
+import { WorkspaceReadModel } from "../../workspace/read-model/service.js";
+import { WorkspaceReadModelTest } from "../../workspace/read-model/__fixtures__/test-layer.js";
 import { scopeFilesFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
 
 // -----------------------------------------------------------------------------

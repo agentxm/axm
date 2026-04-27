@@ -9,7 +9,7 @@ changes. New read-only code should use `WorkspaceReadModel` projections.
 
 ## Scope Model
 
-`WorkspaceReadModel` exposes `ctx.scope("project")` and `ctx.scope("user")`.
+`WorkspaceReadModel` exposes `readModel.scope("project")` and `readModel.scope("user")`.
 Each scoped object owns that scope's `.axm` settings, lockfile, scanners,
 source hosts, profile, agents, extension projections, and diagnostics.
 
@@ -35,7 +35,9 @@ Example:
 yield * writeSettings(axmDir, updated);
 const fresh =
   yield *
-  makeWorkspaceReadModel(options).pipe(Effect.flatMap((ctx) => ctx.scope(scope).state.settings));
+  makeWorkspaceReadModel(options).pipe(
+    Effect.flatMap((readModel) => readModel.scope(scope).state.settings),
+  );
 ```
 
 ## State Cells
@@ -50,7 +52,7 @@ diagnostics.
 ## Tests
 
 Use `WorkspaceReadModelTest` from
-`packages/core/src/unstable/workspace/context/__fixtures__/test-layer.ts`.
+`packages/core/src/unstable/workspace/read-model/__fixtures__/test-layer.ts`.
 Build fixtures with `validAll`, `absentAll`, or explicit `FixtureSpec` data.
 
 Example:
@@ -59,8 +61,8 @@ Example:
 const layer = WorkspaceReadModelTest(validAll("/workspace", "/home"));
 yield *
   Effect.gen(function* () {
-    const ctx = yield* WorkspaceReadModel;
-    const installed = yield* ctx.scope("project").skills.installed;
+    const readModel = yield* WorkspaceReadModel;
+    const installed = yield* readModel.scope("project").skills.installed;
     expect(installed.length).toBeGreaterThan(0);
   }).pipe(Effect.provide(layer));
 ```

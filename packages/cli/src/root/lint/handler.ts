@@ -7,8 +7,9 @@
  *    `$AXM_USER_HOME` or `$HOME/.axm`, ignoring `<path>`).
  * 2. Load `.axm/settings.json` (if present) to recover the configured
  *    `lint.rules` overrides.
- * 3. Build a `WorkspaceIndex` from the settings + lockfile, then assemble
- *    workspace / skill / pack rule contexts via the shared-kernel builders.
+ * 3. Build a `LintWorkspace` (rule context + flat projection) from the
+ *    workspace read model, then assemble workspace / skill / pack rule
+ *    contexts via the shared-kernel builders.
  * 4. Call {@link runLint} to evaluate, render, and (under `--fix`) apply the
  *    per-extension plan pipeline non-interactively.
  * 5. Emit human text / JSON output through the CLI renderer and translate
@@ -39,10 +40,9 @@ import { ExtensionPackManager } from "@agentxm/client-core/unstable/packs";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import {
+  buildLintWorkspace,
   buildPackRuleContexts,
   buildSkillRuleContexts,
-  buildWorkspaceIndexFromContext,
-  buildWorkspaceRuleContext,
   collectAutofixableEntries,
   evaluateAllCatalogs,
   resolveLintExitCategory,
@@ -688,7 +688,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
 
   // -- Build WorkspaceReadModel-backed rule contexts --
   const userHome = args.scope === "user" ? workspaceRoot : yield* Effect.sync(() => os.homedir());
-  const workspaceContext = yield* buildWorkspaceRuleContext({
+  const { rule: workspaceContext, view } = yield* buildLintWorkspace({
     platform: { fs, path },
     workspaceRoot,
     userHome,
@@ -703,14 +703,8 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       ),
     ),
   );
-  const index = yield* buildWorkspaceIndexFromContext({
-    platform: { fs, path },
-    workspaceRoot,
-    workspace: workspaceContext.workspace,
-    scope: args.scope,
-  });
-  const skillContexts = buildSkillRuleContexts(index);
-  const packContexts = buildPackRuleContexts(index);
+  const skillContexts = buildSkillRuleContexts(view);
+  const packContexts = buildPackRuleContexts(view);
 
   // -- Evaluate --
   const evaluations = yield* evaluateAllCatalogs({

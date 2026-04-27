@@ -24,7 +24,7 @@ import {
   WorkspaceReadModel,
   WorkspaceReadModelConfig,
   WorkspaceReadModelLive,
-} from "./context/context.js";
+} from "./read-model/service.js";
 import { getAxmDir } from "./paths.js";
 import { WorkspaceMutations } from "./service-interface.js";
 
@@ -155,8 +155,8 @@ const buildDeclaredSkillSnapshot = (baseDir: string, fs: FileSystem.FileSystem, 
       ),
     );
     const settings = yield* Effect.gen(function* () {
-      const context = yield* WorkspaceReadModel;
-      return yield* context.scope(ws.scope).state.settings;
+      const readModel = yield* WorkspaceReadModel;
+      return yield* readModel.scope(ws.scope).state.settings;
     }).pipe(
       Effect.provide(contextLayer),
       Effect.map(Option.getOrElse(() => createDefaultSettings())),

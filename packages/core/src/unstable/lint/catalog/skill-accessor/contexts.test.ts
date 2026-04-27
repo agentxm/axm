@@ -9,11 +9,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { SkillFileAccessor } from "../../context.js";
-import {
-  buildSkillRuleContexts,
-  type InstalledSkillInfo,
-  type SkillIndexView,
-} from "./contexts.js";
+import { buildSkillRuleContexts, type InstalledSkillInfo } from "./contexts.js";
 
 const absentAccessor: SkillFileAccessor = {
   exists: () => Effect.succeed(false),
@@ -54,9 +50,9 @@ describe("buildSkillRuleContexts", () => {
         packageFiles: absentAccessor,
       },
     ];
-    const index: SkillIndexView = { installedSkills: items };
+    const input = { installedSkills: items };
 
-    const contexts = buildSkillRuleContexts(index);
+    const contexts = buildSkillRuleContexts(input);
     expect(contexts).toHaveLength(2);
 
     expect(contexts[0]?.subject.isNative).toBe(true);

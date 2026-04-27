@@ -13,7 +13,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { skillsInDir } from "../../workspace/context/discovery/index.js";
+import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
 import { fileUrlToPath } from "../../sources/index.js";

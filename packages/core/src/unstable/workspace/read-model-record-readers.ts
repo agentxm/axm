@@ -16,8 +16,8 @@ import {
 } from "../extensions/index.js";
 import { createDefaultSettings } from "../settings/index.js";
 import { expandGlob } from "../utils/index.js";
-import type { LockfileReadError, SettingsReadError } from "./context/errors.js";
-import type { ScopedWorkspaceReadModel } from "./context/context.js";
+import type { LockfileReadError, SettingsReadError } from "./read-model/errors.js";
+import type { ScopedWorkspaceReadModel } from "./read-model/service.js";
 import { deriveSourceMetaFromLockType } from "./source-metadata.js";
 import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 

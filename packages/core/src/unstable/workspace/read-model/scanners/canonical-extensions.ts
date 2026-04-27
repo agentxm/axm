@@ -289,7 +289,7 @@ const scanExternal = (
 // Scanner body
 // ---------------------------------------------------------------------------
 
-const scanCanonicalExtensions = Effect.fn("workspace.context.scanner.canonical-extensions")(
+const scanCanonicalExtensions = Effect.fn("workspace.read-model.scanner.canonical-extensions")(
   function* (deps: CanonicalExtensionsScannerDeps) {
     const { fs, path, workspaceRoot, diagnostics } = deps;
     const extensionsRoot = path.join(workspaceRoot, ".axm", "extensions");

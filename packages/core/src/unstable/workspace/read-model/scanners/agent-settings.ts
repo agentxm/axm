@@ -64,7 +64,7 @@ export const makeAgentSettingsScanner = (
 // Scanner body
 // ---------------------------------------------------------------------------
 
-const scanAgentSettings = Effect.fn("workspace.context.scanner.agent-settings")(function* (
+const scanAgentSettings = Effect.fn("workspace.read-model.scanner.agent-settings")(function* (
   deps: AgentSettingsScannerDeps,
 ) {
   const { fs, path, workspaceRoot, scope, diagnostics } = deps;

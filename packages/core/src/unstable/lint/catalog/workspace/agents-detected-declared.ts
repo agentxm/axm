@@ -26,7 +26,7 @@ import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 import { AGENTS } from "../../../agents/registry.js";
 import { isUniversalSkillsRelativeDir } from "../../../extensions/universal-skills-dir.js";
-import type { DetectedAgent } from "../../../workspace/context/agents/types.js";
+import type { DetectedAgent } from "../../../workspace/read-model/agents/types.js";
 
 const RULE_ID = "workspace/agents-detected-declared";
 const SETTINGS_REL = ".axm/settings.json";

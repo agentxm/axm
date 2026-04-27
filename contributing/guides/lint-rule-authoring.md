@@ -504,7 +504,7 @@ __fixtures__/
 
 | Pitfall                                                       | Problem                                                                                                    |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Rule walks the workspace itself                               | Duplicates `WorkspaceIndex`; makes the rule hard to test                                                   |
+| Rule walks the workspace itself                               | Duplicates `LintWorkspaceView`; makes the rule hard to test                                                |
 | `check` throws on inapplicable input                          | Use `[]` — no separate `applies` predicate                                                                 |
 | Schema-valid rule implements schema logic                     | Delegate to `Schema.decodeUnknown` + `issuesToFindings`                                                    |
 | Unknown keys inlined in `-schema-valid`                       | Splits severity; ship a paired `-keys-recognized` warning rule                                             |

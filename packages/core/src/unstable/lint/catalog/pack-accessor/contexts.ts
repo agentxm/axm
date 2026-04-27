@@ -1,11 +1,10 @@
 /**
- * `buildPackRuleContexts` — build `PackRuleContext[]` from a
- * `WorkspaceIndex`-shaped input.
+ * `buildPackRuleContexts` — build `PackRuleContext[]` from a structural
+ * `installedPacks` input. The full lint workspace view
+ * (`LintWorkspaceView`) satisfies this by construction.
  *
- * Phase 3c owns `WorkspaceIndex`; Phase 3b pins the minimal shape
- * `buildPackRuleContexts` consumes so Phase 3c can satisfy it without
- * renegotiation. The minimal shape is **exactly** the set of fields the
- * function reads per installed pack:
+ * The minimal shape is **exactly** the set of fields the function reads per
+ * installed pack:
  *
  * - `packJson` — pre-decoded `extension-pack.json` when present (caller
  *   decodes once per pack, so rules don't re-read + re-parse).
@@ -18,7 +17,7 @@
  *
  * | Surface                            | `displayRoot`                             |
  * | ---------------------------------- | ----------------------------------------- |
- * | Publish (Phase 4)                  | `""`                                      |
+ * | Publish                            | `""`                                      |
  * | Registry-installed pack            | `.axm/extensions/<@owner>/packs/<name>`   |
  *
  * @experimental This API is unstable and may change without notice.
@@ -28,13 +27,13 @@
 import type { PackFileAccessor, PackRuleContext } from "../../context.js";
 
 // -----------------------------------------------------------------------------
-// WorkspaceIndex-facing shape
+// Installed-pack projection
 // -----------------------------------------------------------------------------
 
 /**
  * Minimal structural shape `buildPackRuleContexts` needs per installed
- * pack. Phase 3c's `WorkspaceIndex` satisfies this by construction — its
- * `installedPacks` field is `ReadonlyArray<InstalledPackInfo>`.
+ * pack. The full lint workspace view exposes
+ * `installedPacks: ReadonlyArray<InstalledPackInfo>`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -44,24 +43,12 @@ export interface InstalledPackInfo {
   readonly files: PackFileAccessor;
 }
 
-/**
- * Minimal structural shape of the WorkspaceIndex subset `buildPackRuleContexts`
- * consumes. Keeping the function input narrow keeps Phase 3b and Phase 3c
- * decoupled: the index implementation (Phase 3c) can add more methods
- * without affecting this call site.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface PackIndexView {
-  readonly installedPacks: ReadonlyArray<InstalledPackInfo>;
-}
-
 // -----------------------------------------------------------------------------
 // buildPackRuleContexts
 // -----------------------------------------------------------------------------
 
 /**
- * Project an index's `installedPacks` into `PackRuleContext`s with their
+ * Project an input's `installedPacks` into `PackRuleContext`s with their
  * `displayRoot` and `subject` fields pre-populated.
  *
  * Publish callers bypass this helper and construct a single context directly
@@ -69,8 +56,10 @@ export interface PackIndexView {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const buildPackRuleContexts = (index: PackIndexView): ReadonlyArray<PackRuleContext> =>
-  index.installedPacks.map(
+export const buildPackRuleContexts = (input: {
+  readonly installedPacks: ReadonlyArray<InstalledPackInfo>;
+}): ReadonlyArray<PackRuleContext> =>
+  input.installedPacks.map(
     (info): PackRuleContext => ({
       subject: {
         packJson: info.packJson,

@@ -10,17 +10,17 @@
  */
 
 import * as Effect from "effect/Effect";
-import { WorkspaceReadModel } from "../../context.js";
+import { WorkspaceReadModel } from "../../service.js";
 
 type _CellR<T> = T extends Effect.Effect<infer _A, infer _E, infer R> ? R : never;
 
 const _probe = Effect.gen(function* () {
-  const ctx = yield* WorkspaceReadModel;
-  yield* ctx.scope("project").skills.installed;
-  yield* ctx.scope("project").skills.declared;
-  yield* ctx.scope("project").skills.resolved;
-  yield* ctx.scope("project").state.settings;
-  yield* ctx.scope("project").sourceHosts.declared;
+  const readModel = yield* WorkspaceReadModel;
+  yield* readModel.scope("project").skills.installed;
+  yield* readModel.scope("project").skills.declared;
+  yield* readModel.scope("project").skills.resolved;
+  yield* readModel.scope("project").state.settings;
+  yield* readModel.scope("project").sourceHosts.declared;
 });
 
 type _ProbeR = _CellR<typeof _probe>;

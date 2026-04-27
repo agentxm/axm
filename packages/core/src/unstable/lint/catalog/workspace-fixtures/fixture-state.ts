@@ -4,7 +4,7 @@ import type {
   FileSpec,
   FixtureSpec,
   ScopeFiles,
-} from "../../../workspace/context/__fixtures__/builder.js";
+} from "../../../workspace/read-model/__fixtures__/builder.js";
 import type { WorkspaceState } from "./interpret-ops.js";
 
 const pathSegments = (relativePath: string): ReadonlyArray<string> =>

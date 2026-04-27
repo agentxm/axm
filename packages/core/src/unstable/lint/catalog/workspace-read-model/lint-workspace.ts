@@ -1,21 +1,19 @@
 /**
- * `WorkspaceIndex` and `buildWorkspaceRuleContext`.
+ * `LintWorkspace` — single helper that produces both the per-rule
+ * `WorkspaceRuleContext` and the flat `LintWorkspaceView` projection a lint
+ * run needs, sharing one `WorkspaceReadModelLive` setup.
  *
- * The `WorkspaceIndex` satisfies both Phase 3a's `SkillIndexView` and Phase
- * 3b's `PackIndexView` — it exposes `installedSkills: InstalledSkillInfo[]`
- * and `installedPacks: InstalledPackInfo[]` with per-provenance
- * `displayRoot`s:
+ * `LintWorkspaceView` exposes `installedSkills: InstalledSkillInfo[]` and
+ * `installedPacks: InstalledPackInfo[]` with per-provenance `displayRoot`s:
  *
  *   Registry-installed native skill: `.axm/extensions/<@owner>/skills/<name>/src/`
  *   External skill:                  `.axm/extensions/external/skills/<name>/`
  *   Registry pack:                   `.axm/extensions/<@owner>/packs/<name>/`
- *                                    (NO `src/` — matches the on-disk layout
- *                                    per Phase 3b finding.)
+ *                                    (NO `src/` — matches the on-disk layout.)
  *
- * The `buildWorkspaceRuleContext` helper constructs a `WorkspaceRuleContext`
- * from a requested scope. User-scope root resolution for v1 is
- * `$AXM_USER_HOME/.axm/` when set, otherwise `$HOME/.axm/`; a follow-up owns
- * the broader XDG story.
+ * The companion `WorkspaceRuleContext` is scoped to project or user.
+ * User-scope root resolution for v1 is `$AXM_USER_HOME/.axm/` when set,
+ * otherwise `$HOME/.axm/`; a follow-up owns the broader XDG story.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -31,46 +29,47 @@ import {
   WorkspaceReadModel,
   WorkspaceReadModelConfig,
   WorkspaceReadModelLive,
-} from "../../../workspace/context/context.js";
-import type { WorkspaceRootEscape } from "../../../workspace/context/errors.js";
+} from "../../../workspace/read-model/service.js";
+import type { WorkspaceRootEscape } from "../../../workspace/read-model/errors.js";
 import type {
   ActualPack,
   ActualSkill,
   InstalledPack,
   InstalledSkill,
-} from "../../../workspace/context/extensions/index.js";
+} from "../../../workspace/read-model/extensions/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { InstalledSkillInfo, SkillIndexView } from "../skill-accessor/contexts.js";
-import type { InstalledPackInfo, PackIndexView } from "../pack-accessor/contexts.js";
+import type { InstalledSkillInfo } from "../skill-accessor/contexts.js";
+import type { InstalledPackInfo } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
 import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
 
 // -----------------------------------------------------------------------------
-// WorkspaceIndex
+// LintWorkspaceView
 // -----------------------------------------------------------------------------
 
 /**
- * The `WorkspaceIndex` shape — satisfies `SkillIndexView` and `PackIndexView`
- * simultaneously, so it can be passed to `buildSkillRuleContexts` and
- * `buildPackRuleContexts` without adaptation. The implementation yields
- * `SkillRuleContext[]` / `PackRuleContext[]` via the respective builders.
+ * Flat projection of the workspace read model that the lint accessor builders
+ * consume. `buildSkillRuleContexts` reads `installedSkills`;
+ * `buildPackRuleContexts` reads `installedPacks`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface WorkspaceIndex extends SkillIndexView, PackIndexView {
+export interface LintWorkspaceView {
   readonly installedSkills: ReadonlyArray<InstalledSkillInfo>;
   readonly installedPacks: ReadonlyArray<InstalledPackInfo>;
 }
 
 // -----------------------------------------------------------------------------
-// buildWorkspaceRuleContext
+// buildLintWorkspace
 // -----------------------------------------------------------------------------
 
 /**
- * Argument shape for `buildWorkspaceRuleContext`.
+ * Argument shape for `buildLintWorkspace`.
+ *
+ * @experimental This API is unstable and may change without notice.
  */
-export interface BuildWorkspaceRuleContextArgs {
+export interface BuildLintWorkspaceArgs {
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
@@ -78,31 +77,42 @@ export interface BuildWorkspaceRuleContextArgs {
   readonly workspaceRoot: string;
   /**
    * User home directory used to construct the user-scope side of
-   * `WorkspaceReadModel`. Required because `WorkspaceReadModelLive` builds both
-   * scopes eagerly even when only one is queried by the rule run.
+   * `WorkspaceReadModel`. Required because `WorkspaceReadModelLive` builds
+   * both scopes eagerly even when only one is queried by the rule run.
    */
   readonly userHome: string;
   readonly scope: "project" | "user";
   /**
-   * Optional `displayRoot` override. Defaults to `""` (accessor-relative
-   * paths render under the workspace root).
+   * Optional `displayRoot` override for the `WorkspaceRuleContext`. Defaults
+   * to `""` (accessor-relative paths render under the workspace root).
    */
   readonly displayRoot?: string;
 }
 
 /**
- * Construct a `WorkspaceRuleContext` scoped to project or user.
- *
- * Builds the `WorkspaceReadModel` service and exposes it on the returned rule
- * context. `WorkspaceRootEscape` is surfaced in the error channel by the live
- * layer when `workspaceRoot` or `userHome` escape the filesystem root.
+ * The combined output of `buildLintWorkspace`: the per-rule
+ * `WorkspaceRuleContext` plus the flat `LintWorkspaceView`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const buildWorkspaceRuleContext = (
-  args: BuildWorkspaceRuleContextArgs,
-): Effect.Effect<WorkspaceRuleContext, WorkspaceRootEscape> => {
-  const ctxLayer = WorkspaceReadModelLive.pipe(
+export interface LintWorkspace {
+  readonly rule: WorkspaceRuleContext;
+  readonly view: LintWorkspaceView;
+}
+
+/**
+ * Build the per-rule `WorkspaceRuleContext` and the flat `LintWorkspaceView`
+ * in a single `WorkspaceReadModelLive` setup.
+ *
+ * `WorkspaceRootEscape` is surfaced in the error channel by the live layer
+ * when `workspaceRoot` or `userHome` escape the filesystem root.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const buildLintWorkspace = (
+  args: BuildLintWorkspaceArgs,
+): Effect.Effect<LintWorkspace, WorkspaceRootEscape> => {
+  const readModelLayer = WorkspaceReadModelLive.pipe(
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, args.platform.fs),
@@ -116,39 +126,46 @@ export const buildWorkspaceRuleContext = (
     ),
   );
   return Effect.gen(function* () {
-    const workspace = yield* WorkspaceReadModel;
+    const readModel = yield* WorkspaceReadModel;
     const axmDir =
       args.scope === "user"
         ? args.platform.path.join(args.userHome, ".axm")
         : args.platform.path.join(args.workspaceRoot, ".axm");
-    return {
+    const rule: WorkspaceRuleContext = {
       subject: { root: args.workspaceRoot, scope: args.scope },
-      workspace,
+      workspace: readModel,
       axmDirExists: args.platform.fs.exists(axmDir).pipe(Effect.catch(() => Effect.succeed(false))),
       displayRoot: args.displayRoot ?? "",
     };
-  }).pipe(Effect.provide(ctxLayer));
+    const view = yield* buildLintWorkspaceView({
+      platform: args.platform,
+      workspaceRoot: args.workspaceRoot,
+      readModel,
+      scope: args.scope,
+    });
+    return { rule, view };
+  }).pipe(Effect.provide(readModelLayer));
 };
 
 // -----------------------------------------------------------------------------
-// WorkspaceReadModel → WorkspaceIndex
+// LintWorkspaceView projection (internal)
 // -----------------------------------------------------------------------------
 
-export interface BuildWorkspaceIndexFromContextArgs {
+interface BuildLintWorkspaceViewArgs {
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
-  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceReadModel>;
+  readonly readModel: ServiceMap.Service.Shape<typeof WorkspaceReadModel>;
   readonly scope: "project" | "user";
 }
 
-export const buildWorkspaceIndexFromContext = (
-  args: BuildWorkspaceIndexFromContextArgs,
-): Effect.Effect<WorkspaceIndex> =>
+const buildLintWorkspaceView = (
+  args: BuildLintWorkspaceViewArgs,
+): Effect.Effect<LintWorkspaceView> =>
   Effect.gen(function* () {
-    const scoped = args.workspace.scope(args.scope);
+    const scoped = args.readModel.scope(args.scope);
     const [skills, packs] = yield* Effect.all([scoped.skills.installed, scoped.packs.installed], {
       concurrency: "unbounded",
     });
@@ -164,7 +181,7 @@ export const buildWorkspaceIndexFromContext = (
   });
 
 const installedSkillToInfo = (
-  args: BuildWorkspaceIndexFromContextArgs,
+  args: BuildLintWorkspaceViewArgs,
   skill: InstalledSkill,
 ): InstalledSkillInfo => {
   const actual = chooseSkillActual(skill.actual);
@@ -212,7 +229,7 @@ const installedSkillToInfo = (
 };
 
 const installedPackToInfo = (
-  args: BuildWorkspaceIndexFromContextArgs,
+  args: BuildLintWorkspaceViewArgs,
   pack: InstalledPack,
 ): InstalledPackInfo | undefined => {
   const actual = choosePackActual(pack.actual);
@@ -272,7 +289,7 @@ const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
 };
 
 const relativeDisplayRoot = (
-  args: Pick<BuildWorkspaceIndexFromContextArgs, "platform" | "workspaceRoot">,
+  args: Pick<BuildLintWorkspaceViewArgs, "platform" | "workspaceRoot">,
   absoluteRoot: string,
 ): string => args.platform.path.relative(args.workspaceRoot, absoluteRoot);
 
@@ -300,8 +317,7 @@ export const externalSkillDisplayRoot = (name: string): string =>
  * Compute the `displayRoot` for a registry-installed pack.
  *
  * **No `src/` segment** — matches the on-disk layout at
- * `axm/packages/core/src/unstable/packs/paths.ts#computeExtensionPackPaths`
- * (Phase 3b finding).
+ * `axm/packages/core/src/unstable/packs/paths.ts#computeExtensionPackPaths`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -309,8 +325,7 @@ export const registryPackDisplayRoot = (owner: string, name: string): string =>
   `.axm/extensions/${owner}/packs/${name}`;
 
 // -----------------------------------------------------------------------------
-// Build-a-skill-info helpers (thin wrappers over the skill / pack accessors
-// previously landed in Phase 3a/3b).
+// Build-a-skill-info helpers (thin wrappers over the skill / pack accessors).
 // -----------------------------------------------------------------------------
 
 /**

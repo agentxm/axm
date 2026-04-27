@@ -196,7 +196,7 @@ const scanSubjectDirectory = (
 // Scanner body
 // ---------------------------------------------------------------------------
 
-const scanAgentDirs = Effect.fn("workspace.context.scanner.agent-dir")(function* (
+const scanAgentDirs = Effect.fn("workspace.read-model.scanner.agent-dir")(function* (
   deps: AgentDirScannerDeps,
 ) {
   const registry = deps.agentRegistry ?? AGENTS;

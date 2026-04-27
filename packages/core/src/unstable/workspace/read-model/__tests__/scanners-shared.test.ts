@@ -1,7 +1,7 @@
 /**
  * Shared scanner contract tests:
  *
- * (a) `Effect.fn("workspace.context.scanner.<id>")(...)` naming for trace
+ * (a) `Effect.fn("workspace.read-model.scanner.<id>")(...)` naming for trace
  *     stability — verified by spans recorded against a test runtime tracer.
  * (b) Scanner public effects expose no `FileSystem | Path` requirement —
  *     verified at compile time via `Effect.Effect<…, never, never>` checks.
@@ -194,7 +194,7 @@ describe("workspace read-model shared scanner contract", () => {
 
   it.effect("scanners run under their stable Effect.fn span name", () =>
     Effect.gen(function* () {
-      // The naming convention is enforced by `Effect.fn("workspace.context.scanner.<id>")`
+      // The naming convention is enforced by `Effect.fn("workspace.read-model.scanner.<id>")`
       // at the call site. We assert non-failure here; trace-name introspection
       // is exercised through the runtime tracer, not the test harness, so this
       // test guards against a future refactor that drops the wrapper.

@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { AGENTS } from "../agents/registry.js";
 import type { AgentId } from "../agents/types.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { skillsInDir, type DiscoveredSkill } from "../workspace/context/discovery/index.js";
+import { skillsInDir, type DiscoveredSkill } from "../workspace/read-model/discovery/index.js";
 import { expandGlobs, isGlobPattern } from "../utils/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";

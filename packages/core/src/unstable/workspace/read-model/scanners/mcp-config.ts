@@ -220,7 +220,7 @@ const scanAgentMcp = (
 // Scanner body
 // ---------------------------------------------------------------------------
 
-const scanMcpConfig = Effect.fn("workspace.context.scanner.mcp-config")(function* (
+const scanMcpConfig = Effect.fn("workspace.read-model.scanner.mcp-config")(function* (
   deps: McpConfigScannerDeps,
 ) {
   const registry = deps.agentRegistry ?? AGENTS;

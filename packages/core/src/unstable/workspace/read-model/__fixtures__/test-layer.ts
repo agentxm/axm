@@ -28,7 +28,7 @@ import {
   WorkspaceReadModel,
   WorkspaceReadModelConfig,
   WorkspaceReadModelLive,
-} from "../context.js";
+} from "../service.js";
 import { type WorkspaceRootEscape } from "../errors.js";
 import { buildFixture, type FixtureSpec, type PathEscapeError } from "./builder.js";
 

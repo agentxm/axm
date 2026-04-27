@@ -9,7 +9,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { PackFileAccessor } from "../../context.js";
-import { buildPackRuleContexts, type InstalledPackInfo, type PackIndexView } from "./contexts.js";
+import { buildPackRuleContexts, type InstalledPackInfo } from "./contexts.js";
 
 const absentAccessor: PackFileAccessor = {
   exists: () => Effect.succeed(false),
@@ -36,9 +36,9 @@ describe("buildPackRuleContexts", () => {
         files: absentAccessor,
       },
     ];
-    const index: PackIndexView = { installedPacks: items };
+    const input = { installedPacks: items };
 
-    const contexts = buildPackRuleContexts(index);
+    const contexts = buildPackRuleContexts(input);
     expect(contexts).toHaveLength(2);
 
     expect(contexts[0]?.subject.packJson).toEqual({

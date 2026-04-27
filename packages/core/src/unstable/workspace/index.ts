@@ -102,7 +102,7 @@ export {
   type ScopedStateApi,
   type ScopedWorkspaceReadModel,
   type WorkspaceReadModelConfigService,
-} from "./context/context.js";
+} from "./read-model/service.js";
 export {
   getPriorityDirectories,
   parsePluginManifests,
@@ -113,7 +113,7 @@ export {
   type DetectedSubagentFile,
   type DiscoveredSkill,
   type DiscoveryOptions,
-} from "./context/discovery/index.js";
+} from "./read-model/discovery/index.js";
 
 // Augment plan
 export {

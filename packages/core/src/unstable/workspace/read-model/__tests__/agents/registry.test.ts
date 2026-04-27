@@ -22,7 +22,7 @@ import { AGENTS } from "../../../../agents/registry.js";
 import { AGENT_IDS, type AgentId } from "../../../../agents/types.js";
 import { absentAll } from "../../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
-import { WorkspaceReadModel } from "../../context.js";
+import { WorkspaceReadModel } from "../../service.js";
 import {
   getAgentModule,
   registeredAgentModules,
@@ -76,8 +76,8 @@ describe("agents/index.ts barrel", () => {
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(absentAll("/workspace", "/home"));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
-        const known = yield* ctx.scope("project").agents.known;
+        const readModel = yield* WorkspaceReadModel;
+        const known = yield* readModel.scope("project").agents.known;
         expect(known.map((agent) => agent.id)).toEqual(
           Object.values(AGENTS).map((agent) => agent.id),
         );
@@ -89,9 +89,9 @@ describe("agents/index.ts barrel", () => {
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(absentAll("/workspace", "/home"));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
-        const known = ctx.scope("project").agents.byId("codex");
-        const unknown = ctx.scope("project").agents.byId("unknown-agent");
+        const readModel = yield* WorkspaceReadModel;
+        const known = readModel.scope("project").agents.byId("codex");
+        const unknown = readModel.scope("project").agents.byId("unknown-agent");
         expect(Option.isSome(known)).toBe(true);
         expect(Option.isSome(known) ? known.value.id : undefined).toBe("codex");
         expect(Option.isNone(unknown)).toBe(true);

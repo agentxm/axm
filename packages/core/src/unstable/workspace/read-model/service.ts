@@ -221,7 +221,7 @@ interface BuildScopeDeps {
   readonly diagnosticsRef: Ref.Ref<ReadonlyArray<Warning>>;
 }
 
-const buildScope = Effect.fn("workspace.context.live.build-scope")(function* (
+const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* (
   deps: BuildScopeDeps,
 ) {
   const {
@@ -624,7 +624,7 @@ export const WorkspaceReadModelLive: Layer.Layer<
     const projectScope = yield* buildAndStore("project");
     const userScope = yield* buildAndStore("user");
 
-    // The `scope()` selector returns the pre-built memoized scoped context.
+    // The `scope()` selector returns the pre-built memoized scoped read model.
     const scopeSelector = (s: Scope): ScopedWorkspaceReadModel =>
       s === "project" ? projectScope : userScope;
 

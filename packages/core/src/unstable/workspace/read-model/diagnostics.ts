@@ -19,11 +19,11 @@ export interface Diagnostics {
 
 /** Build a `Diagnostics` helper around a caller-owned `Ref<ReadonlyArray<Warning>>`. */
 export const makeDiagnostics = (ref: Ref.Ref<ReadonlyArray<Warning>>): Diagnostics => ({
-  append: Effect.fn("workspace.context.diagnostics.append")(function* (warning: Warning) {
+  append: Effect.fn("workspace.read-model.diagnostics.append")(function* (warning: Warning) {
     yield* Ref.update(ref, (current) => [...current, warning]);
   }),
   snapshot: Effect.gen(function* () {
     const current = yield* Ref.get(ref);
     return current;
-  }).pipe(Effect.withSpan("workspace.context.diagnostics.snapshot")),
+  }).pipe(Effect.withSpan("workspace.read-model.diagnostics.snapshot")),
 });

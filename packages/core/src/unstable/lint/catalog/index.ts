@@ -32,11 +32,7 @@ export {
   makePlatformSkillFileAccessor,
   type SkillAccessorPlatform,
 } from "./skill-accessor/platform.js";
-export {
-  buildSkillRuleContexts,
-  type InstalledSkillInfo,
-  type SkillIndexView,
-} from "./skill-accessor/contexts.js";
+export { buildSkillRuleContexts, type InstalledSkillInfo } from "./skill-accessor/contexts.js";
 
 // Phase 3b accessor + context-builder helpers.
 export { makeVftPackFileAccessor, type PackVFTNode } from "./pack-accessor/vft.js";
@@ -44,29 +40,24 @@ export {
   makePlatformPackFileAccessor,
   type PackAccessorPlatform,
 } from "./pack-accessor/platform.js";
-export {
-  buildPackRuleContexts,
-  type InstalledPackInfo,
-  type PackIndexView,
-} from "./pack-accessor/contexts.js";
+export { buildPackRuleContexts, type InstalledPackInfo } from "./pack-accessor/contexts.js";
 
 // Phase 3c workspace read-model builder helpers.
 export {
-  buildWorkspaceIndexFromContext,
-  buildWorkspaceRuleContext,
+  buildLintWorkspace,
   buildNativeInstalledSkillInfo,
   buildExternalInstalledSkillInfo,
   buildInstalledPackInfo,
   externalSkillDisplayRoot,
   registryNativeSkillDisplayRoot,
   registryPackDisplayRoot,
-  type BuildWorkspaceIndexFromContextArgs,
+  type BuildLintWorkspaceArgs,
   type BuildInstalledPackInfoArgs,
   type BuildInstalledSkillInfoExternalArgs,
   type BuildInstalledSkillInfoNativeArgs,
-  type BuildWorkspaceRuleContextArgs,
-  type WorkspaceIndex,
-} from "./workspace-read-model/contexts.js";
+  type LintWorkspace,
+  type LintWorkspaceView,
+} from "./workspace-read-model/lint-workspace.js";
 export {
   PER_EXTENSION_OPERATION_NAMES,
   isPerExtensionOperationName,

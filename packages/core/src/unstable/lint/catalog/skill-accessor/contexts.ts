@@ -1,11 +1,10 @@
 /**
- * `buildSkillRuleContexts` — build `SkillRuleContext[]` from a
- * `WorkspaceIndex`-shaped input.
+ * `buildSkillRuleContexts` — build `SkillRuleContext[]` from a structural
+ * `installedSkills` input. The full lint workspace view
+ * (`LintWorkspaceView`) satisfies this by construction.
  *
- * Phase 3c owns `WorkspaceIndex`; Phase 3a pins the minimal shape
- * `buildSkillRuleContexts` consumes so Phase 3c can satisfy it without
- * renegotiation. The minimal shape is **exactly** the set of fields the
- * function reads per installed skill:
+ * The minimal shape is **exactly** the set of fields the function reads per
+ * installed skill:
  *
  * - `isNative` — whether the skill is expected to expose `skill.json`
  *   (registry-installed natives: `true`; managed external: `false`).
@@ -24,7 +23,7 @@
  *
  * | Surface                                   | `displayRoot`                                 |
  * | ----------------------------------------- | --------------------------------------------- |
- * | Publish (Phase 4)                         | `""`                                          |
+ * | Publish                                   | `""`                                          |
  * | Registry-installed native skill           | `.axm/extensions/<@owner>/skills/<name>/src`  |
  * | External skill                            | `.axm/extensions/external/skills/<name>`      |
  *
@@ -35,13 +34,13 @@
 import type { SkillFileAccessor, SkillRuleContext } from "../../context.js";
 
 // -----------------------------------------------------------------------------
-// WorkspaceIndex-facing shape
+// Installed-skill projection
 // -----------------------------------------------------------------------------
 
 /**
  * Minimal structural shape `buildSkillRuleContexts` needs per installed
- * skill. Phase 3c's `WorkspaceIndex` satisfies this by construction — its
- * `installedSkills` field is `ReadonlyArray<InstalledSkillInfo>`.
+ * skill. The full lint workspace view exposes
+ * `installedSkills: ReadonlyArray<InstalledSkillInfo>`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -53,24 +52,12 @@ export interface InstalledSkillInfo {
   readonly packageFiles: SkillFileAccessor;
 }
 
-/**
- * Minimal structural shape of the WorkspaceIndex subset `buildSkillRuleContexts`
- * consumes. Keeping the function input narrow keeps Phase 3a and Phase 3c
- * decoupled: the index implementation (Phase 3c) can add more methods
- * without affecting this call site.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface SkillIndexView {
-  readonly installedSkills: ReadonlyArray<InstalledSkillInfo>;
-}
-
 // -----------------------------------------------------------------------------
 // buildSkillRuleContexts
 // -----------------------------------------------------------------------------
 
 /**
- * Project an index's `installedSkills` into `SkillRuleContext`s with their
+ * Project an input's `installedSkills` into `SkillRuleContext`s with their
  * `displayRoot` and `subject` fields pre-populated.
  *
  * Publish callers bypass this helper and construct a single context directly
@@ -78,8 +65,10 @@ export interface SkillIndexView {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const buildSkillRuleContexts = (index: SkillIndexView): ReadonlyArray<SkillRuleContext> =>
-  index.installedSkills.map(
+export const buildSkillRuleContexts = (input: {
+  readonly installedSkills: ReadonlyArray<InstalledSkillInfo>;
+}): ReadonlyArray<SkillRuleContext> =>
+  input.installedSkills.map(
     (info): SkillRuleContext => ({
       subject: {
         isNative: info.isNative,

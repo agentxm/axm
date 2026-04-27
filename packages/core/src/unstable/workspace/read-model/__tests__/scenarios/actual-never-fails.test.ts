@@ -20,7 +20,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import { validAll, type FixtureSpec } from "../../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
-import { WorkspaceReadModel } from "../../context.js";
+import { WorkspaceReadModel } from "../../service.js";
 import { WorkspaceRootEscape } from "../../errors.js";
 import {
   expectSome,
@@ -82,8 +82,8 @@ describe("actual cells never fail", () => {
         });
 
       const program = Effect.gen(function* () {
-        const ctx = yield* WorkspaceReadModel;
-        const project = ctx.scope("project");
+        const readModel = yield* WorkspaceReadModel;
+        const project = readModel.scope("project");
         // The actual cell still succeeds despite the partial failure.
         const actual = yield* project.skills.actual;
         const diagnostics = yield* project.diagnostics;

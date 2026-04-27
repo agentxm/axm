@@ -30,7 +30,7 @@ import {
   WorkspaceReadModel,
   WorkspaceReadModelConfig,
   WorkspaceReadModelLive,
-} from "../workspace/context/context.js";
+} from "../workspace/read-model/service.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
@@ -102,8 +102,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 
   const readSettingsSafe = (dir: string): Effect.Effect<Settings, AppError> =>
     Effect.gen(function* () {
-      const context = yield* WorkspaceReadModel;
-      return yield* context.scope(dir === globalDir ? "user" : "project").state.settings;
+      const readModel = yield* WorkspaceReadModel;
+      return yield* readModel.scope(dir === globalDir ? "user" : "project").state.settings;
     }).pipe(
       Effect.provide(contextLayer),
       Effect.map(Option.getOrElse(() => createDefaultSettings())),

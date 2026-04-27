@@ -28,9 +28,9 @@ import {
   type WorkspaceState,
 } from "./workspace-fixtures/interpret-ops.js";
 import type { AgentId } from "../../agents/types.js";
-import { WorkspaceReadModel } from "../../workspace/context/context.js";
-import { type FixtureSpec } from "../../workspace/context/__fixtures__/builder.js";
-import { WorkspaceReadModelTest } from "../../workspace/context/__fixtures__/test-layer.js";
+import { WorkspaceReadModel } from "../../workspace/read-model/service.js";
+import { type FixtureSpec } from "../../workspace/read-model/__fixtures__/builder.js";
+import { WorkspaceReadModelTest } from "../../workspace/read-model/__fixtures__/test-layer.js";
 import { fixtureSpecFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
 
 // -----------------------------------------------------------------------------

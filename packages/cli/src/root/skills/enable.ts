@@ -9,7 +9,7 @@ import {
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { EnableSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { enableSkill } from "@agentxm/client-core/unstable/skills";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -28,14 +28,14 @@ export interface EnableHandlerArgs {
 }
 
 export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
   yield* renderer.info("axm skills enable");
 
-  // Load installed skills (configured ∪ implicit) — taxonomy lifecycle view
+  // Load installed skills (configured + implicit) from the workspace record projection.
   const installedSkills = yield* ws.getInstalledSkills();
   const entry = installedSkills[args.name];
 
@@ -86,7 +86,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     label: args.name,
     run: enableSkill(op).pipe(
       Effect.map(toJobStepResult),
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),

@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   McpServerManager,
   type McpServerExtensionRef,
@@ -67,7 +67,7 @@ export class UninstallMcpServerCommandWorkflowActions extends ServiceMap.Service
 export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
   UninstallMcpServerCommandWorkflowActions,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const mcpServerMgr = yield* McpServerManager;
 
     const parseArgs = (

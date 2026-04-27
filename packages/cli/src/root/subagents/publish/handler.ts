@@ -10,7 +10,7 @@ import {
   summarizeCommandOutcome,
 } from "@agentxm/client-core/unstable/cli-runtime";
 
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { PublishSubagentOperation } from "@agentxm/client-core/unstable/subagents";
 import { publishSubagent, MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -38,7 +38,7 @@ interface TargetRegistry {
 
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
 
     const globPatterns = extensions.filter((e) => isGlobPattern(e));
@@ -69,7 +69,7 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
 
 const resolveTargetRegistry = (registry: Option.Option<string>) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -135,7 +135,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
   args: PublishHandlerArgs,
   targetRegistry: TargetRegistry,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
@@ -256,7 +256,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
       label: `Publish ${extName}`,
       run: publishSubagent(op).pipe(
         Effect.map(toJobStepResult),
-        Effect.provideService(Workspace, ws),
+        Effect.provideService(WorkspaceMutations, ws),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
       ),

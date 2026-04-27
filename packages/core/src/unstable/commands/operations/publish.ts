@@ -24,7 +24,7 @@ import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -62,11 +62,15 @@ export type PublishCommandOperation = Operation<"publish-command", PublishComman
  */
 export const publishCommand: (
   op: PublishCommandOperation,
-) => Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path | Workspace> = (op) =>
+) => Effect.Effect<
+  JobStepResult,
+  AppError,
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
+> = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     const fqn = yield* parseFqn(op.args.name);

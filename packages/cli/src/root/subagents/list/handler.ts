@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 export interface ListSubagentsHandlerArgs {
   readonly agents: readonly string[];
@@ -40,7 +40,7 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
   args: ListSubagentsHandlerArgs,
 ) {
   const renderer = yield* CliRenderer;
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
 
   // getInstalledSubagents returns configured (direct) + implicit (transitive/pack-provided).
   const subagents = yield* ws.getInstalledSubagents();

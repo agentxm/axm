@@ -9,7 +9,7 @@ import {
   bootstrapWorkspace,
   scanAllSubagentFiles,
   type AgentSubagentSummary,
-  type WorkspaceContextOptions,
+  type WorkspaceMutationsOptions,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 import * as Effect from "effect/Effect";
@@ -77,8 +77,8 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const renderer = yield* CliRenderer;
   const { settings, location } = yield* bootstrapWorkspace(
     args.agents !== undefined && args.agents.length > 0
-      ? ({ scope: args.scope, agents: args.agents } satisfies WorkspaceContextOptions)
-      : ({ scope: args.scope } satisfies WorkspaceContextOptions),
+      ? ({ scope: args.scope, agents: args.agents } satisfies WorkspaceMutationsOptions)
+      : ({ scope: args.scope } satisfies WorkspaceMutationsOptions),
   );
   const agentIds = settings.agents ?? [];
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");

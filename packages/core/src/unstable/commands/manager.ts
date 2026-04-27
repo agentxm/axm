@@ -24,7 +24,7 @@ import type {
 } from "./refs.js";
 import type { CommandLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager, CommandExtensionTarget } from "../workspace/service-interface.js";
-import { Workspace } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { copyExtensionDirectory, validatePathSafety } from "../extensions/utils.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
@@ -155,7 +155,7 @@ export const buildLockEntryFromRef = (ref: CommandExtensionRef, now: Date): Comm
 export const CommandManagerLive = Layer.effect(
   CommandManager,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const baseDir = ws.baseDir;

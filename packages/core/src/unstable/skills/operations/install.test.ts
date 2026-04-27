@@ -22,9 +22,9 @@ import type { Source } from "../../sources/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import {
-  Workspace,
+  WorkspaceMutations,
   type SetSkillArgs,
-  type WorkspaceContextService,
+  type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
@@ -57,7 +57,7 @@ const makeWorkspaceMock = (
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
   },
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
     if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, skills: {} };
@@ -137,7 +137,7 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (
   axmDir: string,
   wsOverrides?: {
@@ -197,7 +197,7 @@ const withServices = (
   };
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(mockWs),
+    WorkspaceMutations.layer(mockWs),
     outputLayer,
     Layer.succeed(SourceHostProviders, sourceProviders),
     Layer.succeed(CodingAgentRepository, defaultAgentRepo),
@@ -426,7 +426,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("calls Workspace.setSkill after successful installation", () =>
+    it.effect("calls WorkspaceMutations.setSkill after successful installation", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -446,7 +446,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("swallows Workspace.setSkill failure without failing installation", () =>
+    it.effect("swallows WorkspaceMutations.setSkill failure without failing installation", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -882,7 +882,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
-          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
+          (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(
@@ -909,7 +909,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
-          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
+          (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(
@@ -938,7 +938,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
-          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
+          (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(
@@ -967,7 +967,7 @@ describe("installSkill", () => {
         const src = setupSource();
         const { axmDir } = setupBase();
         const setSkillFn = vi.fn(
-          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
+          (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(

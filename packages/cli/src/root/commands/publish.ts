@@ -14,7 +14,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { PublishCommandOperation } from "@agentxm/client-core/unstable/commands";
 import {
   publishCommand as publishCommandOp,
@@ -49,7 +49,7 @@ interface TargetRegistry {
 
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
 
     const globPatterns = extensions.filter((e) => isGlobPattern(e));
@@ -80,7 +80,7 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
 
 const resolveTargetRegistry = (registry: Option.Option<string>) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -146,7 +146,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
   args: CommandsPublishHandlerArgs,
   targetRegistry: TargetRegistry,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
@@ -272,7 +272,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
       label: `Publish ${extName}`,
       run: publishCommandOp(op).pipe(
         Effect.map(toJobStepResult),
-        Effect.provideService(Workspace, ws),
+        Effect.provideService(WorkspaceMutations, ws),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
       ),

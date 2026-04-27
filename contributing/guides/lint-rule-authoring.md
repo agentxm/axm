@@ -60,7 +60,7 @@ nudges are authoring guidance, not rules.
 ## Classification Invariant Matrix
 
 Workspace install rules enforce invariants on one or more **extension lifecycle
-classes** produced by the workspace classifier. The three classes are:
+classes** produced by the workspace workspace record. The three classes are:
 
 - **Configured** — explicitly declared in `settings.json`
 - **Implicit** — present in the lockfile as a transitive pack dependency, not

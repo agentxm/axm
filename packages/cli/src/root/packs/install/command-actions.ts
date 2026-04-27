@@ -24,7 +24,7 @@ import {
   resolveSource,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import {
@@ -292,7 +292,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
   InstallPackCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const fsSvc = yield* FileSystem.FileSystem;
     const packMgr = yield* ExtensionPackManager;
@@ -306,7 +306,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     // services via the Effect context (e.g. resolveSource).
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
-      Layer.succeed(Workspace, ws),
+      Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
       Layer.succeed(Path.Path, pathSvc),

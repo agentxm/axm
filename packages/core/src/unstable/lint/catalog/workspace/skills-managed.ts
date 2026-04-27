@@ -2,9 +2,9 @@
  * `workspace/skills-managed` — installed skill directories are managed by the
  * axm workspace.
  *
- * A skill artifact is unmanaged iff the workspace classifier classifies the
+ * A skill artifact is unmanaged iff the workspace workspace record classifies the
  * detected skill name as `lifecycle: "unmanaged"`. The rule emits one advisory
- * finding per unmanaged artifact location reported by the classifier.
+ * finding per unmanaged artifact location reported by the workspace record.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

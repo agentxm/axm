@@ -1,7 +1,7 @@
 /**
  * Compile-time type assertion for the no-network spec.
  *
- * Cells yielded from `WorkspaceContext` carry only `WorkspaceContext` in their
+ * Cells yielded from `WorkspaceReadModel` carry only `WorkspaceReadModel` in their
  * `R` channel. Any future introduction of a network service requirement
  * (HttpClient, RegistryClient, etc.) surfaces here as a type error.
  *
@@ -10,12 +10,12 @@
  */
 
 import * as Effect from "effect/Effect";
-import { WorkspaceContext } from "../../context.js";
+import { WorkspaceReadModel } from "../../context.js";
 
 type _CellR<T> = T extends Effect.Effect<infer _A, infer _E, infer R> ? R : never;
 
 const _probe = Effect.gen(function* () {
-  const ctx = yield* WorkspaceContext;
+  const ctx = yield* WorkspaceReadModel;
   yield* ctx.scope("project").skills.installed;
   yield* ctx.scope("project").skills.declared;
   yield* ctx.scope("project").skills.resolved;
@@ -24,7 +24,7 @@ const _probe = Effect.gen(function* () {
 });
 
 type _ProbeR = _CellR<typeof _probe>;
-export type _OnlyContextRequired = [Exclude<_ProbeR, WorkspaceContext>] extends [never]
+export type _OnlyContextRequired = [Exclude<_ProbeR, WorkspaceReadModel>] extends [never]
   ? true
   : false;
 const _typeCheck: _OnlyContextRequired = true;

@@ -26,7 +26,7 @@ import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mc
 import type { RegistryExtensionPackRef } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   extensionName,
   exactVersion,
@@ -234,7 +234,7 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
 };
 const testLayer = Layer.mergeAll(
   RendererTestLayer,
-  Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
+  Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock("/tmp/axm")),
   Layer.succeed(SourceHostProviders, sourceHostProvidersStub),
   NodeServices.layer,
   Layer.succeed(CodingAgentRepository, defaultAgentRepo),

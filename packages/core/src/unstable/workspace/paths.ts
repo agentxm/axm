@@ -90,7 +90,7 @@ export const getProjectDir = (projectRoot?: string): Effect.Effect<string, never
  * - When `scope` is `"user"`, returns the user-scope directory (~/.axm)
  * - When `scope` is `"project"`, returns the project directory (./.axm)
  *
- * @param scope - Workspace scope (`"project"` or `"user"`)
+ * @param scope - WorkspaceMutations scope (`"project"` or `"user"`)
  * @returns Effect yielding absolute path to the appropriate axm directory
  *
  * @experimental This API is unstable and may change without notice.

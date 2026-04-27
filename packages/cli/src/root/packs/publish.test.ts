@@ -19,7 +19,7 @@ import {
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
   getErrorResult,
@@ -128,7 +128,7 @@ describe("packs publish.handler", () => {
   });
 
   const makeLayers = (options?: {
-    wsOverrides?: Partial<WorkspaceContextOptions>;
+    wsOverrides?: Partial<WorkspaceMutationsOptions>;
     authCredentials?: Parameters<typeof CredentialStoreTest>[1] | null;
   }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({

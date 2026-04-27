@@ -15,7 +15,7 @@ import type { SkillLockEntry, CommandLockEntry, McpServerLockEntry } from "../..
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/index.js";
+import { WorkspaceMutations } from "../../workspace/index.js";
 import { parseFqn } from "../../extensions/index.js";
 
 // -----------------------------------------------------------------------------
@@ -52,11 +52,12 @@ export type UnpackExtensionPackOperation = Operation<
  * 3. Add resolved skills as direct entries (skip existing)
  * 4. Remove extension extension pack from settings and lockfile
  */
-export const unpackExtensionPack: OperationHandler<UnpackExtensionPackOperation, Workspace> = (
-  op,
-) =>
+export const unpackExtensionPack: OperationHandler<
+  UnpackExtensionPackOperation,
+  WorkspaceMutations
+> = (op) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     // Look up the extension pack in the lockfile
     const lockedPack = yield* ws.getLockedExtensionPack(op.args.name);

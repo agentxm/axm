@@ -1,4 +1,4 @@
-/** `WorkspaceContext` service tag and `WorkspaceContextLive` Layer. */
+/** Scoped read-only workspace model service and live layer. */
 
 import * as Brand from "effect/Brand";
 import * as ServiceMap from "effect/Context";
@@ -95,7 +95,7 @@ export interface ScopedProfileApi {
 }
 
 /** Public surface returned by `ctx.scope(scope)`. */
-export interface ScopedWorkspaceContext {
+export interface ScopedWorkspaceReadModel {
   readonly scope: Scope;
   readonly skills: SkillExtensionsApi;
   readonly commands: CommandExtensionsApi;
@@ -116,31 +116,31 @@ export interface ScopedWorkspaceContext {
 // ---------------------------------------------------------------------------
 
 /** Configuration the Live Layer requires beyond `FileSystem` and `Path`. */
-export interface WorkspaceContextConfig {
+export interface WorkspaceReadModelConfigService {
   readonly projectRoot: string;
   readonly userHome: string;
   readonly allowedRoot: string;
 }
 
-/** Service tag for the `WorkspaceContextConfig` value the Live Layer requires. */
-export class WorkspaceContextConfigTag extends ServiceMap.Service<
-  WorkspaceContextConfigTag,
-  WorkspaceContextConfig
->()("axm/WorkspaceContext/Config") {}
+/** Service tag for the `WorkspaceReadModelConfigService` value the Live Layer requires. */
+export class WorkspaceReadModelConfig extends ServiceMap.Service<
+  WorkspaceReadModelConfig,
+  WorkspaceReadModelConfigService
+>()("axm/WorkspaceReadModel/Config") {}
 
 // ---------------------------------------------------------------------------
-// WorkspaceContext service tag
+// WorkspaceReadModel service tag
 // ---------------------------------------------------------------------------
 
 /** The single workspace read-model service tag. */
-export class WorkspaceContext extends ServiceMap.Service<
-  WorkspaceContext,
+export class WorkspaceReadModel extends ServiceMap.Service<
+  WorkspaceReadModel,
   {
-    readonly scope: (scope: Scope) => ScopedWorkspaceContext;
+    readonly scope: (scope: Scope) => ScopedWorkspaceReadModel;
     /** Test-only: cached-effect count for the most recent construction. */
     readonly __debugCachedEffectCount: Effect.Effect<number>;
   }
->()("axm/WorkspaceContext") {}
+>()("axm/WorkspaceReadModel") {}
 
 // ---------------------------------------------------------------------------
 // Workspace-root validation
@@ -542,24 +542,24 @@ const buildScope = Effect.fn("workspace.context.live.build-scope")(function* (
     sourceHosts,
     profile,
     diagnostics: diagnostics.snapshot,
-  } satisfies ScopedWorkspaceContext;
+  } satisfies ScopedWorkspaceReadModel;
 });
 
 // ---------------------------------------------------------------------------
 // Live Layer
 // ---------------------------------------------------------------------------
 
-/** Production Live Layer for `WorkspaceContext`. */
-export const WorkspaceContextLive: Layer.Layer<
-  WorkspaceContext,
+/** Production Live Layer for `WorkspaceReadModel`. */
+export const WorkspaceReadModelLive: Layer.Layer<
+  WorkspaceReadModel,
   WorkspaceRootEscape,
-  FileSystem.FileSystem | Path.Path | WorkspaceContextConfigTag
+  FileSystem.FileSystem | Path.Path | WorkspaceReadModelConfig
 > = Layer.effect(
-  WorkspaceContext,
+  WorkspaceReadModel,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const pathSvc = yield* Path.Path;
-    const config = yield* WorkspaceContextConfigTag;
+    const config = yield* WorkspaceReadModelConfig;
 
     // Validate roots eagerly — the only path that surfaces `WorkspaceRootEscape`.
     const projectRootResolved = yield* validateRoot(
@@ -582,7 +582,7 @@ export const WorkspaceContextLive: Layer.Layer<
     const userSettingsPath = pathSvc.join(userAxmDir, SETTINGS_FILENAME);
     const userLockfilePath = pathSvc.join(userAxmDir, LOCKFILE_NAME);
 
-    // Shared agent-root resolver state — one tracker per `WorkspaceContextLive`
+    // Shared agent-root resolver state — one tracker per `WorkspaceReadModelLive`
     // instance so the heuristic-fallback warning fires at most once per agent
     // across both scopes and both `mcp-config` / `agent-settings` scanners.
     const rootResolverState = makeAgentRootResolverState();
@@ -599,9 +599,9 @@ export const WorkspaceContextLive: Layer.Layer<
     );
 
     // Memoize per-scope build so `ctx.scope("project")` is idempotent.
-    const scoped = new Map<Scope, ScopedWorkspaceContext>();
+    const scoped = new Map<Scope, ScopedWorkspaceReadModel>();
 
-    const buildAndStore = (scope: Scope): Effect.Effect<ScopedWorkspaceContext> =>
+    const buildAndStore = (scope: Scope): Effect.Effect<ScopedWorkspaceReadModel> =>
       Effect.gen(function* () {
         const cached = scoped.get(scope);
         if (cached !== undefined) return cached;
@@ -625,12 +625,12 @@ export const WorkspaceContextLive: Layer.Layer<
     const userScope = yield* buildAndStore("user");
 
     // The `scope()` selector returns the pre-built memoized scoped context.
-    const scopeSelector = (s: Scope): ScopedWorkspaceContext =>
+    const scopeSelector = (s: Scope): ScopedWorkspaceReadModel =>
       s === "project" ? projectScope : userScope;
 
-    return WorkspaceContext.of({
+    return WorkspaceReadModel.of({
       scope: scopeSelector,
       __debugCachedEffectCount: Ref.get(cachedEffectCountRef),
     });
-  }).pipe(Effect.withSpan("workspace.context.live.build")),
+  }).pipe(Effect.withSpan("workspace.read-model.live.build")),
 );

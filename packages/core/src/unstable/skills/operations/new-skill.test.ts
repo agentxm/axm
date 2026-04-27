@@ -7,7 +7,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
 import type { NewSkillOperation } from "./new-skill.js";
@@ -25,9 +28,9 @@ const makeWorkspaceMock = (
     configuredProfile?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     configuredSkills?: Record<string, any>;
-    setSkillEntryFn?: WorkspaceContextService["setSkillEntry"];
+    setSkillEntryFn?: WorkspaceMutationsService["setSkillEntry"];
   } = {},
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const configuredProfile = opts.configuredProfile ?? "@myorg";
   const configuredSkills = opts.configuredSkills ?? {};
@@ -52,11 +55,11 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   const { layer: outputLayer } = TestRenderer.make();
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs), outputLayer);
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs), outputLayer);
 };
 
 /** Creates a minimal NewSkillOperation for testing. */
@@ -125,7 +128,7 @@ describe("newSkill", () => {
     it.effect("registers skill in settings via setSkillEntry", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
-        const setSkillEntryFn = vi.fn<WorkspaceContextService["setSkillEntry"]>(
+        const setSkillEntryFn = vi.fn<WorkspaceMutationsService["setSkillEntry"]>(
           (_name, _entry) => Effect.void,
         );
 

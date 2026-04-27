@@ -16,7 +16,7 @@ import { afterEach, beforeEach } from "vitest";
 import { AuthGuardInteractionTest, RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { handleFork, type ForkHandlerArgs } from "./fork.js";
@@ -91,7 +91,7 @@ describe("fork.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
+  const makeLayers = (wsOverrides?: Partial<WorkspaceMutationsOptions>) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
     const authGuardInteraction = AuthGuardInteractionTest({
       confirmLogin: () => Effect.succeed(true),
@@ -103,7 +103,7 @@ describe("fork.handler", () => {
       TestFlagsLayer(),
       Layer.succeed(RegistryUrl, "https://registry.example.com"),
     );
-    const wsOptions: WorkspaceContextOptions = {
+    const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
       ...wsOverrides,
     };

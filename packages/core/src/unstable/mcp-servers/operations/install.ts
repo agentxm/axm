@@ -22,7 +22,7 @@ import type { Handle } from "../../extensions/handle.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
@@ -78,7 +78,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const canonicalPath = path.join(
       ws.baseDir,
@@ -345,10 +345,10 @@ export const installMcpServer: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | Workspace | CliRenderer | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const { ref } = op.args;
 

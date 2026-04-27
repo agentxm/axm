@@ -8,7 +8,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { expandGlobs } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
 import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
@@ -38,7 +38,7 @@ const toRegistrySubagentPattern = (source: string) => {
 export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   args: UpdateHandlerArgs,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
 

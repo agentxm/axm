@@ -2,7 +2,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Workspace, type WorkspaceContextService } from "../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { handle } from "../test-helpers.js";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
@@ -10,11 +13,11 @@ import { cursorCodingAgent } from "./cursor/service.js";
 import { DefaultCodingAgentRepository } from "./repository.js";
 
 const withWorkspace = (configuredAgents: ReadonlyArray<string>) => {
-  const wsMock: WorkspaceContextService = makeBaseWorkspaceMock("/tmp/axm", {
+  const wsMock: WorkspaceMutationsService = makeBaseWorkspaceMock("/tmp/axm", {
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
   });
 
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(wsMock));
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(wsMock));
 };
 
 describe("DefaultCodingAgentRepository", () => {

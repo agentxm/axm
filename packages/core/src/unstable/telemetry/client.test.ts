@@ -112,7 +112,7 @@ describe("TelemetryClientLive", () => {
 
         yield* telemetry.reportError({
           name: "WORKSPACE_NOT_FOUND",
-          message: "Workspace not initialized",
+          message: "WorkspaceMutations not initialized",
           details: ["some detail"],
           howToFix: "Run axm setup",
           level: "error",
@@ -133,7 +133,7 @@ describe("TelemetryClientLive", () => {
           expect(errors).toHaveLength(1);
           const error = expectRecord(at(errors, 0));
           expect(property(error, "name")).toBe("WORKSPACE_NOT_FOUND");
-          expect(property(error, "message")).toBe("Workspace not initialized");
+          expect(property(error, "message")).toBe("WorkspaceMutations not initialized");
         }
         expect(property(body, "level")).toBe("error");
         expect(property(body, "handled")).toBe(true);

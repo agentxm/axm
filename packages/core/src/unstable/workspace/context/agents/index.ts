@@ -6,7 +6,7 @@
  * Per design Decision 4 (per-subject modules carry the genuine variance) and
  * Decision 10 (`AgentNativeConfig` is an open union assembled from per-agent
  * modules), this is the single registration site for adding a new agent —
- * `WorkspaceContext` does NOT need to change.
+ * `WorkspaceReadModel` does NOT need to change.
  *
  * Adding a new agent: add the per-agent module file under `agents/<id>.ts`
  * exporting `agentModule` and `<Id>NativeConfig`, append the new id to

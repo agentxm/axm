@@ -1,4 +1,4 @@
-/** Per-source tagged error families for WorkspaceContext source-backed cells. */
+/** Per-source tagged error families for WorkspaceReadModel source-backed cells. */
 
 import * as Data from "effect/Data";
 

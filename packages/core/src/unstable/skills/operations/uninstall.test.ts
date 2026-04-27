@@ -13,9 +13,9 @@ import type { ExtensionPackLockEntry, SkillLockEntry } from "../../lockfile/inde
 import { RenderedFilePathSchema } from "../../extensions/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
 import {
-  Workspace,
+  WorkspaceMutations,
   type SetSkillArgs,
-  type WorkspaceContextService,
+  type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
 import {
   makeBaseWorkspaceMock,
@@ -44,7 +44,7 @@ const makeWorkspaceMock = (
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     lockedPacks?: Record<string, ExtensionPackLockEntry>;
   },
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   let skills: Record<string, SkillLockEntry> = { ...lockfileSkills };
   const lockfileErrorOverride = overrides?.lockfileErrorOverride;
   const setSkillErrorOverride = overrides?.setSkillErrorOverride;
@@ -128,7 +128,7 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + Path + a minimal Workspace. */
+/** Creates a layer providing FileSystem + Path + a minimal WorkspaceMutations. */
 const withServices = (
   axmDir: string,
   lockfileSkills: Record<string, SkillLockEntry> = {},
@@ -143,7 +143,7 @@ const withServices = (
 ) => {
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(makeWorkspaceMock(axmDir, lockfileSkills, wsOverrides)),
+    WorkspaceMutations.layer(makeWorkspaceMock(axmDir, lockfileSkills, wsOverrides)),
   );
 };
 
@@ -336,7 +336,7 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("calls Workspace.removeSkill after full uninstall", () =>
+    it.effect("calls WorkspaceMutations.removeSkill after full uninstall", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
         const { removeSkillFn } = makeRemoveSkillSpy();
@@ -351,7 +351,7 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("swallows Workspace.removeSkill failure without failing uninstall", () =>
+    it.effect("swallows WorkspaceMutations.removeSkill failure without failing uninstall", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
         const removeSkillFn = vi.fn(() =>
@@ -442,7 +442,7 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("does not call Workspace.removeSkill for partial uninstall", () =>
+    it.effect("does not call WorkspaceMutations.removeSkill for partial uninstall", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileSkills } = setupWorkspace({
           agents: ["claude-code", "cursor"],

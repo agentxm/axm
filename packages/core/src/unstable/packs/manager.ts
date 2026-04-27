@@ -21,7 +21,7 @@ import {
   type SourceHostProvidersService,
 } from "../source-resolution/index.js";
 import type { ExtensionManager, PackExtensionTarget } from "../workspace/service-interface.js";
-import { Workspace, type SetExtensionPackArgs } from "../workspace/service-interface.js";
+import { WorkspaceMutations, type SetExtensionPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import { sanitizeName } from "../extensions/utils.js";
 import { computeExtensionPackPaths } from "./paths.js";
@@ -114,7 +114,7 @@ const checkInstalledOnDisk = (
 export const ExtensionPackManagerLive = Layer.effect(
   ExtensionPackManager,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;

@@ -20,7 +20,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as ServiceMap from "effect/Context";
-import type { WorkspaceContext } from "../workspace/context/context.js";
+import type { WorkspaceReadModel } from "../workspace/context/context.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -213,13 +213,13 @@ export interface PackContent {
  */
 export interface WorkspaceRuleContext {
   readonly subject: WorkspaceSubject;
-  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceContext>;
+  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceReadModel>;
   readonly axmDirExists: Effect.Effect<boolean>;
   readonly displayRoot: string;
 }
 
 /**
- * Workspace subject: the rule-addressable identity of the workspace under lint.
+ * WorkspaceMutations subject: the rule-addressable identity of the workspace under lint.
  *
  * @experimental This API is unstable and may change without notice.
  */

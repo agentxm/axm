@@ -14,7 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
   getErrorResult,
@@ -132,7 +132,7 @@ describe("packs unpack.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
+  const makeLayers = (wsOverrides?: Partial<WorkspaceMutationsOptions>) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],

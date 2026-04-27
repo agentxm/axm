@@ -10,7 +10,10 @@ import { afterEach, beforeEach, vi } from "vitest";
 import * as Schema from "effect/Schema";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { RenderedFilePathSchema } from "../../extensions/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
@@ -28,10 +31,10 @@ const makeWorkspaceMock = (
   opts: {
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
-    updateSkillEntryFn?: WorkspaceContextService["updateSkillEntry"];
-    updateLockEntryAgentsFn?: WorkspaceContextService["updateLockEntryAgents"];
+    updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
+    updateLockEntryAgentsFn?: WorkspaceMutationsService["updateLockEntryAgents"];
   } = {},
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
 
@@ -47,10 +50,10 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs));
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs));
 };
 
 /** Creates a minimal DisableSkillOperation for testing. */
@@ -378,7 +381,7 @@ describe("disableSkill", () => {
         const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
 
         // Mock workspace where skill is implicit (lock exists but no settings entry)
-        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
+        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -397,7 +400,7 @@ describe("disableSkill", () => {
         });
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs))),
         );
 
         expect(result.result).toBe("success");
@@ -418,7 +421,7 @@ describe("disableSkill", () => {
 
         const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
 
-        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
+        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -437,7 +440,7 @@ describe("disableSkill", () => {
         });
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs))),
         );
 
         expect(result.result).toBe("success");
@@ -455,7 +458,7 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         // Mock workspace where skill is implicit with no source
-        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
+        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -472,7 +475,7 @@ describe("disableSkill", () => {
         });
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs))),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
@@ -488,7 +491,7 @@ describe("disableSkill", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
+        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -505,7 +508,7 @@ describe("disableSkill", () => {
         });
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs))),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 

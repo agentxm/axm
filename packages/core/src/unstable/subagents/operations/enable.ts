@@ -18,7 +18,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { computeSourceHash, RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import { computeSubagentPaths, SUBAGENT_CONTENT_FILENAME } from "../paths.js";
@@ -73,12 +73,12 @@ const lockEntryToPathSource = (lockEntry: SubagentLockEntry): SubagentPathSource
  */
 export const enableSubagent: OperationHandler<
   EnableSubagentOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
 
     // Check for lock entry to determine path

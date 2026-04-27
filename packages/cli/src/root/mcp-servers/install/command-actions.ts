@@ -24,7 +24,7 @@ import {
   resolveSource,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   McpServerManager,
   type McpServerExtensionRef,
@@ -93,7 +93,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
   InstallMcpServerCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const mcpServerMgr = yield* McpServerManager;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -102,7 +102,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     // services via the Effect context (e.g. resolveSource).
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
-      Layer.succeed(Workspace, ws),
+      Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );

@@ -17,7 +17,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
@@ -148,7 +148,7 @@ describe("packs install handler", () => {
       resolvePlanInteraction.layer,
       TestFlagsLayer(flagsOverrides),
     );
-    const wsOptions: WorkspaceContextOptions = {
+    const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
     };
     const WsLayer = Layer.provide(
@@ -196,7 +196,7 @@ describe("packs install handler", () => {
       resolvePlanInteraction.layer,
       TestFlagsLayer(flagsOverrides),
     );
-    const wsOptions: WorkspaceContextOptions = {
+    const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
     };
     const WsLayer = Layer.provide(

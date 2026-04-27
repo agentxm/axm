@@ -12,7 +12,7 @@ import type { CodingAgent } from "../../agents/coding-agent.js";
 import type { CodingAgentRepositoryService } from "../../agents/index.js";
 import type { AgentId } from "../../agents/types.js";
 import { makeCodingAgentStub } from "../../test-helpers.js";
-import type { WorkspaceContextService } from "../../workspace/service-interface.js";
+import type { WorkspaceMutationsService } from "../../workspace/service-interface.js";
 import { decodeHandleSync } from "../../extensions/handle.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 
@@ -66,14 +66,14 @@ export const makeAgentRepoMock = (
 // -----------------------------------------------------------------------------
 
 /**
- * Creates a WorkspaceContextService mock with no-op defaults.
+ * Creates a WorkspaceMutationsService mock with no-op defaults.
  * All methods return sensible defaults; pass `overrides` to customize
  * specific methods for a given test.
  */
 export const makeWorkspaceMock = (
   axmDir: string,
-  overrides?: Partial<WorkspaceContextService>,
-): WorkspaceContextService =>
+  overrides?: Partial<WorkspaceMutationsService>,
+): WorkspaceMutationsService =>
   makeBaseWorkspaceMock(axmDir, {
     baseDir: path.dirname(axmDir),
     getConfiguredProfile: () => Effect.succeed(decodeHandleSync("@community")),

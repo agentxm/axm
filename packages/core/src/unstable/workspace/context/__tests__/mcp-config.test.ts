@@ -84,7 +84,7 @@ describe("mcp-config scanner", () => {
         expect(o._tag).toBe("mcp-config");
         expect(o.scope).toBe("project");
         expect(o.origin).toBe("workspace");
-        // Workspace variant has no `agentId` field — the union narrows on
+        // WorkspaceMutations variant has no `agentId` field — the union narrows on
         // `origin`. Verify by structural absence.
         expect("agentId" in o).toBe(false);
         expect(o.contentLocation).toBe("/ws/.mcp.json");

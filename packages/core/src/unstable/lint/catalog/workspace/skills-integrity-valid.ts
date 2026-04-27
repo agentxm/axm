@@ -10,7 +10,7 @@
  * `install-skill` with `force: true`; pack-provided implicit mismatches are
  * advisory because the repair is a pack-level reinstall.
  *
- * The integrity check reads WorkspaceContext actual rows. A skill whose
+ * The integrity check reads WorkspaceReadModel actual rows. A skill whose
  * install directory is missing entirely is an integrity mismatch.
  *
  * V1 keeps this rule simple: a skill whose `sourceHash` is undefined in the

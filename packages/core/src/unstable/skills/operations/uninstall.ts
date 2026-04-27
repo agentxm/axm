@@ -17,7 +17,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { existsInAnyCanonicalLocation } from "../disk-check.js";
@@ -52,7 +52,7 @@ export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkil
 /**
  * Uninstall-skill operation handler.
  *
- * Reads workspace paths from the Workspace service, then orchestrates:
+ * Reads workspace paths from the WorkspaceMutations service, then orchestrates:
  * 1. Sanitize skill name for filesystem
  * 2. Read lockfile to determine installed agents
  * 3. Remove agent symlinks concurrently (skip missing)
@@ -61,17 +61,17 @@ export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkil
  */
 export const uninstallSkill: OperationHandler<
   UninstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     const sanitizedName = sanitizeName(op.args.skillName);
 
-    // Read lockfile entry for this skill via Workspace
+    // Read lockfile entry for this skill via WorkspaceMutations
     const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -129,7 +129,7 @@ export const uninstallSkill: OperationHandler<
       const remainingAgents = lockAgents.filter((a) => !agentFilter.includes(a));
 
       if (remainingAgents.length > 0) {
-        // Update lockfile entry with remaining agents via Workspace.setSkill
+        // Update lockfile entry with remaining agents via WorkspaceMutations.setSkill
         yield* ws
           .setSkill({
             name: op.args.skillName,

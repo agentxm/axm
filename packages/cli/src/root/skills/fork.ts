@@ -24,7 +24,7 @@ import {
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { CopySkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { PublishSkillOperation } from "@agentxm/client-core/unstable/skills";
@@ -115,7 +115,7 @@ const FALLBACK_PUBLISHED_VERSION = decodeExactSemverVersionSync("0.1.0");
  * Handles the `axm skills fork` command.
  */
 export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -123,7 +123,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const sources = yield* SourceHostProviders;
   const agentRepo = yield* CodingAgentRepository;
   const runLayer = Layer.mergeAll(
-    Layer.succeed(Workspace, ws),
+    Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(CliRenderer, renderer),
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),

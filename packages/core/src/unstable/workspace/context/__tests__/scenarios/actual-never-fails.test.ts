@@ -8,7 +8,7 @@
  *   adapts the fixture's in-memory `FileSystem` so a single dir fails with a
  *   `PermissionDenied` error. Production code is unchanged; only test
  *   plumbing differs.
- * - Workspace-root escape fails provider construction (Layer error), not a
+ * - WorkspaceMutations-root escape fails provider construction (Layer error), not a
  *   per-cell call.
  */
 
@@ -19,8 +19,8 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import { validAll, type FixtureSpec } from "../../__fixtures__/builder.js";
-import { WorkspaceContextTest } from "../../__fixtures__/test-layer.js";
-import { WorkspaceContext } from "../../context.js";
+import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
+import { WorkspaceReadModel } from "../../context.js";
 import { WorkspaceRootEscape } from "../../errors.js";
 import {
   expectSome,
@@ -82,13 +82,13 @@ describe("actual cells never fail", () => {
         });
 
       const program = Effect.gen(function* () {
-        const ctx = yield* WorkspaceContext;
+        const ctx = yield* WorkspaceReadModel;
         const project = ctx.scope("project");
         // The actual cell still succeeds despite the partial failure.
         const actual = yield* project.skills.actual;
         const diagnostics = yield* project.diagnostics;
         return { actual, diagnostics };
-      }).pipe(Effect.provide(WorkspaceContextTest(spec, { wrapFileSystem: failingFs })));
+      }).pipe(Effect.provide(WorkspaceReadModelTest(spec, { wrapFileSystem: failingFs })));
 
       const result = yield* program;
 
@@ -106,11 +106,11 @@ describe("actual cells never fail", () => {
 describe("workspace-root escape fails Layer construction", () => {
   it.effect("Layer.build fails with WorkspaceRootEscape when projectRoot escapes allowedRoot", () =>
     Effect.gen(function* () {
-      const layer = WorkspaceContextTest(validAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), {
+      const layer = WorkspaceReadModelTest(validAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), {
         allowedRoot: "/different/root",
       });
       const built = Effect.gen(function* () {
-        yield* WorkspaceContext;
+        yield* WorkspaceReadModel;
       }).pipe(Effect.provide(layer));
       const exit = yield* Effect.exit(built);
       expect(Exit.isFailure(exit)).toBe(true);

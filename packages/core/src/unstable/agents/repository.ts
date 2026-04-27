@@ -10,7 +10,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { Workspace } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   type CodingAgent,
   CodingAgentRepository,
@@ -126,7 +126,7 @@ const get = (id: AgentId) => fromId(id);
 const all = Effect.forEach(AGENT_IDS, (id) => fromId(id));
 
 const getConfiguredAgentIds = () =>
-  Workspace.asEffect().pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
+  WorkspaceMutations.asEffect().pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
 
 const getConfiguredAgents = () =>
   getConfiguredAgentIds().pipe(

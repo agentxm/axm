@@ -20,7 +20,7 @@ import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js"
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { SkillPathSource } from "../paths.js";
 
 // -----------------------------------------------------------------------------
@@ -55,12 +55,12 @@ export type RenameSkillOperation = Operation<
  */
 export const renameSkill: OperationHandler<
   RenameSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     // 1. Read workspace state

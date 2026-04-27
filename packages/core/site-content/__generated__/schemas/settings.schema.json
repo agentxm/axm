@@ -217,7 +217,7 @@
       },
       "additionalProperties": false,
       "title": "Lint Config",
-      "description": "Workspace lint configuration under `lint` in `.axm/settings.json`."
+      "description": "WorkspaceMutations lint configuration under `lint` in `.axm/settings.json`."
     },
     "Settings": {
       "type": "object",

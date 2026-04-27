@@ -14,7 +14,7 @@ import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
-import { Workspace } from "../../workspace/index.js";
+import { WorkspaceMutations } from "../../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
   type InstallExtensionCommandWorkflowActions,
@@ -42,7 +42,7 @@ const makeTestLayer = () => {
   return Layer.mergeAll(
     NodeServices.layer,
     rendererLayer,
-    Workspace.layer(makeMockWorkspace()),
+    WorkspaceMutations.layer(makeMockWorkspace()),
     TestFlagsLayer(),
   );
 };

@@ -15,7 +15,7 @@ import type { SourceHostProvidersService } from "./service.js";
 import type { ExtensionRef } from "../extensions/index.js";
 import type { FindOptions, GitHubSource } from "../sources/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import { Workspace } from "../workspace/index.js";
+import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { at, extensionName } from "../test-helpers.js";
 
@@ -33,7 +33,7 @@ const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
 const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_SOURCES) =>
   Layer.merge(
     Layer.succeed(
-      Workspace,
+      WorkspaceMutations,
       makeBaseWorkspaceMock("/tmp/axm", {
         getConfiguredSources: () => Effect.succeed(sources),
         getLockedSkills: () => Effect.succeed({}),

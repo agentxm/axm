@@ -269,7 +269,7 @@ frontmatter and feeds into index tables like the Guides Index in `CLAUDE.md`.
    for the trigger, then sketch what the guide covers for discovery. The task
    gives the filter; the content preview gives the discovery surface.
 4. **Include project context when it sharpens triage.** If the guide serves a
-   specific role in the docs taxonomy (e.g., it's the only guide for a
+   specific role in the docs workspace records (e.g., it's the only guide for a
    subsystem), mention the subsystem so readers can match on it.
 
 **Structure:** 1-2 sentences. Sentence 1 = trigger (when/why to consult).

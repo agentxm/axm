@@ -16,7 +16,7 @@ import { CliRenderer } from "../../cli-renderer/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { computeExtensionPackPaths } from "../paths.js";
 import { removeIfExists } from "../../utils/index.js";
@@ -53,12 +53,12 @@ export type UninstallExtensionPackOperation = Operation<
  */
 export const uninstallExtensionPack: OperationHandler<
   UninstallExtensionPackOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | CliRenderer
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const base = ws.baseDir;
 

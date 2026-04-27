@@ -1,5 +1,5 @@
 /**
- * Tests for the per-scope diagnostics buffer used by WorkspaceContext to
+ * Tests for the per-scope diagnostics buffer used by WorkspaceReadModel to
  * collect settings/lockfile/scanner warnings.
  *
  * Covers buffer lifecycle (fresh per scope), append/snapshot behavior,

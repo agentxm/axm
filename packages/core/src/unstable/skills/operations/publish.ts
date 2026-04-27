@@ -22,7 +22,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -63,12 +63,12 @@ export type PublishSkillOperation = Operation<"publish-skill", PublishSkillOpera
  */
 export const publishSkill: OperationHandler<
   PublishSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     const fqn = yield* parseFqn(op.args.name);

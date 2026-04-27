@@ -3,7 +3,7 @@
  * against an in-memory `FileSystem` for tests.
  *
  * Phase 5 of the workspace-context change. Downstream phases (scanners,
- * per-extension subject modules, the live `WorkspaceContext` service, and
+ * per-extension subject modules, the live `WorkspaceReadModel` service, and
  * golden-fixture scenario tests) call `buildFixture(spec)` to materialize a
  * minimal directory tree; named scenario constructors below provide the
  * canonical specs for the spec scenarios listed in `proposal.md`.
@@ -22,8 +22,8 @@
  *   `byteCorrupt`, the literal bytes are written verbatim. For
  *   `schemaInvalid`, the JSON/YAML serialization of the spec object is
  *   written so the parser accepts it but the schema decoder rejects it.
- * - The builder NEVER constructs the live `WorkspaceContext` itself. The
- *   sibling `test-layer.ts` exposes a `WorkspaceContextTest` layer that
+ * - The builder NEVER constructs the live `WorkspaceReadModel` itself. The
+ *   sibling `test-layer.ts` exposes a `WorkspaceReadModelTest` layer that
  *   composes the builder output with the real (Phase 9) Live layer; in
  *   Phase 5 it falls back to a `Layer.fail` placeholder.
  */
@@ -44,7 +44,7 @@ import type { AgentId } from "../../../agents/types.js";
 
 /**
  * A file-spec describes one workspace file. The four tags express the four
- * source-cell states that WorkspaceContext source loaders distinguish:
+ * source-cell states that WorkspaceReadModel source loaders distinguish:
  * absent, valid (parses + decodes), byte-corrupt (parser rejects), and
  * schema-invalid (parser accepts but decoder rejects).
  */
@@ -569,7 +569,7 @@ export const userOnly = (workspaceRoot: string, userHome: string): FixtureSpec =
 
 /**
  * Both scopes declare a source-host with the same name. Phase 9 verifies that
- * the WorkspaceContext exposes both scope reads independently and does not
+ * the WorkspaceReadModel exposes both scope reads independently and does not
  * implicitly merge them.
  */
 export const projectUserShadowing = (workspaceRoot: string, userHome: string): FixtureSpec => ({

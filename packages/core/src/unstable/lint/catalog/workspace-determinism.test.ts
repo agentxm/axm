@@ -29,8 +29,8 @@ import {
   emptyWorkspaceState,
   type WorkspaceState,
 } from "./workspace-fixtures/interpret-ops.js";
-import { WorkspaceContext } from "../../workspace/context/context.js";
-import { WorkspaceContextTest } from "../../workspace/context/__fixtures__/test-layer.js";
+import { WorkspaceReadModel } from "../../workspace/context/context.js";
+import { WorkspaceReadModelTest } from "../../workspace/context/__fixtures__/test-layer.js";
 import { scopeFilesFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
 
 // -----------------------------------------------------------------------------
@@ -40,7 +40,7 @@ import { scopeFilesFromWorkspaceState } from "./workspace-fixtures/fixture-state
 const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> => {
   const project = scopeFilesFromWorkspaceState(state);
   return Effect.gen(function* () {
-    const workspace = yield* WorkspaceContext;
+    const workspace = yield* WorkspaceReadModel;
     return {
       subject: { root: "/tmp/ws", scope: "project" },
       workspace,
@@ -49,7 +49,7 @@ const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> 
     } satisfies WorkspaceRuleContext;
   }).pipe(
     Effect.provide(
-      WorkspaceContextTest({
+      WorkspaceReadModelTest({
         workspaceRoot: "/tmp/ws",
         userHome: "/tmp/user",
         project,

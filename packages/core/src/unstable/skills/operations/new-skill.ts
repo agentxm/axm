@@ -18,7 +18,7 @@ import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
 import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
@@ -80,12 +80,12 @@ const INITIAL_SKILL_VERSION = decodeExactSemverVersionSync("0.0.1");
  */
 export const newSkill: OperationHandler<
   NewSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     const { name, owner, agents } = op.args;

@@ -32,7 +32,7 @@ import type { Operation } from "../plan/plan.js";
 /**
  * Platform-canonical finding severity.
  *
- * Workspace `lint.rules` overrides can raise or lower the severity at
+ * WorkspaceMutations `lint.rules` overrides can raise or lower the severity at
  * evaluation time; the catalog pins the platform default.
  *
  * @experimental This API is unstable and may change without notice.

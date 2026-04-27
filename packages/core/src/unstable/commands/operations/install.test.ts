@@ -15,7 +15,7 @@ import type { ExtensionRef } from "../../extensions/index.js";
 import type { CommandExtensionRef, RegistryCommandRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { expectRecord, exactVersion, extensionName, handle } from "../../test-helpers.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { CodingAgent } from "../../agents/coding-agent.js";
@@ -101,7 +101,7 @@ const withServices = (
   };
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(mockWs),
+    WorkspaceMutations.layer(mockWs),
     TestRenderer.make().layer,
     Layer.succeed(SourceHostProviders, sourceProviders),
     Layer.succeed(CodingAgentRepository, makeAgentRepoMock(agents ?? [])),
@@ -324,7 +324,7 @@ describe("installCommand", () => {
   });
 
   describe("lockfile update", () => {
-    it.effect("calls Workspace.setCommand after successful installation", () =>
+    it.effect("calls WorkspaceMutations.setCommand after successful installation", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -359,7 +359,7 @@ describe("installCommand", () => {
       }),
     );
 
-    it.effect("returns error when Workspace.setCommand fails", () =>
+    it.effect("returns error when WorkspaceMutations.setCommand fails", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");

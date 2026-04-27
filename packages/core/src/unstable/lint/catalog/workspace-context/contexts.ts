@@ -28,9 +28,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as ServiceMap from "effect/Context";
 import {
-  WorkspaceContext,
-  WorkspaceContextConfigTag,
-  WorkspaceContextLive,
+  WorkspaceReadModel,
+  WorkspaceReadModelConfig,
+  WorkspaceReadModelLive,
 } from "../../../workspace/context/context.js";
 import type { WorkspaceRootEscape } from "../../../workspace/context/errors.js";
 import type {
@@ -78,7 +78,7 @@ export interface BuildWorkspaceRuleContextArgs {
   readonly workspaceRoot: string;
   /**
    * User home directory used to construct the user-scope side of
-   * `WorkspaceContext`. Required because `WorkspaceContextLive` builds both
+   * `WorkspaceReadModel`. Required because `WorkspaceReadModelLive` builds both
    * scopes eagerly even when only one is queried by the rule run.
    */
   readonly userHome: string;
@@ -93,7 +93,7 @@ export interface BuildWorkspaceRuleContextArgs {
 /**
  * Construct a `WorkspaceRuleContext` scoped to project or user.
  *
- * Builds the `WorkspaceContext` service and exposes it on the returned rule
+ * Builds the `WorkspaceReadModel` service and exposes it on the returned rule
  * context. `WorkspaceRootEscape` is surfaced in the error channel by the live
  * layer when `workspaceRoot` or `userHome` escape the filesystem root.
  *
@@ -102,12 +102,12 @@ export interface BuildWorkspaceRuleContextArgs {
 export const buildWorkspaceRuleContext = (
   args: BuildWorkspaceRuleContextArgs,
 ): Effect.Effect<WorkspaceRuleContext, WorkspaceRootEscape> => {
-  const ctxLayer = WorkspaceContextLive.pipe(
+  const ctxLayer = WorkspaceReadModelLive.pipe(
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, args.platform.fs),
         Layer.succeed(Path.Path, args.platform.path),
-        Layer.succeed(WorkspaceContextConfigTag, {
+        Layer.succeed(WorkspaceReadModelConfig, {
           projectRoot: args.workspaceRoot,
           userHome: args.userHome,
           allowedRoot: "/",
@@ -116,7 +116,7 @@ export const buildWorkspaceRuleContext = (
     ),
   );
   return Effect.gen(function* () {
-    const workspace = yield* WorkspaceContext;
+    const workspace = yield* WorkspaceReadModel;
     const axmDir =
       args.scope === "user"
         ? args.platform.path.join(args.userHome, ".axm")
@@ -131,7 +131,7 @@ export const buildWorkspaceRuleContext = (
 };
 
 // -----------------------------------------------------------------------------
-// WorkspaceContext → WorkspaceIndex
+// WorkspaceReadModel → WorkspaceIndex
 // -----------------------------------------------------------------------------
 
 export interface BuildWorkspaceIndexFromContextArgs {
@@ -140,7 +140,7 @@ export interface BuildWorkspaceIndexFromContextArgs {
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
-  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceContext>;
+  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceReadModel>;
   readonly scope: "project" | "user";
 }
 

@@ -11,7 +11,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type { AppError } from "../../app-error/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { handle, renderedFilePath } from "../../test-helpers.js";
 import { makeRegistryCommandLockEntry } from "../../workspace/test-stubs.js";
@@ -74,7 +74,7 @@ const withServices = (
 ) =>
   Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(makeUninstallWorkspaceMock(axmDir, lockfileCommands, wsOverrides)),
+    WorkspaceMutations.layer(makeUninstallWorkspaceMock(axmDir, lockfileCommands, wsOverrides)),
     Layer.succeed(CodingAgentRepository, makeAgentRepoMock()),
   );
 
@@ -163,7 +163,7 @@ describe("uninstallCommand", () => {
       }),
     );
 
-    it.effect("calls Workspace.removeCommand", () =>
+    it.effect("calls WorkspaceMutations.removeCommand", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileCommands } = setupWorkspace();
         const removeCommandFn = vi.fn((_name: string) => Effect.void);

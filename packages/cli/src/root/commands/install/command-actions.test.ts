@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { exactVersion, extensionName, handle, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { CommandManager, type RegistryCommandRef } from "@agentxm/client-core/unstable/commands";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -50,7 +50,7 @@ const makeActionsLayer = (workspace = mockWorkspace) =>
   Layer.provide(
     InstallCommandCommandWorkflowActionsLive,
     Layer.mergeAll(
-      Layer.succeed(Workspace, workspace),
+      Layer.succeed(WorkspaceMutations, workspace),
       Layer.succeed(CommandManager, mockCommandManager),
       Layer.succeed(SourceHostProviders, mockSourceHostProviders),
       NodeServices.layer,
@@ -160,7 +160,7 @@ describe("parseCommandInstallArgs", () => {
       const forceActionsLayer = Layer.provide(
         InstallCommandCommandWorkflowActionsLive,
         Layer.mergeAll(
-          Layer.succeed(Workspace, mockWorkspace),
+          Layer.succeed(WorkspaceMutations, mockWorkspace),
           Layer.succeed(CommandManager, mockCommandManager),
           Layer.succeed(SourceHostProviders, mockSourceHostProviders),
           NodeServices.layer,

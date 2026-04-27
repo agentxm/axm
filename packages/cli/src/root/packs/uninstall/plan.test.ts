@@ -20,7 +20,7 @@ import type {
   ExtensionPackLockEntry,
   ResolvedExtensionMap,
 } from "@agentxm/client-core/unstable/lockfile";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   exactVersion,
   extensionName,
@@ -98,7 +98,7 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
 };
 const testLayer = Layer.mergeAll(
   RendererTestLayer,
-  Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
+  Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock("/tmp/axm")),
   NodeServices.layer,
   Layer.succeed(CodingAgentRepository, defaultAgentRepo),
 );

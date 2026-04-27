@@ -12,7 +12,7 @@ import {
 import type { NewSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { newSkill } from "@agentxm/client-core/unstable/skills";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
@@ -38,7 +38,7 @@ const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@
 export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   args: SkillsNewHandlerArgs,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
 
   yield* renderer.info("axm skills new");
@@ -118,7 +118,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     label: fqn,
     run: newSkill(op).pipe(
       Effect.map(toJobStepResult),
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),

@@ -9,7 +9,10 @@ import * as Option from "effect/Option";
 import matter from "gray-matter";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../lockfile/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";
 import { sanitizeName } from "../../extensions/utils.js";
@@ -41,10 +44,10 @@ const makeWorkspaceMock = (
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
-    renameSkillFn?: WorkspaceContextService["renameSkill"];
-    updateLockEntryAgentsFn?: WorkspaceContextService["updateLockEntryAgents"];
+    renameSkillFn?: WorkspaceMutationsService["renameSkill"];
+    updateLockEntryAgentsFn?: WorkspaceMutationsService["updateLockEntryAgents"];
   } = {},
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
@@ -100,10 +103,10 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs));
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs));
 };
 
 /** Creates a minimal RenameSkillOperation for testing. */
@@ -284,7 +287,7 @@ describe("renameSkill", () => {
     it.effect("calls ws.renameSkill with old and new names", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
-        const renameSkillFn = vi.fn<WorkspaceContextService["renameSkill"]>(
+        const renameSkillFn = vi.fn<WorkspaceMutationsService["renameSkill"]>(
           (_oldName, _newName) => Effect.void,
         );
 
@@ -307,7 +310,7 @@ describe("renameSkill", () => {
     it.effect("calls updateLockEntryAgents with new name and configured agents", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
-        const updateLockEntryAgentsFn = vi.fn<WorkspaceContextService["updateLockEntryAgents"]>(
+        const updateLockEntryAgentsFn = vi.fn<WorkspaceMutationsService["updateLockEntryAgents"]>(
           (_name, _agents) => Effect.void,
         );
 
@@ -336,10 +339,10 @@ describe("renameSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
         // DON'T create canonical dir, so rename will fail
 
-        const renameSkillFn = vi.fn<WorkspaceContextService["renameSkill"]>(
+        const renameSkillFn = vi.fn<WorkspaceMutationsService["renameSkill"]>(
           (_oldName, _newName) => Effect.void,
         );
-        const updateLockEntryAgentsFn = vi.fn<WorkspaceContextService["updateLockEntryAgents"]>(
+        const updateLockEntryAgentsFn = vi.fn<WorkspaceMutationsService["updateLockEntryAgents"]>(
           (_name, _agents) => Effect.void,
         );
 

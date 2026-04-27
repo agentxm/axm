@@ -1,7 +1,7 @@
 /**
  * Per-type currency collectors and aggregator.
  *
- * Reads configured and locked entries from the Workspace service, filters to
+ * Reads configured and locked entries from the WorkspaceMutations service, filters to
  * enabled registry-sourced entries, fetches each extension's index from
  * RegistryClient, and produces an array of ExtensionCurrencyEntry.
  *
@@ -23,7 +23,7 @@ import type {
   VersionConstraint,
 } from "../../version-constraints/version-constraints.js";
 import type { Handle } from "../../extensions/handle.js";
-import { Workspace } from "../service-interface.js";
+import { WorkspaceMutations } from "../service-interface.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 
 // ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ const collectCurrency = <
   getConfigured: () => Effect.Effect<Record.ReadonlyRecord<string, TConfigured>, AppError>,
   getLocked: () => Effect.Effect<Record.ReadonlyRecord<string, TLock>, AppError>,
   client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, Workspace> =>
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const configured = yield* getConfigured();
     const locked = yield* getLocked();
@@ -154,9 +154,9 @@ const collectCurrency = <
  */
 export const collectSkillCurrency = (
   client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, Workspace> =>
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     return yield* collectCurrency("skill", ws.getConfiguredSkills, ws.getLockedSkills, client);
   });
 
@@ -165,9 +165,9 @@ export const collectSkillCurrency = (
  */
 export const collectCommandCurrency = (
   client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, Workspace> =>
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "command",
       ws.getConfiguredCommands,
@@ -181,9 +181,9 @@ export const collectCommandCurrency = (
  */
 export const collectMcpServerCurrency = (
   client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, Workspace> =>
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "mcp-server",
       ws.getConfiguredMcpServers,
@@ -197,9 +197,9 @@ export const collectMcpServerCurrency = (
  */
 export const collectSubagentCurrency = (
   client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, Workspace> =>
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "subagent",
       ws.getConfiguredSubagents,
@@ -213,9 +213,9 @@ export const collectSubagentCurrency = (
  */
 export const collectPackCurrency = (
   client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, Workspace> =>
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     return yield* collectCurrency(
       "pack",
       ws.getConfiguredPacks,
@@ -233,7 +233,7 @@ export const collectPackCurrency = (
  */
 export const collectAllCurrencyEntries = (
   client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, Workspace> =>
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const [skills, commands, mcpServers, subagents, packs] = yield* Effect.all(
       [

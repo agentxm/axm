@@ -10,7 +10,7 @@ import {
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { DisableCommandOperation } from "@agentxm/client-core/unstable/commands";
 import { disableCommand as runDisableCommand } from "@agentxm/client-core/unstable/commands";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -37,7 +37,7 @@ export interface DisableCommandHandlerArgs {
 export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function* (
   args: DisableCommandHandlerArgs,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -45,7 +45,7 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
 
   yield* renderer.info("axm commands disable");
 
-  // Load installed commands (configured + implicit) -- taxonomy lifecycle view
+  // Load installed commands (configured + implicit) from the workspace record projection.
   const installedCommands = yield* ws.getInstalledCommands();
   const installedEntry = installedCommands[args.name];
 
@@ -102,7 +102,7 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
     label: args.name,
     run: runDisableCommand(op).pipe(
       Effect.map(toJobStepResult),
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(CodingAgentRepository, agentRepo),

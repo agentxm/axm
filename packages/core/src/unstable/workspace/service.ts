@@ -1,18 +1,18 @@
 /**
- * Workspace context service implementation.
+ * WorkspaceMutations mutation facade implementation.
  *
  * This is the sole public gateway for all settings and lockfile read/write
- * operations. It reads through `WorkspaceContext` and calls the write I/O
+ * operations. It reads through `WorkspaceReadModel` and calls the write I/O
  * functions (`writeSettings`, `writeLockfile`) directly while managing mutation
  * serialization via a single Semaphore(1). No other service should perform
  * settings or lockfile I/O in production; the per-service semaphores in
  * `settings/service.ts` and `lockfile/service.ts` have been removed.
  *
  * Supporting logic is split into focused modules:
- * - `taxonomy-types.ts` — workspace taxonomy type definitions
+ * - `workspace-record-types.ts` — workspace record type definitions
  * - `source-metadata.ts` — source metadata derivation helpers
  * - `initialization.ts` — workspace initialization (agent detection, settings creation)
- * - `classifier-records.ts` — classifier row → record map converters
+ * - `workspace-record-converters.ts` — workspace row → record map converters
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -33,15 +33,12 @@ import {
 import type { Lockfile } from "../lockfile/schema.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { computeExtensionPackPaths } from "../packs/paths.js";
-import { expandGlob } from "../utils/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
   AgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
-  type ExtensionName,
-  type InstallableExtensionType,
   parseFullyQualifiedNameParts,
   parseRegistrySourcePatternParts,
 } from "../extensions/index.js";
@@ -64,15 +61,14 @@ import {
 } from "../settings/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 
-type WorkspaceManagedExtensionType = InstallableExtensionType;
 import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import {
-  WorkspaceContext,
-  WorkspaceContextConfigTag,
-  WorkspaceContextLive,
-  type ScopedWorkspaceContext,
+  WorkspaceReadModel,
+  WorkspaceReadModelConfig,
+  WorkspaceReadModelLive,
+  type ScopedWorkspaceReadModel,
 } from "./context/context.js";
 import type {
   LockfileReadError,
@@ -80,8 +76,8 @@ import type {
   WorkspaceRootEscape,
 } from "./context/errors.js";
 import {
-  Workspace,
-  type WorkspaceContextOptions,
+  WorkspaceMutations,
+  type WorkspaceMutationsOptions,
   type SetSkillArgs,
   type SetExtensionPackArgs,
   type SetCommandArgs,
@@ -91,16 +87,9 @@ import {
   type ExtensionTarget,
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
-import { deriveSourceMetaFromLockType } from "./source-metadata.js";
-import type { ClassifiedExtension, PackagingKind } from "./taxonomy-types.js";
+import { makeWorkspaceRecordReaders } from "./workspace-record-readers.js";
 import {
-  toClassifiedCommandRecord,
-  toClassifiedExtensionRefRecord,
-  toClassifiedSkillRecord,
   toConfiguredCommandRecord,
-  toConfiguredExternalCommandRecord,
-  toConfiguredExternalExtensionRefRecord,
-  toConfiguredExternalSkillRecord,
   toConfiguredExtensionRefRecord,
   toConfiguredSkillRecord,
   toImplicitCommandRecord,
@@ -110,16 +99,12 @@ import {
   toInstalledExtensionRefRecord,
   toInstalledSkillRecord,
   toUnmanagedCommandRecord,
-  toUnmanagedExternalCommandRecord,
-  toUnmanagedExternalExtensionRefRecord,
-  toUnmanagedExternalSkillRecord,
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
   toConfiguredSubagentRecord,
   toImplicitSubagentRecord,
   toInstalledSubagentRecord,
-  toClassifiedSubagentRecord,
-} from "./classifier-records.js";
+} from "./workspace-record-converters.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: 1,
   skills: {},
@@ -153,20 +138,20 @@ const contextCellErrorToAppError = (
 };
 
 /**
- * Options for creating workspace context.
+ * Options for creating workspace mutations.
  */
-export type WorkspaceLayerOptions = WorkspaceContextOptions;
+export type WorkspaceLayerOptions = WorkspaceMutationsOptions;
 
 /**
- * Create workspace context effect.
+ * Create workspace mutations effect.
  *
- * Loads an existing workspace context from disk.
+ * Loads an existing workspace from disk.
  *
  * The workspace must already be initialized. Missing or invalid settings fail
  * fast with an `AppError`.
  *
- * @param options - Workspace layer options
- * @returns Effect yielding WorkspaceContextService
+ * @param options - WorkspaceMutations layer options
+ * @returns Effect yielding WorkspaceMutationsService
  *
  * @internal Not exported from barrel - use layer() for external access
  */
@@ -208,10 +193,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
-    const contextLayer = WorkspaceContextLive.pipe(
+    const contextLayer = WorkspaceReadModelLive.pipe(
       Layer.provide(fsLayer),
       Layer.provide(
-        Layer.succeed(WorkspaceContextConfigTag, {
+        Layer.succeed(WorkspaceReadModelConfig, {
           projectRoot: path.dirname(localDir),
           userHome: path.dirname(globalDir),
           allowedRoot: "/",
@@ -224,7 +209,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
     const readSettingsCell = (dir: string) =>
       Effect.gen(function* () {
-        const context = yield* WorkspaceContext;
+        const context = yield* WorkspaceReadModel;
         return yield* context.scope(scopeForDir(dir)).state.settings;
       }).pipe(
         Effect.provide(contextLayer),
@@ -233,7 +218,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
     const readLockfileCell = (dir: string) =>
       Effect.gen(function* () {
-        const context = yield* WorkspaceContext;
+        const context = yield* WorkspaceReadModel;
         return yield* context.scope(scopeForDir(dir)).state.lockfile;
       }).pipe(
         Effect.map(Option.getOrElse(createEmptyLockfile)),
@@ -312,280 +297,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             return Effect.fail(error);
           }),
         );
-      }).pipe(Effect.withSpan("Workspace.getLockfileState"));
-
-    // -----------------------------------------------------------------------
-    // Classifier integration
-    // -----------------------------------------------------------------------
-
-    /**
-     * Classify extensions from WorkspaceContext subject projections.
-     */
-    const packagingKindForSource = (
-      type: WorkspaceManagedExtensionType,
-      source: string,
-    ): PackagingKind => {
-      if (type === "pack") return "native";
-      if (type === "skill") {
-        return source.includes("/skills/") || source.startsWith("@") ? "native" : "non-native";
-      }
-      return source.includes("/") && source.startsWith("@") ? "native" : "non-native";
-    };
-
-    const packagingKindForResolved = (
-      resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>,
-      type: WorkspaceManagedExtensionType,
-      source: string,
-    ): PackagingKind =>
-      Option.match(resolved, {
-        onNone: () => packagingKindForSource(type, source),
-        onSome: (row) => deriveSourceMetaFromLockType(row.lockEntry.type).packagingKind,
-      });
-
-    const isIgnoredName = (patterns: ReadonlyArray<string>, name: string): boolean =>
-      patterns.some((pattern) => expandGlob(pattern, [name]).length > 0);
-
-    const resolvedRowToImplicit = (
-      type: WorkspaceManagedExtensionType,
-      row: { readonly name: string; readonly lockEntry: { readonly type: string } },
-    ): Option.Option<ClassifiedExtension> =>
-      deriveSourceMetaFromLockType(row.lockEntry.type).packagingKind === "native"
-        ? Option.some({
-            type,
-            name: row.name,
-            source: Option.none(),
-            enabled: true,
-            packagingKind: "native",
-            lifecycle: "implicit",
-          })
-        : Option.none();
-
-    const packMemberNames = (
-      packs: ReadonlyArray<{
-        readonly lockEntry: {
-          readonly resolvedSkills?: Readonly<Record<string, unknown>>;
-          readonly resolvedCommands?: Readonly<Record<string, unknown>>;
-          readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
-          readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
-        };
-      }>,
-      key: "resolvedSkills" | "resolvedCommands" | "resolvedMcpServers" | "resolvedSubagents",
-    ): ReadonlyArray<ExtensionName> => {
-      const names: Array<ExtensionName> = [];
-      for (const pack of packs) {
-        const resolved = pack.lockEntry[key] ?? {};
-        for (const fqn of Object.keys(resolved)) {
-          const parsed = parseFullyQualifiedNameParts(fqn);
-          if (parsed !== undefined) names.push(parsed.name);
-        }
-      }
-      return [...new Set(names)].sort();
-    };
-
-    const packMemberToImplicit = (
-      type: WorkspaceManagedExtensionType,
-      name: ExtensionName,
-    ): ClassifiedExtension => ({
-      type,
-      name,
-      source: Option.none(),
-      enabled: true,
-      packagingKind: "native",
-      lifecycle: "implicit",
-    });
-
-    const installedRowToClassified = <
-      TDeclared extends {
-        readonly entry: { readonly source: string; readonly enabled?: boolean };
-      },
-      TPackMember,
-    >(
-      type: WorkspaceManagedExtensionType,
-      row: {
-        readonly key: { readonly name: string };
-        readonly installationOrigin:
-          | { readonly _tag: "direct"; readonly declared: TDeclared }
-          | { readonly _tag: "pack-member"; readonly member: TPackMember };
-        readonly activation: "enabled" | "disabled";
-        readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
-      },
-    ): ClassifiedExtension => {
-      if (row.installationOrigin._tag === "direct") {
-        const source = row.installationOrigin.declared.entry.source;
-        return {
-          type,
-          name: row.key.name,
-          source,
-          enabled: row.activation === "enabled",
-          packagingKind: packagingKindForResolved(row.resolved, type, source),
-          lifecycle: "configured",
-        };
-      }
-
-      return {
-        type,
-        name: row.key.name,
-        source: Option.none(),
-        enabled: true,
-        packagingKind: "native",
-        lifecycle: "implicit",
-      };
-    };
-
-    const unmanagedRowToClassified = (
-      type: WorkspaceManagedExtensionType,
-      row: {
-        readonly key: { readonly name: string };
-        readonly actual: { readonly contentRoot?: string | null };
-      },
-    ): ClassifiedExtension => ({
-      type,
-      name: row.key.name,
-      source: Option.none(),
-      enabled: true,
-      packagingKind: type === "pack" ? "native" : "non-native",
-      locations:
-        typeof row.actual.contentRoot === "string"
-          ? [path.relative(baseDir, row.actual.contentRoot)]
-          : [],
-      lifecycle: "unmanaged",
-    });
-
-    type ResolvedClassifiableRow = {
-      readonly name: string;
-      readonly keyName?: string;
-      readonly lockEntry: { readonly type: string };
-    };
-
-    type UnmanagedClassifiableRow = {
-      readonly key: { readonly name: string };
-      readonly actual: { readonly contentRoot?: string | null };
-    };
-
-    const collectClassifiedRows = <
-      TDeclared extends {
-        readonly entry: { readonly source: string; readonly enabled?: boolean };
-      },
-      TPackMember,
-    >(args: {
-      readonly type: WorkspaceManagedExtensionType;
-      readonly installed: ReadonlyArray<{
-        readonly key: { readonly name: string };
-        readonly installationOrigin:
-          | { readonly _tag: "direct"; readonly declared: TDeclared }
-          | { readonly _tag: "pack-member"; readonly member: TPackMember };
-        readonly activation: "enabled" | "disabled";
-        readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
-      }>;
-      readonly resolved: Option.Option<ReadonlyArray<ResolvedClassifiableRow>>;
-      readonly unmanaged: ReadonlyArray<UnmanagedClassifiableRow>;
-      readonly ignored: ReadonlyArray<string>;
-      readonly packMemberNames?: ReadonlyArray<ExtensionName>;
-    }): ReadonlyArray<ClassifiedExtension> => {
-      const claimed = new Set<string>(args.installed.map((row) => row.key.name));
-      const directImplicit = Option.getOrElse(args.resolved, () => [])
-        .filter((row) => !claimed.has(row.name))
-        .map((row) => ({ ...row, name: row.keyName ?? row.name }))
-        .filter((row) => !claimed.has(row.name) && !isIgnoredName(args.ignored, row.name))
-        .flatMap((row) => Option.getOrElse(resolvedRowToImplicit(args.type, row), () => []));
-      const packImplicit = (args.packMemberNames ?? [])
-        .filter((name) => !claimed.has(name) && !isIgnoredName(args.ignored, name))
-        .map((name) => packMemberToImplicit(args.type, name));
-
-      return [
-        ...args.installed.map((row) => installedRowToClassified(args.type, row)),
-        ...directImplicit,
-        ...packImplicit,
-        ...args.unmanaged
-          .filter((row) => !isIgnoredName(args.ignored, row.key.name))
-          .map((row) => unmanagedRowToClassified(args.type, row)),
-      ];
-    };
+      }).pipe(Effect.withSpan("WorkspaceMutations.getLockfileState"));
 
     const readScopedContext = <A>(
       f: (
-        scoped: ScopedWorkspaceContext,
+        scoped: ScopedWorkspaceReadModel,
       ) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
     ): Effect.Effect<A, AppError> =>
       Effect.gen(function* () {
-        const context = yield* WorkspaceContext;
+        const context = yield* WorkspaceReadModel;
         return yield* f(context.scope(scopeForDir(workspaceDir)));
       }).pipe(Effect.provide(contextLayer), Effect.mapError(contextCellErrorToAppError));
 
-    const getClassifiedExtensions = (type: WorkspaceManagedExtensionType) =>
-      readScopedContext((scoped) =>
-        Effect.gen(function* () {
-          switch (type) {
-            case "skill": {
-              const settings = yield* scoped.state.settings;
-              const installed = yield* scoped.skills.installed;
-              const resolved = yield* scoped.skills.resolved;
-              const unmanaged = yield* scoped.skills.unmanaged;
-              const ignored =
-                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.skills ?? [];
-              return collectClassifiedRows({ type, installed, resolved, unmanaged, ignored });
-            }
-            case "command": {
-              const settings = yield* scoped.state.settings;
-              const installed = yield* scoped.commands.installed;
-              const resolved = yield* scoped.commands.resolved;
-              const packs = yield* scoped.packs.resolved;
-              const unmanaged = yield* scoped.commands.unmanaged;
-              const ignored =
-                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.commands ?? [];
-              return collectClassifiedRows({
-                type,
-                installed,
-                resolved,
-                unmanaged,
-                ignored,
-                packMemberNames: packMemberNames(
-                  Option.getOrElse(packs, () => []),
-                  "resolvedCommands",
-                ),
-              });
-            }
-            case "mcp-server": {
-              const settings = yield* scoped.state.settings;
-              const installed = yield* scoped.mcpServers.installed;
-              const resolved = yield* scoped.mcpServers.resolved;
-              const unmanaged = yield* scoped.mcpServers.unmanaged;
-              const ignored =
-                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.mcpServers ?? [];
-              return collectClassifiedRows({ type, installed, resolved, unmanaged, ignored });
-            }
-            case "pack": {
-              const settings = yield* scoped.state.settings;
-              const installed = yield* scoped.packs.installed;
-              const resolved = yield* scoped.packs.resolved;
-              const unmanaged = yield* scoped.packs.unmanaged;
-              const ignored =
-                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.packs ?? [];
-              return collectClassifiedRows({ type, installed, resolved, unmanaged, ignored });
-            }
-            case "subagent": {
-              const settings = yield* scoped.state.settings;
-              const installed = yield* scoped.subagents.installed;
-              const resolved = yield* scoped.subagents.resolved;
-              const packs = yield* scoped.packs.resolved;
-              const unmanaged = yield* scoped.subagents.unmanaged;
-              const ignored =
-                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.subagents ?? [];
-              return collectClassifiedRows({
-                type,
-                installed,
-                resolved,
-                unmanaged,
-                ignored,
-                packMemberNames: packMemberNames(
-                  Option.getOrElse(packs, () => []),
-                  "resolvedSubagents",
-                ),
-              });
-            }
-          }
-        }),
-      );
+    const workspaceRecordReaders = makeWorkspaceRecordReaders({ baseDir, path, readScopedContext });
+    const getWorkspaceRecordRows = workspaceRecordReaders.getWorkspaceRecordRows;
 
     /**
      * Resolve the immutable registry name for a skill's directory.
@@ -649,7 +374,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
         cachedSources = merged;
         return merged;
-      }).pipe(Effect.withSpan("Workspace.getConfiguredSources"));
+      }).pipe(Effect.withSpan("WorkspaceMutations.getConfiguredSources"));
 
     return {
       scope: options.scope,
@@ -703,28 +428,19 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
             cachedSources = null; // invalidate cache
           }),
-        ).pipe(Effect.withSpan("Workspace.addConfiguredSource")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.addConfiguredSource")),
 
       getConfiguredSkills: () =>
-        getClassifiedExtensions("skill").pipe(Effect.map(toConfiguredSkillRecord)),
+        getWorkspaceRecordRows("skill").pipe(Effect.map(toConfiguredSkillRecord)),
 
       getImplicitSkills: () =>
-        getClassifiedExtensions("skill").pipe(Effect.map(toImplicitSkillRecord)),
+        getWorkspaceRecordRows("skill").pipe(Effect.map(toImplicitSkillRecord)),
 
       getUnmanagedSkills: () =>
-        getClassifiedExtensions("skill").pipe(Effect.map(toUnmanagedSkillRecord)),
+        getWorkspaceRecordRows("skill").pipe(Effect.map(toUnmanagedSkillRecord)),
 
       getInstalledSkills: () =>
-        getClassifiedExtensions("skill").pipe(Effect.map(toInstalledSkillRecord)),
-
-      getClassifiedSkills: () =>
-        getClassifiedExtensions("skill").pipe(Effect.map(toClassifiedSkillRecord)),
-
-      getConfiguredExternalSkills: () =>
-        getClassifiedExtensions("skill").pipe(Effect.map(toConfiguredExternalSkillRecord)),
-
-      getUnmanagedExternalSkills: () =>
-        getClassifiedExtensions("skill").pipe(Effect.map(toUnmanagedExternalSkillRecord)),
+        getWorkspaceRecordRows("skill").pipe(Effect.map(toInstalledSkillRecord)),
 
       getIgnoredSkillPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
@@ -734,7 +450,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       getConfiguredAgents: () =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s) => s.agents ?? []),
-          Effect.withSpan("Workspace.getConfiguredAgents"),
+          Effect.withSpan("WorkspaceMutations.getConfiguredAgents"),
         ),
 
       getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
@@ -816,7 +532,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setSkill")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setSkill")),
 
       setSkillLock: ({ name, lockEntry }: SetSkillArgs) =>
         withMutex(
@@ -835,7 +551,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setSkillLock")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setSkillLock")),
 
       removeSkill: (name: string) =>
         withMutex(
@@ -862,7 +578,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ).pipe(Effect.withSpan("Workspace.removeSkill")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeSkill")),
 
       removeSkillFromSettings: (name: string) =>
         withMutex(
@@ -988,29 +704,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         ),
 
       // -----------------------------------------------------------------------
-      // Command taxonomy getters
+      // Command workspace record getters
       // -----------------------------------------------------------------------
 
       getConfiguredCommands: () =>
-        getClassifiedExtensions("command").pipe(Effect.map(toConfiguredCommandRecord)),
+        getWorkspaceRecordRows("command").pipe(Effect.map(toConfiguredCommandRecord)),
 
       getImplicitCommands: () =>
-        getClassifiedExtensions("command").pipe(Effect.map(toImplicitCommandRecord)),
+        getWorkspaceRecordRows("command").pipe(Effect.map(toImplicitCommandRecord)),
 
       getUnmanagedCommands: () =>
-        getClassifiedExtensions("command").pipe(Effect.map(toUnmanagedCommandRecord)),
+        getWorkspaceRecordRows("command").pipe(Effect.map(toUnmanagedCommandRecord)),
 
       getInstalledCommands: () =>
-        getClassifiedExtensions("command").pipe(Effect.map(toInstalledCommandRecord)),
-
-      getClassifiedCommands: () =>
-        getClassifiedExtensions("command").pipe(Effect.map(toClassifiedCommandRecord)),
-
-      getConfiguredExternalCommands: () =>
-        getClassifiedExtensions("command").pipe(Effect.map(toConfiguredExternalCommandRecord)),
-
-      getUnmanagedExternalCommands: () =>
-        getClassifiedExtensions("command").pipe(Effect.map(toUnmanagedExternalCommandRecord)),
+        getWorkspaceRecordRows("command").pipe(Effect.map(toInstalledCommandRecord)),
 
       getIgnoredCommandPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
@@ -1018,33 +725,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         ),
 
       // -----------------------------------------------------------------------
-      // MCP Server taxonomy getters
+      // MCP Server workspace record getters
       // -----------------------------------------------------------------------
 
       getConfiguredMcpServers: () =>
-        getClassifiedExtensions("mcp-server").pipe(Effect.map(toConfiguredExtensionRefRecord)),
+        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toConfiguredExtensionRefRecord)),
 
       getImplicitMcpServers: () =>
-        getClassifiedExtensions("mcp-server").pipe(Effect.map(toImplicitExtensionRefRecord)),
+        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toImplicitExtensionRefRecord)),
 
       getUnmanagedMcpServers: () =>
-        getClassifiedExtensions("mcp-server").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
+        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
 
       getInstalledMcpServers: () =>
-        getClassifiedExtensions("mcp-server").pipe(Effect.map(toInstalledExtensionRefRecord)),
-
-      getClassifiedMcpServers: () =>
-        getClassifiedExtensions("mcp-server").pipe(Effect.map(toClassifiedExtensionRefRecord)),
-
-      getConfiguredExternalMcpServers: () =>
-        getClassifiedExtensions("mcp-server").pipe(
-          Effect.map(toConfiguredExternalExtensionRefRecord),
-        ),
-
-      getUnmanagedExternalMcpServers: () =>
-        getClassifiedExtensions("mcp-server").pipe(
-          Effect.map(toUnmanagedExternalExtensionRefRecord),
-        ),
+        getWorkspaceRecordRows("mcp-server").pipe(Effect.map(toInstalledExtensionRefRecord)),
 
       getIgnoredMcpServerPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
@@ -1052,29 +746,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         ),
 
       // -----------------------------------------------------------------------
-      // Pack taxonomy getters
+      // Pack workspace record getters
       // -----------------------------------------------------------------------
 
       getConfiguredPacks: () =>
-        getClassifiedExtensions("pack").pipe(Effect.map(toConfiguredExtensionRefRecord)),
+        getWorkspaceRecordRows("pack").pipe(Effect.map(toConfiguredExtensionRefRecord)),
 
       getImplicitPacks: () =>
-        getClassifiedExtensions("pack").pipe(Effect.map(toImplicitExtensionRefRecord)),
+        getWorkspaceRecordRows("pack").pipe(Effect.map(toImplicitExtensionRefRecord)),
 
       getUnmanagedPacks: () =>
-        getClassifiedExtensions("pack").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
+        getWorkspaceRecordRows("pack").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
 
       getInstalledPacks: () =>
-        getClassifiedExtensions("pack").pipe(Effect.map(toInstalledExtensionRefRecord)),
-
-      getClassifiedPacks: () =>
-        getClassifiedExtensions("pack").pipe(Effect.map(toClassifiedExtensionRefRecord)),
-
-      getConfiguredExternalPacks: () =>
-        getClassifiedExtensions("pack").pipe(Effect.map(toConfiguredExternalExtensionRefRecord)),
-
-      getUnmanagedExternalPacks: () =>
-        getClassifiedExtensions("pack").pipe(Effect.map(toUnmanagedExternalExtensionRefRecord)),
+        getWorkspaceRecordRows("pack").pipe(Effect.map(toInstalledExtensionRefRecord)),
 
       getIgnoredPackPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
@@ -1129,7 +814,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setExtensionPack")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setExtensionPack")),
 
       removeExtensionPack: (name: string) =>
         withMutex(
@@ -1154,7 +839,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ).pipe(Effect.withSpan("Workspace.removeExtensionPack")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeExtensionPack")),
 
       getExtensionPackDir: (name: string, owner: Handle) =>
         Effect.succeed(computeExtensionPackPaths(path.join, baseDir, owner, name)),
@@ -1200,7 +885,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setCommand")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setCommand")),
 
       setCommandLock: ({ name, lockEntry }: SetCommandArgs) =>
         withMutex(
@@ -1250,7 +935,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ).pipe(Effect.withSpan("Workspace.removeCommand")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeCommand")),
 
       updateCommandEntry: (name: string, updater: (entry: CommandEntry) => CommandEntry) =>
         withMutex(
@@ -1266,7 +951,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.updateCommandEntry")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.updateCommandEntry")),
 
       setCommandEntry: (name: string, entry: CommandEntry) =>
         withMutex(
@@ -1279,23 +964,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setCommandEntry")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setCommandEntry")),
 
       // -----------------------------------------------------------------------
-      // Subagent taxonomy
+      // Subagent workspace records
       // -----------------------------------------------------------------------
 
       getConfiguredSubagents: () =>
-        getClassifiedExtensions("subagent").pipe(Effect.map(toConfiguredSubagentRecord)),
+        getWorkspaceRecordRows("subagent").pipe(Effect.map(toConfiguredSubagentRecord)),
 
       getImplicitSubagents: () =>
-        getClassifiedExtensions("subagent").pipe(Effect.map(toImplicitSubagentRecord)),
+        getWorkspaceRecordRows("subagent").pipe(Effect.map(toImplicitSubagentRecord)),
 
       getInstalledSubagents: () =>
-        getClassifiedExtensions("subagent").pipe(Effect.map(toInstalledSubagentRecord)),
-
-      getClassifiedSubagents: () =>
-        getClassifiedExtensions("subagent").pipe(Effect.map(toClassifiedSubagentRecord)),
+        getWorkspaceRecordRows("subagent").pipe(Effect.map(toInstalledSubagentRecord)),
 
       // -----------------------------------------------------------------------
       // Subagent methods
@@ -1338,7 +1020,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setSubagent")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setSubagent")),
 
       setSubagentLock: ({ name, lockEntry }: SetSubagentArgs) =>
         withMutex(
@@ -1388,7 +1070,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ).pipe(Effect.withSpan("Workspace.removeSubagent")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeSubagent")),
 
       updateSubagentEntry: (name: string, updater: (entry: SubagentEntry) => SubagentEntry) =>
         withMutex(
@@ -1404,7 +1086,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.updateSubagentEntry")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.updateSubagentEntry")),
 
       setSubagentEntry: (name: string, entry: SubagentEntry) =>
         withMutex(
@@ -1417,7 +1099,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setSubagentEntry")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setSubagentEntry")),
 
       removeSubagentSettings: (name: string) =>
         withMutex(
@@ -1444,7 +1126,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const updatedLockfile = { ...currentLockfile, subagents: remaining };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.removeSubagentLock")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeSubagentLock")),
 
       // -----------------------------------------------------------------------
       // MCP Server methods
@@ -1487,7 +1169,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setMcpServer")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setMcpServer")),
 
       setMcpServerLock: ({ name, lockEntry }: SetMcpServerArgs) =>
         withMutex(
@@ -1540,7 +1222,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ).pipe(Effect.withSpan("Workspace.removeMcpServer")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeMcpServer")),
 
       // -----------------------------------------------------------------------
       // Granular removal methods (settings-only or lockfile-only)
@@ -1556,7 +1238,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const updatedLockfile = { ...currentLockfile, skills: remainingSkills };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.removeSkillLock")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeSkillLock")),
 
       removeCommandSettings: (name: string) =>
         withMutex(
@@ -1727,10 +1409,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
  *
  * The workspace must already be initialized.
  *
- * @param options - Workspace layer options
- * @returns Layer providing WorkspaceContext
+ * @param options - WorkspaceMutations layer options
+ * @returns Layer providing WorkspaceMutations
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const layer = (options: WorkspaceLayerOptions) =>
-  Layer.effect(Workspace, loadWorkspace(options));
+  Layer.effect(WorkspaceMutations, loadWorkspace(options));

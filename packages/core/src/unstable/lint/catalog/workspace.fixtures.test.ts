@@ -28,9 +28,9 @@ import {
   type WorkspaceState,
 } from "./workspace-fixtures/interpret-ops.js";
 import type { AgentId } from "../../agents/types.js";
-import { WorkspaceContext } from "../../workspace/context/context.js";
+import { WorkspaceReadModel } from "../../workspace/context/context.js";
 import { type FixtureSpec } from "../../workspace/context/__fixtures__/builder.js";
-import { WorkspaceContextTest } from "../../workspace/context/__fixtures__/test-layer.js";
+import { WorkspaceReadModelTest } from "../../workspace/context/__fixtures__/test-layer.js";
 import { fixtureSpecFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
 
 // -----------------------------------------------------------------------------
@@ -111,14 +111,14 @@ const fixtureSpecFor = (state: WorkspaceState, scope: "project" | "user"): Fixtu
 
 const buildContext = (state: WorkspaceState, scope: "project" | "user") =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceContext;
+    const workspace = yield* WorkspaceReadModel;
     return {
       subject: { root: FIXTURE_PROJECT_ROOT, scope },
       workspace,
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
       displayRoot: "",
     } satisfies WorkspaceRuleContext;
-  }).pipe(Effect.provide(WorkspaceContextTest(fixtureSpecFor(state, scope))));
+  }).pipe(Effect.provide(WorkspaceReadModelTest(fixtureSpecFor(state, scope))));
 
 const assertFindingsMatch = (
   actual: ReadonlyArray<LintFinding>,

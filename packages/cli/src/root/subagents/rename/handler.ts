@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import matter from "gray-matter";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -49,7 +49,7 @@ const updateSubagentMdName = (fs: FileSystem.FileSystem, subagentMdPath: string,
 export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function* (
   args: RenameSubagentHandlerArgs,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -226,7 +226,7 @@ export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function*
         message: `Renamed ${args.oldName} to ${args.newName}`,
       } satisfies JobStepResult;
     }).pipe(
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),

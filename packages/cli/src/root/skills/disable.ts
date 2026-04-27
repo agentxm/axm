@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { DisableSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { disableSkill } from "@agentxm/client-core/unstable/skills";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -24,14 +24,14 @@ export interface DisableHandlerArgs {
 }
 
 export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
   yield* renderer.info("axm skills disable");
 
-  // Load installed skills (configured ∪ implicit) — taxonomy lifecycle view
+  // Load installed skills (configured + implicit) from the workspace record projection.
   const installedSkills = yield* ws.getInstalledSkills();
   const installedEntry = installedSkills[args.name];
 
@@ -44,7 +44,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     });
   }
 
-  // Configured skill — check if already disabled (implicit skills are always enabled)
+  // Configured skill: check if already disabled (implicit skills are always enabled).
   if (installedEntry.lifecycle === "configured" && !installedEntry.enabled) {
     if (
       yield* emitNoOpResult("skills.disable", {
@@ -82,7 +82,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     label: args.name,
     run: disableSkill(op).pipe(
       Effect.map(toJobStepResult),
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),

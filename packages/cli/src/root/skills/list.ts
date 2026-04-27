@@ -2,7 +2,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -36,7 +36,7 @@ const SkillListTable = {
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
   const renderer = yield* CliRenderer;
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const skills = yield* ws.getLockedSkills();
 
   // Filter by agents if specified

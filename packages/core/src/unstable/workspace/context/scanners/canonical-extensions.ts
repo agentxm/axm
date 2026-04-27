@@ -20,7 +20,7 @@
  *   takes a deps record and returns an `Effect<ReadonlyArray<…>>`.
  * - Per-file partial failures (a directory we cannot enumerate) become
  *   diagnostic warnings, not errors. The error channel stays empty.
- * - Workspace-root path-escape is checked at provider construction (Phase 9),
+ * - WorkspaceMutations-root path-escape is checked at provider construction (Phase 9),
  *   not inside the scanner.
  *
  * The scanner avoids `fs.stat` and uses only `fs.exists` / `fs.readDirectory`

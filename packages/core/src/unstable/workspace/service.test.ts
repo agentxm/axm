@@ -1,5 +1,5 @@
 /**
- * Unit tests for WorkspaceContextService.
+ * Unit tests for WorkspaceMutationsService.
  *
  * Tests nonInteractive resolution from Option<boolean> to plain boolean,
  * including CI environment detection fallback.
@@ -33,15 +33,15 @@ import {
 } from "../test-helpers.js";
 import { layer as workspaceLayer } from "./service.js";
 import {
-  Workspace,
+  WorkspaceMutations,
   type SetCommandArgs,
   type SetMcpServerArgs,
   type SetExtensionPackArgs,
-  type WorkspaceContextOptions,
+  type WorkspaceMutationsOptions,
 } from "./service-interface.js";
 import { bootstrapWorkspace, WorkspaceInitializationInteractionTest } from "./index.js";
 
-describe("WorkspaceContextService", () => {
+describe("WorkspaceMutationsService", () => {
   let tempDir: string;
   let projectDir: string;
   let homeDir: string;
@@ -85,11 +85,11 @@ describe("WorkspaceContextService", () => {
   const { layer: testLogLayer } = TestRenderer.make();
   const BaseLayer = Layer.mergeAll(NodeServices.layer, testLogLayer, TestFlagsLayer());
 
-  const makeWsLayer = (options: WorkspaceContextOptions) =>
+  const makeWsLayer = (options: WorkspaceMutationsOptions) =>
     Layer.provide(workspaceLayer(options), BaseLayer);
 
-  const getService = (options: WorkspaceContextOptions) =>
-    Workspace.asEffect().pipe(Effect.provide(makeWsLayer(options)));
+  const getService = (options: WorkspaceMutationsOptions) =>
+    WorkspaceMutations.asEffect().pipe(Effect.provide(makeWsLayer(options)));
 
   describe("baseDir", () => {
     it.effect("returns the parent of path", () =>
@@ -119,7 +119,7 @@ describe("WorkspaceContextService", () => {
   // preview flag is tested in cli-flags
 
   /** Default options for tests that don't care about prompting/preview. */
-  const defaultOptions: WorkspaceContextOptions = {
+  const defaultOptions: WorkspaceMutationsOptions = {
     scope: "project",
   };
 
@@ -1097,7 +1097,7 @@ describe("WorkspaceContextService", () => {
         workspaceInitInteraction.layer,
         flagsLayer,
       );
-      const wsOptions: WorkspaceContextOptions = { scope: "project" };
+      const wsOptions: WorkspaceMutationsOptions = { scope: "project" };
       return {
         run: bootstrapWorkspace(wsOptions).pipe(
           Effect.map((r) => r.settings),
@@ -1354,7 +1354,7 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getInstalledSkills (normalized taxonomy shapes)
+  // getInstalledSkills (normalized workspace record shapes)
   // ---------------------------------------------------------------------------
 
   describe("getInstalledSkills (normalized)", () => {
@@ -1934,7 +1934,7 @@ describe("WorkspaceContextService", () => {
   // getInstalledSkills with transitive pack skills
   // ---------------------------------------------------------------------------
 
-  describe("getInstalledSkills (taxonomy)", () => {
+  describe("getInstalledSkills (workspace records)", () => {
     it.effect("lockfile-only native skill appears as implicit", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2030,7 +2030,7 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Taxonomy getter contracts (skills)
+  // Workspace record getter contracts (skills)
   // ---------------------------------------------------------------------------
 
   describe("getImplicitSkills", () => {
@@ -2115,77 +2115,6 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getClassifiedSkills", () => {
-    it.effect("returns all configured and implicit skills with lifecycle tag", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          skills: { "my-skill": "github:acme/my-skill" },
-        });
-        writeLockfileTo(projectDir, {
-          "my-skill": {
-            type: "github",
-            owner: "acme",
-            repo: "my-skill",
-            agents: ["claude-code"],
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-          "implicit-skill": {
-            type: "registry",
-            owner: "@acme",
-            name: "implicit-skill",
-            resolvedVersion: "1.0.0",
-            integrity: "sha512-BBBB==",
-            sourceName: "default",
-            agents: ["claude-code"],
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const classified = yield* ws.getClassifiedSkills();
-
-        expect(recordEntry(classified, "my-skill").lifecycle).toBe("configured");
-        expect(recordEntry(classified, "implicit-skill").lifecycle).toBe("implicit");
-      }),
-    );
-  });
-
-  describe("getConfiguredExternalSkills", () => {
-    it.effect("returns only non-native configured skills", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          skills: {
-            "native-skill": "@acme/skills/native-skill",
-            "external-skill": "github:acme/external-skill",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getConfiguredExternalSkills();
-
-        expect(Object.keys(external)).toEqual(["external-skill"]);
-        expect(recordEntry(external, "external-skill").packagingKind).toBe("non-native");
-      }),
-    );
-  });
-
-  describe("getUnmanagedExternalSkills", () => {
-    it.effect("returns empty when no unmanaged skills", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getUnmanagedExternalSkills();
-
-        expect(external).toEqual({});
-      }),
-    );
-  });
-
   describe("getIgnoredSkillPatterns", () => {
     it.effect("returns configured ignored patterns", () =>
       Effect.gen(function* () {
@@ -2214,10 +2143,10 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Taxonomy getter contracts (commands)
+  // Workspace record getter contracts (commands)
   // ---------------------------------------------------------------------------
 
-  describe("getConfiguredCommands (taxonomy)", () => {
+  describe("getConfiguredCommands (workspace records)", () => {
     it.effect("returns configured commands with source metadata", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2467,54 +2396,6 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getClassifiedCommands", () => {
-    it.effect("returns all classified commands with lifecycle tags", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          commands: { "my-cmd": "github:acme/my-cmd" },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const classified = yield* ws.getClassifiedCommands();
-
-        expect(recordEntry(classified, "my-cmd").lifecycle).toBe("configured");
-      }),
-    );
-  });
-
-  describe("getConfiguredExternalCommands", () => {
-    it.effect("returns only non-native configured commands", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          commands: {
-            "native-cmd": "@acme/commands/native-cmd",
-            "external-cmd": "github:acme/external-cmd",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getConfiguredExternalCommands();
-
-        expect(Object.keys(external)).toEqual(["external-cmd"]);
-      }),
-    );
-  });
-
-  describe("getUnmanagedExternalCommands", () => {
-    it.effect("returns empty (phase 1)", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getUnmanagedExternalCommands();
-
-        expect(external).toEqual({});
-      }),
-    );
-  });
-
   describe("getIgnoredCommandPatterns", () => {
     it.effect("returns configured ignored command patterns", () =>
       Effect.gen(function* () {
@@ -2543,10 +2424,10 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Taxonomy getter contracts (MCP servers)
+  // Workspace record getter contracts (MCP servers)
   // ---------------------------------------------------------------------------
 
-  describe("getConfiguredMcpServers (taxonomy)", () => {
+  describe("getConfiguredMcpServers (workspace records)", () => {
     it.effect("returns configured MCP servers with source metadata", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2665,54 +2546,6 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getClassifiedMcpServers", () => {
-    it.effect("returns all classified MCP servers with lifecycle tags", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          mcpServers: { "my-mcp": "github:acme/my-mcp" },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const classified = yield* ws.getClassifiedMcpServers();
-
-        expect(recordEntry(classified, "my-mcp").lifecycle).toBe("configured");
-      }),
-    );
-  });
-
-  describe("getConfiguredExternalMcpServers", () => {
-    it.effect("returns only non-native configured MCP servers", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          mcpServers: {
-            "native-mcp": "@acme/mcp-servers/native-mcp",
-            "external-mcp": "github:acme/external-mcp",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getConfiguredExternalMcpServers();
-
-        expect(Object.keys(external)).toEqual(["external-mcp"]);
-      }),
-    );
-  });
-
-  describe("getUnmanagedExternalMcpServers", () => {
-    it.effect("returns empty (phase 1)", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getUnmanagedExternalMcpServers();
-
-        expect(external).toEqual({});
-      }),
-    );
-  });
-
   describe("getIgnoredMcpServerPatterns", () => {
     it.effect("returns configured ignored MCP server patterns", () =>
       Effect.gen(function* () {
@@ -2741,7 +2574,7 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Taxonomy getter contracts (packs)
+  // Workspace record getter contracts (packs)
   // ---------------------------------------------------------------------------
 
   describe("getImplicitPacks", () => {
@@ -2805,7 +2638,7 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getInstalledPacks (taxonomy)", () => {
+  describe("getInstalledPacks (workspace records)", () => {
     it.effect("includes lockfile-only implicit packs", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
@@ -2883,51 +2716,6 @@ describe("WorkspaceContextService", () => {
 
         expect(recordEntry(installed, "my-pack").lifecycle).toBe("configured");
         expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
-      }),
-    );
-  });
-
-  describe("getClassifiedPacks", () => {
-    it.effect("returns all classified packs with lifecycle tags", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "my-pack": "@acme/packs/my-pack" },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const classified = yield* ws.getClassifiedPacks();
-
-        expect(recordEntry(classified, "my-pack").lifecycle).toBe("configured");
-      }),
-    );
-  });
-
-  describe("getConfiguredExternalPacks", () => {
-    it.effect("returns empty (packs are native-only)", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "my-pack": "@acme/packs/my-pack" },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getConfiguredExternalPacks();
-
-        expect(external).toEqual({});
-      }),
-    );
-  });
-
-  describe("getUnmanagedExternalPacks", () => {
-    it.effect("returns empty (phase 1 + packs native-only)", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const external = yield* ws.getUnmanagedExternalPacks();
-
-        expect(external).toEqual({});
       }),
     );
   });
@@ -3028,10 +2816,10 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Taxonomy shapes: no managed marker
+  // Workspace record shapes: no managed marker
   // ---------------------------------------------------------------------------
 
-  describe("taxonomy shapes have no managed marker", () => {
+  describe("workspace record shapes have no managed marker", () => {
     it.effect("getConfiguredSkills entries have no managed field", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {

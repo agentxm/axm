@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { AppError } from "../../app-error/index.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { handle } from "../../test-helpers.js";
@@ -37,7 +37,7 @@ const withServices = (
 
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(
+    WorkspaceMutations.layer(
       makeWorkspaceMock(axmDir, {
         getLockedCommands: () => Effect.succeed(lockEntry ? { "my-command": lockEntry } : {}),
         getLockedCommand: () => Effect.succeed(Option.fromUndefinedOr(lockEntry)),

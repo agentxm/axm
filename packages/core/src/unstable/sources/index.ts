@@ -69,7 +69,7 @@ export { fileUrlToPath } from "./utils.js";
 // Provider types
 export type { ExtensionFiles, FindOptions, SourceHostProvider } from "./provider.js";
 
-// Input pattern classifier
+// Input pattern workspace record
 export { parseInputPattern } from "./parser.js";
 export type { InputPattern, InputParseResult, ShorthandInput } from "./parser.js";
 

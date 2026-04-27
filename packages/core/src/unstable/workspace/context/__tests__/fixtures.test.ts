@@ -3,14 +3,14 @@
  *
  * The fixture builder is the test-only support library that synthesizes
  * minimal workspace trees from declarative specs. Downstream phases
- * (scanners, per-extension subject modules, the live `WorkspaceContext`
+ * (scanners, per-extension subject modules, the live `WorkspaceReadModel`
  * service, and the golden-fixture scenario tests) use it to construct
  * decoded source state and observable runtime trees without writing
  * file-by-file fixtures by hand.
  *
  * This file exercises the BUILDER, not the live context. The placeholder
- * `WorkspaceContextTest` layer (Phase 5.3) is intentionally a `Layer.fail`
- * stub until Phase 9 lands the real `WorkspaceContextLive` implementation.
+ * `WorkspaceReadModelTest` layer (Phase 5.3) is intentionally a `Layer.fail`
+ * stub until Phase 9 lands the real `WorkspaceReadModelLive` implementation.
  *
  * Coverage:
  *
@@ -26,7 +26,7 @@
  *   tree.
  * - Each named scenario constructor produces the directories the scenario
  *   claims to model.
- * - The `WorkspaceContextTest` placeholder layer fails loudly with a
+ * - The `WorkspaceReadModelTest` placeholder layer fails loudly with a
  *   recognizable message so any consumer that tries to use it before
  *   Phase 9 lands knows immediately.
  */
@@ -60,7 +60,7 @@ import {
   type FixtureSpec,
   type FixtureTestDeps,
 } from "../__fixtures__/builder.js";
-import { WorkspaceContextTest } from "../__fixtures__/test-layer.js";
+import { WorkspaceReadModelTest } from "../__fixtures__/test-layer.js";
 
 // ---------------------------------------------------------------------------
 // Defaults shared across tests
@@ -552,13 +552,13 @@ describe("named scenario constructors", () => {
 });
 
 // ---------------------------------------------------------------------------
-// WorkspaceContextTest layer (Phase 9 wiring)
+// WorkspaceReadModelTest layer (Phase 9 wiring)
 // ---------------------------------------------------------------------------
 
-describe("WorkspaceContextTest layer", () => {
-  it.effect("builds the Live WorkspaceContext against an absent-all fixture", () =>
+describe("WorkspaceReadModelTest layer", () => {
+  it.effect("builds the Live WorkspaceReadModel against an absent-all fixture", () =>
     Effect.gen(function* () {
-      const layer = WorkspaceContextTest(absentAll(WORKSPACE_ROOT, USER_HOME));
+      const layer = WorkspaceReadModelTest(absentAll(WORKSPACE_ROOT, USER_HOME));
       const exit = yield* Effect.exit(Layer.build(layer).pipe(Effect.scoped, Effect.asVoid));
       expect(Exit.isSuccess(exit)).toBe(true);
     }),

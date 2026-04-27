@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Record as EffectRecord } from "effect";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { uninstallSkill } from "@agentxm/client-core/unstable/skills";
 import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 
@@ -35,7 +35,7 @@ export const buildSkillUninstallPlan = (
   description: Option.Option<string>,
 ) =>
   Effect.gen(function* () {
-    const workspace = yield* Workspace;
+    const workspace = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
@@ -70,7 +70,7 @@ export const buildSkillUninstallPlan = (
               ? { result: "error", message: result.message, error: result.error }
               : { result: "success", message: result.message },
         ),
-        Effect.provideService(Workspace, workspace),
+        Effect.provideService(WorkspaceMutations, workspace),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
       );

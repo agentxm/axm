@@ -19,7 +19,7 @@ import type { AgentId } from "../agents/types.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { skillsInDir, type DiscoveredSkill } from "../workspace/context/discovery/index.js";
 import { expandGlobs, isGlobPattern } from "../utils/index.js";
-import { Workspace } from "../workspace/index.js";
+import { WorkspaceMutations } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
 import { fileUrlToPath } from "../sources/index.js";
 import type { Source } from "../sources/index.js";
@@ -35,7 +35,7 @@ const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 /** Build candidate skill names and on-disk locations from all available sources, excluding ignored. */
 const buildCandidates = Effect.gen(function* () {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const base = ws.baseDir;
   const installedSkills = yield* ws.getInstalledSkills();
@@ -73,7 +73,7 @@ const buildCandidates = Effect.gen(function* () {
     }
   }
 
-  // Candidate set: installed + unmanaged (both exclude ignored names via classifier)
+  // Candidate set: installed + unmanaged (both exclude ignored names via workspace record)
   const names = sortNames(
     Array.dedupe([
       ...Object.keys(installedSkills),
@@ -135,7 +135,11 @@ const resolveNameWithFallback = (
  */
 export const resolveSourcePattern = (
   input: string,
-): Effect.Effect<ReadonlyArray<Source>, AppError, Workspace | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  ReadonlyArray<Source>,
+  AppError,
+  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+> =>
   isGlobPattern(input)
     ? Effect.gen(function* () {
         const candidates = yield* buildCandidates;

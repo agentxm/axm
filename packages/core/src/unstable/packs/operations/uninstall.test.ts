@@ -7,7 +7,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import type { UninstallExtensionPackOperation } from "./uninstall.js";
 import { uninstallExtensionPack } from "./uninstall.js";
@@ -17,7 +20,7 @@ import { handle } from "../../test-helpers.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeWorkspaceMock = (axmDir: string): WorkspaceContextService =>
+const makeWorkspaceMock = (axmDir: string): WorkspaceMutationsService =>
   makeBaseWorkspaceMock(axmDir, {
     getConfiguredProfile: () => Effect.succeed(handle("@community")),
     getConfiguredSources: () => Effect.succeed([]),
@@ -37,7 +40,7 @@ const makeOp = (packName = "testing"): UninstallExtensionPackOperation => ({
 const makeLayer = (axmDir: string) => {
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(makeWorkspaceMock(axmDir)),
+    WorkspaceMutations.layer(makeWorkspaceMock(axmDir)),
     TestRenderer.make().layer,
   );
 };

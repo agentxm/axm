@@ -1,22 +1,22 @@
 /**
- * Compile-time type assertions for the WorkspaceContext public surface.
+ * Compile-time type assertions for the WorkspaceReadModel public surface.
  *
  * Pure type-level. Excluded from vitest's runtime suite; included in
  * `tsconfig.spec.json` so the assertions are checked when typecheck runs.
  *
- * Each `WorkspaceContext.scope(...)` cell carries only `WorkspaceContext` in
+ * Each `WorkspaceReadModel.scope(...)` cell carries only `WorkspaceReadModel` in
  * its `R` channel. Any future introduction of a `FileSystem`, `Path`, or
  * `AgentRegistry` requirement leaking through a scoped cell surfaces here as
  * a type error.
  */
 
 import * as Effect from "effect/Effect";
-import { WorkspaceContext } from "../context.js";
+import { WorkspaceReadModel } from "../context.js";
 
 type _CellR<T> = T extends Effect.Effect<infer _A, infer _E, infer R> ? R : never;
 
 const _program = Effect.gen(function* () {
-  const ctx = yield* WorkspaceContext;
+  const ctx = yield* WorkspaceReadModel;
   const p = ctx.scope("project");
   yield* p.skills.declared;
   yield* p.skills.resolved;
@@ -54,7 +54,7 @@ const _program = Effect.gen(function* () {
 });
 
 type _ProgramR = _CellR<typeof _program>;
-type _NoFsLeak = [Exclude<_ProgramR, WorkspaceContext>] extends [never] ? true : false;
+type _NoFsLeak = [Exclude<_ProgramR, WorkspaceReadModel>] extends [never] ? true : false;
 const _noFsLeak = true as const satisfies _NoFsLeak;
 
 export type _Refs = [typeof _program, typeof _noFsLeak];

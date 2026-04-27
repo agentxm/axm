@@ -8,7 +8,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
 import type { AddToExtensionPackOperation } from "./add-to-pack.js";
@@ -29,7 +32,7 @@ const makeWorkspaceMock = (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     configuredPacks?: Record<string, any>;
   } = {},
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";
 
   return makeBaseWorkspaceMock(axmDir, {
@@ -46,11 +49,11 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   const { layer: outputLayer } = TestRenderer.make();
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs), outputLayer);
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs), outputLayer);
 };
 
 /** Creates a pack manifest on disk and returns its content hash. */

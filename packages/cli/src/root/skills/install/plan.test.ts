@@ -18,7 +18,7 @@ import type { LocalSkillRef, RegistrySkillRef } from "@agentxm/client-core/unsta
 import type { Source } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   exactVersion,
@@ -117,7 +117,7 @@ const runBuildPlan = ({
     force,
     versionConstraint,
   }).pipe(
-    Effect.provideService(Workspace, workspaceMock),
+    Effect.provideService(WorkspaceMutations, workspaceMock),
     Effect.provideService(SourceHostProviders, sourceProvidersMock),
     Effect.provideService(CodingAgentRepository, {
       get: () => Effect.die(new Error("not implemented")),

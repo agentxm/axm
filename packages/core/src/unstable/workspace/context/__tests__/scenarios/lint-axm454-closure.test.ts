@@ -1,5 +1,5 @@
 /**
- * Scenario: AXM-454 closure for the new WorkspaceContext.
+ * Scenario: AXM-454 closure for the new WorkspaceReadModel.
  *
  * Spec requirement coverage:
  *

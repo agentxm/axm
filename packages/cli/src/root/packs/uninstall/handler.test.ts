@@ -15,7 +15,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
@@ -117,7 +117,7 @@ describe("packs uninstall handler", () => {
     tuiConfig?: {
       confirmValue?: boolean;
     },
-    wsOverrides?: Partial<WorkspaceContextOptions>,
+    wsOverrides?: Partial<WorkspaceMutationsOptions>,
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
     const resolvePlanInteraction = ResolvePlanInteractionTest({
@@ -129,7 +129,7 @@ describe("packs uninstall handler", () => {
       resolvePlanInteraction.layer,
       TestFlagsLayer(),
     );
-    const wsOptions: WorkspaceContextOptions = {
+    const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
       ...wsOverrides,
     };

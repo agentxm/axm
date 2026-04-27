@@ -16,7 +16,7 @@ import type { NewExtensionPackOperation } from "@agentxm/client-core/unstable/pa
 import { newExtensionPack } from "@agentxm/client-core/unstable/packs";
 import { computeExtensionPackPaths } from "@agentxm/client-core/unstable/packs";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -34,7 +34,7 @@ export interface PacksNewHandlerArgs {
 }
 
 export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const renderer = yield* CliRenderer;
@@ -92,10 +92,10 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Workspace>,
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
   ): Effect.Effect<A, E, never> =>
     effect.pipe(
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     );

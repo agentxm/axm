@@ -11,7 +11,10 @@ import { TestRenderer } from "../../cli-renderer/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 import type { InstallExtensionPackOperation } from "./install.js";
@@ -59,7 +62,7 @@ const makeOp = (): InstallExtensionPackOperation => ({
 const withServices = (
   axmDir: string,
   packDirectory: string,
-  wsOverrides?: Partial<WorkspaceContextService>,
+  wsOverrides?: Partial<WorkspaceMutationsService>,
 ) => {
   const sourceProviders: SourceHostProvidersService = {
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
@@ -77,7 +80,7 @@ const withServices = (
 
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(workspace),
+    WorkspaceMutations.layer(workspace),
     TestRenderer.make().layer,
     Layer.succeed(SourceHostProviders, sourceProviders),
   );

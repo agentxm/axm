@@ -16,7 +16,7 @@ import type { VersionConstraint } from "@agentxm/client-core/unstable/version-co
 import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
 import type { Source } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
@@ -42,7 +42,7 @@ export const buildSubagentInstallPlan = ({
   versionConstraint,
 }: BuildSubagentInstallPlanArgs) =>
   Effect.gen(function* () {
-    const workspace = yield* Workspace;
+    const workspace = yield* WorkspaceMutations;
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -90,7 +90,7 @@ export const buildSubagentInstallPlan = ({
             message: "Applied install operation",
           }),
         ),
-        Effect.provideService(Workspace, workspace),
+        Effect.provideService(WorkspaceMutations, workspace),
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),

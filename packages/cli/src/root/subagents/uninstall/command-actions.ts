@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
@@ -69,7 +69,7 @@ export class UninstallSubagentCommandWorkflowActions extends ServiceMap.Service<
 export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
   UninstallSubagentCommandWorkflowActions,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const subagentMgr = yield* SubagentManager;
 

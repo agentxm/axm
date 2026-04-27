@@ -12,7 +12,7 @@ import {
   makeRegistryMcpServerLockEntry,
   makeRegistryExtensionPackLockEntry,
 } from "../test-stubs.js";
-import { Workspace } from "../service-interface.js";
+import { WorkspaceMutations } from "../service-interface.js";
 import {
   collectSkillCurrency,
   collectCommandCurrency,
@@ -50,7 +50,7 @@ describe("collectSkillCurrency", () => {
 
       const index = makeExtensionIndex("code-review", "skill", ["1.2.0", "1.1.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectSkillCurrency(client).pipe(Effect.provide(layer));
 
@@ -85,7 +85,7 @@ describe("collectSkillCurrency", () => {
 
       const index = makeExtensionIndex("code-review", "skill", ["1.2.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectSkillCurrency(client).pipe(Effect.provide(layer));
       expect(entries).toHaveLength(0);
@@ -117,7 +117,7 @@ describe("collectSkillCurrency", () => {
       });
 
       const client = makeStubRegistryClient([]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectSkillCurrency(client).pipe(Effect.provide(layer));
       expect(entries).toHaveLength(0);
@@ -149,7 +149,7 @@ describe("collectCommandCurrency", () => {
 
       const index = makeExtensionIndex("formatter", "command", ["2.0.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectCommandCurrency(client).pipe(Effect.provide(layer));
 
@@ -184,7 +184,7 @@ describe("collectMcpServerCurrency", () => {
 
       const index = makeExtensionIndex("my-server", "mcp-server", ["1.1.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectMcpServerCurrency(client).pipe(Effect.provide(layer));
 
@@ -226,7 +226,7 @@ describe("collectSubagentCurrency", () => {
 
       const index = makeExtensionIndex("my-agent", "subagent", ["1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectSubagentCurrency(client).pipe(Effect.provide(layer));
 
@@ -261,7 +261,7 @@ describe("collectPackCurrency", () => {
 
       const index = makeExtensionIndex("starter", "pack", ["1.5.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectPackCurrency(client).pipe(Effect.provide(layer));
 
@@ -314,7 +314,7 @@ describe("collectAllCurrencyEntries", () => {
       const skillIndex = makeExtensionIndex("code-review", "skill", ["1.1.0", "1.0.0"]);
       const cmdIndex = makeExtensionIndex("formatter", "command", ["2.0.0"]);
       const client = makeStubRegistryClient([skillIndex, cmdIndex]);
-      const layer = Layer.succeed(Workspace, ws);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectAllCurrencyEntries(client).pipe(Effect.provide(layer));
 

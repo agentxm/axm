@@ -30,7 +30,7 @@ import {
   uninstallMcpServer,
   type UninstallMcpServerOperation,
 } from "@agentxm/client-core/unstable/mcp-servers";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
 /**
@@ -131,7 +131,7 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
     } = args;
 
     // Capture services for run closures
-    const workspace = yield* Workspace;
+    const workspace = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const renderer = yield* CliRenderer;
@@ -141,11 +141,11 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
       effect: Effect.Effect<
         A,
         E,
-        Workspace | FileSystem.FileSystem | Path.Path | CliRenderer | CodingAgentRepository
+        WorkspaceMutations | FileSystem.FileSystem | Path.Path | CliRenderer | CodingAgentRepository
       >,
     ): Effect.Effect<A, E, never> =>
       effect.pipe(
-        Effect.provideService(Workspace, workspace),
+        Effect.provideService(WorkspaceMutations, workspace),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
         Effect.provideService(CliRenderer, renderer),

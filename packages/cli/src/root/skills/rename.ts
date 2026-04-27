@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { RenameSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { renameSkill } from "@agentxm/client-core/unstable/skills";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -25,7 +25,7 @@ export interface RenameHandlerArgs {
 }
 
 export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHandlerArgs) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -75,7 +75,7 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     label: `${args.oldName} -> ${args.newName}`,
     run: renameSkill(op).pipe(
       Effect.map(toJobStepResult),
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),

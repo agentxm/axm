@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -106,7 +106,7 @@ describe("uninstall.handler (subagents)", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
+  const makeLayers = (wsOverrides?: Partial<WorkspaceMutationsOptions>) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
     const BaseLayer = handlerTestContext.baseLayer;
     const WsLayer = handlerTestContext.wsLayer;

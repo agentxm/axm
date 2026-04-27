@@ -24,7 +24,7 @@ import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   SubagentManager,
   type SubagentExtensionRef,
@@ -189,7 +189,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
     const sources = yield* SourceHostProviders;
     const renderer = yield* CliRenderer;
     const subagentMgr = yield* SubagentManager;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
     const terminal = yield* Terminal.Terminal;
@@ -198,7 +198,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(CliRenderer, renderer),
-      Layer.succeed(Workspace, ws),
+      Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
       Layer.succeed(Terminal.Terminal, terminal),

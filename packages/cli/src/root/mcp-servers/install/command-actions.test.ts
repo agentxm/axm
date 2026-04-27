@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -47,7 +47,7 @@ const mockSourceHostProviders = {
 } satisfies ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
 const testLayer = Layer.mergeAll(
-  Layer.succeed(Workspace, mockWorkspace),
+  Layer.succeed(WorkspaceMutations, mockWorkspace),
   Layer.succeed(McpServerManager, mockMcpServerManager),
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
   NodeServices.layer,
@@ -134,7 +134,7 @@ describe("parseMcpServerInstallArgs", () => {
       const forceActionsLayer = Layer.provide(
         InstallMcpServerCommandWorkflowActionsLive,
         Layer.mergeAll(
-          Layer.succeed(Workspace, mockWorkspace),
+          Layer.succeed(WorkspaceMutations, mockWorkspace),
           Layer.succeed(McpServerManager, mockMcpServerManager),
           Layer.succeed(SourceHostProviders, mockSourceHostProviders),
           NodeServices.layer,

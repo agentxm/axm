@@ -13,7 +13,10 @@ import type { CodingAgent } from "../../agents/coding-agent.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import {
   makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
@@ -32,7 +35,7 @@ const makeWorkspaceMock = (
   overrides?: {
     removeMcpServerFn?: (name: string) => Effect.Effect<void, AppError>;
   },
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   let mcpServers: Record<string, McpServerLockEntry> = { ...lockfileMcpServers };
   const removeMcpServerFn = overrides?.removeMcpServerFn;
 
@@ -87,7 +90,7 @@ const withServices = (
 ) =>
   Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
+    WorkspaceMutations.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
     TestRenderer.make().layer,
     Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
   );
@@ -180,7 +183,7 @@ describe("uninstallMcpServer", () => {
       }),
     );
 
-    it.effect("calls Workspace.removeMcpServer", () =>
+    it.effect("calls WorkspaceMutations.removeMcpServer", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileMcpServers } = setupWorkspace();
         const removeMcpServerFn = vi.fn((_name: string) => Effect.void);

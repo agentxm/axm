@@ -134,7 +134,7 @@ const splitPathSegments = (path: Path.Path, value: string): ReadonlyArray<string
 /**
  * Detect cases where two or more registry descriptors resolve to the same
  * `agentRootSegment`. The detection runs once at construction time (per
- * `WorkspaceContextLive` instance); each collision emits a
+ * `WorkspaceReadModelLive` instance); each collision emits a
  * `scanner-config` diagnostic warning. The function does NOT throw and
  * does NOT skip scanning — callers continue to scan; the warning is the
  * signal.

@@ -78,7 +78,7 @@ describe("disable.handler", () => {
 
   const makeLayers = (
     wsOverrides?: Partial<
-      import("@agentxm/client-core/unstable/workspace").WorkspaceContextOptions
+      import("@agentxm/client-core/unstable/workspace").WorkspaceMutationsOptions
     >,
   ) => makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
 
@@ -131,10 +131,10 @@ describe("disable.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Taxonomy: ignored skill excluded from installed
+  // Workspace record: ignored skill excluded from installed
   // ---------------------------------------------------------------------------
 
-  describe("taxonomy: ignored skill excluded", () => {
+  describe("workspace records: ignored skill excluded", () => {
     it.effect("fails for ignored implicit skill (treated as not installed)", () => {
       const { provide } = makeLayers();
       // Implicit skill: in lockfile only (registry type = native), with ignored pattern

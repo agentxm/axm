@@ -18,7 +18,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
 
 // -----------------------------------------------------------------------------
@@ -81,10 +81,10 @@ export type DisableSubagentOperation = Operation<
  */
 export const disableSubagent: OperationHandler<
   DisableSubagentOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
 
     // Read lifecycle to determine promotion needs

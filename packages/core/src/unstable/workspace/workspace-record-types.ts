@@ -1,5 +1,5 @@
 /**
- * Taxonomy types for workspace getters.
+ * Workspace record types for workspace getters.
  *
  * Defines the shapes returned by workspace methods like `getConfiguredSkills`,
  * `getInstalledCommands`, etc. Separated from service.ts for maintainability.
@@ -41,7 +41,7 @@ export type LocatedState = {
   readonly locations: ReadonlyArray<string>;
 };
 
-export type ClassifiedExtension =
+export type WorkspaceRecordRow =
   | {
       readonly type: string;
       readonly name: string;
@@ -69,7 +69,7 @@ export type ClassifiedExtension =
     };
 
 // ---------------------------------------------------------------------------
-// Skill taxonomy
+// Skill workspace records
 // ---------------------------------------------------------------------------
 
 /** Configured extension with source metadata. Skills and commands include `enabled`. */
@@ -83,13 +83,8 @@ export type InstalledSkill =
   | LifecycleConfigured<ConfiguredSkill>
   | LifecycleImplicit<ImplicitSkill>;
 
-export type ClassifiedSkill =
-  | LifecycleConfigured<ConfiguredSkill>
-  | LifecycleImplicit<ImplicitSkill>
-  | LifecycleUnmanaged<UnmanagedSkill>;
-
 // ---------------------------------------------------------------------------
-// Command taxonomy
+// Command workspace records
 // ---------------------------------------------------------------------------
 
 export type ConfiguredCommand = ConfiguredExtensionState<EnabledState>;
@@ -102,13 +97,8 @@ export type InstalledCommand =
   | LifecycleConfigured<ConfiguredCommand>
   | LifecycleImplicit<ImplicitCommand>;
 
-export type ClassifiedCommand =
-  | LifecycleConfigured<ConfiguredCommand>
-  | LifecycleImplicit<ImplicitCommand>
-  | LifecycleUnmanaged<UnmanagedCommand>;
-
 // ---------------------------------------------------------------------------
-// Subagent taxonomy
+// Subagent workspace records
 // ---------------------------------------------------------------------------
 
 /** Configured subagent with source metadata. Includes `enabled`. */
@@ -122,13 +112,8 @@ export type InstalledSubagent =
   | LifecycleConfigured<ConfiguredSubagent>
   | LifecycleImplicit<ImplicitSubagent>;
 
-export type ClassifiedSubagent =
-  | LifecycleConfigured<ConfiguredSubagent>
-  | LifecycleImplicit<ImplicitSubagent>
-  | LifecycleUnmanaged<UnmanagedSubagent>;
-
 // ---------------------------------------------------------------------------
-// Generic extension ref taxonomy (MCP servers, packs)
+// Generic extension ref workspace records (MCP servers, packs)
 // ---------------------------------------------------------------------------
 
 /** MCP servers and packs do not have `enabled` — use `ExtensionRef` shapes. */
@@ -141,8 +126,3 @@ export type UnmanagedExtensionRef = UnmanagedExtensionState;
 export type InstalledExtensionRef =
   | LifecycleConfigured<ConfiguredExtensionRef>
   | LifecycleImplicit<ImplicitExtensionRef>;
-
-export type ClassifiedExtensionRef =
-  | LifecycleConfigured<ConfiguredExtensionRef>
-  | LifecycleImplicit<ImplicitExtensionRef>
-  | LifecycleUnmanaged<UnmanagedExtensionRef>;

@@ -51,7 +51,7 @@ import { InstallSubagentCommandWorkflowActionsLive } from "./root/subagents/inst
 import { UninstallSubagentCommandWorkflowActionsLive } from "./root/subagents/uninstall/command-actions.js";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import type {
-  WorkspaceContextOptions,
+  WorkspaceMutationsOptions,
   WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 import {
@@ -182,9 +182,9 @@ const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig
 
 const makeWorkspaceProgramLayer = (
   registryLocation: string,
-  workspace: Omit<WorkspaceContextOptions, "builtInSources">,
+  workspace: Omit<WorkspaceMutationsOptions, "builtInSources">,
 ) => {
-  // -- Workspace foundation --
+  // -- WorkspaceMutations foundation --
   const wsLayer = coreWorkspaceLayer({
     ...workspace,
     builtInSources: getBuiltInSources(registryLocation),
@@ -260,7 +260,7 @@ const resolveRuntimeConfig = () =>
   });
 
 export const withWorkspace =
-  (options: WorkspaceScope | Omit<WorkspaceContextOptions, "builtInSources">) =>
+  (options: WorkspaceScope | Omit<WorkspaceMutationsOptions, "builtInSources">) =>
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
     Effect.gen(function* () {
       const envConfig = yield* readRuntimeEnvConfig;

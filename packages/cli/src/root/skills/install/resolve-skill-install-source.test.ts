@@ -12,11 +12,14 @@ import { afterEach } from "vitest";
 import { normalizeHandle, type Handle } from "@agentxm/client-core/unstable/extensions";
 import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
 import { parseInputPattern, type InputParseResult } from "@agentxm/client-core/unstable/sources";
-import { Workspace, type WorkspaceContextService } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 
-const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService =>
+const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceMutationsService =>
   makeBaseWorkspaceMock("/tmp/test-workspace/.axm", {
     getConfiguredSources: () => Effect.succeed(sources),
     getConfiguredSourceByName: (name: string) =>
@@ -103,7 +106,11 @@ const remoteHttpLayer = Layer.succeed(
 );
 
 const provideTestLayers = (sources: ReadonlyArray<SourceHostConfig>) =>
-  Layer.mergeAll(NodeServices.layer, Workspace.layer(makeWorkspace(sources)), remoteHttpLayer);
+  Layer.mergeAll(
+    NodeServices.layer,
+    WorkspaceMutations.layer(makeWorkspace(sources)),
+    remoteHttpLayer,
+  );
 
 const parseInputOrThrow = (input: string): InputParseResult => {
   const parsed = parseInputPattern(input);
@@ -262,7 +269,7 @@ describe("resolveSkillInstallSource", () => {
         Effect.provide(
           Layer.mergeAll(
             NodeServices.layer,
-            Workspace.layer({
+            WorkspaceMutations.layer({
               ...makeWorkspace(sources),
               getDefaultProfile: () => Effect.succeed(Option.some(normalizeHandle("@test"))),
             }),
@@ -357,7 +364,7 @@ describe("resolveSkillRegistrySourceByName", () => {
   ) =>
     Layer.mergeAll(
       NodeServices.layer,
-      Workspace.layer({
+      WorkspaceMutations.layer({
         ...makeWorkspace(sources),
         getDefaultProfile: () => Effect.succeed(owner),
       }),

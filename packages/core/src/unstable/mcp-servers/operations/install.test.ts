@@ -17,7 +17,10 @@ import type { ExtensionRef } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
   expectRecord,
@@ -38,7 +41,7 @@ const makeWorkspaceMock = (
   overrides?: {
     setMcpServerFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
   },
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
     if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, mcpServers: {} };
@@ -132,7 +135,7 @@ const withServices = (
   };
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(mockWs),
+    WorkspaceMutations.layer(mockWs),
     TestRenderer.make().layer,
     Layer.succeed(SourceHostProviders, sourceProviders),
     Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
@@ -356,7 +359,7 @@ describe("installMcpServer", () => {
   });
 
   describe("lockfile update", () => {
-    it.effect("calls Workspace.setMcpServer after successful installation", () =>
+    it.effect("calls WorkspaceMutations.setMcpServer after successful installation", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -375,7 +378,7 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("swallows Workspace.setMcpServer failure without failing installation", () =>
+    it.effect("swallows WorkspaceMutations.setMcpServer failure without failing installation", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");

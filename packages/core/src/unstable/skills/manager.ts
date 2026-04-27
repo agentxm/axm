@@ -20,7 +20,7 @@ import { sourceToLockEntry } from "../sources/index.js";
 import type { SkillExtensionRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";
-import { Workspace } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { existsInAnyCanonicalLocation } from "./disk-check.js";
 import { sanitizeName } from "../extensions/utils.js";
 import { removeFromAllCanonicalLocations } from "../utils/index.js";
@@ -63,7 +63,7 @@ const buildSkillLockEntry = (ref: SkillExtensionRef, agents: ReadonlyArray<strin
 export const SkillManagerLive = Layer.effect(
   SkillManager,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
@@ -97,7 +97,7 @@ export const SkillManagerLive = Layer.effect(
 
       const configuredAgents = yield* agentRepo
         .getConfiguredAgents()
-        .pipe(Effect.provideService(Workspace, ws));
+        .pipe(Effect.provideService(WorkspaceMutations, ws));
       const resolved = yield* Effect.forEach(
         configuredAgents,
         (agent) =>
@@ -154,7 +154,7 @@ export const SkillManagerLive = Layer.effect(
 
         const configuredAgents = yield* agentRepo
           .getConfiguredAgents()
-          .pipe(Effect.provideService(Workspace, ws));
+          .pipe(Effect.provideService(WorkspaceMutations, ws));
         const resolved = yield* Effect.forEach(
           configuredAgents,
           (agent) =>

@@ -1,5 +1,5 @@
 /**
- * Scenario: WorkspaceContext performs no source resolution or network I/O.
+ * Scenario: WorkspaceReadModel performs no source resolution or network I/O.
  *
  * Spec requirement coverage:
  *
@@ -8,7 +8,7 @@
  * - No registry / source-host / network call is attempted.
  *
  * The strongest guarantee here is the compile-time check below: every cell
- * yielded from `WorkspaceContext` carries only `WorkspaceContext` in its `R`
+ * yielded from `WorkspaceReadModel` carries only `WorkspaceReadModel` in its `R`
  * channel. Any future introduction of a network service requirement
  * (`HttpClient`, `RegistryClient`, etc.) surfaces as a type error. We do not
  * patch `globalThis.fetch` — the spec depends on the type system, not on
@@ -59,7 +59,7 @@ describe("no source resolution or network I/O", () => {
     runScenario(githubSourceSpec, (ctx) =>
       Effect.gen(function* () {
         // Touch every cell that could plausibly trigger source resolution if
-        // WorkspaceContext were to lapse from its contract. The compile-time
+        // WorkspaceReadModel were to lapse from its contract. The compile-time
         // assertion below guarantees no network service is in `R`; this
         // runtime traversal proves the read surface is exercisable end-to-end
         // without one.

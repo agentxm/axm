@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { buildRegistrySkillRef } from "@agentxm/client-core/unstable/skills";
 import {
   buildRegistryCommandRef,
@@ -31,7 +31,7 @@ export interface UnpackHandlerArgs {
  * Handles the `axm packs unpack` command.
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
 
   yield* renderer.info("axm packs unpack");

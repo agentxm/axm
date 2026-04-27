@@ -8,7 +8,7 @@
  * (c) Per-scanner partial failures publish a diagnostic warning rather than
  *     failing the cell — verified by stubbing `fs.readDirectory` to fail and
  *     asserting the cell still succeeds with `[]` plus a buffered warning.
- * (d) Workspace-root escape is rejected at provider construction (Phase 9),
+ * (d) WorkspaceMutations-root escape is rejected at provider construction (Phase 9),
  *     not by individual scanners — verified by passing an "escaping" workspace
  *     root and asserting the scanner does not check it (i.e., does not raise).
  */

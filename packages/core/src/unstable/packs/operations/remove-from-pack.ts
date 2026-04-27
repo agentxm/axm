@@ -15,7 +15,7 @@ import type { Handle } from "../../extensions/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
   ExtensionPackManifestSchema,
@@ -66,12 +66,12 @@ export type RemoveFromExtensionPackOperation = Operation<
  */
 export const removeFromExtensionPack: OperationHandler<
   RemoveFromExtensionPackOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     const { packName, packOwner, removals, manifestHash } = op.args;

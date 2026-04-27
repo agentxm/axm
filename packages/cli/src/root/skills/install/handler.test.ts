@@ -213,7 +213,7 @@ describe("skills install handler — error propagation", () => {
     "preserves REGISTRY_SKILL_NOT_FOUND from resolver instead of wrapping in INVALID_SOURCE",
     () => {
       const { provide } = makeLayers();
-      // Workspace has a default owner but no registries contain the skill
+      // WorkspaceMutations has a default owner but no registries contain the skill
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/empty-reg" }],
         owner: "@myorg",

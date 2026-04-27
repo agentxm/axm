@@ -19,7 +19,7 @@ import {
   logsByTag,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { handleList } from "./list.js";
 
@@ -70,13 +70,13 @@ describe("list.handler", () => {
 
   const makeLayers = (opts?: {
     readonly machine?: boolean;
-    readonly wsOverrides?: Partial<WorkspaceContextOptions>;
+    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
     const BaseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
-    const wsOptions: WorkspaceContextOptions = {
+    const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
       ...opts?.wsOverrides,
     };

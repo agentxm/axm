@@ -8,7 +8,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { AppError } from "../../app-error/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import type { ConfiguredCommand } from "../../workspace/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
@@ -33,7 +36,7 @@ const withServices = (
     removeCommandSettingsFn?: (name: string) => Effect.Effect<void, AppError>;
     updateCommandEntryFn?: (
       name: string,
-      updater: Parameters<WorkspaceContextService["updateCommandEntry"]>[1],
+      updater: Parameters<WorkspaceMutationsService["updateCommandEntry"]>[1],
     ) => Effect.Effect<void, AppError>;
     configuredCommands?: Record<string, ConfiguredCommand>;
   },
@@ -44,7 +47,7 @@ const withServices = (
 
   return Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(
+    WorkspaceMutations.layer(
       makeWorkspaceMock(axmDir, {
         getLockedCommands: () => Effect.succeed(lockEntry ? { "my-command": lockEntry } : {}),
         getLockedCommand: () => Effect.succeed(Option.fromUndefinedOr(lockEntry)),
@@ -52,8 +55,10 @@ const withServices = (
           ? (args: { name: string; lockEntry: unknown }) => setCommandLockFn(args)
           : () => Effect.void,
         updateCommandEntry: updateCommandEntryFn
-          ? (name: string, updater: Parameters<WorkspaceContextService["updateCommandEntry"]>[1]) =>
-              updateCommandEntryFn(name, updater)
+          ? (
+              name: string,
+              updater: Parameters<WorkspaceMutationsService["updateCommandEntry"]>[1],
+            ) => updateCommandEntryFn(name, updater)
           : () => Effect.void,
         removeCommandSettings: removeCommandSettingsFn
           ? (name: string) => removeCommandSettingsFn(name)

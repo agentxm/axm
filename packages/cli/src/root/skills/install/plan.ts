@@ -16,7 +16,7 @@ import type { VersionConstraint } from "@agentxm/client-core/unstable/version-co
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import type { Source } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
@@ -43,7 +43,7 @@ export const buildSkillInstallPlan = ({
   versionConstraint,
 }: BuildSkillInstallPlanArgs) =>
   Effect.gen(function* () {
-    const workspace = yield* Workspace;
+    const workspace = yield* WorkspaceMutations;
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -97,7 +97,7 @@ export const buildSkillInstallPlan = ({
               ? { result: "error", message: result.message, error: result.error }
               : { result: "success", message: result.message },
         ),
-        Effect.provideService(Workspace, workspace),
+        Effect.provideService(WorkspaceMutations, workspace),
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),

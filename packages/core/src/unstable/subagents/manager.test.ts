@@ -19,7 +19,7 @@ import type { LocalSubagentRef } from "./refs.js";
 import type { AppError } from "../app-error/index.js";
 import type { CodingAgent } from "../agents/coding-agent.js";
 import { CodingAgentRepository } from "../agents/coding-agent.js";
-import { Workspace, type SetSubagentArgs } from "../workspace/service-interface.js";
+import { WorkspaceMutations, type SetSubagentArgs } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
 import { RenderedFilesMapSchema } from "../extensions/rendered-files.js";
@@ -75,7 +75,7 @@ const makeMockCodingAgent = (id: string, overrides?: Partial<CodingAgent>): Codi
 
 const makeTestLayer = (overrides?: {
   readonly wsOverrides?: Partial<
-    import("../workspace/service-interface.js").WorkspaceContextService
+    import("../workspace/service-interface.js").WorkspaceMutationsService
   >;
   readonly agents?: ReadonlyArray<CodingAgent>;
   readonly axmDir?: string;
@@ -106,7 +106,7 @@ const makeTestLayer = (overrides?: {
   });
 
   return SubagentManagerLive.pipe(
-    Layer.provide(Layer.succeed(Workspace, wsMock)),
+    Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
     Layer.provide(agentRepoLayer),
     Layer.provide(NodeServices.layer),
   );

@@ -19,7 +19,7 @@ import type * as Scope from "effect/Scope";
 
 import type { AppError } from "../app-error/index.js";
 import { parseRegistrySourcePatternParts } from "../extensions/index.js";
-import { Workspace } from "../workspace/index.js";
+import { WorkspaceMutations } from "../workspace/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
 import type {
   ExtensionFiles,
@@ -41,7 +41,7 @@ import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 /**
  * Service interface for source host providers.
  *
- * Dependencies (FileSystem, Path, Workspace) are resolved at layer creation —
+ * Dependencies (FileSystem, Path, WorkspaceMutations) are resolved at layer creation —
  * callers only see the service, not its implementation details.
  *
  * @experimental This API is unstable and may change without notice.
@@ -166,7 +166,7 @@ export const createRegistryMetaProvider = () => ({
  * Live layer for SourceHostProviders.
  *
  * Constructs the provider registry with all source type providers.
- * Captures FileSystem, Path, and Workspace at creation time so the
+ * Captures FileSystem, Path, and WorkspaceMutations at creation time so the
  * service interface doesn't leak these dependencies.
  *
  * @experimental This API is unstable and may change without notice.
@@ -174,13 +174,13 @@ export const createRegistryMetaProvider = () => ({
 export const SourceHostProvidersLive: Layer.Layer<
   SourceHostProviders,
   never,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
 
     const localProvider = createLocalSourceHostProvider();
@@ -191,7 +191,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     const baseDepLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(Workspace, ws),
+      Layer.succeed(WorkspaceMutations, ws),
     );
     const depLayer = Option.match(ambientHttpClient, {
       onNone: () => baseDepLayer,

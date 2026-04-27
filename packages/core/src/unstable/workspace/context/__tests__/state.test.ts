@@ -1,6 +1,6 @@
 /**
  * Tests for `makeScopedStateApi` — the cached, requirement-free settings and
- * lockfile loaders that back every WorkspaceContext source-backed cell.
+ * lockfile loaders that back every WorkspaceReadModel source-backed cell.
  *
  * Covers, for each (scope, source) pair:
  *
@@ -39,7 +39,7 @@ import { makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
 const WORKSPACE_ROOT = "/ws";
 const SETTINGS_PATH = `${WORKSPACE_ROOT}/.axm/settings.json`;
 // Production places the lockfile at the workspace root (no `.axm/`),
-// matching `WorkspaceContextLive`'s wiring in `context.ts`.
+// matching `WorkspaceReadModelLive`'s wiring in `context.ts`.
 const LOCKFILE_PATH = `${WORKSPACE_ROOT}/${LOCKFILE_NAME}`;
 
 interface FsCounters {

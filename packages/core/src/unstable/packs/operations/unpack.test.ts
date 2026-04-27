@@ -6,7 +6,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { vi } from "vitest";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import {
   makeBaseWorkspaceMock,
   makeRegistryExtensionPackLockEntry,
@@ -24,8 +27,8 @@ const makeOp = (name: string): UnpackExtensionPackOperation => ({
 });
 
 const makeWorkspaceMock = (
-  overrides: Partial<WorkspaceContextService> = {},
-): WorkspaceContextService =>
+  overrides: Partial<WorkspaceMutationsService> = {},
+): WorkspaceMutationsService =>
   makeBaseWorkspaceMock("/mock/.axm", {
     getConfiguredSources: () => Effect.succeed([]),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -80,7 +83,7 @@ describe("unpackExtensionPack", () => {
       expect(setSkill).toHaveBeenCalledTimes(1);
       expect(setCommand).toHaveBeenCalledTimes(1);
       expect(setMcpServer).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(Workspace.layer(mock)));
+    }).pipe(Effect.provide(WorkspaceMutations.layer(mock)));
   });
 
   it.effect("skips existing direct command entries", () => {
@@ -122,7 +125,7 @@ describe("unpackExtensionPack", () => {
       expect(result.result).toBe("success");
       // Should not call setCommand because existing-cmd is already configured
       expect(setCommand).not.toHaveBeenCalled();
-    }).pipe(Effect.provide(Workspace.layer(mock)));
+    }).pipe(Effect.provide(WorkspaceMutations.layer(mock)));
   });
 
   it.effect("fails when pack is not installed", () => {
@@ -135,6 +138,6 @@ describe("unpackExtensionPack", () => {
 
       expect(result.result).toBe("error");
       expect(result.message).toContain("not installed");
-    }).pipe(Effect.provide(Workspace.layer(mock)));
+    }).pipe(Effect.provide(WorkspaceMutations.layer(mock)));
   });
 });

@@ -19,7 +19,7 @@ import {
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { computeExtensionPackPaths } from "../paths.js";
 import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
 
@@ -59,12 +59,12 @@ export type NewExtensionPackOperation = Operation<"new-pack", NewExtensionPackOp
  */
 export const newExtensionPack: OperationHandler<
   NewExtensionPackOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
     const initialVersion = decodeExactSemverVersionSync("0.0.1");
 

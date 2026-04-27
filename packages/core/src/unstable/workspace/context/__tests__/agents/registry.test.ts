@@ -2,7 +2,7 @@
  * Agent registry barrel tests: the `agents/index.ts` barrel SHALL list every
  * registered agent module, expose the `AgentNativeConfig` open union as the
  * union of every module's typed `nativeConfig` shape, and serve as the single
- * registration site so adding a new agent does not touch `WorkspaceContext`.
+ * registration site so adding a new agent does not touch `WorkspaceReadModel`.
  *
  * Per Decision 4 of the workspace-context design and Phase 8 hand-off notes:
  *   - The barrel exposes `registeredAgentModules: ReadonlyArray<AgentModule>`.
@@ -21,8 +21,8 @@ import * as Option from "effect/Option";
 import { AGENTS } from "../../../../agents/registry.js";
 import { AGENT_IDS, type AgentId } from "../../../../agents/types.js";
 import { absentAll } from "../../__fixtures__/builder.js";
-import { WorkspaceContextTest } from "../../__fixtures__/test-layer.js";
-import { WorkspaceContext } from "../../context.js";
+import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
+import { WorkspaceReadModel } from "../../context.js";
 import {
   getAgentModule,
   registeredAgentModules,
@@ -74,9 +74,9 @@ describe("agents/index.ts barrel", () => {
 
   it.effect("ctx.scope(...).agents.known returns registry descriptors in registry order", () =>
     Effect.gen(function* () {
-      const layer = WorkspaceContextTest(absentAll("/workspace", "/home"));
+      const layer = WorkspaceReadModelTest(absentAll("/workspace", "/home"));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceContext;
+        const ctx = yield* WorkspaceReadModel;
         const known = yield* ctx.scope("project").agents.known;
         expect(known.map((agent) => agent.id)).toEqual(
           Object.values(AGENTS).map((agent) => agent.id),
@@ -87,9 +87,9 @@ describe("agents/index.ts barrel", () => {
 
   it.effect("ctx.scope(...).agents.byId returns descriptors for known ids", () =>
     Effect.gen(function* () {
-      const layer = WorkspaceContextTest(absentAll("/workspace", "/home"));
+      const layer = WorkspaceReadModelTest(absentAll("/workspace", "/home"));
       yield* Effect.gen(function* () {
-        const ctx = yield* WorkspaceContext;
+        const ctx = yield* WorkspaceReadModel;
         const known = ctx.scope("project").agents.byId("codex");
         const unknown = ctx.scope("project").agents.byId("unknown-agent");
         expect(Option.isSome(known)).toBe(true);

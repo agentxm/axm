@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -22,7 +22,7 @@ export interface EnableSubagentHandlerArgs {
 export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function* (
   args: EnableSubagentHandlerArgs,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -30,7 +30,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
 
   yield* renderer.info("axm subagents enable");
 
-  // Load installed subagents (configured + implicit) — taxonomy lifecycle view
+  // Load installed subagents (configured + implicit) from the workspace record projection.
   const installedSubagents = yield* ws.getInstalledSubagents();
   const entry = installedSubagents[args.name];
 
@@ -81,7 +81,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
     label: args.name,
     run: enableSubagent(op).pipe(
       Effect.map(toJobStepResult),
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(CodingAgentRepository, agentRepo),

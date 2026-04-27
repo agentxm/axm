@@ -12,15 +12,9 @@
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
 
-// Classifier records
+// Workspace record conversion helpers
 export {
-  toClassifiedCommandRecord,
-  toClassifiedExtensionRefRecord,
-  toClassifiedSkillRecord,
   toConfiguredCommandRecord,
-  toConfiguredExternalCommandRecord,
-  toConfiguredExternalExtensionRefRecord,
-  toConfiguredExternalSkillRecord,
   toConfiguredExtensionRefRecord,
   toConfiguredSkillRecord,
   toImplicitCommandRecord,
@@ -30,20 +24,13 @@ export {
   toInstalledExtensionRefRecord,
   toInstalledSkillRecord,
   toUnmanagedCommandRecord,
-  toUnmanagedExternalCommandRecord,
-  toUnmanagedExternalExtensionRefRecord,
-  toUnmanagedExternalSkillRecord,
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
-} from "./classifier-records.js";
+} from "./workspace-record-converters.js";
 
-// Taxonomy types
+// Workspace record types
 export type {
-  ClassifiedCommand,
-  ClassifiedExtension,
-  ClassifiedExtensionRef,
-  ClassifiedSkill,
-  ClassifiedSubagent,
+  WorkspaceRecordRow,
   ConfiguredCommand,
   ConfiguredExtensionRef,
   ConfiguredSkill,
@@ -60,7 +47,7 @@ export type {
   UnmanagedCommand,
   UnmanagedExtensionRef,
   UnmanagedSkill,
-} from "./taxonomy-types.js";
+} from "./workspace-record-types.js";
 
 // Reconciliation
 export {
@@ -109,15 +96,15 @@ export { scanPlanReadiness, type PlanReadinessReport } from "./scan-plan-readine
 
 // Workspace read model
 export {
-  WorkspaceContext,
-  WorkspaceContextConfigTag,
-  WorkspaceContextLive,
+  WorkspaceReadModel,
+  WorkspaceReadModelConfig,
+  WorkspaceReadModelLive,
   type RawSourceBytes,
   type ScopedProfileApi,
   type ScopedSourceHostsApi,
   type ScopedStateApi,
-  type ScopedWorkspaceContext,
-  type WorkspaceContextConfig,
+  type ScopedWorkspaceReadModel,
+  type WorkspaceReadModelConfigService,
 } from "./context/context.js";
 export {
   getPriorityDirectories,
@@ -139,12 +126,12 @@ export {
   type LockfileState,
 } from "./augment-plan.js";
 
-// Workspace service tag and interface
+// Workspace mutation facade
 export {
-  Workspace,
-  type WorkspaceContextService,
-  type WorkspaceContextError,
-  type WorkspaceContextOptions,
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+  type WorkspaceMutationsError,
+  type WorkspaceMutationsOptions,
   type SetSkillArgs,
   type SetExtensionPackArgs,
   type SetCommandArgs,
@@ -163,7 +150,7 @@ export {
   type SubagentExtensionTarget,
 } from "./service-interface.js";
 
-// Workspace service implementation (layer)
+// Workspace mutation service implementation (layer)
 export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
 
 // Initialization

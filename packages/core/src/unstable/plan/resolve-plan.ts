@@ -4,7 +4,7 @@
  * Orchestrates `augmentPlanWithReconciliation`, `scanPlanReadiness`,
  * and `applyPlan` with `displayPlan` and interactive prompts.
  *
- * This is a free function, not a method on the WorkspaceContextService.
+ * This is a free function, not a method on WorkspaceMutationsService.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -24,12 +24,12 @@ import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
 import { ReconciliationAdapters } from "../workspace/reconciliation.js";
 import type { CancelledPlan, ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
-import { Workspace } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { getAxmDir } from "../workspace/paths.js";
 import {
-  WorkspaceContext,
-  WorkspaceContextConfigTag,
-  WorkspaceContextLive,
+  WorkspaceReadModel,
+  WorkspaceReadModelConfig,
+  WorkspaceReadModelLive,
 } from "../workspace/context/context.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
@@ -72,7 +72,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     blockedByErrorsHowToFix?: string;
   },
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const interaction = yield* Effect.serviceOption(ResolvePlanInteraction);
   const nonInteractive = yield* isNonInteractive;
@@ -87,10 +87,10 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   );
   const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, reconciliationAdapters);
   const globalDir = yield* getAxmDir("user");
-  const contextLayer = WorkspaceContextLive.pipe(
+  const contextLayer = WorkspaceReadModelLive.pipe(
     Layer.provide(fsLayer),
     Layer.provide(
-      Layer.succeed(WorkspaceContextConfigTag, {
+      Layer.succeed(WorkspaceReadModelConfig, {
         projectRoot: ws.baseDir,
         userHome: path.dirname(globalDir),
         allowedRoot: "/",
@@ -102,7 +102,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 
   const readSettingsSafe = (dir: string): Effect.Effect<Settings, AppError> =>
     Effect.gen(function* () {
-      const context = yield* WorkspaceContext;
+      const context = yield* WorkspaceReadModel;
       return yield* context.scope(dir === globalDir ? "user" : "project").state.settings;
     }).pipe(
       Effect.provide(contextLayer),

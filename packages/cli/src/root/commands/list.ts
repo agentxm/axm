@@ -1,8 +1,9 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -37,17 +38,26 @@ const CommandListTable = {
 
 export const handleListCommands = Effect.fn("ListCommands.handle")(function* () {
   const renderer = yield* CliRenderer;
-  const ws = yield* Workspace;
-  const commands = yield* ws.getClassifiedCommands();
+  const ws = yield* WorkspaceMutations;
+  const installedCommands = yield* ws.getInstalledCommands();
+  const unmanagedCommands = yield* ws.getUnmanagedCommands();
 
-  const entries = Object.entries(commands);
-
-  const items = entries.map(([name, entry]) => ({
+  const installedItems = Object.entries(installedCommands).map(([name, entry]) => ({
     name,
-    source: typeof entry.source === "string" ? entry.source : "",
+    source:
+      typeof entry.source === "string" ? entry.source : Option.getOrElse(entry.source, () => ""),
     enabled: entry.enabled,
     lifecycle: entry.lifecycle,
   }));
+
+  const unmanagedItems = Object.entries(unmanagedCommands).map(([name, entry]) => ({
+    name,
+    source: Option.getOrElse(entry.source, () => ""),
+    enabled: entry.enabled,
+    lifecycle: "unmanaged",
+  }));
+
+  const items = [...installedItems, ...unmanagedItems];
 
   if (
     yield* renderer.document(
@@ -59,7 +69,7 @@ export const handleListCommands = Effect.fn("ListCommands.handle")(function* () 
     return;
   }
 
-  if (entries.length === 0) {
+  if (items.length === 0) {
     yield* renderer.info("No commands installed");
     return;
   }

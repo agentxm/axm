@@ -1,5 +1,5 @@
 /**
- * Compile-time type assertions for the WorkspaceContext shared types contract.
+ * Compile-time type assertions for the WorkspaceReadModel shared types contract.
  *
  * Pure type-level. The file is excluded from vitest's runtime suite (see
  * `vitest.config.ts`) and included in `tsconfig.spec.json` so the assertions

@@ -44,7 +44,7 @@ import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 
@@ -94,7 +94,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     yield* removeFromAllCanonicalLocations(fs, ws.baseDir, "skills", sanitizedName, path);
     yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
@@ -158,7 +158,7 @@ export const buildRenderedFilesFromResults = (
 
 const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
@@ -174,7 +174,7 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
 const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
@@ -197,7 +197,7 @@ const installFromRegistry = (
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: "registry",
@@ -273,7 +273,7 @@ const installForDirectory = (opts: {
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const agentSkillPath = path.join(opts.targetDir, opts.sanitizedName);
 
@@ -369,13 +369,13 @@ export const installSkill: OperationHandler<
   InstallSkillOperation,
   | FileSystem.FileSystem
   | Path.Path
-  | Workspace
+  | WorkspaceMutations
   | CliRenderer
   | SourceHostProviders
   | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const renderer = yield* CliRenderer;
     const agentRepo = yield* CodingAgentRepository;
@@ -390,10 +390,10 @@ export const installSkill: OperationHandler<
     // ── Shared: resolve agent targets + install once per distinct dir ────────
     const configuredAgents = yield* agentRepo
       .getConfiguredAgents()
-      .pipe(Effect.provideService(Workspace, ws));
+      .pipe(Effect.provideService(WorkspaceMutations, ws));
     const unknownConfiguredAgentIds = yield* agentRepo
       .getUnknownConfiguredAgentIds()
-      .pipe(Effect.provideService(Workspace, ws));
+      .pipe(Effect.provideService(WorkspaceMutations, ws));
 
     if (strictUnknownAgents && unknownConfiguredAgentIds.length > 0) {
       const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;

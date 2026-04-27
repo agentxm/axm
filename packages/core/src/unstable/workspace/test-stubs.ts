@@ -1,5 +1,5 @@
 /**
- * Default no-op stubs for taxonomy getter methods added to WorkspaceContextService.
+ * Default no-op stubs for workspace getter methods on WorkspaceMutationsService.
  * Spread into test mocks to satisfy the interface without implementing every method.
  *
  * @internal Test-only. Not exported from the barrel.
@@ -9,26 +9,22 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import type {
-  WorkspaceContextService,
+  WorkspaceMutationsService,
   ConfiguredSkill,
   ImplicitSkill,
   UnmanagedSkill,
   InstalledSkill,
-  ClassifiedSkill,
   ConfiguredCommand,
   ImplicitCommand,
   UnmanagedCommand,
   InstalledCommand,
-  ClassifiedCommand,
   ConfiguredSubagent,
   ImplicitSubagent,
   InstalledSubagent,
-  ClassifiedSubagent,
   ConfiguredExtensionRef,
   ImplicitExtensionRef,
   UnmanagedExtensionRef,
   InstalledExtensionRef,
-  ClassifiedExtensionRef,
 } from "./index.js";
 import type { AppError } from "../app-error/index.js";
 import {
@@ -68,56 +64,43 @@ const path = (() => {
 })();
 
 /**
- * No-op stubs for all taxonomy getters. Spread into mock objects:
+ * No-op stubs for all workspace record getters. Spread into mock objects:
  * ```ts
- * const ws: WorkspaceContextService = {
- *   ...taxonomyStubs,
+ * const ws: WorkspaceMutationsService = {
+ *   ...workspaceRecordStubs,
  *   // your overrides
  * };
  * ```
  */
-export const taxonomyStubs = {
+export const workspaceRecordStubs = {
   getLockfileState: () => Effect.succeed("ok" as const),
-  // Skill taxonomy
+  // Skill workspace records
   getConfiguredSkills: empty<ConfiguredSkill>,
   getImplicitSkills: empty<ImplicitSkill>,
   getUnmanagedSkills: empty<UnmanagedSkill>,
   getInstalledSkills: empty<InstalledSkill>,
-  getClassifiedSkills: empty<ClassifiedSkill>,
-  getConfiguredExternalSkills: empty<ConfiguredSkill>,
-  getUnmanagedExternalSkills: empty<UnmanagedSkill>,
   getIgnoredSkillPatterns: emptyArr,
-  // Command taxonomy
+  // Command workspace records
   getConfiguredCommands: empty<ConfiguredCommand>,
   getImplicitCommands: empty<ImplicitCommand>,
   getUnmanagedCommands: empty<UnmanagedCommand>,
   getInstalledCommands: empty<InstalledCommand>,
-  getClassifiedCommands: empty<ClassifiedCommand>,
-  getConfiguredExternalCommands: empty<ConfiguredCommand>,
-  getUnmanagedExternalCommands: empty<UnmanagedCommand>,
   getIgnoredCommandPatterns: emptyArr,
-  // Subagent taxonomy
+  // Subagent workspace records
   getConfiguredSubagents: empty<ConfiguredSubagent>,
   getImplicitSubagents: empty<ImplicitSubagent>,
   getInstalledSubagents: empty<InstalledSubagent>,
-  getClassifiedSubagents: empty<ClassifiedSubagent>,
-  // MCP Server taxonomy
+  // MCP Server workspace records
   getConfiguredMcpServers: empty<ConfiguredExtensionRef>,
   getImplicitMcpServers: empty<ImplicitExtensionRef>,
   getUnmanagedMcpServers: empty<UnmanagedExtensionRef>,
   getInstalledMcpServers: empty<InstalledExtensionRef>,
-  getClassifiedMcpServers: empty<ClassifiedExtensionRef>,
-  getConfiguredExternalMcpServers: empty<ConfiguredExtensionRef>,
-  getUnmanagedExternalMcpServers: empty<UnmanagedExtensionRef>,
   getIgnoredMcpServerPatterns: emptyArr,
-  // Pack taxonomy
+  // Pack workspace records
   getConfiguredPacks: empty<ConfiguredExtensionRef>,
   getImplicitPacks: empty<ImplicitExtensionRef>,
   getUnmanagedPacks: empty<UnmanagedExtensionRef>,
   getInstalledPacks: empty<InstalledExtensionRef>,
-  getClassifiedPacks: empty<ClassifiedExtensionRef>,
-  getConfiguredExternalPacks: empty<ConfiguredExtensionRef>,
-  getUnmanagedExternalPacks: empty<UnmanagedExtensionRef>,
   getIgnoredPackPatterns: emptyArr,
 } as const;
 
@@ -134,11 +117,11 @@ export const taxonomyStubs = {
  */
 export const makeBaseWorkspaceMock = (
   axmDir = "/tmp/axm",
-  overrides?: Partial<WorkspaceContextService>,
-): WorkspaceContextService => {
+  overrides?: Partial<WorkspaceMutationsService>,
+): WorkspaceMutationsService => {
   const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
   const base = {
-    ...taxonomyStubs,
+    ...workspaceRecordStubs,
     scope: "project",
     path: axmDir,
     baseDir,
@@ -203,7 +186,7 @@ export const makeBaseWorkspaceMock = (
     removeExtensionPackLock: () => Effect.void,
     isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
-  } satisfies WorkspaceContextService;
+  } satisfies WorkspaceMutationsService;
   return { ...base, ...overrides };
 };
 

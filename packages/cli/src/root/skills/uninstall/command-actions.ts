@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import {
@@ -69,7 +69,7 @@ export class UninstallSkillCommandWorkflowActions extends ServiceMap.Service<
 export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
   UninstallSkillCommandWorkflowActions,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const skillMgr = yield* SkillManager;
 
@@ -80,8 +80,8 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
         yield* renderer.info("axm skills uninstall");
 
         // Load installed skills for glob expansion
-        const taxonomyInstalled = yield* ws.getInstalledSkills();
-        const installedNames = Object.keys(taxonomyInstalled);
+        const installedSkills = yield* ws.getInstalledSkills();
+        const installedNames = Object.keys(installedSkills);
 
         // Expand glob pattern against installed skill names (excludes ignored)
         const skillNames = expandGlob(args.skill, installedNames);

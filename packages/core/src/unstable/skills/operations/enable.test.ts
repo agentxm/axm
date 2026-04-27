@@ -10,7 +10,10 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { makeAppError } from "../../app-error/index.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspace/test-stubs.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { EnableSkillOperation } from "./enable.js";
@@ -41,10 +44,10 @@ const makeWorkspaceMock = (
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
-    updateSkillEntryFn?: WorkspaceContextService["updateSkillEntry"];
-    updateLockEntryAgentsFn?: WorkspaceContextService["updateLockEntryAgents"];
+    updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
+    updateLockEntryAgentsFn?: WorkspaceMutationsService["updateLockEntryAgents"];
   } = {},
-): WorkspaceContextService => {
+): WorkspaceMutationsService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
@@ -106,11 +109,11 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   const { layer: outputLayer } = TestRenderer.make();
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs), outputLayer);
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs), outputLayer);
 };
 
 /** Creates a minimal EnableSkillOperation for testing. */

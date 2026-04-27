@@ -21,12 +21,12 @@ import {
   type ConfiguredEntryFailureReason,
 } from "./configured-entry-resolution/index.js";
 import {
-  WorkspaceContext,
-  WorkspaceContextConfigTag,
-  WorkspaceContextLive,
+  WorkspaceReadModel,
+  WorkspaceReadModelConfig,
+  WorkspaceReadModelLive,
 } from "./context/context.js";
 import { getAxmDir } from "./paths.js";
-import { Workspace } from "./service-interface.js";
+import { WorkspaceMutations } from "./service-interface.js";
 
 export interface WorkspaceResolvedSkill {
   readonly _tag: "resolved";
@@ -138,16 +138,16 @@ const buildDeclaredSkillState = (
 
 const buildDeclaredSkillSnapshot = (baseDir: string, fs: FileSystem.FileSystem, path: Path.Path) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const globalDir = yield* getAxmDir("user");
     const fsLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
-    const contextLayer = WorkspaceContextLive.pipe(
+    const contextLayer = WorkspaceReadModelLive.pipe(
       Layer.provide(fsLayer),
       Layer.provide(
-        Layer.succeed(WorkspaceContextConfigTag, {
+        Layer.succeed(WorkspaceReadModelConfig, {
           projectRoot: ws.baseDir,
           userHome: path.dirname(globalDir),
           allowedRoot: "/",
@@ -155,7 +155,7 @@ const buildDeclaredSkillSnapshot = (baseDir: string, fs: FileSystem.FileSystem, 
       ),
     );
     const settings = yield* Effect.gen(function* () {
-      const context = yield* WorkspaceContext;
+      const context = yield* WorkspaceReadModel;
       return yield* context.scope(ws.scope).state.settings;
     }).pipe(
       Effect.provide(contextLayer),
@@ -194,7 +194,7 @@ const buildWorkspaceSkillAgentSnapshot = (
 ): Effect.Effect<
   WorkspaceSkillAgentSnapshot,
   never,
-  CodingAgentRepository | Path.Path | Workspace
+  CodingAgentRepository | Path.Path | WorkspaceMutations
 > =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
@@ -255,7 +255,7 @@ export const isResolvedWorkspaceSkill = (
 
 export const buildWorkspaceSkillSnapshot = () =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 

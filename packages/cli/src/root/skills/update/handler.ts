@@ -15,7 +15,7 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { expandGlobs } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
@@ -61,7 +61,7 @@ const toRegistrySkillPattern = (source: string) => {
 };
 
 export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
 
@@ -510,7 +510,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     if (op.name === "install-skill") {
       return installSkill(op).pipe(
         Effect.map(toJobStepResult),
-        Effect.provideService(Workspace, ws),
+        Effect.provideService(WorkspaceMutations, ws),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
         Effect.provideService(CliRenderer, renderer),
@@ -520,7 +520,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     }
     return uninstallSkill(op).pipe(
       Effect.map(toJobStepResult),
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     );
@@ -557,7 +557,7 @@ const collectPackConstraints = () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     // Read lockfile to find installed packs

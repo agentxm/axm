@@ -1,5 +1,5 @@
 /**
- * WorkspaceContext discovery capability for agent subagent files.
+ * WorkspaceReadModel discovery capability for agent subagent files.
  */
 
 import * as Effect from "effect/Effect";

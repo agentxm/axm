@@ -74,7 +74,7 @@ describe("rename.handler", () => {
 
   const makeLayers = (
     wsOverrides?: Partial<
-      import("@agentxm/client-core/unstable/workspace").WorkspaceContextOptions
+      import("@agentxm/client-core/unstable/workspace").WorkspaceMutationsOptions
     >,
   ) => makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
 

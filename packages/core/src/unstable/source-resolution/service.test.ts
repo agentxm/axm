@@ -20,8 +20,8 @@ import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 
 import type { SourceHostConfig } from "../settings/index.js";
-import type { WorkspaceContextService } from "../workspace/index.js";
-import { Workspace } from "../workspace/index.js";
+import type { WorkspaceMutationsService } from "../workspace/index.js";
+import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
 import type { FindOptions } from "../sources/index.js";
@@ -77,7 +77,9 @@ const computeIntegrity = (data: Uint8Array): string => {
  * Create a minimal workspace service for testing.
  * Returns registry sources without owner filtering.
  */
-const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
+const makeTestWorkspace = (
+  sources: ReadonlyArray<SourceHostConfig>,
+): WorkspaceMutationsService => ({
   ...makeBaseWorkspaceMock("/tmp/test-workspace"),
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
@@ -100,7 +102,7 @@ const runWithService = <A, E>(
     SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope
   >,
 ) => {
-  const wsLayer = Layer.succeed(Workspace, makeTestWorkspace(sources));
+  const wsLayer = Layer.succeed(WorkspaceMutations, makeTestWorkspace(sources));
   const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(wsLayer),
     Layer.provide(NodeServices.layer),

@@ -18,7 +18,7 @@ import {
   TestRenderer,
   logsByTag,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
@@ -274,13 +274,13 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
   readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
   readonly machine?: boolean | undefined;
-  readonly wsOptions?: Partial<WorkspaceContextOptions> | undefined;
+  readonly wsOptions?: Partial<WorkspaceMutationsOptions> | undefined;
 }) => {
   const cliTestContext = makeCliTestContext(opts);
   const wsOptions = {
     scope: "project",
     ...opts?.wsOptions,
-  } satisfies WorkspaceContextOptions;
+  } satisfies WorkspaceMutationsOptions;
   const projectRoot =
     wsOptions.scope === "project" ? (wsOptions.projectRoot ?? process.cwd()) : undefined;
 

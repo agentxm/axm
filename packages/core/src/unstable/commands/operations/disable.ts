@@ -17,7 +17,7 @@ import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation, JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 
 // -----------------------------------------------------------------------------
@@ -52,11 +52,11 @@ export type DisableCommandOperation = Operation<
  */
 export const disableCommand: OperationHandler<
   DisableCommandOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
 

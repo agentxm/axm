@@ -1,11 +1,11 @@
 /**
- * Shared, non-circular type declarations for the WorkspaceContext capability.
+ * Shared, non-circular type declarations for the WorkspaceReadModel capability.
  *
  * Subject modules under `extensions/` and `agents/` own their payload types;
  * this file holds only subject-agnostic declarations referenced from multiple
  * places (Scope, ExtensionKey, ActivationState, InstallationOrigin, the
  * empty-shape ExtensionStateReader contract, and the public surface contracts
- * for ScopedWorkspaceContext / ScopedStateApi / ScopedSourceHostsApi /
+ * for ScopedWorkspaceReadModel / ScopedStateApi / ScopedSourceHostsApi /
  * ScopedProfileApi / ScopedAgentsApi).
  *
  * Source-backed cell failure channels carry per-source tagged error unions
@@ -23,7 +23,7 @@ import type { LockfileReadError, SettingsReadError } from "./errors.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Workspace scope discriminator. Project state is read from `./.axm`; user
+ * WorkspaceMutations scope discriminator. Project state is read from `./.axm`; user
  * state is read from `~/.axm` (or `$AXM_USER_HOME`).
  */
 export type Scope = "project" | "user";
@@ -105,7 +105,7 @@ export interface ExtensionStateReader<TDeclared, TResolved, TActual> {
 // -----------------------------------------------------------------------------
 //
 // `context.ts` (Phase 9) defines the real `ScopedStateApi`,
-// `ScopedSourceHostsApi`, `ScopedProfileApi`, and `ScopedWorkspaceContext`
+// `ScopedSourceHostsApi`, `ScopedProfileApi`, and `ScopedWorkspaceReadModel`
 // surfaces. They attach payload types from per-subject modules under
 // `extensions/` and per-agent modules under `agents/`, which would create
 // import cycles if defined here. `ScopedAgentsApi` is owned by

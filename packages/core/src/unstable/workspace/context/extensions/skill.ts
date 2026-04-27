@@ -19,7 +19,7 @@
  * The factory `makeSkillExtensionsApi(deps)` returns a `SkillExtensionsApi`
  * with cells whose public types are dependency-closed. Phase 9 composes the
  * factory inputs (`loaders`, `scanners`, `installedPacks`, `ignoredNames`,
- * `diagnostics`) inside `WorkspaceContextLive`.
+ * `diagnostics`) inside `WorkspaceReadModelLive`.
  */
 
 import * as Effect from "effect/Effect";

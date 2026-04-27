@@ -18,7 +18,7 @@ import * as ServiceMap from "effect/Context";
 import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
 import type { ExtensionManager, SubagentExtensionTarget } from "../workspace/service-interface.js";
-import { Workspace } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { CodingAgentRepository } from "../agents/index.js";
 import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
 import {
@@ -50,7 +50,7 @@ export class SubagentManager extends ServiceMap.Service<
 export const SubagentManagerLive = Layer.effect(
   SubagentManager,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
@@ -243,7 +243,7 @@ export const SubagentManagerLive = Layer.effect(
         // --- Resolve configured agents ---
         const configuredAgents = yield* agentRepo
           .getConfiguredAgents()
-          .pipe(Effect.provideService(Workspace, ws));
+          .pipe(Effect.provideService(WorkspaceMutations, ws));
 
         // --- Extract frontmatter fields ---
         const frontmatter = Option.getOrUndefined(parsed.frontmatter);
@@ -307,7 +307,7 @@ export const SubagentManagerLive = Layer.effect(
           // --- Remove rendered files via CodingAgent.removeSubagent() ---
           const configuredAgents = yield* agentRepo
             .getConfiguredAgents()
-            .pipe(Effect.provideService(Workspace, ws));
+            .pipe(Effect.provideService(WorkspaceMutations, ws));
 
           yield* Effect.forEach(
             configuredAgents,

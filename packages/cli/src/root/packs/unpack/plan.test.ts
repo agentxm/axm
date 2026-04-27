@@ -18,7 +18,7 @@ import {
 } from "@agentxm/client-core/unstable/agents";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { exactVersion, extensionName, makeBaseWorkspaceMock } from "../../../test-stubs.js";
@@ -130,7 +130,7 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
 };
 const testLayer = Layer.mergeAll(
   RendererTestLayer,
-  Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
+  Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock("/tmp/axm")),
   Layer.succeed(SourceHostProviders, sourceHostProvidersStub),
   NodeServices.layer,
   Layer.succeed(CodingAgentRepository, defaultAgentRepo),

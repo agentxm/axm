@@ -11,12 +11,15 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { publishExtensionPack, type PublishExtensionPackOperation } from "./publish.js";
 import { handle } from "../../test-helpers.js";
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string, registryRoot: string) => {
   const registrySource = {
     name: "local",
@@ -24,7 +27,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
     location: new URL(`file://${registryRoot}`),
   };
 
-  const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
+  const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
     getConfiguredSources: () => Effect.succeed([registrySource]),
     getConfiguredSourceByName: (name: string) =>
       Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),
@@ -32,7 +35,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
     getConfiguredAgents: () => Effect.succeed([]),
     getConfiguredProfile: () => Effect.succeed(handle("@community")),
   });
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs));
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs));
 };
 
 /** Creates a minimal PublishExtensionPackOperation for testing. */

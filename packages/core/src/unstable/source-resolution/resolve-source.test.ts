@@ -2,7 +2,7 @@
  * Unit tests for resolve-source module.
  *
  * Tests resolving source strings into fully resolved Source values
- * by combining parsed input with matching source configs from Workspace.
+ * by combining parsed input with matching source configs from WorkspaceMutations.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -20,14 +20,14 @@ import { AppError } from "../app-error/index.js";
 import { resolveSource, resolveSlashInputSource } from "./resolve-source.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillsLockMap } from "../lockfile/index.js";
-import { Workspace } from "../workspace/index.js";
+import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers
 // -----------------------------------------------------------------------------
 
-/** Create a mock Workspace layer with given sources and optional locked skills. */
+/** Create a mock WorkspaceMutations layer with given sources and optional locked skills. */
 const makeRegistryCollectionResponse = () =>
   JSON.stringify({
     extensions: [
@@ -87,7 +87,7 @@ const makeWorkspaceLayer = (
   Layer.merge(
     Layer.merge(
       Layer.succeed(
-        Workspace,
+        WorkspaceMutations,
         makeBaseWorkspaceMock("/tmp/axm", {
           getConfiguredSources: () => Effect.succeed(sources),
           getLockedSkills: () => Effect.succeed(skills),

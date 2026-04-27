@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -147,7 +147,7 @@ describe("uninstall.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
+  const makeLayers = (wsOverrides?: Partial<WorkspaceMutationsOptions>) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
     const BaseLayer = handlerTestContext.baseLayer;
     const WsLayer = handlerTestContext.wsLayer;
@@ -535,10 +535,10 @@ describe("uninstall.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Taxonomy: ignored skill excluded from candidates
+  // Workspace record: ignored skill excluded from candidates
   // ---------------------------------------------------------------------------
 
-  describe("taxonomy: ignored skill excluded from candidates", () => {
+  describe("workspace records: ignored skill excluded from candidates", () => {
     it.effect("glob expansion excludes ignored implicit skill names", () => {
       const { provide } = makeLayers();
       // effect-basics: configured (in settings + lockfile)

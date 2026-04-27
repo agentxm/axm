@@ -1,5 +1,5 @@
 /**
- * Compile-time type assertions for the WorkspaceContext per-source error
+ * Compile-time type assertions for the WorkspaceReadModel per-source error
  * families.
  *
  * Pure type-level. Excluded from vitest's runtime suite; included in

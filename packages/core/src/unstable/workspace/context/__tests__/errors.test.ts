@@ -1,5 +1,5 @@
 /**
- * Tests for the per-source tagged error families used by WorkspaceContext
+ * Tests for the per-source tagged error families used by WorkspaceReadModel
  * source-backed cells.
  *
  * Mix of runtime checks (instantiation, tag narrowing) and pure type-level

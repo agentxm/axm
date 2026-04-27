@@ -6,7 +6,7 @@ describe("AppError", () => {
   it("constructs with all fields", () => {
     const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
-      what: "Workspace not initialized",
+      what: "WorkspaceMutations not initialized",
       details: ["Looked for: .axm/settings.json"],
       howToFix: Option.some("Run 'axm setup' to create one."),
       cause: new Error("original"),
@@ -14,7 +14,7 @@ describe("AppError", () => {
 
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
-    expect(error.what).toBe("Workspace not initialized");
+    expect(error.what).toBe("WorkspaceMutations not initialized");
     expect(error.details).toEqual(["Looked for: .axm/settings.json"]);
     expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm setup' to create one.");
     expect(error.cause).toBeInstanceOf(Error);
@@ -49,7 +49,7 @@ describe("makeAppError", () => {
   it("converts convenience args to AppError", () => {
     const error = makeAppError({
       code: "WORKSPACE_NOT_INIT",
-      what: "Workspace not initialized",
+      what: "WorkspaceMutations not initialized",
       details: ["Looked for: .axm/settings.json"],
       howToFix: "Run 'axm setup' to create one.",
       cause: new Error("original"),

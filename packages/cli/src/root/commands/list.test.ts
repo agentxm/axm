@@ -18,7 +18,7 @@ import {
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Layer from "effect/Layer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleListCommands } from "./list.js";
@@ -69,13 +69,13 @@ describe("commands list.handler", () => {
 
   const makeLayers = (opts?: {
     readonly machine?: boolean;
-    readonly wsOverrides?: Partial<WorkspaceContextOptions>;
+    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
     const baseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
-    const wsOptions: WorkspaceContextOptions = {
+    const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
       ...opts?.wsOverrides,
     };

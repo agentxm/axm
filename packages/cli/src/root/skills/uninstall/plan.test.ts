@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillUninstallPlan, type InstalledSkills } from "./plan.js";
@@ -36,7 +36,7 @@ const installedWithPacks = (entries: Record<string, ReadonlyArray<string>>): Ins
 
 const testLayer = Layer.mergeAll(
   NodeServices.layer,
-  Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
+  Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock("/tmp/axm")),
 );
 
 const runBuildPlan = (

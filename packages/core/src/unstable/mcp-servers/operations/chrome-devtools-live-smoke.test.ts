@@ -10,7 +10,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { uninstallMcpServer } from "./uninstall.js";
 import { installMcpServer } from "./install.js";
@@ -115,7 +115,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
         Effect.provide(
           Layer.mergeAll(
             NodeServices.layer,
-            Workspace.layer(wsMock),
+            WorkspaceMutations.layer(wsMock),
             TestRenderer.make().layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
           ),
@@ -134,7 +134,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
         Effect.provide(
           Layer.mergeAll(
             NodeServices.layer,
-            Workspace.layer(wsMock),
+            WorkspaceMutations.layer(wsMock),
             TestRenderer.make().layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
           ),

@@ -297,7 +297,7 @@ export const resolveLintExitCategory = (args: {
  * publish-gate divergence the user should know about (they'll see `error`
  * findings from the registry that don't appear locally).
  *
- * Workspace-only rule weakenings (`workspace/*`) do NOT trigger the banner —
+ * WorkspaceMutations-only rule weakenings (`workspace/*`) do NOT trigger the banner —
  * those never reach publish.
  *
  * Returns the rule ids that trigger the banner, in catalog order, so the

@@ -11,7 +11,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
-  Workspace,
+  WorkspaceMutations,
   resolveConfiguredCommand,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
@@ -55,7 +55,7 @@ type WorkspaceInstallCollectorContext =
   | Scope.Scope
   | FileSystem.FileSystem
   | Path.Path
-  | Workspace
+  | WorkspaceMutations
   | SourceHostProviders
   | InstallSkillCommandWorkflowActions
   | InstallCommandCommandWorkflowActions
@@ -221,7 +221,7 @@ const resolvePackRef = (name: string, source: string) =>
 
 const collectSkillPlans = () =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSkillCommandWorkflowActions;
     const configured = yield* ws.getConfiguredSkills();
     const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
@@ -240,7 +240,7 @@ const collectSkillPlans = () =>
 
 const collectCommandPlans = () =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const actions = yield* InstallCommandCommandWorkflowActions;
     const configured = yield* ws.getConfiguredCommands();
     const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
@@ -259,7 +259,7 @@ const collectCommandPlans = () =>
 
 const collectSubagentPlans = () =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSubagentCommandWorkflowActions;
     const configured = yield* ws.getConfiguredSubagents();
     const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
@@ -278,7 +278,7 @@ const collectSubagentPlans = () =>
 
 const collectMcpServerPlans = () =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     const configured = yield* ws.getConfiguredMcpServers();
     const entries = Object.entries(configured);
@@ -297,7 +297,7 @@ const collectMcpServerPlans = () =>
 
 const collectPackPlans = () =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const actions = yield* InstallPackCommandWorkflowActions;
     const configured = yield* ws.getConfiguredPacks();
     const entries = Object.entries(configured);

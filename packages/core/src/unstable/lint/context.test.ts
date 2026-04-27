@@ -5,7 +5,7 @@
  * accessors" requirement:
  *
  * - Skill / Pack accessors expose only `exists` and `readBytes`.
- * - Workspace accessor exposes only the documented v1 methods.
+ * - WorkspaceMutations accessor exposes only the documented v1 methods.
  * - Every context type carries a `displayRoot`.
  */
 

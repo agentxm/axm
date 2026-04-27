@@ -1,11 +1,11 @@
 /**
- * Scenario-test harness for the WorkspaceContext capability (Phase 10).
+ * Scenario-test harness for the WorkspaceReadModel capability (Phase 10).
  *
  * Each scenario file under `__tests__/scenarios/` consumes this harness:
  *
- * - `runScenario(spec, body)` builds a `WorkspaceContextLive` over the
- *   in-memory fixture FS via `WorkspaceContextTest`, provides it, runs `body`
- *   with the assembled `WorkspaceContext` value, and returns the body result.
+ * - `runScenario(spec, body)` builds a `WorkspaceReadModelLive` over the
+ *   in-memory fixture FS via `WorkspaceReadModelTest`, provides it, runs `body`
+ *   with the assembled `WorkspaceReadModel` value, and returns the body result.
  * - `withResult` is an alias for `Effect.result` so tests can pattern-match
  *   on the `Result` ADT.
  * - `expectFirst(arr)` asserts the array is non-empty and returns its first
@@ -25,23 +25,23 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { WorkspaceContext } from "../../context.js";
-import type { WorkspaceContextTestOptions } from "../../__fixtures__/test-layer.js";
-import { WorkspaceContextTest } from "../../__fixtures__/test-layer.js";
+import { WorkspaceReadModel } from "../../context.js";
+import type { WorkspaceReadModelTestOptions } from "../../__fixtures__/test-layer.js";
+import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
 import type { FixtureSpec, PathEscapeError } from "../../__fixtures__/builder.js";
 import type { Warning } from "../../diagnostics.js";
 import type { WorkspaceRootEscape } from "../../errors.js";
 import type { Scope } from "../../types.js";
 
 /**
- * Resolved value shape behind the `WorkspaceContext` `Context.Service` tag.
+ * Resolved value shape behind the `WorkspaceReadModel` `Context.Service` tag.
  * Body callbacks see this — the `scope(scope)` selector that returns scoped
  * subject namespaces, plus the test-only `__debugCachedEffectCount` counter.
  *
- * Inferred from the `WorkspaceContext` tag so any future field added on the
+ * Inferred from the `WorkspaceReadModel` tag so any future field added on the
  * production tag flows through to test bodies without a parallel declaration.
  */
-export type WorkspaceContextValue = Context.Service.Shape<typeof WorkspaceContext>;
+export type WorkspaceReadModelValue = Context.Service.Shape<typeof WorkspaceReadModel>;
 
 /**
  * Default workspace and user-home roots used by scenario specs. Tests may
@@ -52,9 +52,9 @@ export const SCENARIO_WORKSPACE_ROOT = "/scenario/workspace";
 export const SCENARIO_USER_HOME = "/scenario/home";
 
 /**
- * Build a `WorkspaceContextLive` against the supplied fixture spec, provide it
+ * Build a `WorkspaceReadModelLive` against the supplied fixture spec, provide it
  * to `body`, and run the resulting effect. The body sees the assembled
- * `WorkspaceContext` directly so callers can yield scoped cells.
+ * `WorkspaceReadModel` directly so callers can yield scoped cells.
  *
  * The body's `E` channel is preserved through to the harness's return type
  * so scenario tests can `yield*` source-backed cells (which fail with
@@ -63,13 +63,13 @@ export const SCENARIO_USER_HOME = "/scenario/home";
  */
 export const runScenario = <A, E = never>(
   spec: FixtureSpec,
-  body: (ctx: WorkspaceContextValue) => Effect.Effect<A, E>,
-  options?: WorkspaceContextTestOptions,
+  body: (ctx: WorkspaceReadModelValue) => Effect.Effect<A, E>,
+  options?: WorkspaceReadModelTestOptions,
 ): Effect.Effect<A, E | WorkspaceRootEscape | PathEscapeError> =>
   Effect.gen(function* () {
-    const ctx = yield* WorkspaceContext;
+    const ctx = yield* WorkspaceReadModel;
     return yield* body(ctx);
-  }).pipe(Effect.provide(WorkspaceContextTest(spec, options)));
+  }).pipe(Effect.provide(WorkspaceReadModelTest(spec, options)));
 
 /**
  * Thin alias for `Effect.result` so callers can pattern-match on the genuine
@@ -158,7 +158,7 @@ export const tagsOf = <E>(cause: Cause.Cause<E>): ReadonlySet<string> => {
  * additional assertions.
  */
 export const expectDiagnostics = (
-  ctx: WorkspaceContextValue,
+  ctx: WorkspaceReadModelValue,
   scope: Scope,
   predicate: (warning: Warning) => boolean,
 ): Effect.Effect<ReadonlyArray<Warning>> =>
@@ -174,6 +174,6 @@ export const expectDiagnostics = (
  * scenario wants to verify the absence of a warning class.
  */
 export const readDiagnostics = (
-  ctx: WorkspaceContextValue,
+  ctx: WorkspaceReadModelValue,
   scope: Scope,
 ): Effect.Effect<ReadonlyArray<Warning>> => ctx.scope(scope).diagnostics;

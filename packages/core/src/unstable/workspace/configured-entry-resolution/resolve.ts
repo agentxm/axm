@@ -9,7 +9,7 @@ import { resolveSource, SourceHostProviders } from "../../source-resolution/inde
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
 import type { VersionConstraint } from "../../version-constraints/version-constraints.js";
-import { Workspace } from "../service-interface.js";
+import { WorkspaceMutations } from "../service-interface.js";
 
 export const resolveConfiguredSkill = (name: string, source: string) =>
   Effect.gen(function* () {
@@ -308,7 +308,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       Effect.catch((error) =>
         resolvedSource.type === "registry"
           ? Effect.gen(function* () {
-              const ws = yield* Workspace;
+              const ws = yield* WorkspaceMutations;
               const registryHosts = yield* ws.getRegistrySourceHosts();
               const fallbackSources = registryHosts
                 .filter((host) => host.location.protocol === "file:")

@@ -34,7 +34,7 @@ import {
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
@@ -88,7 +88,7 @@ export class UninstallPackCommandWorkflowActions extends ServiceMap.Service<
 export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
   UninstallPackCommandWorkflowActions,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const packMgr = yield* ExtensionPackManager;
     const skillMgr = yield* SkillManager;

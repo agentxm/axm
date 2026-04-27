@@ -7,19 +7,22 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { copySkill } from "./copy.js";
 import type { CopySkillOperation } from "./copy.js";
 import { extensionName, handle } from "../../test-helpers.js";
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string) => {
-  const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
+  const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
     getConfiguredProfile: () => Effect.succeed(handle("@community")),
     getConfiguredAgents: () => Effect.succeed([]),
   });
-  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs));
+  return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs));
 };
 
 /** Creates a minimal CopySkillOperation for testing. */

@@ -19,7 +19,7 @@ import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 
 // -----------------------------------------------------------------------------
@@ -55,12 +55,12 @@ export type EnableSkillOperation = Operation<"enable-skill", { readonly skillNam
  */
 export const enableSkill: OperationHandler<
   EnableSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     // Check for lock entry to determine path

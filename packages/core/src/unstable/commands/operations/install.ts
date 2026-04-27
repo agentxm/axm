@@ -20,7 +20,7 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
@@ -71,7 +71,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const canonicalPath = path.join(
       ws.baseDir,
@@ -179,7 +179,7 @@ const installFromGitHosted = (ref: GitHostedCommandRef) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const canonicalPath = path.join(
       ws.baseDir,
@@ -208,7 +208,7 @@ const installFromGitHosted = (ref: GitHostedCommandRef) =>
 const installFromLocal = (ref: LocalCommandRef) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     const canonicalPath = path.join(
       ws.baseDir,
@@ -267,10 +267,10 @@ export const installCommand: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | Workspace | CliRenderer | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const { ref } = op.args;
 

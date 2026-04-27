@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { checkInstalledOnDisk } from "./shared-command-helpers.js";
@@ -56,12 +56,12 @@ export const uninstallCommand: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
 

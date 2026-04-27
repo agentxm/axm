@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation, JobStepResult } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
@@ -59,12 +59,12 @@ export type EnableCommandOperation = Operation<"enable-command", { readonly comm
  */
 export const enableCommand: OperationHandler<
   EnableCommandOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
     // Check for lock entry to determine path

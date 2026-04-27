@@ -7,7 +7,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
   formatFqn,
@@ -72,7 +72,7 @@ interface TargetRegistry {
 
 const resolveTargetRegistry = (registry: Option.Option<string>) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -138,7 +138,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   args: PublishPackHandlerArgs,
   targetRegistry: TargetRegistry,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
@@ -148,10 +148,10 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   // Capture services for run closures
   const provideServices = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Workspace>,
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
   ): Effect.Effect<A, E, never> =>
     effect.pipe(
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     );
@@ -378,7 +378,7 @@ const makeDependencyStep = (
   depFqn: string,
   registryName: string,
   provideServices: <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Workspace>,
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
   ) => Effect.Effect<A, E, never>,
   toJobStepResult: (result: {
     readonly result: string;

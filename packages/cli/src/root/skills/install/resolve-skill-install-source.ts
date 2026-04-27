@@ -17,7 +17,7 @@ import {
   resolveSlashInputSource,
   routeUrlInput,
 } from "@agentxm/client-core/unstable/source-resolution";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 export type RegistryLookupProbe = {
   readonly location: string;
@@ -102,7 +102,7 @@ const resolveRegistrySource = (
   },
 ) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -226,7 +226,7 @@ const resolveSkillRegistrySourceByName = (
         }),
     });
 
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     // DefaultProfile: project settings > user settings > logged-in identity > none
     const maybeProfile = yield* ws.getDefaultProfile();

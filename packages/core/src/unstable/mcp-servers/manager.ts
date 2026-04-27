@@ -18,7 +18,7 @@ import { computeIntegrity, isPathSafe } from "../utils/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager, McpServerExtensionTarget } from "../workspace/service-interface.js";
-import { Workspace } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
@@ -82,7 +82,7 @@ const checkInstalledOnDisk = (
 export const McpServerManagerLive = Layer.effect(
   McpServerManager,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const baseDir = ws.baseDir;

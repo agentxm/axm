@@ -4,7 +4,7 @@
  * Exercise the full runner end-to-end against a temp workspace:
  *
  * - Drift banner appears only when a publish-gate rule is weakened.
- * - Workspace-only overrides do not surface the banner.
+ * - WorkspaceMutations-only overrides do not surface the banner.
  * - `--fix` invokes `applyPlan` non-interactively (no prompts, no `--yes`).
  * - Exit-code contract: `--strict` turns warnings into non-zero exit.
  */
@@ -32,7 +32,7 @@ import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import type { WorkspaceContextOptions } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 
 import { InstallCommandCommandWorkflowActionsLive } from "../commands/install/command-actions.js";
@@ -70,7 +70,7 @@ describe("axm lint handler", () => {
       renderer.layer,
       TestFlagsLayer({ nonInteractive: true }),
     );
-    const wsOptions: WorkspaceContextOptions = { scope: "project" };
+    const wsOptions: WorkspaceMutationsOptions = { scope: "project" };
     const wsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), baseLayer);
     const workspaceFoundation = Layer.mergeAll(baseLayer, wsLayer);
     const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, workspaceFoundation);
@@ -190,7 +190,7 @@ describe("axm lint handler", () => {
 
   it.effect("--strict turns a warning-only run into a non-zero exit", () => {
     const { provide } = makeLayers();
-    // Workspace fixture: `.axm/settings.json` exists with unrecognized
+    // WorkspaceMutations fixture: `.axm/settings.json` exists with unrecognized
     // agent -> `workspace/agents-recognized` advisory error. We write
     // `agents: []` and rely on warnings from other rules to trigger
     // `--strict`. Actually to construct a warning scenario reliably, set

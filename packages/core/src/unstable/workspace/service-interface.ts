@@ -1,9 +1,9 @@
 /**
- * Workspace service tag and interface.
+ * WorkspaceMutations mutation service tag and interface.
  *
- * Defines the `Workspace` service tag and `WorkspaceContextService` interface.
- * The implementation lives in the CLI package; core code uses only the tag
- * and interface for dependency tracking.
+ * Defines the `WorkspaceMutations` service tag and `WorkspaceMutationsService`
+ * interface. Use `WorkspaceReadModel` for read-only scoped projections; this
+ * facade owns workspace mutations.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -38,10 +38,6 @@ import type {
   SourceHostConfig,
 } from "../settings/index.js";
 import type {
-  ClassifiedCommand,
-  ClassifiedExtensionRef,
-  ClassifiedSkill,
-  ClassifiedSubagent,
   ConfiguredCommand,
   ConfiguredExtensionRef,
   ConfiguredSkill,
@@ -57,7 +53,7 @@ import type {
   UnmanagedCommand,
   UnmanagedExtensionRef,
   UnmanagedSkill,
-} from "./taxonomy-types.js";
+} from "./workspace-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { LockfileState } from "./augment-plan.js";
 
@@ -222,14 +218,14 @@ export interface SetMcpServerArgs {
 // ---------------------------------------------------------------------------
 
 /**
- * Workspace context service interface.
+ * WorkspaceMutations mutation service interface.
  *
- * The sole public gateway for all settings and lockfile read/write
- * operations.
+ * Gateway for settings, lockfile, and materialized workspace mutations.
+ * Read-only callers should prefer `WorkspaceReadModel` projections.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface WorkspaceContextService {
+export interface WorkspaceMutationsService {
   /** Whether this is a user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly scope: WorkspaceScope;
   /** Path to the .axm directory */
@@ -275,25 +271,6 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledSkill>,
     AppError
   >;
-  /**
-   * All classified skills.
-   *
-   * @deprecated Prefer `WorkspaceContext.scope(scope).skills` projections for reads.
-   */
-  readonly getClassifiedSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ClassifiedSkill>,
-    AppError
-  >;
-  /** Configured skills with non-native packaging. */
-  readonly getConfiguredExternalSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredSkill>,
-    AppError
-  >;
-  /** Unmanaged skills with non-native packaging. */
-  readonly getUnmanagedExternalSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedSkill>,
-    AppError
-  >;
   /** Ignored skill patterns from settings. */
   readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
@@ -331,7 +308,7 @@ export interface WorkspaceContextService {
   ) => Effect.Effect<void, AppError>;
   /** Append an agent ID if not already present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
-  // --- Command taxonomy ---
+  // --- Command workspace records ---
   readonly getConfiguredCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredCommand>,
     AppError
@@ -348,23 +325,8 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledCommand>,
     AppError
   >;
-  /**
-   * @deprecated Prefer `WorkspaceContext.scope(scope).commands` projections for reads.
-   */
-  readonly getClassifiedCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ClassifiedCommand>,
-    AppError
-  >;
-  readonly getConfiguredExternalCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredCommand>,
-    AppError
-  >;
-  readonly getUnmanagedExternalCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedCommand>,
-    AppError
-  >;
   readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
-  // --- MCP Server taxonomy ---
+  // --- MCP Server workspace records ---
   readonly getConfiguredMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
     AppError
@@ -381,23 +343,8 @@ export interface WorkspaceContextService {
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
     AppError
   >;
-  /**
-   * @deprecated Prefer `WorkspaceContext.scope(scope).mcpServers` projections for reads.
-   */
-  readonly getClassifiedMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
-    AppError
-  >;
-  readonly getConfiguredExternalMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedExternalMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    AppError
-  >;
   readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
-  // --- Pack taxonomy ---
+  // --- Pack workspace records ---
   readonly getConfiguredPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
     AppError
@@ -412,21 +359,6 @@ export interface WorkspaceContextService {
   >;
   readonly getInstalledPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    AppError
-  >;
-  /**
-   * @deprecated Prefer `WorkspaceContext.scope(scope).packs` projections for reads.
-   */
-  readonly getClassifiedPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
-    AppError
-  >;
-  readonly getConfiguredExternalPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedExternalPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
     AppError
   >;
   readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
@@ -477,15 +409,6 @@ export interface WorkspaceContextService {
   /** Installed subagents (configured + implicit). */
   readonly getInstalledSubagents: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledSubagent>,
-    AppError
-  >;
-  /**
-   * All classified subagents.
-   *
-   * @deprecated Prefer `WorkspaceContext.scope(scope).subagents` projections for reads.
-   */
-  readonly getClassifiedSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ClassifiedSubagent>,
     AppError
   >;
   /** Read lockfile and return the subagents lock map. */
@@ -555,26 +478,27 @@ export interface WorkspaceContextService {
 // ---------------------------------------------------------------------------
 
 /**
- * Effect service tag for workspace context.
+ * Effect service tag for workspace mutations.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class Workspace extends ServiceMap.Service<Workspace, WorkspaceContextService>()(
-  "axm.sh/Workspace",
-) {
+export class WorkspaceMutations extends ServiceMap.Service<
+  WorkspaceMutations,
+  WorkspaceMutationsService
+>()("axm.sh/WorkspaceMutations") {
   /**
    * Create a layer from a custom service implementation.
    */
-  static readonly layer = (service: WorkspaceContextService): Layer.Layer<Workspace> =>
-    Layer.succeed(Workspace, service);
+  static readonly layer = (service: WorkspaceMutationsService): Layer.Layer<WorkspaceMutations> =>
+    Layer.succeed(WorkspaceMutations, service);
 }
 
 /**
- * Options for creating workspace context.
+ * Options for creating workspace mutations.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface WorkspaceContextOptions {
+export interface WorkspaceMutationsOptions {
   /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly scope: WorkspaceScope;
   /** Explicit project root for project-scope workspaces (defaults to process.cwd()) */
@@ -586,8 +510,8 @@ export interface WorkspaceContextOptions {
 }
 
 /**
- * Error loading workspace context.
+ * Error loading workspace mutations.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type WorkspaceContextError = AppError;
+export type WorkspaceMutationsError = AppError;

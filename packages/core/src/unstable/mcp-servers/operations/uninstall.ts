@@ -18,7 +18,7 @@ import { CodingAgentRepository } from "../../agents/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { Workspace } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 
 // -----------------------------------------------------------------------------
@@ -203,12 +203,12 @@ export const uninstallMcpServer: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | Workspace | CliRenderer | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const base = ws.baseDir;
 

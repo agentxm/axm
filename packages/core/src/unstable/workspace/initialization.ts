@@ -1,5 +1,5 @@
 /**
- * Workspace initialization logic.
+ * WorkspaceMutations initialization logic.
  *
  * Handles initial setup of project and user-scope workspaces: agent detection,
  * interactive agent selection, and settings/lockfile creation.
@@ -27,11 +27,11 @@ import {
   type Settings,
   writeSettings,
 } from "../settings/index.js";
-import type { WorkspaceContextOptions } from "./service-interface.js";
+import type { WorkspaceMutationsOptions } from "./service-interface.js";
 import {
-  WorkspaceContext,
-  WorkspaceContextConfigTag,
-  WorkspaceContextLive,
+  WorkspaceReadModel,
+  WorkspaceReadModelConfig,
+  WorkspaceReadModelLive,
 } from "./context/context.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
 import { type WorkspaceLocation, getAxmDir } from "./paths.js";
@@ -54,12 +54,12 @@ const readSettingsFromContext = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const layer = WorkspaceContextLive.pipe(
+    const layer = WorkspaceReadModelLive.pipe(
       Layer.provide(
         Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fs), Layer.succeed(Path.Path, path)),
       ),
       Layer.provide(
-        Layer.succeed(WorkspaceContextConfigTag, {
+        Layer.succeed(WorkspaceReadModelConfig, {
           projectRoot,
           userHome,
           allowedRoot: "/",
@@ -67,7 +67,7 @@ const readSettingsFromContext = (
       ),
     );
     return yield* Effect.gen(function* () {
-      const context = yield* WorkspaceContext;
+      const context = yield* WorkspaceReadModel;
       return yield* context.scope(scope).state.settings;
     }).pipe(
       Effect.provide(layer),
@@ -85,10 +85,10 @@ const readSettingsFromContext = (
  * Initialize project workspace by detecting and selecting agents.
  *
  * @param localDir - Path to local .axm directory
- * @param options - Workspace context options
+ * @param options - WorkspaceMutations context options
  * @returns Effect yielding selected agent IDs
  */
-export const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
+export const initializeProjectWorkspace = (localDir: string, options: WorkspaceMutationsOptions) =>
   Effect.gen(function* () {
     const nonInteractive = yield* isNonInteractive;
 
@@ -206,12 +206,12 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
  * Reads existing local settings or runs the initialization flow when missing.
  *
  * @param localDir - Path to local .axm directory
- * @param options - Workspace context options
+ * @param options - WorkspaceMutations context options
  * @returns Effect yielding local Settings
  */
 export const ensureProjectWorkspaceInitialized = (
   localDir: string,
-  options: WorkspaceContextOptions,
+  options: WorkspaceMutationsOptions,
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -237,7 +237,7 @@ export const ensureProjectWorkspaceInitialized = (
     return localSettingsResult.settings;
   });
 
-export const bootstrapWorkspace = (options: WorkspaceContextOptions) =>
+export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const workspaceDir = yield* getAxmDir(options.scope, options.projectRoot);

@@ -22,7 +22,7 @@ import {
   type SubagentManifest,
 } from "@agentxm/client-core/unstable/subagents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -71,7 +71,7 @@ const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   args: SubagentsNewHandlerArgs,
 ) {
-  const ws = yield* Workspace;
+  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -277,7 +277,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         message: `Created subagent ${fqn}`,
       } satisfies JobStepResult;
     }).pipe(
-      Effect.provideService(Workspace, ws),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),

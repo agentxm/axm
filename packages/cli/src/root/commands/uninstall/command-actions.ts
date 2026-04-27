@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { Workspace } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
 import type {
@@ -69,7 +69,7 @@ export class UninstallCommandCommandWorkflowActions extends ServiceMap.Service<
 export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
   UninstallCommandCommandWorkflowActions,
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     const commandMgr = yield* CommandManager;
 
     const parseArgs = (

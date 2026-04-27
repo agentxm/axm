@@ -21,7 +21,7 @@ import type { Handle } from "../extensions/handle.js";
 import type { RenderedFilePath } from "../extensions/rendered-files.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
-import type { Workspace } from "../workspace/service-interface.js";
+import type { WorkspaceMutations } from "../workspace/service-interface.js";
 import type { AgentId } from "./types.js";
 
 /**
@@ -236,10 +236,10 @@ export interface CodingAgent {
  * Repository for coding-agent implementations.
  *
  * Generic over `W` — the workspace service requirement. The CLI package
- * instantiates this with its concrete `Workspace` type; core keeps it
+ * instantiates this with its concrete `WorkspaceMutations` type; core keeps it
  * abstract to avoid a circular dependency.
  *
- * @typeParam W - Workspace service requirement for methods that need workspace context
+ * @typeParam W - WorkspaceMutations service requirement for methods that need workspace context
  */
 export interface CodingAgentRepositoryShape<W = never> {
   readonly get: (id: AgentId) => Effect.Effect<CodingAgent, AppError>;
@@ -255,10 +255,10 @@ export interface CodingAgentRepositoryShape<W = never> {
 /**
  * Repository for coding-agent implementations.
  *
- * Instantiates the generic CodingAgentRepositoryShape with the core Workspace
+ * Instantiates the generic CodingAgentRepositoryShape with the core WorkspaceMutations
  * service for methods that need workspace context.
  */
-export type CodingAgentRepositoryService = CodingAgentRepositoryShape<Workspace>;
+export type CodingAgentRepositoryService = CodingAgentRepositoryShape<WorkspaceMutations>;
 
 export class CodingAgentRepository extends ServiceMap.Service<
   CodingAgentRepository,

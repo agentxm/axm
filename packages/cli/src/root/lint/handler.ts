@@ -68,7 +68,7 @@ import {
   resolveConfiguredPack,
   resolveConfiguredSkill,
   type WorkspaceScope,
-  Workspace,
+  WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
 import {
@@ -274,7 +274,7 @@ const unmapped = (operationName: string, reason: string): AdapterOutput => ({
  * `Manager` + retention-policy services through the normal dependency chain.
  */
 type AdapterContext =
-  | Workspace
+  | WorkspaceMutations
   | SourceHostProviders
   | SkillManager
   | ExtensionPackManager
@@ -330,7 +330,7 @@ const adaptIntent = (
         }
         const mgr = yield* ExtensionPackManager;
         const retention = yield* makeRetentionPolicy();
-        const ws = yield* Workspace;
+        const ws = yield* WorkspaceMutations;
         const owner = yield* ws.getConfiguredProfile();
         const step = buildUninstallOperation(mgr, retention, {
           target: { type: "pack", name: op.args.name, owner },
@@ -416,9 +416,13 @@ const adaptIntent = (
  *
  * @internal
  */
-const makeRetentionPolicy = (): Effect.Effect<UninstallRetentionPolicy, never, Workspace> =>
+const makeRetentionPolicy = (): Effect.Effect<
+  UninstallRetentionPolicy,
+  never,
+  WorkspaceMutations
+> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     void ws;
     // Conservative default: treat as not-required. The v1 workspaceRules
     // already carve pack-retained entries out of the orphan arm, so a
@@ -439,7 +443,7 @@ const applyFixes = (args: {
 }): Effect.Effect<
   { readonly summary: FixSummary; readonly executed: ExecutedPlan },
   AppError,
-  | Workspace
+  | WorkspaceMutations
   | SourceHostProviders
   | CodingAgentRepository
   | SkillManager
@@ -682,7 +686,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   // -- Load settings + lockfile + config --
   const config = yield* loadLintConfig(workspaceRoot);
 
-  // -- Build WorkspaceContext-backed rule contexts --
+  // -- Build WorkspaceReadModel-backed rule contexts --
   const userHome = args.scope === "user" ? workspaceRoot : yield* Effect.sync(() => os.homedir());
   const workspaceContext = yield* buildWorkspaceRuleContext({
     platform: { fs, path },

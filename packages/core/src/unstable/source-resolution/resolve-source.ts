@@ -44,7 +44,7 @@ import {
 } from "../extensions/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
-import { Workspace } from "../workspace/index.js";
+import { WorkspaceMutations } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -75,7 +75,7 @@ const firstSuccess = <A, E, R>(
 /** Get configured sources from workspace, mapping errors to AppError. */
 const getConfiguredSources = (input: string) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     return yield* ws.getConfiguredSources().pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -363,9 +363,9 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 export const routeNameInput = (
   name: string,
   input: string,
-): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | Workspace> =>
+): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
 
     // Tier 1: lockfile entry
     const skills = yield* ws.getLockedSkills().pipe(
@@ -414,7 +414,7 @@ export const routeRegistryInput = (
   input: string,
 ) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
+    const ws = yield* WorkspaceMutations;
     // Name filtering is handled in the find phase; this routing step only resolves registry host.
 
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
@@ -478,7 +478,7 @@ export const resolveSlashInputSource = (
     if (Option.isSome(pattern.third)) {
       const type = registryExtensionTypeFromSegment(pattern.second);
       if (Option.isSome(type)) {
-        const ws = yield* Workspace;
+        const ws = yield* WorkspaceMutations;
         const owner = pattern.first.startsWith("@") ? decodeHandleSync(pattern.first) : undefined;
         const extensionName = (() => {
           try {
@@ -568,7 +568,7 @@ export const resolveSlashInputSource = (
  */
 export const resolveSource = (
   input: string,
-): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | Workspace> =>
+): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | WorkspaceMutations> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {

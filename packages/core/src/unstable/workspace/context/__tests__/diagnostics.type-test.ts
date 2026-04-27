@@ -1,5 +1,5 @@
 /**
- * Compile-time type assertions for the WorkspaceContext diagnostics
+ * Compile-time type assertions for the WorkspaceReadModel diagnostics
  * `Warning` discriminator.
  *
  * Pure type-level. Excluded from vitest's runtime suite; included in

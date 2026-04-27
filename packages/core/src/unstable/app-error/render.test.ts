@@ -7,7 +7,7 @@ describe("renderAppError", () => {
   it("formats error with all fields", () => {
     const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
-      what: "Workspace not initialized",
+      what: "WorkspaceMutations not initialized",
       details: ["Looked for: .axm/settings.json"],
       howToFix: Option.some("Run 'axm setup' to create one."),
       cause: undefined,
@@ -17,7 +17,7 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2717 Workspace not initialized (WORKSPACE_NOT_INIT)",
+        "\u2717 WorkspaceMutations not initialized (WORKSPACE_NOT_INIT)",
         "  Looked for: .axm/settings.json",
         "  Run 'axm setup' to create one.",
       ].join("\n"),

@@ -28,6 +28,7 @@ import { applyOperationIntent } from "./workspace-accessor/interpret-ops.js";
 import {
   emptyWorkspaceState,
   makeStateBackedWorkspaceLintAccessor,
+  unusedWorkspaceCtx,
   type WorkspaceState,
 } from "./workspace-accessor/test-state.js";
 
@@ -38,6 +39,7 @@ import {
 const contextFor = (state: WorkspaceState): WorkspaceRuleContext => ({
   subject: { root: "/tmp/ws", scope: "project" },
   workspace: makeStateBackedWorkspaceLintAccessor(state),
+  workspaceCtx: unusedWorkspaceCtx,
   displayRoot: "",
 });
 

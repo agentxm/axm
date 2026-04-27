@@ -35,6 +35,7 @@ import type { WorkspaceRuleContext } from "../context.js";
 import {
   emptyWorkspaceState,
   makeStateBackedWorkspaceLintAccessor,
+  unusedWorkspaceCtx,
   type WorkspaceState,
 } from "./workspace-accessor/test-state.js";
 
@@ -301,6 +302,7 @@ describe("workspace catalog guard — semantic probe", () => {
           const ctx: WorkspaceRuleContext = {
             subject: { root: "/tmp/ws", scope: "project" },
             workspace: makeStateBackedWorkspaceLintAccessor(state),
+            workspaceCtx: unusedWorkspaceCtx,
             displayRoot: "",
           };
           const findings = yield* rule.check(ctx);

@@ -20,6 +20,7 @@ import type {
   WorkspaceLintAccessor,
   WorkspaceRuleContext,
 } from "./context.js";
+import { unusedWorkspaceCtx } from "./catalog/workspace-accessor/test-state.js";
 
 // -----------------------------------------------------------------------------
 // Fake accessor fixtures
@@ -125,14 +126,20 @@ describe("Rule-context types", () => {
     expect(Object.keys(ctx).sort()).toEqual(["displayRoot", "files", "subject"]);
   });
 
-  it("WorkspaceRuleContext carries subject, workspace, displayRoot", () => {
+  it("WorkspaceRuleContext carries subject, workspace, workspaceCtx, displayRoot", () => {
     const ctx: WorkspaceRuleContext = {
       subject: { root: "/tmp/ws", scope: "project" },
       workspace: makeWorkspaceAccessor(),
+      workspaceCtx: unusedWorkspaceCtx,
       displayRoot: "",
     };
 
     expect(ctx.subject.scope).toBe("project");
-    expect(Object.keys(ctx).sort()).toEqual(["displayRoot", "subject", "workspace"]);
+    expect(Object.keys(ctx).sort()).toEqual([
+      "displayRoot",
+      "subject",
+      "workspace",
+      "workspaceCtx",
+    ]);
   });
 });

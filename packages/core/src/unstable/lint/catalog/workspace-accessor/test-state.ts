@@ -19,6 +19,7 @@
  * @packageDocumentation
  */
 
+import type * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type {
@@ -32,6 +33,7 @@ import type {
 } from "../../context.js";
 import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
 import { getAllAgents } from "../../../agents/registry.js";
+import type { WorkspaceContext } from "../../../workspace/context/context.js";
 
 // -----------------------------------------------------------------------------
 // Mutable state model
@@ -147,4 +149,29 @@ const normalizePath = (input: string): string => {
     return "";
   }
   return input.replace(/\\/g, "/").replace(/^\.\//, "");
+};
+
+// -----------------------------------------------------------------------------
+// Unused WorkspaceContext stub
+// -----------------------------------------------------------------------------
+
+/**
+ * Placeholder `WorkspaceContext` value for legacy fixture / determinism tests
+ * that exercise `workspace/*` rules NOT yet migrated to the new
+ * `WorkspaceContext` API. Calling `scope(...)` or yielding
+ * `__debugCachedEffectCount` throws — tests that rely on the new API must
+ * provide a real context (e.g. via `WorkspaceContextTest`) instead.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const unusedWorkspaceCtx: ServiceMap.Service.Shape<typeof WorkspaceContext> = {
+  scope: () => {
+    throw new Error(
+      "WorkspaceContext.scope() called from a test that wires the legacy " +
+        "WorkspaceLintAccessor only. Provide a real WorkspaceContext to use this rule.",
+    );
+  },
+  __debugCachedEffectCount: Effect.sync(() => {
+    throw new Error("WorkspaceContext.__debugCachedEffectCount called from an unused stub");
+  }),
 };

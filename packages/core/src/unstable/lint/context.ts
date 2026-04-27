@@ -18,9 +18,11 @@
  * @packageDocumentation
  */
 
+import type * as ServiceMap from "effect/Context";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AgentDescriptor, AgentId } from "../agents/types.js";
+import type { WorkspaceContext } from "../workspace/context/context.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -305,6 +307,16 @@ export interface PackContent {
 export interface WorkspaceRuleContext {
   readonly subject: WorkspaceSubject;
   readonly workspace: WorkspaceLintAccessor;
+  /**
+   * Workspace context service. Rules migrating off the legacy
+   * `WorkspaceLintAccessor` read scope-keyed state (`state.settings`,
+   * `state.lockfile`, projections, agents) through `workspaceCtx.scope(...)`.
+   * The legacy `workspace` accessor stays alongside this field until every
+   * `workspace/*` rule has been migrated.
+   *
+   * @experimental This API is unstable and may change without notice.
+   */
+  readonly workspaceCtx: ServiceMap.Service.Shape<typeof WorkspaceContext>;
   readonly displayRoot: string;
 }
 

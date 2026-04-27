@@ -29,6 +29,13 @@ import {
   type WorkspaceState,
 } from "./workspace-accessor/test-state.js";
 import type { AgentId } from "../../agents/types.js";
+import { WorkspaceContext } from "../../workspace/context/context.js";
+import {
+  type FileSpec,
+  type FixtureSpec,
+  type ScopeFiles,
+} from "../../workspace/context/__fixtures__/builder.js";
+import { WorkspaceContextTest } from "../../workspace/context/__fixtures__/test-layer.js";
 
 // -----------------------------------------------------------------------------
 // Case shape
@@ -96,11 +103,42 @@ const seedState = (raw: RawCaseState): WorkspaceState => {
   return state;
 };
 
-const contextFor = (state: WorkspaceState, scope: "project" | "user"): WorkspaceRuleContext => ({
-  subject: { root: "/tmp/ws", scope },
-  workspace: makeStateBackedWorkspaceLintAccessor(state),
-  displayRoot: "",
-});
+const FIXTURE_PROJECT_ROOT = "/tmp/ws";
+const FIXTURE_USER_HOME = "/tmp/ws-user";
+
+const fileSpecFor = (raw: unknown): FileSpec | undefined => {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== "object" || raw === null) {
+    throw new Error(`Fixture state expected an object for settings/lockfile; got ${typeof raw}`);
+  }
+  return { _tag: "valid", contents: raw };
+};
+
+const fixtureSpecFor = (state: WorkspaceState, scope: "project" | "user"): FixtureSpec => {
+  const settingsSpec = fileSpecFor(state.settings);
+  const lockfileSpec = fileSpecFor(state.lockfile);
+  const scopeFiles: ScopeFiles = {
+    ...(settingsSpec !== undefined ? { settings: settingsSpec } : {}),
+    ...(lockfileSpec !== undefined ? { lockfile: lockfileSpec } : {}),
+  };
+  return {
+    workspaceRoot: FIXTURE_PROJECT_ROOT,
+    userHome: FIXTURE_USER_HOME,
+    ...(scope === "project" ? { project: scopeFiles } : {}),
+    ...(scope === "user" ? { user: scopeFiles } : {}),
+  };
+};
+
+const buildContext = (state: WorkspaceState, scope: "project" | "user") =>
+  Effect.gen(function* () {
+    const workspaceCtx = yield* WorkspaceContext;
+    return {
+      subject: { root: FIXTURE_PROJECT_ROOT, scope },
+      workspace: makeStateBackedWorkspaceLintAccessor(state),
+      workspaceCtx,
+      displayRoot: "",
+    } satisfies WorkspaceRuleContext;
+  }).pipe(Effect.provide(WorkspaceContextTest(fixtureSpecFor(state, scope))));
 
 const assertFindingsMatch = (
   actual: ReadonlyArray<LintFinding>,
@@ -140,7 +178,7 @@ describe("workspace catalog — fixtures", () => {
     it.effect(`${caseName}: ${fixture.description}`, () =>
       Effect.gen(function* () {
         const state = seedState(fixture.state);
-        const ctx = contextFor(state, fixture.scope);
+        const ctx = yield* buildContext(state, fixture.scope);
 
         const evaluated = yield* evaluateContexts(
           workspaceRules as ReadonlyArray<LintRule<WorkspaceRuleContext>>,
@@ -169,7 +207,7 @@ describe("workspace catalog — fixtures", () => {
             }
           }
         }
-        const ctx2 = contextFor(state, fixture.scope);
+        const ctx2 = yield* buildContext(state, fixture.scope);
         const evaluated2 = yield* evaluateContexts(
           workspaceRules as ReadonlyArray<LintRule<WorkspaceRuleContext>>,
           [ctx2],

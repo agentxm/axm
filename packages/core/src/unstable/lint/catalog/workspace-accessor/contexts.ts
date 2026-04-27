@@ -22,8 +22,15 @@
  */
 
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
+import {
+  WorkspaceContext,
+  WorkspaceContextConfigTag,
+  WorkspaceContextLive,
+} from "../../../workspace/context/context.js";
+import type { WorkspaceRootEscape } from "../../../workspace/context/errors.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import {
   buildSkillRuleContexts,
@@ -67,6 +74,12 @@ export interface WorkspaceIndex extends SkillIndexView, PackIndexView {
 export interface BuildWorkspaceRuleContextArgs {
   readonly platform: WorkspaceAccessorPlatform;
   readonly workspaceRoot: string;
+  /**
+   * User home directory used to construct the user-scope side of
+   * `WorkspaceContext`. Required because `WorkspaceContextLive` builds both
+   * scopes eagerly even when only one is queried by the rule run.
+   */
+  readonly userHome: string;
   readonly index: WorkspaceIndex;
   readonly scope: "project" | "user";
   /**
@@ -79,11 +92,17 @@ export interface BuildWorkspaceRuleContextArgs {
 /**
  * Construct a `WorkspaceRuleContext` scoped to project or user.
  *
+ * Builds the legacy `WorkspaceLintAccessor` and the new `WorkspaceContext`
+ * service alongside each other; both are exposed on the returned context so
+ * rules can be migrated incrementally. `WorkspaceRootEscape` is surfaced in
+ * the error channel by the live layer when `workspaceRoot` or `userHome`
+ * escape the filesystem root.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 export const buildWorkspaceRuleContext = (
   args: BuildWorkspaceRuleContextArgs,
-): WorkspaceRuleContext => {
+): Effect.Effect<WorkspaceRuleContext, WorkspaceRootEscape> => {
   const indexView = toWorkspaceIndexView(args.index);
   const accessor = makePlatformWorkspaceLintAccessor({
     platform: args.platform,
@@ -91,11 +110,28 @@ export const buildWorkspaceRuleContext = (
     index: indexView,
     scope: args.scope,
   });
-  return {
-    subject: { root: args.workspaceRoot, scope: args.scope },
-    workspace: accessor,
-    displayRoot: args.displayRoot ?? "",
-  };
+  const ctxLayer = WorkspaceContextLive.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(FileSystem.FileSystem, args.platform.fs),
+        Layer.succeed(Path.Path, args.platform.path),
+        Layer.succeed(WorkspaceContextConfigTag, {
+          projectRoot: args.workspaceRoot,
+          userHome: args.userHome,
+          allowedRoot: "/",
+        }),
+      ),
+    ),
+  );
+  return Effect.gen(function* () {
+    const workspaceCtx = yield* WorkspaceContext;
+    return {
+      subject: { root: args.workspaceRoot, scope: args.scope },
+      workspace: accessor,
+      workspaceCtx,
+      displayRoot: args.displayRoot ?? "",
+    };
+  }).pipe(Effect.provide(ctxLayer));
 };
 
 // -----------------------------------------------------------------------------

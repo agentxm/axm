@@ -27,6 +27,7 @@ import {
   toLintHumanBlocks,
   toLintJsonDocument,
 } from "./cli.js";
+import { unusedWorkspaceCtx } from "./catalog/workspace-accessor/test-state.js";
 
 const makeEvaluated = <C>(rule: {
   id: string;
@@ -105,6 +106,7 @@ const packCtx: PackRuleContext = {
 const workspaceCtx: WorkspaceRuleContext = {
   subject: { root: "/ws", scope: "project" as const },
   workspace: stubWorkspaceAccessor,
+  workspaceCtx: unusedWorkspaceCtx,
   displayRoot: "",
 };
 

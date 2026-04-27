@@ -798,12 +798,23 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   });
   const skillContexts = buildSkillRuleContexts(index);
   const packContexts = buildPackRuleContexts(index);
-  const workspaceContext = buildWorkspaceRuleContext({
+  const userHome = yield* Effect.sync(() => os.homedir());
+  const workspaceContext = yield* buildWorkspaceRuleContext({
     platform: { fs, path },
     workspaceRoot,
+    userHome,
     index,
     scope: args.scope,
-  });
+  }).pipe(
+    Effect.catchTag("WorkspaceRootEscape", (e) =>
+      Effect.fail(
+        makeAppError({
+          code: "LINT_WORKSPACE_ROOT_ESCAPE",
+          what: `Workspace root '${e.workspaceRoot}' escapes allowed root '${e.allowedRoot}'`,
+        }),
+      ),
+    ),
+  );
 
   // -- Evaluate --
   const evaluations = yield* evaluateAllCatalogs({

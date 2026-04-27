@@ -9,8 +9,8 @@
  *   lives at `packages/core/src/unstable/agents/types.ts`.
  *
  * Cascade: the rule walks `settings.agents[]` and checks each id against
- * the set returned by `workspace.knownAgents`. Unknown ids each emit one
- * finding — the cascade is per-entity, not per-cascade-arm.
+ * the set returned by `workspaceCtx.scope(scope).agents.known`. Unknown ids
+ * each emit one finding — the cascade is per-entity, not per-cascade-arm.
  *
  * Advisory — fixing an unrecognized id is a user-authored settings edit.
  *
@@ -23,7 +23,6 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import { decodeSettings } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/agents-recognized";
@@ -36,27 +35,24 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      if (Result.isFailure(settingsResult)) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-      const decoded = decodeSettings(settingsResult.success);
-      if (Option.isNone(decoded)) {
-        // workspace/settings-schema-valid owns the decode arm.
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-      const declared = decoded.value.agents ?? [];
-      if (declared.length === 0) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-      const known = yield* context.workspace.knownAgents;
-      const knownIds = new Set(known.map((a) => a.id));
+      const scoped = context.workspaceCtx.scope(context.subject.scope);
+
+      // `state.settings` returns the decoded `Settings` already; the
+      // `SettingsReadError` family (io / parse / decode) is owned by
+      // `workspace/initialized` and `workspace/settings-schema-valid`, so
+      // we silently bail on any failure here.
+      const settings = yield* Effect.result(scoped.state.settings);
+      if (Result.isFailure(settings)) return EMPTY_ADVISORY_FINDINGS;
+      if (Option.isNone(settings.success)) return EMPTY_ADVISORY_FINDINGS;
+
+      const declared = settings.success.value.agents ?? [];
+      if (declared.length === 0) return EMPTY_ADVISORY_FINDINGS;
+
+      const knownIds = new Set(yield* scoped.agents.known);
 
       const findings: Array<AdvisoryFinding> = [];
       for (const id of declared) {
-        if (knownIds.has(id)) {
-          continue;
-        }
+        if (knownIds.has(id)) continue;
         findings.push({
           kind: "advisory",
           ruleId: RULE_ID,

@@ -142,6 +142,19 @@ export { setReconciliationAdapters, getReconciliationAdapters } from "./reconcil
 // Scan plan readiness
 export { scanPlanReadiness, type PlanReadinessReport } from "./scan-plan-readiness.js";
 
+// Workspace read model
+export {
+  WorkspaceContext,
+  WorkspaceContextConfigTag,
+  WorkspaceContextLive,
+  type RawSourceBytes,
+  type ScopedProfileApi,
+  type ScopedSourceHostsApi,
+  type ScopedStateApi,
+  type ScopedWorkspaceContext,
+  type WorkspaceContextConfig,
+} from "./context/context.js";
+
 // Augment plan
 export {
   augmentPlanWithReconciliation,

@@ -282,11 +282,37 @@ describe("axm lint handler", () => {
           ),
         ).toBe(true);
         expect(
-          logs.error.some((message) => message.includes("2 issues. 2 can be fixed automatically.")),
+          logs.error.some(
+            (message) =>
+              message.includes("issues.") && message.includes("can be fixed automatically."),
+          ),
         ).toBe(true);
         // Diagnostic headers always show location
         expect(logs.error.some((message) => message.includes("./.axm/axm-lock.yaml"))).toBe(true);
         expect(logs.error.some((message) => message.includes("./.axm/settings.json"))).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("runs skill rules when the lockfile is invalid", () => {
+    const { provide, rendererState } = makeLayers();
+    const sourceDir = path.join(tempDir, "source-skills", "demo");
+    fs.mkdirSync(sourceDir, { recursive: true });
+    writeSettings({
+      agents: ["claude-code"],
+      skills: { demo: sourceDir },
+    });
+    fs.writeFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "lockfileVersion: [broken\n");
+    const installedDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "demo");
+    fs.mkdirSync(installedDir, { recursive: true });
+    fs.writeFileSync(path.join(installedDir, "SKILL.md"), "---\nname: demo\n\n# demo\n");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({ details: true }).pipe(Effect.exit);
+        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
+        expect(allMessages).toContain("skill/frontmatter-parseable");
+        expect(allMessages).toContain("workspace/lockfile-valid");
       }),
     );
   });

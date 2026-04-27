@@ -30,7 +30,6 @@ import {
   type McpServerLockEntry,
 } from "../../../lockfile/schema.js";
 import { type Settings } from "../../../settings/schema.js";
-import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-members-retained";
@@ -153,32 +152,28 @@ export const packsMembersRetainedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
+      if (Option.isNone(settingsResult.success)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
       const lockOption = lockfileResult.success;
       if (Option.isNone(lockOption)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const lockfile = decodeLockfile(lockOption.value);
-      if (Option.isNone(lockfile)) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
 
-      const retainedByPacks = buildPackRetainedFqns(lockfile.value);
+      const retainedByPacks = buildPackRetainedFqns(lockOption.value);
       const findings: Array<AdvisoryFinding> = [];
 
-      for (const member of collectMembers(lockfile.value)) {
+      for (const member of collectMembers(lockOption.value)) {
         if (member.entry.retainedByPack !== true) {
           continue;
         }
-        if (isDirectlyDeclared(member, settings.value)) {
+        if (isDirectlyDeclared(member, settingsResult.success.value)) {
           continue;
         }
         const fqn = entryFqn(member.entry, member.name, typeSegment(member.memberType));

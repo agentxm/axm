@@ -15,10 +15,10 @@
  * - subject-lockfile-entry-alone-does-not-create-implicit-inventory
  * - packs-are-not-installed-as-pack-members
  *
- * The Live layer reads `resolvedSkills`/`resolvedSubagents` keys verbatim
- * from the lockfile pack entry; those keys are FQNs by schema, so pack-member
- * names in implicit rows are FQN strings (e.g., `"@team/skills/review-tool"`).
- * Tests assert the FQN form for pack-member scenarios.
+ * The Live layer reads `resolvedSkills`/`resolvedSubagents` keys from the
+ * lockfile pack entry. Skill pack members normalize FQN keys to simple skill
+ * names for installed rows; subjects that allow FQN declarations keep their
+ * original keys.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -197,8 +197,7 @@ describe("projection: pack-provided skill is implicit installed inventory", () =
             const memberRows = installed.filter((r) => r.installationOrigin._tag === "pack-member");
             expect(memberRows).toHaveLength(1);
             const row = expectFirst(memberRows);
-            // Lockfile pack-member keys are FQN strings.
-            expect(row.key.name).toBe("@team/skills/review-tool");
+            expect(row.key.name).toBe("review-tool");
             expect(row.activation).toBe("enabled");
           }),
       ),
@@ -206,19 +205,7 @@ describe("projection: pack-provided skill is implicit installed inventory", () =
 });
 
 describe("projection: direct skill declaration wins over pack membership", () => {
-  // Live note: settings `skills` keys must satisfy the simple ExtensionName
-  // schema (e.g., `review-tool`); pack `resolvedSkills` keys are FQNs (e.g.,
-  // `@team/skills/review-tool`). The two name shapes never collide in the
-  // current Phase 9 wiring, so the strict "direct wins for the same name"
-  // assertion cannot fire end-to-end with names that satisfy both schemas.
-  //
-  // The shared projection helper enforces direct-over-pack precedence by
-  // name equality (verified in `__tests__/projection.test.ts`); here we
-  // assert the structural properties observable through the live context:
-  // (1) a directly declared skill produces a `direct` installed row;
-  // (2) the same fixture's pack-member skill produces a `pack-member` row
-  //     under its FQN name; both rows coexist because their names differ.
-  it.effect("direct row + pack-member row coexist with their respective installation origins", () =>
+  it.effect("direct row wins when a pack-member FQN normalizes to the same skill name", () =>
     runScenario(
       projectSpec({
         settings: {
@@ -232,19 +219,18 @@ describe("projection: direct skill declaration wins over pack membership", () =>
           _tag: "valid",
           contents: lockfileWithPack({
             packName: "team-pack",
-            resolvedSkills: { "@team/skills/other-tool": "1.0.0" },
+            resolvedSkills: { "@team/skills/review-tool": "1.0.0" },
           }),
         },
       }),
       (ctx) =>
         Effect.gen(function* () {
           const installed = yield* ctx.scope("project").skills.installed;
-          const direct = installed.find((r) => r.key.name === "review-tool");
-          const member = installed.find((r) => r.key.name === "@team/skills/other-tool");
-          expect(direct).toBeDefined();
-          expect(direct?.installationOrigin._tag).toBe("direct");
-          expect(member).toBeDefined();
-          expect(member?.installationOrigin._tag).toBe("pack-member");
+          const rows = installed.filter((r) => r.key.name === "review-tool");
+          const row = expectFirst(rows);
+          expect(rows).toHaveLength(1);
+          expect(row.installationOrigin._tag).toBe("direct");
+          expect(row.providingPacks).toHaveLength(1);
         }),
     ),
   );

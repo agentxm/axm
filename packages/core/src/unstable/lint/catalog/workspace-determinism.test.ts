@@ -24,40 +24,57 @@ import { lockfileValidRule } from "./workspace/lockfile-valid.js";
 import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct.js";
 import { skillsIntegrityValidRule } from "./workspace/skills-integrity-valid.js";
 import { skillsLockfileAlignedRule } from "./workspace/skills-lockfile-aligned.js";
-import { applyOperationIntent } from "./workspace-accessor/interpret-ops.js";
 import {
+  applyOperationIntent,
   emptyWorkspaceState,
-  makeStateBackedWorkspaceLintAccessor,
-  unusedWorkspaceCtx,
   type WorkspaceState,
-} from "./workspace-accessor/test-state.js";
+} from "./workspace-fixtures/interpret-ops.js";
+import { WorkspaceContext } from "../../workspace/context/context.js";
+import { WorkspaceContextTest } from "../../workspace/context/__fixtures__/test-layer.js";
+import { scopeFilesFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
 
 // -----------------------------------------------------------------------------
 // Harness core
 // -----------------------------------------------------------------------------
 
-const contextFor = (state: WorkspaceState): WorkspaceRuleContext => ({
-  subject: { root: "/tmp/ws", scope: "project" },
-  workspace: makeStateBackedWorkspaceLintAccessor(state),
-  workspaceCtx: unusedWorkspaceCtx,
-  displayRoot: "",
-});
-
-const runCheck = <C extends WorkspaceRuleContext>(
-  rule: AutofixingRule<C>,
-  state: WorkspaceState,
-): Effect.Effect<ReadonlyArray<LintFinding>> => {
-  const ctx = contextFor(state) as C;
-  return rule.check(ctx);
+const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> => {
+  const project = scopeFilesFromWorkspaceState(state);
+  return Effect.gen(function* () {
+    const workspace = yield* WorkspaceContext;
+    return {
+      subject: { root: "/tmp/ws", scope: "project" },
+      workspace,
+      axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
+      displayRoot: "",
+    } satisfies WorkspaceRuleContext;
+  }).pipe(
+    Effect.provide(
+      WorkspaceContextTest({
+        workspaceRoot: "/tmp/ws",
+        userHome: "/tmp/user",
+        project,
+      }),
+    ),
+    Effect.orDie,
+  );
 };
 
-const applyFixes = <C extends WorkspaceRuleContext>(
-  rule: AutofixingRule<C>,
+const runCheck = (
+  rule: AutofixingRule<WorkspaceRuleContext>,
+  state: WorkspaceState,
+): Effect.Effect<ReadonlyArray<LintFinding>> =>
+  Effect.gen(function* () {
+    const ctx = yield* contextFor(state);
+    return yield* rule.check(ctx);
+  });
+
+const applyFixes = (
+  rule: AutofixingRule<WorkspaceRuleContext>,
   state: WorkspaceState,
   findings: ReadonlyArray<LintFinding>,
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
-    const ctx = contextFor(state) as C;
+    const ctx = yield* contextFor(state);
     for (const finding of findings) {
       if (finding.kind !== "autofixable") {
         continue;
@@ -69,8 +86,8 @@ const applyFixes = <C extends WorkspaceRuleContext>(
     }
   });
 
-const determinism = <C extends WorkspaceRuleContext>(
-  rule: AutofixingRule<C>,
+const determinism = (
+  rule: AutofixingRule<WorkspaceRuleContext>,
   seed: WorkspaceState,
 ): Effect.Effect<{
   readonly preFindings: ReadonlyArray<LintFinding>;

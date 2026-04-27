@@ -18,7 +18,6 @@ import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { type Lockfile, type ExtensionPackLockEntry } from "../../../lockfile/schema.js";
-import { decodeLockfile } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-dependencies-resolved";
@@ -120,7 +119,8 @@ export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> =
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(lockfileResult)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
@@ -128,15 +128,11 @@ export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> =
       if (Option.isNone(lockOption)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const decoded = decodeLockfile(lockOption.value);
-      if (Option.isNone(decoded)) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-      const packLock = decoded.value.packs ?? {};
+      const packLock = lockOption.value.packs ?? {};
       if (Object.keys(packLock).length === 0) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const installed = buildInstalledFqnIndex(decoded.value);
+      const installed = buildInstalledFqnIndex(lockOption.value);
       const findings: Array<AdvisoryFinding> = [];
       for (const [packName, packEntry] of Object.entries(packLock)) {
         for (const { fqn, typeSegment } of collectResolved(packEntry)) {

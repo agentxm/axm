@@ -23,11 +23,28 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import { decodeSettings } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
+import { AGENTS } from "../../../agents/registry.js";
+import { isUniversalSkillsRelativeDir } from "../../../extensions/universal-skills-dir.js";
+import type { DetectedAgent } from "../../../workspace/context/agents/types.js";
 
 const RULE_ID = "workspace/agents-detected-declared";
 const SETTINGS_REL = ".axm/settings.json";
+
+const isUniversalDirOnlyDetection = (detection: DetectedAgent): boolean => {
+  const descriptor = AGENTS[detection.agentId];
+  if (!isUniversalSkillsRelativeDir(descriptor.skills.dir)) {
+    return false;
+  }
+  return Option.match(detection.actual, {
+    onNone: () => false,
+    onSome: (actual) =>
+      actual.agentSettingsOccurrences.length === 0 &&
+      actual.mcpConfigOccurrences.length === 0 &&
+      actual.agentDirOccurrences.length > 0 &&
+      actual.agentDirOccurrences.every((occurrence) => occurrence.type === "skill"),
+  });
+};
 
 export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -41,20 +58,22 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
         return EMPTY_ADVISORY_FINDINGS;
       }
 
-      const settingsResult = yield* Effect.result(context.workspace.settings);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const decoded = decodeSettings(settingsResult.success);
-      if (Option.isNone(decoded)) {
+      if (Option.isNone(settingsResult.success)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const declared = new Set(decoded.value.agents ?? []);
 
-      const detected = yield* context.workspace.detectAgents("project");
+      const detected = yield* scoped.agents.detected;
       const findings: Array<AdvisoryFinding> = [];
       for (const detection of detected) {
-        if (declared.has(detection.id)) {
+        if (detection.status !== "unmanaged-present") {
+          continue;
+        }
+        if (isUniversalDirOnlyDetection(detection)) {
           continue;
         }
         findings.push({
@@ -62,8 +81,8 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "warning",
           message:
-            `Agent '${detection.id}' is present on disk but missing from \`settings.agents[]\`. ` +
-            `To manage it, add '${detection.id}' under \`agents\` in \`.axm/settings.json\`. ` +
+            `Agent '${detection.agentId}' is present on disk but missing from \`settings.agents[]\`. ` +
+            `To manage it, add '${detection.agentId}' under \`agents\` in \`.axm/settings.json\`. ` +
             'If it is intentionally unmanaged, set `lint.rules["workspace/agents-detected-declared"]` to `off` in `.axm/settings.json`.',
           location: { file: SETTINGS_REL },
         });

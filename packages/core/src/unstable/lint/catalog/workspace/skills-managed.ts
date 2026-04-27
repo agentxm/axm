@@ -15,13 +15,16 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import type { AgentDescriptor } from "../../../agents/types.js";
-import { classifyExtensions } from "../../../workspace/classifier.js";
-import { deriveSourceMetaForSkills } from "../../../workspace/source-metadata.js";
-import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
+import { buildRetainedSkillFqns } from "./helpers/retained-skills.js";
 
 const RULE_ID = "workspace/skills-managed";
-const EMPTY_ADVISORY_FINDINGS: ReadonlyArray<AdvisoryFinding> = [];
+const relativeToRoot = (root: string, location: string): string => {
+  const prefix = root.endsWith("/") ? root : `${root}/`;
+  return location.startsWith(prefix) ? location.slice(prefix.length) : location;
+};
+
+const retainedFqnFor = (name: string): string | undefined =>
+  name.startsWith("@") ? name : undefined;
 
 const unmanagedFinding = (name: string, location: string): AdvisoryFinding => ({
   kind: "advisory",
@@ -43,88 +46,40 @@ export const skillsManagedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      if (Result.isFailure(settingsResult)) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-
-      const declaredAgentIds = new Set(settings.value.agents ?? []);
-      if (declaredAgentIds.size === 0) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-
-      const knownAgents = yield* context.workspace.knownAgents;
-      const declaredAgents: ReadonlyArray<AgentDescriptor> = knownAgents.filter((agent) =>
-        declaredAgentIds.has(agent.id),
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
+      const retainedFqns =
+        Result.isSuccess(settingsResult) &&
+        Result.isSuccess(lockfileResult) &&
+        Option.isSome(settingsResult.success) &&
+        Option.isSome(lockfileResult.success)
+          ? buildRetainedSkillFqns(settingsResult.success.value, lockfileResult.success.value)
+          : new Set<string>();
+      const retainedNames = new Set(
+        Array.from(retainedFqns).map((fqn) => fqn.split("/").at(-1) ?? fqn),
       );
-
-      const locationsByName = new Map<string, Array<string>>();
-      for (const agent of declaredAgents) {
-        const listResult = yield* Effect.result(context.workspace.list(agent.skills.dir));
-        if (Result.isFailure(listResult)) {
+      const unmanaged = yield* scoped.skills.unmanaged;
+      const seen = new Set<string>();
+      const findings: Array<AdvisoryFinding> = [];
+      for (const entry of unmanaged) {
+        const retainedFqn = retainedFqnFor(entry.key.name);
+        if (
+          retainedNames.has(entry.key.name) ||
+          (retainedFqn !== undefined && retainedFqns.has(retainedFqn))
+        ) {
           continue;
         }
-        for (const artifact of listResult.success) {
-          const location = `${agent.skills.dir}/${artifact}`;
-          const existing = locationsByName.get(artifact);
-          if (existing === undefined) {
-            locationsByName.set(artifact, [location]);
-            continue;
-          }
-          if (!existing.includes(location)) {
-            existing.push(location);
-          }
-        }
-      }
-
-      const detectedEntries = [...locationsByName.entries()].map(([name, locations]) => ({
-        name,
-        locations,
-      }));
-      if (detectedEntries.length === 0) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
-      const lockSkills: Readonly<Record<string, { type: string }>> = Result.isSuccess(
-        lockfileResult,
-      )
-        ? Option.match(lockfileResult.success, {
-            onNone: () => ({}),
-            onSome: (raw) =>
-              Option.match(decodeLockfile(raw), {
-                onNone: () => ({}),
-                onSome: (lock) => lock.skills,
-              }),
-          })
-        : {};
-
-      const classifiedResult = yield* Effect.result(
-        classifyExtensions({
-          type: "skill",
-          configured: settings.value.skills ?? {},
-          lockedNames: Object.keys(lockSkills),
-          detectedEntries,
-          ignoredPatterns: settings.value.ignored?.skills ?? [],
-          sourceMetaByName: deriveSourceMetaForSkills(
-            settings.value,
-            lockSkills,
-            detectedEntries.map((entry) => entry.name),
+        const identity = `${entry.key.name}\0${entry.actual.contentRoot}`;
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        findings.push(
+          unmanagedFinding(
+            entry.key.name,
+            relativeToRoot(context.subject.root, entry.actual.contentRoot),
           ),
-        }),
-      );
-      if (Result.isFailure(classifiedResult)) {
-        return EMPTY_ADVISORY_FINDINGS;
+        );
       }
-
-      return classifiedResult.success.flatMap((entry) =>
-        entry.lifecycle === "unmanaged"
-          ? entry.locations.map((location) => unmanagedFinding(entry.name, location))
-          : [],
-      );
+      return findings;
     }),
 };

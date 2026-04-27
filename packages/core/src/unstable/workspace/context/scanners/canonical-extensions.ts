@@ -114,6 +114,7 @@ const buildOccurrence = (
     readonly extensionType: ExtensionType;
     readonly origin: "canonical-axm" | "external-axm";
     readonly nameDir: string;
+    readonly name?: string;
     readonly owner: string | null;
   },
 ): Effect.Effect<CanonicalExtensionOccurrence> =>
@@ -132,7 +133,7 @@ const buildOccurrence = (
       scope,
       type: args.extensionType,
       origin: args.origin,
-      name: path.basename(args.nameDir),
+      name: args.name ?? path.basename(args.nameDir),
       owner: args.owner,
       contentLocation: args.nameDir,
       pathSegments: splitAbsolutePathSegments(path, args.nameDir),
@@ -168,11 +169,17 @@ const scanCanonicalForOwner = (
             return empty;
           }
           const extensionType: ExtensionType = toExtensionType(typePlural);
-          const srcDir = path.join(typeDirAbsolute, "src");
-          const nameCandidates = yield* childEntries(SCANNER_NAME, fs, diagnostics, path, srcDir);
-          const nameDirs = yield* filterDirectories(fs, nameCandidates);
-          return yield* Effect.forEach(
-            nameDirs,
+          const directSrcDir = path.join(typeDirAbsolute, "src");
+          const directNameCandidates = yield* childEntries(
+            SCANNER_NAME,
+            fs,
+            diagnostics,
+            path,
+            directSrcDir,
+          );
+          const directNameDirs = yield* filterDirectories(fs, directNameCandidates);
+          const directOccurrences = yield* Effect.forEach(
+            directNameDirs,
             (nameDir) =>
               buildOccurrence(deps, {
                 extensionType,
@@ -182,6 +189,44 @@ const scanCanonicalForOwner = (
               }),
             { concurrency: "unbounded" },
           );
+
+          const packageChildCandidates = yield* childEntries(
+            SCANNER_NAME,
+            fs,
+            diagnostics,
+            path,
+            typeDirAbsolute,
+          );
+          const packageDirs = yield* filterDirectories(fs, packageChildCandidates);
+          const packageCandidates = packageDirs.filter(
+            (candidate) => path.basename(candidate) !== "src",
+          );
+          const packageOccurrences = yield* Effect.forEach(
+            packageCandidates,
+            (packageDir) =>
+              Effect.gen(function* () {
+                const nameDir =
+                  extensionType === "pack" ? packageDir : path.join(packageDir, "src");
+                const nameDirExists = yield* fs.readDirectory(nameDir).pipe(
+                  Effect.as(true),
+                  Effect.catch(() => Effect.succeed(false)),
+                );
+                if (!nameDirExists) {
+                  const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
+                  return empty;
+                }
+                const occurrence = yield* buildOccurrence(deps, {
+                  extensionType,
+                  origin: "canonical-axm",
+                  nameDir,
+                  name: path.basename(packageDir),
+                  owner: ownerName,
+                });
+                return [occurrence];
+              }),
+            { concurrency: "unbounded" },
+          );
+          return [...directOccurrences, ...packageOccurrences.flat()];
         }),
       { concurrency: "unbounded" },
     );

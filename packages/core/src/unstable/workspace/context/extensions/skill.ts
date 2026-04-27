@@ -270,6 +270,8 @@ export interface SkillExtensionsApi {
 
 const SUBJECT_KEY = "skill";
 
+const simpleName = (name: string): string => name.split("/").at(-1) ?? name;
+
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
   message: `skill: lockfile entry "${name}" has no matching declared or pack-member home`,
@@ -291,10 +293,10 @@ const skillPolicy = (
   declaredName: (entry) => entry.name,
   declaredActivation: (entry) => (entry.entry.enabled ? "enabled" : "disabled"),
   resolvedEntries: (resolved) => resolved,
-  resolvedName: (entry) => entry.name,
+  resolvedName: (entry) => simpleName(entry.name),
   actualEntries: (actual) => actual,
   actualName: (entry) => entry.key.name,
-  packMemberName: (member) => member.name,
+  packMemberName: (member) => simpleName(member.name),
   isIgnoredName: (name, ignored) => ignored.has(name),
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),

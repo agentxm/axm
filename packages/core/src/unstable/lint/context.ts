@@ -18,10 +18,8 @@
  * @packageDocumentation
  */
 
-import type * as ServiceMap from "effect/Context";
 import type * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
-import type { AgentDescriptor, AgentId } from "../agents/types.js";
+import type * as ServiceMap from "effect/Context";
 import type { WorkspaceContext } from "../workspace/context/context.js";
 
 // -----------------------------------------------------------------------------
@@ -82,97 +80,6 @@ export interface SkillFileAccessor {
 export interface PackFileAccessor {
   readonly exists: (path: string) => Effect.Effect<boolean>;
   readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-// -----------------------------------------------------------------------------
-// WorkspaceLintAccessor — narrow workspace query surface
-// -----------------------------------------------------------------------------
-
-/**
- * Raw workspace `settings.json` document as returned by the accessor.
- *
- * The accessor parses JSON but does NOT decode via `SettingsSchema` — the
- * decode arm is the job of `workspace/settings-schema-valid`. Rules that
- * need a typed shape call `Schema.decodeUnknown(SettingsSchema)` locally;
- * those decodes produce no findings because `workspace/settings-schema-valid`
- * already emits them.
- *
- * A `SettingsReadError` on the accessor's `settings` Effect means the bytes
- * were unreadable or failed JSON.parse. Absence of the file surfaces via
- * `exists(".axm/settings.json") -> false` and is owned by
- * `workspace/initialized`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SettingsDocument = unknown;
-
-/**
- * Raw workspace `axm-lock.yaml` document as returned by the accessor.
- *
- * The accessor parses YAML but does NOT decode via `LockfileSchema` — the
- * decode arm is the job of `workspace/lockfile-valid`. Rules that need a
- * typed shape call `Schema.decodeUnknown(LockfileSchema)` locally; those
- * decodes produce no findings because `workspace/lockfile-valid` already
- * emits them.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type LockfileDocument = unknown;
-
-/**
- * Tagged error surfaced by workspace-level reads.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface SettingsReadError {
-  readonly _tag: "SettingsReadError";
-  readonly message: string;
-}
-
-/**
- * Tagged error surfaced by workspace lockfile reads.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface LockfileReadError {
-  readonly _tag: "LockfileReadError";
-  readonly message: string;
-}
-
-/**
- * A detected-but-not-declared coding agent surfaced by
- * `WorkspaceLintAccessor.detectAgents`. Phase 3c refines this if the detector
- * lands additional probe metadata.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface AgentDetection {
-  readonly id: AgentId;
-  /** Path (posix, accessor-relative) that led to the detection. */
-  readonly markerPath: string;
-}
-
-/**
- * Narrow workspace-rooted accessor.
- *
- * Exposes only the methods the v1 workspace catalog consumes; see `lint-engine`
- * spec "Workspace accessor exposes only v1 methods." Extending this interface
- * requires a concrete rule that needs the added method.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface WorkspaceLintAccessor {
-  readonly settings: Effect.Effect<SettingsDocument, SettingsReadError>;
-  readonly lockfile: Effect.Effect<Option.Option<LockfileDocument>, LockfileReadError>;
-  readonly installedSkills: Effect.Effect<ReadonlyArray<SkillRuleContext>>;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<PackRuleContext>>;
-  readonly knownAgents: Effect.Effect<ReadonlyArray<AgentDescriptor>>;
-  readonly detectAgents: (
-    scope: "project" | "user",
-  ) => Effect.Effect<ReadonlyArray<AgentDetection>>;
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly isWritable: (path: string) => Effect.Effect<boolean>;
-  readonly list: (path: string) => Effect.Effect<ReadonlyArray<string>, FileAccessError>;
 }
 
 // -----------------------------------------------------------------------------
@@ -306,17 +213,8 @@ export interface PackContent {
  */
 export interface WorkspaceRuleContext {
   readonly subject: WorkspaceSubject;
-  readonly workspace: WorkspaceLintAccessor;
-  /**
-   * Workspace context service. Rules migrating off the legacy
-   * `WorkspaceLintAccessor` read scope-keyed state (`state.settings`,
-   * `state.lockfile`, projections, agents) through `workspaceCtx.scope(...)`.
-   * The legacy `workspace` accessor stays alongside this field until every
-   * `workspace/*` rule has been migrated.
-   *
-   * @experimental This API is unstable and may change without notice.
-   */
-  readonly workspaceCtx: ServiceMap.Service.Shape<typeof WorkspaceContext>;
+  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceContext>;
+  readonly axmDirExists: Effect.Effect<boolean>;
   readonly displayRoot: string;
 }
 

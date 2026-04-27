@@ -39,11 +39,9 @@ import { ExtensionPackManager } from "@agentxm/client-core/unstable/packs";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import {
-  buildExternalInstalledSkillInfo,
-  buildInstalledPackInfo,
-  buildNativeInstalledSkillInfo,
   buildPackRuleContexts,
   buildSkillRuleContexts,
+  buildWorkspaceIndexFromContext,
   buildWorkspaceRuleContext,
   collectAutofixableEntries,
   evaluateAllCatalogs,
@@ -52,12 +50,9 @@ import {
   toLintHumanBlocks,
   toLintJsonDocument,
   type FixSummary,
-  type InstalledPackInfo,
-  type InstalledSkillInfo,
   type LintHumanDiagnostic,
   type LintJsonDocument,
   type LintSummary,
-  type WorkspaceIndex,
 } from "@agentxm/client-core/unstable/lint";
 import type { LintConfig } from "@agentxm/client-core/unstable/lint";
 import {
@@ -82,9 +77,7 @@ import {
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
-import { LockfileSchema, type Lockfile } from "@agentxm/client-core/unstable/lockfile";
 import * as os from "node:os";
-import YAML from "yaml";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -161,19 +154,11 @@ const resolveLintRootEffect = (args: {
   });
 
 // -----------------------------------------------------------------------------
-// Settings / lockfile loading
+// Settings loading
 // -----------------------------------------------------------------------------
 
 const decodeSettings = (input: unknown): Option.Option<Settings> => {
   const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-const decodeLockfile = (input: unknown): Option.Option<Lockfile> => {
-  const result = Schema.decodeUnknownResult(LockfileSchema)(input, {
     onExcessProperty: "ignore",
     errors: "all",
   });
@@ -221,98 +206,6 @@ const loadLintConfig = (
       onSome: (s) => s.lint ?? {},
     });
   });
-
-const loadLockfile = (
-  workspaceRoot: string,
-): Effect.Effect<Option.Option<Lockfile>, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const lockfilePath = path.join(workspaceRoot, ".axm", "axm-lock.yaml");
-    const exists = yield* fs.exists(lockfilePath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
-      return Option.none<Lockfile>();
-    }
-    const raw = yield* fs.readFileString(lockfilePath).pipe(Effect.catch(() => Effect.succeed("")));
-    if (raw.length === 0) {
-      return Option.none<Lockfile>();
-    }
-    const parsed = Effect.try({
-      try: (): unknown => YAML.parse(raw),
-      catch: () => makeAppError({ code: "LINT_LOCKFILE_PARSE_FAILED", what: "" }),
-    });
-    const parsedOpt = yield* parsed.pipe(
-      Effect.map(Option.some),
-      Effect.catch(() => Effect.succeed(Option.none<unknown>())),
-    );
-    if (Option.isNone(parsedOpt)) {
-      return Option.none<Lockfile>();
-    }
-    return decodeLockfile(parsedOpt.value);
-  });
-
-// -----------------------------------------------------------------------------
-// WorkspaceIndex construction
-// -----------------------------------------------------------------------------
-
-/**
- * Build a `WorkspaceIndex` from the lockfile.
- *
- * For v1 we derive `InstalledSkillInfo` and `InstalledPackInfo` purely from
- * the lockfile: registry-origin skills become native, everything else
- * external. The accessor itself walks disk, so rules that depend on bytes
- * (not pre-decoded `skillJson` / `packJson`) work regardless.
- *
- * @internal
- */
-const buildIndexFromLockfile = (args: {
-  readonly platform: { readonly fs: FileSystem.FileSystem; readonly path: Path.Path };
-  readonly workspaceRoot: string;
-  readonly lockfile: Option.Option<Lockfile>;
-}): WorkspaceIndex => {
-  const installedSkills: Array<InstalledSkillInfo> = [];
-  const installedPacks: Array<InstalledPackInfo> = [];
-  if (Option.isNone(args.lockfile)) {
-    return { installedSkills, installedPacks };
-  }
-  const lock = args.lockfile.value;
-  for (const [name, entry] of Object.entries(lock.skills ?? {})) {
-    if (entry.type === "registry") {
-      installedSkills.push(
-        buildNativeInstalledSkillInfo({
-          platform: args.platform,
-          workspaceRoot: args.workspaceRoot,
-          owner: entry.owner,
-          name,
-          // skill.json isn't preloaded here — rules that need it read bytes.
-          skillJson: undefined,
-        }),
-      );
-    } else {
-      installedSkills.push(
-        buildExternalInstalledSkillInfo({
-          platform: args.platform,
-          workspaceRoot: args.workspaceRoot,
-          name,
-        }),
-      );
-    }
-  }
-  for (const [name, entry] of Object.entries(lock.packs ?? {})) {
-    if (entry.type === "registry") {
-      installedPacks.push(
-        buildInstalledPackInfo({
-          platform: args.platform,
-          workspaceRoot: args.workspaceRoot,
-          owner: entry.owner,
-          name,
-          packJson: undefined,
-        }),
-      );
-    }
-  }
-  return { installedSkills, installedPacks };
-};
 
 // -----------------------------------------------------------------------------
 // Lint-intent → canonical `PlannedJobStep` adapter
@@ -788,22 +681,13 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
 
   // -- Load settings + lockfile + config --
   const config = yield* loadLintConfig(workspaceRoot);
-  const lockfile = yield* loadLockfile(workspaceRoot);
 
-  // -- Build WorkspaceIndex + rule contexts --
-  const index = buildIndexFromLockfile({
-    platform: { fs, path },
-    workspaceRoot,
-    lockfile,
-  });
-  const skillContexts = buildSkillRuleContexts(index);
-  const packContexts = buildPackRuleContexts(index);
+  // -- Build WorkspaceContext-backed rule contexts --
   const userHome = yield* Effect.sync(() => os.homedir());
   const workspaceContext = yield* buildWorkspaceRuleContext({
     platform: { fs, path },
     workspaceRoot,
     userHome,
-    index,
     scope: args.scope,
   }).pipe(
     Effect.catchTag("WorkspaceRootEscape", (e) =>
@@ -815,6 +699,14 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       ),
     ),
   );
+  const index = yield* buildWorkspaceIndexFromContext({
+    platform: { fs, path },
+    workspaceRoot,
+    workspace: workspaceContext.workspace,
+    scope: args.scope,
+  });
+  const skillContexts = buildSkillRuleContexts(index);
+  const packContexts = buildPackRuleContexts(index);
 
   // -- Evaluate --
   const evaluations = yield* evaluateAllCatalogs({

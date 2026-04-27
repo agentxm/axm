@@ -32,7 +32,6 @@ import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule
 import type { Operation } from "../../../plan/plan.js";
 import { type Lockfile } from "../../../lockfile/schema.js";
 import { type Settings } from "../../../settings/schema.js";
-import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
 import { installSkillOp, uninstallSkillOp } from "./helpers/install-ops.js";
 import { parseRegistrySource } from "./helpers/registry-source.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
@@ -155,13 +154,13 @@ export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
         return EMPTY_LINT_FINDINGS;
       }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
+      if (Option.isNone(settingsResult.success)) {
         return EMPTY_LINT_FINDINGS;
       }
       const lockOption = lockfileResult.success;
@@ -169,38 +168,28 @@ export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
         // workspace/lockfile-valid owns the missing arm.
         return EMPTY_LINT_FINDINGS;
       }
-      const lockfile = decodeLockfile(lockOption.value);
-      if (Option.isNone(lockfile)) {
-        // workspace/lockfile-valid owns the schema arm.
-        return EMPTY_LINT_FINDINGS;
-      }
-
-      const violations = collectAlignmentViolations(settings.value, lockfile.value);
+      const violations = collectAlignmentViolations(settingsResult.success.value, lockOption.value);
       return violations.map((violation): LintFinding => violation.finding);
     }),
   fix: (context, finding) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
         return EMPTY_OPERATIONS;
       }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
+      if (Option.isNone(settingsResult.success)) {
         return EMPTY_OPERATIONS;
       }
       const lockOption = lockfileResult.success;
       if (Option.isNone(lockOption)) {
         return EMPTY_OPERATIONS;
       }
-      const lockfile = decodeLockfile(lockOption.value);
-      if (Option.isNone(lockfile)) {
-        return EMPTY_OPERATIONS;
-      }
-
-      const violation = collectAlignmentViolations(settings.value, lockfile.value).find(
-        (candidate) => isSameFinding(candidate.finding, finding),
-      );
+      const violation = collectAlignmentViolations(
+        settingsResult.success.value,
+        lockOption.value,
+      ).find((candidate) => isSameFinding(candidate.finding, finding));
       return violation === undefined ? EMPTY_OPERATIONS : [violation.operation];
     }),
 };

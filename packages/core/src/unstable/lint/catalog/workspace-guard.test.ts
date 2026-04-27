@@ -32,18 +32,38 @@ import { isPerExtensionOperationName } from "./workspace/helpers/install-ops.js"
 import { workspaceRules } from "./workspace.js";
 import type { AutofixableFinding, AutofixingRule } from "../rule.js";
 import type { WorkspaceRuleContext } from "../context.js";
-import {
-  emptyWorkspaceState,
-  makeStateBackedWorkspaceLintAccessor,
-  unusedWorkspaceCtx,
-  type WorkspaceState,
-} from "./workspace-accessor/test-state.js";
+import { emptyWorkspaceState, type WorkspaceState } from "./workspace-fixtures/interpret-ops.js";
+import { WorkspaceContext } from "../../workspace/context/context.js";
+import { WorkspaceContextTest } from "../../workspace/context/__fixtures__/test-layer.js";
+import { scopeFilesFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
 
 // -----------------------------------------------------------------------------
 // Static grep over rule source files
 // -----------------------------------------------------------------------------
 
 const WORKSPACE_RULES_DIR = nodePath.resolve(__dirname, "workspace");
+
+const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> => {
+  const project = scopeFilesFromWorkspaceState(state);
+  return Effect.gen(function* () {
+    const workspace = yield* WorkspaceContext;
+    return {
+      subject: { root: "/tmp/ws", scope: "project" },
+      workspace,
+      axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
+      displayRoot: "",
+    } satisfies WorkspaceRuleContext;
+  }).pipe(
+    Effect.provide(
+      WorkspaceContextTest({
+        workspaceRoot: "/tmp/ws",
+        userHome: "/tmp/user",
+        project,
+      }),
+    ),
+    Effect.orDie,
+  );
+};
 
 const listRuleFiles = (): ReadonlyArray<string> =>
   nodeFs
@@ -299,12 +319,7 @@ describe("workspace catalog guard — semantic probe", () => {
       it.effect(`${rule.id} emits only vocabulary ops for ${probe.label}`, () =>
         Effect.gen(function* () {
           const state = probe.buildState();
-          const ctx: WorkspaceRuleContext = {
-            subject: { root: "/tmp/ws", scope: "project" },
-            workspace: makeStateBackedWorkspaceLintAccessor(state),
-            workspaceCtx: unusedWorkspaceCtx,
-            displayRoot: "",
-          };
+          const ctx = yield* contextFor(state);
           const findings = yield* rule.check(ctx);
           const autofixableFindings = findings.filter(
             (finding): finding is AutofixableFinding => finding.kind === "autofixable",

@@ -38,10 +38,7 @@ import type {
   AutofixingRule,
   LintFinding,
 } from "../../rule.js";
-import { LockfileSchema } from "../../../lockfile/schema.js";
 import { type Settings } from "../../../settings/schema.js";
-import { schemaDecodeFindings } from "../shared/schema-rule.js";
-import { decodeSettings } from "./helpers/decode.js";
 import { collectMissingLockfileInstallOps } from "./helpers/install-ops.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 
@@ -74,28 +71,39 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
+      const scoped = context.workspace.scope(context.subject.scope);
       // Cascade arm 1: lockfile presence when declarations exist.
-      const settingsResult = yield* Effect.result(context.workspace.settings);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_LINT_FINDINGS;
       }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
+      if (Option.isNone(settingsResult.success)) {
         // workspace/settings-schema-valid owns the decode arm; nothing to
         // do here until settings decode.
         return EMPTY_LINT_FINDINGS;
       }
-      const declared = hasAnyDeclaration(settings.value);
+      const declared = hasAnyDeclaration(settingsResult.success.value);
 
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(lockfileResult)) {
+        if (lockfileResult.failure._tag === "LockfileDecodeError") {
+          return lockfileResult.failure.issues.map(
+            (issue): AdvisoryFinding => ({
+              kind: "advisory",
+              ruleId: RULE_ID,
+              severity: "error",
+              message: `The lockfile does not match the expected schema. Detail: ${issue}. Regenerate \`${LOCKFILE_REL}\` from \`${SETTINGS_REL}\` by reinstalling the declared extensions.`,
+              location: { file: LOCKFILE_REL },
+            }),
+          );
+        }
         // Read failure surfaces as advisory finding naming the IO problem.
         const advisory: AdvisoryFinding = {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
           message:
-            `The lockfile is not valid YAML. Detail: ${lockfileResult.failure.message}. ` +
+            `The lockfile is not valid YAML. Detail: ${lockfileResult.failure._tag}. ` +
             `Regenerate \`${LOCKFILE_REL}\` from \`${SETTINGS_REL}\` by reinstalling the declared extensions.`,
           location: { file: LOCKFILE_REL },
         };
@@ -111,26 +119,18 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
         return [makeMissingFinding()];
       }
 
-      // Cascade arm 3: schema decode of the parsed YAML.
-      const decodedFindings = yield* schemaDecodeFindings(
-        RULE_ID,
-        "error",
-        LOCKFILE_REL,
-        LockfileSchema,
-        option.value,
-      );
-      return decodedFindings;
+      return EMPTY_LINT_FINDINGS;
     }),
   fix: (context, _finding) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_OPERATIONS;
       }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
+      if (Option.isNone(settingsResult.success)) {
         return EMPTY_OPERATIONS;
       }
-      return collectMissingLockfileInstallOps(settings.value);
+      return collectMissingLockfileInstallOps(settingsResult.success.value);
     }),
 };

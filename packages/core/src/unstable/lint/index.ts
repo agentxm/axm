@@ -34,21 +34,15 @@ export type {
 // Evaluator and fix-operation collection
 export { collectFixOperations, evaluateContexts, type Evaluated } from "./evaluate.js";
 
-// Rule-context types and narrow accessor interfaces
+// Rule-context types and narrow file accessor interfaces
 export type {
-  AgentDetection,
   FileAccessError,
-  LockfileDocument,
-  LockfileReadError,
   PackContent,
   PackFileAccessor,
   PackRuleContext,
-  SettingsDocument,
-  SettingsReadError,
   SkillContent,
   SkillFileAccessor,
   SkillRuleContext,
-  WorkspaceLintAccessor,
   WorkspaceRuleContext,
   WorkspaceSubject,
 } from "./context.js";
@@ -109,12 +103,12 @@ export {
   buildNativeInstalledSkillInfo,
   buildPackRuleContexts,
   buildSkillRuleContexts,
+  buildWorkspaceIndexFromContext,
   buildWorkspaceRuleContext,
   externalSkillDisplayRoot,
   isPerExtensionOperationName,
   makePlatformPackFileAccessor,
   makePlatformSkillFileAccessor,
-  makePlatformWorkspaceLintAccessor,
   makeVftPackFileAccessor,
   makeVftSkillFileAccessor,
   makeVftSkillFileAccessorScoped,
@@ -127,6 +121,7 @@ export {
   type BuildInstalledPackInfoArgs,
   type BuildInstalledSkillInfoExternalArgs,
   type BuildInstalledSkillInfoNativeArgs,
+  type BuildWorkspaceIndexFromContextArgs,
   type BuildWorkspaceRuleContextArgs,
   type InstalledPackInfo,
   type InstalledSkillInfo,
@@ -134,11 +129,8 @@ export {
   type PackIndexView,
   type PackVFTNode,
   type PerExtensionOperationName,
-  type PlatformWorkspaceLintAccessorArgs,
   type SkillAccessorPlatform,
   type SkillIndexView,
   type VFTNode,
-  type WorkspaceAccessorPlatform,
   type WorkspaceIndex,
-  type WorkspaceIndexView,
 } from "./catalog/index.js";

@@ -50,14 +50,9 @@ export {
   type PackIndexView,
 } from "./pack-accessor/contexts.js";
 
-// Phase 3c accessor + context-builder helpers.
+// Phase 3c workspace context-builder helpers.
 export {
-  makePlatformWorkspaceLintAccessor,
-  type PlatformWorkspaceLintAccessorArgs,
-  type WorkspaceAccessorPlatform,
-  type WorkspaceIndexView,
-} from "./workspace-accessor/platform.js";
-export {
+  buildWorkspaceIndexFromContext,
   buildWorkspaceRuleContext,
   buildNativeInstalledSkillInfo,
   buildExternalInstalledSkillInfo,
@@ -65,12 +60,13 @@ export {
   externalSkillDisplayRoot,
   registryNativeSkillDisplayRoot,
   registryPackDisplayRoot,
+  type BuildWorkspaceIndexFromContextArgs,
   type BuildInstalledPackInfoArgs,
   type BuildInstalledSkillInfoExternalArgs,
   type BuildInstalledSkillInfoNativeArgs,
   type BuildWorkspaceRuleContextArgs,
   type WorkspaceIndex,
-} from "./workspace-accessor/contexts.js";
+} from "./workspace-context/contexts.js";
 export {
   PER_EXTENSION_OPERATION_NAMES,
   isPerExtensionOperationName,

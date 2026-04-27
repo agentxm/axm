@@ -9,7 +9,7 @@
  *   lives at `packages/core/src/unstable/agents/types.ts`.
  *
  * Cascade: the rule walks `settings.agents[]` and checks each id against
- * the set returned by `workspaceCtx.scope(scope).agents.known`. Unknown ids
+ * the set returned by `workspace.scope(scope).agents.known`. Unknown ids
  * each emit one finding — the cascade is per-entity, not per-cascade-arm.
  *
  * Advisory — fixing an unrecognized id is a user-authored settings edit.
@@ -35,7 +35,7 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspaceCtx.scope(context.subject.scope);
+      const scoped = context.workspace.scope(context.subject.scope);
 
       // `state.settings` returns the decoded `Settings` already; the
       // `SettingsReadError` family (io / parse / decode) is owned by

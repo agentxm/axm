@@ -19,7 +19,6 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import { decodeSettings } from "./helpers/decode.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 import { categorizeEntry, type Categorized } from "./helpers/source-categorize.js";
 
@@ -77,17 +76,13 @@ export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      if (Result.isFailure(settingsResult)) {
+      const scoped = context.workspace.scope(context.subject.scope);
+      const declaredResult = yield* Effect.result(scoped.packs.declared);
+      if (Result.isFailure(declaredResult) || Option.isNone(declaredResult.success)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const decoded = decodeSettings(settingsResult.success);
-      if (Option.isNone(decoded)) {
-        return EMPTY_ADVISORY_FINDINGS;
-      }
-      const packs = decoded.value.packs ?? {};
-      const entries: ReadonlyArray<Categorized> = Object.entries(packs).map(([name, entry]) =>
-        categorizeEntry(name, entry.source),
+      const entries: ReadonlyArray<Categorized> = declaredResult.success.value.map(
+        ({ name, entry }) => categorizeEntry(name, entry.source),
       );
 
       const byFqn = new Map<string, Array<Categorized>>();

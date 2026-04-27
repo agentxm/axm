@@ -11,16 +11,13 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import type {
   PackFileAccessor,
   PackRuleContext,
   SkillFileAccessor,
   SkillRuleContext,
-  WorkspaceLintAccessor,
   WorkspaceRuleContext,
 } from "./context.js";
-import { unusedWorkspaceCtx } from "./catalog/workspace-accessor/test-state.js";
 
 // -----------------------------------------------------------------------------
 // Fake accessor fixtures
@@ -48,17 +45,12 @@ const makePackAccessor = (): PackFileAccessor => ({
     }),
 });
 
-const makeWorkspaceAccessor = (): WorkspaceLintAccessor => ({
-  settings: Effect.succeed({}),
-  lockfile: Effect.succeed(Option.none()),
-  installedSkills: Effect.succeed([]),
-  installedPacks: Effect.succeed([]),
-  knownAgents: Effect.succeed([]),
-  detectAgents: () => Effect.succeed([]),
-  exists: () => Effect.succeed(false),
-  isWritable: () => Effect.succeed(false),
-  list: () => Effect.succeed([]),
-});
+const throwingWorkspace: WorkspaceRuleContext["workspace"] = {
+  scope: () => {
+    throw new Error("unused workspace context");
+  },
+  __debugCachedEffectCount: Effect.succeed(0),
+};
 
 // -----------------------------------------------------------------------------
 // Accessor surface area
@@ -79,28 +71,6 @@ describe("PackFileAccessor surface area", () => {
     expect(Object.keys(accessor).sort()).toEqual(["exists", "readBytes"]);
   });
 });
-
-describe("WorkspaceLintAccessor surface area", () => {
-  it("exposes only the v1 documented methods", () => {
-    const accessor = makeWorkspaceAccessor();
-
-    expect(Object.keys(accessor).sort()).toEqual([
-      "detectAgents",
-      "exists",
-      "installedPacks",
-      "installedSkills",
-      "isWritable",
-      "knownAgents",
-      "list",
-      "lockfile",
-      "settings",
-    ]);
-  });
-});
-
-// -----------------------------------------------------------------------------
-// Rule-context types
-// -----------------------------------------------------------------------------
 
 describe("Rule-context types", () => {
   it("SkillRuleContext carries subject, files, packageFiles, displayRoot", () => {
@@ -126,20 +96,20 @@ describe("Rule-context types", () => {
     expect(Object.keys(ctx).sort()).toEqual(["displayRoot", "files", "subject"]);
   });
 
-  it("WorkspaceRuleContext carries subject, workspace, workspaceCtx, displayRoot", () => {
+  it("WorkspaceRuleContext carries subject, workspace, displayRoot", () => {
     const ctx: WorkspaceRuleContext = {
       subject: { root: "/tmp/ws", scope: "project" },
-      workspace: makeWorkspaceAccessor(),
-      workspaceCtx: unusedWorkspaceCtx,
+      workspace: throwingWorkspace,
+      axmDirExists: Effect.succeed(false),
       displayRoot: "",
     };
 
     expect(ctx.subject.scope).toBe("project");
     expect(Object.keys(ctx).sort()).toEqual([
+      "axmDirExists",
       "displayRoot",
       "subject",
       "workspace",
-      "workspaceCtx",
     ]);
   });
 });

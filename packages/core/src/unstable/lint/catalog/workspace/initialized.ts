@@ -18,11 +18,13 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 
 const RULE_ID = "workspace/initialized";
-const AXM_DIR = ".axm";
+const AXM_REL = ".axm";
 const SETTINGS_REL = ".axm/settings.json";
 
 export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
@@ -32,23 +34,21 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const [axmExists, settingsExists] = yield* Effect.all(
-        [context.workspace.exists(AXM_DIR), context.workspace.exists(SETTINGS_REL)],
-        { concurrency: "unbounded" },
-      );
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsRaw = yield* Effect.result(scoped.state.raw("settings"));
+      const axmDirExists = yield* context.axmDirExists;
       const findings: Array<AdvisoryFinding> = [];
-      if (!axmExists) {
-        findings.push({
-          kind: "advisory",
-          ruleId: RULE_ID,
-          severity: "error",
-          message:
-            "The workspace is missing `.axm/`. Run `axm setup` to create the managed workspace files.",
-          location: { file: AXM_DIR },
-        });
-        return findings;
-      }
-      if (!settingsExists) {
+      if (Result.isFailure(settingsRaw) || Option.isNone(settingsRaw.success)) {
+        if (!axmDirExists) {
+          findings.push({
+            kind: "advisory",
+            ruleId: RULE_ID,
+            severity: "error",
+            message: "The workspace is not initialized. Run `axm setup` to create `.axm/`.",
+            location: { file: AXM_REL },
+          });
+          return findings;
+        }
         findings.push({
           kind: "advisory",
           ruleId: RULE_ID,

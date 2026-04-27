@@ -13,9 +13,9 @@
  *                                    per Phase 3b finding.)
  *
  * The `buildWorkspaceRuleContext` helper constructs a `WorkspaceRuleContext`
- * from a resolved `WorkspaceLintAccessor` and a requested scope. User-scope
- * root resolution for v1 is `$AXM_USER_HOME/.axm/` when set, otherwise
- * `$HOME/.axm/`; a follow-up owns the broader XDG story.
+ * from a requested scope. User-scope root resolution for v1 is
+ * `$AXM_USER_HOME/.axm/` when set, otherwise `$HOME/.axm/`; a follow-up owns
+ * the broader XDG story.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -24,28 +24,27 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type * as ServiceMap from "effect/Context";
 import {
   WorkspaceContext,
   WorkspaceContextConfigTag,
   WorkspaceContextLive,
 } from "../../../workspace/context/context.js";
 import type { WorkspaceRootEscape } from "../../../workspace/context/errors.js";
+import type {
+  ActualPack,
+  ActualSkill,
+  InstalledPack,
+  InstalledSkill,
+} from "../../../workspace/context/extensions/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
-import {
-  buildSkillRuleContexts,
-  type InstalledSkillInfo,
-  type SkillIndexView,
-} from "../skill-accessor/contexts.js";
-import {
-  buildPackRuleContexts,
-  type InstalledPackInfo,
-  type PackIndexView,
-} from "../pack-accessor/contexts.js";
+import type { InstalledSkillInfo, SkillIndexView } from "../skill-accessor/contexts.js";
+import type { InstalledPackInfo, PackIndexView } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
-import { makePlatformWorkspaceLintAccessor } from "./platform.js";
-import type { WorkspaceAccessorPlatform, WorkspaceIndexView } from "./platform.js";
+import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
 
 // -----------------------------------------------------------------------------
 // WorkspaceIndex
@@ -72,7 +71,10 @@ export interface WorkspaceIndex extends SkillIndexView, PackIndexView {
  * Argument shape for `buildWorkspaceRuleContext`.
  */
 export interface BuildWorkspaceRuleContextArgs {
-  readonly platform: WorkspaceAccessorPlatform;
+  readonly platform: {
+    readonly fs: FileSystem.FileSystem;
+    readonly path: Path.Path;
+  };
   readonly workspaceRoot: string;
   /**
    * User home directory used to construct the user-scope side of
@@ -80,7 +82,6 @@ export interface BuildWorkspaceRuleContextArgs {
    * scopes eagerly even when only one is queried by the rule run.
    */
   readonly userHome: string;
-  readonly index: WorkspaceIndex;
   readonly scope: "project" | "user";
   /**
    * Optional `displayRoot` override. Defaults to `""` (accessor-relative
@@ -92,24 +93,15 @@ export interface BuildWorkspaceRuleContextArgs {
 /**
  * Construct a `WorkspaceRuleContext` scoped to project or user.
  *
- * Builds the legacy `WorkspaceLintAccessor` and the new `WorkspaceContext`
- * service alongside each other; both are exposed on the returned context so
- * rules can be migrated incrementally. `WorkspaceRootEscape` is surfaced in
- * the error channel by the live layer when `workspaceRoot` or `userHome`
- * escape the filesystem root.
+ * Builds the `WorkspaceContext` service and exposes it on the returned rule
+ * context. `WorkspaceRootEscape` is surfaced in the error channel by the live
+ * layer when `workspaceRoot` or `userHome` escape the filesystem root.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const buildWorkspaceRuleContext = (
   args: BuildWorkspaceRuleContextArgs,
 ): Effect.Effect<WorkspaceRuleContext, WorkspaceRootEscape> => {
-  const indexView = toWorkspaceIndexView(args.index);
-  const accessor = makePlatformWorkspaceLintAccessor({
-    platform: args.platform,
-    workspaceRoot: args.workspaceRoot,
-    index: indexView,
-    scope: args.scope,
-  });
   const ctxLayer = WorkspaceContextLive.pipe(
     Layer.provide(
       Layer.mergeAll(
@@ -124,24 +116,163 @@ export const buildWorkspaceRuleContext = (
     ),
   );
   return Effect.gen(function* () {
-    const workspaceCtx = yield* WorkspaceContext;
+    const workspace = yield* WorkspaceContext;
+    const axmDir =
+      args.scope === "user"
+        ? args.platform.path.join(args.userHome, ".axm")
+        : args.platform.path.join(args.workspaceRoot, ".axm");
     return {
       subject: { root: args.workspaceRoot, scope: args.scope },
-      workspace: accessor,
-      workspaceCtx,
+      workspace,
+      axmDirExists: args.platform.fs.exists(axmDir).pipe(Effect.catch(() => Effect.succeed(false))),
       displayRoot: args.displayRoot ?? "",
     };
   }).pipe(Effect.provide(ctxLayer));
 };
 
 // -----------------------------------------------------------------------------
-// Index → accessor plumbing
+// WorkspaceContext → WorkspaceIndex
 // -----------------------------------------------------------------------------
 
-const toWorkspaceIndexView = (index: WorkspaceIndex): WorkspaceIndexView => ({
-  installedSkills: Effect.sync(() => buildSkillRuleContexts(index)),
-  installedPacks: Effect.sync(() => buildPackRuleContexts(index)),
-});
+export interface BuildWorkspaceIndexFromContextArgs {
+  readonly platform: {
+    readonly fs: FileSystem.FileSystem;
+    readonly path: Path.Path;
+  };
+  readonly workspaceRoot: string;
+  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceContext>;
+  readonly scope: "project" | "user";
+}
+
+export const buildWorkspaceIndexFromContext = (
+  args: BuildWorkspaceIndexFromContextArgs,
+): Effect.Effect<WorkspaceIndex> =>
+  Effect.gen(function* () {
+    const scoped = args.workspace.scope(args.scope);
+    const [skills, packs] = yield* Effect.all([scoped.skills.installed, scoped.packs.installed], {
+      concurrency: "unbounded",
+    });
+    return {
+      installedSkills: skills.map((skill) => installedSkillToInfo(args, skill)),
+      installedPacks: packs.flatMap((pack) => {
+        const info = installedPackToInfo(args, pack);
+        return info === undefined ? [] : [info];
+      }),
+    };
+  });
+
+const installedSkillToInfo = (
+  args: BuildWorkspaceIndexFromContextArgs,
+  skill: InstalledSkill,
+): InstalledSkillInfo => {
+  const actual = chooseSkillActual(skill.actual);
+  if (actual !== undefined) {
+    const files = makePlatformSkillFileAccessor(args.platform, actual.contentRoot);
+    const packageRoot = actual.packageRoot ?? actual.contentRoot;
+    return {
+      isNative: isNativeSkill(skill, actual),
+      skillJson: undefined,
+      displayRoot: relativeDisplayRoot(args, actual.contentRoot),
+      files,
+      packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
+    };
+  }
+
+  const resolved = skill.resolved;
+  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+    return buildNativeInstalledSkillInfo({
+      platform: args.platform,
+      workspaceRoot: args.workspaceRoot,
+      owner: resolved.value.lockEntry.owner,
+      name: skill.key.name,
+      skillJson: undefined,
+    });
+  }
+
+  if (skill.installationOrigin._tag === "direct") {
+    const parsed = parseRegistrySource(skill.installationOrigin.declared.entry.source);
+    if (parsed !== undefined && parsed.type === "skills") {
+      return buildNativeInstalledSkillInfo({
+        platform: args.platform,
+        workspaceRoot: args.workspaceRoot,
+        owner: parsed.owner,
+        name: skill.key.name,
+        skillJson: undefined,
+      });
+    }
+  }
+
+  return buildExternalInstalledSkillInfo({
+    platform: args.platform,
+    workspaceRoot: args.workspaceRoot,
+    name: skill.key.name,
+  });
+};
+
+const installedPackToInfo = (
+  args: BuildWorkspaceIndexFromContextArgs,
+  pack: InstalledPack,
+): InstalledPackInfo | undefined => {
+  const actual = choosePackActual(pack.actual);
+  if (actual !== undefined) {
+    return {
+      packJson: undefined,
+      displayRoot: relativeDisplayRoot(args, actual.contentRoot),
+      files: makePlatformPackFileAccessor(args.platform, actual.contentRoot),
+    };
+  }
+
+  const resolved = pack.resolved;
+  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+    return buildInstalledPackInfo({
+      platform: args.platform,
+      workspaceRoot: args.workspaceRoot,
+      owner: resolved.value.lockEntry.owner,
+      name: pack.key.name,
+      packJson: undefined,
+    });
+  }
+
+  if (pack.installationOrigin._tag === "direct") {
+    const parsed = parseRegistrySource(pack.installationOrigin.declared.entry.source);
+    if (parsed !== undefined && parsed.type === "packs") {
+      return buildInstalledPackInfo({
+        platform: args.platform,
+        workspaceRoot: args.workspaceRoot,
+        owner: parsed.owner,
+        name: pack.key.name,
+        packJson: undefined,
+      });
+    }
+  }
+
+  return undefined;
+};
+
+const chooseSkillActual = (actual: ReadonlyArray<ActualSkill>): ActualSkill | undefined =>
+  actual.find((entry) => entry.origin._tag !== "agent-skill-dir") ?? actual[0];
+
+const choosePackActual = (actual: ReadonlyArray<ActualPack>): ActualPack | undefined => actual[0];
+
+const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
+  const resolved = skill.resolved;
+  if (Option.isSome(resolved)) {
+    return resolved.value.lockEntry.type === "registry";
+  }
+  if (actual.origin._tag === "canonical-axm-skill") {
+    return true;
+  }
+  if (skill.installationOrigin._tag !== "direct") {
+    return false;
+  }
+  const parsed = parseRegistrySource(skill.installationOrigin.declared.entry.source);
+  return parsed !== undefined && parsed.type === "skills";
+};
+
+const relativeDisplayRoot = (
+  args: Pick<BuildWorkspaceIndexFromContextArgs, "platform" | "workspaceRoot">,
+  absoluteRoot: string,
+): string => args.platform.path.relative(args.workspaceRoot, absoluteRoot);
 
 // -----------------------------------------------------------------------------
 // Provenance → displayRoot helpers

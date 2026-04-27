@@ -10,11 +10,8 @@
  * `install-skill` with `force: true`; pack-provided implicit mismatches are
  * advisory because the repair is a pack-level reinstall.
  *
- * The integrity check MUST walk the workspace filesystem — `context.workspace`
- * exposes `exists` only; the accessor layer surfaces the pre-computed
- * `installedSkills` array with the skill's `files` accessor already rooted
- * at the right path per provenance. A skill whose install directory is
- * missing entirely is also a mismatch.
+ * The integrity check reads WorkspaceContext actual rows. A skill whose
+ * install directory is missing entirely is an integrity mismatch.
  *
  * V1 keeps this rule simple: a skill whose `sourceHash` is undefined in the
  * lockfile (e.g., git-hosted sources without pinned hash) is not checked.
@@ -38,7 +35,6 @@ import type {
 import type { Operation } from "../../../plan/plan.js";
 import { type Lockfile, type SkillLockEntry } from "../../../lockfile/schema.js";
 import { type Settings } from "../../../settings/schema.js";
-import { decodeLockfile, decodeSettings } from "./helpers/decode.js";
 import { isSameFinding } from "./helpers/finding.js";
 import { installSkillOp } from "./helpers/install-ops.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
@@ -46,6 +42,21 @@ import { buildRetainedSkillFqns, isImplicitRetainedSkill } from "./helpers/retai
 
 const RULE_ID = "workspace/skills-integrity-valid";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
+
+const simpleName = (name: string): string => name.split("/").at(-1) ?? name;
+
+const hasSourceActual = (
+  row: {
+    readonly key: { readonly name: string };
+    readonly actual: ReadonlyArray<{ readonly origin: { readonly _tag: string } }>;
+  },
+  name: string,
+): boolean =>
+  row.key.name === simpleName(name) &&
+  row.actual.some(
+    (actual) =>
+      actual.origin._tag === "canonical-axm-skill" || actual.origin._tag === "external-axm-skill",
+  );
 
 const integrityFinding = (name: string, reason: string): AutofixableFinding => ({
   kind: "autofixable",
@@ -97,13 +108,6 @@ const integrityReason = (
   return Option.none();
 };
 
-const skillSrcProbe = (name: string, entry: SkillLockEntry): string => {
-  if (entry.type === "registry") {
-    return `.axm/extensions/${entry.owner}/skills/${name}/src/SKILL.md`;
-  }
-  return `.axm/extensions/external/skills/${name}/SKILL.md`;
-};
-
 const collectIntegrityViolations = (
   settings: Settings,
   lockfile: Lockfile,
@@ -150,64 +154,60 @@ export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
         return EMPTY_LINT_FINDINGS;
       }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
+      if (Option.isNone(settingsResult.success)) {
         return EMPTY_LINT_FINDINGS;
       }
       const lockOption = lockfileResult.success;
       if (Option.isNone(lockOption)) {
         return EMPTY_LINT_FINDINGS;
       }
-      const lockfile = decodeLockfile(lockOption.value);
-      if (Option.isNone(lockfile)) {
-        return EMPTY_LINT_FINDINGS;
-      }
+      const installed = yield* scoped.skills.installed;
 
-      const probes = yield* Effect.all(
-        Object.entries(lockfile.value.skills).map(([name, entry]) =>
-          context.workspace
-            .exists(skillSrcProbe(name, entry))
-            .pipe(Effect.map((exists) => ({ name, entry, exists }))),
-        ),
-        { concurrency: "unbounded" },
+      const probes = Object.entries(lockOption.value.skills).map(([name, entry]) => ({
+        name,
+        entry,
+        exists: installed.some((row) => hasSourceActual(row, name)),
+      }));
+      const violations = collectIntegrityViolations(
+        settingsResult.success.value,
+        lockOption.value,
+        probes,
       );
-      const violations = collectIntegrityViolations(settings.value, lockfile.value, probes);
       return violations.map((violation): LintFinding => violation.finding);
     }),
   fix: (context, finding) =>
     Effect.gen(function* () {
-      const settingsResult = yield* Effect.result(context.workspace.settings);
-      const lockfileResult = yield* Effect.result(context.workspace.lockfile);
+      const scoped = context.workspace.scope(context.subject.scope);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
+      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
         return EMPTY_OPERATIONS;
       }
-      const settings = decodeSettings(settingsResult.success);
-      if (Option.isNone(settings)) {
+      if (Option.isNone(settingsResult.success)) {
         return EMPTY_OPERATIONS;
       }
       const lockOption = lockfileResult.success;
       if (Option.isNone(lockOption)) {
         return EMPTY_OPERATIONS;
       }
-      const lockfile = decodeLockfile(lockOption.value);
-      if (Option.isNone(lockfile)) {
-        return EMPTY_OPERATIONS;
-      }
+      const installed = yield* scoped.skills.installed;
 
-      const probes = yield* Effect.all(
-        Object.entries(lockfile.value.skills).map(([name, entry]) =>
-          context.workspace
-            .exists(skillSrcProbe(name, entry))
-            .pipe(Effect.map((exists) => ({ name, entry, exists }))),
-        ),
-        { concurrency: "unbounded" },
-      );
-      const violation = collectIntegrityViolations(settings.value, lockfile.value, probes).find(
+      const probes = Object.entries(lockOption.value.skills).map(([name, entry]) => ({
+        name,
+        entry,
+        exists: installed.some((row) => hasSourceActual(row, name)),
+      }));
+      const violation = collectIntegrityViolations(
+        settingsResult.success.value,
+        lockOption.value,
+        probes,
+      ).find(
         (candidate) =>
           candidate.finding.kind === "autofixable" &&
           candidate.operation !== undefined &&

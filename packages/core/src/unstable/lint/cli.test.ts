@@ -12,7 +12,6 @@ import type {
   PackRuleContext,
   SkillFileAccessor,
   SkillRuleContext,
-  WorkspaceLintAccessor,
   WorkspaceRuleContext,
 } from "./context.js";
 import type { GroupEvaluations } from "./cli.js";
@@ -27,7 +26,6 @@ import {
   toLintHumanBlocks,
   toLintJsonDocument,
 } from "./cli.js";
-import { unusedWorkspaceCtx } from "./catalog/workspace-accessor/test-state.js";
 
 const makeEvaluated = <C>(rule: {
   id: string;
@@ -67,9 +65,8 @@ const autofixable = (ruleId: string, severity: Severity): AutofixableFinding => 
   message: `${ruleId} fired`,
 });
 
-// Tests exercise pure summary/renderer helpers, so we use lightweight accessor
-// stubs rather than the platform implementation (which requires FileSystem and
-// Path services at construction time).
+// Tests exercise pure summary/renderer helpers, so we use lightweight file
+// accessor stubs and an unused workspace context.
 const stubSkillAccessor: SkillFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: () => Effect.succeed(new Uint8Array()),
@@ -78,16 +75,11 @@ const stubPackAccessor: PackFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: () => Effect.succeed(new Uint8Array()),
 };
-const stubWorkspaceAccessor: WorkspaceLintAccessor = {
-  settings: Effect.succeed({}),
-  lockfile: Effect.succeed({ _tag: "None" as const, value: undefined } as never),
-  installedSkills: Effect.succeed([]),
-  installedPacks: Effect.succeed([]),
-  knownAgents: Effect.succeed([]),
-  detectAgents: () => Effect.succeed([]),
-  exists: () => Effect.succeed(false),
-  isWritable: () => Effect.succeed(true),
-  list: () => Effect.succeed([]),
+const throwingWorkspace: WorkspaceRuleContext["workspace"] = {
+  scope: () => {
+    throw new Error("unused workspace context");
+  },
+  __debugCachedEffectCount: Effect.succeed(0),
 };
 
 const skillCtx: SkillRuleContext = {
@@ -103,10 +95,10 @@ const packCtx: PackRuleContext = {
   displayRoot: ".axm/extensions/@acme/packs/demo",
 };
 
-const workspaceCtx: WorkspaceRuleContext = {
+const workspace: WorkspaceRuleContext = {
   subject: { root: "/ws", scope: "project" as const },
-  workspace: stubWorkspaceAccessor,
-  workspaceCtx: unusedWorkspaceCtx,
+  workspace: throwingWorkspace,
+  axmDirExists: Effect.succeed(false),
   displayRoot: "",
 };
 
@@ -188,7 +180,7 @@ describe("countFindings and summarizeEvaluations", () => {
           id: "workspace/lockfile-valid",
           severity: "error",
           kind: "autofixing",
-        })(workspaceCtx, [autofixable("workspace/lockfile-valid", "error")]),
+        })(workspace, [autofixable("workspace/lockfile-valid", "error")]),
       ],
     };
     const findings = collectRenderedFindings(evaluations);
@@ -216,7 +208,7 @@ describe("countFindings and summarizeEvaluations", () => {
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/agents-detected-declared",
           severity: "warning",
-        })(workspaceCtx, [advisory("workspace/agents-detected-declared", "warning")]),
+        })(workspace, [advisory("workspace/agents-detected-declared", "warning")]),
       ],
     };
     const summary = summarizeEvaluations(evaluations, {});
@@ -234,7 +226,7 @@ describe("renderFindingsText", () => {
           id: "workspace/lockfile-valid",
           severity: "error",
           kind: "autofixing",
-        })(workspaceCtx, [autofixable("workspace/lockfile-valid", "error")]),
+        })(workspace, [autofixable("workspace/lockfile-valid", "error")]),
       ],
     };
     const summary = summarizeEvaluations(evaluations, {
@@ -295,7 +287,7 @@ describe("toLintHumanBlocks", () => {
           id: "workspace/lockfile-valid",
           severity: "error",
           kind: "autofixing",
-        })(workspaceCtx, [
+        })(workspace, [
           {
             kind: "autofixable",
             ruleId: "workspace/lockfile-valid",
@@ -377,7 +369,7 @@ describe("toLintHumanBlocks", () => {
           id: "workspace/lockfile-valid",
           severity: "error",
           kind: "autofixing",
-        })(workspaceCtx, [
+        })(workspace, [
           {
             kind: "autofixable",
             ruleId: "workspace/lockfile-valid",
@@ -444,7 +436,7 @@ describe("toLintHumanBlocks", () => {
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/skills-managed",
           severity: "error",
-        })(workspaceCtx, [
+        })(workspace, [
           {
             kind: "advisory",
             ruleId: "workspace/skills-managed",
@@ -501,7 +493,7 @@ describe("toLintHumanBlocks", () => {
           id: "workspace/skills-integrity-valid",
           severity: "error",
           kind: "autofixing",
-        })(workspaceCtx, [
+        })(workspace, [
           {
             kind: "advisory",
             ruleId: "workspace/skills-integrity-valid",
@@ -561,7 +553,7 @@ describe("toLintJsonDocument", () => {
           id: "workspace/lockfile-valid",
           severity: "error",
           kind: "autofixing",
-        })(workspaceCtx, [autofixable("workspace/lockfile-valid", "error")]),
+        })(workspace, [autofixable("workspace/lockfile-valid", "error")]),
       ],
     };
     const summary = summarizeEvaluations(evaluations, {
@@ -595,7 +587,7 @@ describe("collectAutofixableEntries", () => {
           id: "workspace/lockfile-valid",
           severity: "error",
           kind: "autofixing",
-        })(workspaceCtx, [
+        })(workspace, [
           autofixable("workspace/lockfile-valid", "error"),
           advisory("workspace/lockfile-valid", "error"),
         ]),
@@ -603,7 +595,7 @@ describe("collectAutofixableEntries", () => {
           id: "workspace/agents-recognized",
           severity: "error",
           kind: "advisory",
-        })(workspaceCtx, [advisory("workspace/agents-recognized", "error")]),
+        })(workspace, [advisory("workspace/agents-recognized", "error")]),
       ],
     };
     const entries = collectAutofixableEntries(evaluations);

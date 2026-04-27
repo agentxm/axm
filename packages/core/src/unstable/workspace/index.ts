@@ -9,26 +9,8 @@
 // `OperationHandler`) moved to `@agentxm/client-core/unstable/plan`. Consumers
 // import them from there directly.
 
-// Path utilities
-export {
-  getAxmDir,
-  getProjectDir,
-  getUserScopeDir,
-  locateWorkspace,
-  type WorkspaceLocation,
-} from "./paths.js";
-
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
-
-// Classifier
-export {
-  classifyExtensions,
-  isIgnoredName,
-  type ClassifiedExtension,
-  type ClassifierInput,
-  type PackagingKind,
-} from "./classifier.js";
 
 // Classifier records
 export {
@@ -58,6 +40,7 @@ export {
 // Taxonomy types
 export type {
   ClassifiedCommand,
+  ClassifiedExtension,
   ClassifiedExtensionRef,
   ClassifiedSkill,
   ClassifiedSubagent,
@@ -73,6 +56,7 @@ export type {
   InstalledExtensionRef,
   InstalledSkill,
   InstalledSubagent,
+  PackagingKind,
   UnmanagedCommand,
   UnmanagedExtensionRef,
   UnmanagedSkill,
@@ -82,20 +66,11 @@ export type {
 export {
   buildReconciliationSnapshot,
   dedupeDeclarations,
+  ReconciliationAdapters,
   runReadRecoverOperation,
   runReconcileMaterializeOperation,
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
-
-// Settings validation
-export {
-  detectLockfileBlockers,
-  detectSettingsEntryBlockers,
-  type LockfileBlocker,
-  type LockfileBlockerReason,
-  type SettingsEntryBlocker,
-  type SettingsEntryBlockerReason,
-} from "./settings-validation/index.js";
 
 // Configured entry resolution
 export {
@@ -127,17 +102,7 @@ export type {
 } from "./reconciliation-types.js";
 
 // Source metadata
-export {
-  deriveSourceMetaForNonSkill,
-  deriveSourceMetaForPacks,
-  deriveSourceMetaForSkills,
-  deriveSourceMetaFromLockType,
-  getBuiltInSources,
-  type SourceMeta,
-} from "./source-metadata.js";
-
-// Reconciliation adapters registration
-export { setReconciliationAdapters, getReconciliationAdapters } from "./reconciliation.js";
+export { deriveSourceMetaFromLockType, type SourceMeta } from "./source-metadata.js";
 
 // Scan plan readiness
 export { scanPlanReadiness, type PlanReadinessReport } from "./scan-plan-readiness.js";
@@ -154,6 +119,17 @@ export {
   type ScopedWorkspaceContext,
   type WorkspaceContextConfig,
 } from "./context/context.js";
+export {
+  getPriorityDirectories,
+  parsePluginManifests,
+  scanAgentSubagentFiles,
+  scanAllSubagentFiles,
+  skillsInDir,
+  type AgentSubagentSummary,
+  type DetectedSubagentFile,
+  type DiscoveredSkill,
+  type DiscoveryOptions,
+} from "./context/discovery/index.js";
 
 // Augment plan
 export {

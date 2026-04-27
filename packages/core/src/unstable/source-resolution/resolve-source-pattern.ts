@@ -14,9 +14,10 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { getAgentById } from "../agents/index.js";
+import { AGENTS } from "../agents/registry.js";
+import type { AgentId } from "../agents/types.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { discoverSkillsInDir, type DiscoveredSkill } from "./discover-skills.js";
+import { skillsInDir, type DiscoveredSkill } from "../workspace/context/discovery/index.js";
 import { expandGlobs, isGlobPattern } from "../utils/index.js";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
@@ -29,6 +30,8 @@ import type { Source } from "../sources/index.js";
 
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
   [...names].sort((a, b) => a.localeCompare(b));
+
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 /** Build candidate skill names and on-disk locations from all available sources, excluding ignored. */
 const buildCandidates = Effect.gen(function* () {
@@ -44,7 +47,9 @@ const buildCandidates = Effect.gen(function* () {
     Array.dedupe(
       Array.getSomes(
         Array.map(configuredAgents, (agentId) =>
-          Option.map(getAgentById(agentId), (agent) => path.join(base, agent.skills.dir)),
+          isKnownAgentId(agentId)
+            ? Option.some(path.join(base, AGENTS[agentId].skills.dir))
+            : Option.none<string>(),
         ),
       ),
     ),
@@ -53,7 +58,7 @@ const buildCandidates = Effect.gen(function* () {
   const onDiskRefs = yield* Effect.forEach(
     agentRoots,
     (agentRoot) =>
-      discoverSkillsInDir(agentRoot, Option.none(), {
+      skillsInDir(agentRoot, Option.none(), {
         fullDepth: false,
         includeInternal: false,
       }).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),

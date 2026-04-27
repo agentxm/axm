@@ -1,5 +1,5 @@
 /**
- * Classifier record conversion helpers.
+ * Taxonomy record conversion helpers.
  *
  * Convert arrays of `ClassifiedExtension` rows into the typed record maps
  * used by workspace service getters (e.g., `getConfiguredSkills`,
@@ -10,9 +10,9 @@
 
 import type * as Record from "effect/Record";
 
-import type { ClassifiedExtension } from "./classifier.js";
 import type {
   ClassifiedCommand,
+  ClassifiedExtension,
   ClassifiedExtensionRef,
   ClassifiedSkill,
   ClassifiedSubagent,

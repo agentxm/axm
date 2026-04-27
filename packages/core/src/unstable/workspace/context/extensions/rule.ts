@@ -10,10 +10,10 @@
  * without further changes here.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -23,8 +23,13 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
-import { stripTrailingSegments } from "./package-root.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "./projection.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  type SubjectPolicy,
+} from "./projection.js";
 
 // ---------------------------------------------------------------------------
 // Detection origin
@@ -54,7 +59,7 @@ export interface ActualRule {
 export type ActualRules = ReadonlyArray<ActualRule>;
 
 export interface RulePackMember {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
 
@@ -84,11 +89,7 @@ export type IgnoredRuleCandidate = {
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualRule => {
   const isExternal = occ.origin === "external-axm";
-  const packageRoot = stripTrailingSegments(
-    occ.pathSegments,
-    occ.contentLocation,
-    isExternal ? 1 : 2,
-  );
+  const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "rule", name: occ.name },
     origin: isExternal ? { _tag: "external-axm-rule" } : { _tag: "canonical-axm-rule" },
@@ -130,6 +131,8 @@ export interface RuleExtensionsApi {
   readonly resolved: Effect.Effect<Option.Option<ResolvedRules>>;
   readonly actual: Effect.Effect<ActualRules>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledRule>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledRule>>;
+  readonly declaredByName: (name: string) => Effect.Effect<Option.Option<DeclaredRule>>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledRule>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedRule>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredRuleCandidate>>;
@@ -158,10 +161,10 @@ const rulePolicy = (
   IgnoredRuleCandidate
 > => ({
   declaredEntries: () => [],
-  declaredName: () => "",
+  declaredName: (entry) => entry,
   declaredActivation: () => "enabled",
   resolvedEntries: () => [],
-  resolvedName: () => "",
+  resolvedName: (entry) => entry,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   // `m: never` — the helper invocation passes `TPackMember = never`, so
@@ -173,7 +176,7 @@ const rulePolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "rule", name: input.name },
+    key: { scope, type: "rule", name: decodeExtensionNameSync(input.name) },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -193,7 +196,7 @@ const rulePolicy = (
   // uninhabitable at runtime — no throw needed.
   buildPackMemberIgnoredRow: (input) => input.member,
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "rule", name: input.name },
+    key: { scope, type: "rule", name: decodeExtensionNameSync(input.name) },
     reason: "actual-ignored",
     actual: input.actual,
   }),
@@ -215,11 +218,7 @@ export const makeRuleExtensionsApi = (
     const resolved: RuleExtensionsApi["resolved"] = Effect.succeed(Option.none<ResolvedRules>());
     const actual: RuleExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
-      return Array.getSomes(
-        canonical.map((occ) =>
-          occ.type === "rule" ? Option.some(canonicalToActual(occ, scope)) : Option.none(),
-        ),
-      );
+      return filterMapOccurrences(canonical, "rule", (occ) => canonicalToActual(occ, scope));
     });
 
     // v1 emits no rule pack members. Pass an empty installed-packs effect to
@@ -247,12 +246,15 @@ export const makeRuleExtensionsApi = (
     );
 
     return {
+      ...makeProjectedSubjectCells({
+        declared,
+        resolved,
+        actual,
+        project,
+      }),
       declared,
       resolved,
       actual,
-      installed: project.pipe(Effect.map((o) => o.installed)),
-      active: project.pipe(Effect.map((o) => o.active)),
-      unmanaged: project.pipe(Effect.map((o) => o.unmanaged)),
-      ignored: project.pipe(Effect.map((o) => o.ignored)),
+      declaredByName: () => Effect.succeed(Option.none()),
     } satisfies RuleExtensionsApi;
   });

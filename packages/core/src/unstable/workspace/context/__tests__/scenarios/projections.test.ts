@@ -286,7 +286,7 @@ describe("projection: pack-provided subagent is implicit installed inventory", (
           const installed = yield* ctx.scope("project").subagents.installed;
           const memberRows = installed.filter((r) => r.installationOrigin._tag === "pack-member");
           expect(memberRows).toHaveLength(1);
-          expect(memberRows[0]?.key.name).toBe("@team/subagents/code-reviewer");
+          expect(memberRows[0]?.key.name).toBe("code-reviewer");
         }),
     ),
   );

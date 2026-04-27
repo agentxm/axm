@@ -6,29 +6,30 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import type { Settings } from "../settings/index.js";
 import { extensionName, handle } from "../test-helpers.js";
-import { setReconciliationAdapters } from "./reconciliation.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
 import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
+import {
+  buildReconciliationSnapshot,
+  dedupeDeclarations,
+  ReconciliationAdapters,
+  runReconcileMaterializeOperation,
+} from "./reconciliation.js";
 
-// Register adapters for tests
-setReconciliationAdapters([
+const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, [
   skillReconciliationAdapter,
   commandReconciliationAdapter,
   subagentReconciliationAdapter,
   mcpServerReconciliationAdapter,
   extensionPackReconciliationAdapter,
 ]);
-import {
-  buildReconciliationSnapshot,
-  dedupeDeclarations,
-  runReconcileMaterializeOperation,
-} from "./reconciliation.js";
+const testLayer = Layer.mergeAll(NodeServices.layer, reconciliationAdaptersLayer);
 
 describe("reconciliation", () => {
   let tempDir: string;
@@ -41,8 +42,9 @@ describe("reconciliation", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const withContext = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
-    effect.pipe(Effect.provide(NodeServices.layer));
+  const withContext = <A, E>(
+    effect: Effect.Effect<A, E, NodeServices.NodeServices | ReconciliationAdapters>,
+  ) => effect.pipe(Effect.provide(testLayer));
 
   it("dedupes declarations by deterministic key and warns on conflicts", () => {
     const result = dedupeDeclarations([

@@ -1,116 +1,14 @@
-/**
- * Source metadata derivation helpers for workspace classifier integration.
- *
- * Pure functions that compute `SourceMeta` (packagingKind) from
- * lockfile entries, settings entries, and detection results.
- *
- * @internal
- */
-import { type Settings, type SourceHostConfig } from "../settings/index.js";
-import type { PackagingKind } from "./classifier.js";
+/** Source metadata derivation helpers. */
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import type { PackagingKind } from "./taxonomy-types.js";
 
 export type SourceMeta = { readonly packagingKind: PackagingKind };
-
-// ---------------------------------------------------------------------------
-// Derivation from lock entry type
-// ---------------------------------------------------------------------------
 
 export const deriveSourceMetaFromLockType = (lockType: string): SourceMeta => {
   switch (lockType) {
     case "registry":
       return { packagingKind: "native" };
     default:
-      // git, github, gitlab, bitbucket, azurerepos, local
       return { packagingKind: "non-native" };
   }
-};
-
-// ---------------------------------------------------------------------------
-// Built-in source defaults
-// ---------------------------------------------------------------------------
-
-/**
- * Built-in source defaults that are always available unless overridden.
- * The default registry entry is parameterized by the resolved registry location.
- */
-export const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
-  { name: "default", type: "registry", location: new URL(registryLocation) },
-  { name: "github", type: "github", url: new URL("https://github.com") },
-  { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
-  { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
-];
-
-// ---------------------------------------------------------------------------
-// Derivation for specific extension types
-// ---------------------------------------------------------------------------
-
-/**
- * Build source metadata map for skills from lockfile and settings.
- */
-export const deriveSourceMetaForSkills = (
-  settings: Settings,
-  lockSkills: Readonly<Record<string, { type: string }>>,
-  _detectedNames: ReadonlyArray<string>,
-): Readonly<Record<string, SourceMeta>> => {
-  const result: Record<string, SourceMeta> = {};
-  // Lockfile entries take precedence
-  for (const [name, entry] of Object.entries(lockSkills)) {
-    result[name] = deriveSourceMetaFromLockType(entry.type);
-  }
-  // Configured entries without lockfile entries — parse source string
-  const configuredSkills = settings.skills ?? {};
-  for (const [name, entry] of Object.entries(configuredSkills)) {
-    if (name in result) continue;
-    const sourceStr = entry.source;
-    // Registry/FQN → native; otherwise → non-native
-    if (sourceStr.includes("/skills/") || sourceStr.startsWith("@")) {
-      result[name] = { packagingKind: "native" };
-    } else {
-      result[name] = { packagingKind: "non-native" };
-    }
-  }
-  return result;
-};
-
-/**
- * Build source metadata map for non-skill extension types.
- *
- * Accepts a record of entries each containing a `source` string.
- */
-export const deriveSourceMetaForNonSkill = (
-  settingsEntries: Readonly<Record<string, { readonly source: string }>>,
-  lockEntries: Readonly<Record<string, { type: string }>>,
-): Readonly<Record<string, SourceMeta>> => {
-  const result: Record<string, SourceMeta> = {};
-  for (const [name, entry] of Object.entries(lockEntries)) {
-    result[name] = deriveSourceMetaFromLockType(entry.type);
-  }
-  for (const [name, entry] of Object.entries(settingsEntries)) {
-    if (name in result) continue;
-    const source = entry.source;
-    if (source.includes("/") && source.startsWith("@")) {
-      result[name] = { packagingKind: "native" };
-    } else {
-      result[name] = { packagingKind: "non-native" };
-    }
-  }
-  return result;
-};
-
-/**
- * Build source metadata map for packs (always native).
- */
-export const deriveSourceMetaForPacks = (
-  _settingsEntries: Readonly<Record<string, unknown>>,
-  lockEntries: Readonly<Record<string, { type: string }>>,
-): Readonly<Record<string, SourceMeta>> => {
-  const result: Record<string, SourceMeta> = {};
-  for (const [name] of Object.entries(lockEntries)) {
-    result[name] = { packagingKind: "native" };
-  }
-  return result;
 };

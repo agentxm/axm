@@ -1,6 +1,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type {
@@ -11,7 +12,7 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
-import { countLockfileEntries, LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import type { DegradedLockfileState } from "./augment-plan.js";
 import type {
   DeclarationResolution,
@@ -23,25 +24,10 @@ import type {
 } from "./reconciliation-types.js";
 import type { JobStepResult } from "../plan/plan.js";
 
-/**
- * Mutable module-level adapters registry.
- *
- * Adapters are registered at startup by CLI code via `setReconciliationAdapters`.
- * Core code uses `getReconciliationAdapters` to retrieve them.
- */
-let _adapters: ReadonlyArray<ReconciliationAdapter> = [];
-
-/**
- * Register reconciliation adapters. Called once at CLI startup.
- */
-export const setReconciliationAdapters = (adapters: ReadonlyArray<ReconciliationAdapter>): void => {
-  _adapters = adapters;
-};
-
-/**
- * Get the currently registered reconciliation adapters.
- */
-export const getReconciliationAdapters = (): ReadonlyArray<ReconciliationAdapter> => _adapters;
+export class ReconciliationAdapters extends ServiceMap.Service<
+  ReconciliationAdapters,
+  ReadonlyArray<ReconciliationAdapter>
+>()("axm/ReconciliationAdapters") {}
 
 const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
   skills: 0,
@@ -56,6 +42,13 @@ const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
 
 const dedupeConflictKey = (declaration: ReconciliationDeclaration): string =>
   `${declaration.type}:${declaration.owner}:${declaration.name}`;
+
+const countReconstructedLockfileEntries = (lockfile: Lockfile): number =>
+  Object.keys(lockfile.skills).length +
+  Object.keys(lockfile.commands ?? {}).length +
+  Object.keys(lockfile.subagents ?? {}).length +
+  Object.keys(lockfile.mcpServers ?? {}).length +
+  Object.keys(lockfile.packs ?? {}).length;
 
 export interface ReconciliationSnapshot {
   readonly lockfile: Lockfile;
@@ -161,9 +154,13 @@ export const dedupeDeclarations = (
 
 export const buildReconciliationSnapshot = (
   context: ReconciliationContext,
-): Effect.Effect<ReconciliationSnapshot, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  ReconciliationSnapshot,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ReconciliationAdapters
+> =>
   Effect.gen(function* () {
-    const adapters = getReconciliationAdapters();
+    const adapters = yield* ReconciliationAdapters;
     // Resolve shared services once, then pass them into each adapter as an
     // explicit environment to keep the adapter interface narrow.
     const fs = yield* FileSystem.FileSystem;
@@ -217,11 +214,15 @@ const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<strin
 
 export const runReadRecoverOperation = (
   context: ReconciliationContext,
-): Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  JobStepResult,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ReconciliationAdapters
+> =>
   Effect.gen(function* () {
     const snapshot = yield* buildReconciliationSnapshot(context);
     const unresolvedCount = snapshot.unresolved.length;
-    const reconstructedCount = countLockfileEntries(snapshot.lockfile);
+    const reconstructedCount = countReconstructedLockfileEntries(snapshot.lockfile);
 
     const suffix = unresolvedCount > 0 ? `, ${unresolvedCount} unresolved` : "";
     return {
@@ -279,7 +280,11 @@ export const runReconcileMaterializeOperation = (
   options?: {
     readonly allowMissingDeclarations?: boolean;
   },
-): Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  JobStepResult,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ReconciliationAdapters
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;

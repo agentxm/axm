@@ -1,5 +1,5 @@
 /**
- * Taxonomy types for classifier-backed workspace getters.
+ * Taxonomy types for workspace getters.
  *
  * Defines the shapes returned by workspace methods like `getConfiguredSkills`,
  * `getInstalledCommands`, etc. Separated from service.ts for maintainability.
@@ -8,7 +8,34 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackagingKind } from "./classifier.js";
+export type PackagingKind = "native" | "non-native";
+
+export type ClassifiedExtension =
+  | {
+      readonly type: string;
+      readonly name: string;
+      readonly source: string;
+      readonly enabled: boolean;
+      readonly packagingKind: PackagingKind;
+      readonly lifecycle: "configured";
+    }
+  | {
+      readonly type: string;
+      readonly name: string;
+      readonly source: Option.Option<string>;
+      readonly enabled: true;
+      readonly packagingKind: PackagingKind;
+      readonly lifecycle: "implicit";
+    }
+  | {
+      readonly type: string;
+      readonly name: string;
+      readonly source: Option.Option<string>;
+      readonly enabled: true;
+      readonly packagingKind: PackagingKind;
+      readonly locations: ReadonlyArray<string>;
+      readonly lifecycle: "unmanaged";
+    };
 
 // ---------------------------------------------------------------------------
 // Skill taxonomy

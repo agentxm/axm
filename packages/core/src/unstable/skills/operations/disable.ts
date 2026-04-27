@@ -13,7 +13,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../agents/index.js";
+import { AGENTS } from "../../agents/registry.js";
+import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
@@ -23,6 +24,8 @@ import type { SkillLockEntry } from "../../lockfile/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
 
 // -----------------------------------------------------------------------------
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
 // Helpers
 // -----------------------------------------------------------------------------
 
@@ -110,7 +113,7 @@ export const disableSkill: OperationHandler<
       const sanitizedName = sanitizeName(op.args.skillName);
       const configuredAgents = yield* ws.getConfiguredAgents();
 
-      const lockAgents: readonly string[] = lockEntry.agents;
+      const lockAgents = lockEntry.agents;
       const allAgents = [...new Set([...lockAgents, ...configuredAgents])];
 
       // Remove agent symlinks/copies (concurrent) — files before state.
@@ -132,9 +135,8 @@ export const disableSkill: OperationHandler<
           }
 
           // Fall back to agent descriptor-based path resolution
-          const maybeAgent = getAgentById(agentId);
-          if (Option.isNone(maybeAgent)) return Effect.void;
-          const agent = maybeAgent.value;
+          if (!isKnownAgentId(agentId)) return Effect.void;
+          const agent = AGENTS[agentId];
 
           const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
           return fs

@@ -19,9 +19,13 @@
  * supplies activation for generic consumers.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import {
+  decodeExtensionNameSync,
+  parseFullyQualifiedNameParts,
+  type ExtensionName,
+} from "../../../extensions/common.js";
 import type { ExtensionPackLockEntry, Lockfile } from "../../../lockfile/schema.js";
 import type { ExtensionPackEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
@@ -34,8 +38,13 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
-import { stripTrailingSegments } from "./package-root.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "./projection.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  type SubjectPolicy,
+} from "./projection.js";
 
 // ---------------------------------------------------------------------------
 // Detection origin
@@ -50,7 +59,7 @@ export type PackDetectionOrigin =
 // ---------------------------------------------------------------------------
 
 export interface DeclaredPack {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly entry: ExtensionPackEntry;
 }
 export type DeclaredPacks = ReadonlyArray<DeclaredPack>;
@@ -62,7 +71,8 @@ export type DeclaredPacks = ReadonlyArray<DeclaredPack>;
  * maps when assembling pack-member input for the projection helper.
  */
 export interface ResolvedPack {
-  readonly name: string;
+  readonly keyName: string;
+  readonly name: ExtensionName;
   readonly lockEntry: ExtensionPackLockEntry;
 }
 export type ResolvedPacks = ReadonlyArray<ResolvedPack>;
@@ -120,21 +130,27 @@ export type IgnoredPackCandidate =
 
 const declaredFromSettings = (settings: Settings): DeclaredPacks => {
   if (settings.packs === undefined) return [];
-  return Object.entries(settings.packs).map(([name, entry]) => ({ name, entry }));
+  return Object.entries(settings.packs).map(([name, entry]) => ({
+    name: decodeExtensionNameSync(name),
+    entry,
+  }));
 };
 
 const resolvedFromLockfile = (lockfile: Lockfile): ResolvedPacks => {
   if (lockfile.packs === undefined) return [];
-  return Object.entries(lockfile.packs).map(([name, lockEntry]) => ({ name, lockEntry }));
+  return Object.entries(lockfile.packs).map(([keyName, lockEntry]) => {
+    const parsed = parseFullyQualifiedNameParts(keyName);
+    return {
+      keyName,
+      name: parsed?.name ?? decodeExtensionNameSync(keyName),
+      lockEntry,
+    };
+  });
 };
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualPack => {
   const isExternal = occ.origin === "external-axm";
-  const packageRoot = stripTrailingSegments(
-    occ.pathSegments,
-    occ.contentLocation,
-    isExternal ? 1 : 2,
-  );
+  const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "pack", name: occ.name },
     origin: isExternal ? { _tag: "external-axm-pack" } : { _tag: "canonical-axm-pack" },
@@ -169,6 +185,10 @@ export interface PackExtensionsApi {
   readonly resolved: Effect.Effect<Option.Option<ResolvedPacks>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualPacks>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledPack>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledPack>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredPack>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledPack>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedPack>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredPackCandidate>>;
@@ -204,13 +224,13 @@ const packPolicy = (
   // Pack-member callbacks are unreachable: the subject passes an empty
   // installed-pack set into the projection helper, so the helper never
   // invokes these. The functions still need to satisfy the types.
-  packMemberName: () => "",
+  packMemberName: (member) => member,
   isIgnoredName: (name, ignored) => ignored.has(name),
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "pack", name: input.name },
+    key: { scope, type: "pack", name: decodeExtensionNameSync(input.name) },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -222,7 +242,7 @@ const packPolicy = (
     actual: entry,
   }),
   buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "pack", name: input.name },
+    key: { scope, type: "pack", name: decodeExtensionNameSync(input.name) },
     reason: "declared-ignored",
     declared: input.declared,
   }),
@@ -231,7 +251,7 @@ const packPolicy = (
   // statically without a throw — the body is uninhabitable at runtime.
   buildPackMemberIgnoredRow: (input) => input.member,
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "pack", name: input.name },
+    key: { scope, type: "pack", name: decodeExtensionNameSync(input.name) },
     reason: "actual-ignored",
     actual: input.actual,
   }),
@@ -257,11 +277,7 @@ export const makePackExtensionsApi = (
     );
     const actual: PackExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
-      return Array.getSomes(
-        canonical.map((occ) =>
-          occ.type === "pack" ? Option.some(canonicalToActual(occ, scope)) : Option.none(),
-        ),
-      );
+      return filterMapOccurrences(canonical, "pack", (occ) => canonicalToActual(occ, scope));
     });
 
     // Packs can't be pack members — pass an empty installed-pack set.
@@ -287,13 +303,10 @@ export const makePackExtensionsApi = (
       }),
     );
 
-    return {
+    return makeProjectedSubjectCells({
       declared,
       resolved,
       actual,
-      installed: project.pipe(Effect.map((o) => o.installed)),
-      active: project.pipe(Effect.map((o) => o.active)),
-      unmanaged: project.pipe(Effect.map((o) => o.unmanaged)),
-      ignored: project.pipe(Effect.map((o) => o.ignored)),
-    } satisfies PackExtensionsApi;
+      project,
+    }) satisfies PackExtensionsApi;
   });

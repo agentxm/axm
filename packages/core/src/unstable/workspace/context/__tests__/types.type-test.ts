@@ -18,6 +18,7 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
+import { decodeExtensionNameSync } from "../../../extensions/common.js";
 
 // ---------------------------------------------------------------------------
 // Scope: exactly "project" | "user", no widening
@@ -54,13 +55,13 @@ const _activationComplete = true as const satisfies _ActivationComplete;
 const _skillKey = {
   scope: "project",
   type: "skill",
-  name: "some-skill",
+  name: decodeExtensionNameSync("some-skill"),
 } as const satisfies ExtensionKey<"skill">;
 
 const _packKey = {
   scope: "user",
   type: "pack",
-  name: "team-pack",
+  name: decodeExtensionNameSync("team-pack"),
 } as const satisfies ExtensionKey<"pack">;
 
 // ---------------------------------------------------------------------------
@@ -83,13 +84,13 @@ const _packMemberOrigin = {
   _tag: "pack-member",
   member: { name: "review-tool" },
   pack: {
-    key: { scope: "project", type: "pack", name: "team-pack" },
+    key: { scope: "project", type: "pack", name: decodeExtensionNameSync("team-pack") },
   },
 } as const satisfies InstallationOrigin<PlaceholderDeclared, PlaceholderPackMember>;
 
 // InstalledPackRef.key.type is constrained to "pack"
 const _installedPackRefShape: InstalledPackRef = {
-  key: { scope: "project", type: "pack", name: "team-pack" },
+  key: { scope: "project", type: "pack", name: decodeExtensionNameSync("team-pack") },
 };
 
 // ---------------------------------------------------------------------------

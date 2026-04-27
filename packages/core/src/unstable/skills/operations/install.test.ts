@@ -36,12 +36,12 @@ import {
   makeCodingAgentStub,
 } from "../../test-helpers.js";
 import {
+  AGENTS,
   CodingAgentRepository,
   type CodingAgentRepositoryService,
   type CodingAgent,
-  getAgentById,
 } from "../../agents/index.js";
-import type { AgentId } from "../../agents/types.js";
+import type { AgentDescriptor, AgentId } from "../../agents/types.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
@@ -166,9 +166,12 @@ const withServices = (
   };
   const { layer: outputLayer } = TestRenderer.make();
   const configuredAgentIds = wsOverrides?.configuredAgents ?? [];
+  const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+  const descriptorFor = (id: string): AgentDescriptor | undefined =>
+    isKnownAgentId(id) ? AGENTS[id] : undefined;
   const configuredAgents: ReadonlyArray<CodingAgent> = configuredAgentIds
     .map((id) => {
-      const descriptor = Option.getOrUndefined(getAgentById(id));
+      const descriptor = descriptorFor(id);
       if (!descriptor) return undefined;
       const agent: CodingAgent = makeCodingAgentStub(descriptor.id, {
         resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
@@ -185,7 +188,7 @@ const withServices = (
       return agent;
     })
     .filter((a): a is CodingAgent => a !== undefined);
-  const unknownAgentIds = configuredAgentIds.filter((id) => Option.isNone(getAgentById(id)));
+  const unknownAgentIds = configuredAgentIds.filter((id) => descriptorFor(id) === undefined);
   const defaultAgentRepo: CodingAgentRepositoryService = {
     get: () => Effect.die(new Error("not implemented in test")),
     all: Effect.succeed([]),

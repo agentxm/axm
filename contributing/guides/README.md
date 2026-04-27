@@ -13,6 +13,7 @@ Each guide is a single markdown file named after its topic:
 - `effect.md` — Effect patterns for typed errors, services, and async
 - `effect-option.md` — When to use `Option` versus nullable values
 - `effect-v4-quick-ref.md` — Common v3 to v4 API renames and migrations
+- `workspace-context.md` — Scoped workspace read model, caching, and test fixtures
 - `testing.md` — Testing orientation and skill references
 - `cli-design.md` — Command design, flags, prompts, and handler conventions
 - `cli-renderer.md` — Renderer boundaries, JSON contracts, and stderr diagnostics

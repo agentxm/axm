@@ -4,14 +4,19 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import type { Settings } from "../settings/index.js";
 import { handle } from "../test-helpers.js";
-import { setReconciliationAdapters } from "../workspace/reconciliation.js";
 import { subagentReconciliationAdapter } from "./reconciliation-adapter.js";
-import { buildReconciliationSnapshot } from "../workspace/reconciliation.js";
+import {
+  buildReconciliationSnapshot,
+  ReconciliationAdapters,
+} from "../workspace/reconciliation.js";
 
-// Register only the subagent adapter for focused tests
-setReconciliationAdapters([subagentReconciliationAdapter]);
+const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, [
+  subagentReconciliationAdapter,
+]);
+const testLayer = Layer.mergeAll(NodeServices.layer, reconciliationAdaptersLayer);
 
 describe("subagent reconciliation adapter", () => {
   let tempDir: string;
@@ -24,8 +29,9 @@ describe("subagent reconciliation adapter", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const withContext = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
-    effect.pipe(Effect.provide(NodeServices.layer));
+  const withContext = <A, E>(
+    effect: Effect.Effect<A, E, NodeServices.NodeServices | ReconciliationAdapters>,
+  ) => effect.pipe(Effect.provide(testLayer));
 
   const makeContext = (settings: Settings) => ({
     baseDir: tempDir,

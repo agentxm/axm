@@ -36,9 +36,11 @@ import type * as Path from "effect/Path";
 import {
   type ExtensionType,
   type ExtensionTypePlural,
+  decodeExtensionNameSync,
   isExtensionTypePlural,
   toExtensionType,
 } from "../../../extensions/common.js";
+import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -115,7 +117,7 @@ const buildOccurrence = (
     readonly origin: "canonical-axm" | "external-axm";
     readonly nameDir: string;
     readonly name?: string;
-    readonly owner: string | null;
+    readonly owner: Handle | null;
   },
 ): Effect.Effect<CanonicalExtensionOccurrence> =>
   Effect.gen(function* () {
@@ -133,7 +135,7 @@ const buildOccurrence = (
       scope,
       type: args.extensionType,
       origin: args.origin,
-      name: args.name ?? path.basename(args.nameDir),
+      name: decodeExtensionNameSync(args.name ?? path.basename(args.nameDir)),
       owner: args.owner,
       contentLocation: args.nameDir,
       pathSegments: splitAbsolutePathSegments(path, args.nameDir),
@@ -146,7 +148,7 @@ const buildOccurrence = (
 const scanCanonicalForOwner = (
   deps: CanonicalExtensionsScannerDeps,
   ownerDirAbsolute: string,
-  ownerName: string,
+  ownerName: Handle,
 ): Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>> =>
   Effect.gen(function* () {
     const { fs, path, diagnostics } = deps;
@@ -312,7 +314,7 @@ const scanCanonicalExtensions = Effect.fn("workspace.context.scanner.canonical-e
           const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
           return Effect.succeed(empty);
         }
-        return scanCanonicalForOwner(deps, ownerDir, ownerName);
+        return scanCanonicalForOwner(deps, ownerDir, decodeHandleSync(ownerName));
       },
       { concurrency: "unbounded" },
     );

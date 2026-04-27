@@ -35,6 +35,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import { AGENTS } from "../../../agents/registry.js";
 import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -46,6 +47,17 @@ import {
 import type { AgentDirOccurrence, AgentDirSubjectType } from "./types.js";
 
 const SCANNER_NAME = "agent-dir";
+
+const decodeFileBackedExtensionName = (name: string): ExtensionName => {
+  const normalized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64)
+    .replace(/-+$/g, "");
+
+  return decodeExtensionNameSync(normalized === "" ? "unnamed" : normalized);
+};
 
 // ---------------------------------------------------------------------------
 // Public surface
@@ -139,7 +151,7 @@ const scanSubjectDirectory = (
         scope,
         type: subject.type,
         agentId,
-        name: path.basename(subjectAbsolute),
+        name: decodeFileBackedExtensionName(path.basename(subjectAbsolute)),
         contentLocation: subjectAbsolute,
         pathSegments: splitAbsolutePathSegments(path, subjectAbsolute),
         // Single-file surfaces ARE the materialization; the file itself is
@@ -169,7 +181,7 @@ const scanSubjectDirectory = (
             scope,
             type: subject.type,
             agentId,
-            name: path.basename(nameDir),
+            name: decodeExtensionNameSync(path.basename(nameDir)),
             contentLocation: nameDir,
             pathSegments: splitAbsolutePathSegments(path, nameDir),
             subjectFile: Option.some(subjectFilePath),

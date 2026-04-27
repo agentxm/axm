@@ -43,9 +43,9 @@ export {
 } from "./schema.js";
 
 // Lockfile I/O and utilities
-export { countLockfileEntries, LOCKFILE_NAME } from "./lockfile.js";
+export { LOCKFILE_NAME } from "./lockfile.js";
 
-export { readLockfile, writeLockfile } from "./lockfile.js";
+export { writeLockfile } from "./lockfile.js";
 export {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,

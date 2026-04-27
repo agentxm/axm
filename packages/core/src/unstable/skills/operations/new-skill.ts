@@ -9,7 +9,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../agents/index.js";
+import { AGENTS } from "../../agents/registry.js";
+import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
@@ -23,6 +24,8 @@ import { computeSkillPaths } from "../paths.js";
 import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
 // Operation types
 // -----------------------------------------------------------------------------
 
@@ -164,9 +167,8 @@ export const newSkill: OperationHandler<
       agents,
       (agentId) =>
         Effect.gen(function* () {
-          const maybeAgent = getAgentById(agentId);
-          if (Option.isNone(maybeAgent)) return;
-          const agent = maybeAgent.value;
+          if (!isKnownAgentId(agentId)) return;
+          const agent = AGENTS[agentId];
           const link = path.join(base, agent.skills.dir, name);
           yield* createSymlink({ target: skillSrcPath, link });
         }),

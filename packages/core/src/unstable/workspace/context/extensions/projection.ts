@@ -42,6 +42,7 @@ import * as Option from "effect/Option";
 import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { ActivationState, InstallationOrigin, InstalledPackRef } from "../types.js";
+import { findByName, type RowWithKey } from "./indexByName.js";
 
 // ---------------------------------------------------------------------------
 // Per-subject opaque entry aliases
@@ -226,6 +227,40 @@ export interface ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged, TIgnor
   readonly unmanaged: ReadonlyArray<TUnmanaged>;
   readonly ignored: ReadonlyArray<TIgnored>;
 }
+
+export const makeProjectedSubjectCells = <
+  TDeclaredEntry extends { readonly name: string },
+  TDeclared extends ReadonlyArray<TDeclaredEntry>,
+  TResolved,
+  TActual,
+  TInstalled extends RowWithKey,
+  TUnmanaged,
+  TIgnored,
+>(args: {
+  readonly declared: Effect.Effect<Option.Option<TDeclared>, SettingsReadError>;
+  readonly resolved: Effect.Effect<Option.Option<TResolved>, LockfileReadError>;
+  readonly actual: Effect.Effect<TActual>;
+  readonly project: Effect.Effect<
+    ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged, TIgnored>
+  >;
+}) => ({
+  declared: args.declared,
+  resolved: args.resolved,
+  actual: args.actual,
+  installed: args.project.pipe(Effect.map((out) => out.installed)),
+  byName: (name: string) => args.project.pipe(Effect.map((out) => findByName(out.installed, name))),
+  declaredByName: (name: string) =>
+    args.declared.pipe(
+      Effect.map((opt) =>
+        Option.flatMap(opt, (rows) =>
+          Option.fromUndefinedOr(rows.find((row) => row.name === name)),
+        ),
+      ),
+    ),
+  active: args.project.pipe(Effect.map((out) => out.active)),
+  unmanaged: args.project.pipe(Effect.map((out) => out.unmanaged)),
+  ignored: args.project.pipe(Effect.map((out) => out.ignored)),
+});
 
 // ---------------------------------------------------------------------------
 // Source-tolerance helpers

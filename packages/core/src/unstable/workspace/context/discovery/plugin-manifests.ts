@@ -204,7 +204,7 @@ const parsePluginJson = (
  * All paths are validated to be within basePath.
  * Errors are silently skipped (returns empty array on failure).
  */
-export const parseManifests = (
+export const parsePluginManifests = (
   basePath: string,
 ): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {

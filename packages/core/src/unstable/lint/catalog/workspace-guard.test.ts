@@ -27,7 +27,7 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { getAllAgents } from "../../agents/registry.js";
+import { AGENTS } from "../../agents/registry.js";
 import { isPerExtensionOperationName } from "./workspace/helpers/install-ops.js";
 import { workspaceRules } from "./workspace.js";
 import type { AutofixableFinding, AutofixingRule } from "../rule.js";
@@ -142,7 +142,7 @@ describe("workspace catalog guard — static grep", () => {
 const ISO_DATE = "2026-01-01T00:00:00.000Z";
 
 const findAgent = (id: string) => {
-  const agent = getAllAgents().find((candidate) => candidate.id === id);
+  const agent = Object.values(AGENTS).find((candidate) => candidate.id === id);
   if (agent === undefined) {
     throw new Error(`expected known agent '${id}'`);
   }

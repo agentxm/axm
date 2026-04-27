@@ -10,6 +10,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENTS } from "../../agents/registry.js";
 import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
+import { parseFullyQualifiedNameParts, type ExtensionName } from "../../extensions/common.js";
 import { decodeHandleSync, type Handle } from "../../extensions/handle.js";
 import { SETTINGS_FILENAME } from "../../settings/settings.js";
 import type { SourceHostConfig } from "../../settings/schema.js";
@@ -177,17 +178,25 @@ const validateRoot = (
 
 const DEFAULT_PROFILE: Handle = decodeHandleSync("@community");
 
+const memberNamesFromResolvedMap = (
+  resolvedMap: Readonly<Record<string, unknown>>,
+): ReadonlyArray<ExtensionName> =>
+  Object.keys(resolvedMap).flatMap((fqn) => {
+    const parts = parseFullyQualifiedNameParts(fqn);
+    return parts === undefined ? [] : [parts.name];
+  });
+
 // ---------------------------------------------------------------------------
 // Pack-member maps for cross-subject implicit installation
 // ---------------------------------------------------------------------------
 
 /** Pack ref + resolved member names per cross-subject namespace. */
 interface PackMemberSets {
-  readonly key: { readonly scope: Scope; readonly type: "pack"; readonly name: string };
-  readonly skills: ReadonlyArray<string>;
-  readonly commands: ReadonlyArray<string>;
-  readonly mcpServers: ReadonlyArray<string>;
-  readonly subagents: ReadonlyArray<string>;
+  readonly key: { readonly scope: Scope; readonly type: "pack"; readonly name: ExtensionName };
+  readonly skills: ReadonlyArray<ExtensionName>;
+  readonly commands: ReadonlyArray<ExtensionName>;
+  readonly mcpServers: ReadonlyArray<ExtensionName>;
+  readonly subagents: ReadonlyArray<ExtensionName>;
 }
 
 // ---------------------------------------------------------------------------
@@ -311,13 +320,14 @@ const buildScope = Effect.fn("workspace.context.live.build-scope")(function* (
           onNone: () => null,
           onSome: (r) => r.lockEntry,
         });
-        const skillNames = resolvedSome === null ? [] : Object.keys(resolvedSome.resolvedSkills);
+        const skillNames =
+          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSkills);
         const commandNames =
-          resolvedSome === null ? [] : Object.keys(resolvedSome.resolvedCommands);
+          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedCommands);
         const mcpServerNames =
-          resolvedSome === null ? [] : Object.keys(resolvedSome.resolvedMcpServers);
+          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedMcpServers);
         const subagentNames =
-          resolvedSome === null ? [] : Object.keys(resolvedSome.resolvedSubagents);
+          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSubagents);
         return {
           key: row.key,
           skills: skillNames,
@@ -567,9 +577,10 @@ export const WorkspaceContextLive: Layer.Layer<
     // Workspace path layout per scope.
     const projectAxmDir = pathSvc.join(projectRootResolved, ".axm");
     const projectSettingsPath = pathSvc.join(projectAxmDir, SETTINGS_FILENAME);
-    const projectLockfilePath = pathSvc.join(projectRootResolved, LOCKFILE_NAME);
+    const projectLockfilePath = pathSvc.join(projectAxmDir, LOCKFILE_NAME);
     const userAxmDir = pathSvc.join(userHomeResolved, ".axm");
     const userSettingsPath = pathSvc.join(userAxmDir, SETTINGS_FILENAME);
+    const userLockfilePath = pathSvc.join(userAxmDir, LOCKFILE_NAME);
 
     // Shared agent-root resolver state — one tracker per `WorkspaceContextLive`
     // instance so the heuristic-fallback warning fires at most once per agent
@@ -600,7 +611,7 @@ export const WorkspaceContextLive: Layer.Layer<
           path: pathSvc,
           workspaceRoot: scope === "project" ? projectRootResolved : userHomeResolved,
           settingsPath: scope === "project" ? projectSettingsPath : userSettingsPath,
-          lockfilePath: scope === "project" ? projectLockfilePath : null,
+          lockfilePath: scope === "project" ? projectLockfilePath : userLockfilePath,
           bumpCacheCount,
           rootResolverState,
           diagnosticsRef: scope === "project" ? projectDiagnosticsRef : userDiagnosticsRef,

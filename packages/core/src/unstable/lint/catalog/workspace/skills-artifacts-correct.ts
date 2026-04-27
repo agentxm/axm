@@ -34,7 +34,6 @@ import type {
   LintFinding,
 } from "../../rule.js";
 import type { Operation } from "../../../plan/plan.js";
-import { AGENTS } from "../../../agents/registry.js";
 import { isSameFinding } from "./helpers/finding.js";
 import { disableSkillOp, enableSkillOp } from "./helpers/install-ops.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
@@ -160,11 +159,13 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
       if (declaredAgentIds.size === 0) {
         return EMPTY_LINT_FINDINGS;
       }
-      const knownAgentIds = yield* scoped.agents.known;
-      const declaredAgents = knownAgentIds.filter((id) => declaredAgentIds.has(id));
+      const knownAgents = yield* scoped.agents.known;
+      const declaredAgents = knownAgents.filter((agent) => declaredAgentIds.has(agent.id));
 
       const universalAgentIds = new Set(
-        declaredAgents.filter((id) => isUniversalSkillsRelativeDir(AGENTS[id].skills.dir)),
+        declaredAgents
+          .filter((agent) => isUniversalSkillsRelativeDir(agent.skills.dir))
+          .map((agent) => agent.id),
       );
       const installed = yield* scoped.skills.installed;
       const existenceBySkill = installed.flatMap((row) => {
@@ -178,7 +179,7 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
           ),
         );
         const collapsed = resolveUniversalDirPresence(
-          declaredAgents.map((agentId) => ({ agentId, exists: present.has(agentId) })),
+          declaredAgents.map((agent) => ({ agentId: agent.id, exists: present.has(agent.id) })),
           universalAgentIds,
         );
         return {
@@ -206,10 +207,12 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
       if (declaredAgentIds.size === 0) {
         return EMPTY_OPERATIONS;
       }
-      const knownAgentIds = yield* scoped.agents.known;
-      const declaredAgents = knownAgentIds.filter((id) => declaredAgentIds.has(id));
+      const knownAgents = yield* scoped.agents.known;
+      const declaredAgents = knownAgents.filter((agent) => declaredAgentIds.has(agent.id));
       const universalAgentIds = new Set(
-        declaredAgents.filter((id) => isUniversalSkillsRelativeDir(AGENTS[id].skills.dir)),
+        declaredAgents
+          .filter((agent) => isUniversalSkillsRelativeDir(agent.skills.dir))
+          .map((agent) => agent.id),
       );
       const installed = yield* scoped.skills.installed;
       const existenceBySkill = installed.flatMap((row) => {
@@ -223,7 +226,7 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
           ),
         );
         const collapsed = resolveUniversalDirPresence(
-          declaredAgents.map((agentId) => ({ agentId, exists: present.has(agentId) })),
+          declaredAgents.map((agent) => ({ agentId: agent.id, exists: present.has(agent.id) })),
           universalAgentIds,
         );
         return {

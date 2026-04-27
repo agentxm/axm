@@ -4,11 +4,9 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import YAML from "yaml";
 import type { Lockfile, SkillLockEntry } from "./schema.js";
-import { AppError } from "../app-error/index.js";
-import { readLockfile, writeLockfile } from "./lockfile.js";
+import { writeLockfile } from "./lockfile.js";
 
 describe("lockfile", () => {
   let tempDir: string;
@@ -36,170 +34,6 @@ describe("lockfile", () => {
     installedAt: new Date("2026-01-28T10:00:00.000Z"),
     updatedAt: new Date("2026-01-28T10:00:00.000Z"),
     ...overrides,
-  });
-
-  describe("readLockfile", () => {
-    it.effect("returns empty lockfile when file does not exist", () =>
-      withContext(
-        Effect.gen(function* () {
-          const result = yield* readLockfile(axmDir);
-
-          expect(result.lockfileVersion).toBe(1);
-          expect(result.skills).toEqual({});
-        }),
-      ),
-    );
-
-    it.effect("reads and parses valid lockfile", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          const lockfileContent = YAML.stringify({
-            lockfileVersion: 1,
-            skills: {
-              "pr-review": {
-                type: "github",
-                owner: "example-org",
-                repo: "agent-skills",
-                agents: ["claude-code"],
-                installedAt: "2026-01-28T10:00:00.000Z",
-                updatedAt: "2026-01-28T10:00:00.000Z",
-              },
-            },
-          });
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), lockfileContent);
-
-          const result = yield* readLockfile(axmDir);
-
-          expect(result.lockfileVersion).toBe(1);
-          const prReview = result.skills["pr-review"];
-          expect(prReview).toBeDefined();
-          expect(prReview?.type).toBe("github");
-          if (prReview?.type === "github") {
-            expect(prReview?.owner).toBe("example-org");
-            expect(prReview?.repo).toBe("agent-skills");
-          }
-          expect(prReview?.agents).toEqual(["claude-code"]);
-        }),
-      ),
-    );
-
-    it.effect("returns AppError for invalid YAML", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "invalid: yaml: content:");
-
-          const error = yield* readLockfile(axmDir).pipe(Effect.flip);
-
-          expect(error).toBeInstanceOf(AppError);
-          expect(error._tag).toBe("AppError");
-          expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
-        }),
-      ),
-    );
-
-    it.effect("returns AppError for null content", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "null");
-
-          const error = yield* readLockfile(axmDir).pipe(Effect.flip);
-
-          expect(error).toBeInstanceOf(AppError);
-          expect(error._tag).toBe("AppError");
-          expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
-        }),
-      ),
-    );
-
-    it.effect("returns AppError when lockfileVersion is missing", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify({ skills: {} }));
-
-          const error = yield* readLockfile(axmDir).pipe(Effect.flip);
-
-          expect(error).toBeInstanceOf(AppError);
-          expect(error._tag).toBe("AppError");
-          expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
-        }),
-      ),
-    );
-
-    it.effect("fails fast with actionable error for range resolvedVersion", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(
-            path.join(axmDir, "axm-lock.yaml"),
-            YAML.stringify({
-              lockfileVersion: 1,
-              skills: {
-                "dep-skill": {
-                  type: "registry",
-                  owner: "@acme",
-                  name: "dep-skill",
-                  resolvedVersion: "^1.0.0",
-                  integrity: "sha512-abc123",
-                  sourceName: "default",
-                  agents: ["claude-code"],
-                  installedAt: "2026-01-28T10:00:00.000Z",
-                  updatedAt: "2026-01-28T10:00:00.000Z",
-                },
-              },
-            }),
-          );
-
-          const error = yield* readLockfile(axmDir).pipe(Effect.flip);
-
-          expect(error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
-          expect(error.what).toContain("exact semver");
-          expect(Option.isSome(error.howToFix)).toBe(true);
-        }),
-      ),
-    );
-
-    it.effect("fails fast with actionable error for range in pack resolved maps", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(
-            path.join(axmDir, "axm-lock.yaml"),
-            YAML.stringify({
-              lockfileVersion: 1,
-              skills: {},
-              packs: {
-                "deps-pack": {
-                  type: "registry",
-                  owner: "@acme",
-                  name: "deps-pack",
-                  resolvedVersion: "1.0.0",
-                  integrity: "sha512-abc123",
-                  sourceName: "default",
-                  installedAt: "2026-01-28T10:00:00.000Z",
-                  updatedAt: "2026-01-28T10:00:00.000Z",
-                  resolvedSkills: {
-                    "@acme/skills/dep-skill": "^1.0.0",
-                  },
-                  resolvedCommands: {},
-                  resolvedMcpServers: {},
-                  resolvedSubagents: {},
-                },
-              },
-            }),
-          );
-
-          const error = yield* readLockfile(axmDir).pipe(Effect.flip);
-
-          expect(error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
-          expect(error.what).toContain("exact semver");
-          expect(Option.isSome(error.howToFix)).toBe(true);
-        }),
-      ),
-    );
   });
 
   describe("writeLockfile", () => {
@@ -262,7 +96,7 @@ describe("lockfile", () => {
 
           yield* writeLockfile(axmDir, lockfile);
 
-          const result = yield* readLockfile(axmDir);
+          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
           expect(result.skills["commit"]).toBeDefined();
         }),
       ),
@@ -292,7 +126,7 @@ describe("lockfile", () => {
           };
 
           yield* writeLockfile(axmDir, lockfile);
-          const result = yield* readLockfile(axmDir);
+          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
 
           expect(result.lockfileVersion).toBe(1);
           const prReview = result.skills["pr-review"];
@@ -305,8 +139,8 @@ describe("lockfile", () => {
           }
           expect(prReview?.agents).toEqual(entry.agents);
           expect(prReview?.gitTreeHash).toBe(entry.gitTreeHash);
-          expect(prReview?.installedAt).toEqual(entry.installedAt);
-          expect(prReview?.updatedAt).toEqual(entry.updatedAt);
+          expect(prReview?.installedAt).toBe(entry.installedAt.toISOString());
+          expect(prReview?.updatedAt).toBe(entry.updatedAt.toISOString());
         }),
       ),
     );
@@ -333,7 +167,7 @@ describe("lockfile", () => {
           };
 
           yield* writeLockfile(axmDir, lockfile);
-          const result = yield* readLockfile(axmDir);
+          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
 
           expect(Object.keys(result.skills)).toHaveLength(3);
           expect(result.skills["pr-review"]).toBeDefined();

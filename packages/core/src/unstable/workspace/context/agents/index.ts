@@ -23,7 +23,8 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { AGENT_IDS, type AgentId } from "../../../agents/types.js";
+import { AGENTS } from "../../../agents/registry.js";
+import { AGENT_IDS, type AgentDescriptor, type AgentId } from "../../../agents/types.js";
 import type { SettingsReadError } from "../errors.js";
 import type { Scope } from "../types.js";
 import { agentModule as adal, type AdalNativeConfig } from "./adal.js";
@@ -260,6 +261,8 @@ export const registeredAgentModules: ReadonlyArray<AgentModule<AgentNativeConfig
  */
 export const getAgentModule = (id: AgentId): AgentModule<AgentNativeConfig> => agentModulesById[id];
 
+const isAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
 // ---------------------------------------------------------------------------
 // Scoped agents API
 // ---------------------------------------------------------------------------
@@ -269,8 +272,8 @@ export const getAgentModule = (id: AgentId): AgentModule<AgentNativeConfig> => a
  * have declared + actual only; no resolved layer.
  *
  * - `list` — every registered agent id (alias of `AGENT_IDS`).
- * - `known` — agents with a registered module (currently equal to `list` —
- *   kept distinct so a future change can introduce dynamic registration).
+ * - `known` — every registered agent descriptor in registry order.
+ * - `byId(id)` — descriptor lookup for known agents.
  * - `declared(id)` — settings-derived declaration; fails with the narrow
  *   `SettingsReadError` family when settings exist but cannot be decoded.
  * - `actual(id)` — scanner-derived presence evidence; never fails.
@@ -279,7 +282,8 @@ export const getAgentModule = (id: AgentId): AgentModule<AgentNativeConfig> => a
  */
 export interface ScopedAgentsApi {
   readonly list: Effect.Effect<ReadonlyArray<AgentId>>;
-  readonly known: Effect.Effect<ReadonlyArray<AgentId>>;
+  readonly known: Effect.Effect<ReadonlyArray<AgentDescriptor>>;
+  readonly byId: (id: string) => Option.Option<AgentDescriptor>;
   readonly declared: (
     id: AgentId,
   ) => Effect.Effect<Option.Option<DeclaredAgent>, SettingsReadError>;
@@ -353,7 +357,8 @@ export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi 
 
   return {
     list: Effect.succeed(AGENT_IDS),
-    known: Effect.succeed(AGENT_IDS),
+    known: Effect.succeed(AGENT_IDS.map((id) => AGENTS[id])),
+    byId: (id) => (isAgentId(id) ? Option.some(AGENTS[id]) : Option.none()),
     declared,
     actual,
     detected,

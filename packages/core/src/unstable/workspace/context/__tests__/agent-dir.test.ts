@@ -186,7 +186,7 @@ describe("agent-dir scanner", () => {
         (o) => o.type === "subagent" && o.agentId === "roo",
       );
       expect(fileOccurrences).toHaveLength(1);
-      expect(fileOccurrences[0]?.name).toBe("agent-file.txt");
+      expect(fileOccurrences[0]?.name).toBe("agent-file-txt");
       expect(fileOccurrences[0]?.contentLocation).toBe("/ws/.roo/agent-file.txt");
     }).pipe(Effect.provide(Path.layer)),
   );

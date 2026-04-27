@@ -10,8 +10,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { scanAgentSubagentFiles, scanAllSubagentFiles } from "./subagent-detection.js";
-import type { AgentDescriptor } from "./types.js";
+import { scanAgentSubagentFiles, scanAllSubagentFiles } from "./subagents.js";
 import { afterEach, beforeEach } from "vitest";
 
 let tempDir: string;
@@ -27,33 +26,11 @@ afterEach(() => {
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
-const claudeCode: AgentDescriptor = {
-  id: "claude-code",
-  name: "Claude Code",
-  skills: { dir: ".claude/skills" },
-  commands: { dir: ".claude/commands" },
-  subagents: { dir: ".claude/agents" },
-};
-
-const roo: AgentDescriptor = {
-  id: "roo",
-  name: "Roo Code",
-  skills: { dir: ".roo/skills" },
-  commands: { dir: ".roo/commands" },
-  subagents: { dir: ".roomodes", isFile: true },
-};
-
-const cline: AgentDescriptor = {
-  id: "cline",
-  name: "Cline",
-  skills: { dir: ".cline/skills" },
-};
-
 describe("scanAgentSubagentFiles", () => {
   it.effect("returns empty array for agent without subagents", () =>
     withNode(
       Effect.gen(function* () {
-        const result = yield* scanAgentSubagentFiles(cline, tempDir);
+        const result = yield* scanAgentSubagentFiles("cline", tempDir);
         expect(result).toEqual([]);
       }),
     ),
@@ -62,7 +39,7 @@ describe("scanAgentSubagentFiles", () => {
   it.effect("returns empty array when directory is missing", () =>
     withNode(
       Effect.gen(function* () {
-        const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
+        const result = yield* scanAgentSubagentFiles("claude-code", tempDir);
         expect(result).toEqual([]);
       }),
     ),
@@ -75,7 +52,7 @@ describe("scanAgentSubagentFiles", () => {
         fs.mkdirSync(agentsDir, { recursive: true });
         fs.writeFileSync(path.join(agentsDir, "my-agent.md"), "# My Agent\nSome instructions");
 
-        const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
+        const result = yield* scanAgentSubagentFiles("claude-code", tempDir);
         expect(result).toEqual([{ path: path.join(".claude/agents", "my-agent.md") }]);
       }),
     ),
@@ -89,7 +66,7 @@ describe("scanAgentSubagentFiles", () => {
         fs.writeFileSync(path.join(agentsDir, "one.md"), "# One");
         fs.writeFileSync(path.join(agentsDir, "two.md"), "# Two");
 
-        const result = yield* scanAgentSubagentFiles(claudeCode, tempDir);
+        const result = yield* scanAgentSubagentFiles("claude-code", tempDir);
         const detected = result.map((file) => file.path).sort();
         expect(detected).toEqual([
           path.join(".claude/agents", "one.md"),
@@ -104,7 +81,7 @@ describe("scanAgentSubagentFiles", () => {
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, ".roomodes"), '{"customModes": []}');
 
-        const result = yield* scanAgentSubagentFiles(roo, tempDir);
+        const result = yield* scanAgentSubagentFiles("roo", tempDir);
         expect(result).toEqual([{ path: ".roomodes" }]);
       }),
     ),
@@ -113,7 +90,7 @@ describe("scanAgentSubagentFiles", () => {
   it.effect("returns empty array when .roomodes does not exist", () =>
     withNode(
       Effect.gen(function* () {
-        const result = yield* scanAgentSubagentFiles(roo, tempDir);
+        const result = yield* scanAgentSubagentFiles("roo", tempDir);
         expect(result).toEqual([]);
       }),
     ),
@@ -128,7 +105,7 @@ describe("scanAllSubagentFiles", () => {
         fs.mkdirSync(agentsDir, { recursive: true });
         fs.writeFileSync(path.join(agentsDir, "agent.md"), "# Agent");
 
-        const result = yield* scanAllSubagentFiles([claudeCode, roo, cline], tempDir);
+        const result = yield* scanAllSubagentFiles(tempDir);
         expect(result).toHaveLength(1);
         expect(result[0]?.agentId).toBe("claude-code");
         expect(result[0]?.files).toEqual([{ path: path.join(".claude/agents", "agent.md") }]);
@@ -139,7 +116,7 @@ describe("scanAllSubagentFiles", () => {
   it.effect("returns empty array when no agents have subagent files", () =>
     withNode(
       Effect.gen(function* () {
-        const result = yield* scanAllSubagentFiles([claudeCode, roo], tempDir);
+        const result = yield* scanAllSubagentFiles(tempDir);
         expect(result).toEqual([]);
       }),
     ),
@@ -153,7 +130,7 @@ describe("scanAllSubagentFiles", () => {
         fs.writeFileSync(path.join(agentsDir, "agent.md"), "# Agent");
         fs.writeFileSync(path.join(tempDir, ".roomodes"), '{"customModes": []}');
 
-        const result = yield* scanAllSubagentFiles([claudeCode, roo], tempDir);
+        const result = yield* scanAllSubagentFiles(tempDir);
         expect(result).toHaveLength(2);
         const ids = result.map((summary) => summary.agentId);
         expect(ids).toContain("claude-code");

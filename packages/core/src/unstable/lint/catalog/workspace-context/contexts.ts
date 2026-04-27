@@ -153,7 +153,9 @@ export const buildWorkspaceIndexFromContext = (
       concurrency: "unbounded",
     });
     return {
-      installedSkills: skills.map((skill) => installedSkillToInfo(args, skill)),
+      installedSkills: skills
+        .filter((skill) => skill.actual.length > 0 || Option.isSome(skill.resolved))
+        .map((skill) => installedSkillToInfo(args, skill)),
       installedPacks: packs.flatMap((pack) => {
         const info = installedPackToInfo(args, pack);
         return info === undefined ? [] : [info];

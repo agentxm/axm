@@ -55,11 +55,11 @@ import type {
   WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 import {
-  getBuiltInSources,
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionLive,
   WorkspaceInitializationInteractionLive,
 } from "@agentxm/client-core/unstable/workspace";
+import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
 import { loadVersion } from "./version.js";
 
 export { verboseFlag, debugFlag };
@@ -149,6 +149,13 @@ export const resolveBuiltInSources = Effect.gen(function* () {
   const registryUrl = yield* RegistryUrl;
   return getBuiltInSources(resolveBuiltInRegistryLocation(process.env, registryUrl));
 });
+
+const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
+  { name: "default", type: "registry", location: new URL(registryLocation) },
+  { name: "github", type: "github", url: new URL("https://github.com") },
+  { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+  { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
+];
 
 const readRuntimeEnvConfig = Effect.gen(function* () {
   const registryUrl = yield* RegistryUrl;

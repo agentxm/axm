@@ -11,7 +11,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../agents/index.js";
+import { AGENTS } from "../../agents/registry.js";
+import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
@@ -23,6 +24,8 @@ import { existsInAnyCanonicalLocation } from "../disk-check.js";
 import { getSkillFqn, isReferencedByExtensionPack } from "../utils.js";
 
 // -----------------------------------------------------------------------------
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
 // Operation types
 // -----------------------------------------------------------------------------
 
@@ -88,7 +91,7 @@ export const uninstallSkill: OperationHandler<
     }
 
     // Determine which agents to remove from
-    const lockAgents: readonly string[] = lockEntry?.agents ?? [];
+    const lockAgents = lockEntry?.agents ?? [];
     const agentFilter = op.args.agents;
     const isPartialUninstall = agentFilter.length > 0;
     const agentsToRemove = isPartialUninstall ? agentFilter : lockAgents;
@@ -112,9 +115,8 @@ export const uninstallSkill: OperationHandler<
         }
 
         // Fall back to agent descriptor-based path resolution
-        const maybeAgent = getAgentById(agentId);
-        if (Option.isNone(maybeAgent)) return Effect.void;
-        const agent = maybeAgent.value;
+        if (!isKnownAgentId(agentId)) return Effect.void;
+        const agent = AGENTS[agentId];
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return fs.remove(agentSkillPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));

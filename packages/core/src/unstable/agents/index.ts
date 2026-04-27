@@ -11,12 +11,8 @@
 // Detection (effectful)
 export { detectAgent, detectAgentInRoot, detectAgents, detectAgentsInRoot } from "./detection.js";
 
-// Subagent file detection
-export { scanAgentSubagentFiles, scanAllSubagentFiles } from "./subagent-detection.js";
-export type { DetectedSubagentFile, AgentSubagentSummary } from "./subagent-detection.js";
-
 // Registry (pure data)
-export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
+export { AGENTS, getAgentIds } from "./registry.js";
 
 // Types and constants
 export { AGENT_IDS } from "./types.js";

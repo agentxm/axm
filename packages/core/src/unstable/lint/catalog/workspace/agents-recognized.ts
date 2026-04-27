@@ -48,7 +48,8 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
       const declared = settings.success.value.agents ?? [];
       if (declared.length === 0) return EMPTY_ADVISORY_FINDINGS;
 
-      const knownIds = new Set(yield* scoped.agents.known);
+      const knownAgents = yield* scoped.agents.known;
+      const knownIds = new Set(knownAgents.map((agent) => agent.id));
 
       const findings: Array<AdvisoryFinding> = [];
       for (const id of declared) {

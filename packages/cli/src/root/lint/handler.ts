@@ -683,7 +683,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const config = yield* loadLintConfig(workspaceRoot);
 
   // -- Build WorkspaceContext-backed rule contexts --
-  const userHome = yield* Effect.sync(() => os.homedir());
+  const userHome = args.scope === "user" ? workspaceRoot : yield* Effect.sync(() => os.homedir());
   const workspaceContext = yield* buildWorkspaceRuleContext({
     platform: { fs, path },
     workspaceRoot,

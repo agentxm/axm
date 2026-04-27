@@ -1,5 +1,5 @@
-import { getAgentById, scanAllSubagentFiles } from "@agentxm/client-core/unstable/agents";
-import type { AgentSubagentSummary } from "@agentxm/client-core/unstable/agents";
+import { AGENTS } from "@agentxm/client-core/unstable/agents";
+import type { AgentId } from "@agentxm/client-core/unstable/agents";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -7,6 +7,8 @@ import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import {
   bootstrapWorkspace,
+  scanAllSubagentFiles,
+  type AgentSubagentSummary,
   type WorkspaceContextOptions,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
@@ -48,6 +50,8 @@ const SetupDocumentFields = {
   result: SetupResultSchema,
 } satisfies Schema.Struct.Fields;
 
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
 /**
  * Render subagent file summary to the CLI output.
  */
@@ -86,14 +90,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     },
     {},
   );
-  const agentDescriptors = agentIds.flatMap((id) => {
-    const opt = getAgentById(id);
-    return Option.isSome(opt) ? [opt.value] : [];
-  });
+  const agentDescriptors = agentIds.flatMap((id) => (isKnownAgentId(id) ? [AGENTS[id]] : []));
   const agents = agentDescriptors.map((a) => ({ id: a.id, name: a.name }));
   // Include agents without descriptors (unknown agents) by ID
   const unknownAgents = agentIds
-    .filter((id) => Option.isNone(getAgentById(id)))
+    .filter((id) => !isKnownAgentId(id))
     .map((id) => ({ id, name: id }));
   const allAgents = [...agents, ...unknownAgents];
   const agentNames = allAgents.map((agent) => agent.name).join(", ");
@@ -102,9 +103,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
 
   // Scan subagent directories for existing files
   const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
-    agentDescriptors.length > 0
-      ? yield* scanAllSubagentFiles(agentDescriptors, location.baseDir)
-      : [];
+    agentDescriptors.length > 0 ? yield* scanAllSubagentFiles(location.baseDir) : [];
 
   if (
     yield* renderer.document(

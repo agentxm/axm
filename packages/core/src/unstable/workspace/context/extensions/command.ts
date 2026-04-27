@@ -7,10 +7,10 @@
  * the declared `enabled` flag.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { CommandLockEntry, Lockfile } from "../../../lockfile/schema.js";
 import type { CommandEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
@@ -23,8 +23,13 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
-import { stripTrailingSegments } from "./package-root.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "./projection.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  type SubjectPolicy,
+} from "./projection.js";
 
 // ---------------------------------------------------------------------------
 // Detection origin
@@ -40,13 +45,13 @@ export type CommandDetectionOrigin =
 // ---------------------------------------------------------------------------
 
 export interface DeclaredCommand {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly entry: CommandEntry;
 }
 export type DeclaredCommands = ReadonlyArray<DeclaredCommand>;
 
 export interface ResolvedCommand {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly lockEntry: CommandLockEntry;
 }
 export type ResolvedCommands = ReadonlyArray<ResolvedCommand>;
@@ -61,7 +66,7 @@ export interface ActualCommand {
 export type ActualCommands = ReadonlyArray<ActualCommand>;
 
 export interface CommandPackMember {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
 
@@ -103,21 +108,23 @@ export type IgnoredCommandCandidate =
 
 const declaredFromSettings = (settings: Settings): DeclaredCommands => {
   if (settings.commands === undefined) return [];
-  return Object.entries(settings.commands).map(([name, entry]) => ({ name, entry }));
+  return Object.entries(settings.commands).map(([name, entry]) => ({
+    name: decodeExtensionNameSync(name),
+    entry,
+  }));
 };
 
 const resolvedFromLockfile = (lockfile: Lockfile): ResolvedCommands => {
   if (lockfile.commands === undefined) return [];
-  return Object.entries(lockfile.commands).map(([name, lockEntry]) => ({ name, lockEntry }));
+  return Object.entries(lockfile.commands).map(([name, lockEntry]) => ({
+    name: decodeExtensionNameSync(name),
+    lockEntry,
+  }));
 };
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualCommand => {
   const isExternal = occ.origin === "external-axm";
-  const packageRoot = stripTrailingSegments(
-    occ.pathSegments,
-    occ.contentLocation,
-    isExternal ? 1 : 2,
-  );
+  const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "command", name: occ.name },
     origin: isExternal ? { _tag: "external-axm-command" } : { _tag: "canonical-axm-command" },
@@ -168,6 +175,10 @@ export interface CommandExtensionsApi {
   readonly resolved: Effect.Effect<Option.Option<ResolvedCommands>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualCommands>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledCommand>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledCommand>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredCommand>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledCommand>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedCommand>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredCommandCandidate>>;
@@ -205,7 +216,7 @@ const commandPolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "command", name: input.name },
+    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -217,18 +228,18 @@ const commandPolicy = (
     actual: entry,
   }),
   buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: input.name },
+    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
     reason: "declared-ignored",
     declared: input.declared,
   }),
   buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: input.name },
+    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
     reason: "pack-member-ignored",
     member: input.member,
     pack: input.pack,
   }),
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: input.name },
+    key: { scope, type: "command", name: decodeExtensionNameSync(input.name) },
     reason: "actual-ignored",
     actual: input.actual,
   }),
@@ -255,15 +266,11 @@ export const makeCommandExtensionsApi = (
     const actual: CommandExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       const agentDir = yield* scanners.agentDir;
-      const fromCanonical = Array.getSomes(
-        canonical.map((occ) =>
-          occ.type === "command" ? Option.some(canonicalToActual(occ, scope)) : Option.none(),
-        ),
+      const fromCanonical = filterMapOccurrences(canonical, "command", (occ) =>
+        canonicalToActual(occ, scope),
       );
-      const fromAgentDir = Array.getSomes(
-        agentDir.map((occ) =>
-          occ.type === "command" ? Option.some(agentDirToActual(occ, scope)) : Option.none(),
-        ),
+      const fromAgentDir = filterMapOccurrences(agentDir, "command", (occ) =>
+        agentDirToActual(occ, scope),
       );
       return [...fromCanonical, ...fromAgentDir];
     });
@@ -288,13 +295,10 @@ export const makeCommandExtensionsApi = (
       }),
     );
 
-    return {
+    return makeProjectedSubjectCells({
       declared,
       resolved,
       actual,
-      installed: project.pipe(Effect.map((o) => o.installed)),
-      active: project.pipe(Effect.map((o) => o.active)),
-      unmanaged: project.pipe(Effect.map((o) => o.unmanaged)),
-      ignored: project.pipe(Effect.map((o) => o.ignored)),
-    } satisfies CommandExtensionsApi;
+      project,
+    }) satisfies CommandExtensionsApi;
   });

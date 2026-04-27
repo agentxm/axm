@@ -41,3 +41,14 @@ export const stripTrailingSegments = (
   const sep = contentLocation.charAt(pathSegments[0]?.length ?? 0);
   return pathSegments.slice(0, pathSegments.length - count).join(sep);
 };
+
+export const canonicalAxmPackageRoot = (occ: {
+  readonly origin: "canonical-axm" | "external-axm";
+  readonly pathSegments: ReadonlyArray<string>;
+  readonly contentLocation: string;
+}): string =>
+  stripTrailingSegments(
+    occ.pathSegments,
+    occ.contentLocation,
+    occ.origin === "external-axm" ? 1 : 2,
+  );

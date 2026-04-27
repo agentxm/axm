@@ -10,7 +10,12 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { parseFullyQualifiedNameParts, type ExtensionType } from "../extensions/index.js";
+import {
+  decodeExtensionNameSync,
+  parseFullyQualifiedNameParts,
+  type ExtensionName,
+  type ExtensionType,
+} from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
 import type { ExtensionPackRef } from "./refs.js";
 import type {
@@ -26,8 +31,8 @@ import { resolveExtensionPackDependencies } from "./dependency-resolution.js";
 // expandExtensionPackInstallRefs
 // -----------------------------------------------------------------------------
 
-const nameFromFqn = (fqn: string): string => {
-  return parseFullyQualifiedNameParts(fqn)?.name ?? fqn;
+const nameFromFqn = (fqn: string): ExtensionName => {
+  return parseFullyQualifiedNameParts(fqn)?.name ?? decodeExtensionNameSync(fqn);
 };
 
 /**
@@ -185,7 +190,7 @@ export const expandExtensionPackUninstallTargets = (args: {
  * Fails with AppError if any skill name is not found in the lockfile.
  */
 export const resolveSkillUninstallTargetsFromLockfile = (
-  skills: ReadonlyArray<{ readonly skillName: string }>,
+  skills: ReadonlyArray<{ readonly skillName: ExtensionName }>,
   lockfile: Lockfile,
 ): Effect.Effect<ReadonlyArray<SkillExtensionTarget>, AppError> =>
   Effect.forEach(skills, (entry) => {

@@ -17,7 +17,11 @@ import { type AppError } from "../app-error/index.js";
 import type { Settings } from "../settings/index.js";
 import type { Plan, PlannedJobStep } from "../plan/plan.js";
 import type { ReconciliationContext } from "./reconciliation-types.js";
-import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./reconciliation.js";
+import {
+  ReconciliationAdapters,
+  runReadRecoverOperation,
+  runReconcileMaterializeOperation,
+} from "./reconciliation.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -52,8 +56,11 @@ export const augmentPlanWithReconciliation = (
   workspaceDir: string,
   readSettingsSafe: (dir: string) => Effect.Effect<Settings, AppError>,
   fsLayer: Layer.Layer<FileSystem.FileSystem | Path.Path>,
-): Effect.Effect<AugmentedPlanResult, AppError> =>
+): Effect.Effect<AugmentedPlanResult, AppError, ReconciliationAdapters> =>
   Effect.gen(function* () {
+    const adapters = yield* ReconciliationAdapters;
+    const adaptersLayer = Layer.succeed(ReconciliationAdapters, adapters);
+    const runLayer = Layer.mergeAll(fsLayer, adaptersLayer);
     const lockfileState = yield* getLockfileState();
 
     if (lockfileState === "ok") {
@@ -76,7 +83,7 @@ export const augmentPlanWithReconciliation = (
     const readRecoverStep: PlannedJobStep = {
       readiness: "ready",
       label: `Recover lockfile (${reason})`,
-      run: runReadRecoverOperation(reconciliationContext).pipe(Effect.provide(fsLayer)),
+      run: runReadRecoverOperation(reconciliationContext).pipe(Effect.provide(runLayer)),
     };
 
     const materializeStep: PlannedJobStep = {
@@ -84,7 +91,7 @@ export const augmentPlanWithReconciliation = (
       label: `Reconcile lockfile (${reason})`,
       run: runReconcileMaterializeOperation(reconciliationContext, workspaceDir, reason, {
         allowMissingDeclarations: true,
-      }).pipe(Effect.provide(fsLayer)),
+      }).pipe(Effect.provide(runLayer)),
     };
 
     return {

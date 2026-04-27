@@ -111,6 +111,7 @@ the summary here, follow the guide.
 | [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | When translating v3-era examples, read for common v4 renames and migrations            |
 | [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Before designing or translating Effect errors, read for AppError and service patterns  |
 | [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Before building or wiring layers, read for composition and provision rules             |
+| [WorkspaceContext Guide](contributing/guides/workspace-context.md)          | Before migrating workspace reads or using context test fixtures                        |
 | [Logging Guide](contributing/guides/logging.md)                             | Before adding structured logs, read for logging conventions                            |
 | [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Before writing or revising TypeScript, read for narrowing and immutability rules       |
 

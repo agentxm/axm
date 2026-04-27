@@ -12,7 +12,12 @@
  * correct shape — workspace omits `agentId`; agent carries it non-null.
  */
 import * as Option from "effect/Option";
-import type { ExtensionType } from "../../../extensions/common.js";
+import {
+  decodeExtensionNameSync,
+  type ExtensionName,
+  type ExtensionType,
+} from "../../../extensions/common.js";
+import { decodeHandleSync } from "../../../extensions/handle.js";
 import type { AgentId } from "../../../agents/types.js";
 import type {
   AgentDirOccurrence,
@@ -35,6 +40,17 @@ const splitSegments = (absolute: string): ReadonlyArray<string> => absolute.spli
 
 const join = (parent: string, child: string): string =>
   parent.endsWith(POSIX_SEP) ? `${parent}${child}` : `${parent}${POSIX_SEP}${child}`;
+
+const decodeFileBackedExtensionName = (name: string): ExtensionName => {
+  const normalized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64)
+    .replace(/-+$/g, "");
+
+  return decodeExtensionNameSync(normalized === "" ? "unnamed" : normalized);
+};
 
 // ---------------------------------------------------------------------------
 // Subject file mapping (must match scanners/canonical-extensions.ts /
@@ -104,8 +120,8 @@ export const makeCanonicalOccurrence = (
     scope: input.scope,
     type: input.type,
     origin: input.origin,
-    name: input.name,
-    owner: input.owner,
+    name: decodeExtensionNameSync(input.name),
+    owner: input.owner === null ? null : decodeHandleSync(input.owner),
     contentLocation: input.contentLocation,
     pathSegments: splitSegments(input.contentLocation),
     subjectFile,
@@ -156,7 +172,10 @@ export const makeAgentDirOccurrence = (input: MakeAgentDirOccurrenceInput): Agen
     scope: input.scope,
     type: input.type,
     agentId: input.agentId,
-    name: input.name,
+    name:
+      input.singleFile === true
+        ? decodeFileBackedExtensionName(input.name)
+        : decodeExtensionNameSync(input.name),
     contentLocation: input.contentLocation,
     pathSegments: splitSegments(input.contentLocation),
     subjectFile,
@@ -187,7 +206,7 @@ export const makeWorkspaceMcpConfigOccurrence = (
   _tag: "mcp-config",
   scope: input.scope,
   origin: "workspace",
-  name: input.name,
+  name: decodeExtensionNameSync(input.name),
   contentLocation: input.contentLocation,
 });
 
@@ -198,7 +217,7 @@ export const makeAgentMcpConfigOccurrence = (
   scope: input.scope,
   origin: "agent",
   agentId: input.agentId,
-  name: input.name,
+  name: decodeExtensionNameSync(input.name),
   contentLocation: input.contentLocation,
 });
 

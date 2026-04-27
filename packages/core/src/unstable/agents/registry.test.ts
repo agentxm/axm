@@ -1,17 +1,15 @@
 /**
- * Tests for the AGENTS registry and lookup functions.
+ * Tests for the AGENTS registry.
  *
  * Uses dynamic tests that iterate over the registry automatically,
  * ensuring all agents are validated without hardcoding agent lists.
  */
 
-import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
+import { AGENTS, getAgentIds } from "./registry.js";
 
 describe("AGENTS registry", () => {
-  // Get all agents for iteration in tests
-  const agents = getAllAgents();
+  const agents = Object.values(AGENTS);
 
   it.each(agents)("agent $id has required skills.dir", (config) => {
     expect(config.skills.dir).toBeDefined();
@@ -50,36 +48,6 @@ describe("AGENTS registry", () => {
   });
 });
 
-describe("getAgentById", () => {
-  const agents = getAllAgents();
-
-  it("returns Option.some for all known agents", () => {
-    for (const agent of agents) {
-      const result = getAgentById(agent.id);
-      expect(Option.isSome(result)).toBe(true);
-    }
-  });
-
-  it("returns correct descriptor for known agent", () => {
-    const result = getAgentById("claude-code");
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value.name).toBe("Claude Code");
-      expect(result.value.skills.dir).toBe(".claude/skills");
-    }
-  });
-
-  it("returns Option.none for unknown agent", () => {
-    const result = getAgentById("unknown-agent-xyz");
-    expect(Option.isNone(result)).toBe(true);
-  });
-
-  it("returns Option.none for empty string", () => {
-    const result = getAgentById("");
-    expect(Option.isNone(result)).toBe(true);
-  });
-});
-
 describe("getAgentIds", () => {
   it("returns array of agent IDs", () => {
     const ids = getAgentIds();
@@ -93,30 +61,5 @@ describe("getAgentIds", () => {
     const ids = getAgentIds();
     const entryCount = Object.keys(AGENTS).length;
     expect(ids.length).toBe(entryCount);
-  });
-});
-
-describe("getAllAgents", () => {
-  it("returns all agents from registry", () => {
-    const all = getAllAgents();
-    const entryCount = Object.keys(AGENTS).length;
-    expect(all.length).toBe(entryCount);
-  });
-
-  it("returns array of AgentDescriptor objects", () => {
-    const all = getAllAgents();
-    for (const agent of all) {
-      expect(agent.id).toBeTruthy();
-      expect(agent.name).toBeTruthy();
-      expect(agent.skills).toBeDefined();
-      expect(agent.skills.dir).toBeTruthy();
-    }
-  });
-
-  it("includes claude-code agent", () => {
-    const all = getAllAgents();
-    const claudeCode = all.find((a) => a.id === "claude-code");
-    expect(claudeCode).toBeDefined();
-    expect(claudeCode?.name).toBe("Claude Code");
   });
 });

@@ -18,13 +18,19 @@ import { isNonInteractive } from "../cli-flags/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { makeAppError } from "../app-error/index.js";
 import type { AppError } from "../app-error/index.js";
-import { createDefaultSettings, readSettings, type Settings } from "../settings/index.js";
+import { createDefaultSettings, type Settings } from "../settings/index.js";
 import { applyPlan } from "./apply-plan.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
-import { setReconciliationAdapters } from "../workspace/reconciliation.js";
+import { ReconciliationAdapters } from "../workspace/reconciliation.js";
 import type { CancelledPlan, ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
 import { Workspace } from "../workspace/service-interface.js";
+import { getAxmDir } from "../workspace/paths.js";
+import {
+  WorkspaceContext,
+  WorkspaceContextConfigTag,
+  WorkspaceContextLive,
+} from "../workspace/context/context.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
@@ -39,14 +45,13 @@ const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
   howToFix: "Provide ResolvePlanInteraction in the runtime.",
 });
 
-// Register reconciliation adapters with core
-setReconciliationAdapters([
+const reconciliationAdapters = [
   skillReconciliationAdapter,
   commandReconciliationAdapter,
   subagentReconciliationAdapter,
   mcpServerReconciliationAdapter,
   extensionPackReconciliationAdapter,
-]);
+];
 
 /**
  * Preview or apply (display, confirm, and execute) a plan using the workspace context.
@@ -80,13 +85,35 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
   );
+  const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, reconciliationAdapters);
+  const globalDir = yield* getAxmDir("user");
+  const contextLayer = WorkspaceContextLive.pipe(
+    Layer.provide(fsLayer),
+    Layer.provide(
+      Layer.succeed(WorkspaceContextConfigTag, {
+        projectRoot: ws.baseDir,
+        userHome: path.dirname(globalDir),
+        allowedRoot: "/",
+      }),
+    ),
+  );
 
   const getLockfileState = (): Effect.Effect<LockfileState, AppError> => ws.getLockfileState();
 
   const readSettingsSafe = (dir: string): Effect.Effect<Settings, AppError> =>
-    readSettings(dir).pipe(
+    Effect.gen(function* () {
+      const context = yield* WorkspaceContext;
+      return yield* context.scope(dir === globalDir ? "user" : "project").state.settings;
+    }).pipe(
+      Effect.provide(contextLayer),
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
-      Effect.provide(fsLayer),
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "SETTINGS_PARSE_FAILED",
+          what: "Failed to read workspace settings",
+          cause: error,
+        }),
+      ),
     );
 
   const showPlan = (targetPlan: Plan | ExecutedPlan) =>
@@ -100,7 +127,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     ws.path,
     readSettingsSafe,
     fsLayer,
-  );
+  ).pipe(Effect.provide(reconciliationAdaptersLayer));
 
   if (augmented.reconciliationTriggered && augmented.reason === "invalid") {
     yield* renderer.warn("LOCKFILE_INVALID_RECONCILE");

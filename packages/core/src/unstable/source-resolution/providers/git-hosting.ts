@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import { discoverSkillsInDir } from "../discover-skills.js";
+import { skillsInDir } from "../../workspace/context/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
@@ -83,7 +83,7 @@ export const createGitHostingSourceHostProvider = <
 
       yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(ref));
 
-      const oldRefs = yield* discoverSkillsInDir(tempDir, subPath, {
+      const oldRefs = yield* skillsInDir(tempDir, subPath, {
         fullDepth: false,
         includeInternal: false,
       }).pipe(

@@ -22,10 +22,10 @@
  * `diagnostics`) inside `WorkspaceContextLive`.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
 import type { Settings, SkillEntry } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
@@ -38,8 +38,13 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
-import { stripTrailingSegments } from "./package-root.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "./projection.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  type SubjectPolicy,
+} from "./projection.js";
 
 // ---------------------------------------------------------------------------
 // Skill detection origin (subject-owned)
@@ -64,7 +69,7 @@ export type SkillDetectionOrigin =
  * fields; `name` is lifted out for ergonomic lookup.
  */
 export interface DeclaredSkill {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly entry: SkillEntry;
 }
 
@@ -73,7 +78,7 @@ export type DeclaredSkills = ReadonlyArray<DeclaredSkill>;
 
 /** One resolved skill entry from the lockfile, wrapping the raw lock entry. */
 export interface ResolvedSkill {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly lockEntry: SkillLockEntry;
 }
 
@@ -114,7 +119,7 @@ export type ActualSkills = ReadonlyArray<ActualSkill>;
 
 /** Pack-member entry for a skill: per Decision 9 it is the resolved member. */
 export interface SkillPackMember {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
 
@@ -160,7 +165,7 @@ export type IgnoredSkillCandidate =
 const declaredFromSettings = (settings: Settings): DeclaredSkills => {
   if (settings.skills === undefined) return [];
   return Object.entries(settings.skills).map(([name, entry]) => ({
-    name,
+    name: decodeExtensionNameSync(name),
     entry,
   }));
 };
@@ -168,7 +173,7 @@ const declaredFromSettings = (settings: Settings): DeclaredSkills => {
 const resolvedFromLockfile = (lockfile: Lockfile): ResolvedSkills => {
   if (lockfile.skills === undefined) return [];
   return Object.entries(lockfile.skills).map(([name, lockEntry]) => ({
-    name,
+    name: decodeExtensionNameSync(name),
     lockEntry,
   }));
 };
@@ -179,11 +184,7 @@ const canonicalToActualSkill = (occ: CanonicalExtensionOccurrence, scope: Scope)
   // external-axm   contentLocation = `<root>/.axm/extensions/external/skills/<name>`
   // packageRoot for canonical-axm = parent of `src/<name>/` (= `<owner>/skills/`)
   // packageRoot for external-axm  = `external/skills/`
-  const packageRoot = stripTrailingSegments(
-    occ.pathSegments,
-    occ.contentLocation,
-    isExternal ? 1 : 2,
-  );
+  const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "skill", name: occ.name },
     origin: isExternal ? { _tag: "external-axm-skill" } : { _tag: "canonical-axm-skill" },
@@ -263,6 +264,10 @@ export interface SkillExtensionsApi {
   readonly resolved: Effect.Effect<Option.Option<ResolvedSkills>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualSkills>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledSkill>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledSkill>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredSkill>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledSkill>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedSkill>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredSkillCandidate>>;
@@ -270,7 +275,7 @@ export interface SkillExtensionsApi {
 
 const SUBJECT_KEY = "skill";
 
-const simpleName = (name: string): string => name.split("/").at(-1) ?? name;
+const simpleName = (name: ExtensionName): ExtensionName => name;
 
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
@@ -302,7 +307,7 @@ const skillPolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "skill", name: input.name },
+    key: { scope, type: "skill", name: decodeExtensionNameSync(input.name) },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -314,18 +319,18 @@ const skillPolicy = (
     actual: entry,
   }),
   buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "skill", name: input.name },
+    key: { scope, type: "skill", name: decodeExtensionNameSync(input.name) },
     reason: "declared-ignored",
     declared: input.declared,
   }),
   buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "skill", name: input.name },
+    key: { scope, type: "skill", name: decodeExtensionNameSync(input.name) },
     reason: "pack-member-ignored",
     member: input.member,
     pack: input.pack,
   }),
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "skill", name: input.name },
+    key: { scope, type: "skill", name: decodeExtensionNameSync(input.name) },
     reason: "actual-ignored",
     actual: input.actual,
   }),
@@ -359,15 +364,11 @@ export const makeSkillExtensionsApi = (
     const actual: SkillExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       const agentDir = yield* scanners.agentDir;
-      const fromCanonical = Array.getSomes(
-        canonical.map((occ) =>
-          occ.type === "skill" ? Option.some(canonicalToActualSkill(occ, scope)) : Option.none(),
-        ),
+      const fromCanonical = filterMapOccurrences(canonical, "skill", (occ) =>
+        canonicalToActualSkill(occ, scope),
       );
-      const fromAgentDir = Array.getSomes(
-        agentDir.map((occ) =>
-          occ.type === "skill" ? Option.some(agentDirToActualSkill(occ, scope)) : Option.none(),
-        ),
+      const fromAgentDir = filterMapOccurrences(agentDir, "skill", (occ) =>
+        agentDirToActualSkill(occ, scope),
       );
       return [...fromCanonical, ...fromAgentDir];
     });
@@ -392,13 +393,10 @@ export const makeSkillExtensionsApi = (
       }),
     );
 
-    return {
+    return makeProjectedSubjectCells({
       declared,
       resolved,
       actual,
-      installed: project.pipe(Effect.map((out) => out.installed)),
-      active: project.pipe(Effect.map((out) => out.active)),
-      unmanaged: project.pipe(Effect.map((out) => out.unmanaged)),
-      ignored: project.pipe(Effect.map((out) => out.ignored)),
-    } satisfies SkillExtensionsApi;
+      project,
+    }) satisfies SkillExtensionsApi;
   });

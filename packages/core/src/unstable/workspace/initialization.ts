@@ -11,21 +11,28 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
+import { detectAgents } from "../agents/index.js";
+import { AGENTS } from "../agents/registry.js";
+import type { AgentDescriptor, AgentId } from "../agents/types.js";
 import { isNonInteractive } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import {
   createDefaultSettings,
-  readSettings,
   SETTINGS_FILENAME,
   type Settings,
   writeSettings,
 } from "../settings/index.js";
 import type { WorkspaceContextOptions } from "./service-interface.js";
+import {
+  WorkspaceContext,
+  WorkspaceContextConfigTag,
+  WorkspaceContextLive,
+} from "./context/context.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
 import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
@@ -34,6 +41,45 @@ const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   what: "Interactive prompt required: Select agents to configure",
   howToFix: "Provide WorkspaceInitializationInteraction in the runtime.",
 });
+
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
+const allAgentDescriptors = (): ReadonlyArray<AgentDescriptor> => Object.values(AGENTS);
+
+const readSettingsFromContext = (
+  scope: "project" | "user",
+  projectRoot: string,
+  userHome: string,
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const layer = WorkspaceContextLive.pipe(
+      Layer.provide(
+        Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fs), Layer.succeed(Path.Path, path)),
+      ),
+      Layer.provide(
+        Layer.succeed(WorkspaceContextConfigTag, {
+          projectRoot,
+          userHome,
+          allowedRoot: "/",
+        }),
+      ),
+    );
+    return yield* Effect.gen(function* () {
+      const context = yield* WorkspaceContext;
+      return yield* context.scope(scope).state.settings;
+    }).pipe(
+      Effect.provide(layer),
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "SETTINGS_PARSE_FAILED",
+          what: "Failed to read workspace settings",
+          cause: error,
+        }),
+      ),
+    );
+  });
 
 /**
  * Initialize project workspace by detecting and selecting agents.
@@ -55,10 +101,9 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
       const renderer = yield* CliRenderer;
       const requestedIds = [...agents];
       selectedAgents = requestedIds.flatMap((id) => {
-        const agent = getAgentById(id);
-        return Option.isSome(agent) ? [agent.value] : [];
+        return isKnownAgentId(id) ? [AGENTS[id]] : [];
       });
-      const unrecognized = requestedIds.filter((id) => Option.isNone(getAgentById(id)));
+      const unrecognized = requestedIds.filter((id) => !isKnownAgentId(id));
       if (unrecognized.length > 0) {
         yield* renderer.warn(
           `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
@@ -82,7 +127,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
       } else {
         // Interactive mode — single multiselect with detected agents pre-selected
         const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-        const allAgents = getAllAgents();
+        const allAgents = allAgentDescriptors();
         const detectedIds = Array.map(detectedAgents, (a) => a.id);
 
         const selectedIds = Option.isSome(interaction)
@@ -93,8 +138,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
           : yield* SELECT_AGENTS_PROMPT_MISSING;
 
         selectedAgents = [...selectedIds].flatMap((id) => {
-          const agent = getAgentById(id);
-          return Option.isSome(agent) ? [agent.value] : [];
+          return isKnownAgentId(id) ? [AGENTS[id]] : [];
         });
       }
     }
@@ -170,7 +214,13 @@ export const ensureProjectWorkspaceInitialized = (
   options: WorkspaceContextOptions,
 ) =>
   Effect.gen(function* () {
-    const localSettingsResult = yield* readSettings(localDir).pipe(
+    const path = yield* Path.Path;
+    const globalDir = yield* getAxmDir("user");
+    const localSettingsResult = yield* readSettingsFromContext(
+      "project",
+      path.dirname(localDir),
+      path.dirname(globalDir),
+    ).pipe(
       Effect.map(
         Option.match({
           onNone: () => ({ found: false as const, settings: createDefaultSettings() }),
@@ -199,9 +249,12 @@ export const bootstrapWorkspace = (options: WorkspaceContextOptions) =>
 
     if (options.scope === "user") {
       yield* ensureGlobalWorkspaceInitialized(workspaceDir);
-      const settings = yield* readSettings(workspaceDir).pipe(
-        Effect.map(Option.getOrElse(() => createDefaultSettings())),
-      );
+      const localDir = yield* getAxmDir("project", options.projectRoot);
+      const settings = yield* readSettingsFromContext(
+        "user",
+        path.dirname(localDir),
+        path.dirname(workspaceDir),
+      ).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
       return { settings, location };
     }
 

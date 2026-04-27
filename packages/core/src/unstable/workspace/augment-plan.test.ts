@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { augmentPlanWithReconciliation, type AugmentedPlanResult } from "./augment-plan.js";
+import { ReconciliationAdapters } from "./reconciliation.js";
 import type { Plan } from "../plan/plan.js";
 import type { Settings } from "../settings/index.js";
 
@@ -36,6 +37,7 @@ const defaultSettings: Settings = {
   agents: ["claude-code"],
 };
 const readSettingsSafe = (_dir: string) => Effect.succeed(defaultSettings);
+const testLayer = Layer.mergeAll(NodeServices.layer, Layer.succeed(ReconciliationAdapters, []));
 
 describe("augmentPlanWithReconciliation", () => {
   it.effect("returns plan unchanged when lockfile is ok", () =>
@@ -59,7 +61,7 @@ describe("augmentPlanWithReconciliation", () => {
       expect(result.plan).toEqual(basePlan);
       expect(result.reconciliationTriggered).toBe(false);
       expect(result.reason).toBeUndefined();
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(testLayer)),
   );
 
   it.effect("prepends reconciliation jobs and sets reason for missing lockfile", () =>
@@ -86,7 +88,7 @@ describe("augmentPlanWithReconciliation", () => {
       expect(result.plan.jobs.length).toBeGreaterThan(basePlan.jobs.length);
       // First job should have 2 reconciliation steps
       expect(result.plan.jobs[0]?.steps).toHaveLength(2);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(testLayer)),
   );
 
   it.effect("prepends reconciliation jobs and sets reason for invalid lockfile", () =>
@@ -110,6 +112,6 @@ describe("augmentPlanWithReconciliation", () => {
       expect(result.reconciliationTriggered).toBe(true);
       expect(result.reason).toBe("invalid");
       expect(result.plan.jobs.length).toBeGreaterThan(basePlan.jobs.length);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(testLayer)),
   );
 });

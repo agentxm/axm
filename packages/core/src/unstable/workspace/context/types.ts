@@ -15,7 +15,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { ExtensionType } from "../../extensions/common.js";
+import type { ExtensionName, ExtensionType } from "../../extensions/common.js";
 import type { LockfileReadError, SettingsReadError } from "./errors.js";
 
 // -----------------------------------------------------------------------------
@@ -39,7 +39,7 @@ export type Scope = "project" | "user";
 export interface ExtensionKey<TType extends ExtensionType = ExtensionType> {
   readonly scope: Scope;
   readonly type: TType;
-  readonly name: string;
+  readonly name: ExtensionName;
 }
 
 // -----------------------------------------------------------------------------

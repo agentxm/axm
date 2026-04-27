@@ -12,7 +12,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import matter from "gray-matter";
-import { getAgentById } from "../../agents/index.js";
+import { AGENTS } from "../../agents/registry.js";
+import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import { createSymlink } from "../../utils/index.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
@@ -23,6 +24,8 @@ import { Workspace } from "../../workspace/service-interface.js";
 import type { SkillPathSource } from "../paths.js";
 
 // -----------------------------------------------------------------------------
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
 // Operation types
 // -----------------------------------------------------------------------------
 
@@ -79,7 +82,7 @@ export const renameSkill: OperationHandler<
       });
     }
     const lockEntry = lockEntryOption.value;
-    const lockAgents: readonly string[] = lockEntry.agents;
+    const lockAgents = lockEntry.agents;
 
     // 2. Compute paths for old and new names via centralized getSkillDir
     // Derive source from lock entry — new name doesn't exist in lockfile yet
@@ -122,9 +125,8 @@ export const renameSkill: OperationHandler<
     yield* Effect.forEach(
       allAgents,
       (agentId) => {
-        const maybeAgent = getAgentById(agentId);
-        if (Option.isNone(maybeAgent)) return Effect.void;
-        const agent = maybeAgent.value;
+        if (!isKnownAgentId(agentId)) return Effect.void;
+        const agent = AGENTS[agentId];
 
         const agentSkillPath = path.join(base, agent.skills.dir, oldSanitized);
         return fs.remove(agentSkillPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
@@ -136,9 +138,8 @@ export const renameSkill: OperationHandler<
     yield* Effect.forEach(
       configuredAgents,
       (agentId) => {
-        const maybeAgent = getAgentById(agentId);
-        if (Option.isNone(maybeAgent)) return Effect.void;
-        const agent = maybeAgent.value;
+        if (!isKnownAgentId(agentId)) return Effect.void;
+        const agent = AGENTS[agentId];
 
         const agentSkillPath = path.join(base, agent.skills.dir, newSanitized);
         return createSymlink({ target: newPaths.skillSrcPath, link: agentSkillPath }).pipe(

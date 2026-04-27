@@ -38,6 +38,7 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { AGENTS } from "../../../agents/registry.js";
 import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -98,8 +99,12 @@ const McpConfigShapeSchema = Schema.Struct({
 
 const decodeMcpConfigShape = Schema.decodeUnknownEffect(McpConfigShapeSchema);
 
-const extractServerNames = (decoded: typeof McpConfigShapeSchema.Type): ReadonlyArray<string> =>
-  decoded.mcpServers === undefined ? [] : Object.keys(decoded.mcpServers);
+const extractServerNames = (
+  decoded: typeof McpConfigShapeSchema.Type,
+): ReadonlyArray<ExtensionName> =>
+  decoded.mcpServers === undefined
+    ? []
+    : Object.keys(decoded.mcpServers).map((name) => decodeExtensionNameSync(name));
 
 const readMcpConfig = (
   fs: FileSystem.FileSystem,

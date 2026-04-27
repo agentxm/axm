@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
+import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation, JobStepResult } from "../../plan/plan.js";
@@ -107,7 +108,7 @@ export const disableCommand: OperationHandler<
 
       // Clear lock agents and renderedFiles but preserve materialized files
       const now = new Date();
-      const emptyAgents: ReadonlyArray<string> = [];
+      const emptyAgents: ReadonlyArray<AgentId> = [];
       const updatedLockEntry = {
         ...lockEntry,
         agents: emptyAgents,

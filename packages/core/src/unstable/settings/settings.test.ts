@@ -4,11 +4,9 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { AppError } from "../app-error/index.js";
 import { expectRecord, handle } from "../test-helpers.js";
-import { createDefaultSettings, readSettings, writeSettings } from "./settings.js";
+import { createDefaultSettings, writeSettings } from "./settings.js";
 import type { Settings } from "./schema.js";
 
 describe("settings", () => {
@@ -32,84 +30,6 @@ describe("settings", () => {
       const settings = createDefaultSettings();
       expect(settings).toEqual({});
     });
-  });
-
-  describe("readSettings", () => {
-    it.effect("returns Option.none() when file does not exist", () =>
-      withContext(
-        Effect.gen(function* () {
-          const result = yield* readSettings(axmDir);
-          expect(Option.isNone(result)).toBe(true);
-        }),
-      ),
-    );
-
-    it.effect("reads and parses valid settings file with agents and skills", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          const settings: Settings = {
-            agents: ["claude-code"],
-            skills: {
-              commit: { source: "^1.0.0", enabled: true },
-            },
-          };
-          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-
-          const result = yield* readSettings(axmDir);
-
-          expect(Option.isSome(result)).toBe(true);
-          const value = Option.getOrThrow(result);
-          expect(value.agents).toEqual(["claude-code"]);
-          expect(value.skills?.["commit"]).toEqual({ source: "^1.0.0", enabled: true });
-        }),
-      ),
-    );
-
-    it.effect("reads and parses settings file that omits agents and skills", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          const settings = { profile: "@myorg" };
-          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-
-          const result = yield* readSettings(axmDir);
-
-          expect(Option.isSome(result)).toBe(true);
-          const value = Option.getOrThrow(result);
-          expect(value.profile).toBe("@myorg");
-          expect(value.agents).toBeUndefined();
-          expect(value.skills).toBeUndefined();
-        }),
-      ),
-    );
-
-    it.effect("reads and parses empty settings object", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({}));
-
-          const result = yield* readSettings(axmDir);
-
-          expect(Option.isSome(result)).toBe(true);
-          expect(Option.getOrThrow(result)).toEqual({});
-        }),
-      ),
-    );
-
-    it.effect("returns AppError with SETTINGS_PARSE_FAILED for invalid JSON", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json");
-
-          const error = yield* readSettings(axmDir).pipe(Effect.flip);
-          expect(error).toBeInstanceOf(AppError);
-          expect(error.code).toBe("SETTINGS_PARSE_FAILED");
-        }),
-      ),
-    );
   });
 
   describe("writeSettings", () => {
@@ -172,9 +92,10 @@ describe("settings", () => {
           };
           yield* writeSettings(axmDir, newSettings);
 
-          const result = yield* readSettings(axmDir);
-          expect(Option.isSome(result)).toBe(true);
-          expect(Option.getOrThrow(result).agents).toEqual(["codex"]);
+          const result = JSON.parse(
+            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+          ) as Settings;
+          expect(result.agents).toEqual(["codex"]);
         }),
       ),
     );

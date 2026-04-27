@@ -27,8 +27,11 @@ import { kiloCodingAgent } from "./kilo/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
 import { rooCodingAgent } from "./roo/service.js";
-import { getAgentById, getAgentIds } from "./registry.js";
+import { AGENTS } from "./registry.js";
+import { AGENT_IDS } from "./types.js";
 import type { AgentDescriptor, AgentId } from "./types.js";
+
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => ({
   id: descriptor.id,
@@ -107,22 +110,20 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
     case "roo":
       return Effect.succeed(rooCodingAgent);
     default:
-      return Option.match(getAgentById(id), {
-        onNone: () =>
-          Effect.fail(
+      return isKnownAgentId(id)
+        ? Effect.succeed(codingAgentFromDescriptor(AGENTS[id]))
+        : Effect.fail(
             makeAppError({
               code: "CODING_AGENT_NOT_SUPPORTED",
               what: `Unsupported coding agent: ${id}`,
             }),
-          ),
-        onSome: (descriptor) => Effect.succeed(codingAgentFromDescriptor(descriptor)),
-      });
+          );
   }
 };
 
 const get = (id: AgentId) => fromId(id);
 
-const all = Effect.forEach(getAgentIds(), (id) => fromId(id));
+const all = Effect.forEach(AGENT_IDS, (id) => fromId(id));
 
 const getConfiguredAgentIds = () =>
   Workspace.asEffect().pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
@@ -131,18 +132,15 @@ const getConfiguredAgents = () =>
   getConfiguredAgentIds().pipe(
     Effect.flatMap((ids) =>
       Effect.forEach(ids, (id) => {
-        const descriptor = getAgentById(id);
-        if (Option.isNone(descriptor)) return Effect.succeed(Option.none<CodingAgent>());
-        return fromId(descriptor.value.id).pipe(Effect.map((agent) => Option.some(agent)));
+        if (!isKnownAgentId(id)) return Effect.succeed(Option.none<CodingAgent>());
+        return fromId(id).pipe(Effect.map((agent) => Option.some(agent)));
       }),
     ),
     Effect.map(Array.getSomes),
   );
 
 const getUnknownConfiguredAgentIds = () =>
-  getConfiguredAgentIds().pipe(
-    Effect.map((ids) => ids.filter((id) => Option.isNone(getAgentById(id)))),
-  );
+  getConfiguredAgentIds().pipe(Effect.map((ids) => ids.filter((id) => !isKnownAgentId(id))));
 
 export const DefaultCodingAgentRepository: CodingAgentRepositoryService = {
   get,

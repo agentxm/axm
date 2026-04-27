@@ -1,5 +1,5 @@
 /**
- * Unit tests for parseManifests.
+ * Unit tests for parsePluginManifests.
  *
  * Tests plugin manifest parsing for skill discovery.
  * Validates marketplace.json and plugin.json parsing, path validation,
@@ -12,7 +12,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { parseManifests } from "./parse-manifests.js";
+import { parsePluginManifests } from "./plugin-manifests.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -25,7 +25,7 @@ const withFileSystem = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServi
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("parseManifests", () => {
+describe("parsePluginManifests", () => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
           expect(result).toContainEqual(path.resolve(tempDir, "other-plugin", "skills"));
@@ -71,7 +71,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toContainEqual(path.resolve(tempDir, "packages", "my-plugin", "skills"));
           }),
@@ -91,7 +91,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toEqual([]);
           }),
@@ -111,7 +111,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toEqual([]);
           }),
@@ -132,7 +132,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
           }),
@@ -151,7 +151,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toContainEqual(path.resolve(tempDir, "skills"));
           }),
@@ -171,7 +171,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toContainEqual(path.resolve(tempDir, "packages", "skills"));
           }),
@@ -193,7 +193,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             // Only the local plugin should be processed
             expect(result).toEqual([path.resolve(tempDir, "local-plugin", "skills")]);
@@ -215,7 +215,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
           }),
@@ -234,7 +234,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
           }),
@@ -260,7 +260,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             // conventional skills/ dir + dirname of each skill path
             expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
@@ -287,7 +287,7 @@ describe("parseManifests", () => {
               }),
             );
 
-            const result = yield* parseManifests(tempDir);
+            const result = yield* parsePluginManifests(tempDir);
 
             // conventional + valid skill path only
             expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
@@ -312,7 +312,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([path.resolve(tempDir, "skills"), path.resolve(tempDir, "tools")]);
         }),
@@ -324,7 +324,7 @@ describe("parseManifests", () => {
     it.effect("returns empty array when no manifests exist", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([]);
         }),
@@ -334,7 +334,7 @@ describe("parseManifests", () => {
     it.effect("returns empty array when .claude-plugin directory is missing", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([]);
         }),
@@ -350,7 +350,7 @@ describe("parseManifests", () => {
           fs.mkdirSync(pluginDir, { recursive: true });
           fs.writeFileSync(path.join(pluginDir, "marketplace.json"), "{ invalid json }}}");
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([]);
         }),
@@ -364,7 +364,7 @@ describe("parseManifests", () => {
           fs.mkdirSync(pluginDir, { recursive: true });
           fs.writeFileSync(path.join(pluginDir, "plugin.json"), "not valid json");
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([]);
         }),
@@ -385,7 +385,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           // Only the valid plugin's conventional skills/ dir should be included
           expect(result).toEqual([path.resolve(tempDir, "valid", "skills")]);
@@ -407,7 +407,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           // Only the path starting with ./ should be included
           expect(result).toEqual([path.resolve(tempDir, "valid")]);
@@ -430,7 +430,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([]);
         }),
@@ -457,7 +457,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           // marketplace: my-plugin/skills, plugin.json: tools
           expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
@@ -478,7 +478,7 @@ describe("parseManifests", () => {
             JSON.stringify({ plugins: [] }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([]);
         }),
@@ -492,7 +492,7 @@ describe("parseManifests", () => {
           fs.mkdirSync(pluginDir, { recursive: true });
           fs.writeFileSync(path.join(pluginDir, "plugin.json"), JSON.stringify({ skills: [] }));
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           expect(result).toEqual([]);
         }),
@@ -520,7 +520,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           // Both produce my-plugin/skills -> deduplicated to one entry
           expect(result).toEqual([path.resolve(tempDir, "my-plugin", "skills")]);
@@ -541,7 +541,7 @@ describe("parseManifests", () => {
             }),
           );
 
-          const result = yield* parseManifests(tempDir);
+          const result = yield* parsePluginManifests(tempDir);
 
           // Both produce my-plugin/skills -> deduplicated
           expect(result).toEqual([path.resolve(tempDir, "my-plugin", "skills")]);

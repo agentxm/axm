@@ -59,8 +59,6 @@ export {
   createDefaultSettings,
   DEFAULT_PROFILE,
   orderSettingsKeys,
-  readSettings,
-  readSettingsOrDefault,
   SETTINGS_FILENAME,
   writeSettings,
 } from "./settings.js";

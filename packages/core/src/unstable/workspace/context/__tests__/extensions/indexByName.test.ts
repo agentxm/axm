@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import { findByName, indexByName } from "../../extensions/indexByName.js";
+import { decodeExtensionNameSync } from "../../../../extensions/common.js";
 import type { ExtensionKey } from "../../types.js";
 
 interface Row {
@@ -15,7 +16,7 @@ interface Row {
 }
 
 const row = (name: string, extra: string): Row => ({
-  key: { scope: "project", type: "skill", name },
+  key: { scope: "project", type: "skill", name: decodeExtensionNameSync(name) },
   extra,
 });
 

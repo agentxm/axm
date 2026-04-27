@@ -385,7 +385,7 @@ const writeScope = (
 
     const axmDir = join(scopeRoot, ".axm");
     const settingsPath = join(axmDir, "settings.json");
-    const lockfilePath = options.includeLockfile ? join(scopeRoot, "axm-lock.yaml") : null;
+    const lockfilePath = options.includeLockfile ? join(axmDir, "axm-lock.yaml") : null;
     const mcpJsonPath = join(scopeRoot, ".mcp.json");
 
     if (scope.settings !== undefined) {
@@ -441,7 +441,7 @@ export const buildFixture = (spec: FixtureSpec): Effect.Effect<FixtureTestDeps, 
     const files = new Map<string, string>();
 
     yield* writeScope(files, spec.project, spec.workspaceRoot, { includeLockfile: true });
-    yield* writeScope(files, spec.user, join(spec.userHome), { includeLockfile: false });
+    yield* writeScope(files, spec.user, join(spec.userHome), { includeLockfile: true });
 
     const fs = makeInMemoryFs(files);
     const path = yield* Path.Path;

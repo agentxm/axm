@@ -2,14 +2,14 @@
  * Workspace context service implementation.
  *
  * This is the sole public gateway for all settings and lockfile read/write
- * operations. It calls the I/O functions (`readSettings`, `writeSettings`,
- * `readLockfile`, `writeLockfile`) directly and manages mutation
+ * operations. It reads through `WorkspaceContext` and calls the write I/O
+ * functions (`writeSettings`, `writeLockfile`) directly while managing mutation
  * serialization via a single Semaphore(1). No other service should perform
  * settings or lockfile I/O in production; the per-service semaphores in
  * `settings/service.ts` and `lockfile/service.ts` have been removed.
  *
  * Supporting logic is split into focused modules:
- * - `taxonomy-types.ts` — classifier-backed type definitions
+ * - `taxonomy-types.ts` — workspace taxonomy type definitions
  * - `source-metadata.ts` — source metadata derivation helpers
  * - `initialization.ts` — workspace initialization (agent detection, settings creation)
  * - `classifier-records.ts` — classifier row → record map converters
@@ -20,30 +20,27 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { getAgentById } from "../agents/index.js";
-import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import {
   LOCKFILE_NAME,
   makeRegistryExtensionPackLockEntry,
-  readLockfile,
   writeLockfile,
-  type CommandsLockMap,
-  type McpServersLockMap,
-  type ExtensionPacksLockMap,
   type RegistryExtensionPackLockEntry,
   type SubagentsLockMap,
 } from "../lockfile/index.js";
+import type { Lockfile } from "../lockfile/schema.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { computeExtensionPackPaths } from "../packs/paths.js";
+import { expandGlob } from "../utils/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
   AgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
+  type ExtensionName,
   type InstallableExtensionType,
   parseFullyQualifiedNameParts,
   parseRegistrySourcePatternParts,
@@ -58,7 +55,6 @@ import {
   type SkillEntry,
   type SubagentEntry,
   type ExtensionPacksMap,
-  readSettings,
   type Settings,
   SETTINGS_FILENAME,
   type SkillsMap,
@@ -73,6 +69,17 @@ import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import {
+  WorkspaceContext,
+  WorkspaceContextConfigTag,
+  WorkspaceContextLive,
+  type ScopedWorkspaceContext,
+} from "./context/context.js";
+import type {
+  LockfileReadError,
+  SettingsReadError,
+  WorkspaceRootEscape,
+} from "./context/errors.js";
+import {
   Workspace,
   type WorkspaceContextOptions,
   type SetSkillArgs,
@@ -84,13 +91,8 @@ import {
   type ExtensionTarget,
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
-import { classifyExtensions } from "./classifier.js";
-import { discoverSkillsInDir } from "../source-resolution/index.js";
-import {
-  deriveSourceMetaForNonSkill,
-  deriveSourceMetaForPacks,
-  deriveSourceMetaForSkills,
-} from "./source-metadata.js";
+import { deriveSourceMetaFromLockType } from "./source-metadata.js";
+import type { ClassifiedExtension, PackagingKind } from "./taxonomy-types.js";
 import {
   toClassifiedCommandRecord,
   toClassifiedExtensionRefRecord,
@@ -118,27 +120,36 @@ import {
   toInstalledSubagentRecord,
   toClassifiedSubagentRecord,
 } from "./classifier-records.js";
-/**
- * Collect extension names from pack resolvedExtension maps.
- *
- * Extracts the short name from each FQN key (e.g. "@acme/commands/formatter" -> "formatter")
- * across all pack lockfile entries for the given resolved map key.
- */
-const collectTransitiveNames = (
-  packLockEntries: ExtensionPacksLockMap,
-  resolvedKey: "resolvedSkills" | "resolvedCommands" | "resolvedMcpServers" | "resolvedSubagents",
-): ReadonlyArray<string> => {
-  const names: Array<string> = [];
-  for (const packEntry of Object.values(packLockEntries)) {
-    const resolvedMap = packEntry[resolvedKey];
-    for (const fqn of Object.keys(resolvedMap)) {
-      const parsed = parseFullyQualifiedNameParts(fqn);
-      if (parsed !== undefined) {
-        names.push(parsed.name);
-      }
-    }
+const createEmptyLockfile = (): Lockfile => ({
+  lockfileVersion: 1,
+  skills: {},
+});
+
+const contextReadErrorToAppError = (
+  source: "settings" | "lockfile" | "workspace",
+  error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
+): AppError =>
+  makeAppError({
+    code: source === "settings" ? "SETTINGS_PARSE_FAILED" : "LOCKFILE_PARSE_FAILED",
+    what: `Failed to read workspace ${source}`,
+    cause: error,
+  });
+
+const contextCellErrorToAppError = (
+  error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
+): AppError => {
+  switch (error._tag) {
+    case "LockfileIoError":
+    case "LockfileParseError":
+    case "LockfileDecodeError":
+      return contextReadErrorToAppError("lockfile", error);
+    case "SettingsIoError":
+    case "SettingsParseError":
+    case "SettingsDecodeError":
+      return contextReadErrorToAppError("settings", error);
+    case "WorkspaceRootEscape":
+      return contextReadErrorToAppError("workspace", error);
   }
-  return names;
 };
 
 /**
@@ -159,8 +170,11 @@ export type WorkspaceLayerOptions = WorkspaceContextOptions;
  *
  * @internal Not exported from barrel - use layer() for external access
  */
-const requireInitializedWorkspace = (settingsPath: string, workspaceDir: string) =>
-  readSettings(workspaceDir).pipe(
+const requireInitializedWorkspace = (
+  settingsPath: string,
+  settings: Effect.Effect<Option.Option<Settings>, AppError>,
+) =>
+  settings.pipe(
     Effect.flatMap(
       Option.match({
         onNone: () =>
@@ -188,18 +202,46 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const semaphore = yield* Semaphore.make(1);
     const settingsPath = path.join(workspaceDir, SETTINGS_FILENAME);
 
-    yield* requireInitializedWorkspace(settingsPath, workspaceDir).pipe(
-      Effect.provide(
-        Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fs), Layer.succeed(Path.Path, path)),
-      ),
-    );
-
     const baseDir = path.dirname(workspaceDir);
 
     const fsLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
+    const contextLayer = WorkspaceContextLive.pipe(
+      Layer.provide(fsLayer),
+      Layer.provide(
+        Layer.succeed(WorkspaceContextConfigTag, {
+          projectRoot: path.dirname(localDir),
+          userHome: path.dirname(globalDir),
+          allowedRoot: "/",
+        }),
+      ),
+    );
+
+    const scopeForDir = (dir: string): "project" | "user" =>
+      dir === globalDir ? "user" : "project";
+
+    const readSettingsCell = (dir: string) =>
+      Effect.gen(function* () {
+        const context = yield* WorkspaceContext;
+        return yield* context.scope(scopeForDir(dir)).state.settings;
+      }).pipe(
+        Effect.provide(contextLayer),
+        Effect.mapError((error) => contextReadErrorToAppError("settings", error)),
+      );
+
+    const readLockfileCell = (dir: string) =>
+      Effect.gen(function* () {
+        const context = yield* WorkspaceContext;
+        return yield* context.scope(scopeForDir(dir)).state.lockfile;
+      }).pipe(
+        Effect.map(Option.getOrElse(createEmptyLockfile)),
+        Effect.provide(contextLayer),
+        Effect.mapError((error) => contextReadErrorToAppError("lockfile", error)),
+      );
+
+    yield* requireInitializedWorkspace(settingsPath, readSettingsCell(workspaceDir));
 
     // Built-in sources: parameterized via options, falling back to git forges only
     const builtInSources: ReadonlyArray<SourceHostConfig> = options.builtInSources ?? [
@@ -217,15 +259,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
      * Read settings from a directory, returning default settings if not found.
      */
     const readSettingsSafe = (dir: string) =>
-      readSettings(dir).pipe(
-        Effect.map(Option.getOrElse(() => createDefaultSettings())),
-        Effect.provide(fsLayer),
-      );
+      readSettingsCell(dir).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
 
     /**
      * Read lockfile from a directory, returning empty lockfile if not found.
      */
-    const readLockfileSafe = (dir: string) => readLockfile(dir).pipe(Effect.provide(fsLayer));
+    const readLockfileSafe = (dir: string) => readLockfileCell(dir);
 
     /**
      * Look up `key` in `record`, failing with an `AppError` when absent.
@@ -280,173 +319,273 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     // -----------------------------------------------------------------------
 
     /**
-     * Detect skill names on disk from configured agent skill directories.
+     * Classify extensions from WorkspaceContext subject projections.
      */
-    const detectSkillEntriesOnDisk = (agentIds: ReadonlyArray<string>) =>
-      Effect.gen(function* () {
-        const agentRoots = Array.getSomes(
-          Array.map(agentIds, (agentId) =>
-            Option.map(getAgentById(agentId), (agent) => path.join(baseDir, agent.skills.dir)),
-          ),
-        );
-        const dedupedRoots = Array.dedupe(agentRoots);
-        const discovered = yield* Effect.forEach(
-          dedupedRoots,
-          (agentRoot) =>
-            discoverSkillsInDir(agentRoot, Option.none(), {
-              fullDepth: false,
-              includeInternal: false,
-            }).pipe(
-              Effect.catch(() =>
-                Effect.succeed<ReadonlyArray<{ skill: { name: string }; location: string }>>([]),
-              ),
-              Effect.provide(fsLayer),
-            ),
-          { concurrency: "unbounded" },
-        ).pipe(Effect.map(Array.flatten));
+    const packagingKindForSource = (
+      type: WorkspaceManagedExtensionType,
+      source: string,
+    ): PackagingKind => {
+      if (type === "pack") return "native";
+      if (type === "skill") {
+        return source.includes("/skills/") || source.startsWith("@") ? "native" : "non-native";
+      }
+      return source.includes("/") && source.startsWith("@") ? "native" : "non-native";
+    };
 
-        // Group locations by name, making them relative to the workspace root (baseDir)
-        const locationsByName = new Map<string, ReadonlyArray<string>>();
-        for (const d of discovered) {
-          const rawLocation = d.location.startsWith("file://")
-            ? d.location.slice("file://".length)
-            : d.location;
-          const relative = path.relative(baseDir, rawLocation);
-          const existing = locationsByName.get(d.skill.name);
-          if (existing) {
-            if (!existing.includes(relative)) {
-              locationsByName.set(d.skill.name, [...existing, relative]);
-            }
-          } else {
-            locationsByName.set(d.skill.name, [relative]);
-          }
-        }
-
-        return [...locationsByName.entries()].map(([name, locations]) => ({
-          name,
-          locations,
-        }));
+    const packagingKindForResolved = (
+      resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>,
+      type: WorkspaceManagedExtensionType,
+      source: string,
+    ): PackagingKind =>
+      Option.match(resolved, {
+        onNone: () => packagingKindForSource(type, source),
+        onSome: (row) => deriveSourceMetaFromLockType(row.lockEntry.type).packagingKind,
       });
 
-    /**
-     * Classify extensions by type using the shared classifier.
-     */
+    const isIgnoredName = (patterns: ReadonlyArray<string>, name: string): boolean =>
+      patterns.some((pattern) => expandGlob(pattern, [name]).length > 0);
+
+    const resolvedRowToImplicit = (
+      type: WorkspaceManagedExtensionType,
+      row: { readonly name: string; readonly lockEntry: { readonly type: string } },
+    ): Option.Option<ClassifiedExtension> =>
+      deriveSourceMetaFromLockType(row.lockEntry.type).packagingKind === "native"
+        ? Option.some({
+            type,
+            name: row.name,
+            source: Option.none(),
+            enabled: true,
+            packagingKind: "native",
+            lifecycle: "implicit",
+          })
+        : Option.none();
+
+    const packMemberNames = (
+      packs: ReadonlyArray<{
+        readonly lockEntry: {
+          readonly resolvedSkills?: Readonly<Record<string, unknown>>;
+          readonly resolvedCommands?: Readonly<Record<string, unknown>>;
+          readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
+          readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
+        };
+      }>,
+      key: "resolvedSkills" | "resolvedCommands" | "resolvedMcpServers" | "resolvedSubagents",
+    ): ReadonlyArray<ExtensionName> => {
+      const names: Array<ExtensionName> = [];
+      for (const pack of packs) {
+        const resolved = pack.lockEntry[key] ?? {};
+        for (const fqn of Object.keys(resolved)) {
+          const parsed = parseFullyQualifiedNameParts(fqn);
+          if (parsed !== undefined) names.push(parsed.name);
+        }
+      }
+      return [...new Set(names)].sort();
+    };
+
+    const packMemberToImplicit = (
+      type: WorkspaceManagedExtensionType,
+      name: ExtensionName,
+    ): ClassifiedExtension => ({
+      type,
+      name,
+      source: Option.none(),
+      enabled: true,
+      packagingKind: "native",
+      lifecycle: "implicit",
+    });
+
+    const installedRowToClassified = <
+      TDeclared extends {
+        readonly entry: { readonly source: string; readonly enabled?: boolean };
+      },
+      TPackMember,
+    >(
+      type: WorkspaceManagedExtensionType,
+      row: {
+        readonly key: { readonly name: ExtensionName };
+        readonly installationOrigin:
+          | { readonly _tag: "direct"; readonly declared: TDeclared }
+          | { readonly _tag: "pack-member"; readonly member: TPackMember };
+        readonly activation: "enabled" | "disabled";
+        readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+      },
+    ): ClassifiedExtension => {
+      if (row.installationOrigin._tag === "direct") {
+        const source = row.installationOrigin.declared.entry.source;
+        return {
+          type,
+          name: row.key.name,
+          source,
+          enabled: row.activation === "enabled",
+          packagingKind: packagingKindForResolved(row.resolved, type, source),
+          lifecycle: "configured",
+        };
+      }
+
+      return {
+        type,
+        name: row.key.name,
+        source: Option.none(),
+        enabled: true,
+        packagingKind: "native",
+        lifecycle: "implicit",
+      };
+    };
+
+    const unmanagedRowToClassified = (
+      type: WorkspaceManagedExtensionType,
+      row: {
+        readonly key: { readonly name: ExtensionName };
+        readonly actual: { readonly contentRoot?: string | null };
+      },
+    ): ClassifiedExtension => ({
+      type,
+      name: row.key.name,
+      source: Option.none(),
+      enabled: true,
+      packagingKind: type === "pack" ? "native" : "non-native",
+      locations:
+        typeof row.actual.contentRoot === "string"
+          ? [path.relative(baseDir, row.actual.contentRoot)]
+          : [],
+      lifecycle: "unmanaged",
+    });
+
+    type ResolvedClassifiableRow = {
+      readonly name: string;
+      readonly keyName?: string;
+      readonly lockEntry: { readonly type: string };
+    };
+
+    type UnmanagedClassifiableRow = {
+      readonly key: { readonly name: ExtensionName };
+      readonly actual: { readonly contentRoot?: string | null };
+    };
+
+    const collectClassifiedRows = <
+      TDeclared extends {
+        readonly entry: { readonly source: string; readonly enabled?: boolean };
+      },
+      TPackMember,
+    >(args: {
+      readonly type: WorkspaceManagedExtensionType;
+      readonly installed: ReadonlyArray<{
+        readonly key: { readonly name: ExtensionName };
+        readonly installationOrigin:
+          | { readonly _tag: "direct"; readonly declared: TDeclared }
+          | { readonly _tag: "pack-member"; readonly member: TPackMember };
+        readonly activation: "enabled" | "disabled";
+        readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+      }>;
+      readonly resolved: Option.Option<ReadonlyArray<ResolvedClassifiableRow>>;
+      readonly unmanaged: ReadonlyArray<UnmanagedClassifiableRow>;
+      readonly ignored: ReadonlyArray<string>;
+      readonly packMemberNames?: ReadonlyArray<ExtensionName>;
+    }): ReadonlyArray<ClassifiedExtension> => {
+      const claimed = new Set<string>(args.installed.map((row) => row.key.name));
+      const directImplicit = Option.getOrElse(args.resolved, () => [])
+        .filter((row) => !claimed.has(row.name))
+        .map((row) => ({ ...row, name: row.keyName ?? row.name }))
+        .filter((row) => !claimed.has(row.name) && !isIgnoredName(args.ignored, row.name))
+        .flatMap((row) => Option.getOrElse(resolvedRowToImplicit(args.type, row), () => []));
+      const packImplicit = (args.packMemberNames ?? [])
+        .filter((name) => !claimed.has(name) && !isIgnoredName(args.ignored, name))
+        .map((name) => packMemberToImplicit(args.type, name));
+
+      return [
+        ...args.installed.map((row) => installedRowToClassified(args.type, row)),
+        ...directImplicit,
+        ...packImplicit,
+        ...args.unmanaged
+          .filter((row) => !isIgnoredName(args.ignored, row.key.name))
+          .map((row) => unmanagedRowToClassified(args.type, row)),
+      ];
+    };
+
+    const readScopedContext = <A>(
+      f: (
+        scoped: ScopedWorkspaceContext,
+      ) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
+    ): Effect.Effect<A, AppError> =>
+      Effect.gen(function* () {
+        const context = yield* WorkspaceContext;
+        return yield* f(context.scope(scopeForDir(workspaceDir)));
+      }).pipe(Effect.provide(contextLayer), Effect.mapError(contextCellErrorToAppError));
+
     const getClassifiedExtensions = (type: WorkspaceManagedExtensionType) =>
-      Effect.gen(function* () {
-        const settings = yield* readSettingsSafe(workspaceDir);
-        const lockfile = yield* readLockfileSafe(workspaceDir);
-        switch (type) {
-          case "skill": {
-            const detectedEntries = yield* detectSkillEntriesOnDisk(settings.agents ?? []);
-            const detectedNames = detectedEntries.map((e) => e.name);
-            const configuredSkills = settings.skills ?? {};
-            return yield* classifyExtensions({
-              type,
-              configured: configuredSkills,
-              lockedNames: Object.keys(lockfile.skills),
-              detectedEntries,
-              ignoredPatterns: settings.ignored?.skills ?? [],
-              sourceMetaByName: deriveSourceMetaForSkills(settings, lockfile.skills, detectedNames),
-            });
-          }
-          case "command": {
-            const commandSettings = settings.commands ?? {};
-            const commandLockEntries: CommandsLockMap = lockfile.commands ?? {};
-
-            // Collect transitive command names from pack resolvedCommands
-            const directLockedNames = Object.keys(commandLockEntries);
-            const transitiveNames = collectTransitiveNames(
-              lockfile.packs ?? {},
-              "resolvedCommands",
-            );
-            const allLockedNames = Array.dedupe([...directLockedNames, ...transitiveNames]);
-
-            // Build source metadata including transitive commands as native
-            const directSourceMeta = deriveSourceMetaForNonSkill(
-              commandSettings,
-              commandLockEntries,
-            );
-            const sourceMetaByName: Record<
-              string,
-              { readonly packagingKind: "native" | "non-native" }
-            > = { ...directSourceMeta };
-            for (const name of transitiveNames) {
-              if (!(name in sourceMetaByName)) {
-                sourceMetaByName[name] = { packagingKind: "native" };
-              }
+      readScopedContext((scoped) =>
+        Effect.gen(function* () {
+          switch (type) {
+            case "skill": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.skills.installed;
+              const resolved = yield* scoped.skills.resolved;
+              const unmanaged = yield* scoped.skills.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.skills ?? [];
+              return collectClassifiedRows({ type, installed, resolved, unmanaged, ignored });
             }
-
-            return yield* classifyExtensions({
-              type,
-              configured: commandSettings,
-              lockedNames: allLockedNames,
-              detectedEntries: [],
-              ignoredPatterns: settings.ignored?.commands ?? [],
-              sourceMetaByName,
-            });
-          }
-          case "mcp-server": {
-            const mcpSettings = settings.mcpServers ?? {};
-            const mcpServerLockEntries: McpServersLockMap = lockfile.mcpServers ?? {};
-            return yield* classifyExtensions({
-              type,
-              configured: mcpSettings,
-              lockedNames: Object.keys(mcpServerLockEntries),
-              detectedEntries: [],
-              ignoredPatterns: settings.ignored?.mcpServers ?? [],
-              sourceMetaByName: deriveSourceMetaForNonSkill(mcpSettings, mcpServerLockEntries),
-            });
-          }
-          case "pack": {
-            const packSettings = settings.packs ?? {};
-            const packLockEntries: ExtensionPacksLockMap = lockfile.packs ?? {};
-            return yield* classifyExtensions({
-              type,
-              configured: packSettings,
-              lockedNames: Object.keys(packLockEntries),
-              detectedEntries: [],
-              ignoredPatterns: settings.ignored?.packs ?? [],
-              sourceMetaByName: deriveSourceMetaForPacks(packSettings, packLockEntries),
-            });
-          }
-          case "subagent": {
-            const subagentSettings = settings.subagents ?? {};
-            const subagentLockEntries: SubagentsLockMap = lockfile.subagents ?? {};
-
-            // Collect transitive subagent names from pack resolvedSubagents
-            const directLockedNames = Object.keys(subagentLockEntries);
-            const transitiveNames = collectTransitiveNames(
-              lockfile.packs ?? {},
-              "resolvedSubagents",
-            );
-            const allLockedNames = Array.dedupe([...directLockedNames, ...transitiveNames]);
-
-            // Build source metadata including transitive subagents as native
-            const directSourceMeta = deriveSourceMetaForNonSkill(
-              subagentSettings,
-              subagentLockEntries,
-            );
-            const sourceMetaByName: Record<
-              string,
-              { readonly packagingKind: "native" | "non-native" }
-            > = { ...directSourceMeta };
-            for (const name of transitiveNames) {
-              if (!(name in sourceMetaByName)) {
-                sourceMetaByName[name] = { packagingKind: "native" };
-              }
+            case "command": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.commands.installed;
+              const resolved = yield* scoped.commands.resolved;
+              const packs = yield* scoped.packs.resolved;
+              const unmanaged = yield* scoped.commands.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.commands ?? [];
+              return collectClassifiedRows({
+                type,
+                installed,
+                resolved,
+                unmanaged,
+                ignored,
+                packMemberNames: packMemberNames(
+                  Option.getOrElse(packs, () => []),
+                  "resolvedCommands",
+                ),
+              });
             }
-
-            return yield* classifyExtensions({
-              type,
-              configured: subagentSettings,
-              lockedNames: allLockedNames,
-              detectedEntries: [],
-              ignoredPatterns: settings.ignored?.subagents ?? [],
-              sourceMetaByName,
-            });
+            case "mcp-server": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.mcpServers.installed;
+              const resolved = yield* scoped.mcpServers.resolved;
+              const unmanaged = yield* scoped.mcpServers.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.mcpServers ?? [];
+              return collectClassifiedRows({ type, installed, resolved, unmanaged, ignored });
+            }
+            case "pack": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.packs.installed;
+              const resolved = yield* scoped.packs.resolved;
+              const unmanaged = yield* scoped.packs.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.packs ?? [];
+              return collectClassifiedRows({ type, installed, resolved, unmanaged, ignored });
+            }
+            case "subagent": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.subagents.installed;
+              const resolved = yield* scoped.subagents.resolved;
+              const packs = yield* scoped.packs.resolved;
+              const unmanaged = yield* scoped.subagents.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).ignored?.subagents ?? [];
+              return collectClassifiedRows({
+                type,
+                installed,
+                resolved,
+                unmanaged,
+                ignored,
+                packMemberNames: packMemberNames(
+                  Option.getOrElse(packs, () => []),
+                  "resolvedSubagents",
+                ),
+              });
+            }
           }
-        }
-      });
+        }),
+      );
 
     /**
      * Resolve the immutable registry name for a skill's directory.

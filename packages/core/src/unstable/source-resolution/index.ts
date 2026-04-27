@@ -8,17 +8,6 @@
  * @packageDocumentation
  */
 
-// Skill discovery
-export {
-  discoverSkillsInDir,
-  getPriorityDirectories,
-  type DiscoveredSkill,
-  type DiscoveryOptions,
-} from "./discover-skills.js";
-
-// Plugin manifest parsing
-export { parseManifests } from "./parse-manifests.js";
-
 // Provider implementations
 export { createGitSourceHostProvider } from "./providers/git.js";
 export {

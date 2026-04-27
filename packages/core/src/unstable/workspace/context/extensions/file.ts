@@ -13,9 +13,9 @@
  * row; otherwise it surfaces in `unmanaged`.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -25,8 +25,13 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
-import { stripTrailingSegments } from "./package-root.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "./projection.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  type SubjectPolicy,
+} from "./projection.js";
 
 // ---------------------------------------------------------------------------
 // Detection origin
@@ -59,7 +64,7 @@ export interface ActualFile {
 export type ActualFiles = ReadonlyArray<ActualFile>;
 
 export interface FilePackMember {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
 
@@ -89,11 +94,7 @@ export type IgnoredFileCandidate = {
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualFile => {
   const isExternal = occ.origin === "external-axm";
-  const packageRoot = stripTrailingSegments(
-    occ.pathSegments,
-    occ.contentLocation,
-    isExternal ? 1 : 2,
-  );
+  const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "file", name: occ.name },
     origin: isExternal ? { _tag: "external-axm-file" } : { _tag: "canonical-axm-file" },
@@ -128,6 +129,8 @@ export interface FileExtensionsApi {
   readonly resolved: Effect.Effect<Option.Option<ResolvedFiles>>;
   readonly actual: Effect.Effect<ActualFiles>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledFile>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledFile>>;
+  readonly declaredByName: (name: string) => Effect.Effect<Option.Option<DeclaredFile>>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledFile>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedFile>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredFileCandidate>>;
@@ -156,10 +159,10 @@ const filePolicy = (
   IgnoredFileCandidate
 > => ({
   declaredEntries: () => [],
-  declaredName: () => "",
+  declaredName: (entry) => entry,
   declaredActivation: () => "enabled",
   resolvedEntries: () => [],
-  resolvedName: () => "",
+  resolvedName: (entry) => entry,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   // `m: never` — the helper invocation passes `TPackMember = never`, so
@@ -171,7 +174,7 @@ const filePolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "file", name: input.name },
+    key: { scope, type: "file", name: decodeExtensionNameSync(input.name) },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -191,7 +194,7 @@ const filePolicy = (
   // uninhabitable at runtime — no throw needed.
   buildPackMemberIgnoredRow: (input) => input.member,
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "file", name: input.name },
+    key: { scope, type: "file", name: decodeExtensionNameSync(input.name) },
     reason: "actual-ignored",
     actual: input.actual,
   }),
@@ -213,11 +216,7 @@ export const makeFileExtensionsApi = (
     const resolved: FileExtensionsApi["resolved"] = Effect.succeed(Option.none<ResolvedFiles>());
     const actual: FileExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
-      return Array.getSomes(
-        canonical.map((occ) =>
-          occ.type === "file" ? Option.some(canonicalToActual(occ, scope)) : Option.none(),
-        ),
-      );
+      return filterMapOccurrences(canonical, "file", (occ) => canonicalToActual(occ, scope));
     });
 
     // v1 emits no file pack members. Pass an empty installed-packs effect to
@@ -245,12 +244,15 @@ export const makeFileExtensionsApi = (
     );
 
     return {
+      ...makeProjectedSubjectCells({
+        declared,
+        resolved,
+        actual,
+        project,
+      }),
       declared,
       resolved,
       actual,
-      installed: project.pipe(Effect.map((o) => o.installed)),
-      active: project.pipe(Effect.map((o) => o.active)),
-      unmanaged: project.pipe(Effect.map((o) => o.unmanaged)),
-      ignored: project.pipe(Effect.map((o) => o.ignored)),
+      declaredByName: () => Effect.succeed(Option.none()),
     } satisfies FileExtensionsApi;
   });

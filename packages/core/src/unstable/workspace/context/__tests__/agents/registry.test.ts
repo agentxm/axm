@@ -16,7 +16,13 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { AGENTS } from "../../../../agents/registry.js";
 import { AGENT_IDS, type AgentId } from "../../../../agents/types.js";
+import { absentAll } from "../../__fixtures__/builder.js";
+import { WorkspaceContextTest } from "../../__fixtures__/test-layer.js";
+import { WorkspaceContext } from "../../context.js";
 import {
   getAgentModule,
   registeredAgentModules,
@@ -65,4 +71,31 @@ describe("agents/index.ts barrel", () => {
       expect(m.agentId).toBe(id);
     }
   });
+
+  it.effect("ctx.scope(...).agents.known returns registry descriptors in registry order", () =>
+    Effect.gen(function* () {
+      const layer = WorkspaceContextTest(absentAll("/workspace", "/home"));
+      yield* Effect.gen(function* () {
+        const ctx = yield* WorkspaceContext;
+        const known = yield* ctx.scope("project").agents.known;
+        expect(known.map((agent) => agent.id)).toEqual(
+          Object.values(AGENTS).map((agent) => agent.id),
+        );
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect("ctx.scope(...).agents.byId returns descriptors for known ids", () =>
+    Effect.gen(function* () {
+      const layer = WorkspaceContextTest(absentAll("/workspace", "/home"));
+      yield* Effect.gen(function* () {
+        const ctx = yield* WorkspaceContext;
+        const known = ctx.scope("project").agents.byId("codex");
+        const unknown = ctx.scope("project").agents.byId("unknown-agent");
+        expect(Option.isSome(known)).toBe(true);
+        expect(Option.isSome(known) ? known.value.id : undefined).toBe("codex");
+        expect(Option.isNone(unknown)).toBe(true);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
 });

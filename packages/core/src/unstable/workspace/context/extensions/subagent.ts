@@ -8,10 +8,10 @@
  * one occurrence per file path; the file itself is the materialization.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { Lockfile, SubagentLockEntry } from "../../../lockfile/schema.js";
 import type { Settings, SubagentEntry } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
@@ -24,8 +24,13 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
-import { stripTrailingSegments } from "./package-root.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "./projection.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  type SubjectPolicy,
+} from "./projection.js";
 
 // ---------------------------------------------------------------------------
 // Detection origin
@@ -41,13 +46,13 @@ export type SubagentDetectionOrigin =
 // ---------------------------------------------------------------------------
 
 export interface DeclaredSubagent {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly entry: SubagentEntry;
 }
 export type DeclaredSubagents = ReadonlyArray<DeclaredSubagent>;
 
 export interface ResolvedSubagent {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly lockEntry: SubagentLockEntry;
 }
 export type ResolvedSubagents = ReadonlyArray<ResolvedSubagent>;
@@ -62,7 +67,7 @@ export interface ActualSubagent {
 export type ActualSubagents = ReadonlyArray<ActualSubagent>;
 
 export interface SubagentPackMember {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
 
@@ -104,21 +109,23 @@ export type IgnoredSubagentCandidate =
 
 const declaredFromSettings = (settings: Settings): DeclaredSubagents => {
   if (settings.subagents === undefined) return [];
-  return Object.entries(settings.subagents).map(([name, entry]) => ({ name, entry }));
+  return Object.entries(settings.subagents).map(([name, entry]) => ({
+    name: decodeExtensionNameSync(name),
+    entry,
+  }));
 };
 
 const resolvedFromLockfile = (lockfile: Lockfile): ResolvedSubagents => {
   if (lockfile.subagents === undefined) return [];
-  return Object.entries(lockfile.subagents).map(([name, lockEntry]) => ({ name, lockEntry }));
+  return Object.entries(lockfile.subagents).map(([name, lockEntry]) => ({
+    name: decodeExtensionNameSync(name),
+    lockEntry,
+  }));
 };
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualSubagent => {
   const isExternal = occ.origin === "external-axm";
-  const packageRoot = stripTrailingSegments(
-    occ.pathSegments,
-    occ.contentLocation,
-    isExternal ? 1 : 2,
-  );
+  const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "subagent", name: occ.name },
     origin: isExternal ? { _tag: "external-axm-subagent" } : { _tag: "canonical-axm-subagent" },
@@ -172,6 +179,10 @@ export interface SubagentExtensionsApi {
   readonly resolved: Effect.Effect<Option.Option<ResolvedSubagents>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualSubagents>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledSubagent>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledSubagent>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredSubagent>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledSubagent>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedSubagent>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredSubagentCandidate>>;
@@ -209,7 +220,7 @@ const subagentPolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "subagent", name: input.name },
+    key: { scope, type: "subagent", name: decodeExtensionNameSync(input.name) },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -221,18 +232,18 @@ const subagentPolicy = (
     actual: entry,
   }),
   buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "subagent", name: input.name },
+    key: { scope, type: "subagent", name: decodeExtensionNameSync(input.name) },
     reason: "declared-ignored",
     declared: input.declared,
   }),
   buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "subagent", name: input.name },
+    key: { scope, type: "subagent", name: decodeExtensionNameSync(input.name) },
     reason: "pack-member-ignored",
     member: input.member,
     pack: input.pack,
   }),
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "subagent", name: input.name },
+    key: { scope, type: "subagent", name: decodeExtensionNameSync(input.name) },
     reason: "actual-ignored",
     actual: input.actual,
   }),
@@ -259,15 +270,11 @@ export const makeSubagentExtensionsApi = (
     const actual: SubagentExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       const agentDir = yield* scanners.agentDir;
-      const fromCanonical = Array.getSomes(
-        canonical.map((occ) =>
-          occ.type === "subagent" ? Option.some(canonicalToActual(occ, scope)) : Option.none(),
-        ),
+      const fromCanonical = filterMapOccurrences(canonical, "subagent", (occ) =>
+        canonicalToActual(occ, scope),
       );
-      const fromAgentDir = Array.getSomes(
-        agentDir.map((occ) =>
-          occ.type === "subagent" ? Option.some(agentDirToActual(occ, scope)) : Option.none(),
-        ),
+      const fromAgentDir = filterMapOccurrences(agentDir, "subagent", (occ) =>
+        agentDirToActual(occ, scope),
       );
       return [...fromCanonical, ...fromAgentDir];
     });
@@ -292,13 +299,10 @@ export const makeSubagentExtensionsApi = (
       }),
     );
 
-    return {
+    return makeProjectedSubjectCells({
       declared,
       resolved,
       actual,
-      installed: project.pipe(Effect.map((o) => o.installed)),
-      active: project.pipe(Effect.map((o) => o.active)),
-      unmanaged: project.pipe(Effect.map((o) => o.unmanaged)),
-      ignored: project.pipe(Effect.map((o) => o.ignored)),
-    } satisfies SubagentExtensionsApi;
+      project,
+    }) satisfies SubagentExtensionsApi;
   });

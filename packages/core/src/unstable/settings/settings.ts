@@ -7,12 +7,10 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
 import { decodeHandleSync } from "../extensions/handle.js";
-import { readAndValidateJsonFile } from "../schema/index.js";
 import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -73,66 +71,6 @@ export const orderSettingsKeys = (settings: Settings): Settings =>
 // -----------------------------------------------------------------------------
 // Core Functions
 // -----------------------------------------------------------------------------
-
-/**
- * Read and parse settings from .axm/settings.json.
- *
- * @param axmDir - Path to the .axm directory
- * @returns Parsed Settings object
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const readSettings = (axmDir: string) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
-
-    const result = yield* readAndValidateJsonFile(settingsPath, SettingsSchema);
-
-    switch (result._tag) {
-      case "ok":
-        return Option.some(result.value);
-      case "missing":
-        return Option.none<Settings>();
-      case "read-failure":
-        return yield* makeAppError({
-          code: "SETTINGS_PARSE_FAILED",
-          what: `Failed to read settings file: ${settingsPath}`,
-          details: [result.error],
-        });
-      case "unparseable":
-        return yield* makeAppError({
-          code: "SETTINGS_PARSE_FAILED",
-          what: `Failed to parse settings JSON at ${settingsPath}`,
-          details: [result.error, ...(result.location !== undefined ? [result.location] : [])],
-        });
-      case "schema-invalid":
-        return yield* makeAppError({
-          code: "SETTINGS_PARSE_FAILED",
-          what: `Invalid settings format: ${settingsPath}`,
-          details: [...result.issues],
-        });
-    }
-  });
-
-/**
- * Read settings from .axm/settings.json, falling back to defaults on missing
- * file or read/parse error.
- *
- * @param axmDir - Path to the .axm directory
- * @returns Settings object (never fails)
- *
- * @remarks All errors — including schema validation failures — are silently
- * swallowed, returning default settings. Only use this in contexts where a
- * prior check (e.g. workspace-ready) has already validated the settings file.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const readSettingsOrDefault = (axmDir: string) =>
-  readSettings(axmDir).pipe(
-    Effect.map(Option.getOrElse(() => createDefaultSettings())),
-    Effect.orElseSucceed(() => createDefaultSettings()),
-  );
 
 /**
  * Write settings to .axm/settings.json.

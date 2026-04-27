@@ -29,7 +29,7 @@
 
 import type { Operation } from "../../../plan/plan.js";
 import type { AgentDescriptor } from "../../../agents/types.js";
-import { getAllAgents } from "../../../agents/registry.js";
+import { AGENTS } from "../../../agents/registry.js";
 import type {
   DisableSkillIntent,
   EnableSkillIntent,
@@ -154,7 +154,7 @@ const declaredAgents = (settings: RawSettings | undefined): ReadonlyArray<AgentD
     return [];
   }
   const ids = new Set(settings.agents);
-  return getAllAgents().filter((a) => ids.has(a.id));
+  return Object.values(AGENTS).filter((a) => ids.has(a.id));
 };
 
 const artifactPath = (agent: AgentDescriptor, skillName: string): string =>

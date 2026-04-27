@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
 import { UNIVERSAL_SKILLS_DIR_SEGMENT } from "../extensions/universal-skills-dir.js";
 import { getHome } from "./constants.js";
-import { getAllAgents } from "./registry.js";
+import { AGENTS } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
 
 // -----------------------------------------------------------------------------
@@ -106,7 +106,7 @@ export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgentsInRoot = (rootDir: string) =>
-  Effect.filter(getAllAgents(), (agent) => detectAgentInRootRaw(agent, rootDir), {
+  Effect.filter(Object.values(AGENTS), (agent) => detectAgentInRootRaw(agent, rootDir), {
     concurrency: "unbounded",
   }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect installed agents in ${rootDir}`)));
 
@@ -122,6 +122,6 @@ export const detectAgentsInRoot = (rootDir: string) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgents = (projectDir: string) =>
-  Effect.filter(getAllAgents(), (agent) => detectAgent(agent, projectDir), {
+  Effect.filter(Object.values(AGENTS), (agent) => detectAgent(agent, projectDir), {
     concurrency: "unbounded",
   });

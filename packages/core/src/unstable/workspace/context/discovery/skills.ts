@@ -1,7 +1,7 @@
 /**
  * Skill discovery algorithm (3-phase: direct match, priority scan, recursive fallback).
  *
- * The `discoverSkillsInDir` function is used by source providers (local, git-hosting)
+ * The `skillsInDir` function is used by source providers (local, git-hosting)
  * to discover skills within a directory structure.
  *
  * @experimental This API is unstable and may change without notice.
@@ -9,15 +9,16 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { getAllAgents } from "../agents/index.js";
-import { parseManifests } from "./parse-manifests.js";
-import { parseSkillMd } from "../skills/skill-content.js";
-import type { Skill } from "../skills/types.js";
+import { AGENTS } from "../../../agents/registry.js";
+import { AGENT_IDS } from "../../../agents/types.js";
+import { parsePluginManifests } from "./plugin-manifests.js";
+import { parseSkillMd } from "../../../skills/skill-content.js";
+import type { Skill } from "../../../skills/types.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { type AppError, makeAppError } from "../app-error/index.js";
-import { envOption } from "../utils/index.js";
+import { type AppError, makeAppError } from "../../../app-error/index.js";
+import { envOption } from "../../../utils/index.js";
 
 /**
  * A discovered skill — intermediate result from directory scanning.
@@ -78,7 +79,7 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  * 3. Agent dirs: unique `skills.dir` values from the AgentDescriptor registry
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
-  const agentDirs = Array.dedupe(Array.map(getAllAgents(), (agent) => agent.skills.dir));
+  const agentDirs = Array.dedupe(AGENT_IDS.map((id) => AGENTS[id].skills.dir));
   return [".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs];
 };
 
@@ -237,7 +238,7 @@ const recursiveScan = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const discoverSkillsInDir = (
+export const skillsInDir = (
   basePath: string,
   subPath: Option.Option<string>,
   options: DiscoveryOptions,
@@ -285,7 +286,7 @@ export const discoverSkillsInDir = (
 
     // ── Phase 2: Priority Directory Scan ───────────────────────────────
     // Collect manifest-declared directories to append to priority scan
-    const manifestDirs = yield* parseManifests(searchRoot);
+    const manifestDirs = yield* parsePluginManifests(searchRoot);
 
     // Build full list of directories to scan: derived priority dirs + manifest dirs
     const priorityDirs = getPriorityDirectories();

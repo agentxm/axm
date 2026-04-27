@@ -9,10 +9,10 @@
  * no-op declared field.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
 import type { Lockfile, McpServerLockEntry } from "../../../lockfile/schema.js";
 import type { McpServerEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
@@ -25,7 +25,12 @@ import type {
   InstalledPackRef,
   Scope,
 } from "../types.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "./projection.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  type SubjectPolicy,
+} from "./projection.js";
 
 // ---------------------------------------------------------------------------
 // Detection origin
@@ -42,13 +47,13 @@ export type McpServerDetectionOrigin =
 // ---------------------------------------------------------------------------
 
 export interface DeclaredMcpServer {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly entry: McpServerEntry;
 }
 export type DeclaredMcpServers = ReadonlyArray<DeclaredMcpServer>;
 
 export interface ResolvedMcpServer {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly lockEntry: McpServerLockEntry;
 }
 export type ResolvedMcpServers = ReadonlyArray<ResolvedMcpServer>;
@@ -68,7 +73,7 @@ export interface ActualMcpServer {
 export type ActualMcpServers = ReadonlyArray<ActualMcpServer>;
 
 export interface McpServerPackMember {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
 
@@ -110,12 +115,18 @@ export type IgnoredMcpServerCandidate =
 
 const declaredFromSettings = (settings: Settings): DeclaredMcpServers => {
   if (settings.mcpServers === undefined) return [];
-  return Object.entries(settings.mcpServers).map(([name, entry]) => ({ name, entry }));
+  return Object.entries(settings.mcpServers).map(([name, entry]) => ({
+    name: decodeExtensionNameSync(name),
+    entry,
+  }));
 };
 
 const resolvedFromLockfile = (lockfile: Lockfile): ResolvedMcpServers => {
   if (lockfile.mcpServers === undefined) return [];
-  return Object.entries(lockfile.mcpServers).map(([name, lockEntry]) => ({ name, lockEntry }));
+  return Object.entries(lockfile.mcpServers).map(([name, lockEntry]) => ({
+    name: decodeExtensionNameSync(name),
+    lockEntry,
+  }));
 };
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualMcpServer => ({
@@ -171,6 +182,10 @@ export interface McpServerExtensionsApi {
   readonly resolved: Effect.Effect<Option.Option<ResolvedMcpServers>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualMcpServers>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledMcpServer>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledMcpServer>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredMcpServer>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledMcpServer>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedMcpServer>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredMcpServerCandidate>>;
@@ -209,7 +224,7 @@ const mcpServerPolicy = (
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
-    key: { scope, type: "mcp-server", name: input.name },
+    key: { scope, type: "mcp-server", name: decodeExtensionNameSync(input.name) },
     installationOrigin: input.installationOrigin,
     activation: input.activation,
     resolved: input.resolved,
@@ -221,18 +236,18 @@ const mcpServerPolicy = (
     actual: entry,
   }),
   buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "mcp-server", name: input.name },
+    key: { scope, type: "mcp-server", name: decodeExtensionNameSync(input.name) },
     reason: "declared-ignored",
     declared: input.declared,
   }),
   buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "mcp-server", name: input.name },
+    key: { scope, type: "mcp-server", name: decodeExtensionNameSync(input.name) },
     reason: "pack-member-ignored",
     member: input.member,
     pack: input.pack,
   }),
   buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "mcp-server", name: input.name },
+    key: { scope, type: "mcp-server", name: decodeExtensionNameSync(input.name) },
     reason: "actual-ignored",
     actual: input.actual,
   }),
@@ -259,10 +274,8 @@ export const makeMcpServerExtensionsApi = (
     const actual: McpServerExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       const mcpConfig = yield* scanners.mcpConfig;
-      const fromCanonical = Array.getSomes(
-        canonical.map((occ) =>
-          occ.type === "mcp-server" ? Option.some(canonicalToActual(occ, scope)) : Option.none(),
-        ),
+      const fromCanonical = filterMapOccurrences(canonical, "mcp-server", (occ) =>
+        canonicalToActual(occ, scope),
       );
       const fromMcpConfig = mcpConfig.map((occ) => mcpConfigToActual(occ, scope));
       return [...fromCanonical, ...fromMcpConfig];
@@ -288,13 +301,10 @@ export const makeMcpServerExtensionsApi = (
       }),
     );
 
-    return {
+    return makeProjectedSubjectCells({
       declared,
       resolved,
       actual,
-      installed: project.pipe(Effect.map((o) => o.installed)),
-      active: project.pipe(Effect.map((o) => o.active)),
-      unmanaged: project.pipe(Effect.map((o) => o.unmanaged)),
-      ignored: project.pipe(Effect.map((o) => o.ignored)),
-    } satisfies McpServerExtensionsApi;
+      project,
+    }) satisfies McpServerExtensionsApi;
   });

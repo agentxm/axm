@@ -7,7 +7,6 @@
  * @packageDocumentation
  */
 
-import * as Option from "effect/Option";
 import { descriptor as adal } from "./adal/index.js";
 import { descriptor as amp } from "./amp/index.js";
 import { descriptor as antigravity } from "./antigravity/index.js";
@@ -47,7 +46,7 @@ import { descriptor as trae } from "./trae/index.js";
 import { descriptor as traeCn } from "./trae-cn/index.js";
 import { descriptor as windsurf } from "./windsurf/index.js";
 import { descriptor as zencoder } from "./zencoder/index.js";
-import { AGENT_IDS, type AgentDescriptor, type AgentId, type AgentRegistry } from "./types.js";
+import { AGENT_IDS, type AgentId, type AgentRegistry } from "./types.js";
 
 /**
  * Complete registry of all known AI coding agents.
@@ -99,30 +98,6 @@ export const AGENTS: AgentRegistry = {
   zencoder,
 };
 
-const isAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
-
-/**
- * Look up an agent by ID.
- *
- * Returns `Option.some(descriptor)` if the agent exists, `Option.none()` otherwise.
- * O(1) lookup time.
- *
- * @param id - The agent identifier to look up
- * @returns Option containing the agent descriptor if found
- *
- * @example
- * ```typescript
- * const agent = getAgentById("claude-code");
- * if (Option.isSome(agent)) {
- *   console.log(agent.value.name); // "Claude Code"
- * }
- * ```
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const getAgentById = (id: string): Option.Option<AgentDescriptor> =>
-  isAgentId(id) ? Option.some(AGENTS[id]) : Option.none();
-
 /**
  * Get all registered agent IDs.
  *
@@ -137,22 +112,3 @@ export const getAgentById = (id: string): Option.Option<AgentDescriptor> =>
  * @experimental This API is unstable and may change without notice.
  */
 export const getAgentIds = (): ReadonlyArray<AgentId> => AGENT_IDS;
-
-/**
- * Get all registered agent descriptors.
- *
- * Useful for iteration when you need full descriptor objects.
- *
- * @returns Array of all agent descriptors
- *
- * @example
- * ```typescript
- * const agents = getAllAgents();
- * for (const agent of agents) {
- *   console.log(`${agent.name}: ${agent.skills.dir}`);
- * }
- * ```
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const getAllAgents = (): ReadonlyArray<AgentDescriptor> => Object.values(AGENTS);

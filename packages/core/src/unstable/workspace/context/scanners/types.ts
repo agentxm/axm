@@ -16,7 +16,8 @@
  */
 
 import * as Option from "effect/Option";
-import type { ExtensionType } from "../../../extensions/common.js";
+import type { ExtensionName, ExtensionType } from "../../../extensions/common.js";
+import type { Handle } from "../../../extensions/handle.js";
 import type { AgentId } from "../../../agents/types.js";
 import type { Scope } from "../types.js";
 
@@ -59,8 +60,8 @@ export interface CanonicalExtensionOccurrence {
   readonly scope: Scope;
   readonly type: ExtensionType;
   readonly origin: CanonicalExtensionOriginKind;
-  readonly name: string;
-  readonly owner: string | null;
+  readonly name: ExtensionName;
+  readonly owner: Handle | null;
   readonly contentLocation: string;
   readonly pathSegments: ReadonlyArray<string>;
   readonly subjectFile: Option.Option<string>;
@@ -102,7 +103,7 @@ export interface AgentDirOccurrence {
   readonly scope: Scope;
   readonly type: AgentDirSubjectType;
   readonly agentId: AgentId;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly contentLocation: string;
   readonly pathSegments: ReadonlyArray<string>;
   readonly subjectFile: Option.Option<string>;
@@ -133,7 +134,7 @@ export interface WorkspaceMcpConfigOccurrence {
   readonly _tag: "mcp-config";
   readonly scope: Scope;
   readonly origin: "workspace";
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly contentLocation: string;
 }
 
@@ -149,7 +150,7 @@ export interface AgentMcpConfigOccurrence {
   readonly scope: Scope;
   readonly origin: "agent";
   readonly agentId: AgentId;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly contentLocation: string;
 }
 

@@ -14,7 +14,7 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { SubagentLockEntrySchema, LockfileSchema, type Lockfile } from "./schema.js";
-import { readLockfile, writeLockfile } from "./lockfile.js";
+import { writeLockfile } from "./lockfile.js";
 import { renderedFilePath } from "../test-helpers.js";
 
 describe("SubagentLockEntry schema", () => {
@@ -257,7 +257,9 @@ describe("lockfile subagent round-trip", () => {
         };
 
         yield* writeLockfile(axmDir, lockfile);
-        const result = yield* readLockfile(axmDir);
+        const result = Schema.decodeUnknownSync(LockfileSchema)(
+          YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8")),
+        );
 
         expect(result.subagents).toBeDefined();
         const planner = result.subagents?.["planner"];
@@ -276,30 +278,26 @@ describe("lockfile subagent round-trip", () => {
     ),
   );
 
-  it.effect("reads lockfile with subagents from YAML", () =>
-    withContext(
-      Effect.gen(function* () {
-        fs.mkdirSync(axmDir, { recursive: true });
-        const lockfileContent = YAML.stringify({
-          lockfileVersion: 1,
-          skills: {},
-          subagents: {
-            planner: {
-              type: "local",
-              path: "./subagents/planner",
-              agents: ["claude-code"],
-              installedAt: "2025-01-15T10:30:00.000Z",
-              updatedAt: "2025-01-15T10:30:00.000Z",
-            },
-          },
-        });
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), lockfileContent);
+  it("decodes lockfile with subagents from YAML", () => {
+    fs.mkdirSync(axmDir, { recursive: true });
+    const lockfileContent = YAML.stringify({
+      lockfileVersion: 1,
+      skills: {},
+      subagents: {
+        planner: {
+          type: "local",
+          path: "./subagents/planner",
+          agents: ["claude-code"],
+          installedAt: "2025-01-15T10:30:00.000Z",
+          updatedAt: "2025-01-15T10:30:00.000Z",
+        },
+      },
+    });
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), lockfileContent);
 
-        const result = yield* readLockfile(axmDir);
+    const result = Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(lockfileContent));
 
-        expect(result.subagents?.["planner"]).toBeDefined();
-        expect(result.subagents?.["planner"]?.type).toBe("local");
-      }),
-    ),
-  );
+    expect(result.subagents?.["planner"]).toBeDefined();
+    expect(result.subagents?.["planner"]?.type).toBe("local");
+  });
 });

@@ -1,7 +1,7 @@
 /**
  * Source provider for local filesystem paths.
  *
- * Wraps the existing `discoverSkillsInDir` logic into the `SourceHostProvider` interface.
+ * Wraps the existing `skillsInDir` logic into the `SourceHostProvider` interface.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -13,7 +13,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { discoverSkillsInDir } from "../discover-skills.js";
+import { skillsInDir } from "../../workspace/context/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
@@ -37,7 +37,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const discovered = yield* discoverSkillsInDir(source.path, Option.none(), {
+      const discovered = yield* skillsInDir(source.path, Option.none(), {
         fullDepth: false,
         includeInternal: false,
       }).pipe(

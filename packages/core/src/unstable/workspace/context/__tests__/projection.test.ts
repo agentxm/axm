@@ -27,6 +27,7 @@ import {
   type SettingsReadError,
 } from "../errors.js";
 import { projectInstalledExtensions, type SubjectPolicy } from "../extensions/projection.js";
+import { decodeExtensionNameSync } from "../../../extensions/common.js";
 import type { InstalledPackRef } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -179,7 +180,7 @@ const ACTUAL = (name: string, origin = "claude-code"): TestActualEntry => ({
 });
 
 const PACK_REF = (name: string): InstalledPackRef => ({
-  key: { scope: "project", type: "pack", name },
+  key: { scope: "project", type: "pack", name: decodeExtensionNameSync(name) },
 });
 
 describe("projectInstalledExtensions", () => {

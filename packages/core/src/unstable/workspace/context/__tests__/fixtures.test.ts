@@ -70,7 +70,7 @@ const WORKSPACE_ROOT = "/test/workspace";
 const USER_HOME = "/test/home";
 
 const PROJECT_SETTINGS_PATH = "/test/workspace/.axm/settings.json";
-const PROJECT_LOCKFILE_PATH = "/test/workspace/axm-lock.yaml";
+const PROJECT_LOCKFILE_PATH = "/test/workspace/.axm/axm-lock.yaml";
 const USER_SETTINGS_PATH = "/test/home/.axm/settings.json";
 
 // ---------------------------------------------------------------------------

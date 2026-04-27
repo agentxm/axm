@@ -6,10 +6,12 @@
  */
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../agents/index.js";
 import { sanitizeName } from "../extensions/utils.js";
-import { readSettingsOrDefault } from "../settings/index.js";
+import { createDefaultSettings } from "../settings/index.js";
 import { type SkillExtensionRef } from "../skills/index.js";
 import { computeSkillPaths, type SkillPathSource } from "../skills/paths.js";
 import {
@@ -18,6 +20,12 @@ import {
   withConfiguredEntryResolutionTimeout,
   type ConfiguredEntryFailureReason,
 } from "./configured-entry-resolution/index.js";
+import {
+  WorkspaceContext,
+  WorkspaceContextConfigTag,
+  WorkspaceContextLive,
+} from "./context/context.js";
+import { getAxmDir } from "./paths.js";
 import { Workspace } from "./service-interface.js";
 
 export interface WorkspaceResolvedSkill {
@@ -131,9 +139,28 @@ const buildDeclaredSkillState = (
 const buildDeclaredSkillSnapshot = (baseDir: string, fs: FileSystem.FileSystem, path: Path.Path) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const settings = yield* readSettingsOrDefault(ws.path).pipe(
-      Effect.provideService(Path.Path, path),
-      Effect.provideService(FileSystem.FileSystem, fs),
+    const globalDir = yield* getAxmDir("user");
+    const fsLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
+    const contextLayer = WorkspaceContextLive.pipe(
+      Layer.provide(fsLayer),
+      Layer.provide(
+        Layer.succeed(WorkspaceContextConfigTag, {
+          projectRoot: ws.baseDir,
+          userHome: path.dirname(globalDir),
+          allowedRoot: "/",
+        }),
+      ),
+    );
+    const settings = yield* Effect.gen(function* () {
+      const context = yield* WorkspaceContext;
+      return yield* context.scope(ws.scope).state.settings;
+    }).pipe(
+      Effect.provide(contextLayer),
+      Effect.map(Option.getOrElse(() => createDefaultSettings())),
+      Effect.orElseSucceed(() => createDefaultSettings()),
     );
     const normalizedSkills = Object.entries(settings.skills ?? {}).map(([name, entry]) => ({
       name,

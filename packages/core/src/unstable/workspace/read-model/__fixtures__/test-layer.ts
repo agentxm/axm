@@ -1,47 +1,39 @@
 /**
- * `WorkspaceReadModelTest` test layer.
+ * Workspace read-model test layer.
  *
- * Provides the real `WorkspaceReadModelLive` against fixture-built deps:
- *
- * - Builds the in-memory `FileSystem` and `Path` from the `FixtureSpec`.
- * - Provides `FileSystem`, `Path`, and `WorkspaceReadModelConfig` to
- *   `WorkspaceReadModelLive`.
- * - Surfaces `WorkspaceRootEscape` and the fixture builder's
- *   `PathEscapeError` in the Layer's error channel so tests can assert
- *   either failure mode.
+ * Provides {@link WorkspaceReadModelConfig}, {@link AgentRootResolver},
+ * `FileSystem`, and `Path` against fixture-built deps. Test bodies call
+ * {@link makeWorkspaceReadModel} directly to obtain a per-scope read model.
  *
  * The layer accepts an optional `options.allowedRoot`; when omitted, the
- * filesystem root (`/`) is used so any `workspaceRoot`/`userHome` from the
+ * filesystem root (`/`) is used so any `workspaceRoot` / `userHome` from the
  * spec is allowed. Tests that want to verify root-escape failure pass an
  * `allowedRoot` outside the spec's `workspaceRoot`.
  *
  * Tests that need to inject filesystem-level faults (e.g. simulate read
  * failures) provide `options.wrapFileSystem` to wrap the fixture's
- * `FileSystem` before it is composed into `WorkspaceReadModelLive`.
+ * `FileSystem` before it is composed into the layer.
  */
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import {
-  WorkspaceReadModel,
-  WorkspaceReadModelConfig,
-  WorkspaceReadModelLive,
-} from "../service.js";
-import { type WorkspaceRootEscape } from "../errors.js";
+import { AgentRootResolver, AgentRootResolverLive } from "../agent-root-resolver.js";
+import { WorkspaceReadModelConfig } from "../service.js";
 import { buildFixture, type FixtureSpec, type PathEscapeError } from "./builder.js";
 
 /**
- * Optional layer-construction options for `WorkspaceReadModelTest`.
+ * Optional layer-construction options for {@link WorkspaceReadModelTest}.
  *
- * - `allowedRoot` — workspace-root containment boundary used by the Live
- *   layer to validate `projectRoot` and `userHome`. Defaults to the
- *   filesystem root so tests opt into root-escape behaviour explicitly.
+ * - `allowedRoot` — workspace-root containment boundary used by
+ *   {@link makeWorkspaceReadModel} to validate `projectRoot` and `userHome`.
+ *   Defaults to the filesystem root so tests opt into root-escape behaviour
+ *   explicitly.
  * - `wrapFileSystem` — optional adapter applied to the fixture's
- *   `FileSystem` before it is provided to `WorkspaceReadModelLive`. Tests
- *   that simulate IO faults (e.g. read failures on specific paths) wrap
- *   the underlying filesystem here without forking the test layer.
+ *   `FileSystem` before it is provided. Tests that simulate IO faults (e.g.
+ *   read failures on specific paths) wrap the underlying filesystem here
+ *   without forking the test layer.
  */
 export interface WorkspaceReadModelTestOptions {
   readonly allowedRoot?: string;
@@ -49,21 +41,27 @@ export interface WorkspaceReadModelTestOptions {
 }
 
 /**
- * Test layer for `WorkspaceReadModel`. Composes the fixture-built
- * `FileSystem` / `Path` with the real `WorkspaceReadModelLive` provider.
+ * Test layer for the workspace read model. Composes the fixture-built
+ * `FileSystem` / `Path` with {@link WorkspaceReadModelConfig} and
+ * {@link AgentRootResolver}, the dependencies callers need to invoke
+ * {@link makeWorkspaceReadModel}.
  *
  * The error channel covers:
  *
- *   - `WorkspaceRootEscape` — Layer-construction failure when
- *     `projectRoot` or `userHome` escapes `allowedRoot`.
  *   - `PathEscapeError` — fixture builder rejection (escapes the
  *     synthesized tree). Tests that need to assert this branch pass a
  *     spec with a `..`-laden tree entry.
+ *
+ * Workspace-root escape (`WorkspaceRootEscape`) surfaces from
+ * {@link makeWorkspaceReadModel} itself, not the layer.
  */
 export const WorkspaceReadModelTest = (
   spec: FixtureSpec,
   options: WorkspaceReadModelTestOptions = {},
-): Layer.Layer<WorkspaceReadModel, WorkspaceRootEscape | PathEscapeError> =>
+): Layer.Layer<
+  FileSystem.FileSystem | Path.Path | WorkspaceReadModelConfig | AgentRootResolver,
+  PathEscapeError
+> =>
   Layer.unwrap(
     Effect.gen(function* () {
       const deps = yield* buildFixture(spec);
@@ -76,10 +74,11 @@ export const WorkspaceReadModelTest = (
         userHome: deps.userHome,
         allowedRoot,
       });
-      return WorkspaceReadModelLive.pipe(
-        Layer.provide(fsLayer),
-        Layer.provide(pathLayer),
-        Layer.provide(configLayer),
+      return Layer.mergeAll(
+        fsLayer,
+        pathLayer,
+        configLayer,
+        AgentRootResolverLive.pipe(Layer.provide(pathLayer)),
       );
     }),
   );

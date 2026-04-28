@@ -58,7 +58,7 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
         return EMPTY_ADVISORY_FINDINGS;
       }
 
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_ADVISORY_FINDINGS;

@@ -34,7 +34,7 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsRaw = yield* Effect.result(scoped.state.raw("settings"));
       const axmDirExists = yield* context.axmDirExists;
       const findings: Array<AdvisoryFinding> = [];

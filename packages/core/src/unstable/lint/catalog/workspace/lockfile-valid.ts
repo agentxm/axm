@@ -71,7 +71,7 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       // Cascade arm 1: lockfile presence when declarations exist.
       const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
@@ -123,7 +123,7 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
     }),
   fix: (context, _finding) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_OPERATIONS;

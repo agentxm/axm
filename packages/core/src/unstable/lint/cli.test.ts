@@ -75,12 +75,16 @@ const stubPackAccessor: PackFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: () => Effect.succeed(new Uint8Array()),
 };
-const throwingWorkspace: WorkspaceRuleContext["workspace"] = {
-  scope: () => {
-    throw new Error("unused workspace read model");
+// Assertion needed: the renderer-summary tests never touch the workspace,
+// so a Proxy stub avoids enumerating every cell.
+const throwingWorkspace = new Proxy(
+  {},
+  {
+    get: () => {
+      throw new Error("unused workspace read model");
+    },
   },
-  __debugCachedEffectCount: Effect.succeed(0),
-};
+) as unknown as WorkspaceRuleContext["workspace"];
 
 const skillCtx: SkillRuleContext = {
   subject: { isNative: true, skillJson: undefined },

@@ -93,16 +93,16 @@ export { scanPlanReadiness, type PlanReadinessReport } from "./scan-plan-readine
 
 // Workspace read model
 export {
-  WorkspaceReadModel,
+  makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
-  WorkspaceReadModelLive,
   type RawSourceBytes,
   type ScopedProfileApi,
   type ScopedSourceHostsApi,
   type ScopedStateApi,
-  type ScopedWorkspaceReadModel,
+  type WorkspaceReadModel,
   type WorkspaceReadModelConfigService,
 } from "./read-model/service.js";
+export { AgentRootResolver, AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 export {
   getPriorityDirectories,
   parsePluginManifests,

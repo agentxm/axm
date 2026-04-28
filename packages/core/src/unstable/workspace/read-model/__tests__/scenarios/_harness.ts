@@ -1,11 +1,12 @@
 /**
- * Scenario-test harness for the WorkspaceReadModel capability (Phase 10).
+ * Scenario-test harness for the workspace read-model capability.
  *
  * Each scenario file under `__tests__/scenarios/` consumes this harness:
  *
- * - `runScenario(spec, body)` builds a `WorkspaceReadModelLive` over the
- *   in-memory fixture FS via `WorkspaceReadModelTest`, provides it, runs `body`
- *   with the assembled `WorkspaceReadModel` value, and returns the body result.
+ * - `runScenario(spec, body)` builds both scopes via
+ *   {@link makeWorkspaceReadModel} against the in-memory fixture FS, exposes
+ *   them through a thin `ctx.scope(scope)` selector so scenarios can yield
+ *   from either scope, and runs `body` with the result.
  * - `expectFirst(arr)` asserts the array is non-empty and returns its first
  *   element, replacing the silent `if (entry === undefined) return` pattern.
  * - `expectDiagnostics(ctx, scope, predicate)` reads the scoped diagnostics
@@ -19,27 +20,26 @@
 
 import { expect } from "@effect/vitest";
 import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { WorkspaceReadModel } from "../../service.js";
 import type { WorkspaceReadModelTestOptions } from "../../__fixtures__/test-layer.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
 import type { FixtureSpec, PathEscapeError } from "../../__fixtures__/builder.js";
 import type { Warning } from "../../diagnostics.js";
 import type { WorkspaceRootEscape } from "../../errors.js";
+import { makeWorkspaceReadModel, type WorkspaceReadModel } from "../../service.js";
 import type { Scope } from "../../types.js";
 
 /**
- * Resolved value shape behind the `WorkspaceReadModel` `Context.Service` tag.
- * Body callbacks see this — the `scope(scope)` selector that returns scoped
- * subject namespaces, plus the test-only `__debugCachedEffectCount` counter.
- *
- * Inferred from the `WorkspaceReadModel` tag so any future field added on the
- * production tag flows through to test bodies without a parallel declaration.
+ * Scenario-side wrapper exposing both scopes through a `scope(scope)`
+ * selector. Both scopes are pre-built via {@link makeWorkspaceReadModel} so
+ * scenarios can yield from either scope freely. The selector returns a
+ * memoized {@link WorkspaceReadModel} per scope.
  */
-export type WorkspaceReadModelValue = Context.Service.Shape<typeof WorkspaceReadModel>;
+export interface WorkspaceReadModelScenarioCtx {
+  readonly scope: (scope: Scope) => WorkspaceReadModel;
+}
 
 /**
  * Default workspace and user-home roots used by scenario specs. Tests may
@@ -50,9 +50,10 @@ export const SCENARIO_WORKSPACE_ROOT = "/scenario/workspace";
 export const SCENARIO_USER_HOME = "/scenario/home";
 
 /**
- * Build a `WorkspaceReadModelLive` against the supplied fixture spec, provide it
- * to `body`, and run the resulting effect. The body sees the assembled
- * `WorkspaceReadModel` directly so callers can yield scoped cells.
+ * Build per-scope read models against the supplied fixture spec, provide them
+ * to `body`, and run the resulting effect. Both scopes are constructed
+ * eagerly so the body can yield from either scope without re-running the
+ * factory.
  *
  * The body's `E` channel is preserved through to the harness's return type
  * so scenario tests can `yield*` source-backed cells (which fail with
@@ -61,12 +62,16 @@ export const SCENARIO_USER_HOME = "/scenario/home";
  */
 export const runScenario = <A, E = never>(
   spec: FixtureSpec,
-  body: (ctx: WorkspaceReadModelValue) => Effect.Effect<A, E>,
+  body: (ctx: WorkspaceReadModelScenarioCtx) => Effect.Effect<A, E>,
   options?: WorkspaceReadModelTestOptions,
 ): Effect.Effect<A, E | WorkspaceRootEscape | PathEscapeError> =>
   Effect.gen(function* () {
-    const readModel = yield* WorkspaceReadModel;
-    return yield* body(readModel);
+    const project = yield* makeWorkspaceReadModel("project");
+    const user = yield* makeWorkspaceReadModel("user");
+    const ctx: WorkspaceReadModelScenarioCtx = {
+      scope: (scope) => (scope === "project" ? project : user),
+    };
+    return yield* body(ctx);
   }).pipe(Effect.provide(WorkspaceReadModelTest(spec, options)));
 
 /**
@@ -150,7 +155,7 @@ export const tagsOf = <E>(cause: Cause.Cause<E>): ReadonlySet<string> => {
  * additional assertions.
  */
 export const expectDiagnostics = (
-  ctx: WorkspaceReadModelValue,
+  ctx: WorkspaceReadModelScenarioCtx,
   scope: Scope,
   predicate: (warning: Warning) => boolean,
 ): Effect.Effect<ReadonlyArray<Warning>> =>
@@ -166,6 +171,6 @@ export const expectDiagnostics = (
  * scenario wants to verify the absence of a warning class.
  */
 export const readDiagnostics = (
-  ctx: WorkspaceReadModelValue,
+  ctx: WorkspaceReadModelScenarioCtx,
   scope: Scope,
 ): Effect.Effect<ReadonlyArray<Warning>> => ctx.scope(scope).diagnostics;

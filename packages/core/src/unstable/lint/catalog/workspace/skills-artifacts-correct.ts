@@ -147,7 +147,7 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_LINT_FINDINGS;
@@ -195,7 +195,7 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
     }),
   fix: (context, finding) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsResult = yield* Effect.result(scoped.state.settings);
       if (Result.isFailure(settingsResult)) {
         return EMPTY_OPERATIONS;

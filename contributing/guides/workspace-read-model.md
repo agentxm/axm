@@ -1,6 +1,7 @@
 # Workspace Read Model Guide
 
-Use `WorkspaceReadModel` for workspace reads that need scoped, cached state.
+Use `makeWorkspaceReadModel(scope)` for workspace reads that need scoped,
+cached state.
 
 Use `WorkspaceMutations` for settings, lockfile, or materialized workspace
 changes. New read-only code should use `WorkspaceReadModel` projections.
@@ -9,35 +10,40 @@ changes. New read-only code should use `WorkspaceReadModel` projections.
 
 ## Scope Model
 
-`WorkspaceReadModel` exposes `readModel.scope("project")` and `readModel.scope("user")`.
-Each scoped object owns that scope's `.axm` settings, lockfile, scanners,
-source hosts, profile, agents, extension projections, and diagnostics.
+`makeWorkspaceReadModel("project")` and `makeWorkspaceReadModel("user")` each
+build a `WorkspaceReadModel` for one scope. The returned value owns that
+scope's `.axm` settings, lockfile, scanners, source hosts, profile, agents,
+extension projections, and diagnostics.
 
-Construct one context at the command boundary. Pass scoped APIs inward instead
-of recomputing paths or reading settings directly.
+Construct one read model at the command boundary. Pass it inward instead of
+recomputing paths or reading settings directly. Callers that need both scopes
+invoke the factory twice.
+
+`makeWorkspaceReadModel` requires `FileSystem`, `Path`,
+`WorkspaceReadModelConfig`, and `AgentRootResolver` in the environment.
+`AgentRootResolverLive` builds the cross-scope resolver state and runs
+agent-root collision detection once per layer; share it across both scope
+calls so the warnings deduplicate.
 
 ## Caching
 
-Cells cache for the lifetime of the context instance:
+Cells cache for the lifetime of the returned value:
 
 - `state.settings`, `state.lockfile`, and `state.raw(...)`
 - scanner-backed `actual` views
 - projection-backed `installed`, `active`, `unmanaged`, and `ignored`
 
-Ad hoc disk reads re-read state on every call. `WorkspaceReadModel` does not. In a
-write-then-read flow, either reconstruct the context after the write, use the
-operation's in-memory updated value, or keep a narrowly documented fresh-read
-path until the write pipeline owns reconstruction.
+Ad hoc disk reads re-read state on every call. The read model does not. In a
+write-then-read flow, either reconstruct the read model after the write, use
+the operation's in-memory updated value, or keep a narrowly documented
+fresh-read path until the write pipeline owns reconstruction.
 
 Example:
 
 ```ts
 yield * writeSettings(axmDir, updated);
-const fresh =
-  yield *
-  makeWorkspaceReadModel(options).pipe(
-    Effect.flatMap((readModel) => readModel.scope(scope).state.settings),
-  );
+const fresh = yield * makeWorkspaceReadModel(scope);
+const settings = yield * fresh.state.settings;
 ```
 
 ## State Cells
@@ -54,6 +60,8 @@ diagnostics.
 Use `WorkspaceReadModelTest` from
 `packages/core/src/unstable/workspace/read-model/__fixtures__/test-layer.ts`.
 Build fixtures with `validAll`, `absentAll`, or explicit `FixtureSpec` data.
+The layer provides `FileSystem`, `Path`, `WorkspaceReadModelConfig`, and
+`AgentRootResolver` so test bodies just call `makeWorkspaceReadModel(scope)`.
 
 Example:
 
@@ -61,21 +69,21 @@ Example:
 const layer = WorkspaceReadModelTest(validAll("/workspace", "/home"));
 yield *
   Effect.gen(function* () {
-    const readModel = yield* WorkspaceReadModel;
-    const installed = yield* readModel.scope("project").skills.installed;
+    const project = yield* makeWorkspaceReadModel("project");
+    const installed = yield* project.skills.installed;
     expect(installed.length).toBeGreaterThan(0);
   }).pipe(Effect.provide(layer));
 ```
 
 Avoid mocking `readSettings`, `readLockfile`, or registry helpers in tests for
-context-backed production code. Mock only the module under direct test.
+read-model-backed production code. Mock only the module under direct test.
 
 ## Pitfalls
 
-- Do not build a new context inside each rule or projection row.
-- Do not reuse a context after mutating settings or lockfile and expect fresh
-  reads.
-- Do not call path helpers outside context construction unless the code is
-  itself constructing the context.
+- Do not build a new read model inside each rule or projection row.
+- Do not reuse a read model after mutating settings or lockfile and expect
+  fresh reads.
+- Do not call path helpers outside read-model construction unless the code is
+  itself constructing the read model.
 - Do not filter installed arrays repeatedly when `byName` or declared lookup
   APIs express the intent.

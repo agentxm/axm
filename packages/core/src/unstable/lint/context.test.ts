@@ -45,12 +45,16 @@ const makePackAccessor = (): PackFileAccessor => ({
     }),
 });
 
-const throwingWorkspace: WorkspaceRuleContext["workspace"] = {
-  scope: () => {
-    throw new Error("unused workspace read model");
+// Assertion needed: the context-shape tests never touch the workspace, so a
+// Proxy stub avoids enumerating every cell.
+const throwingWorkspace = new Proxy(
+  {},
+  {
+    get: () => {
+      throw new Error("unused workspace read model");
+    },
   },
-  __debugCachedEffectCount: Effect.succeed(0),
-};
+) as unknown as WorkspaceRuleContext["workspace"];
 
 // -----------------------------------------------------------------------------
 // Accessor surface area

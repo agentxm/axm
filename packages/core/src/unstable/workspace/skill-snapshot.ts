@@ -20,11 +20,8 @@ import {
   withConfiguredEntryResolutionTimeout,
   type ConfiguredEntryFailureReason,
 } from "./configured-entry-resolution/index.js";
-import {
-  WorkspaceReadModel,
-  WorkspaceReadModelConfig,
-  WorkspaceReadModelLive,
-} from "./read-model/service.js";
+import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
+import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
 import { getAxmDir } from "./paths.js";
 import { WorkspaceMutations } from "./service-interface.js";
 
@@ -144,21 +141,18 @@ const buildDeclaredSkillSnapshot = (baseDir: string, fs: FileSystem.FileSystem, 
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
-    const contextLayer = WorkspaceReadModelLive.pipe(
-      Layer.provide(fsLayer),
-      Layer.provide(
-        Layer.succeed(WorkspaceReadModelConfig, {
-          projectRoot: ws.baseDir,
-          userHome: path.dirname(globalDir),
-          allowedRoot: "/",
-        }),
-      ),
+    const contextEnv = Layer.mergeAll(
+      fsLayer,
+      Layer.succeed(WorkspaceReadModelConfig, {
+        projectRoot: ws.baseDir,
+        userHome: path.dirname(globalDir),
+        allowedRoot: "/",
+      }),
+      AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
     );
-    const settings = yield* Effect.gen(function* () {
-      const readModel = yield* WorkspaceReadModel;
-      return yield* readModel.scope(ws.scope).state.settings;
-    }).pipe(
-      Effect.provide(contextLayer),
+    const settings = yield* makeWorkspaceReadModel(ws.scope).pipe(
+      Effect.flatMap((readModel) => readModel.state.settings),
+      Effect.provide(contextEnv),
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
       Effect.orElseSucceed(() => createDefaultSettings()),
     );

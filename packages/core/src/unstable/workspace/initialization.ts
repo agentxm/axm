@@ -28,11 +28,8 @@ import {
   writeSettings,
 } from "../settings/index.js";
 import type { WorkspaceMutationsOptions } from "./service-interface.js";
-import {
-  WorkspaceReadModel,
-  WorkspaceReadModelConfig,
-  WorkspaceReadModelLive,
-} from "./read-model/service.js";
+import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
+import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
 import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
@@ -54,23 +51,22 @@ const readSettingsFromReadModel = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const layer = WorkspaceReadModelLive.pipe(
-      Layer.provide(
-        Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fs), Layer.succeed(Path.Path, path)),
-      ),
-      Layer.provide(
-        Layer.succeed(WorkspaceReadModelConfig, {
-          projectRoot,
-          userHome,
-          allowedRoot: "/",
-        }),
-      ),
+    const platformLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
     );
-    return yield* Effect.gen(function* () {
-      const readModel = yield* WorkspaceReadModel;
-      return yield* readModel.scope(scope).state.settings;
-    }).pipe(
-      Effect.provide(layer),
+    const env = Layer.mergeAll(
+      platformLayer,
+      Layer.succeed(WorkspaceReadModelConfig, {
+        projectRoot,
+        userHome,
+        allowedRoot: "/",
+      }),
+      AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
+    );
+    return yield* makeWorkspaceReadModel(scope).pipe(
+      Effect.flatMap((readModel) => readModel.state.settings),
+      Effect.provide(env),
       Effect.mapError((error) =>
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",

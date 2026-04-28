@@ -26,10 +26,10 @@ import { ReconciliationAdapters } from "../workspace/reconciliation.js";
 import type { CancelledPlan, ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { getAxmDir } from "../workspace/paths.js";
+import { AgentRootResolverLive } from "../workspace/read-model/agent-root-resolver.js";
 import {
-  WorkspaceReadModel,
+  makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
-  WorkspaceReadModelLive,
 } from "../workspace/read-model/service.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
@@ -87,25 +87,22 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   );
   const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, reconciliationAdapters);
   const globalDir = yield* getAxmDir("user");
-  const contextLayer = WorkspaceReadModelLive.pipe(
-    Layer.provide(fsLayer),
-    Layer.provide(
-      Layer.succeed(WorkspaceReadModelConfig, {
-        projectRoot: ws.baseDir,
-        userHome: path.dirname(globalDir),
-        allowedRoot: "/",
-      }),
-    ),
+  const contextEnv = Layer.mergeAll(
+    fsLayer,
+    Layer.succeed(WorkspaceReadModelConfig, {
+      projectRoot: ws.baseDir,
+      userHome: path.dirname(globalDir),
+      allowedRoot: "/",
+    }),
+    AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
   );
 
   const getLockfileState = (): Effect.Effect<LockfileState, AppError> => ws.getLockfileState();
 
   const readSettingsSafe = (dir: string): Effect.Effect<Settings, AppError> =>
-    Effect.gen(function* () {
-      const readModel = yield* WorkspaceReadModel;
-      return yield* readModel.scope(dir === globalDir ? "user" : "project").state.settings;
-    }).pipe(
-      Effect.provide(contextLayer),
+    makeWorkspaceReadModel(dir === globalDir ? "user" : "project").pipe(
+      Effect.flatMap((readModel) => readModel.state.settings),
+      Effect.provide(contextEnv),
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
       Effect.mapError((error) =>
         makeAppError({

@@ -35,7 +35,7 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
 
       // `state.settings` returns the decoded `Settings` already; the
       // `SettingsReadError` family (io / parse / decode) is owned by

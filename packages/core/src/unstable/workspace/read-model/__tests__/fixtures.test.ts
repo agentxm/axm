@@ -10,7 +10,7 @@
  *
  * This file exercises the BUILDER, not the live context. The placeholder
  * `WorkspaceReadModelTest` layer (Phase 5.3) is intentionally a `Layer.fail`
- * stub until Phase 9 lands the real `WorkspaceReadModelLive` implementation.
+ * stub until Phase 9 lands the real `makeWorkspaceReadModel` implementation.
  *
  * Coverage:
  *

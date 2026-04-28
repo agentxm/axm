@@ -20,7 +20,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import { validAll, type FixtureSpec } from "../../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
-import { WorkspaceReadModel } from "../../service.js";
+import { makeWorkspaceReadModel } from "../../service.js";
 import { WorkspaceRootEscape } from "../../errors.js";
 import {
   expectSome,
@@ -82,8 +82,7 @@ describe("actual cells never fail", () => {
         });
 
       const program = Effect.gen(function* () {
-        const readModel = yield* WorkspaceReadModel;
-        const project = readModel.scope("project");
+        const project = yield* makeWorkspaceReadModel("project");
         // The actual cell still succeeds despite the partial failure.
         const actual = yield* project.skills.actual;
         const diagnostics = yield* project.diagnostics;
@@ -103,15 +102,13 @@ describe("actual cells never fail", () => {
   );
 });
 
-describe("workspace-root escape fails Layer construction", () => {
-  it.effect("Layer.build fails with WorkspaceRootEscape when projectRoot escapes allowedRoot", () =>
+describe("workspace-root escape fails the factory", () => {
+  it.effect("makeWorkspaceReadModel fails with WorkspaceRootEscape when projectRoot escapes", () =>
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(validAll(SCENARIO_WORKSPACE_ROOT, SCENARIO_USER_HOME), {
         allowedRoot: "/different/root",
       });
-      const built = Effect.gen(function* () {
-        yield* WorkspaceReadModel;
-      }).pipe(Effect.provide(layer));
+      const built = makeWorkspaceReadModel("project").pipe(Effect.provide(layer));
       const exit = yield* Effect.exit(built);
       expect(Exit.isFailure(exit)).toBe(true);
       if (Exit.isFailure(exit)) {

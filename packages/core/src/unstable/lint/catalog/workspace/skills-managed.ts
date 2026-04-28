@@ -46,7 +46,7 @@ export const skillsManagedRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsResult = yield* Effect.result(scoped.state.settings);
       const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       const retainedFqns =

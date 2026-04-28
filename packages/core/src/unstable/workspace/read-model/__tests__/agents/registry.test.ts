@@ -22,7 +22,7 @@ import { AGENTS } from "../../../../agents/registry.js";
 import { AGENT_IDS, type AgentId } from "../../../../agents/types.js";
 import { absentAll } from "../../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
-import { WorkspaceReadModel } from "../../service.js";
+import { makeWorkspaceReadModel } from "../../service.js";
 import {
   getAgentModule,
   registeredAgentModules,
@@ -72,12 +72,12 @@ describe("agents/index.ts barrel", () => {
     }
   });
 
-  it.effect("ctx.scope(...).agents.known returns registry descriptors in registry order", () =>
+  it.effect("scope.agents.known returns registry descriptors in registry order", () =>
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(absentAll("/workspace", "/home"));
       yield* Effect.gen(function* () {
-        const readModel = yield* WorkspaceReadModel;
-        const known = yield* readModel.scope("project").agents.known;
+        const readModel = yield* makeWorkspaceReadModel("project");
+        const known = yield* readModel.agents.known;
         expect(known.map((agent) => agent.id)).toEqual(
           Object.values(AGENTS).map((agent) => agent.id),
         );
@@ -85,13 +85,13 @@ describe("agents/index.ts barrel", () => {
     }),
   );
 
-  it.effect("ctx.scope(...).agents.byId returns descriptors for known ids", () =>
+  it.effect("scope.agents.byId returns descriptors for known ids", () =>
     Effect.gen(function* () {
       const layer = WorkspaceReadModelTest(absentAll("/workspace", "/home"));
       yield* Effect.gen(function* () {
-        const readModel = yield* WorkspaceReadModel;
-        const known = readModel.scope("project").agents.byId("codex");
-        const unknown = readModel.scope("project").agents.byId("unknown-agent");
+        const readModel = yield* makeWorkspaceReadModel("project");
+        const known = readModel.agents.byId("codex");
+        const unknown = readModel.agents.byId("unknown-agent");
         expect(Option.isSome(known)).toBe(true);
         expect(Option.isSome(known) ? known.value.id : undefined).toBe("codex");
         expect(Option.isNone(unknown)).toBe(true);

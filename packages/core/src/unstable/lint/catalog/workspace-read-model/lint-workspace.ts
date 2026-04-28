@@ -24,11 +24,11 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type * as ServiceMap from "effect/Context";
+import { AgentRootResolverLive } from "../../../workspace/read-model/agent-root-resolver.js";
 import {
-  WorkspaceReadModel,
+  makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
-  WorkspaceReadModelLive,
+  type WorkspaceReadModel,
 } from "../../../workspace/read-model/service.js";
 import type { WorkspaceRootEscape } from "../../../workspace/read-model/errors.js";
 import type {
@@ -76,9 +76,9 @@ export interface BuildLintWorkspaceArgs {
   };
   readonly workspaceRoot: string;
   /**
-   * User home directory used to construct the user-scope side of
-   * `WorkspaceReadModel`. Required because `WorkspaceReadModelLive` builds
-   * both scopes eagerly even when only one is queried by the rule run.
+   * User home directory used by {@link makeWorkspaceReadModel} to validate
+   * the alternate scope's root against `allowedRoot`. Supplied even when
+   * only one scope is queried so root-escape checks stay symmetric.
    */
   readonly userHome: string;
   readonly scope: "project" | "user";
@@ -102,31 +102,31 @@ export interface LintWorkspace {
 
 /**
  * Build the per-rule `WorkspaceRuleContext` and the flat `LintWorkspaceView`
- * in a single `WorkspaceReadModelLive` setup.
+ * via a single {@link makeWorkspaceReadModel} invocation.
  *
- * `WorkspaceRootEscape` is surfaced in the error channel by the live layer
- * when `workspaceRoot` or `userHome` escape the filesystem root.
+ * `WorkspaceRootEscape` is surfaced in the error channel by the factory when
+ * `workspaceRoot` or `userHome` escape the filesystem root.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const buildLintWorkspace = (
   args: BuildLintWorkspaceArgs,
 ): Effect.Effect<LintWorkspace, WorkspaceRootEscape> => {
-  const readModelLayer = WorkspaceReadModelLive.pipe(
-    Layer.provide(
-      Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, args.platform.fs),
-        Layer.succeed(Path.Path, args.platform.path),
-        Layer.succeed(WorkspaceReadModelConfig, {
-          projectRoot: args.workspaceRoot,
-          userHome: args.userHome,
-          allowedRoot: "/",
-        }),
-      ),
-    ),
+  const platformLayer = Layer.mergeAll(
+    Layer.succeed(FileSystem.FileSystem, args.platform.fs),
+    Layer.succeed(Path.Path, args.platform.path),
+  );
+  const env = Layer.mergeAll(
+    platformLayer,
+    Layer.succeed(WorkspaceReadModelConfig, {
+      projectRoot: args.workspaceRoot,
+      userHome: args.userHome,
+      allowedRoot: "/",
+    }),
+    AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
   );
   return Effect.gen(function* () {
-    const readModel = yield* WorkspaceReadModel;
+    const readModel = yield* makeWorkspaceReadModel(args.scope);
     const axmDir =
       args.scope === "user"
         ? args.platform.path.join(args.userHome, ".axm")
@@ -144,7 +144,7 @@ export const buildLintWorkspace = (
       scope: args.scope,
     });
     return { rule, view };
-  }).pipe(Effect.provide(readModelLayer));
+  }).pipe(Effect.provide(env));
 };
 
 // -----------------------------------------------------------------------------
@@ -157,7 +157,7 @@ interface BuildLintWorkspaceViewArgs {
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
-  readonly readModel: ServiceMap.Service.Shape<typeof WorkspaceReadModel>;
+  readonly readModel: WorkspaceReadModel;
   readonly scope: "project" | "user";
 }
 
@@ -165,10 +165,10 @@ const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
 ): Effect.Effect<LintWorkspaceView> =>
   Effect.gen(function* () {
-    const scoped = args.readModel.scope(args.scope);
-    const [skills, packs] = yield* Effect.all([scoped.skills.installed, scoped.packs.installed], {
-      concurrency: "unbounded",
-    });
+    const [skills, packs] = yield* Effect.all(
+      [args.readModel.skills.installed, args.readModel.packs.installed],
+      { concurrency: "unbounded" },
+    );
     return {
       installedSkills: skills
         .filter((skill) => skill.actual.length > 0 || Option.isSome(skill.resolved))

@@ -28,7 +28,7 @@ import {
   type WorkspaceState,
 } from "./workspace-fixtures/interpret-ops.js";
 import type { AgentId } from "../../agents/types.js";
-import { WorkspaceReadModel } from "../../workspace/read-model/service.js";
+import { makeWorkspaceReadModel } from "../../workspace/read-model/service.js";
 import { type FixtureSpec } from "../../workspace/read-model/__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../workspace/read-model/__fixtures__/test-layer.js";
 import { fixtureSpecFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
@@ -111,7 +111,7 @@ const fixtureSpecFor = (state: WorkspaceState, scope: "project" | "user"): Fixtu
 
 const buildContext = (state: WorkspaceState, scope: "project" | "user") =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceReadModel;
+    const workspace = yield* makeWorkspaceReadModel(scope);
     return {
       subject: { root: FIXTURE_PROJECT_ROOT, scope },
       workspace,

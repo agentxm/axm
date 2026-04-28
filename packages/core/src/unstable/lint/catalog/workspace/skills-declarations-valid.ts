@@ -74,7 +74,7 @@ export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const declaredResult = yield* Effect.result(scoped.skills.declared);
       if (Result.isFailure(declaredResult) || Option.isNone(declaredResult.success)) {
         return EMPTY_ADVISORY_FINDINGS;

@@ -17,14 +17,14 @@ import {
 import { createDefaultSettings } from "../settings/index.js";
 import { expandGlob } from "../utils/index.js";
 import type { LockfileReadError, SettingsReadError } from "./read-model/errors.js";
-import type { ScopedWorkspaceReadModel } from "./read-model/service.js";
+import type { WorkspaceReadModel } from "./read-model/service.js";
 import { deriveSourceMetaFromLockType } from "./source-metadata.js";
 import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 
 type WorkspaceManagedExtensionType = InstallableExtensionType;
 
 type ReadScopedContext = <A>(
-  f: (scoped: ScopedWorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
+  f: (scoped: WorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
 ) => Effect.Effect<A, AppError>;
 
 export interface ReadModelRecordReaders {

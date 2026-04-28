@@ -154,7 +154,7 @@ export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsResult = yield* Effect.result(scoped.state.settings);
       const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
@@ -173,7 +173,7 @@ export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
     }),
   fix: (context, finding) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const settingsResult = yield* Effect.result(scoped.state.settings);
       const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {

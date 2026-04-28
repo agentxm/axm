@@ -5,7 +5,7 @@
  * this file holds only subject-agnostic declarations referenced from multiple
  * places (Scope, ExtensionKey, ActivationState, InstallationOrigin, the
  * empty-shape ExtensionStateReader contract, and the public surface contracts
- * for ScopedWorkspaceReadModel / ScopedStateApi / ScopedSourceHostsApi /
+ * for WorkspaceReadModel / ScopedStateApi / ScopedSourceHostsApi /
  * ScopedProfileApi / ScopedAgentsApi).
  *
  * Source-backed cell failure channels carry per-source tagged error unions
@@ -104,8 +104,8 @@ export interface ExtensionStateReader<TDeclared, TResolved, TActual> {
 // Public scoped surfaces — concrete shapes live in `context.ts`
 // -----------------------------------------------------------------------------
 //
-// `context.ts` (Phase 9) defines the real `ScopedStateApi`,
-// `ScopedSourceHostsApi`, `ScopedProfileApi`, and `ScopedWorkspaceReadModel`
+// `service.ts` (Phase 9) defines the real `ScopedStateApi`,
+// `ScopedSourceHostsApi`, `ScopedProfileApi`, and `WorkspaceReadModel`
 // surfaces. They attach payload types from per-subject modules under
 // `extensions/` and per-agent modules under `agents/`, which would create
 // import cycles if defined here. `ScopedAgentsApi` is owned by

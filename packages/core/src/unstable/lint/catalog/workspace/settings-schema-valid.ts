@@ -41,7 +41,7 @@ export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const raw = yield* Effect.result(scoped.state.raw("settings"));
       if (Result.isSuccess(raw) && Option.isNone(raw.success)) {
         return EMPTY_ADVISORY_FINDINGS;

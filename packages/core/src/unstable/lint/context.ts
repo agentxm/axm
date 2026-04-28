@@ -19,7 +19,6 @@
  */
 
 import type * as Effect from "effect/Effect";
-import type * as ServiceMap from "effect/Context";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
 
 // -----------------------------------------------------------------------------
@@ -212,7 +211,7 @@ export interface PackContent {
  */
 export interface WorkspaceRuleContext {
   readonly subject: WorkspaceSubject;
-  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceReadModel>;
+  readonly workspace: WorkspaceReadModel;
   readonly axmDirExists: Effect.Effect<boolean>;
   readonly displayRoot: string;
 }

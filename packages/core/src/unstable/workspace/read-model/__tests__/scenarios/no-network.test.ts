@@ -1,5 +1,5 @@
 /**
- * Scenario: WorkspaceReadModel performs no source resolution or network I/O.
+ * Scenario: workspace read model performs no source resolution or network I/O.
  *
  * Spec requirement coverage:
  *
@@ -7,12 +7,12 @@
  *   the settings entry to `skills.declared`.
  * - No registry / source-host / network call is attempted.
  *
- * The strongest guarantee here is the compile-time check below: every cell
- * yielded from `WorkspaceReadModel` carries only `WorkspaceReadModel` in its `R`
- * channel. Any future introduction of a network service requirement
- * (`HttpClient`, `RegistryClient`, etc.) surfaces as a type error. We do not
- * patch `globalThis.fetch` — the spec depends on the type system, not on
- * runtime sentinel detection.
+ * The strongest guarantee here is the compile-time check in
+ * `no-network.type-test.ts`: every cell yielded from a workspace read model
+ * has no network service requirement in its `R` channel. Any future
+ * introduction of a service like `HttpClient` or `RegistryClient` surfaces
+ * as a type error. We do not patch `globalThis.fetch` — the spec depends on
+ * the type system, not on runtime sentinel detection.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -59,10 +59,10 @@ describe("no source resolution or network I/O", () => {
     runScenario(githubSourceSpec, (ctx) =>
       Effect.gen(function* () {
         // Touch every cell that could plausibly trigger source resolution if
-        // WorkspaceReadModel were to lapse from its contract. The compile-time
-        // assertion below guarantees no network service is in `R`; this
-        // runtime traversal proves the read surface is exercisable end-to-end
-        // without one.
+        // the workspace read model were to lapse from its contract. The
+        // compile-time assertion in `no-network.type-test.ts` guarantees no
+        // network service is in `R`; this runtime traversal proves the read
+        // surface is exercisable end-to-end without one.
         const project = ctx.scope("project");
         yield* project.skills.declared;
         yield* project.skills.resolved;

@@ -63,11 +63,11 @@ import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js"
 import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import {
-  WorkspaceReadModel,
+  makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
-  WorkspaceReadModelLive,
-  type ScopedWorkspaceReadModel,
+  type WorkspaceReadModel,
 } from "./read-model/service.js";
 import type {
   LockfileReadError,
@@ -188,36 +188,31 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
-    const contextLayer = WorkspaceReadModelLive.pipe(
-      Layer.provide(fsLayer),
-      Layer.provide(
-        Layer.succeed(WorkspaceReadModelConfig, {
-          projectRoot: path.dirname(localDir),
-          userHome: path.dirname(globalDir),
-          allowedRoot: "/",
-        }),
-      ),
+    const contextEnv = Layer.mergeAll(
+      fsLayer,
+      Layer.succeed(WorkspaceReadModelConfig, {
+        projectRoot: path.dirname(localDir),
+        userHome: path.dirname(globalDir),
+        allowedRoot: "/",
+      }),
+      AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
     );
 
     const scopeForDir = (dir: string): "project" | "user" =>
       dir === globalDir ? "user" : "project";
 
     const readSettingsCell = (dir: string) =>
-      Effect.gen(function* () {
-        const readModel = yield* WorkspaceReadModel;
-        return yield* readModel.scope(scopeForDir(dir)).state.settings;
-      }).pipe(
-        Effect.provide(contextLayer),
+      makeWorkspaceReadModel(scopeForDir(dir)).pipe(
+        Effect.flatMap((readModel) => readModel.state.settings),
+        Effect.provide(contextEnv),
         Effect.mapError((error) => contextReadErrorToAppError("settings", error)),
       );
 
     const readLockfileCell = (dir: string) =>
-      Effect.gen(function* () {
-        const readModel = yield* WorkspaceReadModel;
-        return yield* readModel.scope(scopeForDir(dir)).state.lockfile;
-      }).pipe(
+      makeWorkspaceReadModel(scopeForDir(dir)).pipe(
+        Effect.flatMap((readModel) => readModel.state.lockfile),
         Effect.map(Option.getOrElse(createEmptyLockfile)),
-        Effect.provide(contextLayer),
+        Effect.provide(contextEnv),
         Effect.mapError((error) => contextReadErrorToAppError("lockfile", error)),
       );
 
@@ -295,14 +290,13 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       }).pipe(Effect.withSpan("WorkspaceMutations.getLockfileState"));
 
     const readScopedContext = <A>(
-      f: (
-        scoped: ScopedWorkspaceReadModel,
-      ) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
+      f: (scoped: WorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
     ): Effect.Effect<A, AppError> =>
-      Effect.gen(function* () {
-        const readModel = yield* WorkspaceReadModel;
-        return yield* f(readModel.scope(scopeForDir(workspaceDir)));
-      }).pipe(Effect.provide(contextLayer), Effect.mapError(contextCellErrorToAppError));
+      makeWorkspaceReadModel(scopeForDir(workspaceDir)).pipe(
+        Effect.flatMap(f),
+        Effect.provide(contextEnv),
+        Effect.mapError(contextCellErrorToAppError),
+      );
 
     const readModelRecordReaders = makeReadModelRecordReaders({ baseDir, path, readScopedContext });
     const getReadModelRecordRows = readModelRecordReaders.getReadModelRecordRows;

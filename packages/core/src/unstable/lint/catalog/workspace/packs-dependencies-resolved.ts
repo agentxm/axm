@@ -119,7 +119,7 @@ export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> =
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace.scope(context.subject.scope);
+      const scoped = context.workspace;
       const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(lockfileResult)) {
         return EMPTY_ADVISORY_FINDINGS;

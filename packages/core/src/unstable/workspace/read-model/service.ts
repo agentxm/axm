@@ -1,10 +1,9 @@
-/** Scoped read-only workspace model service and live layer. */
+/** Per-scope read-only workspace model factory and configuration. */
 
 import * as Brand from "effect/Brand";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
@@ -14,6 +13,7 @@ import { parseFullyQualifiedNameParts, type ExtensionName } from "../../extensio
 import { decodeHandleSync, type Handle } from "../../extensions/handle.js";
 import { SETTINGS_FILENAME } from "../../settings/settings.js";
 import type { SourceHostConfig } from "../../settings/schema.js";
+import { AgentRootResolver } from "./agent-root-resolver.js";
 import { makeScopedAgentsApi, type ScopedAgentsApi } from "./agents/index.js";
 import { type AgentScannerObservations } from "./agents/types.js";
 import { makeDiagnostics, type Diagnostics, type Warning } from "./diagnostics.js";
@@ -46,9 +46,7 @@ import {
   type SubagentExtensionsApi,
 } from "./extensions/index.js";
 import {
-  detectAgentRootCollisions,
   makeAgentDirScanner,
-  makeAgentRootResolverState,
   makeAgentSettingsScanner,
   makeCanonicalExtensionsScanner,
   makeMcpConfigScanner,
@@ -94,8 +92,13 @@ export interface ScopedProfileApi {
   readonly effective: Effect.Effect<Handle, SettingsReadError>;
 }
 
-/** Public surface returned by `ctx.scope(scope)`. */
-export interface ScopedWorkspaceReadModel {
+/**
+ * Workspace read model for a single scope (project or user).
+ *
+ * Returned by {@link makeWorkspaceReadModel}. Each invocation builds its own
+ * scoped cells; cells cache for the lifetime of the returned value.
+ */
+export interface WorkspaceReadModel {
   readonly scope: Scope;
   readonly skills: SkillExtensionsApi;
   readonly commands: CommandExtensionsApi;
@@ -112,35 +115,21 @@ export interface ScopedWorkspaceReadModel {
 }
 
 // ---------------------------------------------------------------------------
-// Live Layer configuration
+// Factory configuration
 // ---------------------------------------------------------------------------
 
-/** Configuration the Live Layer requires beyond `FileSystem` and `Path`. */
+/** Configuration the factory requires beyond `FileSystem` and `Path`. */
 export interface WorkspaceReadModelConfigService {
   readonly projectRoot: string;
   readonly userHome: string;
   readonly allowedRoot: string;
 }
 
-/** Service tag for the `WorkspaceReadModelConfigService` value the Live Layer requires. */
+/** Service tag for the {@link WorkspaceReadModelConfigService} the factory requires. */
 export class WorkspaceReadModelConfig extends ServiceMap.Service<
   WorkspaceReadModelConfig,
   WorkspaceReadModelConfigService
 >()("axm/WorkspaceReadModel/Config") {}
-
-// ---------------------------------------------------------------------------
-// WorkspaceReadModel service tag
-// ---------------------------------------------------------------------------
-
-/** The single workspace read-model service tag. */
-export class WorkspaceReadModel extends ServiceMap.Service<
-  WorkspaceReadModel,
-  {
-    readonly scope: (scope: Scope) => ScopedWorkspaceReadModel;
-    /** Test-only: cached-effect count for the most recent construction. */
-    readonly __debugCachedEffectCount: Effect.Effect<number>;
-  }
->()("axm/WorkspaceReadModel") {}
 
 // ---------------------------------------------------------------------------
 // Workspace-root validation
@@ -210,20 +199,17 @@ interface BuildScopeDeps {
   readonly workspaceRoot: ResolvedWorkspaceRoot;
   readonly settingsPath: string;
   readonly lockfilePath: string | null;
-  readonly bumpCacheCount: () => Effect.Effect<void>;
   readonly rootResolverState: AgentRootResolverState;
   /**
-   * Diagnostics-buffer Ref shared with the live layer. The live layer
-   * pre-seeds this buffer (e.g. agent-root collision warnings detected at
-   * construction time); per-scope projection and scanner emissions append
-   * onto the same buffer.
+   * Diagnostics-buffer Ref shared with the factory. The factory pre-seeds
+   * this buffer for the project scope (e.g. agent-root collision warnings
+   * detected by the resolver layer); per-scope projection and scanner
+   * emissions append onto the same buffer.
    */
   readonly diagnosticsRef: Ref.Ref<ReadonlyArray<Warning>>;
 }
 
-const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* (
-  deps: BuildScopeDeps,
-) {
+const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps: BuildScopeDeps) {
   const {
     scope,
     fs,
@@ -231,13 +217,12 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
     workspaceRoot,
     settingsPath,
     lockfilePath,
-    bumpCacheCount,
     rootResolverState,
     diagnosticsRef,
   } = deps;
 
-  // Diagnostics buffer (Ref provided by the live layer so collision warnings
-  // detected at Live construction can be pre-seeded for the project scope).
+  // Diagnostics buffer (Ref provided by the factory so collision warnings
+  // detected by the resolver layer can be pre-seeded for the project scope).
   const diagnostics: Diagnostics = makeDiagnostics(diagnosticsRef);
 
   // Cached state-source cells: settings/settingsRaw + lockfile/lockfileRaw.
@@ -247,15 +232,8 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
     settingsPath,
     lockfilePath,
   });
-  yield* bumpCacheCount(); // settings
-  yield* bumpCacheCount(); // settingsRaw
-  if (lockfilePath !== null) {
-    yield* bumpCacheCount(); // lockfile
-    yield* bumpCacheCount(); // lockfileRaw
-  }
 
   // Scanner cells — eagerly enumerate the closed scanner key set.
-  // 4 scanners × 1 scope = 4 cached cells.
   const canonicalScanner = yield* Effect.cached(
     makeCanonicalExtensionsScanner({
       fs,
@@ -265,7 +243,6 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
       diagnostics,
     }),
   );
-  yield* bumpCacheCount();
   const agentDirScanner = yield* Effect.cached(
     makeAgentDirScanner({
       fs,
@@ -276,7 +253,6 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
       agentRegistry: AGENTS,
     }),
   );
-  yield* bumpCacheCount();
   const mcpConfigScanner = yield* Effect.cached(
     makeMcpConfigScanner({
       fs,
@@ -288,7 +264,6 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
       rootResolverState,
     }),
   );
-  yield* bumpCacheCount();
   const agentSettingsScanner = yield* Effect.cached(
     makeAgentSettingsScanner({
       fs,
@@ -300,7 +275,6 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
       rootResolverState,
     }),
   );
-  yield* bumpCacheCount();
 
   // Build the pack subject first; per-subject pack-member input derives from it.
   const packsApi = yield* makePackExtensionsApi({
@@ -338,7 +312,6 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
       });
     }),
   );
-  yield* bumpCacheCount();
 
   const skillsInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForSkills>> =
     installedPackMembers.pipe(
@@ -460,7 +433,6 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
       return { agentDir, agentSettings, mcpConfig };
     }),
   );
-  yield* bumpCacheCount();
 
   // Project settings into the narrowed `DeclaredSettingsShape` agents needs.
   const agentsSettings = loaders.settings.pipe(
@@ -542,24 +514,37 @@ const buildScope = Effect.fn("workspace.read-model.live.build-scope")(function* 
     sourceHosts,
     profile,
     diagnostics: diagnostics.snapshot,
-  } satisfies ScopedWorkspaceReadModel;
+  } satisfies WorkspaceReadModel;
 });
 
 // ---------------------------------------------------------------------------
-// Live Layer
+// Per-scope factory
 // ---------------------------------------------------------------------------
 
-/** Production Live Layer for `WorkspaceReadModel`. */
-export const WorkspaceReadModelLive: Layer.Layer<
+/**
+ * Build a {@link WorkspaceReadModel} for the requested scope.
+ *
+ * Each invocation produces a fresh instance with its own cached cells; call
+ * once at the command boundary and pass the value inward. Callers that need
+ * both scopes invoke the factory twice.
+ *
+ * Cross-scope state (the agent-root resolver and its collision warnings) is
+ * supplied by {@link AgentRootResolver}, which must be provided in the
+ * environment so the same warnings flow into every scope built against the
+ * same layer.
+ */
+export const makeWorkspaceReadModel = (
+  scope: Scope,
+): Effect.Effect<
   WorkspaceReadModel,
   WorkspaceRootEscape,
-  FileSystem.FileSystem | Path.Path | WorkspaceReadModelConfig
-> = Layer.effect(
-  WorkspaceReadModel,
+  FileSystem.FileSystem | Path.Path | WorkspaceReadModelConfig | AgentRootResolver
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const pathSvc = yield* Path.Path;
     const config = yield* WorkspaceReadModelConfig;
+    const resolver = yield* AgentRootResolver;
 
     // Validate roots eagerly — the only path that surfaces `WorkspaceRootEscape`.
     const projectRootResolved = yield* validateRoot(
@@ -569,68 +554,26 @@ export const WorkspaceReadModelLive: Layer.Layer<
     );
     const userHomeResolved = yield* validateRoot(pathSvc, config.userHome, config.allowedRoot);
 
-    // Per-instance debug counter exposed as `__debugCachedEffectCount`.
-    const cachedEffectCountRef = yield* Ref.make(0);
-    const bumpCacheCount = (): Effect.Effect<void> =>
-      Ref.update(cachedEffectCountRef, (n: number) => n + 1);
-
     // Workspace path layout per scope.
-    const projectAxmDir = pathSvc.join(projectRootResolved, ".axm");
-    const projectSettingsPath = pathSvc.join(projectAxmDir, SETTINGS_FILENAME);
-    const projectLockfilePath = pathSvc.join(projectAxmDir, LOCKFILE_NAME);
-    const userAxmDir = pathSvc.join(userHomeResolved, ".axm");
-    const userSettingsPath = pathSvc.join(userAxmDir, SETTINGS_FILENAME);
-    const userLockfilePath = pathSvc.join(userAxmDir, LOCKFILE_NAME);
+    const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;
+    const axmDir = pathSvc.join(workspaceRoot, ".axm");
+    const settingsPath = pathSvc.join(axmDir, SETTINGS_FILENAME);
+    const lockfilePath = pathSvc.join(axmDir, LOCKFILE_NAME);
 
-    // Shared agent-root resolver state — one tracker per `WorkspaceReadModelLive`
-    // instance so the heuristic-fallback warning fires at most once per agent
-    // across both scopes and both `mcp-config` / `agent-settings` scanners.
-    const rootResolverState = makeAgentRootResolverState();
-
-    // Per-scope diagnostics buffers built up-front so the live layer can
-    // pre-seed agent-root collision warnings into the project scope before
-    // `buildScope` runs.
-    const projectDiagnosticsRef = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const userDiagnosticsRef = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    yield* detectAgentRootCollisions(
-      pathSvc,
-      Object.values(AGENTS),
-      makeDiagnostics(projectDiagnosticsRef),
+    // Pre-seed agent-root collision warnings into the project scope only;
+    // the user scope receives a clean buffer.
+    const diagnosticsRef = yield* Ref.make<ReadonlyArray<Warning>>(
+      scope === "project" ? resolver.collisionWarnings : [],
     );
 
-    // Memoize per-scope build so `ctx.scope("project")` is idempotent.
-    const scoped = new Map<Scope, ScopedWorkspaceReadModel>();
-
-    const buildAndStore = (scope: Scope): Effect.Effect<ScopedWorkspaceReadModel> =>
-      Effect.gen(function* () {
-        const cached = scoped.get(scope);
-        if (cached !== undefined) return cached;
-        const value = yield* buildScope({
-          scope,
-          fs,
-          path: pathSvc,
-          workspaceRoot: scope === "project" ? projectRootResolved : userHomeResolved,
-          settingsPath: scope === "project" ? projectSettingsPath : userSettingsPath,
-          lockfilePath: scope === "project" ? projectLockfilePath : userLockfilePath,
-          bumpCacheCount,
-          rootResolverState,
-          diagnosticsRef: scope === "project" ? projectDiagnosticsRef : userDiagnosticsRef,
-        });
-        scoped.set(scope, value);
-        return value;
-      });
-
-    // Materialize both scopes eagerly; IO still runs lazily inside each cell.
-    const projectScope = yield* buildAndStore("project");
-    const userScope = yield* buildAndStore("user");
-
-    // The `scope()` selector returns the pre-built memoized scoped read model.
-    const scopeSelector = (s: Scope): ScopedWorkspaceReadModel =>
-      s === "project" ? projectScope : userScope;
-
-    return WorkspaceReadModel.of({
-      scope: scopeSelector,
-      __debugCachedEffectCount: Ref.get(cachedEffectCountRef),
+    return yield* buildScope({
+      scope,
+      fs,
+      path: pathSvc,
+      workspaceRoot,
+      settingsPath,
+      lockfilePath,
+      rootResolverState: resolver.state,
+      diagnosticsRef,
     });
-  }).pipe(Effect.withSpan("workspace.read-model.live.build")),
-);
+  }).pipe(Effect.withSpan("workspace.read-model.make"));

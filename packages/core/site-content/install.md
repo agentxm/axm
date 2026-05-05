@@ -14,30 +14,27 @@
 - [ ] Run the chosen installer
 - [ ] Verify `axm --version`
 - [ ] Check sign-in state with `axm whoami --json`
-- [ ] If not signed in: ask the user to choose between signing in to
-      AgentXM.ai or going directly to workspace setup
-- [ ] If the user chose to sign in: hand off signup/login, then re-check
-      `axm whoami`
+- [ ] If not signed in: ask the user to sign in to AgentXM.ai or proceed
+      to workspace setup; on the sign-in choice, hand off signup/login and
+      re-check `axm whoami`
 - [ ] Run `axm setup --yes` to initialize the project workspace
 
 ---
 
 ## What is axm
 
-axm is the open extension manager for AI coding agents. It lets you discover,
-install, publish, and manage skills, commands, subagents, MCP servers, and
-extension packs across your AI agents from a single CLI. axm is the CLI;
-[AgentXM.ai](https://agentxm.ai) is the extension registry it connects to —
-accounts, publishing, and extension discovery live there. An AgentXM.ai
-account is only required for publishing extensions or installing private
-extensions; public extensions install without an account.
+axm is the open extension manager for AI coding agents — discover, install,
+publish, and manage skills, commands, subagents, MCP servers, and extension
+packs from a single CLI. [AgentXM.ai](https://agentxm.ai) is the extension
+registry axm connects to. An AgentXM.ai account is only required for
+publishing extensions or installing private extensions; public extensions
+install without an account.
 
 ## Detect existing install
 
-Before installing, check whether axm is already on the machine. This is a
-**probe** — "not installed" is an expected outcome, not a failure. Invoke it
-so the shell exits 0 on either branch and the signal lives in stdout (see
-**Probe commands** under Invariants):
+Check whether axm is already on the machine. This is a **probe** — invoke
+it so the shell exits 0 on either branch and the signal lives in stdout
+(see **Probe commands** under Invariants):
 
 On macOS / Linux:
 
@@ -53,18 +50,16 @@ if (Get-Command axm -ErrorAction SilentlyContinue) { axm --version } else { "NOT
 
 Branch on the output:
 
-- **Prints `X.Y.Z`** → axm is installed. Upgrade it to the latest version
-  and skip the Install section:
+- **Prints `X.Y.Z`** → axm is installed. Upgrade and skip the Install section:
 
   ```bash
   axm upgrade
   ```
 
-  `axm upgrade` auto-detects how axm was installed. For script installs it
-  downloads and swaps the binary in place. For Homebrew or npm installs it
-  prints the exact command to run (`brew upgrade agentxm/tap/axm` or
-  `npm update -g axm.sh`) — run whichever it emits, then re-run the probe
-  above. Continue to **Verify** when done.
+  `axm upgrade` auto-detects the install method and either swaps the binary
+  in place (script installs) or prints the right `brew`/`npm` command to
+  run. If it prints a command, run it and re-run the probe above. Continue
+  to **Verify** when done.
 
 - **Prints `NOT_INSTALLED`** → axm is not installed. Continue to **Install**.
 - **Prints anything else** → treat as not installed and reinstall via the
@@ -78,8 +73,7 @@ just to install axm.
 
 ### 1. Detect available package managers
 
-Check which package managers are installed. A manager is "available" if the
-`--version` command exits successfully.
+A manager is "available" if `--version` exits successfully.
 
 On macOS / Linux:
 
@@ -139,17 +133,15 @@ option below.
 Each option below installs a persistent `axm` binary on the machine. Run the
 option selected in **Choose install method**.
 
+If `axm` is not found after any install option, see **Troubleshooting**.
+
 ### Option A: macOS / Linux (install script)
 
 ```bash
 curl -fsSL https://axm.sh/install.sh | sh
 ```
 
-Installs to `~/.axm/bin/axm`. If `axm` is not found after install, add to PATH:
-
-```bash
-export PATH="$HOME/.axm/bin:$PATH"
-```
+Installs to `~/.axm/bin/axm`.
 
 ### Option B: Windows (PowerShell)
 
@@ -157,8 +149,7 @@ export PATH="$HOME/.axm/bin:$PATH"
 irm https://axm.sh/install.ps1 | iex
 ```
 
-Installs to `%LOCALAPPDATA%\axm\axm.exe`. Follow the printed PATH instructions
-if `axm` is not recognized.
+Installs to `%LOCALAPPDATA%\axm\axm.exe`.
 
 ### Option C: Windows (CMD)
 
@@ -166,8 +157,7 @@ if `axm` is not recognized.
 curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd
 ```
 
-Installs to `%LOCALAPPDATA%\axm\axm.exe`. Follow the printed PATH instructions
-if `axm` is not recognized.
+Installs to `%LOCALAPPDATA%\axm\axm.exe`.
 
 ### Option D: Homebrew (macOS / Linux)
 
@@ -177,17 +167,10 @@ brew install agentxm/tap/axm
 
 ### Option E: npm (any OS with Node.js)
 
-Installs the `axm.sh` package globally. Requires Node.js.
+Requires Node.js. Installs the `axm.sh` package globally.
 
 ```bash
 npm install -g axm.sh
-```
-
-If `axm` is not found after install, ensure the npm global bin directory is on
-PATH:
-
-```bash
-export PATH="$(npm config get prefix)/bin:$PATH"
 ```
 
 ## Verify
@@ -210,12 +193,10 @@ probe prints `X.Y.Z`, then proceed to **Check sign-in state**.
 
 ## Check sign-in state
 
-axm is installed. Before continuing, detect whether this machine is already
-signed in to AgentXM.ai — the result decides whether to ask the user about
-signing in or skip straight to workspace setup. This is a **probe** — "not
-signed in" is an expected outcome, not a failure. Invoke it so the shell
-exits 0 on either branch and the signal lives in stdout (see **Probe
-commands** under Invariants):
+Detect whether this machine is signed in to AgentXM.ai — the result decides
+whether to ask the user about signing in or skip to workspace setup. Like
+**Detect existing install**, this is a **probe** — invoke it so the shell
+exits 0 on either branch and the signal lives in stdout:
 
 On macOS / Linux:
 
@@ -245,6 +226,9 @@ needed to publish extensions or install private extensions, so the workspace
 can still be set up without it. The choice is about whether to do that
 sign-in now or defer it.
 
+**Do not run `axm login`, `axm setup`, or any other signed-in command
+until the user has explicitly chosen one of the two options below.**
+
 **STOP HERE AND ASK THE USER:**
 
 > axm is installed. Before setting up the project workspace, would you like
@@ -267,9 +251,7 @@ Wait for the user's response before continuing.
 
 ## Sign up or log in to AgentXM.ai
 
-AgentXM.ai is the extension registry that axm connects to. Accounts live on
-AgentXM.ai, not in the CLI — `axm login` signs this machine in to an
-AgentXM.ai account.
+`axm login` signs this machine in to an AgentXM.ai account.
 
 ### If the user does not have an AgentXM.ai account
 
@@ -299,18 +281,10 @@ Offer both paths and let the user pick:
   pre-generated credential that skips the browser step; you must not
   paste a token the user has not shared with you.
 
-Wait for the user to confirm sign-in is complete. Tell them you're about to
-re-run the sign-in probe to verify the sign-in succeeded before moving on.
-Use the same wrapper form as **Check sign-in state** so an unfinished
-sign-in doesn't surface as a tool error:
-
-```bash
-axm whoami --json 2>/dev/null || echo '{"type":"error","code":"AUTH_LOGIN_REQUIRED"}'
-```
-
-If the JSON `type` is not `"error"` (identity payload), continue to
-**Workspace setup**. If `type` is `"error"`, the sign-in did not complete —
-explain which check failed and ask the user to retry the same path or
+Wait for the user to confirm sign-in is complete, then re-run the probe
+wrapper from **Check sign-in state** to verify before moving on. If `type`
+is not `"error"`, continue to **Workspace setup**. If `type` is `"error"`,
+the sign-in did not complete — ask the user to retry the same path or
 switch paths.
 
 ---
@@ -337,28 +311,21 @@ unmanaged skills), extension management, and publishing.
 - **Probe commands exit 0.** `axm --version` and `axm whoami --json` have
   expected non-zero exit paths ("not installed", "not signed in") that are
   part of the flow, not failures. Always invoke them using the wrappers in
-  **Detect existing install** and **Check sign-in state** so the shell
-  exits 0 on either branch and the signal lives in stdout; branch on the
-  output, not the exit code. Bare invocations surface expected non-zero
-  exits as tool errors in the agent's transcript, which is jarring and
-  implies something went wrong.
-- **Explain why you're asking.** Whenever you need the user's consent, input,
-  or out-of-band action — picking an install method, running `axm login`,
-  opening a signup URL, approving a command you'd otherwise run yourself —
-  state the purpose first: what you're about to do, why it's needed for
-  this install, and what the user should do next. No yes/no prompts without
-  context; no command handoffs without explaining the effect.
-- **Never** run `axm login` without explicit user consent. The device flow
-  opens a browser and requires the user to be present. When requesting
-  consent, tell the user that `axm login` will open a browser, complete an
-  OAuth device flow with AgentXM.ai, and store a local token so axm can
-  talk to the registry on their behalf.
-- **Never** set or paste an `AXM_TOKEN` the user has not shared. If the
-  user is providing a token, explain that it authenticates the CLI against
-  the user's AgentXM.ai account for the current shell session.
-- **Always** re-run `axm whoami` after any user-driven sign-in step before
-  running `axm setup`. Tell the user you're verifying the sign-in succeeded
-  before moving on.
+  **Detect existing install** and **Check sign-in state**; branch on
+  stdout, not the exit code.
+- **Explain why you're asking.** Every stop-and-ask, command handoff, and
+  consent request states what the action does, why it's needed, and what
+  the user should do next. Bare yes/no prompts and bare command handoffs
+  are non-conforming.
+- **Guide sign-in, do not execute sign-in.** Never run `axm login` without
+  explicit user consent; never set or paste an `AXM_TOKEN` the user has
+  not shared. The device flow requires the user's browser; the token is
+  the user's credential.
+- **Always** re-run the `axm whoami --json` probe after any user-driven
+  sign-in step before running `axm setup`.
+- **Option 2 is legitimate, not a fallback.** If the user chose to defer
+  sign-in, do not re-prompt later in the flow. Signing in is deferred,
+  not required.
 - **Resume, do not restart.** If the user completes sign-in out-of-band and
   returns, skip to **Workspace setup** — do not re-ask which option they
   picked.
@@ -367,23 +334,12 @@ unmanaged skills), extension management, and publishing.
 
 ## Troubleshooting
 
-**`axm: command not found`**
+**`axm: command not found`** — the install bin directory is not on PATH:
 
-The fix depends on how you installed:
-
-- **Install script (macOS/Linux):** Add `~/.axm/bin` to PATH:
-  ```bash
-  export PATH="$HOME/.axm/bin:$PATH"
-  ```
-  Add the line above to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to
-  persist across sessions.
-- **Install script (Windows):** Add `%LOCALAPPDATA%\axm` to your PATH via
-  System Environment Variables, or run:
-  ```powershell
-  $env:Path = "$env:LOCALAPPDATA\axm;$env:Path"
-  ```
-- **Homebrew:** Run `brew link axm` or check `brew --prefix axm`.
-- **npm:** Ensure the global npm bin directory is on PATH:
-  ```bash
-  export PATH="$(npm config get prefix)/bin:$PATH"
-  ```
+- **Install script (macOS/Linux):** `export PATH="$HOME/.axm/bin:$PATH"`,
+  then add to `~/.bashrc` / `~/.zshrc` to persist.
+- **Install script (Windows):** Add `%LOCALAPPDATA%\axm` to PATH via
+  System Environment Variables, or run
+  `$env:Path = "$env:LOCALAPPDATA\axm;$env:Path"`.
+- **Homebrew:** `brew link axm`.
+- **npm:** `export PATH="$(npm config get prefix)/bin:$PATH"`.

@@ -9,8 +9,6 @@ scoped.
 
 - [Documentation Guidelines](./documentation-guidelines.md) - Shared writing
   rules
-- [Agent Accessibility](./agent-accessibility.md) - Keeping install and skill
-  docs in sync with reality
 
 ---
 
@@ -68,4 +66,3 @@ When changing an instruction artifact:
 ## See Also
 
 - [Guide Authoring](./guide-authoring.md) - When guidance should become a guide
-- [Agent Accessibility](./agent-accessibility.md) - Install and skill upkeep

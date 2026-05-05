@@ -25,7 +25,6 @@ Each guide is a single markdown file named after its topic:
 - `documentation-guidelines.md` — Writing rules for human and agent docs
 - `guide-authoring.md` — When and how to add a guide here
 - `instructions.md` — README vs CONTRIBUTING vs AGENTS/CLAUDE vs SKILL docs
-- `agent-accessibility.md` — Keeping install and skill docs aligned with real behavior
 
 ---
 

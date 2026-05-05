@@ -58,5 +58,3 @@ Before calling the work complete:
 ## See Also
 
 - [Testing Guide](./testing.md) - Behavioral and E2E coverage guidance
-- [Agent Accessibility](./agent-accessibility.md) - Install and skill doc
-  follow-through

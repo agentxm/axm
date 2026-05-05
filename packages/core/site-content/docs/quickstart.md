@@ -20,7 +20,7 @@ Get axm installed, authenticated, and ready to use. Pick the installation method
 
 ## Agent
 
-The recommended method for AI coding agents to install axm autonomously.
+The recommended method for AI coding agents to install AXM autonomously.
 
 Point your agent to the machine-readable install document:
 

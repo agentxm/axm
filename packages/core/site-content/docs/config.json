@@ -1,3 +1,6 @@
 {
-  "nav": [{ "label": "Quickstart", "to": "quickstart" }]
+  "nav": [
+    { "label": "Quickstart", "to": "quickstart" },
+    { "label": "Supported Coding Agents", "to": "supported-coding-agents" }
+  ]
 }

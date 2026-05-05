@@ -13,7 +13,7 @@ import { withRuntime } from "../../runtime.js";
 
 const helpConfig = {
   topic: Argument.string("topic").pipe(
-    Argument.withDescription("Help topic, such as basic-usage or workspace"),
+    Argument.withDescription("Help topic, such as basic-usage or getting-started"),
     Argument.optional,
   ),
 } as const;
@@ -68,7 +68,6 @@ export const helpCommand = Command.make("help", helpConfig, ({ topic }) =>
     { command: "axm help", description: "Show top-level help" },
     { command: "axm help basic-usage", description: "Start using an existing workspace" },
     { command: "axm help getting-started", description: "Read the getting started guide" },
-    { command: "axm help workspace", description: "Read workspace concepts and flows" },
     { command: "axm help exit-codes", description: "Read exit status meanings" },
   ]),
 );

@@ -60,7 +60,6 @@ describe("axm (root command)", () => {
       expect(output).toContain("TOPICS");
       expect(output).toContain("basic-usage");
       expect(output).toContain("getting-started");
-      expect(output).toContain("workspace");
       expect(output).toContain("exit-codes");
       expect(output).not.toContain("GETTING STARTED COMMANDS");
       expect(output).not.toContain("EXTENSIONS COMMANDS");
@@ -82,7 +81,6 @@ describe("axm (root command)", () => {
       expect(output).toContain("Unknown help topic 'bogus'");
       expect(output).toContain("basic-usage");
       expect(output).toContain("getting-started");
-      expect(output).toContain("workspace");
       expect(output).toContain("exit-codes");
     });
   });

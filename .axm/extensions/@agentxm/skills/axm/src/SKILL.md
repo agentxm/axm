@@ -52,6 +52,14 @@ argument-hint: "[action] [args...]"
 
 ## Agent Invariants
 
+- **Read `axm help basic-usage` before doing anything.** Once per session,
+  before any `axm` mutation or read, run `axm help basic-usage` and load the
+  output. It is the pre-req knowledge that is not in any single `--help`
+  page: workspace layout, key files (`.axm/settings.json`, `axm-lock.yaml`,
+  `.axm/extensions/`), the commit policy (`.axm/` and `axm-lock.yaml` must
+  be checked in, not gitignored), and safe-action rules. If the workspace
+  has no `.axm/` directory yet, also load `axm help getting-started`.
+
 - **Detect once at session start.** Probe `axm --version` once when the skill
   activates. If present, use `axm <command>` for the session. If missing,
   stop and direct the user to `https://axm.sh/install.md` for the install
@@ -111,8 +119,12 @@ argument-hint: "[action] [args...]"
 
 - **`axm <command> --help`** — source of truth for command syntax, flags,
   and examples. Run before invoking an unfamiliar command.
-- **`axm help <topic>`** — source of truth for high-judgment workflows that
-  don't fit per-command help. Currently `axm help workspace` (workspace
-  setup, Configured/Implicit/Unmanaged classification, adopt/fork/ignore
-  decisions, project/user scope semantics). Run `axm help` (no args) to see
-  the topic index.
+- **`axm help <topic>`** — source of truth for pre-req knowledge and
+  high-judgment workflows that don't fit per-command help:
+  - `axm help basic-usage` — required reading before any axm work in a
+    session: workspace layout, key files, commit policy, safe-action rules.
+  - `axm help getting-started` — first-time setup for workspaces that have
+    never used axm.
+  - `axm help exit-codes` — process exit codes and JSON error shape.
+
+  Run `axm help` (no args) to see the full topic index.

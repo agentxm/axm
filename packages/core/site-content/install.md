@@ -18,6 +18,8 @@
       to workspace setup; on the sign-in choice, hand off signup/login and
       re-check `axm whoami`
 - [ ] Run `axm setup --yes` to initialize the project workspace
+- [ ] Load pre-req help topics: `axm help getting-started` and
+      `axm help basic-usage`
 
 ---
 
@@ -302,9 +304,25 @@ Run:
 axm setup --yes
 ```
 
-Once it succeeds, consult the installed `@agentxm/skills/axm` skill for
-day-to-day operations — workspace scenarios (greenfield, brownfield,
-unmanaged skills), extension management, and publishing.
+Once it succeeds, load the two pre-req help topics before doing any other
+axm work in this session — they cover what `axm setup` produced and the
+files an agent must understand before changing workspace state:
+
+```bash
+axm help getting-started
+axm help basic-usage
+```
+
+`getting-started` covers first-time setup of a workspace; read it so the
+agent understands how the workspace was just initialized. `basic-usage`
+covers the key workspace files (`.axm/settings.json`, `axm-lock.yaml`,
+`.axm/extensions/`), the commit policy (`.axm/` and `axm-lock.yaml` must
+be checked in, not gitignored), and how to act safely in an existing
+workspace.
+
+After reading both topics, consult the installed `@agentxm/skills/axm`
+skill for day-to-day operations — workspace scenarios (greenfield,
+brownfield, unmanaged skills), extension management, and publishing.
 
 ## Invariants
 

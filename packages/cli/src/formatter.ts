@@ -200,68 +200,59 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   };
 };
 
-// ---------------------------------------------------------------------------
-// Root help section reordering
-// ---------------------------------------------------------------------------
-
-// eslint-disable-next-line no-control-regex
-const ANSI_RE = /\x1b\[[0-9;]*m/g;
-
-/** Detect ALL-CAPS section headers (with optional trailing colon). */
-const isSectionHeader = (line: string): boolean => {
-  const plain = line.replace(ANSI_RE, "").trim();
-  return plain.length > 0 && /^[A-Z][A-Z ]+:?$/.test(plain);
+const flagNames = (flag: FlagDoc): string => {
+  const names = [`--${flag.name}`, ...flag.aliases.map((alias) => `-${alias}`)];
+  return names.join(", ");
 };
 
-/** Desired root help section order. Sections not listed are omitted. */
-const ROOT_SECTION_ORDER = [
-  "USAGE",
-  "GETTING STARTED:",
-  "EXTENSIONS:",
-  "WORKSPACE:",
-  "AUTH:",
-  "GLOBAL FLAGS",
-  "EXAMPLES",
-];
+const flagLabel = (flag: FlagDoc): string =>
+  flag.type === "boolean" ? flagNames(flag) : `${flagNames(flag)} <${flag.type}>`;
 
-/**
- * Reorder sections in the rendered root help output. Parses the base
- * formatter's text by detecting ALL-CAPS header lines, then reassembles
- * only the sections listed in {@link ROOT_SECTION_ORDER}.
- */
-const reorderRootSections = (output: string): string => {
-  const lines = output.split("\n");
-  const sections = new Map<string, string[]>();
-  let currentKey = "";
+const padRows = (
+  rows: ReadonlyArray<readonly [string, string]>,
+  indent = "  ",
+): ReadonlyArray<string> => {
+  const width = rows.reduce((max, [label]) => Math.max(max, label.length), 0);
+  return rows.map(([label, description]) =>
+    description === "" ? `${indent}${label}` : `${indent}${label.padEnd(width)}  ${description}`,
+  );
+};
 
-  for (const line of lines) {
-    if (isSectionHeader(line)) {
-      currentKey = line.replace(ANSI_RE, "").trim();
-      sections.set(currentKey, [line]);
-    } else if (currentKey) {
-      const current = sections.get(currentKey);
-      if (current !== undefined) current.push(line);
-    }
+const commandDescription = (command: {
+  readonly shortDescription: string | undefined;
+  readonly description: string;
+}): string => command.shortDescription ?? command.description;
+
+const renderRootHelpDoc = (doc: HelpDoc): string => {
+  const sections: Array<string> = [
+    ["", BRANDING, "", doc.description].filter((line) => line !== "").join("\n"),
+    ["USAGE", `  ${doc.usage}`].join("\n"),
+  ];
+
+  for (const group of doc.subcommands ?? []) {
+    const groupName = group.group ?? "COMMANDS";
+    const rows = group.commands.map(
+      (command) => [command.name, commandDescription(command)] as const,
+    );
+    sections.push([`${groupName} COMMANDS`, ...padRows(rows)].join("\n"));
   }
 
-  // Trim trailing blank lines from each section
-  for (const [, sectionLines] of sections) {
-    while (sectionLines.length > 0 && sectionLines[sectionLines.length - 1]?.trim() === "") {
-      sectionLines.pop();
-    }
+  const flags = [...doc.flags, ...(doc.globalFlags ?? [])];
+  if (flags.length > 0) {
+    const rows = flags.map(
+      (flag) => [flagLabel(flag), Option.getOrElse(flag.description, () => "")] as const,
+    );
+    sections.push(["FLAGS", ...padRows(rows)].join("\n"));
   }
 
-  // Ordered sections first, then any unrecognized sections to avoid silent drops
-  const orderedKeys = new Set(ROOT_SECTION_ORDER);
-  const ordered = ROOT_SECTION_ORDER.flatMap((key) => {
-    const s = sections.get(key);
-    return s !== undefined ? [s.join("\n")] : [];
-  });
-  const unrecognized = [...sections.entries()]
-    .filter(([key]) => !orderedKeys.has(key))
-    .map(([, sectionLines]) => sectionLines.join("\n"));
+  if (doc.examples !== undefined && doc.examples.length > 0) {
+    const rows = doc.examples.map(
+      (example) => [example.command, example.description ?? ""] as const,
+    );
+    sections.push(["EXAMPLES", ...padRows(rows)].join("\n"));
+  }
 
-  return [...ordered, ...unrecognized].join("\n\n");
+  return sections.join("\n\n");
 };
 
 // ---------------------------------------------------------------------------
@@ -293,9 +284,8 @@ export const makeAxmFormatter = (options?: {
       const adjusted = getAdjustedHelpDoc(doc);
       let output = base.formatHelpDoc(adjusted);
 
-      // Root help: reorder sections, omit DESCRIPTION, and prepend branding
       if (!isSubcommandDoc(doc)) {
-        output = "\n" + BRANDING + "\n\n" + reorderRootSections(output);
+        output = renderRootHelpDoc(adjusted);
       }
 
       const learnMore = getLearnMore(doc);

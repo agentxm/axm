@@ -8,9 +8,9 @@
   "targets": {
     "build": {
       "cache": true,
-      "dependsOn": ["^build"],
+      "dependsOn": ["generate-help-topics", "^build"],
       "executor": "@nx/js:tsc",
-      "inputs": ["production", "^production"],
+      "inputs": ["production", "{projectRoot}/help/topics/*.md", "^production"],
       "outputs": ["{projectRoot}/dist"],
       "options": {
         "main": "packages/cli/src/main.ts",
@@ -52,6 +52,16 @@
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "scripts/generate-schemas.ts"],
+        "cwd": "packages/cli"
+      }
+    },
+    "generate-help-topics": {
+      "cache": true,
+      "inputs": ["{projectRoot}/help/topics/*.md", "{projectRoot}/scripts/generate-help-topics.ts"],
+      "outputs": ["{projectRoot}/src/__generated__/help-topics.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-help-topics.ts"],
         "cwd": "packages/cli"
       }
     },

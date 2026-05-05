@@ -48,6 +48,44 @@ describe("axm (root command)", () => {
       expect(getOutput(resultWithHelp)).toBe(getOutput(resultNoArgs));
     });
   });
+
+  describe("help", () => {
+    it("lists help topics without top-level command help", async () => {
+      const resultWithHelp = await runCli(["help"]);
+      const output = getOutput(resultWithHelp);
+
+      expect(resultWithHelp.exitCode).toBe(0);
+      expect(output).toContain("USAGE");
+      expect(output).toContain("axm help <topic>");
+      expect(output).toContain("TOPICS");
+      expect(output).toContain("basic-usage");
+      expect(output).toContain("getting-started");
+      expect(output).toContain("workspace");
+      expect(output).toContain("exit-codes");
+      expect(output).not.toContain("GETTING STARTED COMMANDS");
+      expect(output).not.toContain("EXTENSIONS COMMANDS");
+    });
+
+    it("prints bundled markdown topics", async () => {
+      const result = await runCli(["help", "basic-usage"]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("# Basic usage");
+      expect(result.stdout).toContain("axm lint");
+    });
+
+    it("fails for unknown topics and lists known topics", async () => {
+      const result = await runCli(["help", "bogus"]);
+      const output = getOutput(result);
+
+      expect(result.exitCode).toBe(1);
+      expect(output).toContain("Unknown help topic 'bogus'");
+      expect(output).toContain("basic-usage");
+      expect(output).toContain("getting-started");
+      expect(output).toContain("workspace");
+      expect(output).toContain("exit-codes");
+    });
+  });
 });
 
 describe("main CLI help", () => {
@@ -57,6 +95,10 @@ describe("main CLI help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output).toContain("Open extension manager for AI coding agents.");
+    expect(output).toContain("GETTING STARTED COMMANDS");
+    expect(output).toContain("EXTENSIONS COMMANDS");
+    expect(output).toContain("WORKSPACE COMMANDS");
+    expect(output).toContain("AUTH COMMANDS");
     expect(output).toContain("skills");
     expect(output).toContain("packs");
     expect(output).toContain("commands");

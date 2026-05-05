@@ -263,6 +263,16 @@ formatter via `CliOutput.layer(makeAxmFormatter({ json: isJson }))` at the
 run boundary. This controls brand-consistent help output and ensures JSON-mode
 `--help` emits structured data instead of ANSI text.
 
+Top-level help is gh-style and grouped by the command groups declared in
+`packages/cli/src/app.ts`. `axm`, `axm --help`, and `axm -h` should show the
+same top-level help. `axm help` lists topic pages only. Per-command help stays
+on Effect CLI defaults.
+
+Markdown help topics live in `packages/cli/help/topics/<topic>.md`. Run
+`pnpm nx run cli:generate-help-topics` after adding or editing a topic; build
+also runs this target before compiling. Generated topic strings live in
+`packages/cli/src/__generated__/help-topics.ts` and are bundled into the CLI.
+
 Custom formatters implement `CliOutput.Formatter`:
 
 ```typescript

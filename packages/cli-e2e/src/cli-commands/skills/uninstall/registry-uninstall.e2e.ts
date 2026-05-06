@@ -27,7 +27,7 @@ describe("axm skills uninstall (registry-sourced)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.profile = "@test";
+      settings.owner = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install from local source
@@ -95,7 +95,7 @@ describe("axm skills uninstall (registry-sourced)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.profile = "@test";
+      settings.owner = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install skill

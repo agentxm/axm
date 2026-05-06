@@ -54,7 +54,7 @@ describe("Phase 7 cross-repo smoke (CLI ↔ file:// registry)", () => {
           location: `file://${registryDir.path}`,
         },
       ];
-      settings.profile = "@phase7";
+      settings.owner = "@phase7";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // 3. Install-from-local, fork-to-registry, file-registry publish.

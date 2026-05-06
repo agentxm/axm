@@ -38,7 +38,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill from local source
@@ -112,7 +112,10 @@ describe("axm skills fork", () => {
         // 4. Verify settings.json was updated with forked skill
         const settingsAfterFork = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settingsAfterFork.skills).toBeDefined();
-        expect(settingsAfterFork.skills["my-skill"]).toBe("@test/skills/my-skill");
+        expect(settingsAfterFork.skills["my-skill"]).toEqual({
+          source: "@test/skills/my-skill",
+          authored: true,
+        });
       } finally {
         temp.cleanup();
         registryDir.cleanup();
@@ -130,7 +133,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install all skills from fixture
@@ -188,7 +191,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         createSkillMd(path.join(temp.path, ".claude", "skills", "ondisk-alpha"), "ondisk-alpha");
@@ -226,7 +229,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         createSkillMd(path.join(temp.path, ".claude", "skills", "beta-disk"), "beta-disk");
@@ -262,7 +265,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Fork directly from local source (not an installed skill)

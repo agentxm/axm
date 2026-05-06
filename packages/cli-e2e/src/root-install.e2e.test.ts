@@ -54,7 +54,7 @@ const configureWorkspaceRegistry = (workspacePath: string, registryPath: string)
   const settingsPath = path.join(workspacePath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
-  settings.profile = OWNER;
+  settings.owner = OWNER;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 

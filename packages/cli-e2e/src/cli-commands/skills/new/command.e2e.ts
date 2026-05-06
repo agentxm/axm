@@ -27,7 +27,7 @@ function setupWorkspace() {
 
 function configureScope(settingsPath: string, owner = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.profile = owner;
+  settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 

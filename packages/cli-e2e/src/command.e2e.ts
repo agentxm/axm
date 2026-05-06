@@ -70,7 +70,7 @@ describe("axm (root command)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("# Basic usage");
-      expect(result.stdout).toContain("axm lint");
+      expect(result.stdout).toContain("axm view");
     });
 
     it("fails for unknown topics and lists known topics", async () => {

@@ -24,7 +24,7 @@ describe("registry guard", () => {
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill first (so fork has something to work with)
@@ -91,7 +91,7 @@ describe("registry guard", () => {
         // Set owner but no sources
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Attempt to publish with --non-interactive (no registry configured)
@@ -122,7 +122,7 @@ describe("registry guard", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill

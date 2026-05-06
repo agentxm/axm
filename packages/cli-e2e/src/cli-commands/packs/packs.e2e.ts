@@ -48,7 +48,7 @@ function setupWorkspaceWithRegistry() {
 function configureRegistrySource(settingsPath: string, registryUrl: string, owner = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: registryUrl }];
-  settings.profile = owner;
+  settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
@@ -531,6 +531,13 @@ describe("axm packs install", () => {
       );
 
       // Publish the skill to registry
+      const settingsWithSkill = readSettings();
+      settingsWithSkill.skills = {
+        ...settingsWithSkill.skills,
+        "dep-skill": { source: "@test/skills/dep-skill", authored: true },
+      };
+      fs.writeFileSync(settingsPath, JSON.stringify(settingsWithSkill, null, 2));
+
       const skillPublishResult = await runCli(["skills", "publish", "dep-skill", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
@@ -563,6 +570,7 @@ describe("axm packs install", () => {
 
       // Clean up local state: remove pack from settings/lockfile/disk
       const settingsBefore = readSettings();
+      delete settingsBefore.skills?.["dep-skill"];
       delete settingsBefore.packs?.["deps-pack"];
       fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
 
@@ -618,6 +626,12 @@ describe("axm packs install", () => {
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       writeSubagentPackage(temp.path, "dep-subagent");
+      const settingsWithSubagent = readSettings();
+      settingsWithSubagent.subagents = {
+        ...settingsWithSubagent.subagents,
+        "dep-subagent": { source: "@test/subagents/dep-subagent", authored: true },
+      };
+      fs.writeFileSync(settingsPath, JSON.stringify(settingsWithSubagent, null, 2));
 
       const subagentPublishResult = await runCli(
         ["subagents", "publish", "dep-subagent", "--yes"],
@@ -650,6 +664,7 @@ describe("axm packs install", () => {
       expect(packPublishResult.exitCode).toBe(0);
 
       const settingsBefore = readSettings();
+      delete settingsBefore.subagents?.["dep-subagent"];
       delete settingsBefore.packs?.["subagent-pack"];
       fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
 
@@ -924,17 +939,21 @@ describe("axm packs uninstall", () => {
     }
   });
 
-  it("no-op for pack not in lockfile", async () => {
+  it("fails for a literal pack not in the lockfile or settings", async () => {
     const temp = createTempDir();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.owner = "@test";
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       const result = await runCli(["packs", "uninstall", "nonexistent-pack", "--yes"], {
         cwd: temp.path,
       });
 
-      // Should exit 0 with a no-op message (same pattern as skills uninstall)
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain("EXTENSION_NOT_FOUND");
     } finally {
       temp.cleanup();
     }

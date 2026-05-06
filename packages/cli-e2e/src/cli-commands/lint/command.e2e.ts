@@ -240,12 +240,12 @@ describe("axm lint (e2e, Phase 7)", () => {
       }
     });
 
-    it("axm sync returns non-zero with 'Unknown subcommand'", async () => {
+    it("axm sync requires an initialized workspace", async () => {
       const temp = createTempDir();
       try {
         const result = await runCli(["sync"], { cwd: temp.path });
         expect(result.exitCode).not.toBe(0);
-        expect(result.stdout + result.stderr).toContain("Unknown subcommand");
+        expect(result.stdout + result.stderr).toContain("WORKSPACE_NOT_INITIALIZED");
       } finally {
         temp.cleanup();
       }

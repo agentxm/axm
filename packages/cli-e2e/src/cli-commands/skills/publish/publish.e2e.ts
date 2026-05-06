@@ -27,7 +27,7 @@ describe("axm skills publish", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Manually create an extension in .axm/extensions/
@@ -125,7 +125,11 @@ describe("axm skills publish", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@myorg";
+        settings.owner = "@myorg";
+        settings.skills = {
+          ...settings.skills,
+          "code-review": { source: "@myorg/skills/code-review", authored: true },
+        };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Create extension with owner from settings
@@ -195,7 +199,7 @@ describe("axm skills publish", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.profile = "@test";
+        settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         const publishResult = await runCli(
@@ -253,7 +257,7 @@ describe("axm skills publish", () => {
       const settingsPath = path.join(tempPath, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
-      settings.profile = owner;
+      settings.owner = owner;
       if (skills) settings.skills = skills;
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     };

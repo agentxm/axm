@@ -16,7 +16,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
   const settingsPath = path.join(workspacePath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-  settings.profile = TEST_NAMESPACE;
+  settings.owner = TEST_NAMESPACE;
   settings.skills = {
     ...(settings.skills ?? {}),
     "managed-skill": `${TEST_NAMESPACE}/skills/managed-skill@^1.0.0`,

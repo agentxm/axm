@@ -30,7 +30,7 @@ describe("axm skills install from local registry (via fork)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.profile = "@test";
+      settings.owner = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install a skill from local source first
@@ -107,7 +107,7 @@ describe("axm skills install from local registry (via fork)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.profile = "@test";
+      settings.owner = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install and fork
@@ -169,7 +169,7 @@ describe("axm skills install from local registry (via fork)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.profile = "@test";
+      settings.owner = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install a skill from local source, then fork to publish to registry
@@ -240,7 +240,7 @@ describe("axm skills install from local registry (via fork)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.profile = "@test";
+      settings.owner = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {

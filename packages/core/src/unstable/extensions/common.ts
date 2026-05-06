@@ -115,7 +115,7 @@ export const extensionTypeLabels: Record<ExtensionType, string> = {
   subagent: "Subagent",
   file: "File",
   rule: "Rule",
-  pack: "Extension Pack",
+  pack: "Pack",
 };
 
 export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
@@ -125,7 +125,7 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
   subagents: "Subagents",
   files: "Files",
   rules: "Rules",
-  packs: "Extension Packs",
+  packs: "Packs",
 };
 
 export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {

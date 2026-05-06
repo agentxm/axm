@@ -32,7 +32,9 @@ describe("root install command help", () => {
   it("documents the no-arg and FQN install contract", async () => {
     const output = await Effect.runPromise(captureHelpOutput(["install"]));
 
-    expect(output).toContain("Install a registry extension or sync configured extensions");
+    expect(output).toContain(
+      "Install a registry extension, or reinstall all configured extensions from their sources",
+    );
     expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) (optional)");
     expect(output).toContain("axm install");
     expect(output).toContain("axm install @acme/skills/code-review");

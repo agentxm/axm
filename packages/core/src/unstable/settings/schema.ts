@@ -695,7 +695,7 @@ export type IgnoredSettings = Schema.Schema.Type<typeof IgnoredSettingsSchema>;
  */
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "telemetry",
-  "profile",
+  "owner",
   "sources",
   "agents",
   "skills",
@@ -711,7 +711,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * AXM settings configuration schema.
  *
  * Settings define workspace configuration for AXM including:
- * - profile: Default profile for resolving/publishing extensions
+ * - owner: Workspace owner handle used for fork/new and reconciliation of non-registry sources
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
  * - skills: Desired skills by name to source string
@@ -723,7 +723,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  */
 export const SettingsSchema = Schema.Struct({
   telemetry: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("errors")])),
-  profile: Schema.optional(HandleSchema),
+  owner: Schema.optional(HandleSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
   commands: Schema.optional(CommandsMapSchema),
@@ -737,7 +737,7 @@ export const SettingsSchema = Schema.Struct({
   identifier: "Settings",
   title: "AXM Settings",
   description:
-    "Your workspace configuration — profile, sources, installed extensions, and ignore patterns.",
+    "Your workspace configuration — owner, sources, installed extensions, and ignore patterns.",
 });
 
 /**

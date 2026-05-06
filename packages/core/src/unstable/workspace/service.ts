@@ -46,7 +46,6 @@ import {
   type CommandEntry,
   type CommandsMap,
   createDefaultSettings,
-  DEFAULT_PROFILE,
   type McpServersMap,
   type SkillEntry,
   type SubagentEntry,
@@ -422,22 +421,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       records,
 
-      getConfiguredProfile: () =>
+      getConfiguredOwner: () =>
         Effect.gen(function* () {
           const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.profile) return projectSettings.profile;
+          if (projectSettings.owner) return Option.some(projectSettings.owner);
           const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.profile) return globalSettings.profile;
-          return DEFAULT_PROFILE;
-        }),
-
-      // TODO: check logged-in identity handle when auth is implemented
-      getDefaultProfile: () =>
-        Effect.gen(function* () {
-          const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.profile) return Option.some(projectSettings.profile);
-          const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.profile) return Option.some(globalSettings.profile);
+          if (globalSettings.owner) return Option.some(globalSettings.owner);
           return Option.none<Handle>();
         }),
 

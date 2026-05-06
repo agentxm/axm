@@ -90,7 +90,7 @@ const makeTestWorkspace = (
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredProfile: () => Effect.succeed(handle("@test")),
+  getConfiguredOwner: () => Effect.succeed(Option.some(handle("@test"))),
 });
 
 /** Run an effect with SourceHostProviders service and NodeContext wired up. */

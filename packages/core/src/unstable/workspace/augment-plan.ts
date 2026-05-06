@@ -12,7 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { DEFAULT_PROFILE } from "../settings/index.js";
+import * as Option from "effect/Option";
 import { type AppError } from "../app-error/index.js";
 import type { Settings } from "../settings/index.js";
 import type { Plan, PlannedJobStep } from "../plan/plan.js";
@@ -75,7 +75,7 @@ export const augmentPlanWithReconciliation = (
     const reconciliationContext: ReconciliationContext = {
       baseDir,
       now: new Date(),
-      defaultProfile: settings.profile ?? DEFAULT_PROFILE,
+      configuredOwner: Option.fromUndefinedOr(settings.owner),
       agents: settings.agents ?? [],
       settings,
     };

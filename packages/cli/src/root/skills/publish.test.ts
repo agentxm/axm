@@ -51,7 +51,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      profile: "@test",
+      owner: "@test",
       agents: ["claude-code"],
       sources: sources ?? [
         { name: "local", type: "registry", location: new URL(`file://${registryRoot}`) },
@@ -275,7 +275,7 @@ describe("publish.handler", () => {
   });
 
   describe("bare name owner resolution", () => {
-    it.effect("resolves bare name using owner from settings", () => {
+    it.effect("resolves bare name using owner from settings entry", () => {
       const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -286,7 +286,14 @@ describe("publish.handler", () => {
         agents: ["claude-code"],
       });
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          "code-review": "@test/skills/code-review",
+        },
+      );
 
       return provide(
         Effect.gen(function* () {
@@ -452,7 +459,14 @@ describe("publish.handler", () => {
         agents: ["claude-code"],
       });
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          commit: "@test/skills/commit",
+        },
+      );
 
       return provide(
         Effect.gen(function* () {

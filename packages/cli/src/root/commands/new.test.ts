@@ -28,7 +28,7 @@ const initWorkspace = (
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
-    profile: opts.profile,
+    owner: opts.profile,
   });
 };
 
@@ -216,7 +216,7 @@ describe("commands-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleCommandsNew(defaultArgs("my-command")).pipe(Effect.flip);
-          expect(getAppError(error).what).toContain("No profile configured");
+          expect(getAppError(error).what).toContain("No owner configured");
         }),
       );
     });

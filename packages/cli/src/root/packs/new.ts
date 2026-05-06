@@ -23,7 +23,8 @@ import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/c
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
@@ -41,23 +42,10 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   yield* renderer.info("axm packs new");
 
-  // Resolve profile
+  // Resolve owner
   const owner = Option.isSome(args.profile)
     ? args.profile.value
-    : yield* ws.getConfiguredProfile().pipe(
-        Effect.flatMap((s) =>
-          s === "@community"
-            ? Effect.fail(
-                makeAppError({
-                  code: "NAMESPACE_REQUIRED",
-                  what: "No profile configured for extension pack creation",
-                  howToFix:
-                    "Configure a profile in settings.json with `axm setup`, or use --profile",
-                }),
-              )
-            : Effect.succeed(s),
-        ),
-      );
+    : yield* resolveOwnerForNewContent("extension pack creation");
 
   const fqn = formatFqn({ owner, type: "pack", name: args.name });
   const base = ws.baseDir;
@@ -154,7 +142,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, 
     yes,
     force,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs new")),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("packs new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new empty extension pack"),

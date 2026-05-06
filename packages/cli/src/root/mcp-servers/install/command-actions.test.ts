@@ -25,7 +25,7 @@ import {
 } from "./command-actions.js";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
-  getConfiguredProfile: () => Effect.succeed(normalizeHandle("@test-ns")),
+  getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test-ns"))),
 });
 
 const mockMcpServerManager = {

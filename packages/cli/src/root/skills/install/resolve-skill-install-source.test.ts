@@ -30,7 +30,7 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceMutat
           (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
         ),
       ),
-    getConfiguredProfile: () => Effect.succeed(normalizeHandle("@test")),
+    getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test"))),
   });
 
 const createSkillIndex = (registryRoot: string, owner: string, name: string) => {
@@ -271,7 +271,7 @@ describe("resolveSkillInstallSource", () => {
             NodeServices.layer,
             WorkspaceMutations.layer({
               ...makeWorkspace(sources),
-              getDefaultProfile: () => Effect.succeed(Option.some(normalizeHandle("@test"))),
+              getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test"))),
             }),
           ),
         ),
@@ -366,7 +366,7 @@ describe("resolveSkillRegistrySourceByName", () => {
       NodeServices.layer,
       WorkspaceMutations.layer({
         ...makeWorkspace(sources),
-        getDefaultProfile: () => Effect.succeed(owner),
+        getConfiguredOwner: () => Effect.succeed(owner),
       }),
     );
 

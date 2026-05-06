@@ -11,7 +11,11 @@ import * as Option from "effect/Option";
 
 import { writeWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/client-core/unstable/app-error";
-import { AuthGuardInteractionTest } from "@agentxm/client-core/unstable/auth";
+import {
+  AuthGuardInteractionTest,
+  CredentialStoreTest,
+  RegistryUrl,
+} from "@agentxm/client-core/unstable/auth";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import {
   TestMachineRenderer,
@@ -237,6 +241,8 @@ export const makeCliTestContext = (opts?: {
     resolvePlanTest.layer,
     workspaceInitializationTest.layer,
     TestFlagsLayer(opts?.flags),
+    Layer.succeed(RegistryUrl, "https://registry.example.com"),
+    CredentialStoreTest(),
   );
 
   return {

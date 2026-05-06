@@ -223,7 +223,7 @@ describe("root install handler", () => {
       const { provide } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
-        profile: "@axm",
+        owner: "@axm",
       });
 
       const sources = [
@@ -255,7 +255,7 @@ describe("root install handler", () => {
 
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
-        profile: "@axm",
+        owner: "@axm",
         commands: {
           "example-command": "^1.0.0",
         },

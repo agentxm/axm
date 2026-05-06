@@ -50,33 +50,40 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
   type: "commands",
   scanDeclarations: (context) => {
     const commands = context.settings.commands ?? {};
+    const declarations: ReconciliationDeclaration[] = [];
+    const warnings: string[] = [];
 
-    const declarations: ReadonlyArray<ReconciliationDeclaration> = Object.entries(commands).map(
-      ([name, entry], index): ReconciliationDeclaration => {
-        const source = entry.source;
-        const parsed = parseRegistryCommandSource(source);
-        return {
-          type: "commands",
-          owner: Option.match(parsed, {
-            onNone: () => context.defaultProfile,
-            onSome: (value) => value.owner,
-          }),
-          name: Option.match(parsed, {
-            onNone: () => decodeExtensionNameSync(name),
-            onSome: (value) => value.name,
-          }),
-          source,
-          declarationSourceOrConstraint: Option.match(parsed, {
-            onNone: () => source,
-            onSome: (value) => value.constraint,
-          }),
-          order: index,
-          origin: "settings",
-        };
-      },
-    );
+    for (const [name, entry] of Object.entries(commands)) {
+      const source = entry.source;
+      const parsed = parseRegistryCommandSource(source);
+      const owner = Option.isSome(parsed)
+        ? parsed.value.owner
+        : Option.getOrUndefined(context.configuredOwner);
+      if (owner === undefined) {
+        warnings.push(
+          `Skipping command "${name}": source "${source}" is not a registry FQN and no workspace owner is configured.`,
+        );
+        continue;
+      }
 
-    return Effect.succeed({ declarations, warnings: [] });
+      declarations.push({
+        type: "commands",
+        owner,
+        name: Option.match(parsed, {
+          onNone: () => decodeExtensionNameSync(name),
+          onSome: (value) => value.name,
+        }),
+        source,
+        declarationSourceOrConstraint: Option.match(parsed, {
+          onNone: () => source,
+          onSome: (value) => value.constraint,
+        }),
+        order: declarations.length,
+        origin: "settings",
+      });
+    }
+
+    return Effect.succeed({ declarations, warnings });
   },
   checkDiskCompatibility: (declaration, context, env) =>
     Effect.gen(function* () {

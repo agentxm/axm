@@ -41,12 +41,12 @@ export const installCommand = Command.make(
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(
-    "Install configured skills, or install skills from a registry, GitHub, or local path",
+    "Reinstall configured skills from their sources, or install skills from a registry, GitHub, or local path",
   ),
   Command.withExamples([
     {
       command: "axm skills install",
-      description: "Install all configured skills",
+      description: "Reinstall all configured skills from their sources",
     },
     {
       command: "axm skills install @acme/skills/code-review",

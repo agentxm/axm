@@ -460,7 +460,7 @@ export const buildFixture = (spec: FixtureSpec): Effect.Effect<FixtureTestDeps, 
 // ---------------------------------------------------------------------------
 
 const validSettingsContents = {
-  profile: "@team",
+  owner: "@team",
   agents: ["claude-code"],
   skills: { "managed-tool": { source: "github:owner/repo", enabled: true } },
 };
@@ -501,7 +501,7 @@ export const validAll = (workspaceRoot: string, userHome: string): FixtureSpec =
     lockfile: { _tag: "valid", contents: validLockfileContents },
   },
   user: {
-    settings: { _tag: "valid", contents: { profile: "@user" } },
+    settings: { _tag: "valid", contents: { owner: "@user" } },
   },
 });
 
@@ -564,7 +564,7 @@ export const userOnly = (workspaceRoot: string, userHome: string): FixtureSpec =
   workspaceRoot,
   userHome,
   project: { settings: { _tag: "absent" }, lockfile: { _tag: "absent" } },
-  user: { settings: { _tag: "valid", contents: { profile: "@user" } } },
+  user: { settings: { _tag: "valid", contents: { owner: "@user" } } },
 });
 
 /**
@@ -579,7 +579,7 @@ export const projectUserShadowing = (workspaceRoot: string, userHome: string): F
     settings: {
       _tag: "valid",
       contents: {
-        profile: "@team",
+        owner: "@team",
         sources: [{ name: "shared", type: "github", url: "https://github.com/team" }],
       },
     },
@@ -588,7 +588,7 @@ export const projectUserShadowing = (workspaceRoot: string, userHome: string): F
     settings: {
       _tag: "valid",
       contents: {
-        profile: "@user",
+        owner: "@user",
         sources: [{ name: "shared", type: "github", url: "https://github.com/user" }],
       },
     },
@@ -606,7 +606,7 @@ export const agentPresentNoDeclaration = (
   workspaceRoot,
   userHome,
   project: {
-    settings: { _tag: "valid", contents: { profile: "@team" } },
+    settings: { _tag: "valid", contents: { owner: "@team" } },
     agentDirs: {
       "claude-code": {
         "skills/some-skill/SKILL.md": "# some-skill\n",
@@ -627,7 +627,7 @@ export const agentDeclaredNotInstalled = (
   project: {
     settings: {
       _tag: "valid",
-      contents: { profile: "@team", agents: ["claude-code"] },
+      contents: { owner: "@team", agents: ["claude-code"] },
     },
   },
 });
@@ -644,7 +644,7 @@ export const mcpConfigDrift = (workspaceRoot: string, userHome: string): Fixture
     settings: {
       _tag: "valid",
       contents: {
-        profile: "@team",
+        owner: "@team",
         mcpServers: { declared: { source: "github:owner/repo" } },
       },
     },

@@ -44,17 +44,25 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
   type: "mcp-servers",
   scanDeclarations: (context) => {
     const declarations: ReconciliationDeclaration[] = [];
+    const warnings: string[] = [];
     const servers = context.settings.mcpServers ?? {};
 
     for (const [name, entry] of Object.entries(servers)) {
       const source = entry.source;
       const parsed = parseRegistryMcpSource(source);
+      const owner = Option.isSome(parsed)
+        ? parsed.value.owner
+        : Option.getOrUndefined(context.configuredOwner);
+      if (owner === undefined) {
+        warnings.push(
+          `Skipping MCP server "${name}": source "${source}" is not a registry FQN and no workspace owner is configured.`,
+        );
+        continue;
+      }
+
       declarations.push({
         type: "mcp-servers",
-        owner: Option.match(parsed, {
-          onNone: () => context.defaultProfile,
-          onSome: (value) => value.owner,
-        }),
+        owner,
         name: Option.match(parsed, {
           onNone: () => decodeExtensionNameSync(name),
           onSome: (value) => value.name,
@@ -69,7 +77,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
       });
     }
 
-    return Effect.succeed({ declarations, warnings: [] });
+    return Effect.succeed({ declarations, warnings });
   },
   checkDiskCompatibility: (declaration, context, env) =>
     Effect.gen(function* () {

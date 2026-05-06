@@ -19,7 +19,8 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -43,23 +44,10 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   yield* renderer.info("axm skills new");
 
-  // 1. Resolve profile
+  // 1. Resolve owner
   const owner = Option.isSome(args.profile)
     ? normalizeOwner(args.profile.value)
-    : yield* ws.getConfiguredProfile().pipe(
-        Effect.flatMap((s) =>
-          s === "@community"
-            ? Effect.fail(
-                makeAppError({
-                  code: "NAMESPACE_REQUIRED",
-                  what: "No profile configured for skill creation",
-                  howToFix:
-                    "Configure a profile in settings.json with `axm setup`, or use --profile",
-                }),
-              )
-            : Effect.succeed(s),
-        ),
-      );
+    : yield* resolveOwnerForNewContent("skill creation");
 
   // 2. Validate name
   if (
@@ -170,7 +158,7 @@ export const newCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("skills new")),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("skills new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new skill"),

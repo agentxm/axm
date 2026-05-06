@@ -106,7 +106,7 @@ describe("buildFixture: settings cell variants", () => {
         project: {
           settings: {
             _tag: "valid",
-            contents: { profile: "@team", agents: ["claude-code"] },
+            contents: { owner: "@team", agents: ["claude-code"] },
           },
         },
       };
@@ -116,7 +116,7 @@ describe("buildFixture: settings cell variants", () => {
       const parsed = JSON.parse(raw);
       const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed);
 
-      expect(decoded.profile).toBe("@team");
+      expect(decoded.owner).toBe("@team");
       expect(decoded.agents).toEqual(["claude-code"]);
     }),
   );
@@ -576,7 +576,7 @@ describe("buildFixture: serialize round trip", () => {
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
-          settings: { _tag: "valid", contents: { profile: "@team" } },
+          settings: { _tag: "valid", contents: { owner: "@team" } },
           lockfile: { _tag: "valid", contents: { lockfileVersion: 1, skills: {} } },
           axmExtensions: {
             "external/skills/legacy/SKILL.md": "# legacy\n",
@@ -589,7 +589,7 @@ describe("buildFixture: serialize round trip", () => {
           mcpJson: { _tag: "valid", contents: { mcpServers: {} } },
         },
         user: {
-          settings: { _tag: "valid", contents: { profile: "@user" } },
+          settings: { _tag: "valid", contents: { owner: "@user" } },
         },
       };
       const deps = yield* buildFixture(spec);

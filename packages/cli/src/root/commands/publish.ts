@@ -22,7 +22,11 @@ import {
 } from "@agentxm/client-core/unstable/commands";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  parseFqn,
+  parseRegistrySourcePatternParts,
+} from "@agentxm/client-core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import {
   emitNoOpResult,
@@ -170,22 +174,37 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     return;
   }
 
-  // Step 2: Resolve each name to FQN
-  const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
-    name.startsWith("@") && name.includes("/")
-      ? Effect.succeed(name)
-      : ws.getConfiguredProfile().pipe(
-          Effect.map((owner) => `${owner}/commands/${name}`),
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "NAMESPACE_RESOLUTION_FAILED",
-              what: `Failed to resolve owner: ${e._tag}`,
-              howToFix: "Configure an owner in your settings with `axm setup`.",
-              cause: e,
-            }),
-          ),
-        ),
-  );
+  // Step 2: Resolve each name to FQN. Bare names look up the installed
+  // command entry and parse its `source` to derive the owner.
+  const configuredCommands = yield* ws.records.getConfiguredCommands();
+  const extensionNames = yield* Effect.forEach(resolvedNames, (name) => {
+    if (name.startsWith("@") && name.includes("/")) return Effect.succeed(name);
+
+    const entry = configuredCommands[name];
+    if (entry === undefined) {
+      return Effect.fail(
+        makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Command "${name}" is not installed in this workspace`,
+          howToFix:
+            "Use the fully-qualified name `@owner/commands/name`, or run `axm commands new ${name}` to create it first.",
+        }),
+      );
+    }
+    const parts = parseRegistrySourcePatternParts(entry.source);
+    if (parts === undefined || parts.owner === undefined) {
+      return Effect.fail(
+        makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Command "${name}" cannot be published from a non-registry source`,
+          details: [`Source: ${entry.source}`],
+          howToFix:
+            "Only commands sourced from a registry namespace (`@owner/commands/name`) can be published.",
+        }),
+      );
+    }
+    return Effect.succeed(`${parts.owner}/commands/${name}`);
+  });
 
   // Step 3: Validate each extension (both command.json and COMMAND.md must exist)
   yield* renderer.withSpinner(

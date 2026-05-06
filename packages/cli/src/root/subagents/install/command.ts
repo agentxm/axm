@@ -41,12 +41,12 @@ export const installCommand = Command.make(
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(
-    "Install configured subagents, or install subagents from a registry, GitHub, or local path",
+    "Reinstall configured subagents from their sources, or install subagents from a registry, GitHub, or local path",
   ),
   Command.withExamples([
     {
       command: "axm subagents install",
-      description: "Install all configured subagents",
+      description: "Reinstall all configured subagents from their sources",
     },
     {
       command: "axm subagents install @acme/subagents/researcher",

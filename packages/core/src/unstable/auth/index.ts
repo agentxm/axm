@@ -39,6 +39,7 @@ export {
 
 // Token resolution
 export {
+  getCurrentUserHandle,
   resolveRequiredToken,
   resolveToken,
   resolveStoredToken,

@@ -57,7 +57,6 @@ export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./igno
 // Settings I/O
 export {
   createDefaultSettings,
-  DEFAULT_PROFILE,
   orderSettingsKeys,
   SETTINGS_FILENAME,
   writeSettings,

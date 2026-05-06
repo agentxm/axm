@@ -85,8 +85,7 @@ describe("no source resolution or network I/O", () => {
         yield* project.sourceHosts.effective;
         yield* project.sourceHosts.registryHosts;
         yield* project.sourceHosts.byName("anything");
-        yield* project.profile.declared;
-        yield* project.profile.effective;
+        yield* project.owner;
         yield* project.diagnostics;
 
         const user = ctx.scope("user");
@@ -95,7 +94,7 @@ describe("no source resolution or network I/O", () => {
         yield* user.state.settings;
         yield* user.state.lockfile;
         yield* user.sourceHosts.declared;
-        yield* user.profile.declared;
+        yield* user.owner;
       }),
     ),
   );

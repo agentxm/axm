@@ -74,6 +74,8 @@ import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
 import {
   buildInstallOperation,
   buildUninstallOperation,
+  normalizeHandle,
+  parseRegistrySourcePatternParts,
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
@@ -331,9 +333,20 @@ const adaptIntent = (
         const mgr = yield* ExtensionPackManager;
         const retention = yield* makeRetentionPolicy();
         const ws = yield* WorkspaceMutations;
-        const owner = yield* ws.getConfiguredProfile();
+        const configuredPacks = yield* ws.records.getConfiguredPacks();
+        const entry = configuredPacks[op.args.name];
+        if (entry === undefined) {
+          return unmapped(op.name, `pack "${op.args.name}" not found in settings`);
+        }
+        const parts = parseRegistrySourcePatternParts(entry.source);
+        if (parts === undefined || parts.owner === undefined) {
+          return unmapped(
+            op.name,
+            `pack "${op.args.name}" has non-registry source (${entry.source})`,
+          );
+        }
         const step = buildUninstallOperation(mgr, retention, {
-          target: { type: "pack", name: op.args.name, owner },
+          target: { type: "pack", name: op.args.name, owner: normalizeHandle(parts.owner) },
         });
         return { kind: "step", step };
       }

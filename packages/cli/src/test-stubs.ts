@@ -161,8 +161,7 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed(normalizeHandle("@community")),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
+    getConfiguredOwner: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getIgnoredSkillPatterns: emptyArr,
     getIgnoredCommandPatterns: emptyArr,
@@ -256,7 +255,7 @@ export const dependencyConstraintMap = (
 
 export interface WriteWorkspaceFilesOptions {
   readonly agents?: ReadonlyArray<string> | undefined;
-  readonly profile?: string | undefined;
+  readonly owner?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly commands?: Record<string, unknown> | undefined;
   readonly "mcp-servers"?: Record<string, unknown> | undefined;
@@ -273,7 +272,7 @@ export interface WriteWorkspaceFilesOptions {
 export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
-    ...(opts.profile && { profile: opts.profile }),
+    ...(opts.owner && { owner: opts.owner }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),

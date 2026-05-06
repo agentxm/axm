@@ -35,7 +35,7 @@ const initWorkspace = (
 ) => {
   writeWorkspaceFiles(axmDir, {
     agents: opts.agents,
-    profile: opts.profile,
+    owner: opts.profile,
     subagents: opts.subagents,
     lockfileSubagents: opts.lockfileSubagents,
   });
@@ -225,7 +225,7 @@ describe("subagents-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSubagentsNew(defaultArgs("my-subagent")).pipe(Effect.flip);
-          expect(getAppError(error).what).toContain("No profile configured");
+          expect(getAppError(error).what).toContain("No owner configured");
         }),
       );
     });

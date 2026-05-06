@@ -33,7 +33,7 @@ const makeWorkspaceMock = (
   makeBaseWorkspaceMock("/mock/.axm", {
     getConfiguredSources: () => Effect.succeed([]),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed(handle("@test")),
+    getConfiguredOwner: () => Effect.succeed(Option.some(handle("@test"))),
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
     getConfiguredPacks: () => Effect.succeed({}),
     getInstalledPacks: () => Effect.succeed({}),

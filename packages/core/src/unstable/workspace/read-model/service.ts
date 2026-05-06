@@ -10,7 +10,7 @@ import * as Ref from "effect/Ref";
 import { AGENTS } from "../../agents/registry.js";
 import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
 import { parseFullyQualifiedNameParts, type ExtensionName } from "../../extensions/common.js";
-import { decodeHandleSync, type Handle } from "../../extensions/handle.js";
+import { type Handle } from "../../extensions/handle.js";
 import { SETTINGS_FILENAME } from "../../settings/settings.js";
 import type { SourceHostConfig } from "../../settings/schema.js";
 import { AgentRootResolver } from "./agent-root-resolver.js";
@@ -86,11 +86,8 @@ export interface ScopedSourceHostsApi {
   ) => Effect.Effect<Option.Option<SourceHostConfig>, SettingsReadError>;
 }
 
-/** Scoped profile views over the cached settings loader. */
-export interface ScopedProfileApi {
-  readonly declared: Effect.Effect<Option.Option<Handle>, SettingsReadError>;
-  readonly effective: Effect.Effect<Handle, SettingsReadError>;
-}
+/** Scoped owner view over the cached settings loader (declared owner; no fallback). */
+export type ScopedOwnerApi = Effect.Effect<Option.Option<Handle>, SettingsReadError>;
 
 /**
  * Workspace read model for a single scope (project or user).
@@ -110,7 +107,7 @@ export interface WorkspaceReadModel {
   readonly agents: ScopedAgentsApi;
   readonly state: ScopedStateApi;
   readonly sourceHosts: ScopedSourceHostsApi;
-  readonly profile: ScopedProfileApi;
+  readonly owner: ScopedOwnerApi;
   readonly diagnostics: Effect.Effect<ReadonlyArray<Warning>>;
 }
 
@@ -160,12 +157,6 @@ const validateRoot = (
     }
     return ResolvedWorkspaceRoot(resolved);
   });
-
-// ---------------------------------------------------------------------------
-// Default profile
-// ---------------------------------------------------------------------------
-
-const DEFAULT_PROFILE: Handle = decodeHandleSync("@community");
 
 const memberNamesFromResolvedMap = (
   resolvedMap: Readonly<Record<string, unknown>>,
@@ -475,19 +466,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       ),
   };
 
-  // Profile views over the cached settings loader.
-  const declaredProfile: ScopedProfileApi["declared"] = loaders.settings.pipe(
-    Effect.map((opt) =>
-      Option.flatMap(opt, (settings) => Option.fromUndefinedOr(settings.profile)),
-    ),
+  // Owner view over the cached settings loader.
+  const owner: ScopedOwnerApi = loaders.settings.pipe(
+    Effect.map((opt) => Option.flatMap(opt, (settings) => Option.fromUndefinedOr(settings.owner))),
   );
-  const effectiveProfile: ScopedProfileApi["effective"] = declaredProfile.pipe(
-    Effect.map((opt) => Option.getOrElse(opt, () => DEFAULT_PROFILE)),
-  );
-  const profile: ScopedProfileApi = {
-    declared: declaredProfile,
-    effective: effectiveProfile,
-  };
 
   // Raw-bytes accessor reads from the cached raw cell; absent (`Option.none`)
   // is distinct from unreadable (IO error in the channel).
@@ -512,7 +494,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     agents,
     state,
     sourceHosts,
-    profile,
+    owner,
     diagnostics: diagnostics.snapshot,
   } satisfies WorkspaceReadModel;
 });

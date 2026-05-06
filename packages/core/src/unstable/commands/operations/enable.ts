@@ -125,13 +125,34 @@ export const enableCommand: OperationHandler<
       "ENABLE_COMMAND",
     );
 
+    // Resolve owner: registry lock entries supply it; otherwise read from settings
+    const owner =
+      lockEntry.type === "registry"
+        ? lockEntry.owner
+        : yield* ws.getConfiguredOwner().pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () =>
+                  Effect.fail(
+                    makeAppError({
+                      code: "OWNER_REQUIRED",
+                      what: `Cannot re-render non-registry command "${op.args.commandName}" without a configured owner`,
+                      howToFix:
+                        "Set `owner` in `.axm/settings.json` (project or global) to enable non-registry commands.",
+                    }),
+                  ),
+                onSome: Effect.succeed,
+              }),
+            ),
+          );
+
     // Render to agents concurrently
     const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: op.args.commandName,
       frontmatter,
       body,
       manifest,
-      owner: "@community",
+      owner,
       workspaceRoot: base,
       force: false,
     });

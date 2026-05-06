@@ -38,6 +38,7 @@ import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 
 export interface ForkHandlerArgs {
   readonly source: string;
@@ -135,17 +136,8 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   yield* renderer.info("axm skills fork");
 
-  // Step 1: Resolve owner
-  const owner = yield* ws.getConfiguredProfile().pipe(
-    Effect.mapError((e) =>
-      makeAppError({
-        code: "NAMESPACE_RESOLUTION_FAILED",
-        what: `Failed to resolve owner: ${e._tag}`,
-        howToFix: "Configure an owner in your settings with `axm setup`.",
-        cause: e,
-      }),
-    ),
-  );
+  // Step 1: Resolve owner (configured -> logged-in user -> error)
+  const owner = yield* resolveOwnerForNewContent("skill fork");
 
   // Step 2: Parse source and discover skills
   const filtered = yield* renderer.withSpinner(

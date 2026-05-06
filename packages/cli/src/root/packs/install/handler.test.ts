@@ -85,7 +85,7 @@ const initWorkspace = (
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
   if (opts?.settingsSkills) settings["skills"] = opts.settingsSkills;
   if (opts?.sources) settings["sources"] = opts.sources;
-  if (opts?.owner) settings["profile"] = opts.owner;
+  if (opts?.owner) settings["owner"] = opts.owner;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),

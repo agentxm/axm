@@ -19,7 +19,11 @@ import type { PublishSkillOperation } from "@agentxm/client-core/unstable/skills
 import { publishSkill } from "@agentxm/client-core/unstable/skills";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  parseFqn,
+  parseRegistrySourcePatternParts,
+} from "@agentxm/client-core/unstable/extensions";
 import { MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import {
@@ -163,22 +167,39 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     return;
   }
 
-  // Step 2: Resolve each name to FQN
-  const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
-    name.startsWith("@") && name.includes("/")
-      ? Effect.succeed(name)
-      : ws.getConfiguredProfile().pipe(
-          Effect.map((owner) => `${owner}/skills/${name}`),
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "NAMESPACE_RESOLUTION_FAILED",
-              what: `Failed to resolve owner: ${e._tag}`,
-              howToFix: "Configure an owner in your settings with `axm setup`.",
-              cause: e,
-            }),
-          ),
-        ),
-  );
+  // Step 2: Resolve each name to FQN. Bare names look up the installed skill
+  // entry and parse its `source` to derive the owner.
+  const configuredSkills = yield* ws.records.getConfiguredSkills();
+  const extensionNames = yield* Effect.forEach(resolvedNames, (name) => {
+    if (name.startsWith("@") && name.includes("/")) return Effect.succeed(name);
+
+    const entry = configuredSkills[name];
+    if (entry === undefined) {
+      return Effect.fail(
+        makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Skill "${name}" is not installed in this workspace`,
+          howToFix:
+            "Use the fully-qualified name `@owner/skills/name`, or run `axm skills fork ${name}` to create a managed copy first.",
+        }),
+      );
+    }
+
+    const parts = parseRegistrySourcePatternParts(entry.source);
+    if (parts === undefined || parts.owner === undefined) {
+      return Effect.fail(
+        makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Skill "${name}" cannot be published from a non-registry source`,
+          details: [`Source: ${entry.source}`],
+          howToFix:
+            "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published. Use `axm skills fork ${name}` first.",
+        }),
+      );
+    }
+
+    return Effect.succeed(`${parts.owner}/skills/${name}`);
+  });
 
   // Step 3: Validate each extension
   yield* renderer.withSpinner(

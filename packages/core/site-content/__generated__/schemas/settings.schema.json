@@ -237,7 +237,7 @@
             { "type": "null" }
           ]
         },
-        "profile": { "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }] },
+        "owner": { "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }] },
         "agents": {
           "anyOf": [
             {
@@ -306,7 +306,7 @@
       },
       "additionalProperties": false,
       "title": "AXM Settings",
-      "description": "Your workspace configuration — profile, sources, installed extensions, and ignore patterns."
+      "description": "Your workspace configuration — owner, sources, installed extensions, and ignore patterns."
     }
   }
 }

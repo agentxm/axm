@@ -55,24 +55,24 @@ describe("SettingsSchema lint section", () => {
 
   it("does not break existing settings consumers without a lint section", () => {
     const decoded = Schema.decodeUnknownSync(SettingsSchema)({
-      profile: "@wayne",
+      owner: "@wayne",
       agents: ["claude-code"],
       skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
     });
 
-    expect(decoded.profile).toBe("@wayne");
+    expect(decoded.owner).toBe("@wayne");
     expect(decoded.agents).toEqual(["claude-code"]);
     expect(decoded.skills).toBeDefined();
   });
 
   it("accepts lint configuration alongside other settings fields", () => {
     const decoded = Schema.decodeUnknownSync(SettingsSchema)({
-      profile: "@acme",
+      owner: "@acme",
       agents: ["cursor"],
       lint: { rules: { [SAMPLE_RULE_ID]: "off" } },
     });
 
-    expect(decoded.profile).toBe("@acme");
+    expect(decoded.owner).toBe("@acme");
     expect(decoded.lint?.rules?.[SAMPLE_RULE_ID]).toBe("off");
   });
 });

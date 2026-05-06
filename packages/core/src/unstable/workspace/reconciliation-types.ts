@@ -1,4 +1,5 @@
 import type * as FileSystem from "effect/FileSystem";
+import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionName, ExtensionTypePlural } from "../extensions/index.js";
@@ -32,7 +33,12 @@ export interface ReconciliationDeclaration {
 export interface ReconciliationContext {
   readonly baseDir: string;
   readonly now: Date;
-  readonly defaultProfile: Handle;
+  /**
+   * Configured workspace owner used as the fallback for declarations whose
+   * source does not parse as a registry FQN. `Option.none` when no owner is
+   * configured; adapters surface a warning and skip the declaration.
+   */
+  readonly configuredOwner: Option.Option<Handle>;
   readonly agents: ReadonlyArray<string>;
   readonly settings: Settings;
 }

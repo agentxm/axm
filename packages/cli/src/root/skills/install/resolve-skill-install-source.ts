@@ -228,8 +228,8 @@ const resolveSkillRegistrySourceByName = (
 
     const ws = yield* WorkspaceMutations;
 
-    // DefaultProfile: project settings > user settings > logged-in identity > none
-    const maybeProfile = yield* ws.getDefaultProfile();
+    // Configured owner: project settings -> user settings -> none
+    const maybeProfile = yield* ws.getConfiguredOwner();
 
     if (Option.isNone(maybeProfile)) {
       return yield* makeAppError({

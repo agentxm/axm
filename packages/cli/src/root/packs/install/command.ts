@@ -36,12 +36,12 @@ export const installCommand = Command.make(
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(
-    "Install configured extension packs, or install an extension pack and its extensions from a registry",
+    "Reinstall configured extension packs from their sources, or install an extension pack and its extensions from a registry",
   ),
   Command.withExamples([
     {
       command: "axm packs install",
-      description: "Install all configured extension packs",
+      description: "Reinstall all configured extension packs from their sources",
     },
     {
       command: "axm packs install @acme/packs/frontend-tools",

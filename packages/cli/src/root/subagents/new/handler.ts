@@ -27,6 +27,7 @@ import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/u
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -79,23 +80,10 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   yield* renderer.info("axm subagents new");
 
-  // 1. Resolve profile
+  // 1. Resolve owner
   const owner = Option.isSome(args.profile)
     ? normalizeOwner(args.profile.value)
-    : yield* ws.getConfiguredProfile().pipe(
-        Effect.flatMap((s) =>
-          s === "@community"
-            ? Effect.fail(
-                makeAppError({
-                  code: "NAMESPACE_REQUIRED",
-                  what: "No profile configured for subagent creation",
-                  howToFix:
-                    "Configure a profile in settings.json with `axm setup`, or use --profile",
-                }),
-              )
-            : Effect.succeed(s),
-        ),
-      );
+    : yield* resolveOwnerForNewContent("subagent creation");
 
   // 2. Validate name
   if (

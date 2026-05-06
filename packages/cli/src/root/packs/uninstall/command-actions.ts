@@ -30,9 +30,12 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import {
   buildUninstallOperation,
+  normalizeHandle,
+  parseRegistrySourcePatternParts,
   toLabel,
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -124,16 +127,41 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         }
 
         const lockedPacks = yield* ws.getLockedExtensionPacks();
-        const defaultOwner = yield* ws.getConfiguredProfile();
+        const configuredPacks = yield* ws.records.getConfiguredPacks();
 
-        const targets = parsed.packNames.map((name): PackExtensionTarget => {
-          const lockEntry = lockedPacks[name];
-          return {
-            type: "pack",
-            name,
-            owner: lockEntry?.owner ?? defaultOwner,
-          };
-        });
+        const targets = yield* Effect.forEach(
+          parsed.packNames,
+          (name): Effect.Effect<PackExtensionTarget, AppError> => {
+            const lockEntry = lockedPacks[name];
+            if (lockEntry !== undefined) {
+              return Effect.succeed({
+                type: "pack",
+                name,
+                owner: lockEntry.owner,
+              } satisfies PackExtensionTarget);
+            }
+
+            const settingsEntry = configuredPacks[name];
+            if (settingsEntry !== undefined) {
+              const parts = parseRegistrySourcePatternParts(settingsEntry.source);
+              if (parts !== undefined && parts.owner !== undefined) {
+                return Effect.succeed({
+                  type: "pack",
+                  name,
+                  owner: normalizeHandle(parts.owner),
+                } satisfies PackExtensionTarget);
+              }
+            }
+
+            return Effect.fail(
+              makeAppError({
+                code: "EXTENSION_NOT_FOUND",
+                what: `Pack "${name}" is not installed`,
+                howToFix: `Use the fully-qualified \`@owner/packs/${name}\` form, or check \`axm packs list\`.`,
+              }),
+            );
+          },
+        );
 
         return { packsToUninstall: targets };
       });

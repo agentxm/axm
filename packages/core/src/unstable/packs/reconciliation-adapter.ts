@@ -323,10 +323,15 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
       for (const [name, entry] of Object.entries(packs)) {
         const source = entry.source;
         const parsed = parseRegistryPackSource(source);
-        const owner = Option.match(parsed, {
-          onNone: () => context.defaultProfile,
-          onSome: (value) => value.owner,
-        });
+        const owner = Option.isSome(parsed)
+          ? parsed.value.owner
+          : Option.getOrUndefined(context.configuredOwner);
+        if (owner === undefined) {
+          warnings.push(
+            `Skipping pack "${name}": source "${source}" is not a registry FQN and no workspace owner is configured.`,
+          );
+          continue;
+        }
         const diskName = Option.match(parsed, {
           onNone: () => decodeExtensionNameSync(name),
           onSome: (value) => value.name,

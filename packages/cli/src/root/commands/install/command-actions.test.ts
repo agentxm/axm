@@ -25,7 +25,7 @@ import {
 } from "./command-actions.js";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
-  getConfiguredProfile: () => Effect.succeed(normalizeHandle("@test-ns")),
+  getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test-ns"))),
 });
 
 const mockCommandManager = {
@@ -205,7 +205,7 @@ describe("buildPlan", () => {
   it.effect("includes a no-agents preview note when nothing is configured", () =>
     Effect.gen(function* () {
       const workspace = makeBaseWorkspaceMock("/tmp/axm", {
-        getConfiguredProfile: () => Effect.succeed(normalizeHandle("@test-ns")),
+        getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test-ns"))),
         getConfiguredAgents: () => Effect.succeed([]),
       });
 

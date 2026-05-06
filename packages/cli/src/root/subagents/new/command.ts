@@ -5,7 +5,7 @@ import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/c
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { TOOL_ACCESS_LEVELS } from "@agentxm/client-core/unstable/subagents";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../../runtime.js";
 import { handleSubagentsNew } from "./handler.js";
 
 const newConfig = {
@@ -56,7 +56,7 @@ export const newCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("subagents new")),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("subagents new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new subagent"),

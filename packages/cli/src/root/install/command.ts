@@ -32,11 +32,13 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install a registry extension or sync configured extensions"),
+  Command.withDescription(
+    "Install a registry extension, or reinstall all configured extensions from their sources",
+  ),
   Command.withExamples([
     {
       command: "axm install",
-      description: "Install all configured extensions in the current workspace",
+      description: "Reinstall all configured extensions from their sources",
     },
     {
       command: "axm install @acme/skills/code-review",

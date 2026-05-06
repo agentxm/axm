@@ -58,18 +58,25 @@ export const subagentReconciliationAdapter: ReconciliationAdapter = {
   type: "subagents",
   scanDeclarations: (context) => {
     const declarations: ReconciliationDeclaration[] = [];
+    const warnings: string[] = [];
 
     const subagents = context.settings.subagents ?? {};
     for (const [name, entry] of Object.entries(subagents)) {
       const source = entry.source;
       const parsed = parseRegistrySubagentSource(source);
+      const owner = Option.isSome(parsed)
+        ? parsed.value.owner
+        : Option.getOrUndefined(context.configuredOwner);
+      if (owner === undefined) {
+        warnings.push(
+          `Skipping subagent "${name}": source "${source}" is not a registry FQN and no workspace owner is configured.`,
+        );
+        continue;
+      }
 
       declarations.push({
         type: "subagents",
-        owner: Option.match(parsed, {
-          onNone: () => context.defaultProfile,
-          onSome: (value) => value.owner,
-        }),
+        owner,
         name: Option.match(parsed, {
           onNone: () => decodeExtensionNameSync(name),
           onSome: (value) => value.name,
@@ -84,7 +91,7 @@ export const subagentReconciliationAdapter: ReconciliationAdapter = {
       });
     }
 
-    return Effect.succeed({ declarations, warnings: [] });
+    return Effect.succeed({ declarations, warnings });
   },
   checkDiskCompatibility: (declaration, context, env) =>
     Effect.gen(function* () {

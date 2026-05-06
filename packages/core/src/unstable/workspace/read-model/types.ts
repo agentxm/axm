@@ -6,7 +6,7 @@
  * places (Scope, ExtensionKey, ActivationState, InstallationOrigin, the
  * empty-shape ExtensionStateReader contract, and the public surface contracts
  * for WorkspaceReadModel / ScopedStateApi / ScopedSourceHostsApi /
- * ScopedProfileApi / ScopedAgentsApi).
+ * ScopedOwnerApi / ScopedAgentsApi).
  *
  * Source-backed cell failure channels carry per-source tagged error unions
  * imported from `errors.ts`: `SettingsReadError` for `declared` and
@@ -105,7 +105,7 @@ export interface ExtensionStateReader<TDeclared, TResolved, TActual> {
 // -----------------------------------------------------------------------------
 //
 // `service.ts` (Phase 9) defines the real `ScopedStateApi`,
-// `ScopedSourceHostsApi`, `ScopedProfileApi`, and `WorkspaceReadModel`
+// `ScopedSourceHostsApi`, `ScopedOwnerApi`, and `WorkspaceReadModel`
 // surfaces. They attach payload types from per-subject modules under
 // `extensions/` and per-agent modules under `agents/`, which would create
 // import cycles if defined here. `ScopedAgentsApi` is owned by

@@ -96,7 +96,7 @@ export {
   makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
   type RawSourceBytes,
-  type ScopedProfileApi,
+  type ScopedOwnerApi,
   type ScopedSourceHostsApi,
   type ScopedStateApi,
   type WorkspaceReadModel,

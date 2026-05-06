@@ -124,7 +124,7 @@ describe("setup.handler", () => {
             JSON.stringify({
               agents: ["claude-code", "cursor"],
               skills: { commit: "^1.0.0" },
-              profile: normalizeHandle("@myorg"),
+              owner: normalizeHandle("@myorg"),
             }),
           );
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
@@ -134,7 +134,7 @@ describe("setup.handler", () => {
           const settings = readJson(path.join(axmDir, "settings.json"));
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
           expect(settings.skills?.["commit"]).toBe("^1.0.0");
-          expect(settings.profile).toBe("@myorg");
+          expect(settings.owner).toBe("@myorg");
           expect(installCalls).toEqual([]);
         }),
       );

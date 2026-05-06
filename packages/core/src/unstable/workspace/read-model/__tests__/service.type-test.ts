@@ -48,7 +48,7 @@ const _program = Effect.gen(function* () {
   yield* p.state.settings;
   yield* p.state.lockfile;
   yield* p.sourceHosts.declared;
-  yield* p.profile.declared;
+  yield* p.owner;
   yield* p.diagnostics;
 });
 

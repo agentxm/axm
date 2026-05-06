@@ -42,7 +42,7 @@ describe("example files", () => {
     const example = readJsonFile(path.join(CORE_UNSTABLE, "settings/settings.example.json"));
     const result = Schema.decodeUnknownSync(SettingsSchema)(example);
     expect(result).toBeDefined();
-    expect(result.profile).toBe("@acme");
+    expect(result.owner).toBe("@acme");
     expect(result.agents).toContain("claude-code");
   });
 

@@ -5,6 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import {
@@ -36,7 +37,7 @@ const makeWorkspaceMock = (
   const configuredSkills = opts.configuredSkills ?? {};
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredProfile: () => Effect.succeed(handle(configuredProfile)),
+    getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
     getConfiguredSkills: () =>
       Effect.succeed(
         Object.fromEntries(

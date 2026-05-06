@@ -39,7 +39,7 @@ const SETTINGS_PATH = `${WORKSPACE_ROOT}/.axm/settings.json`;
 const LOCKFILE_PATH = `${WORKSPACE_ROOT}/${LOCKFILE_NAME}`;
 
 const VALID_SETTINGS_JSON = JSON.stringify({
-  profile: "@team",
+  owner: "@team",
   agents: ["claude-code"],
   skills: { "review-tool": { source: "github:owner/repo", enabled: true } },
 });
@@ -114,7 +114,7 @@ describe("source independence (Decision 2)", () => {
       const settings = yield* api.settings;
       expect(Option.isSome(settings)).toBe(true);
       const value = Option.getOrThrow(settings);
-      expect(value.profile).toBe("@team");
+      expect(value.owner).toBe("@team");
       expect(value.agents).toEqual(["claude-code"]);
       expect(value.skills?.["review-tool"]).toEqual({
         source: "github:owner/repo",

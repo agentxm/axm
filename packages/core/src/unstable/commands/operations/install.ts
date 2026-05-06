@@ -283,13 +283,34 @@ export const installCommand: (
       "INSTALL_COMMAND",
     );
 
+    // --- Resolve owner: registry refs supply it; otherwise read from settings ---
+    const owner =
+      ref.refType === "registry"
+        ? ref.owner
+        : yield* ws.getConfiguredOwner().pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () =>
+                  Effect.fail(
+                    makeAppError({
+                      code: "OWNER_REQUIRED",
+                      what: `Cannot install non-registry command "${ref.command.name}" without a configured owner`,
+                      howToFix:
+                        "Set `owner` in `.axm/settings.json` (project or global) before installing non-registry commands.",
+                    }),
+                  ),
+                onSome: Effect.succeed,
+              }),
+            ),
+          );
+
     // --- Render to agents concurrently ---
     const { outcomes, successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: ref.command.name,
       frontmatter,
       body,
       manifest,
-      owner: ref.refType === "registry" ? ref.owner : "@community",
+      owner,
       workspaceRoot: ws.baseDir,
       force: op.args.force,
     });

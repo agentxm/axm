@@ -306,10 +306,8 @@ export interface WorkspaceMutationsService {
     AppError
   >;
   readonly records: WorkspaceReadModelRecords;
-  /** Resolve owner: project settings -> user-scope settings -> DEFAULT_PROFILE. */
-  readonly getConfiguredProfile: () => Effect.Effect<Handle, AppError>;
-  /** Resolve owner without fallback: project settings -> user-scope settings -> Option.none(). */
-  readonly getDefaultProfile: () => Effect.Effect<Option.Option<Handle>, AppError>;
+  /** Resolve owner: project settings -> user-scope settings -> Option.none(). */
+  readonly getConfiguredOwner: () => Effect.Effect<Option.Option<Handle>, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
   /** Ignored skill patterns from settings. */

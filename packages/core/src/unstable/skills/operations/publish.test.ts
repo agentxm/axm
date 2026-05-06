@@ -30,7 +30,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
       Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([registrySource]),
     getConfiguredAgents: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed(handle("@community")),
+    getConfiguredOwner: () => Effect.succeed(Option.some(handle("@community"))),
   });
   return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs));
 };

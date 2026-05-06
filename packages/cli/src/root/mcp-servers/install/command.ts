@@ -34,12 +34,12 @@ export const installCommand = Command.make(
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(
-    "Install configured MCP servers, or install an MCP server from a registry",
+    "Reinstall configured MCP servers from their sources, or install an MCP server from a registry",
   ),
   Command.withExamples([
     {
       command: "axm mcp-servers install",
-      description: "Install all configured MCP servers",
+      description: "Reinstall all configured MCP servers from their sources",
     },
     {
       command: "axm mcp-servers install @acme/mcp-servers/my-server",

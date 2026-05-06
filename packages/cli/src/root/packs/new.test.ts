@@ -30,7 +30,7 @@ const initWorkspace = (
 ) => {
   writeWorkspaceFiles(axmDir, {
     agents: opts.agents,
-    profile: opts.profile,
+    owner: opts.profile,
     packs: opts.packs,
   });
 };
@@ -217,7 +217,7 @@ describe("packs-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handlePacksNew(defaultArgs("frontend-tools")).pipe(Effect.flip);
-          expect(getAppError(error).what).toContain("No profile configured");
+          expect(getAppError(error).what).toContain("No owner configured");
         }),
       );
     });

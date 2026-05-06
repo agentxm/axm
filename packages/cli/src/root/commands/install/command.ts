@@ -31,11 +31,13 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install configured commands, or install a command from a registry"),
+  Command.withDescription(
+    "Reinstall configured commands from their sources, or install a command from a registry",
+  ),
   Command.withExamples([
     {
       command: "axm commands install",
-      description: "Install all configured commands",
+      description: "Reinstall all configured commands from their sources",
     },
     {
       command: "axm commands install @acme/commands/my-cmd",

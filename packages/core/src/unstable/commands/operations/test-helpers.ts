@@ -13,7 +13,6 @@ import type { CodingAgentRepositoryService } from "../../agents/index.js";
 import type { AgentId } from "../../agents/types.js";
 import { makeCodingAgentStub } from "../../test-helpers.js";
 import type { WorkspaceMutationsService } from "../../workspace/service-interface.js";
-import { decodeHandleSync } from "../../extensions/handle.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 
 // -----------------------------------------------------------------------------
@@ -76,7 +75,6 @@ export const makeWorkspaceMock = (
 ): WorkspaceMutationsService =>
   makeBaseWorkspaceMock(axmDir, {
     baseDir: path.dirname(axmDir),
-    getConfiguredProfile: () => Effect.succeed(decodeHandleSync("@community")),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
+    getConfiguredOwner: () => Effect.succeed(Option.none()),
     ...overrides,
   });

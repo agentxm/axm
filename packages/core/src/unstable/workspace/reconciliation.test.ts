@@ -7,6 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import YAML from "yaml";
 import type { Settings } from "../settings/index.js";
 import { extensionName, handle } from "../test-helpers.js";
@@ -139,7 +140,7 @@ describe("reconciliation", () => {
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
           now: new Date("2026-02-25T10:00:00.000Z"),
-          defaultProfile: handle("@community"),
+          configuredOwner: Option.some(handle("@community")),
           agents: ["claude-code"],
           settings,
         });
@@ -174,7 +175,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultProfile: handle("@community"),
+            configuredOwner: Option.some(handle("@community")),
             agents: ["claude-code"],
             settings,
           },
@@ -210,7 +211,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultProfile: handle("@community"),
+            configuredOwner: Option.some(handle("@community")),
             agents: ["claude-code"],
             settings,
           },
@@ -242,7 +243,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultProfile: handle("@community"),
+            configuredOwner: Option.some(handle("@community")),
             agents: ["claude-code"],
             settings,
           },

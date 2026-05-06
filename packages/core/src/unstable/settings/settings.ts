@@ -10,7 +10,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { decodeHandleSync } from "../extensions/handle.js";
 import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -23,13 +22,6 @@ import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const SETTINGS_FILENAME = "settings.json";
-
-/**
- * Default profile for skill resolution when not specified in settings.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const DEFAULT_PROFILE = decodeHandleSync("@community");
 
 // -----------------------------------------------------------------------------
 // Default Settings

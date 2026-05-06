@@ -153,7 +153,7 @@ describe("makeScopedStateApi.settings", () => {
         {
           readers: {
             [SETTINGS_PATH]: () =>
-              Effect.succeed(JSON.stringify({ profile: "@team", agents: ["claude-code"] })),
+              Effect.succeed(JSON.stringify({ owner: "@team", agents: ["claude-code"] })),
           },
           missing: new Set(),
           existsFails: new Set(),
@@ -165,7 +165,7 @@ describe("makeScopedStateApi.settings", () => {
       const result = yield* api.settings;
       expect(Option.isSome(result)).toBe(true);
       const value = Option.getOrThrow(result);
-      expect(value.profile).toBe("@team");
+      expect(value.owner).toBe("@team");
       expect(value.agents).toEqual(["claude-code"]);
     }),
   );
@@ -266,7 +266,7 @@ describe("makeScopedStateApi.settings", () => {
       const fs = buildFs(
         {
           readers: {
-            [SETTINGS_PATH]: () => Effect.succeed(JSON.stringify({ profile: "@team" })),
+            [SETTINGS_PATH]: () => Effect.succeed(JSON.stringify({ owner: "@team" })),
           },
           missing: new Set(),
           existsFails: new Set(),
@@ -293,7 +293,7 @@ describe("makeScopedStateApi.settings", () => {
       const fs = buildFs(
         {
           readers: {
-            [SETTINGS_PATH]: () => Effect.succeed(JSON.stringify({ profile: "@user" })),
+            [SETTINGS_PATH]: () => Effect.succeed(JSON.stringify({ owner: "@user" })),
           },
           missing: new Set(),
           existsFails: new Set(),
@@ -304,7 +304,7 @@ describe("makeScopedStateApi.settings", () => {
 
       const result = yield* api.settings;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).profile).toBe("@user");
+      expect(Option.getOrThrow(result).owner).toBe("@user");
     }),
   );
 });

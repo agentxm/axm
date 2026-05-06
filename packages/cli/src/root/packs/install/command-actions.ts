@@ -338,7 +338,22 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               };
             }
 
-            const owner = yield* ws.getConfiguredProfile();
+            const owner = yield* ws.getConfiguredOwner().pipe(
+              Effect.flatMap(
+                Option.match({
+                  onNone: () =>
+                    Effect.fail(
+                      makeAppError({
+                        code: "OWNER_REQUIRED",
+                        what: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
+                        howToFix:
+                          "Use the fully-qualified `@owner/packs/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
+                      }),
+                    ),
+                  onSome: Effect.succeed,
+                }),
+              ),
+            );
             const versionConstraint = Option.fromUndefinedOr(parsed.success.versionConstraint);
             const resolvedInput = Option.match(versionConstraint, {
               onNone: () => `${owner}/packs/${parsed.success.name}`,

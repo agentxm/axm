@@ -66,14 +66,14 @@ describe("settings", () => {
           const settings: Settings = {
             skills: { commit: { source: "^1.0.0", enabled: true, authored: false } },
             agents: ["claude-code"],
-            profile: handle("@acme"),
+            owner: handle("@acme"),
           };
 
           yield* writeSettings(axmDir, settings);
 
           const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
           const keys = Object.keys(expectRecord(JSON.parse(content)));
-          expect(keys).toEqual(["profile", "agents", "skills"]);
+          expect(keys).toEqual(["owner", "agents", "skills"]);
         }),
       ),
     );

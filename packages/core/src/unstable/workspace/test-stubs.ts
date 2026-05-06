@@ -32,7 +32,7 @@ import {
   type SkillLockEntry,
 } from "../lockfile/index.js";
 import { decodeExtensionNameSync } from "../extensions/index.js";
-import { normalizeHandle, type Handle } from "../extensions/handle.js";
+import { type Handle } from "../extensions/handle.js";
 import {
   decodeExactSemverVersionSync,
   type ExactSemverVersion,
@@ -153,8 +153,7 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed(normalizeHandle("@community")),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
+    getConfiguredOwner: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getIgnoredSkillPatterns: emptyArr,
     getIgnoredCommandPatterns: emptyArr,
@@ -227,7 +226,6 @@ const hasEntries = (
 export interface WriteWorkspaceFilesOptions {
   readonly agents?: ReadonlyArray<string> | undefined;
   readonly owner?: string | undefined;
-  readonly profile?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly commands?: Record<string, unknown> | undefined;
   readonly "mcp-servers"?: Record<string, unknown> | undefined;
@@ -245,7 +243,6 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(opts.owner && { owner: opts.owner }),
-    ...(opts.profile && { profile: opts.profile }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
     ...(hasEntries(opts["mcp-servers"]) && { "mcp-servers": opts["mcp-servers"] }),

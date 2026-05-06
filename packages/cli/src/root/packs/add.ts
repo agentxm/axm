@@ -74,7 +74,23 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const packOwner =
     packOwnerFromSource !== undefined
       ? normalizeHandle(packOwnerFromSource)
-      : yield* ws.getConfiguredProfile();
+      : yield* ws.getConfiguredOwner().pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () =>
+                Effect.fail(
+                  makeAppError({
+                    code: "OWNER_REQUIRED",
+                    what: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
+                    details: [`Source: ${packSource}`],
+                    howToFix:
+                      "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
+                  }),
+                ),
+              onSome: Effect.succeed,
+            }),
+          ),
+        );
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check

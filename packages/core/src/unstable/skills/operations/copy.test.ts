@@ -19,7 +19,7 @@ import { extensionName, handle } from "../../test-helpers.js";
 /** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string) => {
   const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-    getConfiguredProfile: () => Effect.succeed(handle("@community")),
+    getConfiguredOwner: () => Effect.succeed(Option.some(handle("@test-owner"))),
     getConfiguredAgents: () => Effect.succeed([]),
   });
   return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs));

@@ -223,7 +223,7 @@ describe("root update handler", () => {
       const { provide } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
-        profile: "@axm",
+        owner: "@axm",
       });
 
       const sources = [
@@ -254,7 +254,7 @@ describe("root update handler", () => {
       const { provide } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
-        profile: "@axm",
+        owner: "@axm",
       });
 
       const error = yield* provide(
@@ -279,7 +279,7 @@ describe("root update handler", () => {
 
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
-        profile: "@axm",
+        owner: "@axm",
         commands: {
           "example-command": "^1.0.0",
         },

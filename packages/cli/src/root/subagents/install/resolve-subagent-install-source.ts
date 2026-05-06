@@ -225,7 +225,7 @@ const resolveSubagentRegistrySourceByName = (
     });
 
     const ws = yield* WorkspaceMutations;
-    const maybeProfile = yield* ws.getDefaultProfile();
+    const maybeProfile = yield* ws.getConfiguredOwner();
 
     if (Option.isNone(maybeProfile)) {
       return yield* makeAppError({

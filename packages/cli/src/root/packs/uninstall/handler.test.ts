@@ -197,20 +197,27 @@ describe("packs uninstall handler", () => {
       );
     });
 
-    it.effect("no-ops when pack is not installed", () => {
-      const { provide, logs } = makeLayers();
+    it.effect("errors when pack is not installed", () => {
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("nonexistent-pack"), {
+          const result = yield* handleUninstallPack(defaultArgs("nonexistent-pack"), {
             yes: false,
             force: false,
             preview: false,
-          });
+          }).pipe(
+            Effect.catchTag("AppError", (e) =>
+              Effect.succeed({ error: true, code: e.code, what: e.what }),
+            ),
+          );
 
-          // Plan still executes step (no-op since nothing to remove)
-          expect(logs.success.some((m) => m.includes("nonexistent-pack"))).toBe(true);
+          expect(result).toMatchObject({
+            error: true,
+            code: "EXTENSION_NOT_FOUND",
+            what: expect.stringContaining("nonexistent-pack"),
+          });
         }),
       );
     });

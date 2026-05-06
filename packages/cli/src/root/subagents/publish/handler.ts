@@ -15,7 +15,11 @@ import type { PublishSubagentOperation } from "@agentxm/client-core/unstable/sub
 import { publishSubagent, MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@agentxm/client-core/unstable/extensions";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  parseFqn,
+  parseRegistrySourcePatternParts,
+} from "@agentxm/client-core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import {
   emitNoOpResult,
@@ -159,22 +163,37 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     return;
   }
 
-  // Step 2: Resolve each name to FQN
-  const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
-    name.startsWith("@") && name.includes("/")
-      ? Effect.succeed(name)
-      : ws.getConfiguredProfile().pipe(
-          Effect.map((owner) => `${owner}/subagents/${name}`),
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "NAMESPACE_RESOLUTION_FAILED",
-              what: `Failed to resolve owner: ${e._tag}`,
-              howToFix: "Configure an owner in your settings with `axm setup`.",
-              cause: e,
-            }),
-          ),
-        ),
-  );
+  // Step 2: Resolve each name to FQN. Bare names look up the installed
+  // subagent entry and parse its `source` to derive the owner.
+  const configuredSubagents = yield* ws.records.getConfiguredSubagents();
+  const extensionNames = yield* Effect.forEach(resolvedNames, (name) => {
+    if (name.startsWith("@") && name.includes("/")) return Effect.succeed(name);
+
+    const entry = configuredSubagents[name];
+    if (entry === undefined) {
+      return Effect.fail(
+        makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Subagent "${name}" is not installed in this workspace`,
+          howToFix:
+            "Use the fully-qualified name `@owner/subagents/name`, or run `axm subagents new ${name}` to create it first.",
+        }),
+      );
+    }
+    const parts = parseRegistrySourcePatternParts(entry.source);
+    if (parts === undefined || parts.owner === undefined) {
+      return Effect.fail(
+        makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Subagent "${name}" cannot be published from a non-registry source`,
+          details: [`Source: ${entry.source}`],
+          howToFix:
+            "Only subagents sourced from a registry namespace (`@owner/subagents/name`) can be published.",
+        }),
+      );
+    }
+    return Effect.succeed(`${parts.owner}/subagents/${name}`);
+  });
 
   // Step 3: Validate each extension
   yield* renderer.withSpinner(

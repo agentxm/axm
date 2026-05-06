@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import { envOption } from "../utils/index.js";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { normalizeHandle } from "../extensions/handle.js";
+import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
@@ -76,6 +76,25 @@ const makeLoginRequiredError = () =>
     code: "AUTH_LOGIN_REQUIRED",
     what: "Authentication required",
     howToFix: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+  });
+
+/**
+ * Read the locally-stored user handle for the given registry URL.
+ *
+ * Offline only — does not call the registry. Returns Option.none() when
+ * persisted credentials are unsupported, no credentials are stored, or the
+ * stored entry has no handle.
+ */
+export const getCurrentUserHandle = (
+  registryUrl: string,
+): Effect.Effect<Option.Option<Handle>, AppError, CredentialStore> =>
+  Effect.gen(function* () {
+    const store = yield* CredentialStore;
+    if (!store.allowsPersistedCredentials) {
+      return Option.none<Handle>();
+    }
+    const stored = yield* store.load(registryUrl);
+    return Option.map(stored, (credentials) => credentials.handle);
   });
 
 /**

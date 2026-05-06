@@ -53,7 +53,7 @@ const makeWorkspaceMock = (
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredProfile: () => Effect.succeed(handle("@community")),
+    getConfiguredOwner: () => Effect.succeed(Option.some(handle("@community"))),
     getConfiguredSkills: () =>
       Effect.succeed(
         Object.fromEntries(

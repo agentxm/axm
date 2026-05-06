@@ -27,7 +27,7 @@ const initWorkspace = (
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
-    profile: opts.profile,
+    owner: opts.profile,
     packs: opts.packs,
   });
 };

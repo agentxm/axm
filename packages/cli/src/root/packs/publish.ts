@@ -17,6 +17,7 @@ import {
   type FullyQualifiedNameParts,
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
+  parseRegistrySourcePatternParts,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
@@ -165,23 +166,40 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       ? { result: "error", message: result.message, error: result.error }
       : { result: "success", message: result.message };
 
-  // Step 1: Resolve pack name
-  const hasProfile = args.pack.startsWith("@") && args.pack.includes("/");
-  const packName = yield* hasProfile
-    ? Effect.succeed(args.pack)
-    : ws.getConfiguredProfile().pipe(
-        Effect.map((owner) =>
-          formatFqn({ owner, type: "pack", name: decodeExtensionNameSync(args.pack) }),
-        ),
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "NAMESPACE_RESOLUTION_FAILED",
-            what: `Failed to resolve owner: ${e._tag}`,
-            howToFix: "Configure an owner in your settings with `axm setup`.",
-            cause: e,
-          }),
-        ),
-      );
+  // Step 1: Resolve pack name. Bare names look up the configured pack entry
+  // and parse its `source` to derive the owner.
+  const hasOwner = args.pack.startsWith("@") && args.pack.includes("/");
+  const packName = yield* (() => {
+    if (hasOwner) return Effect.succeed(args.pack);
+
+    return Effect.gen(function* () {
+      const configuredPacks = yield* ws.records.getConfiguredPacks();
+      const entry = configuredPacks[args.pack];
+      if (entry === undefined) {
+        return yield* makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Extension pack "${args.pack}" is not installed in this workspace`,
+          howToFix:
+            "Use the fully-qualified name `@owner/packs/name`, or run `axm packs new ${args.pack}` to create it first.",
+        });
+      }
+      const parts = parseRegistrySourcePatternParts(entry.source);
+      if (parts === undefined || parts.owner === undefined) {
+        return yield* makeAppError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Extension pack "${args.pack}" cannot be published from a non-registry source`,
+          details: [`Source: ${entry.source}`],
+          howToFix:
+            "Only packs sourced from a registry namespace (`@owner/packs/name`) can be published.",
+        });
+      }
+      return formatFqn({
+        owner: parts.owner,
+        type: "pack",
+        name: decodeExtensionNameSync(args.pack),
+      });
+    });
+  })();
 
   // Parse owner and pack name from the full name
   const fqn = yield* parseFqn(packName);

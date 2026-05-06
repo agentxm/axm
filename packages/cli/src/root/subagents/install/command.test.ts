@@ -32,7 +32,7 @@ describe("subagents install command help", () => {
   it("documents no-arg install and omits the dead --agent flag", async () => {
     const output = await Effect.runPromise(captureHelpOutput(["subagents", "install"]));
 
-    expect(output).toContain("Install all configured subagents");
+    expect(output).toContain("Reinstall all configured subagents from their sources");
     expect(output).not.toContain("--agent");
   });
 });

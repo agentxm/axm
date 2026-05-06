@@ -13,14 +13,14 @@ import {
 import type { NewCommandOperation } from "@agentxm/client-core/unstable/commands";
 import { newCommand as newCommandOp } from "@agentxm/client-core/unstable/commands";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { toJobStepResult } from "./job-step-result.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -40,28 +40,14 @@ const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@
 export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   args: CommandsNewHandlerArgs,
 ) {
-  const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
 
   yield* renderer.info("axm commands new");
 
-  // 1. Resolve profile
+  // 1. Resolve owner
   const owner = Option.isSome(args.profile)
     ? normalizeOwner(args.profile.value)
-    : yield* ws.getConfiguredProfile().pipe(
-        Effect.flatMap((s) =>
-          s === "@community"
-            ? Effect.fail(
-                makeAppError({
-                  code: "NAMESPACE_REQUIRED",
-                  what: "No profile configured for command creation",
-                  howToFix:
-                    "Configure a profile in settings.json with `axm setup`, or use --profile",
-                }),
-              )
-            : Effect.succeed(s),
-        ),
-      );
+    : yield* resolveOwnerForNewContent("command creation");
 
   // 2. Validate name
   if (
@@ -166,7 +152,7 @@ export const newCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("commands new")),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("commands new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new command"),

@@ -335,76 +335,16 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("getConfiguredProfile", () => {
-    it.effect("returns project owner when configured", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          profile: "@myorg",
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const owner = yield* ws.getConfiguredProfile();
-
-        expect(owner).toBe("@myorg");
-      }),
-    );
-
-    it.effect("returns global owner when project owner not configured", () =>
-      Effect.gen(function* () {
-        // Project has no owner
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-        });
-        // Global has owner
-        writeSettingsTo(homeDir, {
-          profile: "@globalorg",
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const owner = yield* ws.getConfiguredProfile();
-
-        expect(owner).toBe("@globalorg");
-      }),
-    );
-
-    it.effect("rejects bare owner in settings", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          profile: "myorg",
-        });
-
-        const error = getAppError(yield* getService(defaultOptions).pipe(Effect.flip));
-        expect(error.code).toBe("SETTINGS_PARSE_FAILED");
-      }),
-    );
-
-    it.effect("returns @community when no owner configured anywhere", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-        });
-        // No user-scope settings (readSettingsSafe returns defaults)
-
-        const ws = yield* getService(defaultOptions);
-        const owner = yield* ws.getConfiguredProfile();
-
-        expect(owner).toBe("@community");
-      }),
-    );
-  });
-
-  describe("getDefaultProfile", () => {
+  describe("getConfiguredOwner", () => {
     it.effect("returns Option.some with project owner when configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          profile: "@myorg",
+          owner: "@myorg",
         });
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getDefaultProfile();
+        const result = yield* ws.getConfiguredOwner();
 
         expect(Option.isSome(result)).toBe(true);
         expect(Option.getOrThrow(result)).toBe("@myorg");
@@ -417,11 +357,11 @@ describe("WorkspaceMutationsService", () => {
           agents: ["claude-code"],
         });
         writeSettingsTo(homeDir, {
-          profile: "@globalorg",
+          owner: "@globalorg",
         });
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getDefaultProfile();
+        const result = yield* ws.getConfiguredOwner();
 
         expect(Option.isSome(result)).toBe(true);
         expect(Option.getOrThrow(result)).toBe("@globalorg");
@@ -435,7 +375,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getDefaultProfile();
+        const result = yield* ws.getConfiguredOwner();
 
         expect(Option.isNone(result)).toBe(true);
       }),
@@ -445,7 +385,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          profile: "myorg",
+          owner: "myorg",
         });
 
         const error = getAppError(yield* getService(defaultOptions).pipe(Effect.flip));

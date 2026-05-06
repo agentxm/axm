@@ -51,7 +51,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      profile: "@test",
+      owner: "@test",
       agents: ["claude-code"],
       sources: sources ?? [
         { name: "local", type: "registry", location: new URL(`file://${registryRoot}`) },
@@ -279,7 +279,7 @@ describe("subagents-publish.handler", () => {
   });
 
   describe("bare name owner resolution", () => {
-    it.effect("resolves bare name using owner from settings", () => {
+    it.effect("resolves bare name from installed subagent settings entry", () => {
       const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -289,7 +289,14 @@ describe("subagents-publish.handler", () => {
         agents: ["claude-code"],
       });
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          researcher: "@test/subagents/researcher",
+        },
+      );
 
       return provide(
         Effect.gen(function* () {
@@ -440,41 +447,50 @@ describe("subagents-publish.handler", () => {
       });
 
       const now = new Date().toISOString();
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        "research-code": {
-          type: "registry",
-          owner: "@test",
-          name: "research-code",
-          resolvedVersion: "1.0.0",
-          integrity: "sha384-test",
-          sourceName: "local",
-          agents: ["claude-code"],
-          installedAt: now,
-          updatedAt: now,
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {
+          "research-code": {
+            type: "registry",
+            owner: "@test",
+            name: "research-code",
+            resolvedVersion: "1.0.0",
+            integrity: "sha384-test",
+            sourceName: "local",
+            agents: ["claude-code"],
+            installedAt: now,
+            updatedAt: now,
+          },
+          "research-docs": {
+            type: "registry",
+            owner: "@test",
+            name: "research-docs",
+            resolvedVersion: "1.0.0",
+            integrity: "sha384-test",
+            sourceName: "local",
+            agents: ["claude-code"],
+            installedAt: now,
+            updatedAt: now,
+          },
+          summarizer: {
+            type: "registry",
+            owner: "@test",
+            name: "summarizer",
+            resolvedVersion: "1.0.0",
+            integrity: "sha384-test",
+            sourceName: "local",
+            agents: ["claude-code"],
+            installedAt: now,
+            updatedAt: now,
+          },
         },
-        "research-docs": {
-          type: "registry",
-          owner: "@test",
-          name: "research-docs",
-          resolvedVersion: "1.0.0",
-          integrity: "sha384-test",
-          sourceName: "local",
-          agents: ["claude-code"],
-          installedAt: now,
-          updatedAt: now,
+        {
+          "research-code": "@test/subagents/research-code",
+          "research-docs": "@test/subagents/research-docs",
+          summarizer: "@test/subagents/summarizer",
         },
-        summarizer: {
-          type: "registry",
-          owner: "@test",
-          name: "summarizer",
-          resolvedVersion: "1.0.0",
-          integrity: "sha384-test",
-          sourceName: "local",
-          agents: ["claude-code"],
-          installedAt: now,
-          updatedAt: now,
-        },
-      });
+      );
 
       return provide(
         Effect.gen(function* () {

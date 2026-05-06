@@ -30,29 +30,29 @@ describe("Settings schema", () => {
       expect(result).toEqual({});
     });
 
-    it("accepts settings with profile", () => {
-      const input = { profile: "@myorg" };
+    it("accepts settings with owner", () => {
+      const input = { owner: "@myorg" };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.profile).toBe("@myorg");
+      expect(result.owner).toBe("@myorg");
     });
 
-    it("rejects bare profile values without @", () => {
-      const input = { profile: "myorg" };
+    it("rejects bare owner values without @", () => {
+      const input = { owner: "myorg" };
 
       expect(() => Schema.decodeUnknownSync(SettingsSchema)(input)).toThrow();
     });
 
     it("accepts settings with all fields", () => {
       const input = {
-        profile: "@wayne",
+        owner: "@wayne",
         sources: [{ name: "github", type: "github", url: "https://github.com" }],
         agents: ["claude-code", "cursor"],
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.profile).toBe("@wayne");
+      expect(result.owner).toBe("@wayne");
       expect(result.agents).toEqual(["claude-code", "cursor"]);
       expect(result.skills).toEqual({
         "grappling-hook": {
@@ -1013,7 +1013,7 @@ describe("Settings schema", () => {
   describe("complete settings example", () => {
     it("accepts complete Wayne Enterprises settings with array source format", () => {
       const input = {
-        profile: "@wayne",
+        owner: "@wayne",
         sources: [
           { name: "github", type: "github", url: "https://github.wayne.com" },
           { name: "gitlab", type: "gitlab", url: "https://gitlab.wayne.com" },
@@ -1046,7 +1046,7 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.profile).toBe("@wayne");
+      expect(result.owner).toBe("@wayne");
       expect(result.agents?.length).toBe(3);
       expect(result.sources).toHaveLength(4);
       expect(Object.keys(result.skills ?? {}).length).toBe(3);

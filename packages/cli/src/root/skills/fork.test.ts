@@ -13,7 +13,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { AuthGuardInteractionTest, RegistryUrl } from "@agentxm/client-core/unstable/auth";
+import {
+  AuthGuardInteractionTest,
+  CredentialStoreTest,
+  RegistryUrl,
+} from "@agentxm/client-core/unstable/auth";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
@@ -46,7 +50,7 @@ const initWorkspace = (
   fs.mkdirSync(axmDir, { recursive: true });
   fs.mkdirSync(registryRoot, { recursive: true });
   const settings: Record<string, unknown> = {
-    profile: "@test",
+    owner: "@test",
     agents: ["claude-code"],
     sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
   };
@@ -102,6 +106,7 @@ describe("fork.handler", () => {
       authGuardInteraction.layer,
       TestFlagsLayer(),
       Layer.succeed(RegistryUrl, "https://registry.example.com"),
+      CredentialStoreTest(),
     );
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",

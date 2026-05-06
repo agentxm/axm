@@ -33,6 +33,7 @@ const initWorkspace = (
   const configuredCommands = Object.keys(commands).length > 0 ? commands : undefined;
   writeWorkspaceFiles(axmDir, {
     agents,
+    owner: "@acme",
     commands: configuredCommands,
     lockfileCommands: Object.keys(lockfileCommands).length > 0 ? lockfileCommands : undefined,
   });

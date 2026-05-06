@@ -1,4 +1,4 @@
-# Contributing to axm
+# Contributing to AXM
 
 Thanks for your interest in contributing! This guide covers everything you need to get started.
 

@@ -1,8 +1,18 @@
-# axm
+# AXM
 
-Open agent extension manager for skills and more
+**A**gent e**X**tension **M**anager — open agent extension manager for skills
+and more.
 
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
+
+## Naming
+
+**AXM** is the official name of this CLI component — all caps, an acronym for
+**A**gent e**X**tension **M**anager. Use "AXM" in prose and headings. Use
+`axm` only in CLI command references (e.g., `axm install`), package names
+(`@agentxm/*`), filesystem paths, repo names, hostnames (`axm.sh`), and other
+code identifiers. This naming is distinct from the AgentXM.ai registry and
+other product surfaces.
 
 ## Values
 

@@ -1,4 +1,4 @@
-# Install axm
+# Install AXM
 
 **DONE WHEN:** `axm --version` succeeds and (if the user chose workspace setup)
 `axm setup` has completed.
@@ -23,18 +23,18 @@
 
 ---
 
-## What is axm
+## What is AXM
 
-axm is the open extension manager for AI coding agents — discover, install,
-publish, and manage skills, commands, subagents, MCP servers, and extension
-packs from a single CLI. [AgentXM.ai](https://agentxm.ai) is the extension
-registry axm connects to. An AgentXM.ai account is only required for
-publishing extensions or installing private extensions; public extensions
-install without an account.
+AXM (Agent eXtension Manager) is the open extension manager for AI coding
+agents — discover, install, publish, and manage skills, commands, subagents,
+MCP servers, and extension packs from a single CLI.
+[AgentXM.ai](https://agentxm.ai) is the extension registry AXM connects to.
+An AgentXM.ai account is only required for publishing extensions or
+installing private extensions; public extensions install without an account.
 
 ## Detect existing install
 
-Check whether axm is already on the machine. This is a **probe** — invoke
+Check whether AXM is already on the machine. This is a **probe** — invoke
 it so the shell exits 0 on either branch and the signal lives in stdout
 (see **Probe commands** under Invariants):
 
@@ -52,7 +52,7 @@ if (Get-Command axm -ErrorAction SilentlyContinue) { axm --version } else { "NOT
 
 Branch on the output:
 
-- **Prints `X.Y.Z`** → axm is installed. Upgrade and skip the Install section:
+- **Prints `X.Y.Z`** → AXM is installed. Upgrade and skip the Install section:
 
   ```bash
   axm upgrade
@@ -63,15 +63,15 @@ Branch on the output:
   run. If it prints a command, run it and re-run the probe above. Continue
   to **Verify** when done.
 
-- **Prints `NOT_INSTALLED`** → axm is not installed. Continue to **Install**.
+- **Prints `NOT_INSTALLED`** → AXM is not installed. Continue to **Install**.
 - **Prints anything else** → treat as not installed and reinstall via the
   Install section.
 
 ## Choose install method
 
-axm can be installed via a standalone binary script, Homebrew, or npm. Pick
+AXM can be installed via a standalone binary script, Homebrew, or npm. Pick
 based on what's already on the machine — don't install a new package manager
-just to install axm.
+just to install AXM.
 
 ### 1. Detect available package managers
 
@@ -107,13 +107,13 @@ fails, retry with Option A or B.
 
 ### 3. Ask the user when multiple managers are available
 
-All three options install the same axm binary. **The main difference is how
+All three options install the same `axm` binary. **The main difference is how
 you'll update it later.** Frame the choice that way when asking.
 
 **STOP HERE AND ASK THE USER:**
 
 > Multiple install methods are available on this machine. The main
-> difference is how you'll update axm later — pick the update path that
+> difference is how you'll update AXM later — pick the update path that
 > matches how you manage other tools.
 >
 > 1. **Install script** (recommended) — Updates via `axm upgrade`
@@ -124,7 +124,7 @@ you'll update it later.** Frame the choice that way when asking.
 >    your other brew packages. Choose this if you already manage most CLIs
 >    with brew.
 > 3. **npm** — Updates via `npm update -g axm.sh`, alongside your other
->    global npm packages. Choose this if axm is part of a Node.js-heavy
+>    global npm packages. Choose this if AXM is part of a Node.js-heavy
 >    environment. Requires Node.js.
 
 Wait for the user's response before continuing. Then run the corresponding
@@ -233,7 +233,7 @@ until the user has explicitly chosen one of the two options below.**
 
 **STOP HERE AND ASK THE USER:**
 
-> axm is installed. Before setting up the project workspace, would you like
+> AXM is installed. Before setting up the project workspace, would you like
 > to sign in to AgentXM.ai? Signing in is only needed if you plan to
 > publish extensions or install private extensions — public extensions
 > install without an account.
@@ -261,7 +261,7 @@ You cannot create an account for the user. Hand off:
 
 1. Tell the user to open https://agentxm.ai/signup and create an account —
    explain that this sets up the AgentXM.ai account that `axm login` will
-   later authenticate against, and that axm can't create the account
+   later authenticate against, and that AXM can't create the account
    because signup happens through the web.
 2. Wait for the user to confirm signup is complete.
 3. Continue to **Log in** below.
@@ -276,10 +276,10 @@ Offer both paths and let the user pick:
 
 - **Interactive (recommended):** ask the user to run `axm login` in their
   terminal. Tell them this opens a browser for a one-time OAuth device
-  flow; axm can't run it on their behalf because the browser step requires
+  flow; AXM can't run it on their behalf because the browser step requires
   them to be present.
 - **Non-interactive:** ask the user to export `AXM_TOKEN` in the
-  environment where axm will run. Explain that `AXM_TOKEN` is a
+  environment where AXM will run. Explain that `AXM_TOKEN` is a
   pre-generated credential that skips the browser step; you must not
   paste a token the user has not shared with you.
 
@@ -305,7 +305,7 @@ axm setup --yes
 ```
 
 Once it succeeds, load the two pre-req help topics before doing any other
-axm work in this session — they cover what `axm setup` produced and the
+AXM work in this session — they cover what `axm setup` produced and the
 files an agent must understand before changing workspace state:
 
 ```bash

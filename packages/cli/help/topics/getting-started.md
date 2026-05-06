@@ -1,14 +1,14 @@
 # Getting started
 
-Use this when the current workspace has never been managed by axm before. It
+Use this when the current workspace has never been managed by AXM before. It
 walks through first-time setup. Once `.axm/` exists, switch to
 `axm help basic-usage`.
 
-axm manages agent extensions for a workspace: skills, commands, MCP servers,
+AXM manages agent extensions for a workspace: skills, commands, MCP servers,
 subagents, and packs. A workspace is the project (or user) directory whose
-extensions axm tracks.
+extensions AXM tracks.
 
-## Confirm axm is installed
+## Confirm AXM is installed
 
 ```bash
 axm --version
@@ -20,7 +20,7 @@ before continuing. Do not invent a runner fallback such as `bunx`, `pnpx`, or
 
 ## Initialize the workspace
 
-Run setup in the project you want axm to manage:
+Run setup in the project you want AXM to manage:
 
 ```bash
 axm setup
@@ -31,7 +31,7 @@ records workspace settings, and writes the resolution lockfile. Read
 `axm help basic-usage` to learn what those files do and which ones must be
 checked in.
 
-For non-interactive environments, pass `--yes`. To pin which agents axm
+For non-interactive environments, pass `--yes`. To pin which agents AXM
 configures, pass one or more `--agent <id>` flags instead of relying on
 auto-detection.
 

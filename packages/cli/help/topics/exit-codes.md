@@ -1,6 +1,6 @@
 # Exit codes
 
-axm uses stable process exit codes so scripts can distinguish success, usage
+AXM uses stable process exit codes so scripts can distinguish success, usage
 errors, runtime errors, and signal termination.
 
 | Code | Meaning                                                 |

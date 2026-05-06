@@ -31,7 +31,7 @@ An `authored: true` flag in the settings entry for an extension indicates that i
 ## Where to go next
 
 - `axm help getting-started` — first-time setup for a workspace that has
-  never used axm.
+  never used AXM.
 - `axm help skills` — working with skills
 - `axm help exit-codes` — process exit codes and their meaning.
 - `axm <command> --help` — flags and examples for any command.

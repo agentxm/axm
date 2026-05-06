@@ -140,9 +140,9 @@ invocation. Advisory is the escape hatch, not a consolation prize.
       Operation vocabulary (`install-*`, `uninstall-*`, `enable-*`,
       `disable-*`); no `editFile` / `writeFile` / `deleteFile` / byte-range
       mutations
-- [ ] **axm-owned target** — Fix touches only state axm manages (lockfile,
+- [ ] **AXM-owned target** — Fix touches only state AXM manages (lockfile,
       `.axm/extensions/.../src/` trees, per-agent artifact dirs,
-      axm-owned settings keys) — never `SKILL.md`, `skill.json`, hand-edited
+      AXM-owned settings keys) — never `SKILL.md`, `skill.json`, hand-edited
       settings, `CLAUDE.md`, or `AGENTS.md`
 - [ ] **Single mechanical resolution** — Exactly one correct action; two-or-more
       viable paths ⇒ `AdvisoryFinding` whose `message` enumerates each

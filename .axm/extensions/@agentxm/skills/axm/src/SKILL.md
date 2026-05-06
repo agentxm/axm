@@ -1,9 +1,9 @@
 ---
 name: axm
 description: |
-  Manage AI agent extensions via the axm CLI. Set up workspaces, install,
+  Manage AI agent extensions via the AXM CLI. Set up workspaces, install,
   update, publish, and manage skills, commands, MCP servers, subagents,
-  and extension packs. Use for ANY axm or AgentXM question or action.
+  and extension packs. Use for ANY AXM or AgentXM question or action.
 cli-version-audited: "0.4.5"
 triggers:
   # Direct invocations
@@ -48,7 +48,7 @@ invocable: true
 argument-hint: "[action] [args...]"
 ---
 
-# axm
+# AXM
 
 ## Agent Invariants
 
@@ -121,10 +121,10 @@ argument-hint: "[action] [args...]"
   and examples. Run before invoking an unfamiliar command.
 - **`axm help <topic>`** — source of truth for pre-req knowledge and
   high-judgment workflows that don't fit per-command help:
-  - `axm help basic-usage` — required reading before any axm work in a
+  - `axm help basic-usage` — required reading before any AXM work in a
     session: workspace layout, key files, commit policy, safe-action rules.
   - `axm help getting-started` — first-time setup for workspaces that have
-    never used axm.
+    never used AXM.
   - `axm help exit-codes` — process exit codes and JSON error shape.
 
   Run `axm help` (no args) to see the full topic index.

@@ -11,10 +11,10 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/agentxm/axm/ci.yml?branch=main&label=CI)](https://github.com/agentxm/axm/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agentxm/axm/blob/main/LICENSE)
 
-# axm CLI — Extension manager for coding agents and AI assistants
+# AXM — Extension manager for coding agents and AI assistants
 
 > [!WARNING]
-> axm is in **early alpha** testing. Capabilities and APIs may change. To be
+> AXM is in **early alpha** testing. Capabilities and APIs may change. To be
 > included in the test user group, reach out to
 > [hello@agentxm.ai](mailto:hello@agentxm.ai).
 
@@ -29,10 +29,10 @@
 
 ## Installation
 
-**Ask your agent to install axm:**
+**Ask your agent to install AXM:**
 
 ```
-Follow these install instructions to set up axm: https://axm.sh/install.md
+Follow these install instructions to set up AXM: https://axm.sh/install.md
 ```
 
 **macOS / Linux:**
@@ -67,7 +67,7 @@ npx axm.sh --version
 
 ## Getting started
 
-Initialize axm in your project. axm detects your installed agents and creates
+Initialize AXM in your project. AXM detects your installed agents and creates
 an `.axm/` workspace to manage extensions across all of them.
 
 ```bash
@@ -80,7 +80,7 @@ See what's recommended for your project:
 axm discover
 ```
 
-Install an extension and axm wires it into every agent in your workspace:
+Install an extension and AXM wires it into every agent in your workspace:
 
 ```bash
 axm install @acme/skills/code-review
@@ -185,7 +185,7 @@ axm token                   # Print the current token (for scripting)
 
 ## Supported agents
 
-axm supports nearly 40 agents — Claude Code, Codex, Cursor,
+AXM supports nearly 40 agents — Claude Code, Codex, Cursor,
 Gemini CLI, GitHub Copilot, OpenCode, Windsurf, Cline, Continue, Roo, Goose,
 and more. If your agent isn't there,
 [open an issue](https://github.com/agentxm/axm/issues) and we'll add it.

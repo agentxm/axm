@@ -33,6 +33,7 @@ import {
   emitPlanResolutionResult,
   planResolutionToSummary,
 } from "../../json-output.js";
+import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { toJobStepResult } from "./job-step-result.js";
 
@@ -277,6 +278,24 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
         });
       }),
     { successMessage: `Validated ${extensionNames.length} extension(s)` },
+  );
+
+  yield* renderer.withSpinner(
+    "Checking published versions...",
+    () =>
+      Effect.forEach(
+        extensionNames,
+        (extName) =>
+          checkPublishVersionPreflight({
+            fqn: extName,
+            type: "command",
+            registryName: targetRegistry.registryName,
+            registryUrl: targetRegistry.registryUrl,
+            force: args.force,
+          }),
+        { concurrency: "unbounded" },
+      ),
+    { successMessage: "Version check complete" },
   );
 
   // Step 4: Build multi-step plan with inline run closures

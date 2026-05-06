@@ -8,6 +8,7 @@ import { disableCommand } from "./disable.js";
 import { updateCommand } from "./update.js";
 import { newCommand } from "./new.js";
 import { publishCommand } from "./publish.js";
+import { commandsVersionCommand } from "../shared/version-command.js";
 
 export const commandsCommand = Command.make("commands").pipe(
   Command.withDescription("Manage commands"),
@@ -36,6 +37,10 @@ export const commandsCommand = Command.make("commands").pipe(
       command: "axm commands publish @acme/commands/my-cmd",
       description: "Publish a command to a registry",
     },
+    {
+      command: "axm commands version @acme/commands/my-cmd patch",
+      description: "Bump a command version",
+    },
   ]),
   Command.withSubcommands([
     installCommand,
@@ -45,6 +50,7 @@ export const commandsCommand = Command.make("commands").pipe(
     disableCommand,
     updateCommand,
     newCommand,
+    commandsVersionCommand,
     publishCommand,
   ]),
 );

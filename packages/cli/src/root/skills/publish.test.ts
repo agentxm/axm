@@ -662,6 +662,7 @@ describe("publish.handler", () => {
           const result = yield* handlePublish(
             defaultArgs(["@test/skills/effect-basics"], {
               registry: Option.some("local-registry"),
+              force: true,
             }),
           ).pipe(
             Effect.as({ error: false as const }),

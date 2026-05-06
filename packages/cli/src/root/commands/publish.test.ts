@@ -23,6 +23,7 @@ import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/wo
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
   getErrorResult,
+  getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
@@ -88,6 +89,26 @@ const createManagedCommandExtension = (
     `---\nname: "${name}"\ndescription: "A test command"\n---\n\n# ${name}\n`,
   );
   return extDir;
+};
+
+const writeRegistryCommandIndex = (registryRoot: string, name: string, version: string) => {
+  const dir = path.join(registryRoot, "extensions", "@test", "commands", name);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "index.json"),
+    JSON.stringify({
+      owner: "@test",
+      type: "command",
+      name,
+      versions: [
+        {
+          version,
+          published: "2026-01-01T00:00:00.000Z",
+          integrity: "sha512-existing",
+        },
+      ],
+    }),
+  );
 };
 
 const defaultArgs = (
@@ -200,6 +221,57 @@ describe("commands-publish.handler", () => {
             "index.json",
           );
           expect(fs.existsSync(registryIndexPath)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("refuses publish when local version is not greater than registry latest", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedCommandExtension(tempDir, "@test", "stale-cmd", {
+        name: "@test/commands/stale-cmd",
+        version: "1.0.0",
+      });
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+      writeRegistryCommandIndex(registryRoot, "stale-cmd", "1.0.0");
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleCommandsPublish(
+            defaultArgs(["@test/commands/stale-cmd"], { registry: Option.some("local") }),
+          ).pipe(Effect.flip);
+
+          const error = getAppError(result);
+          expect(error.what).toContain("local version 1.0.0 is not greater");
+          expect(Option.getOrThrow(error.howToFix)).toContain(
+            "axm commands version @test/commands/stale-cmd patch",
+          );
+        }),
+      );
+    });
+
+    it.effect("allows stale publish when force is set", () => {
+      const { provide, logs } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedCommandExtension(tempDir, "@test", "forced-cmd", {
+        name: "@test/commands/forced-cmd",
+        version: "1.0.0",
+      });
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+      writeRegistryCommandIndex(registryRoot, "forced-cmd", "2.0.0");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleCommandsPublish(
+            defaultArgs(["@test/commands/forced-cmd"], {
+              registry: Option.some("local"),
+              force: true,
+            }),
+          );
+
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
     });

@@ -128,7 +128,9 @@ export const newExtensionPack: OperationHandler<
       ),
     );
 
-    // 5. Register in settings (best-effort: directory/manifest already on disk)
+    // 5. Register in settings (best-effort: directory/manifest already on disk).
+    // Mark authored first so the subsequent setExtensionPack preserves the flag.
+    yield* ws.setExtensionPackEntry(name, { source: fqn, authored: true }).pipe(Effect.ignore);
     const now = new Date();
     yield* ws
       .setExtensionPack({

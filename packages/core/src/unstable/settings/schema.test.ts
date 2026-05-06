@@ -55,7 +55,11 @@ describe("Settings schema", () => {
       expect(result.profile).toBe("@wayne");
       expect(result.agents).toEqual(["claude-code", "cursor"]);
       expect(result.skills).toEqual({
-        "grappling-hook": { source: "@wayne/skills/grappling-hook@^1.0.0", enabled: true },
+        "grappling-hook": {
+          source: "@wayne/skills/grappling-hook@^1.0.0",
+          enabled: true,
+          authored: false,
+        },
       });
     });
   });
@@ -400,7 +404,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({
-        "my-skill": { source: "@acme/skills/my-skill@^1.0.0", enabled: true },
+        "my-skill": { source: "@acme/skills/my-skill@^1.0.0", enabled: true, authored: false },
       });
     });
 
@@ -416,6 +420,7 @@ describe("Settings schema", () => {
         "grappling-hook": {
           source: "github:wayne-industries/skills/grappling-hook",
           enabled: true,
+          authored: false,
         },
       });
     });
@@ -429,7 +434,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({
-        "dev-skill": { source: "local:./my-skills/dev-skill", enabled: true },
+        "dev-skill": { source: "local:./my-skills/dev-skill", enabled: true, authored: false },
       });
     });
 
@@ -446,14 +451,17 @@ describe("Settings schema", () => {
       expect(result.skills?.["registry-skill"]).toEqual({
         source: "@wayne/skills/registry-skill@^1.0.0",
         enabled: true,
+        authored: false,
       });
       expect(result.skills?.["github-skill"]).toEqual({
         source: "github:wayne-industries/skills#main",
         enabled: true,
+        authored: false,
       });
       expect(result.skills?.["local-skill"]).toEqual({
         source: "local:./dev/local-skill",
         enabled: true,
+        authored: false,
       });
     });
 
@@ -473,7 +481,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        commit: { source: "@wayne/skills/commit@^1.0.0", enabled: true },
+        commit: { source: "@wayne/skills/commit@^1.0.0", enabled: true, authored: false },
       });
     });
 
@@ -482,7 +490,11 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        "my-extension": { source: "@wayne/skills/my-extension@^1.0.0", enabled: true },
+        "my-extension": {
+          source: "@wayne/skills/my-extension@^1.0.0",
+          enabled: true,
+          authored: false,
+        },
       });
     });
 
@@ -491,7 +503,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        skill123: { source: "@wayne/skills/skill123@^1.0.0", enabled: true },
+        skill123: { source: "@wayne/skills/skill123@^1.0.0", enabled: true, authored: false },
       });
     });
 
@@ -499,7 +511,9 @@ describe("Settings schema", () => {
       const input = { a: "@wayne/skills/a@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ a: { source: "@wayne/skills/a@^1.0.0", enabled: true } });
+      expect(result).toEqual({
+        a: { source: "@wayne/skills/a@^1.0.0", enabled: true, authored: false },
+      });
     });
 
     it("accepts 64 character skill name (max length)", () => {
@@ -508,7 +522,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        [name]: { source: "@wayne/skills/skill@^1.0.0", enabled: true },
+        [name]: { source: "@wayne/skills/skill@^1.0.0", enabled: true, authored: false },
       });
     });
 
@@ -558,7 +572,11 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.commands).toEqual({
-        "batcomputer-sync": { source: "@wayne/commands/batcomputer-sync", enabled: true },
+        "batcomputer-sync": {
+          source: "@wayne/commands/batcomputer-sync",
+          enabled: true,
+          authored: false,
+        },
       });
     });
 
@@ -569,7 +587,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
       });
     });
 
@@ -580,7 +598,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
       });
     });
 
@@ -591,7 +609,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.mcpServers).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
       });
     });
 
@@ -605,16 +623,24 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({
-        "grappling-hook": { source: "@wayne/skills/grappling-hook@^1.0.0", enabled: true },
+        "grappling-hook": {
+          source: "@wayne/skills/grappling-hook@^1.0.0",
+          enabled: true,
+          authored: false,
+        },
       });
       expect(result.commands).toEqual({
-        "batcomputer-sync": { source: "@wayne/commands/batcomputer-sync", enabled: true },
+        "batcomputer-sync": {
+          source: "@wayne/commands/batcomputer-sync",
+          enabled: true,
+          authored: false,
+        },
       });
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
       });
       expect(result.mcpServers).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
       });
     });
 
@@ -632,30 +658,42 @@ describe("Settings schema", () => {
     it("accepts string entry", () => {
       const input = { deploy: "@acme/commands/deploy" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result).toEqual({ deploy: { source: "@acme/commands/deploy", enabled: true } });
+      expect(result).toEqual({
+        deploy: { source: "@acme/commands/deploy", enabled: true, authored: false },
+      });
     });
 
     it("accepts object entry with source", () => {
       const input = { deploy: { source: "@acme/commands/deploy" } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result["deploy"]).toEqual({ source: "@acme/commands/deploy", enabled: true });
+      expect(result["deploy"]).toEqual({
+        source: "@acme/commands/deploy",
+        enabled: true,
+        authored: false,
+      });
     });
 
     it("accepts object entry with source and enabled false", () => {
-      const input = { deploy: { source: "@acme/commands/deploy", enabled: false } };
+      const input = {
+        deploy: { source: "@acme/commands/deploy", enabled: false, authored: false },
+      };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result["deploy"]).toEqual({ source: "@acme/commands/deploy", enabled: false });
+      expect(result["deploy"]).toEqual({
+        source: "@acme/commands/deploy",
+        enabled: false,
+        authored: false,
+      });
     });
 
     it("accepts object entry with enabled defaulting to true", () => {
       const input = { deploy: { source: "@acme/commands/deploy" } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
       const entry = result["deploy"];
-      expect(entry).toEqual({ source: "@acme/commands/deploy", enabled: true });
+      expect(entry).toEqual({ source: "@acme/commands/deploy", enabled: true, authored: false });
     });
 
     it("rejects object entry without source", () => {
-      const input = { deploy: { enabled: true } };
+      const input = { deploy: { enabled: true, authored: false } };
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
   });
@@ -666,7 +704,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        commit: { source: "@wayne/commands/reference", enabled: true },
+        commit: { source: "@wayne/commands/reference", enabled: true, authored: false },
       });
     });
 
@@ -675,7 +713,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        "my-extension": { source: "@wayne/commands/reference", enabled: true },
+        "my-extension": { source: "@wayne/commands/reference", enabled: true, authored: false },
       });
     });
 
@@ -684,7 +722,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        skill123: { source: "@wayne/commands/reference", enabled: true },
+        skill123: { source: "@wayne/commands/reference", enabled: true, authored: false },
       });
     });
 
@@ -692,7 +730,9 @@ describe("Settings schema", () => {
       const input = { a: "@wayne/commands/reference" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
-      expect(result).toEqual({ a: { source: "@wayne/commands/reference", enabled: true } });
+      expect(result).toEqual({
+        a: { source: "@wayne/commands/reference", enabled: true, authored: false },
+      });
     });
 
     it("accepts 64 character command name (max length)", () => {
@@ -701,7 +741,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        [name]: { source: "@wayne/commands/reference", enabled: true },
+        [name]: { source: "@wayne/commands/reference", enabled: true, authored: false },
       });
     });
 
@@ -749,7 +789,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
       expect(result).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
       });
     });
 
@@ -758,7 +798,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
       expect(result).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
       });
     });
 
@@ -776,7 +816,10 @@ describe("Settings schema", () => {
           "@wayne/mcp-servers/batcomputer",
         );
 
-        expect(result).toEqual({ source: "@wayne/mcp-servers/batcomputer" });
+        expect(result).toEqual({
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: false,
+        });
       });
 
       it("decodes an object with source", () => {
@@ -784,7 +827,22 @@ describe("Settings schema", () => {
           source: "@wayne/mcp-servers/batcomputer",
         });
 
-        expect(result).toEqual({ source: "@wayne/mcp-servers/batcomputer" });
+        expect(result).toEqual({
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: false,
+        });
+      });
+
+      it("decodes an object with authored true", () => {
+        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: true,
+        });
+
+        expect(result).toEqual({
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: true,
+        });
       });
 
       it("rejects object without source", () => {
@@ -793,11 +851,23 @@ describe("Settings schema", () => {
     });
 
     describe("encode", () => {
-      it("encodes entry to string", () => {
+      it("encodes non-authored entry to string", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
           source: "@wayne/mcp-servers/batcomputer",
+          authored: false,
         });
         expect(result).toBe("@wayne/mcp-servers/batcomputer");
+      });
+
+      it("encodes authored entry to object", () => {
+        const result = Schema.encodeSync(McpServerEntrySchema)({
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: true,
+        });
+        expect(result).toEqual({
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: true,
+        });
       });
     });
   });
@@ -819,7 +889,10 @@ describe("Settings schema", () => {
           "@wayne/packs/utility-belt@^1.0.0",
         );
 
-        expect(result).toEqual({ source: "@wayne/packs/utility-belt@^1.0.0" });
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          authored: false,
+        });
       });
 
       it("decodes an object with source", () => {
@@ -827,7 +900,22 @@ describe("Settings schema", () => {
           source: "@wayne/packs/utility-belt@^1.0.0",
         });
 
-        expect(result).toEqual({ source: "@wayne/packs/utility-belt@^1.0.0" });
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          authored: false,
+        });
+      });
+
+      it("decodes an object with authored true", () => {
+        const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          authored: true,
+        });
+
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          authored: true,
+        });
       });
 
       it("rejects invalid object with managed field", () => {
@@ -846,11 +934,23 @@ describe("Settings schema", () => {
     });
 
     describe("encode", () => {
-      it("encodes entry to string", () => {
+      it("encodes non-authored entry to string", () => {
         const result = Schema.encodeSync(ExtensionPackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
+          authored: false,
         });
         expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
+      });
+
+      it("encodes authored entry to object", () => {
+        const result = Schema.encodeSync(ExtensionPackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          authored: true,
+        });
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          authored: true,
+        });
       });
     });
   });
@@ -871,7 +971,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
       });
     });
 
@@ -880,7 +980,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
       });
     });
 
@@ -953,14 +1053,17 @@ describe("Settings schema", () => {
       expect(result.skills?.["grappling-hook"]).toEqual({
         source: "@wayne/skills/grappling-hook@^1.0.0",
         enabled: true,
+        authored: false,
       });
       expect(result.skills?.["batarang"]).toEqual({
         source: "github:wayne-industries/gadgets/skills/batarang#main",
         enabled: true,
+        authored: false,
       });
       expect(result.skills?.["dev-gadget"]).toEqual({
         source: "local:./dev/gadgets/dev-gadget",
         enabled: true,
+        authored: false,
       });
     });
   });

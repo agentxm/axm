@@ -33,6 +33,7 @@ import type {
 } from "../lockfile/index.js";
 import type {
   CommandEntry,
+  ExtensionPackEntry,
   SkillEntry,
   SubagentEntry,
   SourceHostConfig,
@@ -358,6 +359,11 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<Option.Option<ExtensionPackLockEntry>, AppError>;
   /** Add or update a pack in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setExtensionPack: (args: SetExtensionPackArgs) => Effect.Effect<void, AppError>;
+  /** Create or overwrite a pack entry in settings only (no lockfile). Serialized by semaphore. */
+  readonly setExtensionPackEntry: (
+    name: string,
+    entry: ExtensionPackEntry,
+  ) => Effect.Effect<void, AppError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removeExtensionPack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */

@@ -50,6 +50,7 @@ import {
   type McpServersMap,
   type SkillEntry,
   type SubagentEntry,
+  type ExtensionPackEntry,
   type ExtensionPacksMap,
   type Settings,
   SETTINGS_FILENAME,
@@ -521,9 +522,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
+            const authored = currentSkills[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              skills: { ...currentSkills, [name]: { source, enabled: true } },
+              skills: { ...currentSkills, [name]: { source, enabled: true, authored } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -754,9 +756,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
+            const authored = currentPacks[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              packs: { ...currentPacks, [name]: { source } },
+              packs: { ...currentPacks, [name]: { source, authored } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -776,6 +779,19 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setExtensionPack")),
+
+      setExtensionPackEntry: (name: string, entry: ExtensionPackEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
+            const updatedSettings = {
+              ...currentSettings,
+              packs: { ...currentPacks, [name]: entry },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setExtensionPackEntry")),
 
       removeExtensionPack: (name: string) =>
         withMutex(
@@ -825,9 +841,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
+            const authored = currentCommands[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              commands: { ...currentCommands, [name]: { source, enabled: true } },
+              commands: { ...currentCommands, [name]: { source, enabled: true, authored } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -947,9 +964,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
+            const authored = currentSubagents[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              subagents: { ...currentSubagents, [name]: { source, enabled: true } },
+              subagents: { ...currentSubagents, [name]: { source, enabled: true, authored } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1096,9 +1114,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
+            const authored = currentMcpServers[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              mcpServers: { ...currentMcpServers, [name]: { source } },
+              mcpServers: { ...currentMcpServers, [name]: { source, authored } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 

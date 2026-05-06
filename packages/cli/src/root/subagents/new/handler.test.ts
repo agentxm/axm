@@ -140,7 +140,10 @@ describe("subagents-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.subagents).toBeDefined();
-          expect(settings.subagents["my-subagent"]).toBe("@acme/subagents/my-subagent");
+          expect(settings.subagents["my-subagent"]).toEqual({
+            source: "@acme/subagents/my-subagent",
+            authored: true,
+          });
 
           // Verify lockfile registration
           const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");

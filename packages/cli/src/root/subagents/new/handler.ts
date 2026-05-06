@@ -210,6 +210,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       yield* ws.setSubagentEntry(args.name, {
         source: fqn,
         enabled: true,
+        authored: true,
       });
 
       // Render to configured agents

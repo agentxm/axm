@@ -188,6 +188,7 @@ export const makeBaseWorkspaceMock = (
     getLockedExtensionPacks: () => Effect.succeed({}),
     getLockedExtensionPack: () => Effect.succeed(Option.none()),
     setExtensionPack: () => Effect.void,
+    setExtensionPackEntry: () => Effect.void,
     removeExtensionPack: () => Effect.void,
     getExtensionPackDir: () =>
       Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),

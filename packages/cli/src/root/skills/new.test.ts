@@ -121,7 +121,10 @@ describe("skills-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.skills).toBeDefined();
-          expect(settings.skills["my-skill"]).toBe("@acme/skills/my-skill");
+          expect(settings.skills["my-skill"]).toEqual({
+            source: "@acme/skills/my-skill",
+            authored: true,
+          });
 
           // Verify lockfile registration
           const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");

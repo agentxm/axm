@@ -106,7 +106,10 @@ describe("packs-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.packs).toBeDefined();
-          expect(settings.packs["frontend-tools"]).toBe("@acme/packs/frontend-tools");
+          expect(settings.packs["frontend-tools"]).toEqual({
+            source: "@acme/packs/frontend-tools",
+            authored: true,
+          });
 
           expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
         }),

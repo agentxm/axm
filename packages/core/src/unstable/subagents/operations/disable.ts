@@ -139,7 +139,11 @@ export const disableSubagent: OperationHandler<
           howToFix: "Provide a source when disabling this subagent",
         });
       }
-      yield* ws.setSubagentEntry(op.args.subagentName, { source, enabled: false });
+      yield* ws.setSubagentEntry(op.args.subagentName, {
+        source,
+        enabled: false,
+        authored: false,
+      });
     } else {
       // Configured subagent — toggle enabled flag
       yield* ws

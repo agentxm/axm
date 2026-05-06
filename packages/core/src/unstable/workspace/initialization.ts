@@ -44,7 +44,7 @@ const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 const allAgentDescriptors = (): ReadonlyArray<AgentDescriptor> => Object.values(AGENTS);
 
 const DEFAULT_SETUP_SKILLS = {
-  axm: { source: "@agentxm/skills/axm", enabled: true },
+  axm: { source: "@agentxm/skills/axm", enabled: true, authored: false },
 } as const satisfies NonNullable<Settings["skills"]>;
 
 const readSettingsFromReadModel = (

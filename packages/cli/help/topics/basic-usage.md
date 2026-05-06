@@ -1,107 +1,32 @@
 # Basic usage
 
-Read this before doing anything in an axm workspace. It is the pre-req
-knowledge that is not in any single `--help` page: what an axm workspace
-contains, which files are managed, what must be committed, and how to act
-without surprising the user. Per-command syntax lives in
-`axm <command> --help` — this topic does not duplicate it.
+AXM is an agent extension manager for coding agents and AI assistants. With one tool,
+you can manage agent skills, subagents, commands, and more across agents.
 
-If `.axm/` does not exist yet, read `axm help getting-started` first.
+- A common toolkit fo
+- Bundle skills, subagents, commands and more with extension packs
+- Discover and distribute agent extensions for your platform package ecosystems, including JavaScript, Python, Rust, Java, .NET, Ruby, Go, and more
 
-## What axm manages
+## How to use AXM
 
-axm is an extension manager for AI coding agents. Each workspace has:
+The best way to use AXM is just to ask your agent to do it:
 
-- **Configured extensions** — declared in workspace settings, resolved through
-  the registry, and vendored into `.axm/extensions/`.
-- **Unmanaged content** — agent files on disk that axm did not place
-  (hand-authored skills, files from another tool, files from a script). axm
-  detects them but does not own them.
-- **Agent discovery paths** — per-agent symlinks (for example
-  `.claude/skills/<name>`, `.codex/skills/<name>`) that axm materializes from
-  installed extensions so each agent finds what it expects.
+- "Create a new skill to do <x>"
+- "Update subagent to do <y>"
+- "Disable the doomscroll skill"
+- "Publish a new extension pack with my karate-shihan subagent, rei command, and nunchuck skill"
 
-`axm setup` produces this layout. `axm install`, `axm update`, `axm uninstall`,
-and `axm prune` change it. `axm lint` and `axm <type> list --json` describe it
-without changing it.
+Use `axm help` to see a list of topics on how to use AXM for your specific use case.
 
-## Key files
+You will need to have an AgentXM.ai account to publish extensions to the registry or install private extensions.
 
-| Path                                                    | Role                                                                                                                                                             |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.axm/settings.json`                                    | Workspace config: declared extensions, agents, registry settings, ignored patterns. The intent.                                                                  |
-| `axm-lock.yaml`                                         | Resolution lockfile: exact resolved versions, source URLs, integrity, plus install metadata (resolution timestamps, source kinds, registry origin). The receipt. |
-| `.axm/extensions/<owner>/<type>/<name>/`                | Vendored extension source: `skill.json`, `src/SKILL.md`, etc. The payload.                                                                                       |
-| `<agent-dir>/<type>/<name>` (e.g. `.claude/skills/foo`) | Agent discovery symlinks created by axm — never edit through them.                                                                                               |
-| `$AXM_USER_HOME/.axm/...` or `~/.axm/...`               | User-scope mirror of the same layout. Project scope wins on conflict.                                                                                            |
+## How AXM works
 
-User-scope settings, lockfile, and credentials apply across every project that
-runs axm on the machine. Pass `--scope user` on supported commands to operate
-on that scope.
+After running `axm setup`, AXM configures a workspace settings file at `.axm/settings.json`. Here the installed extensions (skills, subagents, etc.) will be listed, sometimes with extended metadata Operations will have an effect for any coding agent configured in `$.agents`. Extensions are typically referenced by their full name: `<@owner>/<skills|subagents...>/<name>` and vendored under `.axm/extensions/<@owner>/<type>/<name>`. Non-registry sourced extensions are vendored under `.axm/extensions/external/<type>/<name>`. `.axm` should not be ignored by source control. The `.axm/axm-lock.yaml` file serves to provide additional metadata about resolved metadata at install time.
 
-## Commit policy
+### Authoring Extensions
 
-**Do not add `.axm/` or `axm-lock.yaml` to `.gitignore`.** Both must be
-checked in.
-
-- `.axm/settings.json` is workspace configuration — collaborators and CI need
-  it to reproduce the same set of extensions.
-- `.axm/extensions/` is **vendored** extension source. Committing it means the
-  workspace works offline, in restricted CI, and at the exact code that was
-  reviewed. It also lets agents read installed skills directly without a
-  registry round-trip.
-- `axm-lock.yaml` records the resolution that produced the vendored tree —
-  versions, source kinds, registry origin, integrity, and timestamps. Even
-  though the extension source is vendored, the lockfile carries resolution
-  metadata that the extension files alone do not, and `axm update` /
-  `axm outdated` rely on it.
-
-The single thing to leave out is local credentials. `~/.config/axm/credentials.json`
-already lives outside any workspace. Use `AXM_TOKEN` in CI and shared
-environments — never check tokens into the repo.
-
-## How to act in an existing workspace
-
-1. **Look before changing.** Start with read-only commands:
-
-   ```bash
-   axm lint --json
-   axm skills list --json
-   axm outdated --json
-   ```
-
-   Treat `axm lint` as the workspace map — it tells you what is configured,
-   what is missing, what is stale, and what is unmanaged.
-
-2. **Discover the right command.** Use `axm --help` for the top-level surface
-   and `axm <command> --help` for flags. There is no `axm search` — use
-   `axm discover --json` for suggestions and `axm <type> list --json` for the
-   installed inventory.
-
-3. **Preview before any mutation.** `--preview` is supported on install,
-   update, uninstall, publish, prune, unpack, and any `--force` action. Run
-   it before the real command and inspect the plan.
-
-4. **Use `--yes` and `--json` in agent or CI sessions.** `--yes` skips the
-   confirmation prompt. `--json` makes output parseable. `--non-interactive`
-   disables prompts but does **not** imply `--yes`.
-
-5. **Sync, do not re-declare.** If configured extensions are missing, run
-   `axm install` (or `axm <type> install`) to materialize them. Do not edit
-   `settings.json` and `axm-lock.yaml` by hand to "fix" drift — let axm
-   resolve and write them.
-
-## Safety notes
-
-- axm owns every file under `.axm/extensions/` and every agent discovery
-  symlink it created. Do not hand-edit them — axm rewrites them on the next
-  run. Edit the source extension instead, or run `axm <type> fork <name>` to
-  get an editable local copy.
-- A successful command is not a license to commit. Review the diff (including
-  `axm-lock.yaml`) before committing so the change matches what you intended.
-- If a command prompts and you cannot answer it (background job, agent
-  session), cancel and re-run with `--yes` or `--non-interactive`. Do not
-  feed unrelated input into the prompt.
+An `authored: true` flag in the settings entry for an extension indicates that it is acceptable to make changes to the extension in the workspace. It does not need to be forked or copied prior to modification. This should be set to true for any workspace where you anticpate making and publishing changes for an extension.
 
 ## Where to go next
 

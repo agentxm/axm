@@ -217,6 +217,7 @@ export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function*
             ws.setSubagentEntry(args.newName, {
               source: lockEntry.type === "local" ? lockEntry.path : "local",
               enabled: true,
+              authored: false,
             }),
           ),
         );

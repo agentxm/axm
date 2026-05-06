@@ -164,7 +164,7 @@ export const disableSkill: OperationHandler<
           howToFix: "Provide a source when disabling this skill",
         });
       }
-      yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
+      yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false, authored: false });
     } else {
       // Configured skill — toggle enabled flag
       yield* ws

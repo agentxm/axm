@@ -6,7 +6,7 @@ describe("SkillEntrySchema", () => {
   describe("decode", () => {
     it("decodes a plain string to normalized entry", () => {
       const result = Schema.decodeUnknownSync(SkillEntrySchema)("github:owner/repo");
-      expect(result).toEqual({ source: "github:owner/repo", enabled: true });
+      expect(result).toEqual({ source: "github:owner/repo", enabled: true, authored: false });
     });
 
     it("decodes an object with enabled false", () => {
@@ -14,14 +14,22 @@ describe("SkillEntrySchema", () => {
         source: "github:owner/repo",
         enabled: false,
       });
-      expect(result).toEqual({ source: "github:owner/repo", enabled: false });
+      expect(result).toEqual({ source: "github:owner/repo", enabled: false, authored: false });
     });
 
     it("decodes an object without enabled as enabled true", () => {
       const result = Schema.decodeUnknownSync(SkillEntrySchema)({
         source: "github:owner/repo",
       });
-      expect(result).toEqual({ source: "github:owner/repo", enabled: true });
+      expect(result).toEqual({ source: "github:owner/repo", enabled: true, authored: false });
+    });
+
+    it("decodes an object with authored true", () => {
+      const result = Schema.decodeUnknownSync(SkillEntrySchema)({
+        source: "github:owner/repo",
+        authored: true,
+      });
+      expect(result).toEqual({ source: "github:owner/repo", enabled: true, authored: true });
     });
 
     it("rejects { managed: false } (legacy unmanaged marker)", () => {
@@ -38,10 +46,11 @@ describe("SkillEntrySchema", () => {
   });
 
   describe("encode", () => {
-    it("encodes enabled entry to string", () => {
+    it("encodes enabled, non-authored entry to string", () => {
       const result = Schema.encodeSync(SkillEntrySchema)({
         source: "github:owner/repo",
         enabled: true,
+        authored: false,
       });
       expect(result).toBe("github:owner/repo");
     });
@@ -50,8 +59,27 @@ describe("SkillEntrySchema", () => {
       const result = Schema.encodeSync(SkillEntrySchema)({
         source: "github:owner/repo",
         enabled: false,
+        authored: false,
       });
       expect(result).toEqual({ source: "github:owner/repo", enabled: false });
+    });
+
+    it("encodes authored entry to object", () => {
+      const result = Schema.encodeSync(SkillEntrySchema)({
+        source: "github:owner/repo",
+        enabled: true,
+        authored: true,
+      });
+      expect(result).toEqual({ source: "github:owner/repo", authored: true });
+    });
+
+    it("encodes disabled authored entry to object with both fields", () => {
+      const result = Schema.encodeSync(SkillEntrySchema)({
+        source: "github:owner/repo",
+        enabled: false,
+        authored: true,
+      });
+      expect(result).toEqual({ source: "github:owner/repo", enabled: false, authored: true });
     });
   });
 });

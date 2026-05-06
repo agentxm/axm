@@ -17,7 +17,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, formatFqn, parseFqn } from "../../extensions/index.js";
 import type { SkillExtensionRef } from "../refs.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL } from "../manifest-schema.js";
 import { stripFileProtocol } from "../../utils/index.js";
@@ -119,6 +119,14 @@ export const copySkill: OperationHandler<
         }),
       ),
     );
+
+    // Mark the settings entry as authored. The subsequent install step calls
+    // setSkill, which preserves the authored flag.
+    yield* ws.setSkillEntry(fqn.name, {
+      source: formatFqn({ owner: fqn.owner, type: "skill", name: fqn.name }),
+      enabled: true,
+      authored: true,
+    });
 
     return {
       result: "success",

@@ -177,7 +177,7 @@ describe("fork.handler", () => {
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings).toMatchObject({
             skills: {
-              commit: "@test/skills/commit",
+              commit: { source: "@test/skills/commit", authored: true },
             },
           });
         }),

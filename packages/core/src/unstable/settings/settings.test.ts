@@ -64,7 +64,7 @@ describe("settings", () => {
         Effect.gen(function* () {
           // Provide settings with keys in reverse order
           const settings: Settings = {
-            skills: { commit: { source: "^1.0.0", enabled: true } },
+            skills: { commit: { source: "^1.0.0", enabled: true, authored: false } },
             agents: ["claude-code"],
             profile: handle("@acme"),
           };

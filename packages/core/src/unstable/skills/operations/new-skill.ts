@@ -160,6 +160,7 @@ export const newSkill: OperationHandler<
     yield* ws.setSkillEntry(name, {
       source: fqn,
       enabled: true,
+      authored: true,
     });
 
     // 7. Create agent symlinks (concurrent)

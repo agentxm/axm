@@ -99,7 +99,8 @@
       "type": "object",
       "properties": {
         "source": { "type": "string" },
-        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -117,7 +118,8 @@
       "type": "object",
       "properties": {
         "source": { "type": "string" },
-        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -133,7 +135,10 @@
     },
     "McpServerEntryObject": {
       "type": "object",
-      "properties": { "source": { "type": "string" } },
+      "properties": {
+        "source": { "type": "string" },
+        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+      },
       "required": ["source"],
       "additionalProperties": false,
       "title": "MCP Server Entry Object",
@@ -148,7 +153,10 @@
     },
     "ExtensionPackEntryObject": {
       "type": "object",
-      "properties": { "source": { "type": "string" } },
+      "properties": {
+        "source": { "type": "string" },
+        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+      },
       "required": ["source"],
       "additionalProperties": false,
       "title": "Extension Pack Entry Object",
@@ -165,7 +173,8 @@
       "type": "object",
       "properties": {
         "source": { "type": "string" },
-        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
       },
       "required": ["source"],
       "additionalProperties": false,

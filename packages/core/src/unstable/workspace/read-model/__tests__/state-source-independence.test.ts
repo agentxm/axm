@@ -119,6 +119,7 @@ describe("source independence (Decision 2)", () => {
       expect(value.skills?.["review-tool"]).toEqual({
         source: "github:owner/repo",
         enabled: true,
+        authored: false,
       });
 
       // Lockfile cell SHALL fail with `LockfileParseError` (deterministic

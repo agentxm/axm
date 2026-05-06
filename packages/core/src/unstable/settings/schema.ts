@@ -188,6 +188,7 @@ const validateNamedRecordKeys =
 export const SkillEntryObjectSchema = Schema.Struct({
   source: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "skill source is required" })),
   enabled: Schema.optional(Schema.Boolean),
+  authored: Schema.optional(Schema.Boolean),
 }).annotate({
   identifier: "SkillEntryObject",
   title: "Skill Entry Object",
@@ -195,10 +196,11 @@ export const SkillEntryObjectSchema = Schema.Struct({
 });
 
 /**
- * Union of skill entry forms: plain source string or object with source + enabled.
+ * Union of skill entry forms: plain source string or object with source + enabled + authored.
  *
- * Decodes to canonical `{ source, enabled }` form; encodes back to the most
- * compact JSON representation (plain string when enabled, object when disabled).
+ * Decodes to canonical `{ source, enabled, authored }` form; encodes back to
+ * the most compact JSON representation (plain string when enabled and not
+ * authored, object otherwise).
  *
  * The legacy unmanaged marker (`{ managed: false }`) is no longer supported.
  *
@@ -209,21 +211,39 @@ export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSch
     Schema.Struct({
       source: Schema.String,
       enabled: Schema.Boolean,
+      authored: Schema.Boolean,
     }).annotate({
       identifier: "SkillEntry",
       title: "Skill Entry",
       description:
-        "A skill reference — either a source string like @owner/skills/name or an object with source and enabled.",
+        "A skill reference — either a source string like @owner/skills/name or an object with source, enabled, and authored.",
     }),
     SchemaTransformation.transform({
       decode: (entry) =>
         typeof entry === "string"
-          ? { source: entry, enabled: true }
-          : { source: entry.source, enabled: entry.enabled ?? true },
+          ? { source: entry, enabled: true, authored: false }
+          : {
+              source: entry.source,
+              enabled: entry.enabled ?? true,
+              authored: entry.authored ?? false,
+            },
       encode: (
         entry,
-      ): string | { readonly source: string; readonly enabled?: boolean | undefined } =>
-        entry.enabled ? entry.source : { source: entry.source, enabled: false },
+      ):
+        | string
+        | {
+            readonly source: string;
+            readonly enabled?: boolean | undefined;
+            readonly authored?: boolean | undefined;
+          } => {
+        if (entry.enabled && !entry.authored) return entry.source;
+        const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+          source: entry.source,
+        };
+        if (!entry.enabled) obj.enabled = false;
+        if (entry.authored) obj.authored = true;
+        return obj;
+      },
     }),
   ),
 );
@@ -272,6 +292,7 @@ export const CommandEntryObjectSchema = Schema.Struct({
     Schema.annotateKey({ messageMissingKey: "command source is required" }),
   ),
   enabled: Schema.optional(Schema.Boolean),
+  authored: Schema.optional(Schema.Boolean),
 }).annotate({
   identifier: "CommandEntryObject",
   title: "Command Entry Object",
@@ -279,10 +300,11 @@ export const CommandEntryObjectSchema = Schema.Struct({
 });
 
 /**
- * Union of command entry forms: plain source string or object with source + enabled.
+ * Union of command entry forms: plain source string or object with source + enabled + authored.
  *
- * Decodes to canonical `{ source, enabled }` form; encodes back to the most
- * compact JSON representation (plain string when enabled, object when disabled).
+ * Decodes to canonical `{ source, enabled, authored }` form; encodes back to
+ * the most compact JSON representation (plain string when enabled and not
+ * authored, object otherwise).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -291,21 +313,39 @@ export const CommandEntrySchema = Schema.Union([Schema.String, CommandEntryObjec
     Schema.Struct({
       source: Schema.String,
       enabled: Schema.Boolean,
+      authored: Schema.Boolean,
     }).annotate({
       identifier: "CommandEntry",
       title: "Command Entry",
       description:
-        "A command reference — either a source string like @owner/commands/name or an object with source and enabled.",
+        "A command reference — either a source string like @owner/commands/name or an object with source, enabled, and authored.",
     }),
     SchemaTransformation.transform({
       decode: (entry) =>
         typeof entry === "string"
-          ? { source: entry, enabled: true }
-          : { source: entry.source, enabled: entry.enabled ?? true },
+          ? { source: entry, enabled: true, authored: false }
+          : {
+              source: entry.source,
+              enabled: entry.enabled ?? true,
+              authored: entry.authored ?? false,
+            },
       encode: (
         entry,
-      ): string | { readonly source: string; readonly enabled?: boolean | undefined } =>
-        entry.enabled ? entry.source : { source: entry.source, enabled: false },
+      ):
+        | string
+        | {
+            readonly source: string;
+            readonly enabled?: boolean | undefined;
+            readonly authored?: boolean | undefined;
+          } => {
+        if (entry.enabled && !entry.authored) return entry.source;
+        const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+          source: entry.source,
+        };
+        if (!entry.enabled) obj.enabled = false;
+        if (entry.authored) obj.authored = true;
+        return obj;
+      },
     }),
   ),
 );
@@ -353,6 +393,7 @@ export const McpServerEntryObjectSchema = Schema.Struct({
   source: Schema.String.pipe(
     Schema.annotateKey({ messageMissingKey: "MCP server source is required" }),
   ),
+  authored: Schema.optional(Schema.Boolean),
 }).annotate({
   identifier: "McpServerEntryObject",
   title: "MCP Server Entry Object",
@@ -360,10 +401,10 @@ export const McpServerEntryObjectSchema = Schema.Struct({
 });
 
 /**
- * Union of MCP server entry forms: plain source string or object with source.
+ * Union of MCP server entry forms: plain source string or object with source + authored.
  *
- * Decodes to canonical `{ source }` form; encodes back to the most compact
- * JSON representation (plain string).
+ * Decodes to canonical `{ source, authored }` form; encodes back to the most
+ * compact JSON representation (plain string when not authored, object otherwise).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -371,15 +412,22 @@ export const McpServerEntrySchema = Schema.Union([Schema.String, McpServerEntryO
   Schema.decodeTo(
     Schema.Struct({
       source: Schema.String,
+      authored: Schema.Boolean,
     }).annotate({
       identifier: "McpServerEntry",
       title: "MCP Server Entry",
-      description: "An MCP server reference — either a source string or an object with source.",
+      description:
+        "An MCP server reference — either a source string or an object with source and authored.",
     }),
     SchemaTransformation.transform({
-      decode: (entry): { readonly source: string } =>
-        typeof entry === "string" ? { source: entry } : { source: entry.source },
-      encode: (entry): string | { readonly source: string } => entry.source,
+      decode: (entry): { readonly source: string; readonly authored: boolean } =>
+        typeof entry === "string"
+          ? { source: entry, authored: false }
+          : { source: entry.source, authored: entry.authored ?? false },
+      encode: (
+        entry,
+      ): string | { readonly source: string; readonly authored?: boolean | undefined } =>
+        entry.authored ? { source: entry.source, authored: true } : entry.source,
     }),
   ),
 );
@@ -427,6 +475,7 @@ export const SubagentEntryObjectSchema = Schema.Struct({
     Schema.annotateKey({ messageMissingKey: "subagent source is required" }),
   ),
   enabled: Schema.optional(Schema.Boolean),
+  authored: Schema.optional(Schema.Boolean),
 }).annotate({
   identifier: "SubagentEntryObject",
   title: "Subagent Entry Object",
@@ -434,10 +483,11 @@ export const SubagentEntryObjectSchema = Schema.Struct({
 });
 
 /**
- * Union of subagent entry forms: plain source string or object with source + enabled.
+ * Union of subagent entry forms: plain source string or object with source + enabled + authored.
  *
- * Decodes to canonical `{ source, enabled }` form; encodes back to the most
- * compact JSON representation (plain string when enabled, object when disabled).
+ * Decodes to canonical `{ source, enabled, authored }` form; encodes back to
+ * the most compact JSON representation (plain string when enabled and not
+ * authored, object otherwise).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -446,21 +496,39 @@ export const SubagentEntrySchema = Schema.Union([Schema.String, SubagentEntryObj
     Schema.Struct({
       source: Schema.String,
       enabled: Schema.Boolean,
+      authored: Schema.Boolean,
     }).annotate({
       identifier: "SubagentEntry",
       title: "Subagent Entry",
       description:
-        "A subagent reference — either a source string like @owner/subagents/name or an object with source and enabled.",
+        "A subagent reference — either a source string like @owner/subagents/name or an object with source, enabled, and authored.",
     }),
     SchemaTransformation.transform({
       decode: (entry) =>
         typeof entry === "string"
-          ? { source: entry, enabled: true }
-          : { source: entry.source, enabled: entry.enabled ?? true },
+          ? { source: entry, enabled: true, authored: false }
+          : {
+              source: entry.source,
+              enabled: entry.enabled ?? true,
+              authored: entry.authored ?? false,
+            },
       encode: (
         entry,
-      ): string | { readonly source: string; readonly enabled?: boolean | undefined } =>
-        entry.enabled ? entry.source : { source: entry.source, enabled: false },
+      ):
+        | string
+        | {
+            readonly source: string;
+            readonly enabled?: boolean | undefined;
+            readonly authored?: boolean | undefined;
+          } => {
+        if (entry.enabled && !entry.authored) return entry.source;
+        const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+          source: entry.source,
+        };
+        if (!entry.enabled) obj.enabled = false;
+        if (entry.authored) obj.authored = true;
+        return obj;
+      },
     }),
   ),
 );
@@ -512,6 +580,7 @@ export const ExtensionPackEntryObjectSchema = Schema.Struct({
   source: Schema.String.pipe(
     Schema.annotateKey({ messageMissingKey: "extension pack source is required" }),
   ),
+  authored: Schema.optional(Schema.Boolean),
 }).annotate({
   identifier: "ExtensionPackEntryObject",
   title: "Extension Pack Entry Object",
@@ -519,10 +588,10 @@ export const ExtensionPackEntryObjectSchema = Schema.Struct({
 });
 
 /**
- * Union of pack entry forms: plain source string or object with source.
+ * Union of pack entry forms: plain source string or object with source + authored.
  *
- * Decodes to canonical `{ source }` form; encodes back to the most compact
- * JSON representation (plain string).
+ * Decodes to canonical `{ source, authored }` form; encodes back to the most
+ * compact JSON representation (plain string when not authored, object otherwise).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -533,15 +602,22 @@ export const ExtensionPackEntrySchema = Schema.Union([
   Schema.decodeTo(
     Schema.Struct({
       source: Schema.String,
+      authored: Schema.Boolean,
     }).annotate({
       identifier: "ExtensionPackEntry",
       title: "Extension Pack Entry",
-      description: "An extension pack reference — either a source string or an object with source.",
+      description:
+        "An extension pack reference — either a source string or an object with source and authored.",
     }),
     SchemaTransformation.transform({
-      decode: (entry): { readonly source: string } =>
-        typeof entry === "string" ? { source: entry } : { source: entry.source },
-      encode: (entry): string | { readonly source: string } => entry.source,
+      decode: (entry): { readonly source: string; readonly authored: boolean } =>
+        typeof entry === "string"
+          ? { source: entry, authored: false }
+          : { source: entry.source, authored: entry.authored ?? false },
+      encode: (
+        entry,
+      ): string | { readonly source: string; readonly authored?: boolean | undefined } =>
+        entry.authored ? { source: entry.source, authored: true } : entry.source,
     }),
   ),
 );

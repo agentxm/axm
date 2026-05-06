@@ -76,7 +76,7 @@ describe("SettingsSchema mcpServers (camelCase)", () => {
     });
 
     expect(result.mcpServers).toEqual({
-      batcomputer: { source: "@wayne/mcp-servers/batcomputer" },
+      batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
     });
   });
 });

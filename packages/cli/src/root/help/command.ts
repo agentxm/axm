@@ -68,6 +68,7 @@ export const helpCommand = Command.make("help", helpConfig, ({ topic }) =>
     { command: "axm help", description: "Show top-level help" },
     { command: "axm help basic-usage", description: "Start using an existing workspace" },
     { command: "axm help getting-started", description: "Read the getting started guide" },
+    { command: "axm help skills", description: "Read the anatomy of a native managed skill" },
     { command: "axm help exit-codes", description: "Read exit status meanings" },
   ]),
 );

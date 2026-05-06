@@ -19,6 +19,10 @@ describe("axm skills update", () => {
         await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
+        const uninstallDefault = await runCli(["skills", "uninstall", "axm", "--yes"], {
+          cwd: temp.path,
+        });
+        expect(uninstallDefault.exitCode).toBe(0);
 
         const result = await runCli(["skills", "update", "--yes"], {
           cwd: temp.path,

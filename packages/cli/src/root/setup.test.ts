@@ -14,7 +14,7 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
 import { expectDefined } from "../test-helpers.js";
-import { handleSetup } from "./setup.js";
+import { handleSetup, SetupSkillInstaller } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
 
@@ -25,16 +25,32 @@ const makeSetupTestContext = (opts?: {
     nonInteractive?: boolean;
   };
   readonly selectAgents?: ReadonlyArray<string>;
+  readonly scope?: "project" | "user";
 }) => {
   const renderer = TestRenderer.make();
+  const installCalls: Array<{
+    readonly scope: "project" | "user";
+    readonly yes: boolean;
+    readonly force: boolean;
+    readonly preview: boolean;
+  }> = [];
   const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
     selectAgents: () => Effect.succeed(opts?.selectAgents ?? []),
   });
-  const layer = Layer.mergeAll(
+  const baseLayer = Layer.mergeAll(
     NodeServices.layer,
     renderer.layer,
     workspaceInitInteraction.layer,
     TestFlagsLayer(opts?.flags),
+  );
+  const layer = Layer.mergeAll(
+    baseLayer,
+    Layer.succeed(SetupSkillInstaller, {
+      installDefaultSkill: (args) =>
+        Effect.sync(() => {
+          installCalls.push(args);
+        }),
+    }),
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
@@ -42,6 +58,7 @@ const makeSetupTestContext = (opts?: {
 
   return {
     provide,
+    installCalls,
     promptState: workspaceInitInteraction.state,
     rendererState: renderer.state,
   };
@@ -75,7 +92,7 @@ describe("setup.handler", () => {
 
   describe("workspace initialization", () => {
     it.effect("creates .axm, settings.json, and lockfile", () => {
-      const { provide } = makeSetupTestContext();
+      const { provide, installCalls } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -85,12 +102,18 @@ describe("setup.handler", () => {
           expect(fs.existsSync(axmDir)).toBe(true);
           expect(fs.existsSync(path.join(axmDir, "settings.json"))).toBe(true);
           expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(true);
+
+          const settings = readJson(path.join(axmDir, "settings.json"));
+          expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+          expect(installCalls).toEqual([
+            { scope: "project", yes: false, force: false, preview: false },
+          ]);
         }),
       );
     });
 
     it.effect("preserves existing settings", () => {
-      const { provide } = makeSetupTestContext();
+      const { provide, installCalls } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -112,6 +135,7 @@ describe("setup.handler", () => {
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
           expect(settings.skills?.["commit"]).toBe("^1.0.0");
           expect(settings.profile).toBe("@myorg");
+          expect(installCalls).toEqual([]);
         }),
       );
     });
@@ -121,7 +145,7 @@ describe("setup.handler", () => {
     it.effect(
       "creates settings in the user workspace without touching the project workspace",
       () => {
-        const { provide } = makeSetupTestContext();
+        const { provide, installCalls } = makeSetupTestContext({ scope: "user" });
 
         return provide(
           Effect.gen(function* () {
@@ -131,6 +155,12 @@ describe("setup.handler", () => {
             const projectSettingsPath = path.join(tempDir, ".axm", "settings.json");
             expect(fs.existsSync(userSettingsPath)).toBe(true);
             expect(fs.existsSync(projectSettingsPath)).toBe(false);
+
+            const settings = readJson(userSettingsPath);
+            expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+            expect(installCalls).toEqual([
+              { scope: "user", yes: false, force: false, preview: false },
+            ]);
           }),
         );
       },

@@ -43,6 +43,10 @@ const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 const allAgentDescriptors = (): ReadonlyArray<AgentDescriptor> => Object.values(AGENTS);
 
+const DEFAULT_SETUP_SKILLS = {
+  axm: { source: "@agentxm/skills/axm", enabled: true },
+} as const satisfies NonNullable<Settings["skills"]>;
+
 const readSettingsFromReadModel = (
   scope: "project" | "user",
   projectRoot: string,
@@ -142,8 +146,8 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
     // Extract agent IDs for settings
     const agentIds = selectedAgents.map((a) => a.id);
 
-    // Create settings with selected agents (satisfies ensures type safety without cast)
-    const settings: Settings = { agents: agentIds };
+    // Create settings with selected agents and the default setup skill.
+    const settings: Settings = { agents: agentIds, skills: DEFAULT_SETUP_SKILLS };
     yield* writeSettings(localDir, settings);
 
     // Create empty lockfile
@@ -185,15 +189,17 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
       ),
     );
 
-    // Create settings.json with {} if missing
+    // Create settings.json with default setup skills if missing
     if (!settingsExists) {
-      yield* writeSettings(globalDir, {});
+      yield* writeSettings(globalDir, { skills: DEFAULT_SETUP_SKILLS });
     }
 
     // Create axm-lock.yaml with version 1, empty skills if missing
     if (!lockfileExists) {
       yield* writeLockfile(globalDir, { lockfileVersion: 1, skills: {} });
     }
+
+    return !settingsExists;
   });
 
 /**
@@ -227,10 +233,11 @@ export const ensureProjectWorkspaceInitialized = (
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
-      return yield* initializeProjectWorkspace(localDir, options);
+      const settings = yield* initializeProjectWorkspace(localDir, options);
+      return { settings, initialized: true as const };
     }
 
-    return localSettingsResult.settings;
+    return { settings: localSettingsResult.settings, initialized: false as const };
   });
 
 export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
@@ -244,16 +251,19 @@ export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
     };
 
     if (options.scope === "user") {
-      yield* ensureGlobalWorkspaceInitialized(workspaceDir);
+      const initialized = yield* ensureGlobalWorkspaceInitialized(workspaceDir);
       const localDir = yield* getAxmDir("project", options.projectRoot);
       const settings = yield* readSettingsFromReadModel(
         "user",
         path.dirname(localDir),
         path.dirname(workspaceDir),
       ).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
-      return { settings, location };
+      return { settings, location, initialized };
     }
 
-    const settings = yield* ensureProjectWorkspaceInitialized(workspaceDir, options);
-    return { settings, location };
+    const { settings, initialized } = yield* ensureProjectWorkspaceInitialized(
+      workspaceDir,
+      options,
+    );
+    return { settings, location, initialized };
   });

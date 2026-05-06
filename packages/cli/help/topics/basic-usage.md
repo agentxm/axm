@@ -107,5 +107,6 @@ environments — never check tokens into the repo.
 
 - `axm help getting-started` — first-time setup for a workspace that has
   never used axm.
+- `axm help skills` — working with skills
 - `axm help exit-codes` — process exit codes and their meaning.
 - `axm <command> --help` — flags and examples for any command.

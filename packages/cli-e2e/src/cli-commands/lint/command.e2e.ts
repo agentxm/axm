@@ -196,6 +196,10 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        const uninstallDefault = await runCli(["skills", "uninstall", "axm", "--yes"], {
+          cwd: temp.path,
+        });
+        expect(uninstallDefault.exitCode).toBe(0);
 
         // Downgrade the error-severity workspace/* rules the declared
         // skill would trigger, so the run settles at warnings-only.

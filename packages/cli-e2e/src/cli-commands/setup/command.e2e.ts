@@ -29,6 +29,12 @@ describe("axm setup", () => {
         const settingsContent = fs.readFileSync(settingsPath, "utf-8");
         const settings = JSON.parse(settingsContent);
         expect(settings).toHaveProperty("agents");
+        expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+        expect(
+          fs.existsSync(
+            path.join(axmDir, "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
+          ),
+        ).toBe(true);
       } finally {
         temp.cleanup();
       }

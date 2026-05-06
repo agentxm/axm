@@ -64,6 +64,9 @@ const configureWorkspaceEntries = (
 ) => {
   const settingsPath = path.join(workspacePath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+  if (entries.skills !== undefined) {
+    delete settings.skills?.axm;
+  }
 
   for (const [key, value] of Object.entries(entries)) {
     settings[key] = {

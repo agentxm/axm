@@ -1,10 +1,17 @@
 import { AGENTS } from "@agentxm/client-core/unstable/agents";
 import type { AgentId } from "@agentxm/client-core/unstable/agents";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  forceFlag,
+  nonInteractiveFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
+import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import {
   bootstrapWorkspace,
   scanAllSubagentFiles,
@@ -12,15 +19,23 @@ import {
   type WorkspaceMutationsOptions,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
+import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
+import * as Layer from "effect/Layer";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Terminal from "effect/Terminal";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { scopeFlag } from "../cli-flags.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
-import { withRuntime } from "../runtime.js";
+import { withRuntime, withWorkspace } from "../runtime.js";
+import { InstallSkillCommandWorkflowActions } from "./skills/install/command-actions.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,
@@ -52,6 +67,54 @@ const SetupDocumentFields = {
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
+interface SetupSkillInstallerService {
+  readonly installDefaultSkill: (args: {
+    readonly scope: WorkspaceScope;
+    readonly yes: boolean;
+    readonly force: boolean;
+    readonly preview: boolean;
+  }) => Effect.Effect<void, AppError | PromptCancelled>;
+}
+
+export class SetupSkillInstaller extends ServiceMap.Service<
+  SetupSkillInstaller,
+  SetupSkillInstallerService
+>()("SetupSkillInstaller") {}
+
+const SetupSkillInstallerLive = Layer.effect(
+  SetupSkillInstaller,
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const terminal = yield* Terminal.Terminal;
+    const nonInteractive = yield* nonInteractiveFlag;
+    const registryUrl = yield* RegistryUrl;
+    const verbosity = yield* Verbosity;
+    const capturedLayer = Layer.mergeAll(
+      Layer.succeed(CliRenderer, renderer),
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+      Layer.succeed(Terminal.Terminal, terminal),
+      Layer.succeed(nonInteractiveFlag, nonInteractive),
+      Layer.succeed(RegistryUrl, registryUrl),
+      Layer.succeed(Verbosity, verbosity),
+    );
+
+    return {
+      installDefaultSkill: (args) =>
+        Effect.gen(function* () {
+          const actions = yield* InstallSkillCommandWorkflowActions;
+          yield* runInstallCommandWorkflow(
+            { source: "@agentxm/skills/axm", skills: [], all: false },
+            actions,
+            args,
+          );
+        }).pipe(withWorkspace(args.scope), Effect.provide(capturedLayer)),
+    };
+  }),
+);
+
 /**
  * Render subagent file summary to the CLI output.
  */
@@ -73,13 +136,25 @@ const renderSubagentSummary = (
 export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   readonly scope: WorkspaceScope;
   readonly agents?: ReadonlyArray<string>;
+  readonly yes?: boolean;
+  readonly force?: boolean;
+  readonly preview?: boolean;
 }) {
   const renderer = yield* CliRenderer;
-  const { settings, location } = yield* bootstrapWorkspace(
+  const { settings, location, initialized } = yield* bootstrapWorkspace(
     args.agents !== undefined && args.agents.length > 0
       ? ({ scope: args.scope, agents: args.agents } satisfies WorkspaceMutationsOptions)
       : ({ scope: args.scope } satisfies WorkspaceMutationsOptions),
   );
+  if (initialized) {
+    const installer = yield* SetupSkillInstaller;
+    yield* installer.installDefaultSkill({
+      scope: args.scope,
+      yes: args.yes ?? false,
+      force: args.force ?? false,
+      preview: args.preview ?? false,
+    });
+  }
   const agentIds = settings.agents ?? [];
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
@@ -159,8 +234,17 @@ const setupConfig = {
   preview: previewFlag,
 } as const;
 
-export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent }) =>
-  handleSetup({ scope, ...(agent.length > 0 ? { agents: agent } : {}) }).pipe(withRuntime("setup")),
+export const setupCommand = Command.make(
+  "setup",
+  setupConfig,
+  ({ scope, agent, yes, force, preview }) =>
+    handleSetup({
+      scope,
+      yes,
+      force,
+      preview,
+      ...(agent.length > 0 ? { agents: agent } : {}),
+    }).pipe(Effect.provide(SetupSkillInstallerLive), withRuntime("setup")),
 ).pipe(
   withArgvTracking(setupConfig),
   Command.withDescription("Set up axm in the current project"),

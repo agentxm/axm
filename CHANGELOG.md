@@ -1,3 +1,13 @@
+## 0.5.0 (2026-05-06)
+
+### 🚀 Features
+
+- Add extension view and version commands, owner-based settings, and AXM naming updates ([4e01c0f4](https://github.com/agentxm/axm/commit/4e01c0f4))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.4.5 (2026-04-24)
 
 ### 🩹 Fixes

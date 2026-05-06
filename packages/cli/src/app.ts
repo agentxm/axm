@@ -35,6 +35,7 @@ import { installCommand } from "./root/install/command.js";
 import { outdatedCommand } from "./root/outdated/command.js";
 import { uninstallCommand } from "./root/uninstall/command.js";
 import { pruneCommand } from "./root/prune/command.js";
+import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
 import { helpCommand } from "./root/help/command.js";
 import { HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";
@@ -79,6 +80,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         installCommand,
         updateCommand,
+        syncCommand,
         uninstallCommand,
         outdatedCommand,
         lintCommand,

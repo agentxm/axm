@@ -16,6 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError } from "../app-error/index.js";
 import { computeIntegrity, isPathSafe, stripFileProtocol } from "../utils/index.js";
+import { commandLockEntryToRef } from "../sources/index.js";
 import type {
   CommandExtensionRef,
   GitHostedCommandRef,
@@ -287,18 +288,21 @@ export const CommandManagerLive = Layer.effect(
         yield* validatePathSafety(baseDir, canonicalPath, "INSTALL_COMMAND_PATH_TRAVERSAL");
 
         const sourcePath = stripFileProtocol(ref.location);
-        yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
-        yield* provide(
-          copyExtensionDirectory(sourcePath, canonicalPath).pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "INSTALL_COMMAND_COPY_FAILED",
-                what: `Failed to copy command files to ${canonicalPath}`,
-                cause: e,
-              }),
+        const isSelfCopy = path.resolve(sourcePath) === path.resolve(canonicalPath);
+        if (!isSelfCopy) {
+          yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
+          yield* provide(
+            copyExtensionDirectory(sourcePath, canonicalPath).pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "INSTALL_COMMAND_COPY_FAILED",
+                  what: `Failed to copy command files to ${canonicalPath}`,
+                  cause: e,
+                }),
+              ),
             ),
-          ),
-        );
+          );
+        }
 
         return canonicalPath;
       });
@@ -394,6 +398,19 @@ export const CommandManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      listMaterializable: Effect.fn("CommandManager.listMaterializable")(function* () {
+        const locked = yield* ws.getLockedCommands();
+        return yield* Effect.forEach(
+          Object.entries(locked),
+          ([name, entry]) =>
+            commandLockEntryToRef(name, entry, {
+              baseDir,
+              getConfiguredSources: ws.getConfiguredSources,
+              getConfiguredSourceByName: ws.getConfiguredSourceByName,
+            }),
+          { concurrency: "unbounded" },
+        );
+      }),
       materializeUninstall,
 
       upsertSettingsEntry: ({

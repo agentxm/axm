@@ -15,6 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { extensionPackLockEntryToRef } from "../sources/index.js";
 import type { ExtensionPackRef, RegistryExtensionPackRef } from "./refs.js";
 import {
   SourceHostProviders,
@@ -196,6 +197,17 @@ export const ExtensionPackManagerLive = Layer.effect(
         return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
       }),
       materializeInstall,
+      listMaterializable: Effect.fn("ExtensionPackManager.listMaterializable")(function* () {
+        const locked = yield* ws.getLockedExtensionPacks();
+        return yield* Effect.forEach(
+          Object.entries(locked),
+          ([name, entry]) =>
+            extensionPackLockEntryToRef(name, entry, {
+              getConfiguredSourceByName: ws.getConfiguredSourceByName,
+            }),
+          { concurrency: "unbounded" },
+        );
+      }),
       materializeUninstall,
 
       upsertSettingsEntry: ({

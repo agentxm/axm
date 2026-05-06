@@ -32,6 +32,7 @@ const mockCommandManager = {
   type: "command",
   isInstalled: vi.fn(() => Effect.succeed(true)),
   materializeInstall: vi.fn(),
+  listMaterializable: vi.fn(() => Effect.succeed([])),
   materializeUninstall: vi.fn(),
   upsertSettingsEntry: vi.fn(),
   removeSettingsEntry: vi.fn(),

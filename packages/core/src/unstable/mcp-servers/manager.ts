@@ -15,6 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { computeIntegrity, isPathSafe } from "../utils/index.js";
+import { mcpServerLockEntryToRef } from "../sources/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager, McpServerExtensionTarget } from "../workspace/service-interface.js";
@@ -242,6 +243,19 @@ export const McpServerManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      listMaterializable: Effect.fn("McpServerManager.listMaterializable")(function* () {
+        const locked = yield* ws.getLockedMcpServers();
+        return yield* Effect.forEach(
+          Object.entries(locked),
+          ([name, entry]) =>
+            mcpServerLockEntryToRef(name, entry, {
+              baseDir,
+              getConfiguredSources: ws.getConfiguredSources,
+              getConfiguredSourceByName: ws.getConfiguredSourceByName,
+            }),
+          { concurrency: "unbounded" },
+        );
+      }),
       materializeUninstall,
 
       upsertSettingsEntry: ({

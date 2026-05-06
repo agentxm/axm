@@ -144,6 +144,7 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly materializeInstall: (args: {
     readonly ref: TRef;
   }) => Effect.Effect<void, AppError, never>;
+  readonly listMaterializable: () => Effect.Effect<ReadonlyArray<TRef>, AppError, never>;
   readonly materializeUninstall: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;

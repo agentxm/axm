@@ -33,6 +33,7 @@ import { computeSourceHash, RenderedFilesMapSchema } from "../extensions/rendere
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
+import { subagentLockEntryToRef } from "../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -198,8 +199,11 @@ export const SubagentManagerLive = Layer.effect(
         switch (ref.refType) {
           case "git-hosted": {
             const sourcePath = stripFileProtocol(ref.location);
-            yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
-            yield* copyToCanonical(sourcePath, subagentSrcPath);
+            const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
+            if (!isSelfCopy) {
+              yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
+              yield* copyToCanonical(sourcePath, subagentSrcPath);
+            }
             break;
           }
           case "local": {
@@ -342,6 +346,19 @@ export const SubagentManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
+        const locked = yield* ws.getLockedSubagents();
+        return yield* Effect.forEach(
+          Object.entries(locked),
+          ([name, entry]) =>
+            subagentLockEntryToRef(name, entry, {
+              baseDir,
+              getConfiguredSources: ws.getConfiguredSources,
+              getConfiguredSourceByName: ws.getConfiguredSourceByName,
+            }),
+          { concurrency: "unbounded" },
+        );
+      }),
       materializeUninstall,
 
       upsertSettingsEntry: ({

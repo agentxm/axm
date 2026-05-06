@@ -3,7 +3,7 @@
  *
  * Exercise the command tree via Effect CLI's help-doc harness — the same
  * pattern `app.test.ts` uses — to pin: (a) `axm lint` is registered with the
- * expected flag set, and (b) `axm doctor` / `axm sync` are unknown commands.
+ * expected flag set, and (b) `axm doctor` is an unknown command.
  */
 
 import { describe, expect, it } from "vitest";
@@ -96,12 +96,12 @@ describe("axm lint command surface", () => {
     expect(allSubcommandNames).not.toContain("doctor");
   });
 
-  it("does not register 'sync' as a subcommand", async () => {
+  it("registers 'sync' as a subcommand", async () => {
     const rootDoc = await Effect.runPromise(captureHelpDoc([]));
     const allSubcommandNames = (rootDoc.subcommands ?? []).flatMap((g) =>
       g.commands.map((c) => c.name),
     );
-    expect(allSubcommandNames).not.toContain("sync");
+    expect(allSubcommandNames).toContain("sync");
   });
 
   it("rejects 'axm doctor' with an unknown-command error (non-zero exit)", async () => {
@@ -109,8 +109,13 @@ describe("axm lint command surface", () => {
     expect(result.output).toMatch(/Failure|exit/);
   });
 
-  it("rejects 'axm sync' with an unknown-command error (non-zero exit)", async () => {
-    const result = await Effect.runPromise(captureRunError(["sync"]));
-    expect(result.output).toMatch(/Failure|exit/);
+  it("accepts sync --scope, --dry-run, and --json", async () => {
+    const doc = await Effect.runPromise(captureHelpDoc(["sync"]));
+    const flagNames = doc.flags.map((flag) => flag.name);
+    const globalFlagNames = (doc.globalFlags ?? []).map((flag) => flag.name);
+    const allFlagNames = [...flagNames, ...globalFlagNames];
+    expect(allFlagNames).toContain("scope");
+    expect(allFlagNames).toContain("dry-run");
+    expect(allFlagNames).toContain("json");
   });
 });

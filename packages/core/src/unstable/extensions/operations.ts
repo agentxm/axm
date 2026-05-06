@@ -160,6 +160,41 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
 };
 
 // -----------------------------------------------------------------------------
+// Materialize Operation
+// -----------------------------------------------------------------------------
+
+export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
+  readonly ref: TRef;
+}
+
+const runMaterializeOperation = <TRef extends ExtensionRef>(
+  manager: ExtensionManager<TRef>,
+  args: MaterializeOperationArgs<TRef>,
+): Effect.Effect<JobStepResult, AppError, never> =>
+  Effect.gen(function* () {
+    yield* manager.materializeInstall({ ref: args.ref });
+    return {
+      result: "success" as const,
+      message: "Applied materialize operation",
+    } satisfies JobStepResult;
+  });
+
+export const buildMaterializeOperation = <TRef extends ExtensionRef>(
+  manager: ExtensionManager<TRef>,
+  args: MaterializeOperationArgs<TRef>,
+): PlannedJobStep => {
+  const target = targetFromRef(args.ref);
+  const compatPkgs = args.ref.refType === "registry" ? args.ref.compatiblePackages : [];
+
+  return {
+    key: toStepKey(target),
+    label: toLabelWithCompatibility(target, compatPkgs),
+    readiness: "ready",
+    run: runMaterializeOperation(manager, args),
+  } satisfies PlannedJobStep;
+};
+
+// -----------------------------------------------------------------------------
 // Uninstall Operation
 // -----------------------------------------------------------------------------
 

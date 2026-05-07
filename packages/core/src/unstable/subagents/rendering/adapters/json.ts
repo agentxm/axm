@@ -10,6 +10,7 @@
 import * as Schema from "effect/Schema";
 import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
 import { mapModelTier } from "../model-mapping.js";
+import { applyOverrides } from "../overrides.js";
 import { mapToolAccess } from "../tool-access-mapping.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 
@@ -56,14 +57,8 @@ export const renderJson = (input: SubagentRenderInput): SubagentRenderOutcome =>
     });
   }
 
-  // Apply agent-specific overrides on top
-  if (input.agentOverrides !== undefined) {
-    for (const [key, value] of Object.entries(input.agentOverrides)) {
-      obj[key] = value;
-    }
-  }
-
-  const content = JSON.stringify(obj, null, 2);
+  const merged = applyOverrides(obj, input.agentOverrides);
+  const content = JSON.stringify(merged, null, 2);
   const path = decodeRenderedFilePath(`.kiro/agents/${input.name}.json`);
 
   return rendered([{ content, path }], warnings);

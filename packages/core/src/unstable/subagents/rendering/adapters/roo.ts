@@ -13,6 +13,7 @@
 
 import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
 import { mapModelTier } from "../model-mapping.js";
+import { applyOverrides } from "../overrides.js";
 import { mapToolAccess } from "../tool-access-mapping.js";
 import type { SubagentRenderInput } from "../types.js";
 
@@ -108,15 +109,20 @@ export const buildRooModeEntry = (input: SubagentRenderInput): RooModeResult => 
     });
   }
 
-  const entry: RooModeEntry = {
+  const baseEntry: Record<string, unknown> = {
     slug: input.name,
     name: input.name,
     roleDefinition,
     ...(customInstructions.length > 0 ? { customInstructions } : {}),
     groups,
     description: input.description,
-    ...input.agentOverrides,
   };
+
+  // Assertion needed: overrides may intentionally delete fields the
+  // RooModeEntry interface marks as required; mirrors the merge semantics
+  // applied uniformly across all subagent adapters.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  const entry = applyOverrides(baseEntry, input.agentOverrides) as unknown as RooModeEntry;
 
   return { entry, warnings };
 };

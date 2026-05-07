@@ -29,6 +29,7 @@ import {
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "./subagent-content.js";
+import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { computeSourceHash, RenderedFilesMapSchema } from "../extensions/rendered-files.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
@@ -257,6 +258,13 @@ export const SubagentManagerLive = Layer.effect(
         // --- Extract frontmatter fields ---
         const frontmatter = Option.getOrUndefined(parsed.frontmatter);
 
+        // --- Warn on overrides for agents not configured for this workspace ---
+        yield* warnOnOrphanOverrides(
+          ref.subagent.name,
+          frontmatter?.overrides,
+          configuredAgents.map((a) => a.id),
+        );
+
         // --- Render to all agents concurrently ---
         const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
 
@@ -275,7 +283,7 @@ export const SubagentManagerLive = Layer.effect(
                   toolAccess: frontmatter?.toolAccess,
                   background: frontmatter?.background,
                   body: parsed.body,
-                  agentOverrides: frontmatter?.overrides,
+                  agentOverrides: frontmatter?.overrides?.[agent.id],
                 },
                 force: false,
               })

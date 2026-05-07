@@ -84,6 +84,17 @@ describe("renderJson", () => {
       const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
       expect(parsed.keyboardShortcut).toBe("ctrl+r");
     });
+
+    it("null override removes a portable-mapped field", () => {
+      const result = renderJson({
+        ...baseInput,
+        toolAccess: "readonly",
+        agentOverrides: { tools: null },
+      });
+      if (result._tag !== "Rendered") return;
+      const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
+      expect(parsed.tools).toBeUndefined();
+    });
   });
 
   it("produces valid JSON", () => {

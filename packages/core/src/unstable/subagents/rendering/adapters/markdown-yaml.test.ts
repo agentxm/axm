@@ -128,6 +128,29 @@ describe("renderMarkdownYaml", () => {
       expect(result.outputs[0]?.content).toContain("disallowedTools: Write");
       expect(result.outputs[0]?.content).not.toContain("Edit,Write,Bash");
     });
+
+    it("null override removes a portable-mapped field", () => {
+      const result = renderMarkdownYaml({
+        ...baseInput,
+        toolAccess: "readonly",
+        agentOverrides: {
+          disallowedTools: null,
+        },
+      });
+      if (result._tag !== "Rendered") return;
+      expect(result.outputs[0]?.content).not.toContain("disallowedTools");
+    });
+
+    it("null override on absent field is a no-op", () => {
+      const result = renderMarkdownYaml({
+        ...baseInput,
+        agentOverrides: {
+          neverEmitted: null,
+        },
+      });
+      if (result._tag !== "Rendered") return;
+      expect(result.outputs[0]?.content).not.toContain("neverEmitted");
+    });
   });
 
   describe("agent-specific paths", () => {

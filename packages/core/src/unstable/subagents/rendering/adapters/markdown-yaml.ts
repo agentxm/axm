@@ -13,6 +13,7 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
 import { mapModelTier } from "../model-mapping.js";
+import { applyOverrides } from "../overrides.js";
 import { mapToolAccess } from "../tool-access-mapping.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 
@@ -134,14 +135,7 @@ const buildFrontmatterObject = (
     }
   }
 
-  // Apply agent-specific overrides on top of computed frontmatter
-  if (input.agentOverrides !== undefined) {
-    for (const [key, value] of Object.entries(input.agentOverrides)) {
-      fm[key] = value;
-    }
-  }
-
-  return fm;
+  return applyOverrides(fm, input.agentOverrides);
 };
 
 /**

@@ -24,12 +24,9 @@ export {
 // Content parsing
 export {
   SubagentFrontmatterSchema,
-  ManifestFieldsFromFrontmatterSchema,
   parseSubagentMd,
-  projectFrontmatterToManifest,
   type SubagentFrontmatter,
   type SubagentContentResult,
-  type ManifestFieldsFromFrontmatter,
 } from "./subagent-content.js";
 
 // Paths

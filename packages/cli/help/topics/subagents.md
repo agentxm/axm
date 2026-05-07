@@ -12,7 +12,7 @@ A subagent is two coordinated files: a portable manifest plus a content file tha
 
 The `src/` directory holds `<subagent-name>.md` — Markdown with YAML frontmatter and a body containing the system prompt.
 
-The frontmatter mirrors the manifest's portable fields and adds an `overrides` map for agent-native escapes:
+`subagent.json` is the source of truth for portable fields. The frontmatter mirrors them so the content file is self-contained for rendering, and adds an `overrides` map for agent-native escapes. Keep the two in sync — `axm` does not reconcile them for you.
 
 ```markdown
 ---
@@ -43,7 +43,9 @@ You are a senior code reviewer...
 
 ## Updating subagents
 
-Edit the content file under `src/`; `axm sync` projects portable frontmatter changes back into `subagent.json` and re-renders agent files. Run `axm subagents publish` to push to the registry.
+Edit the content file under `src/` and update `subagent.json` to match if you change a portable field. `axm sync` re-renders the agent-native files from the content file's frontmatter and body; it does not write to `subagent.json`.
+
+Run `axm subagents publish` to release a new version. Publish validates the manifest, checks that `src/<subagent-name>.md` exists and that its frontmatter `name` matches the manifest, then zips the extension directory, computes its SRI integrity hash, and uploads the version to the target registry. Publish never edits `subagent.json` — whatever is on disk is what gets shipped.
 
 ## Where to go next
 

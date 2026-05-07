@@ -1,9 +1,8 @@
 /**
  * Subagent content file module for subagent content parsing and frontmatter schemas.
  *
- * Defines the frontmatter schema for subagent content files, a parser that
- * combines the shared frontmatter utility with subagent-specific validation,
- * and a transformation for syncing frontmatter fields to manifest fields.
+ * Defines the frontmatter schema for subagent content files and a parser that
+ * combines the shared frontmatter utility with subagent-specific validation.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -101,48 +100,3 @@ export const parseSubagentMd = (
 
     return { frontmatter: Option.some(frontmatter), body: parsed.body };
   });
-
-/**
- * Schema for manifest fields projected from frontmatter.
- *
- * Used during publish to sync description, model, toolAccess, and background
- * from subagent content frontmatter into the subagent manifest.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const ManifestFieldsFromFrontmatterSchema = Schema.Struct({
-  description: Schema.optional(Schema.String),
-  model: Schema.optional(Schema.String),
-  toolAccess: Schema.optional(ToolAccessLevelSchema),
-  background: Schema.optional(Schema.Boolean),
-}).annotate({
-  identifier: "SubagentManifestFieldsFromFrontmatter",
-  title: "Subagent Manifest Fields from Frontmatter",
-  description: "Fields projected from subagent content frontmatter to subagent manifest.",
-});
-
-/**
- * Inferred type for ManifestFieldsFromFrontmatter.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type ManifestFieldsFromFrontmatter = Schema.Schema.Type<
-  typeof ManifestFieldsFromFrontmatterSchema
->;
-
-/**
- * Project frontmatter fields to manifest fields.
- *
- * Extracts `description`, `model`, `toolAccess`, and `background` from a
- * parsed `SubagentFrontmatter` for use in manifest updates.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const projectFrontmatterToManifest = (
-  frontmatter: SubagentFrontmatter,
-): ManifestFieldsFromFrontmatter => ({
-  description: frontmatter.description,
-  model: frontmatter.model,
-  toolAccess: frontmatter.toolAccess,
-  background: frontmatter.background,
-});

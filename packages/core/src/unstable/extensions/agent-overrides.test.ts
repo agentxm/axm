@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOverrides } from "./overrides.js";
+import { applyOverrides } from "./agent-overrides.js";
 
 describe("applyOverrides", () => {
   it("returns a copy when overrides is undefined", () => {

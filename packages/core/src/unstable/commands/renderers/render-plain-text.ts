@@ -9,7 +9,8 @@
  */
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
-import type { RenderInput, RenderOutput } from "./types.js";
+import { applyOverrides } from "../../extensions/agent-overrides.js";
+import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
  * Render a command as plain text for Kiro.
@@ -19,40 +20,16 @@ import type { RenderInput, RenderOutput } from "./types.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const renderPlainText = (input: RenderInput): RenderOutput => {
+export const renderPlainText = (input: RenderInput): CommandRenderOutcome => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const { frontmatter, agentId } = input;
+  const { agentId } = input;
+  const mergedFrontmatter = applyOverrides(input.frontmatter, input.agentOverrides);
 
-  // Warn for all unsupported frontmatter fields
-  if (frontmatter.model !== undefined && frontmatter.model !== null) {
+  if (Object.keys(mergedFrontmatter).length > 0) {
     warnings.push({
       agent: agentId,
-      feature: "model",
-      message: "Kiro does not support model specification in commands",
-    });
-  }
-
-  if (frontmatter.allowedTools !== undefined && frontmatter.allowedTools !== null) {
-    warnings.push({
-      agent: agentId,
-      feature: "allowedTools",
-      message: "Kiro does not support allowed tools in commands",
-    });
-  }
-
-  if (frontmatter.isolatedContext === true) {
-    warnings.push({
-      agent: agentId,
-      feature: "isolatedContext",
-      message: "Kiro does not support isolated context in commands",
-    });
-  }
-
-  if (frontmatter.arguments !== undefined && frontmatter.arguments.length > 0) {
-    warnings.push({
-      agent: agentId,
-      feature: "arguments",
-      message: "Kiro does not support command arguments",
+      feature: "frontmatter",
+      message: "Kiro CLI prompt files are plain text; command frontmatter is not rendered",
     });
   }
 
@@ -60,9 +37,8 @@ export const renderPlainText = (input: RenderInput): RenderOutput => {
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(input.body, agentId);
   warnings.push(...subWarnings);
 
-  return {
-    content: substitutedBody,
+  return rendered(
+    [{ content: substitutedBody, relativePath: `${input.commandName}.txt`, warnings }],
     warnings,
-    fileExtension: ".txt",
-  };
+  );
 };

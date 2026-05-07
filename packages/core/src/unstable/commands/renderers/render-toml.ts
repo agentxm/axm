@@ -2,87 +2,74 @@
  * TOML renderer for Gemini CLI.
  *
  * For: Gemini CLI.
- * Produces `.toml` with `description` and `prompt` fields.
+ * Produces `.toml` with opaque frontmatter fields and `prompt`.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
-import type { RenderInput, RenderOutput } from "./types.js";
+import { applyOverrides } from "../../extensions/agent-overrides.js";
+import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
- * Escape a string value for TOML.
- * Uses triple-quoted strings for multiline content, regular quotes otherwise.
+ * Serialize TOML values for Gemini command files.
  */
-const tomlStringValue = (value: string): string => {
-  if (value.includes("\n")) {
-    // Use TOML multiline basic string
-    return `"""\n${value.replace(/"""/g, '"\\"\\""')}"""`;
+const tomlValue = (value: unknown): string => {
+  if (typeof value === "boolean" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => tomlValue(entry)).join(", ")}]`;
   }
-  // Escape backslashes and quotes for single-line
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  const str = typeof value === "string" ? value : String(value);
+  if (str.includes("\n")) return `"""\n${str.replace(/"""/g, '"\\"\\""')}"""`;
+  return `"${str.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+};
+
+const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const tomlKey = (key: string): string =>
+  /^[A-Za-z0-9_-]+$/.test(key) ? key : `"${key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+
+const tomlLines = (
+  object: Readonly<Record<string, unknown>>,
+  path: ReadonlyArray<string> = [],
+): ReadonlyArray<string> => {
+  const scalarLines: Array<string> = [];
+  const tableLines: Array<string> = [];
+
+  for (const [key, value] of Object.entries(object)) {
+    if (isPlainObject(value)) {
+      const childPath = [...path, key];
+      tableLines.push("", `[${childPath.map((part) => tomlKey(part)).join(".")}]`);
+      tableLines.push(...tomlLines(value, childPath));
+    } else {
+      scalarLines.push(`${tomlKey(key)} = ${tomlValue(value)}`);
+    }
+  }
+
+  return [...scalarLines, ...tableLines];
 };
 
 /**
  * Render a command as TOML for Gemini CLI.
  *
- * Gemini CLI's TOML format supports only `prompt` and `description` fields.
- * Most portable frontmatter fields have no TOML equivalent and emit warnings.
+ * Gemini CLI maps nested command filenames to `:` namespaces.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const renderToml = (input: RenderInput): RenderOutput => {
+export const renderToml = (input: RenderInput): CommandRenderOutcome => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const { frontmatter, agentId } = input;
-
-  // Warn for unsupported features
-  if (frontmatter.model !== undefined && frontmatter.model !== null) {
-    warnings.push({
-      agent: agentId,
-      feature: "model",
-      message: "Gemini CLI TOML format does not support model specification",
-    });
-  }
-
-  if (frontmatter.allowedTools !== undefined && frontmatter.allowedTools !== null) {
-    warnings.push({
-      agent: agentId,
-      feature: "allowedTools",
-      message: "Gemini CLI TOML format does not support allowed tools",
-    });
-  }
-
-  if (frontmatter.isolatedContext === true) {
-    warnings.push({
-      agent: agentId,
-      feature: "isolatedContext",
-      message: "Gemini CLI TOML format does not support isolated context",
-    });
-  }
-
-  if (frontmatter.arguments !== undefined && frontmatter.arguments.length > 0) {
-    warnings.push({
-      agent: agentId,
-      feature: "arguments",
-      message: "Gemini CLI has limited support for command arguments",
-    });
-  }
+  const { agentId } = input;
 
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(input.body, agentId);
   warnings.push(...subWarnings);
 
-  const lines: Array<string> = [];
+  const frontmatter = applyOverrides(input.frontmatter, input.agentOverrides);
+  const frontmatterWithoutPrompt = Object.fromEntries(
+    Object.entries(frontmatter).filter(([key]) => key !== "prompt"),
+  );
+  const content = tomlLines({ ...frontmatterWithoutPrompt, prompt: substitutedBody }).join("\n");
 
-  if (frontmatter.description !== undefined) {
-    lines.push(`description = ${tomlStringValue(frontmatter.description)}`);
-  }
-
-  lines.push(`prompt = ${tomlStringValue(substitutedBody)}`);
-
-  return {
-    content: lines.join("\n"),
-    warnings,
-    fileExtension: ".toml",
-  };
+  return rendered([{ content, relativePath: `${input.commandName}.toml`, warnings }], warnings);
 };

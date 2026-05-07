@@ -58,7 +58,7 @@ export {
   removeCommandFile,
   addCommandViaResolve,
   removeCommandViaResolve,
-  resolveFileExtension,
+  resolveCommandRelativePath,
   type CommandSyncConfig,
 } from "./command-sync.js";
 

@@ -1,3 +1,15 @@
+## Unreleased
+
+### Breaking Changes
+
+- Command frontmatter now renders verbatim. AXM no longer translates portable
+  field names such as `argumentHint` to `argument-hint` or `allowedTools` to
+  `allowed-tools`; write the target agent's native key, or use
+  `agentOverrides.<agent-id>` for per-agent shape changes.
+- Command `agentOverrides` now use RFC 7396 merge-patch semantics, matching
+  subagents: objects merge recursively, `null` deletes keys, arrays replace
+  wholesale, and primitive values replace.
+
 ## 0.5.0 (2026-05-06)
 
 ### 🚀 Features

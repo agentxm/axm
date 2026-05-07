@@ -9,43 +9,9 @@
  */
 
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
+import type { AgentOverrides } from "../../extensions/agent-overrides.js";
 
-/**
- * A single command argument definition from the command content file's
- * frontmatter.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface RendererCommandArgument {
-  readonly name: string;
-  readonly description?: string | undefined;
-  readonly required?: boolean | undefined;
-  readonly default?: string | undefined;
-}
-
-/**
- * Parsed frontmatter from a command content file.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface RendererCommandFrontmatter {
-  readonly description?: string | undefined;
-  readonly model?: string | null | undefined;
-  readonly allowedTools?: ReadonlyArray<string> | null | undefined;
-  readonly isolatedContext?: boolean | undefined;
-  readonly arguments?: ReadonlyArray<RendererCommandArgument> | undefined;
-  readonly argumentHint?: string | undefined;
-  readonly autoInvocable?: boolean | undefined;
-  readonly userInvocable?: boolean | undefined;
-}
-
-/**
- * Agent-specific overrides from the manifest's agentOverrides field.
- * A record of string keys to unknown values that the renderer interprets.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type AgentOverrides = Readonly<Record<string, unknown>>;
+export type { AgentOverrides } from "../../extensions/agent-overrides.js";
 
 /**
  * Renderer input — everything a renderer needs to produce output.
@@ -53,12 +19,12 @@ export type AgentOverrides = Readonly<Record<string, unknown>>;
  * @experimental This API is unstable and may change without notice.
  */
 export interface RenderInput {
-  /** Parsed command content frontmatter. */
-  readonly frontmatter: RendererCommandFrontmatter;
+  /** Parsed command content frontmatter, opaque to the renderer. */
+  readonly frontmatter: Readonly<Record<string, unknown>>;
   /** Command content body text (after frontmatter). */
   readonly body: string;
-  /** Agent-specific overrides from command.json agentOverrides. */
-  readonly agentOverrides?: AgentOverrides | undefined;
+  /** Merge patch applied on top of the frontmatter map for this agent. */
+  readonly agentOverrides: AgentOverrides | undefined;
   /** The agent ID to render for. */
   readonly agentId: string;
   /** The command name (used in some formats). */
@@ -73,8 +39,60 @@ export interface RenderInput {
 export interface RenderOutput {
   /** The rendered file content. */
   readonly content: string;
+  /** Path relative to the resolved commands directory. */
+  readonly relativePath: string;
   /** Lossy rendering warnings for unsupported features. */
   readonly warnings: ReadonlyArray<LossyRenderingWarning>;
-  /** The file extension for the rendered file (e.g., ".md", ".prompt.md", ".toml"). */
-  readonly fileExtension: string;
 }
+
+/**
+ * Tagged union for render outcomes.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type CommandRenderOutcome = CommandRendered | CommandSkipped;
+
+/**
+ * Successful render with optional lossy warnings.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface CommandRendered {
+  readonly _tag: "Rendered";
+  readonly outputs: ReadonlyArray<RenderOutput>;
+  readonly warnings: ReadonlyArray<LossyRenderingWarning>;
+}
+
+/**
+ * Skipped render with a reason.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface CommandSkipped {
+  readonly _tag: "Skipped";
+  readonly reason: string;
+}
+
+/**
+ * Construct a Rendered outcome.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const rendered = (
+  outputs: ReadonlyArray<RenderOutput>,
+  warnings: ReadonlyArray<LossyRenderingWarning> = [],
+): CommandRendered => ({
+  _tag: "Rendered",
+  outputs,
+  warnings,
+});
+
+/**
+ * Construct a Skipped outcome.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const skipped = (reason: string): CommandSkipped => ({
+  _tag: "Skipped",
+  reason,
+});

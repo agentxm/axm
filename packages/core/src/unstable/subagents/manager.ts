@@ -261,7 +261,7 @@ export const SubagentManagerLive = Layer.effect(
 
         // --- Warn on overrides for agents not configured for this workspace ---
         yield* warnOnOrphanOverrides(
-          ref.subagent.name,
+          `Subagent "${ref.subagent.name}"`,
           agentOverrides,
           configuredAgents.map((a) => a.id),
         );

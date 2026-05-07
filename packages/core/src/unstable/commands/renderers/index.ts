@@ -8,12 +8,15 @@
  */
 
 export type {
-  RendererCommandArgument,
-  RendererCommandFrontmatter,
   AgentOverrides,
   RenderInput,
   RenderOutput,
+  CommandRenderOutcome,
+  CommandRendered,
+  CommandSkipped,
 } from "./types.js";
+
+export { rendered, skipped } from "./types.js";
 
 export { renderMarkdownWithFrontmatter } from "./render-markdown-with-frontmatter.js";
 export { renderMarkdownOnly } from "./render-markdown-only.js";
@@ -26,14 +29,14 @@ import { renderMarkdownOnly } from "./render-markdown-only.js";
 import { renderPromptMd } from "./render-prompt-md.js";
 import { renderToml } from "./render-toml.js";
 import { renderPlainText } from "./render-plain-text.js";
-import type { RenderInput, RenderOutput } from "./types.js";
+import type { CommandRenderOutcome, RenderInput } from "./types.js";
 
 /**
  * Renderer function signature shared by all format families.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Renderer = (input: RenderInput) => RenderOutput;
+export type Renderer = (input: RenderInput) => CommandRenderOutcome;
 
 /**
  * Map of agent IDs to their renderer function.
@@ -55,9 +58,8 @@ const rendererMap: Readonly<Record<string, Renderer>> = {
 /**
  * Select the appropriate renderer for an agent ID.
  *
- * Returns `renderMarkdownWithFrontmatter` as the default for unknown agents.
+ * Returns undefined when command rendering is not supported for an agent.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const selectRenderer = (agentId: string): Renderer =>
-  rendererMap[agentId] ?? renderMarkdownWithFrontmatter;
+export const selectRenderer = (agentId: string): Renderer | undefined => rendererMap[agentId];

@@ -53,7 +53,7 @@ describe("selectRenderer", () => {
     expect(selectRenderer("kiro-cli")).toBe(renderPlainText);
   });
 
-  it("falls back to markdown+frontmatter for unknown agents", () => {
-    expect(selectRenderer("unknown-agent")).toBe(renderMarkdownWithFrontmatter);
+  it("returns undefined for unsupported agents", () => {
+    expect(selectRenderer("unknown-agent")).toBeUndefined();
   });
 });

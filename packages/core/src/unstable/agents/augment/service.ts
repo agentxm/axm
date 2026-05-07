@@ -16,12 +16,12 @@ import type { CodingAgent } from "../coding-agent.js";
 import {
   addCommandViaResolve,
   removeCommandViaResolve,
-  resolveFileExtension,
+  resolveCommandRelativePath,
   type CommandSyncConfig,
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { CLAUDE_CODE_COMMANDS_PROJECT_DIR } from "../claude-code/service.js";
-import { selectRenderer, type RendererCommandFrontmatter } from "../../commands/renderers/index.js";
+import { selectRenderer } from "../../commands/renderers/index.js";
 
 /** @experimental */
 export const AUGMENT_COMMANDS_PROJECT_DIR = ".augment/commands";
@@ -33,7 +33,7 @@ const augmentCommandConfig: CommandSyncConfig = {
   agentId: "augment",
 };
 
-const emptyFrontmatter: RendererCommandFrontmatter = {};
+const emptyFrontmatter: Readonly<Record<string, unknown>> = {};
 
 /**
  * Check whether the command file already exists in Claude Code's commands
@@ -46,11 +46,12 @@ const isRenderedToClaudeCode = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ext = resolveFileExtension("claude-code");
+    const relativePath = resolveCommandRelativePath("claude-code", args.commandName);
+    if (relativePath === undefined) return false;
     const claudePath = path.resolve(
       args.workspaceRoot,
       CLAUDE_CODE_COMMANDS_PROJECT_DIR,
-      `${args.commandName}${ext}`,
+      relativePath,
     );
     const exists = yield* fs.exists(claudePath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) return false;
@@ -58,17 +59,17 @@ const isRenderedToClaudeCode = (
       .readFileString(claudePath)
       .pipe(Effect.catch(() => Effect.succeed("")));
     const renderer = selectRenderer("claude-code");
+    if (renderer === undefined) return false;
     const expected = renderer({
       frontmatter: Option.getOrElse(args.frontmatter, () => emptyFrontmatter),
       body: args.body,
       agentId: "claude-code",
       commandName: args.commandName,
-      ...Option.match(args.agentOverrides, {
-        onNone: () => ({}),
-        onSome: (agentOverrides) => ({ agentOverrides }),
-      }),
+      agentOverrides: Option.getOrUndefined(args.agentOverrides),
     });
-    return content === expected.content;
+    if (expected._tag === "Skipped") return false;
+    const output = expected.outputs[0];
+    return output !== undefined && content === output.content;
   });
 
 export const augmentCodingAgent: CodingAgent = {

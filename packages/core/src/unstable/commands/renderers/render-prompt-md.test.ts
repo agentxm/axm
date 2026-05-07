@@ -1,144 +1,139 @@
 import { describe, expect, it } from "vitest";
 import { renderPromptMd } from "./render-prompt-md.js";
-import type { RenderInput } from "./types.js";
+import type { CommandRenderOutcome, RenderInput, RenderOutput } from "./types.js";
+
+const firstOutput = (result: CommandRenderOutcome): RenderOutput => {
+  if (result._tag !== "Rendered") throw new Error(`Expected Rendered, got ${result._tag}`);
+  const output = result.outputs[0];
+  if (output === undefined) throw new Error("Expected one output");
+  return output;
+};
 
 describe("renderPromptMd", () => {
-  it("renders with .prompt.md extension", () => {
+  it("renders with .prompt.md relative path", () => {
     const input: RenderInput = {
       frontmatter: {},
       body: "Review the code.",
       agentId: "github-copilot",
       commandName: "review",
+      agentOverrides: undefined,
     };
 
-    const result = renderPromptMd(input);
+    const output = firstOutput(renderPromptMd(input));
 
-    expect(result.fileExtension).toBe(".prompt.md");
-    expect(result.content).toBe("Review the code.");
+    expect(output.relativePath).toBe("review.prompt.md");
+    expect(output.content).toBe("Review the code.");
   });
 
-  it("renders description in frontmatter", () => {
-    const input: RenderInput = {
-      frontmatter: { description: "Review PR changes" },
-      body: "Body.",
-      agentId: "github-copilot",
-      commandName: "review",
-    };
+  it("passes frontmatter through verbatim", () => {
+    const output = firstOutput(
+      renderPromptMd({
+        frontmatter: {
+          description: "Review PR changes",
+          tools: ["bash:*", "read"],
+          mode: "agent",
+        },
+        body: "Body.",
+        agentId: "github-copilot",
+        commandName: "review",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderPromptMd(input);
-
-    expect(result.content).toContain("---");
-    expect(result.content).toContain("description: Review PR changes");
+    expect(output.content).toContain("---");
+    expect(output.content).toContain("description: Review PR changes");
+    expect(output.content).toContain("tools:");
+    expect(output.content).toContain("mode: agent");
   });
 
-  it("maps model to frontmatter", () => {
-    const input: RenderInput = {
-      frontmatter: { model: "gpt-4" },
-      body: "Body.",
-      agentId: "github-copilot",
-      commandName: "test",
-    };
+  it("does not map allowedTools to tools", () => {
+    const output = firstOutput(
+      renderPromptMd({
+        frontmatter: { allowedTools: ["bash:*"] },
+        body: "Body.",
+        agentId: "github-copilot",
+        commandName: "test",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderPromptMd(input);
-
-    expect(result.content).toContain("model: gpt-4");
-  });
-
-  it("maps allowedTools to tools in frontmatter", () => {
-    const input: RenderInput = {
-      frontmatter: { allowedTools: ["bash:*", "read"] },
-      body: "Body.",
-      agentId: "github-copilot",
-      commandName: "test",
-    };
-
-    const result = renderPromptMd(input);
-
-    expect(result.content).toContain("tools:");
-    expect(result.content).toContain("bash:*");
-    expect(result.content).toContain("read");
-  });
-
-  it("warns for isolatedContext", () => {
-    const input: RenderInput = {
-      frontmatter: { isolatedContext: true },
-      body: "Body.",
-      agentId: "github-copilot",
-      commandName: "test",
-    };
-
-    const result = renderPromptMd(input);
-
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]?.feature).toBe("isolatedContext");
+    expect(output.content).toContain("allowedTools:");
+    expect(output.content).not.toContain("tools:");
   });
 
   it("substitutes {{arguments}} to ${input:args}", () => {
-    const input: RenderInput = {
-      frontmatter: {},
-      body: "Run with {{arguments}}",
-      agentId: "github-copilot",
-      commandName: "run",
-    };
+    const output = firstOutput(
+      renderPromptMd({
+        frontmatter: {},
+        body: "Run with {{arguments}}",
+        agentId: "github-copilot",
+        commandName: "run",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderPromptMd(input);
-
-    expect(result.content).toContain("${input:args}");
+    expect(output.content).toContain("${input:args}");
   });
 
   it("substitutes {{arguments[0]}} to ${input:arg1}", () => {
-    const input: RenderInput = {
-      frontmatter: {},
-      body: "File: {{arguments[0]}}",
-      agentId: "github-copilot",
-      commandName: "run",
-    };
+    const output = firstOutput(
+      renderPromptMd({
+        frontmatter: {},
+        body: "File: {{arguments[0]}}",
+        agentId: "github-copilot",
+        commandName: "run",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderPromptMd(input);
-
-    expect(result.content).toContain("${input:arg1}");
+    expect(output.content).toContain("${input:arg1}");
   });
 
   it("substitutes {{arg:name}} to ${input:name}", () => {
-    const input: RenderInput = {
-      frontmatter: {},
-      body: "Review {{arg:scope}}",
-      agentId: "github-copilot",
-      commandName: "run",
-    };
+    const output = firstOutput(
+      renderPromptMd({
+        frontmatter: {},
+        body: "Review {{arg:scope}}",
+        agentId: "github-copilot",
+        commandName: "run",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderPromptMd(input);
-
-    expect(result.content).toContain("${input:scope}");
+    expect(output.content).toContain("${input:scope}");
   });
 
-  it("applies agent overrides", () => {
-    const input: RenderInput = {
-      frontmatter: { description: "Original" },
-      body: "Body.",
-      agentId: "github-copilot",
-      commandName: "test",
-      agentOverrides: { description: "Overridden" },
-    };
+  it("deep-merges agent overrides", () => {
+    const output = firstOutput(
+      renderPromptMd({
+        frontmatter: { description: "Original", config: { keep: true, drop: true } },
+        body: "Body.",
+        agentId: "github-copilot",
+        commandName: "test",
+        agentOverrides: { description: "Overridden", config: { drop: null, add: true } },
+      }),
+    );
 
-    const result = renderPromptMd(input);
-
-    expect(result.content).toContain("description: Overridden");
-    expect(result.content).not.toContain("Original");
+    expect(output.content).toContain("description: Overridden");
+    expect(output.content).toContain("keep: true");
+    expect(output.content).toContain("add: true");
+    expect(output.content).not.toContain("Original");
+    expect(output.content).not.toContain("drop:");
   });
 
   it("renders minimal command with no frontmatter fields", () => {
-    const input: RenderInput = {
-      frontmatter: {},
-      body: "Just a body.",
-      agentId: "github-copilot",
-      commandName: "simple",
-    };
+    const output = firstOutput(
+      renderPromptMd({
+        frontmatter: {},
+        body: "Just a body.",
+        agentId: "github-copilot",
+        commandName: "simple",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderPromptMd(input);
-
-    expect(result.content).not.toContain("---");
-    expect(result.content).toContain("Just a body.");
-    expect(result.warnings).toEqual([]);
+    expect(output.content).not.toContain("---");
+    expect(output.content).toContain("Just a body.");
+    expect(output.warnings).toEqual([]);
   });
 });

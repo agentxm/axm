@@ -13,6 +13,12 @@
   "scope": "project",
   "expectedFindings": [
     {
+      "ruleId": "workspace/configured-but-not-installed",
+      "severity": "error",
+      "file": ".axm/settings.json",
+      "messageIncludes": "axm install reviewer"
+    },
+    {
       "ruleId": "workspace/skills-lockfile-aligned",
       "severity": "error",
       "file": ".axm/axm-lock.yaml"

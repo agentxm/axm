@@ -54,7 +54,6 @@ describe("axm skills publish", () => {
           type: "skill",
           name: "my-publish-skill",
           version: "1.0.0",
-          agents: ["claude-code"],
         };
         fs.writeFileSync(
           path.join(extensionDir, "skill.json"),
@@ -155,7 +154,6 @@ describe("axm skills publish", () => {
               type: "skill",
               name: "code-review",
               version: "2.0.0",
-              agents: ["claude-code"],
             },
             null,
             2,
@@ -238,7 +236,6 @@ describe("axm skills publish", () => {
             type: "skill",
             name,
             version,
-            agents: ["claude-code"],
           },
           null,
           2,

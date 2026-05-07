@@ -138,6 +138,14 @@ export {
   toLabelWithCompatibility,
 } from "./operations.js";
 
+export {
+  configuredCommandsToDiskRefs,
+  configuredMcpServersToDiskRefs,
+  configuredPacksToDiskRefs,
+  configuredSkillsToDiskRefs,
+  configuredSubagentsToDiskRefs,
+} from "./materializable-from-disk.js";
+
 // Rendered files tracking
 export {
   RenderedFilePathSchema,

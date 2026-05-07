@@ -78,8 +78,11 @@ const createManagedSubagent = (
   const extDir = path.join(tempDir, ".axm", "extensions", owner, "subagents", name);
   const srcDir = path.join(extDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
+  const manifestFields = Object.fromEntries(
+    Object.entries(manifest).filter(([key]) => key !== "agents"),
+  );
   const normalizedManifest = {
-    ...manifest,
+    ...manifestFields,
     owner,
     type: "subagent",
     name,
@@ -205,6 +208,41 @@ describe("subagents-publish.handler", () => {
             "index.json",
           );
           expect(fs.existsSync(registryIndexPath)).toBe(true);
+        }),
+      );
+    });
+  });
+
+  describe("deprecated manifest targeting", () => {
+    it.effect("rejects a manifest with an agents field", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+      const extDir = createManagedSubagent(tempDir, "@test", "targeted-subagent", {
+        name: "@test/subagents/targeted-subagent",
+        version: "1.0.0",
+      });
+      fs.writeFileSync(
+        path.join(extDir, "subagent.json"),
+        JSON.stringify({
+          owner: "@test",
+          type: "subagent",
+          name: "targeted-subagent",
+          version: "1.0.0",
+          agents: ["claude-code"],
+        }),
+      );
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const caught = yield* handlePublish(
+            defaultArgs(["@test/subagents/targeted-subagent"], { registry: Option.some("local") }),
+          ).pipe(Effect.flip);
+          const error = getAppError(caught);
+
+          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.details.join("\n")).toContain("settings.agents");
         }),
       );
     });

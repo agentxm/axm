@@ -39,7 +39,6 @@ const createManagedSkill = (tempPath: string, owner: string, name: string, versi
         type: "skill",
         name,
         version,
-        agents: ["claude-code"],
       },
       null,
       2,

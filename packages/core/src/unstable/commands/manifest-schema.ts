@@ -36,7 +36,6 @@ export const CommandManifestSchema = Schema.Struct({
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "command name is required" }),
   ),
-  agents: Schema.optional(Schema.Array(Schema.String)),
   agentOverrides: Schema.optional(
     Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
   ),

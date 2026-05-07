@@ -55,13 +55,7 @@
           ]
         },
         "type": { "type": "string", "enum": ["skill"] },
-        "name": { "$ref": "#/definitions/ExtensionName" },
-        "agents": {
-          "anyOf": [
-            { "type": "array", "items": { "$ref": "#/definitions/PackageUrlParts" } },
-            { "type": "null" }
-          ]
-        }
+        "name": { "$ref": "#/definitions/ExtensionName" }
       },
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,

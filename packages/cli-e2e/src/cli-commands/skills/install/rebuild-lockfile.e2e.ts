@@ -51,7 +51,6 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       type: "skill",
       name: "managed-skill",
       version: "1.0.0",
-      agents: ["claude-code"],
     },
   );
 

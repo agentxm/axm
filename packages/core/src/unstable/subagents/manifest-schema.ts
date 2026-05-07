@@ -38,7 +38,6 @@ export const SubagentManifestSchema = Schema.Struct({
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "subagent name is required" }),
   ),
-  agents: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
   identifier: "SubagentManifest",
   title: "Subagent Manifest",

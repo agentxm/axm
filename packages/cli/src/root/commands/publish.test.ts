@@ -76,8 +76,11 @@ const createManagedCommandExtension = (
   const extDir = path.join(tempDir, ".axm", "extensions", owner, "commands", name);
   const srcDir = path.join(extDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
+  const manifestFields = Object.fromEntries(
+    Object.entries(manifest).filter(([key]) => key !== "agents"),
+  );
   const normalizedManifest = {
-    ...manifest,
+    ...manifestFields,
     owner,
     type: "command",
     name,
@@ -272,6 +275,39 @@ describe("commands-publish.handler", () => {
           );
 
           expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("rejects a manifest with deprecated agents targeting", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+      const extDir = createManagedCommandExtension(tempDir, "@test", "targeted-cmd", {
+        name: "@test/commands/targeted-cmd",
+        version: "1.0.0",
+      });
+      fs.writeFileSync(
+        path.join(extDir, "command.json"),
+        JSON.stringify({
+          owner: "@test",
+          type: "command",
+          name: "targeted-cmd",
+          version: "1.0.0",
+          agents: ["claude-code"],
+        }),
+      );
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const caught = yield* handleCommandsPublish(
+            defaultArgs(["@test/commands/targeted-cmd"], { registry: Option.some("local") }),
+          ).pipe(Effect.flip);
+          const error = getAppError(caught);
+
+          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.details.join("\n")).toContain("settings.agents");
         }),
       );
     });

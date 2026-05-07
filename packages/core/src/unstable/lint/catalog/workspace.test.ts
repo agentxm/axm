@@ -23,6 +23,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   // Declaration valid (configured).
   { id: "workspace/skills-declarations-valid", severity: "error" },
   { id: "workspace/packs-declarations-valid", severity: "error" },
+  { id: "workspace/configured-but-not-installed", severity: "error" },
   // Lockfile aligned (configured).
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   // Integrity intact (configured + implicit).

@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
 import {
@@ -24,6 +25,7 @@ import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
+import { validateManifestHasNoAgentsField } from "../../publish/manifest-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -111,6 +113,18 @@ export const publishCommand: (
           cause: e,
         }),
     });
+
+    const agentsFieldValidation = validateManifestHasNoAgentsField(
+      COMMAND_MANIFEST_FILENAME,
+      manifestJson,
+    );
+    if (Result.isFailure(agentsFieldValidation)) {
+      return yield* makeAppError({
+        code: "PUBLISH_COMMAND_MANIFEST_SCHEMA_INVALID",
+        what: agentsFieldValidation.failure.detail,
+        details: ["Target agents are configured in settings.agents, not extension manifests."],
+      });
+    }
 
     const manifest: CommandManifest = yield* Schema.decodeUnknownEffect(CommandManifestSchema)(
       manifestJson,

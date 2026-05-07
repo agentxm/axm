@@ -16,7 +16,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { skillLockEntryToRef, sourceToLockEntry } from "../sources/index.js";
+import { sourceToLockEntry } from "../sources/index.js";
+import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { SkillExtensionRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";
@@ -205,17 +206,8 @@ export const SkillManagerLive = Layer.effect(
 
       materializeInstall,
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
-        const locked = yield* ws.getLockedSkills();
-        return yield* Effect.forEach(
-          Object.entries(locked),
-          ([name, entry]) =>
-            skillLockEntryToRef(name, entry, {
-              baseDir,
-              getConfiguredSources: ws.getConfiguredSources,
-              getConfiguredSourceByName: ws.getConfiguredSourceByName,
-            }),
-          { concurrency: "unbounded" },
-        );
+        const configured = yield* ws.records.getConfiguredSkills();
+        return yield* configuredSkillsToDiskRefs({ fs, path, baseDir }, configured);
       }),
       materializeUninstall,
 

@@ -43,6 +43,7 @@
     "existingPaths": [
       ".axm",
       ".axm/settings.json",
+      ".axm/extensions/@acme/packs/toolbox/extension-pack.json",
       ".axm/extensions/@acme/skills/retained-skill/src/SKILL.md"
     ],
     "listings": { ".claude/skills": [] },

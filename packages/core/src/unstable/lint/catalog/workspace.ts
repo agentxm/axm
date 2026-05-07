@@ -51,6 +51,7 @@ import { skillsManagedRule } from "./workspace/skills-managed.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
 import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js";
+import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -73,6 +74,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   // Declaration valid (configured).
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
+  configuredButNotInstalledRule,
   // Lockfile aligned (configured).
   skillsLockfileAlignedRule,
   // Integrity intact (configured + implicit).

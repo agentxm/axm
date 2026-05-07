@@ -12,6 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
 import { SkillManifestSchema, type SkillManifest, MANIFEST_FILENAME } from "../manifest-schema.js";
@@ -22,6 +23,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
+import { validateManifestHasNoAgentsField } from "../../publish/manifest-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -109,6 +111,15 @@ export const publishSkill: OperationHandler<
           cause: e,
         }),
     });
+
+    const agentsFieldValidation = validateManifestHasNoAgentsField(MANIFEST_FILENAME, manifestJson);
+    if (Result.isFailure(agentsFieldValidation)) {
+      return yield* makeAppError({
+        code: "PUBLISH_SKILL_MANIFEST_SCHEMA_INVALID",
+        what: agentsFieldValidation.failure.detail,
+        details: ["Target agents are configured in settings.agents, not extension manifests."],
+      });
+    }
 
     const manifest: SkillManifest = yield* Schema.decodeUnknownEffect(SkillManifestSchema)(
       manifestJson,

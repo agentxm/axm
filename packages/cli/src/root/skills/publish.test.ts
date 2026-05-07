@@ -22,6 +22,7 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  getAppError,
   getErrorResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -75,8 +76,11 @@ const createManagedExtension = (
   const extDir = path.join(tempDir, ".axm", "extensions", owner, "skills", name);
   const srcDir = path.join(extDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
+  const manifestFields = Object.fromEntries(
+    Object.entries(manifest).filter(([key]) => key !== "agents"),
+  );
   const normalizedManifest = {
-    ...manifest,
+    ...manifestFields,
     owner,
     type: "skill",
     name,
@@ -198,6 +202,39 @@ describe("publish.handler", () => {
             "index.json",
           );
           expect(fs.existsSync(registryIndexPath)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("rejects a manifest with deprecated agents targeting", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+      const extDir = createManagedExtension(tempDir, "@test", "targeted-skill", {
+        name: "@test/skills/targeted-skill",
+        version: "1.0.0",
+      });
+      fs.writeFileSync(
+        path.join(extDir, "skill.json"),
+        JSON.stringify({
+          owner: "@test",
+          type: "skill",
+          name: "targeted-skill",
+          version: "1.0.0",
+          agents: ["claude-code"],
+        }),
+      );
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const caught = yield* handlePublish(
+            defaultArgs(["@test/skills/targeted-skill"], { registry: Option.some("local") }),
+          ).pipe(Effect.flip);
+          const error = getAppError(caught);
+
+          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.details.join("\n")).toContain("settings.agents");
         }),
       );
     });

@@ -113,6 +113,26 @@ export interface ResolvedManifest {
   readonly fileName: string;
 }
 
+const hasAgentsField = (value: unknown): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value) &&
+  Object.hasOwn(value, "agents");
+
+export const validateManifestHasNoAgentsField = (
+  fileName: string,
+  raw: unknown,
+): Result.Result<void, ManifestError> => {
+  if (!hasAgentsField(raw)) return Result.void;
+
+  return Result.fail(
+    new ManifestError({
+      code: "manifest_schema_invalid",
+      detail: `Manifest file "${fileName}" must not include "agents"; express targeting in settings.agents.`,
+    }),
+  );
+};
+
 export const resolveManifest = (
   input: ManifestResolutionInput,
 ): Effect.Effect<ResolvedManifest, ManifestError | ArchiveGuardrailError> =>
@@ -160,6 +180,8 @@ export const resolveManifest = (
           }),
       ),
     );
+
+    yield* validateManifestHasNoAgentsField(manifestEntry.fileName, parsed);
 
     const schema = manifestSchemaForType(input.type);
     if (schema !== undefined) {

@@ -25,18 +25,22 @@ const initWorkspace = (root: string) => {
   );
 };
 
-const writeManifest = (
-  root: string,
-  type: "commands" | "skills",
-  name: string,
-  version: string,
-) => {
-  const manifestName = type === "commands" ? "command.json" : "skill.json";
-  const extType = type === "commands" ? "command" : "skill";
+const MANIFEST_FILES = {
+  commands: { filename: "command.json", type: "command" },
+  skills: { filename: "skill.json", type: "skill" },
+  subagents: { filename: "subagent.json", type: "subagent" },
+  "mcp-servers": { filename: "mcp-server.json", type: "mcp-server" },
+  packs: { filename: "extension-pack.json", type: "pack" },
+} as const;
+
+type ManifestPlural = keyof typeof MANIFEST_FILES;
+
+const writeManifest = (root: string, type: ManifestPlural, name: string, version: string) => {
+  const { filename, type: extType } = MANIFEST_FILES[type];
   const dir = path.join(root, ".axm", "extensions", "@test", type, name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
-    path.join(dir, manifestName),
+    path.join(dir, filename),
     JSON.stringify({
       owner: "@test",
       type: extType,
@@ -44,7 +48,7 @@ const writeManifest = (
       version,
     }),
   );
-  return path.join(dir, manifestName);
+  return path.join(dir, filename);
 };
 
 describe("version command handler", () => {
@@ -180,13 +184,73 @@ describe("root version command handler", () => {
     );
   });
 
+  it.effect("infers subagent type from FQN and bumps patch", () => {
+    const manifestPath = writeManifest(tempDir, "subagents", "researcher", "0.1.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootVersion({
+          handle: "@test/subagents/researcher",
+          bump: "patch",
+          targetVersion: Option.none(),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("0.1.1");
+        expect(logs.message).toContain("0.1.0 -> 0.1.1\n");
+      }),
+    );
+  });
+
+  it.effect("infers mcp-server type from FQN and bumps minor", () => {
+    const manifestPath = writeManifest(tempDir, "mcp-servers", "my-server", "1.0.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootVersion({
+          handle: "@test/mcp-servers/my-server",
+          bump: "minor",
+          targetVersion: Option.none(),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("1.1.0");
+        expect(logs.message).toContain("1.0.0 -> 1.1.0\n");
+      }),
+    );
+  });
+
+  it.effect("infers pack type from FQN and sets exact version", () => {
+    const manifestPath = writeManifest(tempDir, "packs", "frontend-tools", "0.1.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootVersion({
+          handle: "@test/packs/frontend-tools",
+          bump: "set",
+          targetVersion: Option.some("2.0.0"),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("2.0.0");
+        expect(logs.message).toContain("0.1.0 -> 2.0.0\n");
+      }),
+    );
+  });
+
   it.effect("rejects non-versionable extension type", () => {
     const { provide } = makeWorkspaceHandlerTestContext();
 
     return provide(
       Effect.gen(function* () {
         const result = yield* handleRootVersion({
-          handle: "@test/mcp-servers/my-server",
+          handle: "@test/files/my-file",
           bump: "patch",
           targetVersion: Option.none(),
           preview: false,

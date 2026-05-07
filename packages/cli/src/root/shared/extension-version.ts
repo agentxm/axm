@@ -12,14 +12,25 @@ import {
   type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
 import { COMMAND_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/commands";
-import { MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
+import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcp-servers";
+import { EXTENSION_PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
+import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
+import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   ExactSemverVersionSchema,
   type ExactSemverVersion,
 } from "@agentxm/client-core/unstable/version-constraints";
 
-export type VersionableExtensionType = "command" | "skill";
+export const versionableTypes = [
+  "command",
+  "skill",
+  "subagent",
+  "mcp-server",
+  "pack",
+] as const satisfies ReadonlyArray<ExtensionType>;
+
+export type VersionableExtensionType = (typeof versionableTypes)[number];
 export type VersionBump = "patch" | "minor" | "major" | "prerelease";
 
 export interface ManifestVersionInfo {
@@ -35,13 +46,20 @@ export interface BumpManifestVersionResult extends ManifestVersionInfo {
   readonly written: boolean;
 }
 
-const supportedTypes: ReadonlyArray<ExtensionType> = ["command", "skill"];
+const versionableTypeSet: ReadonlySet<ExtensionType> = new Set(versionableTypes);
 
-const isVersionableType = (type: ExtensionType): type is VersionableExtensionType =>
-  type === "command" || type === "skill";
+export const isVersionableType = (type: ExtensionType): type is VersionableExtensionType =>
+  versionableTypeSet.has(type);
 
-const manifestFilename = (type: VersionableExtensionType): string =>
-  type === "command" ? COMMAND_MANIFEST_FILENAME : MANIFEST_FILENAME;
+const manifestFilenameByType: Record<VersionableExtensionType, string> = {
+  command: COMMAND_MANIFEST_FILENAME,
+  skill: SKILL_MANIFEST_FILENAME,
+  subagent: SUBAGENT_MANIFEST_FILENAME,
+  "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
+  pack: EXTENSION_PACK_MANIFEST_FILENAME,
+};
+
+const manifestFilename = (type: VersionableExtensionType): string => manifestFilenameByType[type];
 
 const decodeExactVersion = (value: unknown, manifestPath: string) =>
   Schema.decodeUnknownEffect(ExactSemverVersionSchema)(value).pipe(
@@ -105,7 +123,7 @@ export const resolveManifestVersionInfo = (
         code: "INVALID_EXTENSION_TYPE",
         what: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
         details: [
-          `Supported types: ${supportedTypes.map((type) => extensionTypeToPlural[type]).join(", ")}`,
+          `Supported types: ${versionableTypes.map((type) => extensionTypeToPlural[type]).join(", ")}`,
         ],
       });
     }

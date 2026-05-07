@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as semver from "semver";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { parseFqn } from "@agentxm/client-core/unstable/extensions";
+import { extensionTypeToPlural, parseFqn } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 
 import { resolveManifestVersionInfo, type VersionableExtensionType } from "./extension-version.js";
@@ -32,7 +32,7 @@ export const checkPublishVersionPreflight = (args: {
     const latest = indexOption.value.versions[0]?.version;
     if (latest === undefined || semver.gt(local.version, latest)) return;
 
-    const plural = args.type === "command" ? "commands" : "skills";
+    const plural = extensionTypeToPlural[args.type];
     return yield* makeAppError({
       code: "PUBLISH_VERSION_NOT_BUMPED",
       what: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,

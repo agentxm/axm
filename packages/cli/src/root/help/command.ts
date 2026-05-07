@@ -65,10 +65,14 @@ export const helpCommand = Command.make("help", helpConfig, ({ topic }) =>
   withArgvTracking(helpConfig),
   Command.withDescription("Show general help or a markdown topic page"),
   Command.withExamples([
-    { command: "axm help", description: "Show top-level help" },
-    { command: "axm help basic-usage", description: "Start using an existing workspace" },
-    { command: "axm help getting-started", description: "Read the getting started guide" },
-    { command: "axm help skills", description: "Read the anatomy of a native managed skill" },
-    { command: "axm help exit-codes", description: "Read exit status meanings" },
+    { command: "axm help", description: "View help topics" },
+    { command: "axm help basic-usage", description: "How to use AXM" },
+    { command: "axm help getting-started", description: "How to set up and configure AXM" },
+    { command: "axm help skills", description: "Managing agent skills with AXM" },
+    {
+      command: "axm help subagents",
+      description: "Managing subagents with AXM",
+    },
+    { command: "axm help exit-codes", description: "Exit code conventions" },
   ]),
 );

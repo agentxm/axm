@@ -39,6 +39,8 @@ AXM makes it easy to enable or disable extensions on the fly.
 
 ### Updating Extensions
 
+### Authoring and Editing Extensions
+
 An `authored: true` flag in the settings entry for an extension indicates that it is acceptable to make changes to the extension in the workspace. It does not need to be copied prior to modification. This should be set to true for any workspace where you anticipate making and publishing changes for an extension.
 
 ### Publishing Extensions

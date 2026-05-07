@@ -8,7 +8,7 @@ The command manifest (`command.json`) SHALL extend `CommonManifestFields` with c
 
 The manifest SHALL NOT carry an `agents` field. Render targeting is owned by `settings.json` (`settings.agents`).
 
-The manifest MAY contain derived copies of COMMAND.md frontmatter fields (`description`, `model`, etc.) for registry search and filtering, but these SHALL be synced FROM the content file during `publish` — never edited directly in the manifest.
+The manifest MAY contain derived copies of `${name}.md` frontmatter fields (`description`, `model`, etc.) for registry search and filtering, but these SHALL be synced FROM the content file during `publish` — never edited directly in the manifest.
 
 #### Scenario: Valid manifest with agent overrides
 

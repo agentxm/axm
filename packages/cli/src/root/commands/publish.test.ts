@@ -66,7 +66,7 @@ const initWorkspace = (
   );
 };
 
-/** Create a managed command extension in .axm/extensions/ with manifest and COMMAND.md. */
+/** Create a managed command extension in .axm/extensions/ with manifest and ${name}.md. */
 const createManagedCommandExtension = (
   tempDir: string,
   owner: string,
@@ -88,7 +88,7 @@ const createManagedCommandExtension = (
   };
   fs.writeFileSync(path.join(extDir, "command.json"), JSON.stringify(normalizedManifest));
   fs.writeFileSync(
-    path.join(srcDir, "COMMAND.md"),
+    path.join(srcDir, `${name}.md`),
     `---\nname: "${name}"\ndescription: "A test command"\n---\n\n# ${name}\n`,
   );
   return extDir;
@@ -354,7 +354,7 @@ describe("commands-publish.handler", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      // Create extension directory without manifest but with COMMAND.md
+      // Create extension directory without manifest but with the content file
       const srcDir = path.join(
         tempDir,
         ".axm",
@@ -365,7 +365,7 @@ describe("commands-publish.handler", () => {
         "src",
       );
       fs.mkdirSync(srcDir, { recursive: true });
-      fs.writeFileSync(path.join(srcDir, "COMMAND.md"), "# No manifest\n");
+      fs.writeFileSync(path.join(srcDir, "no-manifest.md"), "# No manifest\n");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
@@ -380,12 +380,12 @@ describe("commands-publish.handler", () => {
     });
   });
 
-  describe("missing COMMAND.md error", () => {
-    it.effect("fails when extension directory has no COMMAND.md", () => {
+  describe("missing content file error", () => {
+    it.effect("fails when extension directory has no ${name}.md", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      // Create extension directory with manifest but without COMMAND.md
+      // Create extension directory with manifest but without the content file
       const extDir = path.join(tempDir, ".axm", "extensions", "@test", "commands", "no-md");
       const srcDir = path.join(extDir, "src");
       fs.mkdirSync(srcDir, { recursive: true });
@@ -406,7 +406,7 @@ describe("commands-publish.handler", () => {
           const result = yield* handleCommandsPublish(defaultArgs(["@test/commands/no-md"])).pipe(
             Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
-          expect(getErrorResult(result).what).toContain("Missing COMMAND.md");
+          expect(getErrorResult(result).what).toContain("Missing no-md.md");
         }),
       );
     });

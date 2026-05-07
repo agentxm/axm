@@ -28,7 +28,7 @@ Command installation SHALL follow this sequence: resolve source, materialize com
 #### Scenario: Full install flow
 
 - **WHEN** user runs `axm commands install @acme/commands/review`
-- **THEN** the CLI SHALL resolve the source, materialize the package to `.axm/extensions/`, read `command.json` and `COMMAND.md`, render to each configured agent's commands directory, write a command entry to `settings.json`, and write a lock entry with the `agents` array
+- **THEN** the CLI SHALL resolve the source, materialize the package to `.axm/extensions/`, read `command.json` and the command content file (`${name}.md`), render to each configured agent's commands directory, write a command entry to `settings.json`, and write a lock entry with the `agents` array
 
 #### Scenario: Rendered files placed in agent directories
 

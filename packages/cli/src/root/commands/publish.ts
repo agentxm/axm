@@ -19,6 +19,7 @@ import type { PublishCommandOperation } from "@agentxm/client-core/unstable/comm
 import {
   publishCommand as publishCommandOp,
   COMMAND_MANIFEST_FILENAME,
+  commandContentFilename,
 } from "@agentxm/client-core/unstable/commands";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -36,8 +37,6 @@ import {
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { toJobStepResult } from "./job-step-result.js";
-
-const COMMAND_MD_FILENAME = "COMMAND.md";
 
 export interface CommandsPublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
@@ -207,7 +206,8 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     return Effect.succeed(`${parts.owner}/commands/${name}`);
   });
 
-  // Step 3: Validate each extension (both command.json and COMMAND.md must exist)
+  // Step 3: Validate each extension (command.json and the command content file
+  // (`${name}.md`) must both exist)
   yield* renderer.withSpinner(
     "Validating extensions...",
     () =>
@@ -261,7 +261,8 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               });
             }
 
-            const commandMdPath = path.join(extensionDir, "src", COMMAND_MD_FILENAME);
+            const contentFilename = commandContentFilename(fqn.name);
+            const commandMdPath = path.join(extensionDir, "src", contentFilename);
             const commandMdExists = yield* fs
               .exists(commandMdPath)
               .pipe(Effect.orElseSucceed(() => false));
@@ -269,9 +270,9 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             if (!commandMdExists) {
               return yield* makeAppError({
                 code: "MISSING_COMMAND_MD",
-                what: `Missing ${COMMAND_MD_FILENAME}`,
+                what: `Missing ${contentFilename}`,
                 details: [`Expected at: ${commandMdPath}`],
-                howToFix: `Ensure the extension has a ${COMMAND_MD_FILENAME} in its src/ directory.`,
+                howToFix: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
               });
             }
           });

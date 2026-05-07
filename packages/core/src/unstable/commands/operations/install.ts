@@ -2,9 +2,9 @@
  * Install command executor — orchestrates the per-command installation pipeline.
  *
  * Supports all ref types (registry, git-hosted, local). After materialization,
- * reads COMMAND.md and command.json, renders to all configured agents
- * concurrently, and writes lockfile entries with agents, sourceHash, and
- * renderedFiles.
+ * reads the command's content file (`${name}.md`) and `command.json`, renders
+ * to all configured agents concurrently, and writes lockfile entries with
+ * agents, sourceHash, and renderedFiles.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -258,7 +258,7 @@ const materializeCommand = (ref: CommandExtensionRef) => {
  *
  * Supports all ref types: registry, git-hosted, local.
  * After materialization:
- * 1. Reads COMMAND.md and command.json
+ * 1. Reads the command's `${name}.md` content file and `command.json`
  * 2. Renders to all configured agents concurrently
  * 3. Writes lockfile entries with agents, sourceHash, renderedFiles
  */
@@ -280,6 +280,7 @@ export const installCommand: (
     // --- Read command content ---
     const { frontmatter, body, manifest } = yield* readCommandContent(
       canonicalPath,
+      ref.command.name,
       "INSTALL_COMMAND",
     );
 

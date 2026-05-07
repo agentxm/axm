@@ -2,7 +2,7 @@
  * Shared helpers for command operations (install, enable, uninstall).
  *
  * Extracts duplicated logic into reusable functions:
- * - readCommandContent: COMMAND.md parsing + command.json reading
+ * - readCommandContent: parses the command's ${name}.md content file plus command.json
  * - renderToAgents: agent rendering + result collection
  * - checkInstalledOnDisk: scan disk for installed command files
  *
@@ -18,6 +18,7 @@ import { makeAppError } from "../../app-error/index.js";
 import { parseCommandMd, type CommandContentResult } from "../command-content.js";
 import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../manifest-schema.js";
 import type { CommandManifest } from "../manifest-schema.js";
+import { commandContentFilename } from "../paths.js";
 import { selectRenderer } from "../renderers/index.js";
 import type { RendererCommandFrontmatter } from "../renderers/types.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
@@ -44,19 +45,25 @@ export interface ReadCommandContentResult extends CommandContentResult {
 }
 
 /**
- * Read COMMAND.md and command.json from a canonical command directory.
+ * Read the command content file (`${name}.md`) and `command.json` from a
+ * canonical command directory.
  *
- * Parses COMMAND.md frontmatter and reads/validates command.json if present.
- * The errorPrefix controls which error codes are used so callers retain
- * distinct error identities.
+ * Parses the content file's frontmatter and reads/validates `command.json` if
+ * present. The errorPrefix controls which error codes are used so callers
+ * retain distinct error identities.
  */
-export const readCommandContent = (canonicalPath: string, errorPrefix: CommandErrorPrefix) =>
+export const readCommandContent = (
+  canonicalPath: string,
+  commandName: string,
+  errorPrefix: CommandErrorPrefix,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    // Read COMMAND.md
-    const commandMdPath = path.join(canonicalPath, "COMMAND.md");
+    // Read the command content file (<name>.md)
+    const contentFilename = commandContentFilename(commandName);
+    const commandMdPath = path.join(canonicalPath, contentFilename);
     const commandMdExists = yield* fs
       .exists(commandMdPath)
       .pipe(Effect.catch(() => Effect.succeed(false)));
@@ -67,7 +74,7 @@ export const readCommandContent = (canonicalPath: string, errorPrefix: CommandEr
         Effect.mapError((e) =>
           makeAppError({
             code: `${errorPrefix}_READ_FAILED`,
-            what: `Failed to read COMMAND.md at ${commandMdPath}`,
+            what: `Failed to read ${contentFilename} at ${commandMdPath}`,
             cause: e,
           }),
         ),

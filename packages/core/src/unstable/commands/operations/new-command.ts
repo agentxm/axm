@@ -1,5 +1,6 @@
 /**
- * New command operation -- scaffolds a new command directory with manifest and COMMAND.md.
+ * New command operation -- scaffolds a new command directory with the manifest
+ * and a `${name}.md` content file.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -18,6 +19,7 @@ import {
   COMMAND_MANIFEST_SCHEMA_URL,
   type CommandManifest,
 } from "../manifest-schema.js";
+import { commandContentFilename } from "../paths.js";
 import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
@@ -69,7 +71,7 @@ const INITIAL_COMMAND_VERSION = decodeExactSemverVersionSync("0.1.0");
  * 2. Check if directory already exists
  * 3. Create the managed extension + src directories
  * 4. Write command.json manifest
- * 5. Write starter COMMAND.md in src/
+ * 5. Write starter `${name}.md` in src/
  */
 export const newCommand: OperationHandler<
   NewCommandOperation,
@@ -138,14 +140,15 @@ export const newCommand: OperationHandler<
         ),
       );
 
-    // 5. Write starter COMMAND.md in src/
+    // 5. Write starter content file (<name>.md) in src/
+    const contentFilename = commandContentFilename(name);
     yield* fs
-      .writeFileString(path.join(srcDir, "COMMAND.md"), makeCommandMd(name, description))
+      .writeFileString(path.join(srcDir, contentFilename), makeCommandMd(name, description))
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
             code: "COMMAND_CREATE_FAILED",
-            what: `Failed to write COMMAND.md`,
+            what: `Failed to write ${contentFilename}`,
             cause: e,
           }),
         ),

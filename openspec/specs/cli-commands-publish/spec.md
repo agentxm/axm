@@ -12,7 +12,7 @@ The `axm commands publish` command validates, packs, and uploads a command packa
 
 #### Scenario: Successful publish
 
-- **WHEN** user runs `axm commands publish` in a directory with a valid `command.json` and `COMMAND.md`
+- **WHEN** user runs `axm commands publish` in a directory with a valid `command.json` and `${name}.md`
 - **AND** the user is authenticated
 - **THEN** the CLI SHALL validate the manifest, pack the directory, upload to the registry, and display a success message with the published name and version
 
@@ -23,7 +23,7 @@ The `axm commands publish` command validates, packs, and uploads a command packa
 
 #### Scenario: Missing command body
 
-- **WHEN** user runs `axm commands publish` in a directory with `command.json` but no `COMMAND.md`
+- **WHEN** user runs `axm commands publish` in a directory with `command.json` but no `${name}.md`
 - **THEN** the CLI SHALL fail with an error indicating the command body is missing
 
 #### Scenario: Invalid manifest

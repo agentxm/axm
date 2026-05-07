@@ -1,7 +1,7 @@
 /**
  * Unit tests for the new-command operation.
  *
- * Tests directory creation, manifest writing, COMMAND.md content,
+ * Tests directory creation, manifest writing, ${name}.md content file,
  * and existing directory error.
  */
 
@@ -51,7 +51,7 @@ describe("new-command operation", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("creates directory with manifest and COMMAND.md", () =>
+  it.effect("creates directory with manifest and ${name}.md content file", () =>
     Effect.gen(function* () {
       const result = yield* newCommand(makeOp("my-cmd"));
 
@@ -76,7 +76,7 @@ describe("new-command operation", () => {
       expect(manifest.version).toBe("0.1.0");
       expect(manifest.$schema).toBe("https://axm.sh/schemas/command.schema.json");
 
-      // Verify COMMAND.md
+      // Verify <name>.md
       const commandMdPath = path.join(
         tempDir,
         ".axm",
@@ -85,7 +85,7 @@ describe("new-command operation", () => {
         "commands",
         "my-cmd",
         "src",
-        "COMMAND.md",
+        "my-cmd.md",
       );
       expect(fs.existsSync(commandMdPath)).toBe(true);
       const content = fs.readFileSync(commandMdPath, "utf-8");
@@ -96,7 +96,7 @@ describe("new-command operation", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("includes description in manifest and COMMAND.md when provided", () =>
+  it.effect("includes description in manifest and ${name}.md when provided", () =>
     Effect.gen(function* () {
       const result = yield* newCommand(makeOp("my-cmd", { description: "Does cool things" }));
 
@@ -122,7 +122,7 @@ describe("new-command operation", () => {
         "commands",
         "my-cmd",
         "src",
-        "COMMAND.md",
+        "my-cmd.md",
       );
       const content = fs.readFileSync(commandMdPath, "utf-8");
       expect(content).toContain("description: Does cool things");

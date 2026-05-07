@@ -109,18 +109,21 @@ const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir
 };
 
 /**
- * Map a directory-style subject to the canonical primary file inside its
- * `<dir>/<name>/` content root. Mirrors the convention used by the
+ * Map a directory-style subject + name to the canonical primary file inside
+ * its `<dir>/<name>/` content root. Mirrors the convention used by the
  * canonical-extensions scanner.
+ *
+ * - `skill` → `SKILL.md` (fixed)
+ * - `command` → `${name}.md`
+ * - `subagent` → `${name}.md`
  */
-const subjectFileNameFor = (type: AgentDirSubjectType): string => {
+const subjectFileNameFor = (type: AgentDirSubjectType, name: string): string => {
   switch (type) {
     case "skill":
       return "SKILL.md";
     case "command":
-      return "command.md";
     case "subagent":
-      return "subagent.md";
+      return `${name}.md`;
   }
 };
 
@@ -163,11 +166,12 @@ const scanSubjectDirectory = (
 
     const candidates = yield* childEntries(SCANNER_NAME, fs, diagnostics, path, subjectAbsolute);
     const nameDirs = yield* filterDirectories(fs, candidates);
-    const subjectFileName = subjectFileNameFor(subject.type);
     return yield* Effect.forEach(
       nameDirs,
       (nameDir) =>
         Effect.gen(function* () {
+          const name = path.basename(nameDir);
+          const subjectFileName = subjectFileNameFor(subject.type, name);
           const subjectFilePath = path.join(nameDir, subjectFileName);
           const subjectFileExists = yield* fileExists(
             SCANNER_NAME,
@@ -180,7 +184,7 @@ const scanSubjectDirectory = (
             scope,
             type: subject.type,
             agentId,
-            name: path.basename(nameDir),
+            name,
             contentLocation: nameDir,
             pathSegments: splitAbsolutePathSegments(path, nameDir),
             subjectFile: Option.some(subjectFilePath),

@@ -90,8 +90,8 @@ export type AgentDirSubjectType = "skill" | "command" | "subagent";
  *
  * - `pathSegments` — `contentLocation` split via the `Path` service.
  * - `subjectFile` — `Some(path)` when the subject type has a canonical
- *   primary file (skill → `<dir>/SKILL.md`, command → `<dir>/command.md`,
- *   subagent dir → `<dir>/subagent.md`). For single-file subagent surfaces
+ *   primary file (skill → `<dir>/SKILL.md`, command → `<dir>/${name}.md`,
+ *   subagent dir → `<dir>/${name}.md`). For single-file subagent surfaces
  *   (e.g., `.roomodes`) the `subjectFile` is the `contentLocation` itself.
  * - `subjectFileExists` — `true` if the scanner probed `subjectFile` and
  *   found it present. Always `false` when `subjectFile` is `None`. For

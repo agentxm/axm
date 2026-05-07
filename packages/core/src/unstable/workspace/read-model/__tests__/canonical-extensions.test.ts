@@ -67,7 +67,7 @@ describe("canonical-extensions scanner", () => {
         project: {
           axmExtensions: {
             "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
-            "@owner/commands/src/some-command/command.md": "# command\n",
+            "@owner/commands/src/some-command/some-command.md": "# command\n",
           },
         },
       });

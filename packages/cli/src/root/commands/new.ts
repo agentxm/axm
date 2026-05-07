@@ -121,7 +121,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   const breadcrumbs = [
     {
       task: "edit",
-      description: `Edit \`.axm/extensions/${owner}/commands/${args.name}/src/COMMAND.md\` to fill in instructions`,
+      description: `Edit \`.axm/extensions/${owner}/commands/${args.name}/src/${args.name}.md\` to fill in instructions`,
     },
     {
       task: "sync",

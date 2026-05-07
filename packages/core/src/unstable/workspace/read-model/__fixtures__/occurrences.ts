@@ -53,27 +53,25 @@ const normalizeFileBackedName = (name: string): string => {
 // scanners/agent-dir.ts)
 // ---------------------------------------------------------------------------
 
-const subjectFileNameForExtensionType = (type: ExtensionType): string | null => {
+const subjectFileNameForExtensionType = (type: ExtensionType, name: string): string | null => {
   switch (type) {
     case "skill":
       return "SKILL.md";
     case "command":
-      return "command.md";
     case "subagent":
-      return "subagent.md";
+      return `${name}.md`;
     default:
       return null;
   }
 };
 
-const subjectFileNameForAgentDir = (type: AgentDirSubjectType): string | null => {
+const subjectFileNameForAgentDir = (type: AgentDirSubjectType, name: string): string | null => {
   switch (type) {
     case "skill":
       return "SKILL.md";
     case "command":
-      return "command.md";
     case "subagent":
-      return "subagent.md";
+      return `${name}.md`;
   }
 };
 
@@ -105,7 +103,7 @@ export interface MakeCanonicalOccurrenceInput {
 export const makeCanonicalOccurrence = (
   input: MakeCanonicalOccurrenceInput,
 ): CanonicalExtensionOccurrence => {
-  const subjectFileName = subjectFileNameForExtensionType(input.type);
+  const subjectFileName = subjectFileNameForExtensionType(input.type, input.name);
   const subjectFile =
     subjectFileName === null
       ? Option.none<string>()
@@ -155,7 +153,8 @@ export interface MakeAgentDirOccurrenceInput {
  * surfaces. `subjectFileExists` defaults to `true`.
  */
 export const makeAgentDirOccurrence = (input: MakeAgentDirOccurrenceInput): AgentDirOccurrence => {
-  const subjectFileName = subjectFileNameForAgentDir(input.type);
+  const resolvedName = input.singleFile === true ? normalizeFileBackedName(input.name) : input.name;
+  const subjectFileName = subjectFileNameForAgentDir(input.type, resolvedName);
   const subjectFile =
     input.singleFile === true
       ? Option.some(input.contentLocation)
@@ -168,7 +167,7 @@ export const makeAgentDirOccurrence = (input: MakeAgentDirOccurrenceInput): Agen
     scope: input.scope,
     type: input.type,
     agentId: input.agentId,
-    name: input.singleFile === true ? normalizeFileBackedName(input.name) : input.name,
+    name: resolvedName,
     contentLocation: input.contentLocation,
     pathSegments: splitSegments(input.contentLocation),
     subjectFile,

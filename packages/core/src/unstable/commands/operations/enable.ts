@@ -49,7 +49,7 @@ export type EnableCommandOperation = Operation<"enable-command", { readonly comm
  * Lock-backed path:
  * 1. Read lock entry, determine canonical path
  * 2. Verify canonical directory exists
- * 3. Read COMMAND.md and command.json
+ * 3. Read the command's `${name}.md` content file and `command.json`
  * 4. Render to all configured agents concurrently
  * 5. Update lock entry with agents and renderedFiles
  * 6. Update settings entry to set enabled: true
@@ -119,9 +119,10 @@ export const enableCommand: OperationHandler<
       });
     }
 
-    // Read COMMAND.md and command.json
+    // Read the command content file and command.json
     const { frontmatter, body, manifest } = yield* readCommandContent(
       canonicalPath,
+      op.args.commandName,
       "ENABLE_COMMAND",
     );
 

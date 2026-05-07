@@ -11,7 +11,8 @@
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 
 /**
- * A single command argument definition from COMMAND.md frontmatter.
+ * A single command argument definition from the command content file's
+ * frontmatter.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -23,7 +24,7 @@ export interface RendererCommandArgument {
 }
 
 /**
- * Parsed frontmatter from COMMAND.md.
+ * Parsed frontmatter from a command content file.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -52,9 +53,9 @@ export type AgentOverrides = Readonly<Record<string, unknown>>;
  * @experimental This API is unstable and may change without notice.
  */
 export interface RenderInput {
-  /** Parsed COMMAND.md frontmatter. */
+  /** Parsed command content frontmatter. */
   readonly frontmatter: RendererCommandFrontmatter;
-  /** COMMAND.md body text (after frontmatter). */
+  /** Command content body text (after frontmatter). */
   readonly body: string;
   /** Agent-specific overrides from command.json agentOverrides. */
   readonly agentOverrides?: AgentOverrides | undefined;

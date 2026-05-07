@@ -1,7 +1,7 @@
 /**
  * Unit tests for the commands new handler.
  *
- * Tests profile resolution, name validation, manifest creation, COMMAND.md,
+ * Tests profile resolution, name validation, manifest creation, ${name}.md content file,
  * and error paths.
  */
 
@@ -71,7 +71,7 @@ describe("commands-new.handler", () => {
   }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
 
   describe("success", () => {
-    it.effect("creates command with manifest and COMMAND.md", () => {
+    it.effect("creates command with manifest and ${name}.md content file", () => {
       const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
@@ -96,7 +96,7 @@ describe("commands-new.handler", () => {
           expect(manifest.name).toBe("my-command");
           expect(manifest.version).toBe("0.1.0");
 
-          // Verify COMMAND.md
+          // Verify <name>.md content file
           const commandMdPath = path.join(
             tempDir,
             ".axm",
@@ -105,7 +105,7 @@ describe("commands-new.handler", () => {
             "commands",
             "my-command",
             "src",
-            "COMMAND.md",
+            "my-command.md",
           );
           expect(fs.existsSync(commandMdPath)).toBe(true);
           const commandMd = fs.readFileSync(commandMdPath, "utf-8");
@@ -117,7 +117,7 @@ describe("commands-new.handler", () => {
             {
               task: "edit",
               description:
-                "Edit `.axm/extensions/@acme/commands/my-command/src/COMMAND.md` to fill in instructions",
+                "Edit `.axm/extensions/@acme/commands/my-command/src/my-command.md` to fill in instructions",
             },
             {
               task: "sync",
@@ -157,7 +157,7 @@ describe("commands-new.handler", () => {
             "commands",
             "my-command",
             "src",
-            "COMMAND.md",
+            "my-command.md",
           );
           const commandMd = fs.readFileSync(commandMdPath, "utf-8");
           expect(commandMd).toContain("description: Does cool stuff");
@@ -304,8 +304,8 @@ describe("commands-new.handler", () => {
     });
   });
 
-  describe("COMMAND.md content", () => {
-    it.effect("writes COMMAND.md with frontmatter and placeholder body", () => {
+  describe("content file", () => {
+    it.effect("writes ${name}.md with frontmatter and placeholder body", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
@@ -321,7 +321,7 @@ describe("commands-new.handler", () => {
             "commands",
             "my-tool",
             "src",
-            "COMMAND.md",
+            "my-tool.md",
           );
           const content = fs.readFileSync(commandMdPath, "utf-8");
 

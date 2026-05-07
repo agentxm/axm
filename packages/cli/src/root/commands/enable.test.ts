@@ -147,7 +147,7 @@ describe("commands enable.handler", () => {
         "my-cmd",
       );
       fs.mkdirSync(canonicalDir, { recursive: true });
-      fs.writeFileSync(path.join(canonicalDir, "COMMAND.md"), "# my-cmd");
+      fs.writeFileSync(path.join(canonicalDir, "my-cmd.md"), "# my-cmd");
 
       return provide(
         Effect.gen(function* () {
@@ -182,7 +182,7 @@ describe("commands enable.handler", () => {
         "my-cmd",
       );
       fs.mkdirSync(canonicalDir, { recursive: true });
-      fs.writeFileSync(path.join(canonicalDir, "COMMAND.md"), "# my-cmd");
+      fs.writeFileSync(path.join(canonicalDir, "my-cmd.md"), "# my-cmd");
 
       return provide(
         Effect.gen(function* () {
@@ -260,7 +260,7 @@ describe("commands enable.handler", () => {
         "my-cmd",
       );
       fs.mkdirSync(canonicalDir, { recursive: true });
-      fs.writeFileSync(path.join(canonicalDir, "COMMAND.md"), "# my-cmd");
+      fs.writeFileSync(path.join(canonicalDir, "my-cmd.md"), "# my-cmd");
 
       return provide(
         Effect.gen(function* () {

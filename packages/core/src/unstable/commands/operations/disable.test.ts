@@ -190,7 +190,7 @@ describe("disableCommand", () => {
           "my-command",
         );
         fs.mkdirSync(canonicalPath, { recursive: true });
-        fs.writeFileSync(path.join(canonicalPath, "COMMAND.md"), "Hello world");
+        fs.writeFileSync(path.join(canonicalPath, "my-command.md"), "Hello world");
 
         const lockEntry = makeRegistryLockEntry();
         const setCommandLockFn = vi.fn(() => Effect.void);
@@ -201,7 +201,7 @@ describe("disableCommand", () => {
 
         expect(result.result).toBe("success");
         // Canonical files should still exist
-        expect(fs.existsSync(path.join(canonicalPath, "COMMAND.md"))).toBe(true);
+        expect(fs.existsSync(path.join(canonicalPath, "my-command.md"))).toBe(true);
       }),
     );
 

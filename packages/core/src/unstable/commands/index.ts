@@ -29,6 +29,14 @@ export { commandReconciliationAdapter } from "./reconciliation-adapter.js";
 
 export { buildRegistryCommandRef } from "./registry-ref-builder.js";
 
+export {
+  commandContentFilename,
+  commandContentPath,
+  computeCommandPaths,
+  type CommandDirPaths,
+  type CommandPathSource,
+} from "./paths.js";
+
 export type { PublishCommandOperationArgs, PublishCommandOperation } from "./operations/publish.js";
 export { publishCommand } from "./operations/publish.js";
 export type { InstallCommandOperationArgs, InstallCommandOperation } from "./operations/install.js";

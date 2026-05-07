@@ -13,7 +13,7 @@ The command manifest (`command.json`) SHALL extend `CommonManifestFields` with c
 - `agents`: optional array of agent ID strings filtering which configured agents receive rendered command files
 - `agentOverrides`: optional record keyed by agent ID, where each value is a record of agent-specific field overrides
 
-The manifest MAY contain derived copies of COMMAND.md frontmatter fields (`description`, `model`, etc.) for registry search and filtering, but these SHALL be synced FROM the content file during `publish` — never edited directly in the manifest.
+The manifest MAY contain derived copies of ${name}.md frontmatter fields (`description`, `model`, etc.) for registry search and filtering, but these SHALL be synced FROM the content file during `publish` — never edited directly in the manifest.
 
 #### Scenario: Valid manifest with agent filter
 
@@ -37,11 +37,11 @@ The manifest MAY contain derived copies of COMMAND.md frontmatter fields (`descr
 - **AND** the workspace has agents `["claude-code", "cursor", "gemini-cli"]` configured
 - **THEN** the command SHALL only be rendered to Claude Code and Cursor
 
-### Requirement: COMMAND.md content file
+### Requirement: Command content file
 
-The command prompt body and behavioral configuration SHALL reside in a `COMMAND.md` file. `COMMAND.md` SHALL use YAML frontmatter for all authoring/behavioral fields, with the prompt body as the markdown content below the frontmatter.
+The command prompt body and behavioral configuration SHALL reside in a `${name}.md` file (where `${name}` is the command's sanitized name — e.g., `review-pr.md` for a command named `review-pr`). The content file SHALL use YAML frontmatter for all authoring/behavioral fields, with the prompt body as the markdown content below the frontmatter.
 
-**COMMAND.md frontmatter fields (source of truth for authoring):**
+**Command content frontmatter fields (source of truth for authoring):**
 
 - `description`: optional string describing the command
 - `model`: optional nullable string specifying a model override for command execution
@@ -52,28 +52,28 @@ The command prompt body and behavioral configuration SHALL reside in a `COMMAND.
 - `autoInvocable`: optional boolean (default true) controlling whether agents may invoke the command without user initiation
 - `userInvocable`: optional boolean (default true) controlling whether users can invoke the command via slash syntax
 
-The manifest (`command.json`) is the source of truth for packaging/distribution concerns. COMMAND.md frontmatter is the source of truth for behavioral/authoring concerns. This model applies uniformly to commands and subagents.
+The manifest (`command.json`) is the source of truth for packaging/distribution concerns. The command content file (`${name}.md`) frontmatter is the source of truth for behavioral/authoring concerns. This model applies uniformly to commands and subagents.
 
-#### Scenario: COMMAND.md with frontmatter and body
+#### Scenario: Content file with frontmatter and body
 
-- **WHEN** a `COMMAND.md` contains YAML frontmatter with `description`, `model`, and `allowedTools` followed by a prompt body
+- **WHEN** a `${name}.md` contains YAML frontmatter with `description`, `model`, and `allowedTools` followed by a prompt body
 - **THEN** AXM SHALL parse the frontmatter for behavioral fields
 - **AND** SHALL use the body as the command prompt
 
-#### Scenario: COMMAND.md with no frontmatter
+#### Scenario: Content file with no frontmatter
 
-- **WHEN** a `COMMAND.md` contains only a prompt body with no YAML frontmatter
+- **WHEN** a `${name}.md` contains only a prompt body with no YAML frontmatter
 - **THEN** AXM SHALL use defaults for all behavioral fields
 - **AND** SHALL use the entire file content as the command prompt
 
-#### Scenario: Missing COMMAND.md
+#### Scenario: Missing content file
 
-- **WHEN** a command package contains `command.json` but no `COMMAND.md`
+- **WHEN** a command package contains `command.json` but no `${name}.md`
 - **THEN** materialization SHALL fail with an error indicating the command body is missing
 
 #### Scenario: Null model clears inherited model
 
-- **WHEN** `COMMAND.md` frontmatter contains `model: null`
+- **WHEN** `${name}.md` frontmatter contains `model: null`
 - **THEN** no model override SHALL apply
 - **AND** agents SHALL use their default model selection
 
@@ -98,7 +98,7 @@ The settings schema for commands SHALL use a per-type entry schema supporting `s
 
 ### Requirement: Per-format-family rendering
 
-AXM SHALL render commands into agent-native formats using format-family renderers. Each renderer SHALL be a pure function that accepts the COMMAND.md frontmatter, command body, agent overrides from the manifest, and agent-specific configuration, and returns a rendered command file.
+AXM SHALL render commands into agent-native formats using format-family renderers. Each renderer SHALL be a pure function that accepts the ${name}.md frontmatter, command body, agent overrides from the manifest, and agent-specific configuration, and returns a rendered command file.
 
 The format families SHALL be:
 
@@ -147,37 +147,37 @@ Renderers SHALL replace portable variable syntax with agent-native syntax at ren
 
 #### Scenario: Arguments variable substituted for Claude Code
 
-- **WHEN** `COMMAND.md` contains `Review {{arguments}}`
+- **WHEN** `${name}.md` contains `Review {{arguments}}`
 - **AND** rendering for Claude Code
 - **THEN** the rendered file SHALL contain `Review $ARGUMENTS`
 
 #### Scenario: Indexed argument substituted for Copilot
 
-- **WHEN** `COMMAND.md` contains `Fix {{arguments[0]}}`
+- **WHEN** `${name}.md` contains `Fix {{arguments[0]}}`
 - **AND** rendering for Copilot
 - **THEN** the rendered file SHALL contain `Fix ${input:arg1}`
 
 #### Scenario: Named argument substituted for Junie
 
-- **WHEN** `COMMAND.md` contains `Deploy to {{arg:env}}`
+- **WHEN** `${name}.md` contains `Deploy to {{arg:env}}`
 - **AND** rendering for Junie
 - **THEN** the rendered file SHALL contain `Deploy to $env`
 
 #### Scenario: Variable rendered as literal for Kiro with warning
 
-- **WHEN** `COMMAND.md` contains `Review {{arguments}}`
+- **WHEN** `${name}.md` contains `Review {{arguments}}`
 - **AND** rendering for Kiro
 - **THEN** the rendered file SHALL contain the literal text `{{arguments}}`
 - **AND** the renderer SHALL return a lossy-rendering warning
 
 #### Scenario: Escaped variable produces literal
 
-- **WHEN** `COMMAND.md` contains `Use \{{arguments}} for raw`
+- **WHEN** `${name}.md` contains `Use \{{arguments}} for raw`
 - **THEN** the rendered file SHALL contain `Use {{arguments}} for raw` regardless of agent
 
 ### Requirement: Managed-file header
 
-Rendered command files SHALL contain only the agent-native content produced from `COMMAND.md` frontmatter and body. AXM SHALL NOT prepend managed headers or ownership markers to Markdown, TOML, or plain-text command outputs.
+Rendered command files SHALL contain only the agent-native content produced from `${name}.md` frontmatter and body. AXM SHALL NOT prepend managed headers or ownership markers to Markdown, TOML, or plain-text command outputs.
 
 #### Scenario: Markdown rendered file has no managed header
 
@@ -228,7 +228,7 @@ Each `CodingAgent` SHALL support command operations via three methods:
 
 #### Scenario: Add command to agent
 
-- **WHEN** `addCommand` is called with a COMMAND.md (frontmatter + body) and manifest
+- **WHEN** `addCommand` is called with a ${name}.md (frontmatter + body) and manifest
 - **THEN** the agent adapter SHALL resolve the commands directory, call the appropriate renderer, and write the rendered file
 - **AND** SHALL return a sync outcome including any warnings
 
@@ -274,19 +274,19 @@ When a command uses frontmatter fields that an agent does not support, the rende
 
 #### Scenario: Model override unsupported by Cursor
 
-- **WHEN** a command specifies `model: "claude-sonnet-4-5-20250514"` in COMMAND.md frontmatter
+- **WHEN** a command specifies `model: "claude-sonnet-4-5-20250514"` in ${name}.md frontmatter
 - **AND** rendering for Cursor
 - **THEN** the renderer SHALL omit the model field and return a warning that Cursor does not support model overrides
 
 #### Scenario: Tool restrictions unsupported by Augment
 
-- **WHEN** a command specifies `allowedTools: ["Read"]` in COMMAND.md frontmatter
+- **WHEN** a command specifies `allowedTools: ["Read"]` in ${name}.md frontmatter
 - **AND** rendering for Augment
 - **THEN** the renderer SHALL omit the allowed-tools field and return a warning
 
 #### Scenario: Multiple warnings accumulated
 
-- **WHEN** a command specifies `model`, `allowedTools`, and `isolatedContext` in COMMAND.md frontmatter
+- **WHEN** a command specifies `model`, `allowedTools`, and `isolatedContext` in ${name}.md frontmatter
 - **AND** rendering for an agent that supports none of these
 - **THEN** the renderer SHALL return one warning per unsupported feature
 
@@ -295,7 +295,7 @@ When a command uses frontmatter fields that an agent does not support, the rende
 `CommandLockEntry` SHALL include:
 
 - An `agents` array tracking which agents a command is rendered to
-- An entry-level `sourceHash` — hash of the portable inputs (COMMAND.md frontmatter + body + relevant manifest fields). Used to decide whether re-rendering is needed. Entry-level because all agents share the same canonical source
+- An entry-level `sourceHash` — hash of the portable inputs (${name}.md frontmatter + body + relevant manifest fields). Used to decide whether re-rendering is needed. Entry-level because all agents share the same canonical source
 - A `renderedFiles` map keyed by agent ID, where each value is an array of `{ path }` objects tracking rendered file locations
 
 The `agents` array, `sourceHash`, and `renderedFiles` map SHALL be updated on install, uninstall, enable, disable, and sync. The `sourceHash` hashes the portable inputs — not the rendered output — so reformatting by Prettier or editor tooling does not trigger false drift.
@@ -325,7 +325,7 @@ The `renderedFiles` array-per-agent shape is shared with subagent lock entries (
 #### Scenario: Source hash mismatch triggers re-render
 
 - **WHEN** `axm sync` is run
-- **AND** a command's COMMAND.md content has changed since last render
+- **AND** a command's ${name}.md content has changed since last render
 - **THEN** the source hash SHALL differ and the command SHALL be re-rendered to all agents
 
 #### Scenario: Missing rendered file is recreated
@@ -363,13 +363,13 @@ AXM SHALL provide a `commands` command group with the following subcommands:
 
 | Command     | Behavior                                                                                     |
 | ----------- | -------------------------------------------------------------------------------------------- |
-| `install`   | Resolve source, materialize, read COMMAND.md, render to agents, update settings and lockfile |
+| `install`   | Resolve source, materialize, read ${name}.md, render to agents, update settings and lockfile |
 | `uninstall` | Remove rendered files from agents, remove settings entry, remove lockfile entry              |
 | `list`      | Display installed commands with name, source, enabled status, and agents                     |
 | `update`    | Re-resolve source, update materialized files, re-render to agents                            |
 | `enable`    | Set `enabled: true` in settings, re-render to agents                                         |
 | `disable`   | Set `enabled: false` in settings, remove rendered files from agents                          |
-| `new`       | Scaffold `command.json` + `COMMAND.md` in current directory                                  |
+| `new`       | Scaffold `command.json` + `${name}.md` in current directory                                  |
 | `publish`   | Sync frontmatter fields to manifest, validate, pack, upload to registry                      |
 
 All commands SHALL accept the `--scope` flag (default: project).
@@ -377,7 +377,7 @@ All commands SHALL accept the `--scope` flag (default: project).
 #### Scenario: Install from registry
 
 - **WHEN** `axm commands install @owner/commands/review-pr` is run
-- **THEN** the CLI SHALL resolve the source, materialize the package, read COMMAND.md frontmatter and body, render to each configured agent, update settings, and update lockfile
+- **THEN** the CLI SHALL resolve the source, materialize the package, read ${name}.md frontmatter and body, render to each configured agent, update settings, and update lockfile
 - **AND** SHALL display the install result with any lossy-rendering warnings
 
 #### Scenario: Uninstall removes rendered files
@@ -409,13 +409,13 @@ All commands SHALL accept the `--scope` flag (default: project).
 #### Scenario: New scaffolds command
 
 - **WHEN** `axm commands new` is run
-- **THEN** the CLI SHALL scaffold a `command.json` and `COMMAND.md` in the current directory
+- **THEN** the CLI SHALL scaffold a `command.json` and `${name}.md` in the current directory
 - **AND** SHALL prompt for name and description interactively
 
 #### Scenario: Publish syncs frontmatter to manifest
 
 - **WHEN** `axm commands publish` is run
-- **THEN** the CLI SHALL sync COMMAND.md frontmatter fields (description, model, etc.) to the manifest for registry use
+- **THEN** the CLI SHALL sync ${name}.md frontmatter fields (description, model, etc.) to the manifest for registry use
 - **AND** SHALL validate and upload to the registry
 
 ### Requirement: Preview flag on state-changing operations

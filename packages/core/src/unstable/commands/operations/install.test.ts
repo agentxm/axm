@@ -474,9 +474,9 @@ describe("installCommand", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const canonicalPath = setupRegistryCanonical(base, "@community");
-        // Add a COMMAND.md
+        // Add the command content file
         fs.writeFileSync(
-          path.join(canonicalPath, "COMMAND.md"),
+          path.join(canonicalPath, "my-command.md"),
           "---\ndescription: test command\n---\nHello world",
         );
 
@@ -499,7 +499,7 @@ describe("installCommand", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const canonicalPath = setupRegistryCanonical(base, "@community");
-        fs.writeFileSync(path.join(canonicalPath, "COMMAND.md"), "Hello world");
+        fs.writeFileSync(path.join(canonicalPath, "my-command.md"), "Hello world");
         fs.writeFileSync(
           path.join(canonicalPath, "command.json"),
           JSON.stringify({

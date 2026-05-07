@@ -152,7 +152,7 @@ describe("CommandFrontmatterSchema", () => {
 });
 
 describe("parseCommandMd", () => {
-  it.effect("parses COMMAND.md with valid frontmatter", () =>
+  it.effect("parses command content with valid frontmatter", () =>
     Effect.gen(function* () {
       const content = `---
 description: Deploy application
@@ -173,7 +173,7 @@ Run the deployment pipeline.`;
     }),
   );
 
-  it.effect("parses COMMAND.md without frontmatter", () =>
+  it.effect("parses command content without frontmatter", () =>
     Effect.gen(function* () {
       const content = "# Simple Command\n\nJust a body.";
       const result = yield* parseCommandMd(content);
@@ -182,7 +182,7 @@ Run the deployment pipeline.`;
     }),
   );
 
-  it.effect("parses COMMAND.md with arguments in frontmatter", () =>
+  it.effect("parses command content with arguments in frontmatter", () =>
     Effect.gen(function* () {
       const content = `---
 arguments:
@@ -202,7 +202,7 @@ Build the project.`;
     }),
   );
 
-  it.effect("parses COMMAND.md with null model", () =>
+  it.effect("parses command content with null model", () =>
     Effect.gen(function* () {
       const content = `---
 model: null
@@ -225,7 +225,7 @@ Body.`;
     }),
   );
 
-  it.effect("parses COMMAND.md with empty frontmatter", () =>
+  it.effect("parses command content with empty frontmatter", () =>
     Effect.gen(function* () {
       const content = `---
 ---

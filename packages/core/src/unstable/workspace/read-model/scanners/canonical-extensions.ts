@@ -77,18 +77,21 @@ export const makeCanonicalExtensionsScanner = (
 // ---------------------------------------------------------------------------
 
 /**
- * Map an extension type to the canonical primary content file name inside
- * the subject's directory, when the subject has one. Subject types without a
- * fixed primary file return `null`.
+ * Map an extension type + name to the canonical primary content file name
+ * inside the subject's directory, when the subject has one. Subject types
+ * without a fixed primary file return `null`.
+ *
+ * - `skill` → `SKILL.md` (fixed)
+ * - `command` → `${name}.md` (e.g., `review-pr.md`)
+ * - `subagent` → `${name}.md` (e.g., `code-reviewer.md`)
  */
-const subjectFileNameFor = (type: ExtensionType): string | null => {
+const subjectFileNameFor = (type: ExtensionType, name: string): string | null => {
   switch (type) {
     case "skill":
       return "SKILL.md";
     case "command":
-      return "command.md";
     case "subagent":
-      return "subagent.md";
+      return `${name}.md`;
     default:
       return null;
   }
@@ -122,7 +125,8 @@ const buildOccurrence = (
 ): Effect.Effect<CanonicalExtensionOccurrence> =>
   Effect.gen(function* () {
     const { fs, path, scope, diagnostics } = deps;
-    const subjectFileName = subjectFileNameFor(args.extensionType);
+    const resolvedName = args.name ?? path.basename(args.nameDir);
+    const subjectFileName = subjectFileNameFor(args.extensionType, resolvedName);
     const subjectFile =
       subjectFileName === null
         ? Option.none<string>()
@@ -135,7 +139,7 @@ const buildOccurrence = (
       scope,
       type: args.extensionType,
       origin: args.origin,
-      name: decodeExtensionNameSync(args.name ?? path.basename(args.nameDir)),
+      name: decodeExtensionNameSync(resolvedName),
       owner: args.owner,
       contentLocation: args.nameDir,
       pathSegments: splitAbsolutePathSegments(path, args.nameDir),

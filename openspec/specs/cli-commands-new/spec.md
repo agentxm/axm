@@ -2,13 +2,13 @@
 
 ## Purpose
 
-The `axm commands new` command scaffolds a new command package with `command.json` and `COMMAND.md`.
+The `axm commands new` command scaffolds a new command package with `command.json` and `${name}.md`.
 
 ## Requirements
 
 ### Requirement: Scaffold command package
 
-`axm commands new` SHALL create a new command package directory containing `command.json` and `COMMAND.md` in the current directory.
+`axm commands new` SHALL create a new command package directory containing `command.json` and `${name}.md` in the current directory.
 
 #### Scenario: Interactive scaffolding
 
@@ -16,7 +16,7 @@ The `axm commands new` command scaffolds a new command package with `command.jso
 - **THEN** the CLI SHALL prompt for a command name and description
 - **AND** SHALL create a directory with the command name
 - **AND** SHALL write `command.json` with the provided metadata and `type: "command"`
-- **AND** SHALL write `COMMAND.md` with a placeholder prompt body
+- **AND** SHALL write `${name}.md` with a placeholder prompt body
 
 #### Scenario: Name provided as argument
 

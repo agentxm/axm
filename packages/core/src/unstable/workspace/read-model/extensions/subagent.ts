@@ -139,7 +139,7 @@ const agentDirToActual = (occ: AgentDirOccurrence, scope: Scope): ActualSubagent
   key: { scope, type: "subagent", name: occ.name },
   origin: { _tag: "agent-subagent-dir", agentId: occ.agentId },
   contentRoot: occ.contentLocation,
-  // For directory-style subagents the scanner emits `<dir>/subagent.md`; for
+  // For directory-style subagents the scanner emits `<dir>/${name}.md`; for
   // single-file surfaces (e.g., `.roomodes`) the scanner emits the file path
   // itself. Either way `subjectFile` is `Some` for agent-dir subagent occs.
   sourcePath: Option.getOrNull(occ.subjectFile),

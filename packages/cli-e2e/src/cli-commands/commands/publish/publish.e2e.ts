@@ -27,7 +27,7 @@ const createManagedCommand = (
 
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
-    path.join(srcDir, "COMMAND.md"),
+    path.join(srcDir, `${name}.md`),
     `---\nname: "${name}"\ndescription: "A test command"\n---\n\n# ${name}\n`,
   );
   fs.writeFileSync(
@@ -46,7 +46,7 @@ const createManagedCommand = (
 };
 
 describe("axm commands publish", () => {
-  it("publishes a command with manifest and COMMAND.md in the archive", async () => {
+  it("publishes a command with manifest and ${name}.md in the archive", async () => {
     const temp = createTempDir();
     const registryDir = createTempDir("axm-registry-");
 
@@ -87,7 +87,7 @@ describe("axm commands publish", () => {
 
       const archiveEntries = Object.keys(unzipSync(fs.readFileSync(archivePath)));
       expect(archiveEntries).toContain("command.json");
-      expect(archiveEntries).toContain("src/COMMAND.md");
+      expect(archiveEntries).toContain("src/my-command.md");
     } finally {
       temp.cleanup();
       registryDir.cleanup();
@@ -117,7 +117,7 @@ describe("axm commands publish", () => {
         "fresh-command",
       );
       expect(fs.existsSync(path.join(managedDir, "command.json"))).toBe(true);
-      expect(fs.existsSync(path.join(managedDir, "src", "COMMAND.md"))).toBe(true);
+      expect(fs.existsSync(path.join(managedDir, "src", "fresh-command.md"))).toBe(true);
 
       const publishResult = await runCli(
         ["commands", "publish", "@test/commands/fresh-command", "--yes"],
@@ -141,7 +141,7 @@ describe("axm commands publish", () => {
 
       const archiveEntries = Object.keys(unzipSync(fs.readFileSync(archivePath)));
       expect(archiveEntries).toContain("command.json");
-      expect(archiveEntries).toContain("src/COMMAND.md");
+      expect(archiveEntries).toContain("src/fresh-command.md");
     } finally {
       temp.cleanup();
       registryDir.cleanup();

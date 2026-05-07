@@ -1,8 +1,8 @@
 /**
  * Command argument schema definition.
  *
- * Defines the shape of arguments that a command accepts,
- * used in COMMAND.md frontmatter.
+ * Defines the shape of arguments that a command accepts, used in the command
+ * content file's frontmatter (`${name}.md`).
  *
  * @experimental This API is unstable and may change without notice.
  */

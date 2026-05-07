@@ -119,7 +119,7 @@ describe("agent-dir scanner", () => {
         project: {
           agentDirs: {
             "claude-code": {
-              "commands/some-command/command.md": "# cmd\n",
+              "commands/some-command/some-command.md": "# cmd\n",
             },
           },
         },
@@ -140,7 +140,7 @@ describe("agent-dir scanner", () => {
         project: {
           agentDirs: {
             "claude-code": {
-              "agents/code-reviewer/subagent.md": "# subagent\n",
+              "agents/code-reviewer/code-reviewer.md": "# subagent\n",
             },
           },
         },

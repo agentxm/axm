@@ -101,7 +101,7 @@ describe("enableCommand", () => {
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
-        // Create canonical dir with COMMAND.md
+        // Create canonical dir with the command content file
         const canonicalPath = path.join(
           base,
           ".axm",
@@ -111,7 +111,7 @@ describe("enableCommand", () => {
           "my-command",
         );
         fs.mkdirSync(canonicalPath, { recursive: true });
-        fs.writeFileSync(path.join(canonicalPath, "COMMAND.md"), "Hello world");
+        fs.writeFileSync(path.join(canonicalPath, "my-command.md"), "Hello world");
 
         const setCommandLockFn = vi.fn(
           (_args: { name: string; lockEntry: unknown }) => Effect.void,

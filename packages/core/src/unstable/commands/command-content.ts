@@ -1,9 +1,10 @@
 /**
- * Command content file module for COMMAND.md parsing and frontmatter schemas.
+ * Command content file module — parsing and frontmatter schemas for the
+ * `${name}.md` content file.
  *
- * Defines the frontmatter schema for COMMAND.md files, a parser that
- * combines the shared frontmatter utility with command-specific validation,
- * and a transformation for syncing frontmatter fields to manifest fields.
+ * Defines the frontmatter schema, a parser that combines the shared
+ * frontmatter utility with command-specific validation, and a transformation
+ * for syncing frontmatter fields to manifest fields.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,7 +17,7 @@ import { parseFrontmatterEffect, type FrontmatterResult } from "../extensions/fr
 import { makeAppError, type AppError } from "../app-error/index.js";
 
 /**
- * Schema for COMMAND.md frontmatter fields.
+ * Schema for command content file frontmatter fields.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -32,7 +33,7 @@ export const CommandFrontmatterSchema = Schema.Struct({
 }).annotate({
   identifier: "CommandFrontmatter",
   title: "Command Frontmatter",
-  description: "YAML frontmatter fields for COMMAND.md files.",
+  description: "YAML frontmatter fields for command content files.",
 });
 
 /**
@@ -43,7 +44,7 @@ export const CommandFrontmatterSchema = Schema.Struct({
 export type CommandFrontmatter = Schema.Schema.Type<typeof CommandFrontmatterSchema>;
 
 /**
- * Result of parsing a COMMAND.md file.
+ * Result of parsing a command content file.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -55,7 +56,7 @@ export interface CommandContentResult {
 }
 
 /**
- * Parse a COMMAND.md file's content into validated frontmatter and body.
+ * Parse a command content file into validated frontmatter and body.
  *
  * Delegates to the shared frontmatter parser, then validates the
  * frontmatter against `CommandFrontmatterSchema`.
@@ -75,9 +76,9 @@ export const parseCommandMd = (content: string): Effect.Effect<CommandContentRes
       catch: (error) =>
         makeAppError({
           code: "COMMAND_FRONTMATTER_INVALID",
-          what: "Invalid COMMAND.md frontmatter",
+          what: "Invalid command content frontmatter",
           details: [error instanceof Error ? error.message : String(error)],
-          howToFix: "Check the frontmatter fields in your COMMAND.md file.",
+          howToFix: "Check the frontmatter fields in your command content file.",
           cause: error,
         }),
     });
@@ -88,8 +89,8 @@ export const parseCommandMd = (content: string): Effect.Effect<CommandContentRes
 /**
  * Schema for manifest fields projected from frontmatter.
  *
- * Used during publish to sync description and model from COMMAND.md
- * frontmatter into the command manifest.
+ * Used during publish to sync description and model from the command content
+ * file's frontmatter into the command manifest.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -99,7 +100,7 @@ export const ManifestFieldsFromFrontmatterSchema = Schema.Struct({
 }).annotate({
   identifier: "ManifestFieldsFromFrontmatter",
   title: "Manifest Fields from Frontmatter",
-  description: "Fields projected from COMMAND.md frontmatter to command manifest.",
+  description: "Fields projected from command content frontmatter to command manifest.",
 });
 
 /**

@@ -2,7 +2,7 @@
 
 ### Requirement: Managed-file header
 
-Rendered command files SHALL contain only the agent-native content produced from `COMMAND.md` frontmatter and body. AXM SHALL NOT prepend managed headers or ownership markers to Markdown, TOML, or plain-text command outputs.
+Rendered command files SHALL contain only the agent-native content produced from the command content file (`${name}.md`) frontmatter and body. AXM SHALL NOT prepend managed headers or ownership markers to Markdown, TOML, or plain-text command outputs.
 
 #### Scenario: Markdown rendered file has no managed header
 

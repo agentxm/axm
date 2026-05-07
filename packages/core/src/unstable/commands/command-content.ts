@@ -12,7 +12,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { CommandArgumentSchema } from "./command-argument.js";
 import { parseFrontmatterEffect, type FrontmatterResult } from "../extensions/frontmatter.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 
@@ -21,19 +20,10 @@ import { makeAppError, type AppError } from "../app-error/index.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandFrontmatterSchema = Schema.Struct({
-  description: Schema.optional(Schema.String),
-  model: Schema.optional(Schema.NullOr(Schema.String)),
-  allowedTools: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
-  isolatedContext: Schema.optional(Schema.Boolean),
-  arguments: Schema.optional(Schema.Array(CommandArgumentSchema)),
-  argumentHint: Schema.optional(Schema.String),
-  autoInvocable: Schema.optional(Schema.Boolean),
-  userInvocable: Schema.optional(Schema.Boolean),
-}).annotate({
+export const CommandFrontmatterSchema = Schema.Record(Schema.String, Schema.Unknown).annotate({
   identifier: "CommandFrontmatter",
   title: "Command Frontmatter",
-  description: "YAML frontmatter fields for command content files.",
+  description: "Opaque YAML frontmatter fields for command content files.",
 });
 
 /**
@@ -55,6 +45,9 @@ export interface CommandContentResult {
   readonly body: string;
 }
 
+const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 /**
  * Parse a command content file into validated frontmatter and body.
  *
@@ -71,19 +64,15 @@ export const parseCommandMd = (content: string): Effect.Effect<CommandContentRes
       return { frontmatter: Option.none(), body: parsed.body };
     }
 
-    const frontmatter = yield* Effect.try({
-      try: () => Schema.decodeUnknownSync(CommandFrontmatterSchema)(parsed.frontmatter),
-      catch: (error) =>
-        makeAppError({
-          code: "COMMAND_FRONTMATTER_INVALID",
-          what: "Invalid command content frontmatter",
-          details: [error instanceof Error ? error.message : String(error)],
-          howToFix: "Check the frontmatter fields in your command content file.",
-          cause: error,
-        }),
-    });
+    if (!isPlainObject(parsed.frontmatter)) {
+      return yield* makeAppError({
+        code: "COMMAND_FRONTMATTER_INVALID",
+        what: "Command frontmatter must be a YAML mapping",
+        howToFix: "Use key-value YAML frontmatter in your command content file.",
+      });
+    }
 
-    return { frontmatter: Option.some(frontmatter), body: parsed.body };
+    return { frontmatter: Option.some(parsed.frontmatter), body: parsed.body };
   });
 
 /**
@@ -122,7 +111,12 @@ export type ManifestFieldsFromFrontmatter = Schema.Schema.Type<
  */
 export const projectFrontmatterToManifest = (
   frontmatter: CommandFrontmatter,
-): ManifestFieldsFromFrontmatter => ({
-  description: frontmatter.description,
-  model: frontmatter.model,
-});
+): ManifestFieldsFromFrontmatter => {
+  const description = frontmatter["description"];
+  const model = frontmatter["model"];
+
+  return {
+    description: typeof description === "string" ? description : undefined,
+    model: typeof model === "string" || model === null ? model : undefined,
+  };
+};

@@ -8,7 +8,7 @@
  */
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
-import type { RenderInput, RenderOutput } from "./types.js";
+import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
  * Render a command as plain Markdown without YAML frontmatter.
@@ -18,41 +18,15 @@ import type { RenderInput, RenderOutput } from "./types.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const renderMarkdownOnly = (input: RenderInput): RenderOutput => {
+export const renderMarkdownOnly = (input: RenderInput): CommandRenderOutcome => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const { frontmatter, agentId } = input;
-
-  // Warn for unsupported frontmatter fields
-  if (frontmatter.model !== undefined && frontmatter.model !== null) {
-    warnings.push({
-      agent: agentId,
-      feature: "model",
-      message: "Cursor does not support model specification in commands",
-    });
-  }
-
-  if (frontmatter.allowedTools !== undefined && frontmatter.allowedTools !== null) {
-    warnings.push({
-      agent: agentId,
-      feature: "allowedTools",
-      message: "Cursor does not support allowed tools specification in commands",
-    });
-  }
-
-  if (frontmatter.isolatedContext === true) {
-    warnings.push({
-      agent: agentId,
-      feature: "isolatedContext",
-      message: "Cursor does not support isolated context in commands",
-    });
-  }
+  const { agentId } = input;
 
   const { body: substitutedBody, warnings: subWarnings } = substituteVariables(input.body, agentId);
   warnings.push(...subWarnings);
 
-  return {
-    content: substitutedBody,
+  return rendered(
+    [{ content: substitutedBody, relativePath: `${input.commandName}.md`, warnings }],
     warnings,
-    fileExtension: ".md",
-  };
+  );
 };

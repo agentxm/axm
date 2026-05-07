@@ -23,85 +23,18 @@ describe("CommandFrontmatterSchema", () => {
     expect(result).toEqual({});
   });
 
-  it("accepts frontmatter with description", () => {
-    const result = decode({ description: "Deploy to staging" });
-    expect(result.description).toBe("Deploy to staging");
-  });
-
-  it("accepts frontmatter with model as string", () => {
-    const result = decode({ model: "claude-sonnet-4-20250514" });
-    expect(result.model).toBe("claude-sonnet-4-20250514");
-  });
-
-  it("accepts frontmatter with model as null (clears model)", () => {
-    const result = decode({ model: null });
-    expect(result.model).toBeNull();
-  });
-
-  it("accepts frontmatter with allowedTools as array", () => {
-    const result = decode({ allowedTools: ["Read", "Write"] });
-    expect(result.allowedTools).toEqual(["Read", "Write"]);
-  });
-
-  it("accepts frontmatter with allowedTools as null", () => {
-    const result = decode({ allowedTools: null });
-    expect(result.allowedTools).toBeNull();
-  });
-
-  it("accepts frontmatter with isolatedContext boolean", () => {
-    const result = decode({ isolatedContext: true });
-    expect(result.isolatedContext).toBe(true);
-  });
-
-  it("accepts frontmatter with isolatedContext false", () => {
-    const result = decode({ isolatedContext: false });
-    expect(result.isolatedContext).toBe(false);
-  });
-
-  it("accepts frontmatter with arguments array", () => {
+  it("accepts arbitrary frontmatter keys", () => {
     const result = decode({
-      arguments: [
-        { name: "target", description: "Build target", required: true },
-        { name: "output", default: "./dist" },
-      ],
+      description: "Deploy to staging",
+      "argument-hint": "<target>",
+      allowedTools: ["Read", "Write"],
+      nested: { keep: true },
     });
-    expect(result.arguments).toHaveLength(2);
-    expect(result.arguments?.[0]?.name).toBe("target");
-    expect(result.arguments?.[1]?.default).toBe("./dist");
-  });
 
-  it("accepts frontmatter with argumentHint", () => {
-    const result = decode({ argumentHint: "<target> [--verbose]" });
-    expect(result.argumentHint).toBe("<target> [--verbose]");
-  });
-
-  it("accepts frontmatter with autoInvocable", () => {
-    const result = decode({ autoInvocable: false });
-    expect(result.autoInvocable).toBe(false);
-  });
-
-  it("accepts frontmatter with userInvocable", () => {
-    const result = decode({ userInvocable: false });
-    expect(result.userInvocable).toBe(false);
-  });
-
-  it("accepts frontmatter with all fields", () => {
-    const input = {
-      description: "Full command",
-      model: "claude-sonnet-4-20250514",
-      allowedTools: ["Read"],
-      isolatedContext: true,
-      arguments: [{ name: "file" }],
-      argumentHint: "<file>",
-      autoInvocable: true,
-      userInvocable: true,
-    };
-    const result = decode(input);
-    expect(result.description).toBe("Full command");
-    expect(result.model).toBe("claude-sonnet-4-20250514");
-    expect(result.isolatedContext).toBe(true);
-    expect(result.autoInvocable).toBe(true);
-    expect(result.userInvocable).toBe(true);
+    expect(result["description"]).toBe("Deploy to staging");
+    expect(result["argument-hint"]).toBe("<target>");
+    expect(result["allowedTools"]).toEqual(["Read", "Write"]);
+    expect(result["nested"]).toEqual({ keep: true });
   });
 
   describe("synchronous decodeUnknownResult", () => {
@@ -112,13 +45,13 @@ describe("CommandFrontmatterSchema", () => {
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("returns success for empty input", () => {
-      const result = decodeResult({});
+    it("returns success for previously typed fields with any value shape", () => {
+      const result = decodeResult({ arguments: "not-an-array" });
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("returns failure for invalid arguments", () => {
-      const result = decodeResult({ arguments: "not-an-array" });
+    it("returns failure for non-object frontmatter", () => {
+      const result = decodeResult("not-an-object");
       expect(Result.isFailure(result)).toBe(true);
     });
   });
@@ -126,24 +59,13 @@ describe("CommandFrontmatterSchema", () => {
   describe("encode roundtrip", () => {
     const encode = Schema.encodeUnknownSync(CommandFrontmatterSchema);
 
-    it("roundtrips frontmatter with all fields", () => {
+    it("roundtrips arbitrary frontmatter", () => {
       const input = {
         description: "Roundtrip test",
-        model: "gpt-4",
-        allowedTools: ["Bash"],
-        isolatedContext: true,
-        arguments: [{ name: "arg1", required: true }],
-        argumentHint: "<arg1>",
-        autoInvocable: false,
-        userInvocable: false,
+        model: null,
+        "allowed-tools": ["Bash"],
+        config: { nested: true },
       };
-      const decoded = decode(input);
-      const encoded = encode(decoded);
-      expect(encoded).toEqual(input);
-    });
-
-    it("roundtrips frontmatter with null model", () => {
-      const input = { model: null };
       const decoded = decode(input);
       const encoded = encode(decoded);
       expect(encoded).toEqual(input);
@@ -152,11 +74,11 @@ describe("CommandFrontmatterSchema", () => {
 });
 
 describe("parseCommandMd", () => {
-  it.effect("parses command content with valid frontmatter", () =>
+  it.effect("parses command content with opaque frontmatter", () =>
     Effect.gen(function* () {
       const content = `---
 description: Deploy application
-model: claude-sonnet-4-20250514
+argument-hint: <target>
 isolatedContext: true
 ---
 # Deploy
@@ -166,9 +88,9 @@ Run the deployment pipeline.`;
       const result = yield* parseCommandMd(content);
       expect(Option.isSome(result.frontmatter)).toBe(true);
       const fm = Option.getOrThrow(result.frontmatter);
-      expect(fm.description).toBe("Deploy application");
-      expect(fm.model).toBe("claude-sonnet-4-20250514");
-      expect(fm.isolatedContext).toBe(true);
+      expect(fm["description"]).toBe("Deploy application");
+      expect(fm["argument-hint"]).toBe("<target>");
+      expect(fm["isolatedContext"]).toBe(true);
       expect(result.body).toContain("# Deploy");
     }),
   );
@@ -182,42 +104,25 @@ Run the deployment pipeline.`;
     }),
   );
 
-  it.effect("parses command content with arguments in frontmatter", () =>
+  it.effect("preserves arbitrary argument frontmatter", () =>
     Effect.gen(function* () {
       const content = `---
-arguments:
-  - name: target
-    description: Build target
-    required: true
-  - name: output
-    default: ./dist
+arguments: not-an-array
 ---
 Build the project.`;
 
       const result = yield* parseCommandMd(content);
       const fm = Option.getOrThrow(result.frontmatter);
-      expect(fm.arguments).toHaveLength(2);
-      expect(fm.arguments?.[0]?.name).toBe("target");
-      expect(fm.arguments?.[0]?.required).toBe(true);
+      expect(fm["arguments"]).toBe("not-an-array");
     }),
   );
 
-  it.effect("parses command content with null model", () =>
+  it.effect("fails on non-mapping frontmatter", () =>
     Effect.gen(function* () {
       const content = `---
-model: null
----
-Body.`;
-      const result = yield* parseCommandMd(content);
-      const fm = Option.getOrThrow(result.frontmatter);
-      expect(fm.model).toBeNull();
-    }),
-  );
-
-  it.effect("fails on invalid frontmatter schema", () =>
-    Effect.gen(function* () {
-      const content = `---
-arguments: not-an-array
+- not
+- a
+- mapping
 ---
 Body.`;
       const exit = yield* parseCommandMd(content).pipe(Effect.exit);
@@ -231,7 +136,7 @@ Body.`;
 ---
 Body after empty frontmatter.`;
       const result = yield* parseCommandMd(content);
-      // Empty YAML frontmatter parses as Option.none()
+      expect(Option.isNone(result.frontmatter)).toBe(true);
       expect(result.body).toBe("Body after empty frontmatter.");
     }),
   );
@@ -263,15 +168,13 @@ describe("projectFrontmatterToManifest", () => {
       description: "Deploy app",
       model: "claude-sonnet-4-20250514",
       isolatedContext: true,
-      autoInvocable: true,
-      userInvocable: true,
     });
     expect(result.description).toBe("Deploy app");
     expect(result.model).toBe("claude-sonnet-4-20250514");
   });
 
-  it("projects undefined fields as undefined", () => {
-    const result = projectFrontmatterToManifest({});
+  it("ignores manifest fields with non-manifest value shapes", () => {
+    const result = projectFrontmatterToManifest({ description: 42, model: false });
     expect(result.description).toBeUndefined();
     expect(result.model).toBeUndefined();
   });

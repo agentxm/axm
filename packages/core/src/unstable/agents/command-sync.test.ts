@@ -18,6 +18,7 @@ import { rooCodingAgent } from "./roo/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import * as Option from "effect/Option";
 import type { AddCommandArgs, CodingAgent, RemoveCommandArgs } from "./coding-agent.js";
+import { writeCommandFile } from "./command-sync.js";
 
 const TestLayer = NodeServices.layer;
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -392,6 +393,28 @@ describe("addCommand", () => {
   testAddCommand(kiroCliCodingAgent, ".kiro/prompts/test-cmd.txt");
   testAddCommand(geminiCliCodingAgent, ".gemini/commands/test-cmd.toml");
 
+  it.effect("writes nested Gemini command paths from renderer relativePath", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-gemini-nested-cmd-"));
+        try {
+          const outcome = yield* geminiCliCodingAgent.addCommand(
+            makeAddArgs(workspaceRoot, "git/commit"),
+          );
+          expect(outcome._tag).toBe("success");
+          if (outcome._tag === "success") {
+            expect(outcome.renderedFilePath).toContain(".gemini/commands/git/commit.toml");
+            const fs = yield* FileSystem.FileSystem;
+            const content = yield* fs.readFileString(outcome.renderedFilePath);
+            expect(content).toContain('prompt = "This is a test command body."');
+          }
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("github-copilot writes .prompt.md file", () =>
     withNode(
       Effect.gen(function* () {
@@ -427,6 +450,66 @@ describe("addCommand", () => {
           if (outcome._tag !== "success") return;
           const content = yield* fs.readFileString(outcome.renderedFilePath);
           expect(content).toContain("This is a test command body.");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("deep-merges command agent overrides", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-command-overrides-"));
+        try {
+          const outcome = yield* claudeCodeCodingAgent.addCommand({
+            ...makeAddArgs(workspaceRoot),
+            frontmatter: Option.some({
+              description: "Original",
+              config: {
+                keep: true,
+                drop: true,
+                tools: ["Read", "Write"],
+              },
+            }),
+            agentOverrides: Option.some({
+              description: "Overridden",
+              config: {
+                drop: null,
+                tools: ["Bash"],
+                add: true,
+              },
+            }),
+          });
+
+          expect(outcome._tag).toBe("success");
+          if (outcome._tag !== "success") return;
+          const fs = yield* FileSystem.FileSystem;
+          const content = yield* fs.readFileString(outcome.renderedFilePath);
+          expect(content).toContain("description: Overridden");
+          expect(content).toContain("keep: true");
+          expect(content).toContain("add: true");
+          expect(content).toContain("Bash");
+          expect(content).not.toContain("drop:");
+          expect(content).not.toContain("Write");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("returns unsupported when an agent has no command renderer", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-unsupported-cmd-"));
+        try {
+          const outcome = yield* writeCommandFile(
+            nodePath.join(workspaceRoot, ".unsupported/commands"),
+            makeAddArgs(workspaceRoot),
+            { agentId: "github-copilot-cli" },
+          );
+          expect(outcome._tag).toBe("unsupported");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

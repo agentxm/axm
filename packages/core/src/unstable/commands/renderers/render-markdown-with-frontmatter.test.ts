@@ -1,158 +1,155 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdownWithFrontmatter } from "./render-markdown-with-frontmatter.js";
-import type { RenderInput } from "./types.js";
+import type { CommandRenderOutcome, RenderInput, RenderOutput } from "./types.js";
 
 const baseInput: RenderInput = {
   frontmatter: {},
   body: "Review the code changes.",
   agentId: "claude-code",
   commandName: "review",
+  agentOverrides: undefined,
+};
+
+const firstOutput = (result: CommandRenderOutcome): RenderOutput => {
+  if (result._tag !== "Rendered") throw new Error(`Expected Rendered, got ${result._tag}`);
+  const output = result.outputs[0];
+  if (output === undefined) throw new Error("Expected one output");
+  return output;
 };
 
 describe("renderMarkdownWithFrontmatter", () => {
   it("renders minimal command with body only", () => {
-    const result = renderMarkdownWithFrontmatter(baseInput);
+    const output = firstOutput(renderMarkdownWithFrontmatter(baseInput));
 
-    expect(result.content).toBe("Review the code changes.");
-    expect(result.content).not.toContain("---");
-    expect(result.fileExtension).toBe(".md");
-    expect(result.warnings).toEqual([]);
+    expect(output.content).toBe("Review the code changes.");
+    expect(output.content).not.toContain("---");
+    expect(output.relativePath).toBe("review.md");
+    expect(output.warnings).toEqual([]);
   });
 
-  it("renders full frontmatter with all fields", () => {
+  it("passes frontmatter through verbatim", () => {
     const input: RenderInput = {
       frontmatter: {
         description: "Review PR changes",
         model: "claude-sonnet-4-20250514",
-        allowedTools: ["bash:*", "read"],
-        isolatedContext: true,
-        argumentHint: "[scope]",
-        autoInvocable: true,
-        userInvocable: false,
+        "allowed-tools": ["bash:*", "read"],
+        "argument-hint": "[scope]",
+        "isolated-context": true,
+        "auto-invocable": true,
+        "user-invocable": false,
       },
       body: "Review the PR with {{arguments}}.",
       agentId: "claude-code",
       commandName: "review",
+      agentOverrides: undefined,
     };
 
-    const result = renderMarkdownWithFrontmatter(input);
+    const output = firstOutput(renderMarkdownWithFrontmatter(input));
 
-    expect(result.content).toContain("---");
-    expect(result.content).toContain("description: Review PR changes");
-    expect(result.content).toContain("model: claude-sonnet-4-20250514");
-    expect(result.content).toContain('argument-hint: "[scope]"');
-    expect(result.content).toContain("isolated-context: true");
-    expect(result.content).toContain("auto-invocable: true");
-    expect(result.content).toContain("user-invocable: false");
-    expect(result.content).toContain("bash:*");
-    expect(result.content).toContain("read");
-    expect(result.content).toContain("$ARGUMENTS");
-    expect(result.fileExtension).toBe(".md");
+    expect(output.content).toContain("---");
+    expect(output.content).toContain("description: Review PR changes");
+    expect(output.content).toContain("model: claude-sonnet-4-20250514");
+    expect(output.content).toContain('argument-hint: "[scope]"');
+    expect(output.content).toContain("isolated-context: true");
+    expect(output.content).toContain("auto-invocable: true");
+    expect(output.content).toContain("user-invocable: false");
+    expect(output.content).toContain("bash:*");
+    expect(output.content).toContain("read");
+    expect(output.content).toContain("$ARGUMENTS");
   });
 
-  it("applies agent overrides on top of frontmatter", () => {
+  it("does not translate camelCase frontmatter names", () => {
+    const output = firstOutput(
+      renderMarkdownWithFrontmatter({
+        frontmatter: { argumentHint: "[scope]", allowedTools: ["Read"] },
+        body: "Body.",
+        agentId: "claude-code",
+        commandName: "test",
+        agentOverrides: undefined,
+      }),
+    );
+
+    expect(output.content).toContain("argumentHint:");
+    expect(output.content).toContain("allowedTools:");
+    expect(output.content).not.toContain("argument-hint:");
+    expect(output.content).not.toContain("allowed-tools:");
+  });
+
+  it("deep-merges agent overrides on top of frontmatter", () => {
     const input: RenderInput = {
       frontmatter: {
         description: "Original description",
-        model: "original-model",
+        config: {
+          keep: true,
+          remove: true,
+          tools: ["Read", "Write"],
+        },
       },
       body: "Body text.",
       agentId: "claude-code",
       commandName: "test",
       agentOverrides: {
         description: "Overridden description",
-        "custom-field": "custom-value",
+        config: {
+          remove: null,
+          tools: ["Bash"],
+          add: true,
+        },
       },
     };
 
-    const result = renderMarkdownWithFrontmatter(input);
+    const output = firstOutput(renderMarkdownWithFrontmatter(input));
 
-    expect(result.content).toContain("description: Overridden description");
-    expect(result.content).toContain("custom-field: custom-value");
-    expect(result.content).not.toContain("Original description");
+    expect(output.content).toContain("description: Overridden description");
+    expect(output.content).toContain("keep: true");
+    expect(output.content).toContain("add: true");
+    expect(output.content).toContain("Bash");
+    expect(output.content).not.toContain("Original description");
+    expect(output.content).not.toContain("remove:");
+    expect(output.content).not.toContain("Write");
   });
 
   it("substitutes variables for different agents in the family", () => {
-    const input: RenderInput = {
-      frontmatter: {},
-      body: "Run {{arguments[0]}} on {{arguments[1]}}",
-      agentId: "codex",
-      commandName: "run",
-    };
+    const output = firstOutput(
+      renderMarkdownWithFrontmatter({
+        frontmatter: {},
+        body: "Run {{arguments[0]}} on {{arguments[1]}}",
+        agentId: "codex",
+        commandName: "run",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderMarkdownWithFrontmatter(input);
-
-    expect(result.content).toContain("$1");
-    expect(result.content).toContain("$2");
+    expect(output.content).toContain("$1");
+    expect(output.content).toContain("$2");
   });
 
   it("starts with frontmatter when present", () => {
-    const result = renderMarkdownWithFrontmatter({
-      frontmatter: { description: "Needs frontmatter" },
-      body: "Body.",
-      agentId: "claude-code",
-      commandName: "frontmatter",
-    });
-    const firstLine = result.content.split("\n")[0];
+    const output = firstOutput(
+      renderMarkdownWithFrontmatter({
+        frontmatter: { description: "Needs frontmatter" },
+        body: "Body.",
+        agentId: "claude-code",
+        commandName: "frontmatter",
+        agentOverrides: undefined,
+      }),
+    );
+    const firstLine = output.content.split("\n")[0];
     expect(firstLine).toBe("---");
   });
 
   it("renders empty body without trailing content", () => {
-    const input: RenderInput = {
-      frontmatter: { description: "Empty body command" },
-      body: "",
-      agentId: "claude-code",
-      commandName: "empty",
-    };
+    const output = firstOutput(
+      renderMarkdownWithFrontmatter({
+        frontmatter: { description: "Empty body command" },
+        body: "",
+        agentId: "claude-code",
+        commandName: "empty",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderMarkdownWithFrontmatter(input);
-
-    expect(result.content).toContain("description: Empty body command");
-    // Should not have extra blank lines at the end
-    expect(result.content.endsWith("---")).toBe(true);
-  });
-
-  it("omits null model from frontmatter", () => {
-    const input: RenderInput = {
-      frontmatter: { model: null },
-      body: "Body.",
-      agentId: "claude-code",
-      commandName: "test",
-    };
-
-    const result = renderMarkdownWithFrontmatter(input);
-
-    expect(result.content).not.toContain("model:");
-    expect(result.content).not.toContain("---");
-  });
-
-  it("omits null allowedTools from frontmatter", () => {
-    const input: RenderInput = {
-      frontmatter: { allowedTools: null },
-      body: "Body.",
-      agentId: "claude-code",
-      commandName: "test",
-    };
-
-    const result = renderMarkdownWithFrontmatter(input);
-
-    expect(result.content).not.toContain("allowed-tools:");
-  });
-
-  it("works with all agents in the MD+frontmatter family", () => {
-    const agents = ["claude-code", "codex", "opencode", "augment", "junie", "kilo", "roo"];
-
-    for (const agentId of agents) {
-      const input: RenderInput = {
-        frontmatter: { description: "Test" },
-        body: "Body text.",
-        agentId,
-        commandName: "test",
-      };
-
-      const result = renderMarkdownWithFrontmatter(input);
-      expect(result.fileExtension).toBe(".md");
-      expect(result.content).toContain("Body text.");
-    }
+    expect(output.content).toContain("description: Empty body command");
+    expect(output.content.endsWith("---")).toBe(true);
   });
 });

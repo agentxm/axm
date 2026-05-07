@@ -15,12 +15,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
+import { warnOnOrphanOverrides } from "../../extensions/agent-overrides.js";
 import { parseCommandMd, type CommandContentResult } from "../command-content.js";
 import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../manifest-schema.js";
 import type { CommandManifest } from "../manifest-schema.js";
 import { commandContentFilename } from "../paths.js";
-import { selectRenderer } from "../renderers/index.js";
-import type { RendererCommandFrontmatter } from "../renderers/types.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import type { CodingAgent, CommandSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
@@ -162,10 +161,6 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
     // Build effective manifest
-    const rendererFrontmatter: RendererCommandFrontmatter = Option.getOrElse(
-      args.frontmatter,
-      () => ({}),
-    );
     const effectiveManifest: CommandManifest = args.manifest ?? {
       type: "command",
       name: decodeExtensionNameSync(args.commandName),
@@ -173,19 +168,17 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
       version: decodeExactSemverVersionSync("0.0.0"),
     };
 
+    yield* warnOnOrphanOverrides(
+      `Command "${args.commandName}"`,
+      args.manifest?.agentOverrides,
+      configuredAgents.map((a) => a.id),
+    );
+
     // Render to agents concurrently
     const outcomes = yield* Effect.forEach(
       configuredAgents,
       (agent: CodingAgent) => {
         const agentOverrides = args.manifest?.agentOverrides?.[agent.id];
-        const rendererFn = selectRenderer(agent.id);
-        const renderOutput = rendererFn({
-          frontmatter: rendererFrontmatter,
-          body: args.body,
-          agentId: agent.id,
-          commandName: args.commandName,
-          ...(agentOverrides !== undefined ? { agentOverrides } : {}),
-        });
 
         return agent
           .addCommand({
@@ -193,7 +186,7 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
             scope: "project",
             commandName: args.commandName,
             frontmatter: args.frontmatter,
-            body: renderOutput.content,
+            body: args.body,
             manifest: effectiveManifest,
             agentOverrides: Option.fromUndefinedOr(agentOverrides),
             force: args.force,
@@ -202,7 +195,7 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
             Effect.map((outcome) => ({
               agentId: agent.id,
               outcome,
-              warnings: renderOutput.warnings,
+              warnings: [],
             })),
             Effect.catch((err) => {
               const emptyWarnings: ReadonlyArray<LossyRenderingWarning> = [];

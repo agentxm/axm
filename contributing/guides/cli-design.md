@@ -202,6 +202,10 @@ to verify._
 - Handlers accept parsed values at the boundary and return Effects
 - Layers provide dependencies at the edge
 
+Extension slash-command rendering is not governed by this guide. Command
+package frontmatter is opaque agent-native data; renderers pass it through
+verbatim and apply `agentOverrides` as RFC 7396 merge patches.
+
 The parsing/handler boundary is the central architectural constraint. Parsing
 concerns stay at the command boundary; domain work lives in handlers and
 services. See [Handlers](#handlers) for why this separation matters and the

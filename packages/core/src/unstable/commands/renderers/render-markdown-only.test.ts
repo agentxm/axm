@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdownOnly } from "./render-markdown-only.js";
-import type { RenderInput } from "./types.js";
+import type { CommandRenderOutcome, RenderInput, RenderOutput } from "./types.js";
+
+const firstOutput = (result: CommandRenderOutcome): RenderOutput => {
+  if (result._tag !== "Rendered") throw new Error(`Expected Rendered, got ${result._tag}`);
+  const output = result.outputs[0];
+  if (output === undefined) throw new Error("Expected one output");
+  return output;
+};
 
 describe("renderMarkdownOnly", () => {
   it("renders body with no frontmatter", () => {
@@ -9,122 +16,61 @@ describe("renderMarkdownOnly", () => {
       body: "Review the code.",
       agentId: "cursor",
       commandName: "review",
+      agentOverrides: undefined,
     };
 
-    const result = renderMarkdownOnly(input);
+    const output = firstOutput(renderMarkdownOnly(input));
 
-    expect(result.content).toBe("Review the code.");
-    expect(result.content).not.toContain("---");
-    expect(result.fileExtension).toBe(".md");
-    expect(result.warnings).toEqual([]);
+    expect(output.content).toBe("Review the code.");
+    expect(output.content).not.toContain("---");
+    expect(output.relativePath).toBe("review.md");
+    expect(output.warnings).toEqual([]);
   });
 
-  it("warns for model specification", () => {
-    const input: RenderInput = {
-      frontmatter: { model: "claude-sonnet-4-20250514" },
-      body: "Body.",
-      agentId: "cursor",
-      commandName: "test",
-    };
+  it("drops frontmatter without warnings", () => {
+    const output = firstOutput(
+      renderMarkdownOnly({
+        frontmatter: {
+          model: "claude-sonnet-4-20250514",
+          "allowed-tools": ["bash:*"],
+          custom: true,
+        },
+        body: "Body.",
+        agentId: "cursor",
+        commandName: "test",
+        agentOverrides: { model: "override" },
+      }),
+    );
 
-    const result = renderMarkdownOnly(input);
-
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]?.feature).toBe("model");
-    expect(result.warnings[0]?.agent).toBe("cursor");
-  });
-
-  it("warns for allowedTools", () => {
-    const input: RenderInput = {
-      frontmatter: { allowedTools: ["bash:*"] },
-      body: "Body.",
-      agentId: "cursor",
-      commandName: "test",
-    };
-
-    const result = renderMarkdownOnly(input);
-
-    expect(result.warnings.some((w) => w.feature === "allowedTools")).toBe(true);
-  });
-
-  it("warns for isolatedContext", () => {
-    const input: RenderInput = {
-      frontmatter: { isolatedContext: true },
-      body: "Body.",
-      agentId: "cursor",
-      commandName: "test",
-    };
-
-    const result = renderMarkdownOnly(input);
-
-    expect(result.warnings.some((w) => w.feature === "isolatedContext")).toBe(true);
-  });
-
-  it("does not warn for false isolatedContext", () => {
-    const input: RenderInput = {
-      frontmatter: { isolatedContext: false },
-      body: "Body.",
-      agentId: "cursor",
-      commandName: "test",
-    };
-
-    const result = renderMarkdownOnly(input);
-
-    expect(result.warnings).toEqual([]);
-  });
-
-  it("does not warn for null model or allowedTools", () => {
-    const input: RenderInput = {
-      frontmatter: { model: null, allowedTools: null },
-      body: "Body.",
-      agentId: "cursor",
-      commandName: "test",
-    };
-
-    const result = renderMarkdownOnly(input);
-
-    expect(result.warnings).toEqual([]);
-  });
-
-  it("accumulates multiple warnings", () => {
-    const input: RenderInput = {
-      frontmatter: {
-        model: "some-model",
-        allowedTools: ["tool"],
-        isolatedContext: true,
-      },
-      body: "Body.",
-      agentId: "cursor",
-      commandName: "test",
-    };
-
-    const result = renderMarkdownOnly(input);
-
-    expect(result.warnings).toHaveLength(3);
+    expect(output.content).toBe("Body.");
+    expect(output.content).not.toContain("model");
+    expect(output.warnings).toEqual([]);
   });
 
   it("substitutes variables for cursor", () => {
-    const input: RenderInput = {
-      frontmatter: {},
-      body: "Run with {{arguments}}",
-      agentId: "cursor",
-      commandName: "run",
-    };
+    const output = firstOutput(
+      renderMarkdownOnly({
+        frontmatter: {},
+        body: "Run with {{arguments}}",
+        agentId: "cursor",
+        commandName: "run",
+        agentOverrides: undefined,
+      }),
+    );
 
-    const result = renderMarkdownOnly(input);
-
-    expect(result.content).toContain("$ARGUMENTS");
+    expect(output.content).toContain("$ARGUMENTS");
   });
 
   it("renders empty body", () => {
-    const input: RenderInput = {
-      frontmatter: {},
-      body: "",
-      agentId: "cursor",
-      commandName: "empty",
-    };
-
-    const result = renderMarkdownOnly(input);
-    expect(result.content).toBe("");
+    const output = firstOutput(
+      renderMarkdownOnly({
+        frontmatter: {},
+        body: "",
+        agentId: "cursor",
+        commandName: "empty",
+        agentOverrides: undefined,
+      }),
+    );
+    expect(output.content).toBe("");
   });
 });

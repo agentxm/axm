@@ -85,9 +85,10 @@ export {
 
 export type {
   AgentOverrides,
+  CommandRenderOutcome,
+  CommandRendered,
+  CommandSkipped,
   RenderInput,
   RenderOutput,
   Renderer,
-  RendererCommandFrontmatter,
-  RendererCommandArgument,
 } from "./renderers/index.js";

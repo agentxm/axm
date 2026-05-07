@@ -12,11 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import {
-  selectRenderer,
-  type RendererCommandFrontmatter,
-  type RenderOutput,
-} from "../commands/renderers/index.js";
+import { selectRenderer, type CommandRenderOutcome } from "../commands/renderers/index.js";
 import type {
   AddCommandArgs,
   CommandSyncOutcome,
@@ -36,25 +32,28 @@ const defaultCommandSyncConfig: CommandSyncConfig = {
   agentId: "claude-code",
 };
 
-const emptyFrontmatter: RendererCommandFrontmatter = {};
+const emptyFrontmatter: Readonly<Record<string, unknown>> = {};
 
 /**
  * Render command content using the format-family renderer for the given agent.
  */
-const renderCommand = (args: AddCommandArgs, agentId: string): RenderOutput => {
+const renderCommand = (args: AddCommandArgs, agentId: string): CommandRenderOutcome | undefined => {
   const renderer = selectRenderer(agentId);
+  if (renderer === undefined) return undefined;
   const frontmatter = Option.getOrElse(args.frontmatter, () => emptyFrontmatter);
   return renderer({
     frontmatter,
     body: args.body,
     agentId,
     commandName: args.commandName,
-    ...Option.match(args.agentOverrides, {
-      onNone: () => ({}),
-      onSome: (overrides) => ({ agentOverrides: overrides }),
-    }),
+    agentOverrides: Option.getOrUndefined(args.agentOverrides),
   });
 };
+
+const unsupportedCommandOutcome = (agentId: string): CommandSyncOutcome => ({
+  _tag: "unsupported",
+  reason: `Command rendering not supported for ${agentId}`,
+});
 
 /**
  * Write a command file to an agent's commands directory.
@@ -72,22 +71,33 @@ export const writeCommandFile = (
     const path = yield* Path.Path;
 
     // Render content using the format-family renderer for this agent
-    const rendered = renderCommand(args, config.agentId);
-    const filePath = path.join(commandsDir, `${args.commandName}${rendered.fileExtension}`);
+    const renderResult = renderCommand(args, config.agentId);
+    if (renderResult === undefined) return unsupportedCommandOutcome(config.agentId);
+    if (renderResult._tag === "Skipped") {
+      return {
+        _tag: "unsupported",
+        reason: renderResult.reason,
+      } as const;
+    }
+
+    const output = renderResult.outputs[0];
+    if (output === undefined) return unsupportedCommandOutcome(config.agentId);
+    const filePath = path.join(commandsDir, output.relativePath);
 
     // Ensure directory exists
-    yield* fs.makeDirectory(commandsDir, { recursive: true }).pipe(
+    const parentDir = path.dirname(filePath);
+    yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "COMMAND_SYNC_WRITE_FAILED",
-          what: `Failed to create commands directory: ${commandsDir}`,
+          what: `Failed to create commands directory: ${parentDir}`,
           cause: error,
         }),
       ),
     );
 
     // Write the file
-    yield* fs.writeFileString(filePath, rendered.content).pipe(
+    yield* fs.writeFileString(filePath, output.content).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "COMMAND_SYNC_WRITE_FAILED",
@@ -100,23 +110,28 @@ export const writeCommandFile = (
     return {
       _tag: "success",
       renderedFilePath: filePath,
-      warnings: [...rendered.warnings.map((w) => `[${w.agent}] ${w.feature}: ${w.message}`)],
+      warnings: renderResult.warnings.map((w) => `[${w.agent}] ${w.feature}: ${w.message}`),
     } as const;
   });
 
 /**
- * Resolve the file extension for a given agent ID.
+ * Resolve the renderer-owned relative path for a command.
  */
-export const resolveFileExtension = (agentId: string): string => {
+export const resolveCommandRelativePath = (
+  agentId: string,
+  commandName: string,
+): string | undefined => {
   const renderer = selectRenderer(agentId);
-  // Call the renderer with minimal input just to get the file extension
+  if (renderer === undefined) return undefined;
   const output = renderer({
     frontmatter: emptyFrontmatter,
     body: "",
     agentId,
-    commandName: "",
+    commandName,
+    agentOverrides: undefined,
   });
-  return output.fileExtension;
+  if (output._tag === "Skipped") return undefined;
+  return output.outputs[0]?.relativePath;
 };
 
 /**
@@ -132,8 +147,9 @@ export const removeCommandFile = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const fileExtension = resolveFileExtension(config.agentId);
-    const filePath = path.join(commandsDir, `${args.commandName}${fileExtension}`);
+    const relativePath = resolveCommandRelativePath(config.agentId, args.commandName);
+    if (relativePath === undefined) return unsupportedCommandOutcome(config.agentId);
+    const filePath = path.join(commandsDir, relativePath);
 
     const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
 

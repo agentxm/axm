@@ -163,3 +163,10 @@ export {
   parseFrontmatterSync,
   type FrontmatterResult,
 } from "./frontmatter.js";
+
+export {
+  applyOverrides,
+  warnOnOrphanOverrides,
+  type AgentOverrides,
+  type AllAgentOverrides,
+} from "./agent-overrides.js";

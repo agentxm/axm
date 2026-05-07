@@ -298,12 +298,15 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
         for (const agentId of configuredAgents) {
           const rendererFn = selectRenderer(agentId);
+          if (rendererFn === undefined) continue;
           const output = rendererFn({
             frontmatter: {},
             body: "",
             agentId,
             commandName: intent.ref.command.name,
+            agentOverrides: undefined,
           });
+          if (output._tag === "Skipped") continue;
 
           const warnings = output.warnings
             .filter((warning) => warning.feature && warning.message)

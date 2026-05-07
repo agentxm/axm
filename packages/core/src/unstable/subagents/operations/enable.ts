@@ -154,7 +154,7 @@ export const enableSubagent: OperationHandler<
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
     yield* warnOnOrphanOverrides(
-      op.args.subagentName,
+      `Subagent "${op.args.subagentName}"`,
       agentOverrides,
       configuredAgents.map((a) => a.id),
     );

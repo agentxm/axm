@@ -26,7 +26,6 @@ export const SkillManifestSchema = Schema.Struct({
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "skill name is required" }),
   ),
-  agents: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
   identifier: "SkillManifest",
   title: "Skill Manifest",

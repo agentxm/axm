@@ -1,7 +1,7 @@
 /**
  * Unit tests for SubagentManager service.
  *
- * Tests cover fresh install with rendering, re-install with source hash skip,
+ * Tests cover fresh install with rendering, re-install rendering,
  * uninstall removing rendered files, and settings/lockfile CRUD.
  */
 
@@ -16,15 +16,13 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "./refs.js";
-import type { AppError } from "../app-error/index.js";
 import type { CodingAgent } from "../agents/coding-agent.js";
 import { CodingAgentRepository } from "../agents/coding-agent.js";
-import { WorkspaceMutations, type SetSubagentArgs } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
 import { RenderedFilesMapSchema } from "../extensions/rendered-files.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
-import { computeSourceHash } from "../extensions/rendered-files.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -250,10 +248,8 @@ describe("SubagentManager", () => {
       nodeFs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it.effect("renders to configured agents and records in lockfile", () => {
-      const setSubagentLockSpy = vi.fn<(args: SetSubagentArgs) => Effect.Effect<void, AppError>>(
-        () => Effect.void,
-      );
+    it.effect("renders to configured agents without writing lockfile render metadata", () => {
+      const setSubagentLockSpy = vi.fn(() => Effect.void);
       const addSubagentSpy = vi.fn(() =>
         Effect.succeed({
           _tag: "success" as const,
@@ -283,18 +279,7 @@ describe("SubagentManager", () => {
           ref: makeLocalSubagentRef("planner", sourceDir),
         });
         expect(addSubagentSpy).toHaveBeenCalledOnce();
-        expect(setSubagentLockSpy).toHaveBeenCalledOnce();
-        // Verify the lock entry includes sourceHash and renderedFiles
-        const lockCallArgs = setSubagentLockSpy.mock.calls[0];
-        expect(lockCallArgs).toBeDefined();
-        // Assertion needed: vitest mock.calls types are unknown[][]
-        const lockArgs = lockCallArgs?.[0] as unknown as {
-          name: string;
-          lockEntry: SubagentLockEntry;
-        };
-        expect(lockArgs.name).toBe("planner");
-        expect(lockArgs.lockEntry.sourceHash).toBeDefined();
-        expect(lockArgs.lockEntry.renderedFiles).toBeDefined();
+        expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
           makeTestLayer({
@@ -309,7 +294,7 @@ describe("SubagentManager", () => {
       );
     });
 
-    it.effect("skips rendering when source hash matches", () => {
+    it.effect("re-renders even when source hash matches", () => {
       const setSubagentLockSpy = vi.fn(() => Effect.void);
       const addSubagentSpy = vi.fn(() =>
         Effect.succeed({
@@ -326,9 +311,10 @@ describe("SubagentManager", () => {
       // Create source directory with planner.md
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       nodeFs.mkdirSync(sourceDir, { recursive: true });
-      const content = makeSubagentContent("planner", "Plans work");
-      nodeFs.writeFileSync(nodePath.join(sourceDir, "planner.md"), content);
-      const hash = computeSourceHash(content);
+      nodeFs.writeFileSync(
+        nodePath.join(sourceDir, "planner.md"),
+        makeSubagentContent("planner", "Plans work"),
+      );
 
       const axmDir = nodePath.join(tmpDir, "project", ".axm");
       nodeFs.mkdirSync(axmDir, { recursive: true });
@@ -338,9 +324,7 @@ describe("SubagentManager", () => {
         yield* manager.materializeInstall({
           ref: makeLocalSubagentRef("planner", sourceDir),
         });
-        // addSubagent should NOT be called (skip path)
-        expect(addSubagentSpy).not.toHaveBeenCalled();
-        // setSubagentLock should NOT be called either
+        expect(addSubagentSpy).toHaveBeenCalledOnce();
         expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
@@ -357,7 +341,7 @@ describe("SubagentManager", () => {
                     agents: ["claude-code"],
                     installedAt: new Date(),
                     updatedAt: new Date(),
-                    sourceHash: hash,
+                    sourceHash: "stale-hash",
                   } satisfies SubagentLockEntry),
                 ),
             },

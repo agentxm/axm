@@ -22,7 +22,7 @@ describe("CommandManifestSchema", () => {
     expect(() => decode(input)).toThrow();
   });
 
-  it("accepts manifest with agents array", () => {
+  it("ignores residual agents field while decoding older manifests", () => {
     const input = {
       owner: "@wayne",
       type: "command",
@@ -31,7 +31,7 @@ describe("CommandManifestSchema", () => {
       agents: ["claude-code", "codex"],
     };
     const result = decode(input);
-    expect(result.agents).toEqual(["claude-code", "codex"]);
+    expect("agents" in result).toBe(false);
   });
 
   it("accepts manifest with agentOverrides", () => {
@@ -56,7 +56,6 @@ describe("CommandManifestSchema", () => {
       version: "1.0.0",
     };
     const result = decode(input);
-    expect(result.agents).toBeUndefined();
     expect(result.agentOverrides).toBeUndefined();
   });
 

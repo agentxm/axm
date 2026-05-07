@@ -12,6 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
 import {
@@ -27,6 +28,7 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { validateManifestHasNoAgentsField } from "../../publish/manifest-policy.js";
 import { parseSubagentMd } from "../subagent-content.js";
 import { subagentContentFilename, subagentContentPath } from "../paths.js";
 
@@ -116,6 +118,15 @@ export const publishSubagent: OperationHandler<
           cause: e,
         }),
     });
+
+    const agentsFieldValidation = validateManifestHasNoAgentsField(MANIFEST_FILENAME, manifestJson);
+    if (Result.isFailure(agentsFieldValidation)) {
+      return yield* makeAppError({
+        code: "PUBLISH_SUBAGENT_MANIFEST_SCHEMA_INVALID",
+        what: agentsFieldValidation.failure.detail,
+        details: ["Target agents are configured in settings.agents, not extension manifests."],
+      });
+    }
 
     const manifest: SubagentManifest = yield* Schema.decodeUnknownEffect(SubagentManifestSchema)(
       manifestJson,

@@ -116,6 +116,7 @@ describe("subagents-new.handler", () => {
           expect(manifest.type).toBe("subagent");
           expect(manifest.name).toBe("my-subagent");
           expect(manifest.version).toBe("0.0.1");
+          expect(manifest).not.toHaveProperty("agents");
 
           // Verify my-subagent.md
           const subagentMdPath = path.join(

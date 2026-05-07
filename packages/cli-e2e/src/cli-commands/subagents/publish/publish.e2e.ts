@@ -40,7 +40,6 @@ const createManagedSubagent = (
         type: "subagent",
         name,
         version,
-        agents: ["claude-code"],
       },
       null,
       2,

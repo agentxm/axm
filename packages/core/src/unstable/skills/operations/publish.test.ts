@@ -76,7 +76,6 @@ describe("publishSkill", () => {
       type: "skill",
       name,
       version: "0.1.0",
-      agents: ["claude-code"],
       ...manifest,
     };
     fs.writeFileSync(

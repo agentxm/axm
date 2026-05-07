@@ -25,12 +25,22 @@
         }
       }
     },
-    "existingPaths": [".axm", ".axm/settings.json"],
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json",
+      ".axm/extensions/@acme/packs/toolbox/extension-pack.json"
+    ],
     "listings": {},
     "detectedProjectAgents": []
   },
   "scope": "project",
   "expectedFindings": [
+    {
+      "ruleId": "workspace/configured-but-not-installed",
+      "severity": "error",
+      "file": ".axm/settings.json",
+      "messageIncludes": "axm install helper"
+    },
     {
       "ruleId": "workspace/packs-dependencies-resolved",
       "severity": "error",

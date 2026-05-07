@@ -1,8 +1,4 @@
-import {
-  AgentIdSchema,
-  decodeExtensionNameSync,
-  REGISTRY_EXTENSIONS_DIR,
-} from "../extensions/index.js";
+import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "./manifest-schema.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -43,8 +39,6 @@ const parseRegistryCommandSource = (
     constraint: parsed.versionConstraint ?? decodeVersionConstraintSync("*"),
   });
 };
-
-const decodeAgentIds = Schema.decodeUnknownSync(Schema.Array(AgentIdSchema));
 
 export const commandReconciliationAdapter: ReconciliationAdapter = {
   type: "commands",
@@ -194,7 +188,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
             resolvedVersion: manifest.version,
             integrity: "",
             sourceName: "default",
-            agents: decodeAgentIds(manifest.agents ?? []),
+            agents: context.agents,
             installedAt: context.now,
             updatedAt: context.now,
           },

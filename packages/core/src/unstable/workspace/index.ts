@@ -85,6 +85,13 @@ export type {
   UnresolvedReason,
 } from "./reconciliation-types.js";
 
+export {
+  AXM_MANAGED_MARKER,
+  cleanupStaleManagedSubagentFiles,
+  hasAxmManagedMarker,
+  type RenderedFileCleanupResult,
+} from "./rendered-file-cleanup.js";
+
 // Source metadata
 export { deriveSourceMetaFromLockType, type SourceMeta } from "./source-metadata.js";
 

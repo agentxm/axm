@@ -5,9 +5,18 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
-import { buildMaterializeOperation } from "@agentxm/client-core/unstable/extensions";
+import {
+  buildMaterializeOperation,
+  configuredCommandsToDiskRefs,
+  configuredMcpServersToDiskRefs,
+  configuredSkillsToDiskRefs,
+  configuredSubagentsToDiskRefs,
+  parseRegistrySourceRef,
+} from "@agentxm/client-core/unstable/extensions";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import { ExtensionPackManager } from "@agentxm/client-core/unstable/packs";
 import {
@@ -19,7 +28,11 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { displayPlan } from "@agentxm/client-core/unstable/workspace";
+import {
+  cleanupStaleManagedSubagentFiles,
+  displayPlan,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 
 export interface HandleSyncArgs {
@@ -27,7 +40,29 @@ export interface HandleSyncArgs {
 }
 
 const PLAN_NAME = "Sync workspace";
-const PLAN_DESCRIPTION = "Materialize extensions from the axm lockfile";
+const PLAN_DESCRIPTION = "Materialize extensions from settings and on-disk extension content";
+
+const dependencyEntries = (dependencies: Readonly<Record<string, unknown>>) => {
+  const entries: Record<string, { source: string; packagingKind: "native" }> = {};
+  for (const fqn of Object.keys(dependencies)) {
+    const parsed = parseRegistrySourceRef(fqn);
+    if (parsed !== undefined) {
+      entries[parsed.name] = { source: fqn, packagingKind: "native" };
+    }
+  }
+  return entries;
+};
+
+const enabledDependencyEntries = (dependencies: Readonly<Record<string, unknown>>) => {
+  const entries: Record<string, { source: string; enabled: boolean; packagingKind: "native" }> = {};
+  for (const fqn of Object.keys(dependencies)) {
+    const parsed = parseRegistrySourceRef(fqn);
+    if (parsed !== undefined) {
+      entries[parsed.name] = { source: fqn, enabled: true, packagingKind: "native" };
+    }
+  }
+  return entries;
+};
 
 const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* () {
   const skillManager = yield* SkillManager;
@@ -35,6 +70,10 @@ const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(functi
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
   const packManager = yield* ExtensionPackManager;
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const env = { fs, path, baseDir: ws.baseDir };
 
   const [skillRefs, commandRefs, mcpServerRefs, subagentRefs, packRefs] = yield* Effect.all(
     [
@@ -47,13 +86,56 @@ const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(functi
     { concurrency: "unbounded" },
   );
 
-  return [
-    ...skillRefs.map((ref) => buildMaterializeOperation(skillManager, { ref })),
-    ...commandRefs.map((ref) => buildMaterializeOperation(commandManager, { ref })),
-    ...mcpServerRefs.map((ref) => buildMaterializeOperation(mcpServerManager, { ref })),
-    ...subagentRefs.map((ref) => buildMaterializeOperation(subagentManager, { ref })),
-    ...packRefs.map((ref) => buildMaterializeOperation(packManager, { ref })),
-  ] satisfies ReadonlyArray<PlannedJobStep>;
+  const [packSkillRefs, packCommandRefs, packMcpServerRefs, packSubagentRefs] = yield* Effect.all(
+    [
+      configuredSkillsToDiskRefs(
+        env,
+        Object.assign({}, ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.skills))),
+      ),
+      configuredCommandsToDiskRefs(
+        env,
+        Object.assign({}, ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.commands))),
+      ),
+      configuredMcpServersToDiskRefs(
+        env,
+        Object.assign({}, ...packRefs.map((ref) => dependencyEntries(ref.pack.mcpServers))),
+      ),
+      configuredSubagentsToDiskRefs(
+        env,
+        Object.assign({}, ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.subagents))),
+      ),
+    ],
+    { concurrency: "unbounded" },
+  );
+
+  const directSkillNames = new Set(skillRefs.map((ref) => ref.skill.name));
+  const directCommandNames = new Set(commandRefs.map((ref) => ref.command.name));
+  const directMcpServerNames = new Set(mcpServerRefs.map((ref) => ref.server.name));
+  const directSubagentNames = new Set(subagentRefs.map((ref) => ref.subagent.name));
+
+  const materializedSubagentRefs = [
+    ...subagentRefs,
+    ...packSubagentRefs.filter((ref) => !directSubagentNames.has(ref.subagent.name)),
+  ];
+
+  return {
+    expectedSubagentNames: new Set(materializedSubagentRefs.map((ref) => ref.subagent.name)),
+    steps: [
+      ...skillRefs.map((ref) => buildMaterializeOperation(skillManager, { ref })),
+      ...packSkillRefs
+        .filter((ref) => !directSkillNames.has(ref.skill.name))
+        .map((ref) => buildMaterializeOperation(skillManager, { ref })),
+      ...commandRefs.map((ref) => buildMaterializeOperation(commandManager, { ref })),
+      ...packCommandRefs
+        .filter((ref) => !directCommandNames.has(ref.command.name))
+        .map((ref) => buildMaterializeOperation(commandManager, { ref })),
+      ...mcpServerRefs.map((ref) => buildMaterializeOperation(mcpServerManager, { ref })),
+      ...packMcpServerRefs
+        .filter((ref) => !directMcpServerNames.has(ref.server.name))
+        .map((ref) => buildMaterializeOperation(mcpServerManager, { ref })),
+      ...materializedSubagentRefs.map((ref) => buildMaterializeOperation(subagentManager, { ref })),
+    ] satisfies ReadonlyArray<PlannedJobStep>,
+  };
 });
 
 const makeSyncPlan = (steps: ReadonlyArray<PlannedJobStep>): Plan =>
@@ -73,9 +155,12 @@ const previewPlan = (plan: Plan): PlanResolution => ({
 
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
   const renderer = yield* CliRenderer;
-  const steps = yield* collectMaterializeSteps();
+  const { steps, expectedSubagentNames } = yield* collectMaterializeSteps();
 
   if (steps.length === 0) {
+    if (!args.dryRun) {
+      yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
+    }
     if (
       yield* emitNoOpResult("sync", {
         planName: PLAN_NAME,
@@ -98,6 +183,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
   }
 
   const executed = yield* applyPlan(plan);
+  yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
   yield* displayPlan(executed);
   yield* emitPlanResolutionResult("sync", executed);
 });

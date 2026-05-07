@@ -495,11 +495,10 @@ describe("installCommand", () => {
       }),
     );
 
-    it.effect("filters agents by manifest agents field", () =>
+    it.effect("renders to all configured agents when manifest has residual agents field", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const canonicalPath = setupRegistryCanonical(base, "@community");
-        // Add a COMMAND.md and manifest with agents filter
         fs.writeFileSync(path.join(canonicalPath, "COMMAND.md"), "Hello world");
         fs.writeFileSync(
           path.join(canonicalPath, "command.json"),
@@ -508,7 +507,7 @@ describe("installCommand", () => {
             version: "1.0.0",
             type: "command",
             owner: "@community",
-            agents: ["codex"], // Only codex, not claude-code
+            agents: ["codex"],
           }),
         );
 
@@ -520,8 +519,7 @@ describe("installCommand", () => {
         );
 
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
-        // Only codex should be rendered
-        expect(lockEntry["agents"]).toEqual(["codex"]);
+        expect(lockEntry["agents"]).toEqual(["claude-code", "codex"]);
       }),
     );
   });

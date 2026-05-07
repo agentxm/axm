@@ -6,7 +6,7 @@ A subagent is two coordinated files: a portable manifest plus a content file tha
 
 ## subagent.json
 
-[`subagent.json`](https://axm.sh/schemas/subagent.schema.json) is the subagent package manifest for the agentxm.ai registry. It carries identity (`owner`, `type`, `name`, `version`), registry metadata (`description`, `keywords`, `repository`, `license`, `authors`, `compatiblePackages`), and an optional `agents` list that restricts which configured agents receive a rendered file. The manifest does not carry per-agent behavior — that lives in the content file.
+[`subagent.json`](https://axm.sh/schemas/subagent.schema.json) is the subagent package manifest for the agentxm.ai registry. It carries identity (`owner`, `type`, `name`, `version`) and registry metadata (`description`, `keywords`, `repository`, `license`, `authors`, `compatiblePackages`). Targeting is workspace-owned through `.axm/settings.json` `agents`; publish rejects manifest `agents`. The manifest does not carry per-agent behavior — that lives in the content file.
 
 The manifest's `description` is the registry-facing summary. It has no relationship to anything in the frontmatter; you can have a different description in either place.
 
@@ -14,18 +14,20 @@ The manifest's `description` is the registry-facing summary. It has no relations
 
 The `src/` directory holds `<subagent-name>.md` — Markdown with YAML frontmatter and a body containing the system prompt.
 
-Only one frontmatter field is required: `name`. Everything else you write in the frontmatter passes through verbatim into the rendered agent-native file. AXM does not interpret or reshape it.
+Only one frontmatter field is required: `name`. Everything else you write in the frontmatter passes through verbatim into the rendered agent-native file. AXM does not interpret or reshape it. Omit top-level frontmatter unless it will work on all agents. Otherwise, specify the desired subagent
+configuration per each agent's official subagent documentation.
 
 ```markdown
 ---
 name: code-reviewer
-description: Reviews diffs for correctness, security, and style.
-model: claude-opus-4-6
-disallowedTools: Edit,Write,Bash,WebFetch
+description: "call me uncle bob"
 agentOverrides:
+  claude-code:
+    model: claude-opus-4-6
   codex:
     model: gpt-5-codex
     sandbox_mode: read-only
+    description: null
 ---
 
 You are a senior code reviewer...
@@ -42,7 +44,7 @@ You are a senior code reviewer...
 - **JSON** (Kiro CLI) — frontmatter keys → JSON object; body becomes `prompt`.
 - **Roo modes** (Roo Code) — `slug` and `name` are set to the subagent name; the body splits at the first blank line into `roleDefinition` and `customInstructions`; `groups` defaults to `[read, edit, command, mcp]` if not in frontmatter; other frontmatter keys flow through.
 
-Whatever you write in your frontmatter is what shows up in the rendered file. If you want different values for different agents, use `agentOverrides`.
+Whatever you write in your frontmatter is what shows up in the rendered file. If you want different values for different agents, use `agentOverrides`. Do not edit the rendered subagents directly.
 
 ## Agent overrides
 

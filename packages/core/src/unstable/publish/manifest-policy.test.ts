@@ -5,6 +5,7 @@ import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
 import {
   manifestFilenameForType,
   resolveManifest,
+  validateManifestHasNoAgentsField,
   validateDeclaredManifestAlignment,
 } from "./manifest-policy.js";
 
@@ -91,6 +92,32 @@ describe("resolveManifest", () => {
     }),
   );
 
+  it.effect("rejects deprecated manifest agents fields", () =>
+    Effect.gen(function* () {
+      const manifest = JSON.stringify({
+        owner: "@acme",
+        type: "command",
+        name: "release-notes",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      const error = yield* Effect.flip(
+        resolveManifest({
+          type: "command",
+          entries: [makeEntry("command.json")],
+          readEntry: makeReadEntry({ "command.json": manifest }),
+        }),
+      );
+
+      expect(error._tag).toBe("ManifestError");
+      if (error._tag === "ManifestError") {
+        expect(error.code).toBe("manifest_schema_invalid");
+        expect(error.detail).toContain("settings.agents");
+      }
+    }),
+  );
+
   it.effect("resolves a valid pack manifest with FQN dependencies", () =>
     Effect.gen(function* () {
       const manifest = JSON.stringify({
@@ -127,6 +154,23 @@ describe("resolveManifest", () => {
       }
     }),
   );
+});
+
+describe("validateManifestHasNoAgentsField", () => {
+  it("fails with guidance to use settings.agents", () => {
+    const result = validateManifestHasNoAgentsField("subagent.json", {
+      owner: "@acme",
+      type: "subagent",
+      name: "researcher",
+      version: "1.0.0",
+      agents: ["claude-code"],
+    });
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.detail).toContain("settings.agents");
+    }
+  });
 });
 
 describe("validateDeclaredManifestAlignment", () => {

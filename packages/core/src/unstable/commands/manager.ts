@@ -16,7 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError } from "../app-error/index.js";
 import { computeIntegrity, isPathSafe, stripFileProtocol } from "../utils/index.js";
-import { commandLockEntryToRef } from "../sources/index.js";
+import { configuredCommandsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type {
   CommandExtensionRef,
   GitHostedCommandRef,
@@ -399,17 +399,8 @@ export const CommandManagerLive = Layer.effect(
 
       materializeInstall,
       listMaterializable: Effect.fn("CommandManager.listMaterializable")(function* () {
-        const locked = yield* ws.getLockedCommands();
-        return yield* Effect.forEach(
-          Object.entries(locked),
-          ([name, entry]) =>
-            commandLockEntryToRef(name, entry, {
-              baseDir,
-              getConfiguredSources: ws.getConfiguredSources,
-              getConfiguredSourceByName: ws.getConfiguredSourceByName,
-            }),
-          { concurrency: "unbounded" },
-        );
+        const configured = yield* ws.records.getConfiguredCommands();
+        return yield* configuredCommandsToDiskRefs({ fs, path, baseDir }, configured);
       }),
       materializeUninstall,
 

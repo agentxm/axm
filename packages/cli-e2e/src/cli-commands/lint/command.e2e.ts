@@ -209,6 +209,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         settings.lint = {
           rules: {
             "workspace/lockfile-valid": "warn",
+            "workspace/configured-but-not-installed": "warn",
             "workspace/skills-lockfile-aligned": "warn",
             "workspace/skills-artifacts-correct": "warn",
           },

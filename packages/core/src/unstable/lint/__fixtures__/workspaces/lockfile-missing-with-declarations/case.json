@@ -17,6 +17,12 @@
       "file": ".axm/axm-lock.yaml"
     },
     {
+      "ruleId": "workspace/configured-but-not-installed",
+      "severity": "error",
+      "file": ".axm/settings.json",
+      "messageIncludes": "axm install reviewer"
+    },
+    {
       "ruleId": "workspace/skills-artifacts-correct",
       "severity": "error",
       "file": ".axm/settings.json"

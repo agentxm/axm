@@ -13,7 +13,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
@@ -30,11 +29,10 @@ import { computeSubagentPaths, subagentContentFilename, subagentContentPath } fr
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "./subagent-content.js";
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
-import { computeSourceHash, RenderedFilesMapSchema } from "../extensions/rendered-files.js";
+import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
-import { subagentLockEntryToRef } from "../sources/index.js";
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -246,21 +244,7 @@ export const SubagentManagerLive = Layer.effect(
         yield* materializeCanonical(ref, sanitized, canonicalPath, subagentSrcPath);
 
         // --- Read content file ---
-        const { rawContent, parsed } = yield* readSubagentContent(
-          subagentSrcPath,
-          ref.subagent.name,
-        );
-        const currentHash = computeSourceHash(rawContent);
-
-        // --- Source-hash-based skip logic (6.4) ---
-        const existingLockEntry = yield* ws.getLockedSubagent(ref.subagent.name);
-        if (Option.isSome(existingLockEntry)) {
-          const existing = existingLockEntry.value;
-          if (existing.sourceHash !== undefined && existing.sourceHash === currentHash) {
-            // Source unchanged, skip re-rendering
-            return;
-          }
-        }
+        const { parsed } = yield* readSubagentContent(subagentSrcPath, ref.subagent.name);
 
         // --- Resolve configured agents ---
         const configuredAgents = yield* agentRepo
@@ -283,8 +267,6 @@ export const SubagentManagerLive = Layer.effect(
         );
 
         // --- Render to all agents concurrently ---
-        const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
-
         yield* Effect.forEach(
           configuredAgents,
           (agent) =>
@@ -301,28 +283,9 @@ export const SubagentManagerLive = Layer.effect(
                 },
                 force: false,
               })
-              .pipe(
-                Effect.provide(fsPathLayer),
-                Effect.map((outcome) => {
-                  if (outcome._tag === "success") {
-                    renderedFilesMap[agent.id] = outcome.renderedFilePaths.map((p) => ({
-                      path: p,
-                    }));
-                  }
-                }),
-              ),
+              .pipe(Effect.provide(fsPathLayer), Effect.asVoid),
           { concurrency: "unbounded" },
         );
-
-        // --- Update lockfile with rendered files and source hash ---
-        const lockEntry = buildSubagentLockEntry(ref, agents, new Date());
-        const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
-        const lockEntryWithRendered = {
-          ...lockEntry,
-          sourceHash: currentHash,
-          renderedFiles: decodeRenderedFiles(renderedFilesMap),
-        };
-        yield* ws.setSubagentLock({ name: ref.subagent.name, lockEntry: lockEntryWithRendered });
       });
 
     const materializeUninstall: ExtensionManager<SubagentExtensionRef>["materializeUninstall"] =
@@ -374,17 +337,8 @@ export const SubagentManagerLive = Layer.effect(
 
       materializeInstall,
       listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
-        const locked = yield* ws.getLockedSubagents();
-        return yield* Effect.forEach(
-          Object.entries(locked),
-          ([name, entry]) =>
-            subagentLockEntryToRef(name, entry, {
-              baseDir,
-              getConfiguredSources: ws.getConfiguredSources,
-              getConfiguredSourceByName: ws.getConfiguredSourceByName,
-            }),
-          { concurrency: "unbounded" },
-        );
+        const configured = yield* ws.records.getConfiguredSubagents();
+        return yield* configuredSubagentsToDiskRefs({ fs, path, baseDir }, configured);
       }),
       materializeUninstall,
 

@@ -11,14 +11,12 @@ describe("SkillManifestSchema", () => {
       type: "skill",
       name: "grappling-hook",
       version: "1.0.0",
-      agents: ["claude-code"],
     };
     const result = decode(input);
     expect(result.owner).toBe("@wayne");
     expect(result.type).toBe("skill");
     expect(result.name).toBe("grappling-hook");
     expect(result.version).toBe("1.0.0");
-    expect(result.agents).toEqual(["claude-code"]);
   });
 
   it("accepts valid full manifest with all optional fields", () => {
@@ -40,18 +38,16 @@ describe("SkillManifestSchema", () => {
           url: "https://wayne.tech",
         },
       ],
-      agents: ["claude-code", "cursor"],
     };
     const result = decode(input);
     expect(result.name).toBe("grappling-hook");
     expect(result.description).toBe("A grappling hook skill");
     expect(result.keywords).toEqual(["utility", "mobility"]);
     expect(result.authors?.[0]?.name).toBe("Bruce Wayne");
-    expect(result.agents).toEqual(["claude-code", "cursor"]);
   });
 
   it("rejects manifest missing name", () => {
-    const input = { owner: "@wayne", type: "skill", version: "1.0.0", agents: ["claude-code"] };
+    const input = { owner: "@wayne", type: "skill", version: "1.0.0" };
     expect(() => decode(input)).toThrow();
   });
 
@@ -61,7 +57,6 @@ describe("SkillManifestSchema", () => {
       type: "skill",
       name: "grappling-hook",
       version: "1.0.0",
-      agents: ["claude-code"],
     };
     expect(() => decode(input)).toThrow();
   });
@@ -69,10 +64,10 @@ describe("SkillManifestSchema", () => {
   it("accepts manifest without agents field", () => {
     const input = { owner: "@wayne", type: "skill", name: "grappling-hook", version: "1.0.0" };
     const result = decode(input);
-    expect(result.agents).toBeUndefined();
+    expect(result.name).toBe("grappling-hook");
   });
 
-  it("rejects manifest with empty agents array", () => {
+  it("ignores residual agents field while decoding older manifests", () => {
     const input = {
       owner: "@wayne",
       type: "skill",
@@ -80,31 +75,7 @@ describe("SkillManifestSchema", () => {
       version: "1.0.0",
       agents: [],
     };
-    // Empty array is structurally valid for Schema.Array(Schema.String)
     const result = decode(input);
-    expect(result.agents).toEqual([]);
-  });
-
-  it("accepts manifest with agents as string identifiers", () => {
-    const input = {
-      owner: "@wayne",
-      type: "skill",
-      name: "grappling-hook",
-      version: "1.0.0",
-      agents: ["claude-code", "cursor", "windsurf"],
-    };
-    const result = decode(input);
-    expect(result.agents).toEqual(["claude-code", "cursor", "windsurf"]);
-  });
-
-  it("rejects manifest with non-string agents", () => {
-    const input = {
-      owner: "@wayne",
-      type: "skill",
-      name: "grappling-hook",
-      version: "1.0.0",
-      agents: [123],
-    };
-    expect(() => decode(input)).toThrow();
+    expect("agents" in result).toBe(false);
   });
 });

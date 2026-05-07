@@ -133,7 +133,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         type: "subagent",
         name: extensionName,
         version: INITIAL_VERSION,
-        agents: [...agents],
       };
 
       yield* fs

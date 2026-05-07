@@ -56,12 +56,6 @@
         },
         "type": { "type": "string", "enum": ["command"] },
         "name": { "$ref": "#/definitions/ExtensionName" },
-        "agents": {
-          "anyOf": [
-            { "type": "array", "items": { "$ref": "#/definitions/PackageUrlParts" } },
-            { "type": "null" }
-          ]
-        },
         "agentOverrides": {
           "anyOf": [
             { "type": "object", "additionalProperties": { "type": "object" } },

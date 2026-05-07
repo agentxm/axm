@@ -43,6 +43,7 @@
     "existingPaths": [
       ".axm",
       ".axm/settings.json",
+      ".axm/extensions/@acme/packs/toolbox/extension-pack.json",
       ".claude/skills/retained-skill"
     ],
     "listings": { ".claude/skills": ["retained-skill"] },
@@ -50,6 +51,12 @@
   },
   "scope": "project",
   "expectedFindings": [
+    {
+      "ruleId": "workspace/configured-but-not-installed",
+      "severity": "error",
+      "file": ".axm/settings.json",
+      "messageIncludes": "axm install retained-skill"
+    },
     {
       "ruleId": "workspace/skills-integrity-valid",
       "severity": "error",

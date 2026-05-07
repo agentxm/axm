@@ -146,20 +146,13 @@ export interface RenderToAgentsResult {
 }
 
 /**
- * Render a command to all configured (and targeted) agents concurrently.
- *
- * Resolves agents from the repository, filters by manifest.agents if specified,
- * selects per-agent renderers, and collects outcomes.
+ * Render a command to all configured agents concurrently.
  */
 export const renderToAgents = (args: RenderToAgentsArgs) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
 
-    // Resolve agents
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
-    const targetAgents = args.manifest?.agents
-      ? configuredAgents.filter((agent) => args.manifest?.agents?.includes(agent.id))
-      : configuredAgents;
 
     // Build effective manifest
     const rendererFrontmatter: RendererCommandFrontmatter = Option.getOrElse(
@@ -175,7 +168,7 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
 
     // Render to agents concurrently
     const outcomes = yield* Effect.forEach(
-      targetAgents,
+      configuredAgents,
       (agent: CodingAgent) => {
         const agentOverrides = args.manifest?.agentOverrides?.[agent.id];
         const rendererFn = selectRenderer(agent.id);

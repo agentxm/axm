@@ -51,8 +51,7 @@ allowed-tools:
 Review {{arguments}}.
 ```
 
-Body variables still use AXM's portable placeholders and are translated per
-agent where supported.
+Supported body placeholders: `{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}`.
 
 ## Rendering
 

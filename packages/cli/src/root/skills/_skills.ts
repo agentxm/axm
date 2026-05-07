@@ -5,7 +5,6 @@ import { uninstallCommand } from "./uninstall/command.js";
 import { listCommand } from "./list.js";
 import { updateCommand } from "./update/command.js";
 import { newCommand } from "./new.js";
-import { forkCommand } from "./fork.js";
 import { enableCommand } from "./enable.js";
 import { disableCommand } from "./disable.js";
 import { publishCommand } from "./publish.js";
@@ -39,7 +38,6 @@ export const skillsCommand = Command.make("skills").pipe(
     listCommand,
     updateCommand,
     newCommand,
-    forkCommand,
     enableCommand,
     disableCommand,
     skillsVersionCommand,

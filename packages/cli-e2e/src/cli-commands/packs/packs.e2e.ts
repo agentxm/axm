@@ -11,8 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../e2e/utils.js";
-import { expectDefined } from "../../test-helpers.js";
+import { createTempDir, runCli } from "../../e2e/utils.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -234,65 +233,6 @@ describe("axm packs new", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs add/remove", () => {
-  it("adds an extension to pack manifest and removes it", async () => {
-    const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
-    try {
-      // Initialize and configure
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
-      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
-
-      // Install a skill from fixture, then fork to make it registry-sourced
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      const forkResult = await runCli(["skills", "fork", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      expect(forkResult.exitCode).toBe(0);
-
-      // Create a pack
-      await runCli(["packs", "new", "test-pack", "--yes"], { cwd: temp.path });
-
-      // Add the extension to the pack
-      const addResult = await runCli(["packs", "add", "test-pack", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      expect(addResult.exitCode).toBe(0);
-
-      // Verify manifest was updated
-      const manifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "test-pack",
-        "extension-pack.json",
-      );
-      let manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.skills).toBeDefined();
-      const skillKeys = Object.keys(manifest.skills);
-      expect(skillKeys.length).toBe(1);
-      // The FQN should be @test/skills/my-skill
-      expect(skillKeys[0]).toMatch(/@test\/skills\/my-skill/);
-
-      // Remove the extension from the pack
-      const removeResult = await runCli(
-        ["packs", "remove", "test-pack", expectDefined(skillKeys[0]), "--yes"],
-        {
-          cwd: temp.path,
-        },
-      );
-      expect(removeResult.exitCode).toBe(0);
-
-      // Verify manifest no longer has the extension
-      manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(Object.keys(manifest.skills ?? {})).toHaveLength(0);
-    } finally {
-      cleanup();
-    }
-  });
-
   it("errors when pack is not found", async () => {
     const temp = createTempDir();
     try {
@@ -507,7 +447,7 @@ describe("axm packs install", () => {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      // Manually create a skill in .axm/extensions/ (avoids fork)
+      // Manually create a skill in .axm/extensions/
       const skillDir = path.join(temp.path, ".axm", "extensions", "@test", "skills", "dep-skill");
       const srcDir = path.join(skillDir, "src");
       fs.mkdirSync(srcDir, { recursive: true });
@@ -884,61 +824,6 @@ describe("axm packs install", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs uninstall", () => {
-  it("uninstalls pack and removes orphaned extensions", async () => {
-    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
-      setupWorkspaceWithRegistry();
-    try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
-      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
-
-      // Install a skill, fork it, create a pack with it, publish the pack
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
-
-      await runCli(["packs", "new", "removable-pack", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "add", "removable-pack", "my-skill", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "removable-pack", "--yes"], {
-        cwd: temp.path,
-        env: { AXM_TOKEN: "e2e-test-token" },
-      });
-
-      // Verify pack is in settings and lockfile before uninstall
-      let settings = readSettings();
-      expect(settings.packs?.["removable-pack"]).toBeDefined();
-      let lock = readLock();
-      expect(lock.packs?.["removable-pack"]).toBeDefined();
-
-      // Uninstall the pack
-      const result = await runCli(["packs", "uninstall", "removable-pack", "--yes"], {
-        cwd: temp.path,
-      });
-      expect(result.exitCode).toBe(0);
-
-      // Verify pack removed from settings
-      settings = readSettings();
-      expect(settings.packs?.["removable-pack"]).toBeUndefined();
-
-      // Verify pack removed from lockfile
-      lock = readLock();
-      expect(lock.packs?.["removable-pack"]).toBeUndefined();
-
-      // Verify pack directory removed from disk
-      const packDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "removable-pack",
-      );
-      expect(fs.existsSync(packDir)).toBe(false);
-    } finally {
-      cleanup();
-    }
-  });
-
   it("fails for a literal pack not in the lockfile or settings", async () => {
     const temp = createTempDir();
     try {
@@ -965,51 +850,6 @@ describe("axm packs uninstall", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs unpack", () => {
-  it("promotes pack extensions to direct settings entries and removes pack", async () => {
-    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
-      setupWorkspaceWithRegistry();
-    try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
-      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
-
-      // Install a skill, fork it (makes it registry-sourced)
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
-
-      // Create a pack with the skill, then publish and install
-      await runCli(["packs", "new", "unpackable", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "add", "unpackable", "my-skill", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "unpackable", "--yes"], {
-        cwd: temp.path,
-        env: { AXM_TOKEN: "e2e-test-token" },
-      });
-
-      // Verify pack exists before unpack
-      let settings = readSettings();
-      expect(settings.packs?.["unpackable"]).toBeDefined();
-
-      // Unpack the pack
-      const result = await runCli(["packs", "unpack", "unpackable", "--yes"], { cwd: temp.path });
-      expect(result.exitCode).toBe(0);
-
-      // Verify pack removed from settings
-      settings = readSettings();
-      expect(settings.packs?.["unpackable"]).toBeUndefined();
-
-      // Verify pack removed from lockfile
-      const lock = readLock();
-      expect(lock.packs?.["unpackable"]).toBeUndefined();
-
-      // Verify the skill was promoted to a direct entry
-      // my-skill should still exist in settings.skills as a direct entry
-      expect(settings.skills?.["my-skill"]).toBeDefined();
-    } finally {
-      cleanup();
-    }
-  });
-
   it("fails for non-installed pack", async () => {
     const temp = createTempDir();
     try {
@@ -1021,86 +861,6 @@ describe("axm packs unpack", () => {
       expect(result.stderr).toContain("not installed");
     } finally {
       temp.cleanup();
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 9.7: Transitive skill disable (pack-provided skill)
-// ---------------------------------------------------------------------------
-
-describe("transitive skill disable via pack", () => {
-  it("disabling a pack-provided skill creates a direct entry; uninstalling pack preserves it", async () => {
-    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
-      setupWorkspaceWithRegistry();
-    try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
-      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
-
-      // Install skill, fork it, create pack with it, publish
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
-
-      await runCli(["packs", "new", "disable-pack", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "add", "disable-pack", "my-skill", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "disable-pack", "--yes"], {
-        cwd: temp.path,
-        env: { AXM_TOKEN: "e2e-test-token" },
-      });
-
-      // Verify my-skill is visible (either as direct or transitive)
-      let settings = readSettings();
-      const skillBefore = settings.skills?.["my-skill"];
-      // my-skill should be in settings at this point (from fork)
-      expect(skillBefore).toBeDefined();
-
-      // Disable the skill
-      const disableResult = await runCli(["skills", "disable", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      expect(disableResult.exitCode).toBe(0);
-
-      // Verify skill has a direct entry with enabled: false
-      settings = readSettings();
-      const disabledEntry = settings.skills?.["my-skill"];
-      expect(disabledEntry).toBeDefined();
-      if (typeof disabledEntry === "object") {
-        expect(disabledEntry.enabled).toBe(false);
-      }
-
-      // Re-enable the skill
-      const enableResult = await runCli(["skills", "enable", "my-skill", "--yes"], {
-        cwd: temp.path,
-      });
-      expect(enableResult.exitCode).toBe(0);
-
-      // Verify skill is re-enabled
-      settings = readSettings();
-      const enabledEntry = settings.skills?.["my-skill"];
-      expect(enabledEntry).toBeDefined();
-      if (typeof enabledEntry === "object") {
-        expect(enabledEntry.enabled).not.toBe(false);
-      }
-
-      // Uninstall the pack
-      const uninstallResult = await runCli(["packs", "uninstall", "disable-pack", "--yes"], {
-        cwd: temp.path,
-      });
-      expect(uninstallResult.exitCode).toBe(0);
-
-      // Verify pack is gone
-      settings = readSettings();
-      expect(settings.packs?.["disable-pack"]).toBeUndefined();
-      const lock = readLock();
-      expect(lock.packs?.["disable-pack"]).toBeUndefined();
-
-      // Verify my-skill is preserved as a direct entry (not orphaned)
-      // because it was promoted to a direct entry via disable/enable
-      expect(settings.skills?.["my-skill"]).toBeDefined();
-    } finally {
-      cleanup();
     }
   });
 });

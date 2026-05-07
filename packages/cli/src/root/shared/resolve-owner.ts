@@ -19,10 +19,10 @@ const makeOwnerRequiredError = (action: string): AppError =>
 
 /**
  * Resolve the owner that should be used when authoring new content
- * (fork, new, scaffold). Cascade:
+ * (new, scaffold). Cascade:
  *   1. Configured owner from project/global settings
  *   2. Locally-stored handle for the configured registry (if logged in)
- *   3. Optional fallback supplied by caller (e.g. fork's source owner)
+ *   3. Optional fallback supplied by caller
  *   4. Fail with OWNER_REQUIRED.
  */
 export const resolveOwnerForNewContent = (

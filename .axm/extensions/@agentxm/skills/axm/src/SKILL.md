@@ -1,51 +1,7 @@
 ---
 name: axm
 description: |
-  Manage AI agent extensions via the AXM CLI. Set up workspaces, install,
-  update, publish, and manage skills, commands, MCP servers, subagents,
-  and extension packs. Use for ANY AXM or AgentXM question or action.
-cli-version-audited: "0.4.5"
-triggers:
-  # Direct invocations
-  - axm
-  - /axm
-  # Workspace lifecycle
-  - axm setup
-  - axm install
-  - axm update
-  - axm uninstall
-  - axm outdated
-  - axm prune
-  - axm upgrade
-  # Workspace ops
-  - axm lint
-  - axm discover
-  # Domain commands
-  - axm skills
-  - axm packs
-  - axm commands
-  - axm mcp-servers
-  - axm subagents
-  - axm auth
-  - axm help
-  # Common intents
-  - set up workspace
-  - install extension
-  - install skill
-  - install pack
-  - install command
-  - install mcp server
-  - install subagent
-  - publish extension
-  - manage extensions
-  - update extensions
-  - discover extensions
-  # Questions
-  - how do I axm
-  - what extensions
-  - does axm
-invocable: true
-argument-hint: "[action] [args...]"
+  For managing (install/update/edit/publish/enable/disable) agent skills, subagents, and commands
 ---
 
 # AXM

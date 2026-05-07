@@ -316,7 +316,7 @@ describe("installSkill", () => {
 
   /**
    * Pre-populates the canonical directory at the expected location.
-   * Registry tests use empty integrity (synthetic refs from fork/publish pipeline),
+   * Registry tests use empty integrity (synthetic refs from publish pipeline),
    * so the handler reuses existing canonical files instead of fetching.
    */
   const setupRegistryCanonical = (base: string, owner: string, name = "my-skill") => {
@@ -803,7 +803,7 @@ describe("installSkill", () => {
         Effect.gen(function* () {
           const { axmDir, base } = setupBase();
 
-          // Pre-create registry canonical (simulates fork/publish pipeline)
+          // Pre-create registry canonical (simulates publish pipeline)
           const registryCanonical = path.join(
             base,
             ".axm",

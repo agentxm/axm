@@ -181,7 +181,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
           code: "EXTENSION_NOT_FOUND",
           what: `Skill "${name}" is not installed in this workspace`,
           howToFix:
-            "Use the fully-qualified name `@owner/skills/name`, or run `axm skills fork ${name}` to create a managed copy first.",
+            "Use the fully-qualified name `@owner/skills/name`, or scaffold a managed skill with `axm skills new` first.",
         }),
       );
     }
@@ -194,7 +194,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
           what: `Skill "${name}" cannot be published from a non-registry source`,
           details: [`Source: ${entry.source}`],
           howToFix:
-            "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published. Use `axm skills fork ${name}` first.",
+            "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published.",
         }),
       );
     }
@@ -238,7 +238,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
                 what: `Managed extension not found: ${extName}`,
                 details: [`Expected at: ${extensionDir}`],
                 howToFix:
-                  "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
+                  "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed skill with `axm skills new` first.",
               });
             }
 

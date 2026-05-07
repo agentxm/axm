@@ -711,7 +711,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * AXM settings configuration schema.
  *
  * Settings define workspace configuration for AXM including:
- * - owner: Workspace owner handle used for fork/new and reconciliation of non-registry sources
+ * - owner: Workspace owner handle used for new/scaffold and reconciliation of non-registry sources
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
  * - skills: Desired skills by name to source string

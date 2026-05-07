@@ -95,7 +95,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
       });
     }
 
-    // Empty integrity with existing canonical → skip fetch (synthetic refs from fork/publish)
+    // Empty integrity with existing canonical → skip fetch (synthetic refs from publish)
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({

@@ -368,7 +368,7 @@ describe("publish.handler", () => {
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.what).toContain("Managed extension not found");
-          expect(errorResult.howToFix).toContain("axm skills fork");
+          expect(errorResult.howToFix).toContain("axm skills new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),

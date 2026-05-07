@@ -107,7 +107,6 @@ Examples below use `skills`; the same shape applies to every type.
 
 ```bash
 axm skills new my-skill                       # Scaffold a new skill
-axm skills fork my-skill                      # Fork an installed skill to customize
 axm skills install @acme/skills/code-review
 axm skills list
 axm skills disable my-skill                   # Turn off without uninstalling

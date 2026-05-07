@@ -231,7 +231,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
                 what: `Managed extension not found: ${extName}`,
                 details: [`Expected at: ${extensionDir}`],
                 howToFix:
-                  "Only managed extensions (in .axm/extensions/) can be published. Use `axm subagents fork` first.",
+                  "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed subagent with `axm subagents new` first.",
               });
             }
 

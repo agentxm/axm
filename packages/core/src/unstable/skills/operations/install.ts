@@ -205,7 +205,7 @@ const installFromRegistry = (
     });
     yield* validatePathSafety(ws.baseDir, canonicalPath, "INSTALL_SKILL_PATH_TRAVERSAL");
 
-    // Synthetic refs (fork/publish) may have no integrity — use existing canonical
+    // Synthetic refs from publish may have no integrity — use existing canonical
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({

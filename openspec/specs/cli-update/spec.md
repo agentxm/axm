@@ -84,7 +84,7 @@ The `axm update` command SHALL support `--json` output following the standard JS
 
 ### Requirement: Root update command aggregates per-type update workflows
 
-The root `axm update` command SHALL dispatch to existing per-type update workflows rather than reimplementing update logic. Each extension type's update behavior (constraint resolution, conflict handling, rename detection) SHALL be preserved.
+The root `axm update` command SHALL dispatch to existing per-type update workflows rather than reimplementing update logic. Each extension type's update behavior (constraint resolution, conflict handling) SHALL be preserved.
 
 #### Scenario: Skills update respects pack constraints
 

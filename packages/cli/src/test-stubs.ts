@@ -181,7 +181,6 @@ export const makeBaseWorkspaceMock = (
     removeSkillFromSettings: () => Effect.void,
     updateSkillEntry: () => Effect.void,
     setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
     updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
     getLockedExtensionPacks: () => Effect.succeed({}),

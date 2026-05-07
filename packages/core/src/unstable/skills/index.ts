@@ -59,7 +59,5 @@ export type { EnableSkillOperation } from "./operations/enable.js";
 export { enableSkill } from "./operations/enable.js";
 export type { DisableSkillOperation } from "./operations/disable.js";
 export { disableSkill } from "./operations/disable.js";
-export type { RenameSkillOperation } from "./operations/rename.js";
-export { renameSkill } from "./operations/rename.js";
 export type { NewSkillOperationArgs, NewSkillOperation } from "./operations/new-skill.js";
 export { newSkill } from "./operations/new-skill.js";

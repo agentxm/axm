@@ -338,8 +338,6 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a skill entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setSkillEntry: (name: string, entry: SkillEntry) => Effect.Effect<void, AppError>;
-  /** Atomically rename a skill in both settings and lockfile. Serialized by semaphore. */
-  readonly renameSkill: (oldName: string, newName: string) => Effect.Effect<void, AppError>;
   /** Update the agents field on a lock entry. Serialized by semaphore. */
   readonly updateLockEntryAgents: (
     name: string,

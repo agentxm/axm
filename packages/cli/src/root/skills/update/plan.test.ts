@@ -12,7 +12,6 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile, SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { ExactSemverVersion } from "@agentxm/client-core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
@@ -734,82 +733,6 @@ describe("buildUpdatePlan", () => {
       expect(getStep(steps, 1).label).toBe("unchanged");
       expect(yield* isSkipStep(getStep(steps, 2))).toBe(false);
       expect(getStep(steps, 2).label).toBe("local-skill");
-    }),
-  );
-
-  // ---------------------------------------------------------------------------
-  // UninstallSkillOperation support (rename cleanup)
-  // ---------------------------------------------------------------------------
-
-  it.effect("accepts UninstallSkillOperation in the operations array", () =>
-    Effect.gen(function* () {
-      const installOp = makeOp("new-name");
-      const uninstallOp: UninstallSkillOperation = {
-        name: "uninstall-skill",
-        args: { skillName: "old-name", agents: [] },
-      };
-
-      const plan = buildUpdatePlan(
-        [installOp, uninstallOp],
-        emptyLockfile,
-        "Update",
-        Option.none(),
-        stubRunClosure,
-      );
-
-      const steps = getSteps(plan);
-      expect(steps).toHaveLength(2);
-      // First step should be install (dispatched to stub closure)
-      expect(yield* runStep(getStep(steps, 0))).toBe("executed install-skill");
-      // Second step should be uninstall (dispatched to stub closure)
-      expect(yield* runStep(getStep(steps, 1))).toBe("executed uninstall-skill");
-    }),
-  );
-
-  it("gives UninstallSkillOperation steps a rename cleanup label", () => {
-    const uninstallOp: UninstallSkillOperation = {
-      name: "uninstall-skill",
-      args: { skillName: "old-name", agents: [] },
-    };
-
-    const plan = buildUpdatePlan(
-      [uninstallOp],
-      emptyLockfile,
-      "Update",
-      Option.none(),
-      stubRunClosure,
-    );
-
-    const step = getFirstStep(plan);
-    expect(step.label).toContain("old-name");
-    expect(step.label).toContain("renamed");
-  });
-
-  it.effect("handles mixed install and uninstall operations", () =>
-    Effect.gen(function* () {
-      const installOp = makeOp("new-skill", {
-        sourceType: "github",
-        gitTreeSha: Option.some("sha-123"),
-      });
-      const uninstallOp: UninstallSkillOperation = {
-        name: "uninstall-skill",
-        args: { skillName: "old-skill", agents: [] },
-      };
-
-      const plan = buildUpdatePlan(
-        [installOp, uninstallOp],
-        emptyLockfile,
-        "Update skill(s)",
-        Option.some("Rename detected"),
-        stubRunClosure,
-      );
-
-      const steps = getSteps(plan);
-      expect(steps).toHaveLength(2);
-      expect(getStep(steps, 0).label).toBe("new-skill");
-      expect(yield* isSkipStep(getStep(steps, 0))).toBe(false);
-      expect(getStep(steps, 1).label).toContain("old-skill");
-      expect(getStep(steps, 1).label).toContain("renamed");
     }),
   );
 });

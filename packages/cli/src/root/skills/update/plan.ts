@@ -14,13 +14,12 @@ import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Lockfile, SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
-export type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
+export type UpdateOperation = InstallSkillOperation;
 
 /**
  * A function that creates a run closure for an operation.
@@ -69,9 +68,6 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
 /**
  * Build an update plan by comparing operations against lockfile entries.
  *
- * Accepts both install operations (compared against lockfile) and uninstall
- * operations (rename cleanup — always marked as success).
- *
  * Takes a `makeRunClosure` function that produces service-provided run closures
  * for each operation.
  *
@@ -91,14 +87,6 @@ export const buildUpdatePlan = (
     {
       concurrency: "unbounded",
       steps: ops.map((op): PlannedJobStep => {
-        if (op.name === "uninstall-skill") {
-          return {
-            readiness: "ready",
-            label: `${op.args.skillName} (renamed)`,
-            run: makeRunClosure(op),
-          };
-        }
-        // install-skill
         const entry = lockfile.skills[op.args.ref.skill.name];
         const needsUpdate = !entry || op.args.force || hasChanged(op, entry);
 

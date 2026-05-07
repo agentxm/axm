@@ -8,7 +8,6 @@ import { newCommand } from "./new/command.js";
 import { publishCommand } from "./publish/command.js";
 import { enableCommand } from "./enable/command.js";
 import { disableCommand } from "./disable/command.js";
-import { renameCommand } from "./rename/command.js";
 
 export const subagentsCommand = Command.make("subagents").pipe(
   Command.withDescription("Manage subagents"),
@@ -31,6 +30,5 @@ export const subagentsCommand = Command.make("subagents").pipe(
     publishCommand,
     enableCommand,
     disableCommand,
-    renameCommand,
   ]),
 );

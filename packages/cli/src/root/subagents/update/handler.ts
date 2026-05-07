@@ -174,7 +174,6 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
               onSome: (pattern) => Option.some(pattern.owner),
             });
 
-            // Try with name filter (fast path)
             const namedRefs = yield* findSubagentRefs(source, {
               subagentNames: [name],
               owner: requestedOwner,
@@ -189,34 +188,10 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
               });
             }
 
-            // Subagent not found by name — re-resolve without name filter
-            const allSubagentRefs = yield* findSubagentRefs(source, {
-              subagentNames: [],
-              owner: requestedOwner,
-              versionConstraint: Option.none(),
-            });
-
-            if (allSubagentRefs.length === 1) {
-              const [newRef] = allSubagentRefs;
-              if (newRef === undefined) {
-                return Option.none<ResolveResult>();
-              }
-              return Option.some<ResolveResult>({
-                type: "match",
-                ref: newRef,
-              });
-            } else if (allSubagentRefs.length > 1) {
-              const availableNames = allSubagentRefs.map((r) => r.subagent.name).join(", ");
-              yield* renderer.warn(
-                `Subagent "${name}" not found in source. Available subagents: ${availableNames}. Use \`axm subagents rename ${name} <new-name>\` to update.`,
-              );
-              return Option.none<ResolveResult>();
-            } else {
-              yield* renderer.warn(
-                `Subagent "${name}" not found in source ${sources.origin(source)}`,
-              );
-              return Option.none<ResolveResult>();
-            }
+            yield* renderer.warn(
+              `Subagent "${name}" not found in source ${sources.origin(source)}`,
+            );
+            return Option.none<ResolveResult>();
           }).pipe(
             Effect.catch((error) => {
               return renderer

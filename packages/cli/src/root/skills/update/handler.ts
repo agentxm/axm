@@ -29,10 +29,8 @@ import {
 } from "@agentxm/client-core/unstable/packs";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import type { UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
-import { uninstallSkill } from "@agentxm/client-core/unstable/skills";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
   detectHoldbackWarnings,
@@ -158,20 +156,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const packConstraintMap = yield* collectPackConstraints();
 
   // Step 5: Re-resolve each source and discover skills
-  type ResolveResult =
-    | {
-        readonly type: "match";
-        readonly ref: SkillExtensionRef;
-        readonly versionConstraint: Option.Option<string>;
-        readonly warnings: ReadonlyArray<string>;
-      }
-    | {
-        readonly type: "rename";
-        readonly oldName: string;
-        readonly newRef: SkillExtensionRef;
-        readonly versionConstraint: Option.Option<string>;
-        readonly warnings: ReadonlyArray<string>;
-      };
+  type ResolveResult = {
+    readonly type: "match";
+    readonly ref: SkillExtensionRef;
+    readonly versionConstraint: Option.Option<string>;
+    readonly warnings: ReadonlyArray<string>;
+  };
 
   const findSkillRefs = (
     source: RegistrySource | SkillExtensionRef["source"],
@@ -339,7 +329,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               onSome: (pattern) => Option.some(pattern.owner),
             });
 
-            // First try with name filter (fast path)
             const namedRefs = yield* findSkillRefs(source, {
               skillNames: [name],
               owner: requestedOwner,
@@ -356,67 +345,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               });
             }
 
-            // Skill not found by name — re-resolve without name filter for rename detection
-            const allSkillRefs = yield* findSkillRefs(source, {
-              skillNames: [],
-              owner: requestedOwner,
-              versionConstraint: Option.none(),
-            });
-
-            if (allSkillRefs.length === 1) {
-              // Single-skill source: treat as rename
-              const [newRef] = allSkillRefs;
-              if (newRef === undefined) {
-                return Option.none<ResolveResult>();
-              }
-
-              if (
-                source.type === "registry" &&
-                newRef.refType === "registry" &&
-                Option.isSome(registryPattern)
-              ) {
-                const renameResolved = yield* resolveRegistrySkillWithConstraints({
-                  source,
-                  owner: registryPattern.value.owner,
-                  lookupName: newRef.skill.name,
-                  userConstraint:
-                    registryPattern.value.versionConstraint === undefined
-                      ? Option.none()
-                      : Option.some(registryPattern.value.versionConstraint),
-                  packConstraints:
-                    packConstraintMap.get(
-                      `${registryPattern.value.owner}/skills/${newRef.skill.name}`,
-                    ) ?? [],
-                });
-                if (Option.isSome(renameResolved)) {
-                  return Option.some<ResolveResult>({
-                    type: "rename",
-                    oldName: name,
-                    newRef: renameResolved.value.ref,
-                    versionConstraint: renameResolved.value.versionConstraint,
-                    warnings: renameResolved.value.warnings,
-                  });
-                }
-              }
-
-              return Option.some<ResolveResult>({
-                type: "rename",
-                oldName: name,
-                newRef,
-                versionConstraint: Option.none(),
-                warnings: [],
-              });
-            } else if (allSkillRefs.length > 1) {
-              // Multi-skill source: ambiguous rename
-              const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
-              yield* renderer.warn(
-                `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
-              );
-              return Option.none<ResolveResult>();
-            } else {
-              yield* renderer.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
-              return Option.none<ResolveResult>();
-            }
+            yield* renderer.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
+            return Option.none<ResolveResult>();
           }).pipe(
             Effect.catch((error) => {
               return renderer
@@ -447,49 +377,21 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   );
 
   // Step 8: Build operations
-  const ops = Array.flatMap(resolved, (item) => {
-    if (item.type === "match") {
-      const existingLock = lockedSkills[item.ref.skill.name];
-      const existingInstalledAt = Option.fromUndefinedOr(existingLock?.installedAt);
-      return [
-        {
-          name: "install-skill",
-          args: {
-            ref: item.ref,
-            force: args.force,
-            versionConstraint: item.versionConstraint,
-            skipSettings: Option.none(),
-            strictUnknownAgents: Option.none(),
-            existingInstalledAt,
-            sourceName: Option.none(),
-          },
-        } satisfies InstallSkillOperation,
-      ];
-    }
-    // Rename: install new name + uninstall old name — preserve original installedAt
-    const existingLock = lockedSkills[item.oldName];
+  const ops = resolved.map((item) => {
+    const existingLock = lockedSkills[item.ref.skill.name];
     const existingInstalledAt = Option.fromUndefinedOr(existingLock?.installedAt);
-    return [
-      {
-        name: "install-skill",
-        args: {
-          ref: item.newRef,
-          force: args.force,
-          versionConstraint: item.versionConstraint,
-          skipSettings: Option.none(),
-          strictUnknownAgents: Option.none(),
-          existingInstalledAt,
-          sourceName: Option.none(),
-        },
-      } satisfies InstallSkillOperation,
-      {
-        name: "uninstall-skill",
-        args: {
-          skillName: item.oldName,
-          agents: [],
-        },
-      } satisfies UninstallSkillOperation,
-    ];
+    return {
+      name: "install-skill",
+      args: {
+        ref: item.ref,
+        force: args.force,
+        versionConstraint: item.versionConstraint,
+        skipSettings: Option.none(),
+        strictUnknownAgents: Option.none(),
+        existingInstalledAt,
+        sourceName: Option.none(),
+      },
+    } satisfies InstallSkillOperation;
   });
 
   // Step 9: Capture services for run closures
@@ -506,25 +408,16 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       ? { result: "error", message: result.message, error: result.error }
       : { result: "success", message: result.message };
 
-  const makeRunClosure: import("./plan.js").MakeRunClosure = (op) => {
-    if (op.name === "install-skill") {
-      return installSkill(op).pipe(
-        Effect.map(toJobStepResult),
-        Effect.provideService(WorkspaceMutations, ws),
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.provideService(CliRenderer, renderer),
-        Effect.provideService(SourceHostProviders, sources),
-        Effect.provideService(CodingAgentRepository, agentRepo),
-      );
-    }
-    return uninstallSkill(op).pipe(
+  const makeRunClosure: import("./plan.js").MakeRunClosure = (op) =>
+    installSkill(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
+      Effect.provideService(CliRenderer, renderer),
+      Effect.provideService(SourceHostProviders, sources),
+      Effect.provideService(CodingAgentRepository, agentRepo),
     );
-  };
 
   // Step 10: Build plan
   const lockfile = { lockfileVersion: 1, skills: lockedSkills };

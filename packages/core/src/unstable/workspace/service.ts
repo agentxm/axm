@@ -627,41 +627,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      renameSkill: (oldName: string, newName: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            // Read and validate settings
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentSkills: SkillsMap = currentSettings.skills ?? {};
-            const oldEntry = yield* getEntryOrFail(
-              currentSkills,
-              oldName,
-              "SKILL_NOT_FOUND",
-              `Skill "${oldName}" not found in settings`,
-            );
-            const { [oldName]: _, ...remainingSkills } = currentSkills;
-            void _;
-            const updatedSettings = {
-              ...currentSettings,
-              skills: { ...remainingSkills, [newName]: oldEntry },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-
-            // Rename in lockfile if entry exists
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const oldLockEntry = currentLockfile.skills[oldName];
-            if (oldLockEntry !== undefined) {
-              const { [oldName]: __, ...remainingLockSkills } = currentLockfile.skills;
-              void __;
-              const updatedLockfile = {
-                ...currentLockfile,
-                skills: { ...remainingLockSkills, [newName]: oldLockEntry },
-              };
-              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
-            }
-          }),
-        ),
-
       updateLockEntryAgents: (name: string, agents: ReadonlyArray<string>) =>
         withMutex(
           Effect.gen(function* () {

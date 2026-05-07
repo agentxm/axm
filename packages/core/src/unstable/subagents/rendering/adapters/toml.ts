@@ -2,17 +2,15 @@
  * TOML adapter for subagent rendering.
  *
  * For: Codex.
- * Produces `.toml` with `name`, `description`, `developer_instructions`,
- * `model`, and `sandbox_mode` fields.
+ * Emits the user's frontmatter keys as TOML key=value pairs and the body
+ * as the `developer_instructions` field. `agentOverrides[codex]` is merged
+ * on top.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
-import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
-import { mapModelTier } from "../model-mapping.js";
 import { applyOverrides } from "../overrides.js";
-import { mapToolAccess } from "../tool-access-mapping.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(
@@ -43,44 +41,14 @@ const tomlValue = (value: unknown): string => {
  * @experimental This API is unstable and may change without notice.
  */
 export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome => {
-  const warnings: Array<LossyRenderingWarning> = [];
-  const fields: Record<string, unknown> = {};
-
-  fields["name"] = input.name;
-  fields["description"] = input.description;
-
-  // Model mapping
-  const modelResult = mapModelTier(input.model, "codex");
-  if (modelResult.value !== undefined) {
-    fields["model"] = modelResult.value;
-  }
-  if (modelResult.warning !== undefined) {
-    warnings.push(modelResult.warning);
-  }
-
-  // Tool access mapping (maps to sandbox_mode)
-  const toolResult = mapToolAccess(input.toolAccess, "codex");
-  for (const [key, value] of Object.entries(toolResult.fields)) {
-    fields[key] = value;
-  }
-  warnings.push(...toolResult.warnings);
-
-  // Background — Codex does not support background mode
-  if (input.background === true) {
-    warnings.push({
-      agent: "codex",
-      feature: "background",
-      message: "Codex does not support background mode; background: true will be ignored",
-    });
-  }
-
-  // Developer instructions (body)
-  fields["developer_instructions"] = input.body;
-
-  const merged = applyOverrides(fields, input.agentOverrides);
+  const base: Record<string, unknown> = {
+    ...input.frontmatter,
+    developer_instructions: input.body,
+  };
+  const merged = applyOverrides(base, input.agentOverrides);
   const lines = Object.entries(merged).map(([key, value]) => `${key} = ${tomlValue(value)}`);
 
   const path = decodeRenderedFilePath(`.codex/agents/${input.name}.toml`);
 
-  return rendered([{ content: lines.join("\n"), path }], warnings);
+  return rendered([{ content: lines.join("\n"), path }], []);
 };

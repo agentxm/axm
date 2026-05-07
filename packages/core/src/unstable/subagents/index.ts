@@ -13,19 +13,10 @@ export {
   type SubagentManifest,
 } from "./manifest-schema.js";
 
-// Tool access
-export {
-  TOOL_ACCESS_LEVELS,
-  isToolAccessLevel,
-  ToolAccessLevelSchema,
-  type ToolAccessLevel,
-} from "./tool-access.js";
-
 // Content parsing
 export {
-  SubagentFrontmatterSchema,
   parseSubagentMd,
-  type SubagentFrontmatter,
+  type SubagentAgentOverrides,
   type SubagentContentResult,
 } from "./subagent-content.js";
 
@@ -51,8 +42,6 @@ export {
   mergeRooModes,
   removeRooMode,
   splitBody,
-  mapModelTier,
-  mapToolAccess,
   type AgentOverrides,
   type SubagentRenderInput,
   type SubagentRenderOutput,
@@ -60,8 +49,6 @@ export {
   type SubagentRendered,
   type SubagentSkipped,
   type SubagentRenderer,
-  type ModelMappingResult,
-  type ToolAccessMappingResult,
   type RooModeEntry,
   type RooModeResult,
 } from "./rendering/index.js";

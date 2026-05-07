@@ -48,9 +48,6 @@ const defaultArgs = (
   name: extensionName(name),
   profile: Option.none(),
   agents: Option.none(),
-  model: Option.none(),
-  toolAccess: Option.none(),
-  background: false,
   yes: false,
   force: false,
   preview: false,
@@ -134,7 +131,6 @@ describe("subagents-new.handler", () => {
           expect(fs.existsSync(subagentMdPath)).toBe(true);
           const subagentMd = fs.readFileSync(subagentMdPath, "utf-8");
           expect(subagentMd).toContain("name: my-subagent");
-          expect(subagentMd).toContain("description: A new subagent");
 
           // Verify settings registration
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
@@ -305,7 +301,7 @@ describe("subagents-new.handler", () => {
   });
 
   describe("<name>.md content", () => {
-    it.effect("writes <name>.md with frontmatter and placeholder body", () => {
+    it.effect("writes <name>.md with required name frontmatter and placeholder body", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
@@ -325,45 +321,10 @@ describe("subagents-new.handler", () => {
           );
           const content = fs.readFileSync(subagentMdPath, "utf-8");
 
-          // Check frontmatter
+          // Frontmatter has just `name`; body is the placeholder.
           expect(content).toMatch(/^---\n/);
           expect(content).toContain("name: my-tool");
-          expect(content).toContain("description: A new subagent");
-          // Check body
           expect(content).toContain("Describe what this subagent does");
-        }),
-      );
-    });
-
-    it.effect("includes model and toolAccess in frontmatter when specified", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleSubagentsNew(
-            defaultArgs("my-tool", {
-              model: Option.some("powerful"),
-              toolAccess: Option.some("readonly"),
-              background: true,
-            }),
-          );
-
-          const subagentMdPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "subagents",
-            "my-tool",
-            "src",
-            "my-tool.md",
-          );
-          const content = fs.readFileSync(subagentMdPath, "utf-8");
-
-          expect(content).toContain("model: powerful");
-          expect(content).toContain("toolAccess: readonly");
-          expect(content).toContain("background: true");
         }),
       );
     });

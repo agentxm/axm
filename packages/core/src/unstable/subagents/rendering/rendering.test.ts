@@ -5,11 +5,11 @@ import type { SubagentRenderInput } from "./types.js";
 const baseInput: SubagentRenderInput = {
   agentId: "claude-code",
   name: "code-reviewer",
-  description: "Reviews code changes",
-  model: undefined,
-  toolAccess: undefined,
-  background: undefined,
   body: "You are a code reviewer.",
+  frontmatter: {
+    name: "code-reviewer",
+    description: "Reviews code changes",
+  },
   agentOverrides: undefined,
 };
 
@@ -83,17 +83,6 @@ describe("Kiro dual-format rendering", () => {
     const jsonOutput = result.outputs.find((o) => o.path.endsWith(".json"));
     const parsed = JSON.parse(jsonOutput?.content ?? "{}");
     expect(parsed._axm_managed).toBeUndefined();
-  });
-
-  it("accumulates warnings from both formats", () => {
-    const result = renderSubagent({
-      ...baseInput,
-      agentId: "kiro",
-      background: true,
-    });
-    if (result?._tag !== "Rendered") return;
-    // Both IDE and CLI renderers should warn about background
-    expect(result.warnings.some((w) => w.feature === "background")).toBe(true);
   });
 });
 

@@ -5,11 +5,11 @@ import type { SubagentRenderInput } from "../types.js";
 const baseInput: SubagentRenderInput = {
   agentId: "roo-code",
   name: "code-reviewer",
-  description: "Reviews code changes",
-  model: undefined,
-  toolAccess: undefined,
-  background: undefined,
   body: "You are a code reviewer.\n\nReview all code changes carefully.\nLook for bugs and style issues.",
+  frontmatter: {
+    name: "code-reviewer",
+    description: "Reviews code changes",
+  },
   agentOverrides: undefined,
 };
 
@@ -34,7 +34,7 @@ describe("splitBody", () => {
 });
 
 describe("buildRooModeEntry", () => {
-  it("builds mode entry with roleDefinition and customInstructions", () => {
+  it("builds mode entry with slug, name, and split body", () => {
     const result = buildRooModeEntry(baseInput);
     expect(result.entry.slug).toBe("code-reviewer");
     expect(result.entry.name).toBe("code-reviewer");
@@ -54,44 +54,36 @@ describe("buildRooModeEntry", () => {
     expect(result.entry.roleDefinition).toBe("Single paragraph only.");
   });
 
-  describe("tool access", () => {
-    it("sets full groups for full access", () => {
-      const result = buildRooModeEntry({ ...baseInput, toolAccess: "full" });
-      expect(result.entry.groups).toEqual(["read", "edit", "command", "mcp"]);
-    });
-
-    it("sets read+mcp groups for readonly", () => {
-      const result = buildRooModeEntry({ ...baseInput, toolAccess: "readonly" });
-      expect(result.entry.groups).toEqual(["read", "mcp"]);
-    });
-
-    it("sets read-only groups for none", () => {
-      const result = buildRooModeEntry({ ...baseInput, toolAccess: "none" });
-      expect(result.entry.groups).toEqual(["read"]);
-    });
+  it("uses default groups when not specified in frontmatter", () => {
+    const result = buildRooModeEntry(baseInput);
+    expect(result.entry.groups).toEqual(["read", "edit", "command", "mcp"]);
   });
 
-  describe("model", () => {
-    it("warns for non-default model tier", () => {
-      const result = buildRooModeEntry({ ...baseInput, model: "powerful" });
-      expect(result.warnings.some((w) => w.feature === "model")).toBe(true);
-    });
-  });
-
-  describe("background", () => {
-    it("warns when background is true", () => {
-      const result = buildRooModeEntry({ ...baseInput, background: true });
-      expect(result.warnings.some((w) => w.feature === "background")).toBe(true);
-    });
-  });
-
-  it("accumulates multiple warnings", () => {
+  it("uses frontmatter groups when provided", () => {
     const result = buildRooModeEntry({
       ...baseInput,
-      model: "powerful",
-      background: true,
+      frontmatter: { ...baseInput.frontmatter, groups: ["read", "mcp"] },
     });
-    expect(result.warnings.length).toBeGreaterThanOrEqual(2);
+    expect(result.entry.groups).toEqual(["read", "mcp"]);
+  });
+
+  it("passes arbitrary frontmatter keys through", () => {
+    const result = buildRooModeEntry({
+      ...baseInput,
+      frontmatter: { ...baseInput.frontmatter, whenToUse: "When reviewing code" },
+    });
+    expect(result.entry["whenToUse"]).toBe("When reviewing code");
+  });
+
+  it("structural body fields override matching frontmatter keys", () => {
+    const result = buildRooModeEntry({
+      ...baseInput,
+      frontmatter: {
+        ...baseInput.frontmatter,
+        roleDefinition: "Stale role from frontmatter",
+      },
+    });
+    expect(result.entry.roleDefinition).toBe("You are a code reviewer.");
   });
 
   describe("overrides", () => {

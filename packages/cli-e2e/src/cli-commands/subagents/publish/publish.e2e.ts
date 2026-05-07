@@ -28,18 +28,9 @@ const createManagedSubagent = (
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
     path.join(srcDir, `${name}.md`),
-    [
-      "---",
-      `name: "${name}"`,
-      'description: "A test subagent"',
-      "model: default",
-      "toolAccess: readonly",
-      "background: false",
-      "---",
-      "",
-      `# ${name}`,
-      "",
-    ].join("\n"),
+    ["---", `name: "${name}"`, 'description: "A test subagent"', "---", "", `# ${name}`, ""].join(
+      "\n",
+    ),
   );
   fs.writeFileSync(
     path.join(extensionDir, "subagent.json"),

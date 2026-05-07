@@ -5,11 +5,11 @@ import type { SubagentRenderInput } from "../types.js";
 const baseInput: SubagentRenderInput = {
   agentId: "kiro",
   name: "code-reviewer",
-  description: "Reviews code changes",
-  model: undefined,
-  toolAccess: undefined,
-  background: undefined,
   body: "You are a code reviewer.",
+  frontmatter: {
+    name: "code-reviewer",
+    description: "Reviews code changes",
+  },
   agentOverrides: undefined,
 };
 
@@ -35,7 +35,7 @@ describe("renderJson", () => {
     expect(parsed.prompt).toBe("You are a code reviewer.");
   });
 
-  it("includes name and description", () => {
+  it("includes name and description from frontmatter", () => {
     const result = renderJson(baseInput);
     if (result._tag !== "Rendered") return;
     const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
@@ -43,35 +43,19 @@ describe("renderJson", () => {
     expect(parsed.description).toBe("Reviews code changes");
   });
 
-  describe("tool access", () => {
-    it("omits tools for full access", () => {
-      const result = renderJson({ ...baseInput, toolAccess: "full" });
-      if (result._tag !== "Rendered") return;
-      const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
-      expect(parsed.tools).toBeUndefined();
+  it("passes arbitrary frontmatter keys through", () => {
+    const result = renderJson({
+      ...baseInput,
+      frontmatter: {
+        name: "code-reviewer",
+        tools: ["read", "web"],
+        nested: { a: 1 },
+      },
     });
-
-    it("sets tools for readonly", () => {
-      const result = renderJson({ ...baseInput, toolAccess: "readonly" });
-      if (result._tag !== "Rendered") return;
-      const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
-      expect(parsed.tools).toEqual(["read", "web"]);
-    });
-
-    it("sets empty tools for none", () => {
-      const result = renderJson({ ...baseInput, toolAccess: "none" });
-      if (result._tag !== "Rendered") return;
-      const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
-      expect(parsed.tools).toEqual([]);
-    });
-  });
-
-  describe("background", () => {
-    it("warns when background is true", () => {
-      const result = renderJson({ ...baseInput, background: true });
-      if (result._tag !== "Rendered") return;
-      expect(result.warnings.some((w) => w.feature === "background")).toBe(true);
-    });
+    if (result._tag !== "Rendered") return;
+    const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
+    expect(parsed.tools).toEqual(["read", "web"]);
+    expect(parsed.nested).toEqual({ a: 1 });
   });
 
   describe("overrides", () => {
@@ -85,10 +69,13 @@ describe("renderJson", () => {
       expect(parsed.keyboardShortcut).toBe("ctrl+r");
     });
 
-    it("null override removes a portable-mapped field", () => {
+    it("null override removes a frontmatter field", () => {
       const result = renderJson({
         ...baseInput,
-        toolAccess: "readonly",
+        frontmatter: {
+          name: "code-reviewer",
+          tools: ["read", "web"],
+        },
         agentOverrides: { tools: null },
       });
       if (result._tag !== "Rendered") return;

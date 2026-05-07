@@ -17,7 +17,6 @@ import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
   computeSubagentPaths,
-  isToolAccessLevel,
   subagentContentFilename,
   subagentContentPath,
   type SubagentManifest,
@@ -38,9 +37,6 @@ export interface SubagentsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly profile: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
-  readonly model: Option.Option<string>;
-  readonly toolAccess: Option.Option<string>;
-  readonly background: boolean;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -48,25 +44,10 @@ export interface SubagentsNewHandlerArgs {
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
-const makeSubagentMd = (args: {
-  readonly name: string;
-  readonly model: Option.Option<string>;
-  readonly toolAccess: Option.Option<string>;
-  readonly background: boolean;
-}) => {
-  const lines = [`---`, `name: ${args.name}`, `description: A new subagent`];
-  if (Option.isSome(args.model)) {
-    lines.push(`model: ${args.model.value}`);
-  }
-  if (Option.isSome(args.toolAccess)) {
-    lines.push(`toolAccess: ${args.toolAccess.value}`);
-  }
-  if (args.background) {
-    lines.push(`background: true`);
-  }
-  lines.push(`---`, ``, `Describe what this subagent does and when to delegate work to it.`, ``);
-  return lines.join("\n");
-};
+const STARTER_BODY = "Describe what this subagent does and when to delegate work to it.\n";
+
+const makeSubagentMd = (name: string) =>
+  ["---", `name: ${name}`, "---", "", STARTER_BODY].join("\n");
 
 const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 
@@ -152,11 +133,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         type: "subagent",
         name: extensionName,
         version: INITIAL_VERSION,
-        ...(Option.isSome(args.model) ? { model: args.model.value } : {}),
-        ...(Option.isSome(args.toolAccess) && isToolAccessLevel(args.toolAccess.value)
-          ? { toolAccess: args.toolAccess.value }
-          : {}),
-        ...(args.background ? { background: true } : {}),
         agents: [...agents],
       };
 
@@ -176,12 +152,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         );
 
       // Write starter content file
-      const subagentMdContent = makeSubagentMd({
-        name: args.name,
-        model: args.model,
-        toolAccess: args.toolAccess,
-        background: args.background,
-      });
+      const subagentMdContent = makeSubagentMd(args.name);
       const contentFilename = subagentContentFilename(args.name);
 
       yield* fs
@@ -221,14 +192,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
               input: {
                 agentId: agent.id,
                 name: args.name,
-                description: "A new subagent",
-                model: Option.getOrUndefined(args.model),
-                toolAccess: Option.match(args.toolAccess, {
-                  onNone: () => undefined,
-                  onSome: (v) => (isToolAccessLevel(v) ? v : undefined),
-                }),
-                background: args.background || undefined,
-                body: "Describe what this subagent does and when to delegate work to it.\n",
+                body: STARTER_BODY,
+                frontmatter: { name: args.name },
                 agentOverrides: undefined,
               },
               force: args.force,

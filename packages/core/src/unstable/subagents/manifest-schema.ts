@@ -4,10 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
-import { ToolAccessLevelSchema } from "./tool-access.js";
 
 /**
  * Filename for subagent manifest files.
@@ -26,9 +24,10 @@ export const MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/subagent.schema.json"
 /**
  * Schema for subagent manifest files (subagent.json).
  *
- * Subagents are autonomous agent instances that can be delegated work
- * by a parent agent, each with their own instructions, model preferences,
- * and tool access controls.
+ * The manifest carries registry-facing identity and metadata. Fields like
+ * `model`, `toolAccess`, and `background` live (if at all) in the content
+ * file's frontmatter and are passed through to agent-native files verbatim;
+ * the manifest does not mirror them.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -39,17 +38,12 @@ export const SubagentManifestSchema = Schema.Struct({
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "subagent name is required" }),
   ),
-  model: Schema.optional(Schema.String),
-  toolAccess: Schema.optional(ToolAccessLevelSchema),
-  background: Schema.optional(
-    Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))),
-  ),
   agents: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
   identifier: "SubagentManifest",
   title: "Subagent Manifest",
   description:
-    "Configuration file (subagent.json) that defines a subagent — an autonomous agent instance with its own instructions, model, and tool access.",
+    "Configuration file (subagent.json) that defines a subagent — registry identity and metadata only.",
 });
 
 /**

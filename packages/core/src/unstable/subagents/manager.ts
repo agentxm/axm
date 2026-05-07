@@ -36,6 +36,18 @@ import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { subagentLockEntryToRef } from "../sources/index.js";
 
+/**
+ * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
+ * not leak into rendered files. The map is treated as opaque otherwise.
+ */
+const stripAgentOverrides = (
+  fm: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
+  if (!("agentOverrides" in fm)) return fm;
+  const { agentOverrides: _agentOverrides, ...rest } = fm;
+  return rest;
+};
+
 // -----------------------------------------------------------------------------
 // Service Tag
 // -----------------------------------------------------------------------------
@@ -256,12 +268,17 @@ export const SubagentManagerLive = Layer.effect(
           .pipe(Effect.provideService(WorkspaceMutations, ws));
 
         // --- Extract frontmatter fields ---
-        const frontmatter = Option.getOrUndefined(parsed.frontmatter);
+        const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
+          parsed.frontmatter,
+          () => ({}),
+        );
+        const agentOverrides = Option.getOrUndefined(parsed.agentOverrides);
+        const renderFrontmatter = stripAgentOverrides(frontmatter);
 
         // --- Warn on overrides for agents not configured for this workspace ---
         yield* warnOnOrphanOverrides(
           ref.subagent.name,
-          frontmatter?.overrides,
+          agentOverrides,
           configuredAgents.map((a) => a.id),
         );
 
@@ -278,12 +295,9 @@ export const SubagentManagerLive = Layer.effect(
                 input: {
                   agentId: agent.id,
                   name: ref.subagent.name,
-                  description: frontmatter?.description ?? "",
-                  model: frontmatter?.model,
-                  toolAccess: frontmatter?.toolAccess,
-                  background: frontmatter?.background,
                   body: parsed.body,
-                  agentOverrides: frontmatter?.overrides?.[agent.id],
+                  frontmatter: renderFrontmatter,
+                  agentOverrides: agentOverrides?.[agent.id],
                 },
                 force: false,
               })

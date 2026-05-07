@@ -20,12 +20,6 @@ export { rendered, skipped } from "./types.js";
 
 export { applyOverrides } from "./overrides.js";
 
-export type { ModelMappingResult } from "./model-mapping.js";
-export { mapModelTier } from "./model-mapping.js";
-
-export type { ToolAccessMappingResult } from "./tool-access-mapping.js";
-export { mapToolAccess } from "./tool-access-mapping.js";
-
 export { renderMarkdownYaml } from "./adapters/markdown-yaml.js";
 export { renderToml } from "./adapters/toml.js";
 export { renderJson } from "./adapters/json.js";

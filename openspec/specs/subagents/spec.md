@@ -2,54 +2,46 @@
 
 ### Requirement: Subagent manifest schema
 
-The subagent manifest (`subagent.json`) SHALL extend `CommonManifestFields` with subagent-specific fields:
+The subagent manifest (`subagent.json`) SHALL extend `CommonManifestFields` with a single subagent-specific field:
 
-- `model`: optional string enum (`"fast"` | `"default"` | `"powerful"` | `"inherit"`) or concrete model ID string, default `"default"`. Agents map abstract tiers to native model values; concrete IDs pass through verbatim.
-- `toolAccess`: optional string enum (`"full"` | `"readonly"` | `"none"`), default `"full"`. Controls the portable tool access level rendered into each agent's native format.
-- `background`: optional boolean, default `false`. Whether the subagent runs in background/async mode (only rendered for agents that support it).
 - `agents`: optional array of agent ID strings. When present, restricts rendering to only the listed agents. When absent, the subagent is rendered for all configured agents.
 
-#### Scenario: Valid manifest with all subagent-specific fields
+The manifest SHALL NOT carry portable behavior fields (`model`, `toolAccess`, `background`). Behavior is expressed in the content file's frontmatter and passes through to agent-native files verbatim. The manifest's `description` (inherited from `CommonManifestFields`) is registry-facing only and has no relationship to anything in the frontmatter.
 
-- **WHEN** `subagent.json` contains `model: "powerful"`, `toolAccess: "readonly"`, `background: true`, `agents: ["claude-code", "cursor"]`
+#### Scenario: Valid manifest with agents list
+
+- **WHEN** `subagent.json` contains `type: "subagent"`, identity fields, and `agents: ["claude-code", "cursor"]`
 - **THEN** manifest validation SHALL succeed
 
 #### Scenario: Valid manifest with minimal fields
 
-- **WHEN** `subagent.json` contains only `CommonManifestFields` with `type: "subagent"` and no subagent-specific fields
-- **THEN** manifest validation SHALL succeed with defaults applied (`model: "default"`, `toolAccess: "full"`, `background: false`)
-
-#### Scenario: Concrete model ID accepted
-
-- **WHEN** `subagent.json` contains `model: "claude-opus-4-6"`
+- **WHEN** `subagent.json` contains only `CommonManifestFields` with `type: "subagent"`
 - **THEN** manifest validation SHALL succeed
-- **AND** the model value SHALL pass through verbatim to agent adapters
 
-#### Scenario: Invalid toolAccess rejected
+#### Scenario: Manifest description independent of frontmatter description
 
-- **WHEN** `subagent.json` contains `toolAccess: "limited"`
-- **THEN** manifest validation SHALL fail with an error indicating the valid values
+- **WHEN** `subagent.json` `description` is `"Registry summary"`
+- **AND** `<name>.md` frontmatter `description` is `"In-content description"`
+- **THEN** both SHALL be accepted and SHALL NOT be reconciled by AXM
+- **AND** the manifest description SHALL be the value used by the registry; the frontmatter description SHALL flow through to rendered agent-native files
 
 ### Requirement: Subagent content file (<name>.md)
 
-The subagent content file SHALL be named `<name>.md` and reside in `src/` within the extension directory. It SHALL use YAML frontmatter for portable metadata and a Markdown body for the system prompt / instructions.
+The subagent content file SHALL be named `<name>.md` and reside in `src/` within the extension directory. It SHALL use YAML frontmatter for metadata and a Markdown body for the system prompt / instructions.
 
 The manifest `name`, frontmatter `name`, and content file basename without `.md` SHALL match exactly.
 
-<name>.md frontmatter SHALL support these fields:
+`<name>.md` frontmatter SHALL require only one field:
 
-- `name`: required string
-- `description`: required string (used for auto-delegation hints)
-- `model`: optional, same values as manifest `model`
-- `toolAccess`: optional, same values as manifest `toolAccess`
-- `background`: optional boolean
-- `overrides`: optional record keyed by agent ID, where each value is a record of agent-native field overrides
+- `name`: required string, matching the manifest `name` and the filename basename
+
+All other frontmatter keys are user-controlled and unstructured. AXM SHALL preserve them verbatim and pass them through to the rendered agent-native file. The single recognized convention key is `agentOverrides` (see "Agent-specific overrides"), which is consumed by the renderer and SHALL NOT be emitted into the rendered file.
 
 #### Scenario: <name>.md with frontmatter and body
 
 - **WHEN** a subagent package contains `subagent.json` and `src/<name>.md`
-- **AND** `<name>.md` has YAML frontmatter with `name`, `description`, and a Markdown body
-- **THEN** the frontmatter SHALL be parsed for portable metadata
+- **AND** `<name>.md` has YAML frontmatter with `name` and a Markdown body
+- **THEN** the frontmatter SHALL be parsed as opaque (apart from `name` validation)
 - **AND** the Markdown body SHALL be used as the subagent's instructions/system prompt
 
 #### Scenario: Missing <name>.md
@@ -57,109 +49,78 @@ The manifest `name`, frontmatter `name`, and content file basename without `.md`
 - **WHEN** a subagent package contains `subagent.json` but no `src/<name>.md`
 - **THEN** materialization SHALL fail with an error indicating the content file is missing
 
+#### Scenario: Missing name in frontmatter
+
+- **WHEN** `<name>.md` frontmatter does not include `name`
+- **THEN** parsing SHALL fail with an error identifying the required field
+
 #### Scenario: Identity mismatch rejected
 
 - **WHEN** a subagent package contains `subagent.json` with `name: "code-reviewer"`
 - **AND** the content file is not `src/code-reviewer.md` or its frontmatter `name` is not `code-reviewer`
 - **THEN** parsing or publishing SHALL fail with an error identifying the expected name
 
-#### Scenario: <name>.md with agent-specific overrides
+#### Scenario: Arbitrary frontmatter keys preserved
 
-- **WHEN** `<name>.md` frontmatter contains `overrides: { "claude-code": { "permissionMode": "acceptEdits" }, "codex": { "sandbox_mode": "workspace-write" } }`
-- **THEN** frontmatter parsing SHALL succeed
-- **AND** overrides SHALL be preserved for use during agent-specific rendering
+- **WHEN** `<name>.md` frontmatter contains `model: claude-opus-4-6`, `disallowedTools: "Edit,Write"`, and `custom_field: "x"`
+- **THEN** parsing SHALL succeed
+- **AND** all keys SHALL be preserved as opaque values
+- **AND** rendering SHALL emit each key verbatim into the agent-native file
 
-### Requirement: Frontmatter-to-manifest sync
+### Requirement: Pass-through rendering
 
-<name>.md frontmatter SHALL be the source of truth for `description`, `model`, `toolAccess`, and `background`. The manifest SHALL contain synced copies of these fields for registry search and filtering.
-
-Sync SHALL occur at these points:
-
-- `axm subagents new` scaffolds both files in sync
-- `axm sync` overwrites manifest values with frontmatter values
-- `axm subagents publish` syncs before upload
-
-Between sync points, local edits to <name>.md frontmatter may drift from the manifest. This is expected during development.
-
-#### Scenario: Sync overwrites manifest from frontmatter
-
-- **WHEN** `<name>.md` frontmatter has `description: "Updated description"`
-- **AND** `subagent.json` has `description: "Old description"`
-- **AND** `axm sync` is run
-- **THEN** `subagent.json` SHALL be updated to `description: "Updated description"`
-
-#### Scenario: Publish syncs before upload
-
-- **WHEN** `<name>.md` frontmatter has `model: "fast"`
-- **AND** `subagent.json` has `model: "default"`
-- **AND** `axm subagents publish` is run
-- **THEN** the manifest SHALL be synced to `model: "fast"` before the upload occurs
-
-### Requirement: Per-format-family rendering
-
-AXM SHALL render subagents into agent-native formats using format-family renderers. Each renderer SHALL be a pure function that accepts the manifest, <name>.md content (frontmatter + body), and agent-specific configuration, and returns a rendered subagent file.
+AXM SHALL render subagents into agent-native formats by translating the user's frontmatter map into the target format with structural body placement. Renderers SHALL NOT interpret or reshape portable behavior fields.
 
 The format families SHALL be:
 
-| Family                | Renderer                        | Agents                                                                                  |
-| --------------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
-| MD + YAML frontmatter | `renderMarkdownWithFrontmatter` | Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE |
-| TOML                  | `renderToml`                    | Codex                                                                                   |
-| JSON                  | `renderJson`                    | Kiro CLI                                                                                |
-| YAML/JSON modes       | `renderRooMode`                 | Roo Code                                                                                |
+| Family                | Renderer             | Agents                                                                                  |
+| --------------------- | -------------------- | --------------------------------------------------------------------------------------- |
+| MD + YAML frontmatter | `renderMarkdownYaml` | Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE |
+| TOML                  | `renderToml`         | Codex                                                                                   |
+| JSON                  | `renderJson`         | Kiro CLI                                                                                |
+| Roo modes             | `buildRooModeEntry`  | Roo Code                                                                                |
 
-#### Scenario: Markdown with frontmatter rendering for Claude Code
+For each format, the renderer SHALL:
 
-- **WHEN** rendering a subagent for Claude Code
-- **THEN** the renderer SHALL produce a `.md` file with YAML frontmatter containing `name`, `description`, and supported fields (`tools`/`disallowedTools`, `model`, `background`)
-- **AND** the Markdown body from <name>.md SHALL follow the frontmatter
+1. Start with the user's frontmatter map (with `agentOverrides` removed, since it is meta).
+2. Place the body in the format's structural body slot:
+   - Markdown+YAML: body follows the frontmatter block.
+   - TOML: body becomes `developer_instructions`.
+   - JSON: body becomes `prompt`.
+   - Roo: body splits at the first blank line into `roleDefinition` and `customInstructions`; structural fields `slug` and `name` are set to the subagent name; `groups` defaults to `["read", "edit", "command", "mcp"]` when not specified in frontmatter.
+3. Apply `agentOverrides[<agent-id>]` as an RFC 7396 JSON Merge Patch on top.
 
-#### Scenario: TOML rendering for Codex
+#### Scenario: Frontmatter passes through to Markdown+YAML
 
-- **WHEN** rendering a subagent for Codex
-- **THEN** the renderer SHALL produce a `.toml` file
-- **AND** the Markdown body SHALL map to the `developer_instructions` TOML string field
-- **AND** `model`, `description`, and `sandbox_mode` SHALL be set from portable fields
+- **WHEN** `<name>.md` frontmatter contains `name`, `description`, and `model: opus`
+- **AND** rendering for Claude Code
+- **THEN** the rendered `.md` file SHALL contain those keys verbatim in its YAML frontmatter
 
-#### Scenario: JSON rendering for Kiro CLI
+#### Scenario: Frontmatter passes through to TOML
 
-- **WHEN** rendering a subagent for Kiro CLI
-- **THEN** the renderer SHALL produce a `.json` file with `name`, `description`, `prompt` (from body), and `model`
-
-#### Scenario: Roo Code mode rendering
-
-- **WHEN** rendering a subagent for Roo Code
-- **THEN** the renderer SHALL merge a mode entry into `.roomodes`
-- **AND** the body's first paragraph SHALL become `roleDefinition`
-- **AND** the remainder SHALL become `customInstructions`
-- **AND** the mode entry SHALL NOT include `"_axm_managed"`
-
-#### Scenario: Roo Code body split with single paragraph
-
-- **WHEN** rendering a subagent for Roo Code
-- **AND** the <name>.md body contains only a single paragraph (no blank line)
-- **THEN** the entire body SHALL become `roleDefinition`
-- **AND** `customInstructions` SHALL be empty or omitted
+- **WHEN** `<name>.md` frontmatter contains `model: gpt-5-codex` and `sandbox_mode: "read-only"`
+- **AND** rendering for Codex
+- **THEN** the rendered `.toml` file SHALL contain `model = "gpt-5-codex"` and `sandbox_mode = "read-only"`
+- **AND** the body SHALL be emitted as `developer_instructions`
 
 #### Scenario: Codex TOML multiline instructions
 
 - **WHEN** rendering a subagent for Codex
-- **AND** the <name>.md body contains multiple lines and Markdown formatting
+- **AND** the `<name>.md` body contains multiple lines and Markdown formatting
 - **THEN** the `developer_instructions` TOML field SHALL use a multiline literal string (triple-quoted `"""..."""`)
 - **AND** the Markdown content SHALL be preserved verbatim (no escaping of `#`, `*`, etc.)
 
-#### Scenario: Rendered Markdown file has no managed header
+#### Scenario: Roo Code body split with single paragraph
 
-- **WHEN** a subagent is rendered for Claude Code
-- **THEN** the rendered Markdown file SHALL begin with YAML frontmatter or Markdown content from the source
-- **AND** SHALL NOT begin with `<!-- Managed by axm — see "axm subagents --help" -->`
+- **WHEN** rendering a subagent for Roo Code
+- **AND** the `<name>.md` body contains only a single paragraph (no blank line)
+- **THEN** the entire body SHALL become `roleDefinition`
+- **AND** `customInstructions` SHALL be omitted
 
-#### Scenario: Override and portable field set same native field
+#### Scenario: Rendered file has no managed header
 
-- **WHEN** a subagent has `toolAccess: "readonly"` (portable)
-- **AND** `overrides: { "claude-code": { "disallowedTools": "Write" } }` (agent-native)
-- **AND** rendering for Claude Code
-- **THEN** the override value SHALL take precedence — rendered frontmatter SHALL contain `disallowedTools: Write` (not the portable mapping of `Edit,Write,Bash`)
+- **WHEN** a subagent is rendered for any agent
+- **THEN** the rendered file SHALL NOT contain a `<!-- Managed by axm ... -->` comment, `# Managed by axm ...` line, or `_axm_managed` field
 
 #### Scenario: Partial render failure keeps successful renders
 
@@ -169,127 +130,38 @@ The format families SHALL be:
 - **AND** the error for Codex SHALL be reported
 - **AND** the lockfile `renderedFiles` SHALL include entries for Claude Code and Cursor but NOT Codex
 
-### Requirement: Model tier mapping
-
-Each agent adapter SHALL map portable model tiers to agent-native values:
-
-| Portable     | Claude Code | Copilot    | Codex      | Cursor        | Gemini CLI  | OpenCode/Kilo | Augment    | Junie    | Kiro       | Roo |
-| ------------ | ----------- | ---------- | ---------- | ------------- | ----------- | ------------- | ---------- | -------- | ---------- | --- |
-| `"fast"`     | `haiku`     | (fast)     | (fast)     | `"fast"`      | (flash)     | (fast)        | (fast)     | (fast)   | (fast)     | --  |
-| `"default"`  | `inherit`   | (omit)     | (omit)     | `"inherit"`   | `"inherit"` | (omit)        | (omit)     | (omit)   | (omit)     | --  |
-| `"powerful"` | `opus`      | (powerful) | (powerful) | (specific ID) | (pro)       | (powerful)    | (powerful) | `"opus"` | (powerful) | --  |
-| `"inherit"`  | `inherit`   | (omit)     | (omit)     | `"inherit"`   | `"inherit"` | (omit)        | (omit)     | (omit)   | (omit)     | --  |
-
-Parenthesized values indicate the adapter selects an appropriate model. Concrete model IDs pass through verbatim. Roo modes have no model field.
-
-#### Scenario: Abstract tier mapped for Claude Code
-
-- **WHEN** a subagent has `model: "powerful"`
-- **AND** rendering for Claude Code
-- **THEN** the rendered frontmatter SHALL contain `model: opus`
-
-#### Scenario: Concrete model ID passes through
-
-- **WHEN** a subagent has `model: "claude-opus-4-6"`
-- **AND** rendering for Claude Code
-- **THEN** the rendered frontmatter SHALL contain `model: claude-opus-4-6`
-
-#### Scenario: Roo Code omits model
-
-- **WHEN** a subagent has any `model` value
-- **AND** rendering for Roo Code
-- **THEN** the rendered mode entry SHALL NOT contain a model field
-
-### Requirement: Tool access mapping
-
-Each agent adapter SHALL map portable `toolAccess` values to agent-native tool control fields:
-
-| Portable     | Claude Code                        | Copilot             | Codex                       | Cursor           | Gemini CLI       | OpenCode/Kilo                           | Augment                 | Junie                                | Kiro IDE     | Kiro CLI                     | Roo Code                  |
-| ------------ | ---------------------------------- | ------------------- | --------------------------- | ---------------- | ---------------- | --------------------------------------- | ----------------------- | ------------------------------------ | ------------ | ---------------------------- | ------------------------- |
-| `"full"`     | (omit)                             | `["*"]`             | (omit)                      | (omit)           | (omit)           | (omit)                                  | (omit)                  | (omit)                               | (omit)       | (omit)                       | `[read,edit,command,mcp]` |
-| `"readonly"` | `disallowedTools: Edit,Write,Bash` | `["read","search"]` | `sandbox_mode: "read-only"` | `readonly: true` | (read tool list) | `{edit:"deny",bash:"deny"}`             | `disabled_tools: [...]` | `disallowedTools: [Write,Edit,Bash]` | `[read,web]` | `["read","web","knowledge"]` | `[read,mcp]`              |
-| `"none"`     | `tools: ""`                        | `[]`                | `sandbox_mode: "read-only"` | `readonly: true` | `[]`             | `{edit:"deny",bash:"deny",task:"deny"}` | `tools: []`             | `tools: []`                          | `[]`         | `[]`                         | `[read]`                  |
-
-#### Scenario: Full tool access for Claude Code
-
-- **WHEN** a subagent has `toolAccess: "full"`
-- **AND** rendering for Claude Code
-- **THEN** the rendered frontmatter SHALL NOT include `tools` or `disallowedTools` fields
-
-#### Scenario: Readonly tool access for Codex
-
-- **WHEN** a subagent has `toolAccess: "readonly"`
-- **AND** rendering for Codex
-- **THEN** the rendered TOML SHALL contain `sandbox_mode = "read-only"`
-
-#### Scenario: Lossy mapping documented
-
-- **WHEN** a subagent has `toolAccess: "none"`
-- **AND** rendering for Codex
-- **THEN** the rendered TOML SHALL contain `sandbox_mode = "read-only"` (same as readonly, since Codex has no "no tools" level)
-
 ### Requirement: Agent-specific overrides
 
-When <name>.md frontmatter contains an `overrides` map, the agent adapter SHALL merge override values on top of portable fields during rendering. Overrides use agent-native field names and require no translation.
+When `<name>.md` frontmatter contains an `agentOverrides` map keyed by agent id, the renderer SHALL apply the matching entry as an RFC 7396 JSON Merge Patch on top of the rendered fields for that agent. `agentOverrides` itself SHALL NOT appear in the rendered file. Overrides for agents not in the configured `agents` set SHALL be ignored, and AXM SHALL log a warning naming the orphan agent ids.
 
 #### Scenario: Claude Code override merged
 
-- **WHEN** <name>.md frontmatter contains `overrides: { "claude-code": { "permissionMode": "acceptEdits", "effort": "high" } }`
+- **WHEN** `<name>.md` frontmatter contains `agentOverrides: { "claude-code": { "permissionMode": "acceptEdits", "effort": "high" } }`
 - **AND** rendering for Claude Code
-- **THEN** the rendered frontmatter SHALL include `permissionMode: acceptEdits` and `effort: high` in addition to portable fields
+- **THEN** the rendered frontmatter SHALL include `permissionMode: acceptEdits` and `effort: high`
 
-#### Scenario: Override for non-configured agent ignored
+#### Scenario: Override replaces a frontmatter field
 
-- **WHEN** <name>.md frontmatter contains `overrides: { "codex": { "sandbox_mode": "workspace-write" } }`
+- **WHEN** `<name>.md` frontmatter contains `model: haiku` and `agentOverrides: { "claude-code": { "model": "opus" } }`
+- **AND** rendering for Claude Code
+- **THEN** the rendered frontmatter SHALL contain `model: opus` and SHALL NOT contain `model: haiku`
+
+#### Scenario: Null override removes a field
+
+- **WHEN** `<name>.md` frontmatter contains `disallowedTools: "Edit,Write"` and `agentOverrides: { "claude-code": { "disallowedTools": null } }`
+- **AND** rendering for Claude Code
+- **THEN** the rendered frontmatter SHALL NOT contain `disallowedTools`
+
+#### Scenario: Override for non-configured agent ignored with warning
+
+- **WHEN** `<name>.md` frontmatter contains `agentOverrides: { "codex": { "sandbox_mode": "workspace-write" } }`
 - **AND** Codex is NOT a configured agent
 - **THEN** the Codex override SHALL be ignored during rendering
-
-#### Scenario: Override takes precedence over portable mapping
-
-- **WHEN** a subagent has `toolAccess: "readonly"` (portable)
-- **AND** <name>.md frontmatter contains `overrides: { "codex": { "sandbox_mode": "workspace-write" } }`
-- **AND** rendering for Codex
-- **THEN** the rendered TOML SHALL contain `sandbox_mode = "workspace-write"` (override wins)
-
-### Requirement: Managed-file header
-
-Rendered subagent files and Roo mode entries SHALL contain only the agent-native content produced from the subagent source. AXM SHALL NOT prepend managed headers to Markdown or TOML outputs, and SHALL NOT add `"_axm_managed"` metadata to JSON or Roo outputs.
-
-#### Scenario: Markdown rendered file has no managed header
-
-- **WHEN** a subagent is rendered for Claude Code
-- **THEN** the rendered file SHALL begin with the generated subagent content
-- **AND** SHALL NOT begin with `<!-- Managed by axm — see "axm subagents --help" -->`
-
-#### Scenario: TOML rendered file has no managed header
-
-- **WHEN** a subagent is rendered for Codex
-- **THEN** the rendered file SHALL begin with TOML content
-- **AND** SHALL NOT begin with `# Managed by axm — see "axm subagents --help"`
-
-#### Scenario: JSON rendered file has no managed metadata field
-
-- **WHEN** a subagent is rendered for Kiro CLI
-- **THEN** the rendered JSON SHALL NOT contain `"_axm_managed"`
-
-### Requirement: Kiro dual-format rendering
-
-Kiro SHALL produce two rendered files per subagent: a `.md` file for the IDE and a `.json` file for the CLI. Both SHALL be tracked in the lockfile `renderedFiles` map under the `kiro` key.
-
-#### Scenario: Both Kiro formats rendered
-
-- **WHEN** a subagent is rendered for Kiro
-- **THEN** the adapter SHALL produce `.kiro/agents/<name>.md` (IDE format)
-- **AND** `.kiro/agents/<name>.json` (CLI format)
-
-#### Scenario: Both Kiro files tracked in lockfile
-
-- **WHEN** a subagent is installed with Kiro configured
-- **THEN** the lockfile `renderedFiles` for `kiro` SHALL contain entries for both the `.md` and `.json` files
+- **AND** AXM SHALL log a warning identifying `codex` as an orphan override
 
 ### Requirement: Roo Code read-modify-write
 
-When rendering for Roo Code, the adapter SHALL use read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope), preserving manually-defined modes with different slugs. AXM-managed Roo entries SHALL be identified by slug alone rather than `"_axm_managed"` metadata.
+When rendering for Roo Code, the adapter SHALL use read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope), preserving manually-defined modes with different slugs. AXM-managed Roo entries SHALL be identified by slug alone rather than `_axm_managed` metadata.
 
 #### Scenario: Existing manual modes preserved
 
@@ -317,14 +189,14 @@ When rendering for Roo Code, the adapter SHALL use read-modify-write on `.roomod
 Each `CodingAgent` SHALL support subagent operations via three methods:
 
 - `resolveEffectiveSubagentsDir(args)`: resolves the agent's subagents directory for the given scope
-- `addSubagent(args)`: renders and writes a subagent file to the agent's subagents directory, returning a sync outcome with any lossy-rendering warnings
+- `addSubagent(args)`: renders and writes a subagent file to the agent's subagents directory, returning a sync outcome
 - `removeSubagent(args)`: deletes a rendered subagent file from the agent's subagents directory
 
 #### Scenario: Add subagent to agent
 
-- **WHEN** `addSubagent` is called with a manifest and <name>.md content
+- **WHEN** `addSubagent` is called with frontmatter and body
 - **THEN** the agent adapter SHALL resolve the subagents directory, call the appropriate renderer, and write the rendered file
-- **AND** SHALL return a sync outcome including any warnings
+- **AND** SHALL return a sync outcome
 
 #### Scenario: Remove subagent from agent
 
@@ -337,6 +209,21 @@ Each `CodingAgent` SHALL support subagent operations via three methods:
 - **THEN** it SHALL return `.claude/agents/`
 - **WHEN** called with user scope for Claude Code
 - **THEN** it SHALL return `~/.claude/agents/`
+
+### Requirement: Kiro dual-format rendering
+
+Kiro SHALL produce two rendered files per subagent: a `.md` file for the IDE and a `.json` file for the CLI. Both SHALL be tracked in the lockfile `renderedFiles` map under the `kiro` key.
+
+#### Scenario: Both Kiro formats rendered
+
+- **WHEN** a subagent is rendered for Kiro
+- **THEN** the adapter SHALL produce `.kiro/agents/<name>.md` (IDE format)
+- **AND** `.kiro/agents/<name>.json` (CLI format)
+
+#### Scenario: Both Kiro files tracked in lockfile
+
+- **WHEN** a subagent is installed with Kiro configured
+- **THEN** the lockfile `renderedFiles` for `kiro` SHALL contain entries for both the `.md` and `.json` files
 
 ### Requirement: Scope-aware rendering
 
@@ -375,10 +262,10 @@ Subagent rendering SHALL respect workspace scope. Project scope renders to proje
 
 `SubagentLockEntry` SHALL include:
 
-- An entry-level `sourceHash` — hash of <name>.md portable inputs (frontmatter + body). Used to decide whether re-rendering is needed. Entry-level because all agents share the same canonical source
+- An entry-level `sourceHash` — hash of `<name>.md` (frontmatter + body). Used to decide whether re-rendering is needed. Entry-level because all agents share the same canonical source
 - A `renderedFiles` map keyed by agent ID, where each value is an array of `{ path }` objects tracking rendered file locations
 
-This is the same shared rendered-file tracking model used by `CommandLockEntry` and `SkillLockEntry` (copy mode), defined in the shared `RenderedFilesMapSchema`. No per-agent `contentHash` — drift detection uses the managed marker and source hash, not output hashing.
+This is the same shared rendered-file tracking model used by `CommandLockEntry` and `SkillLockEntry` (copy mode), defined in the shared `RenderedFilesMapSchema`. No per-agent `contentHash` — drift detection uses the source hash.
 
 #### Scenario: Lock entry records source hash and rendered files
 
@@ -393,38 +280,15 @@ This is the same shared rendered-file tracking model used by `CommandLockEntry` 
 
 #### Scenario: Source hash enables re-render skip
 
-- **WHEN** `axm sync` computes the current <name>.md source hash
+- **WHEN** `axm sync` computes the current `<name>.md` source hash
 - **AND** the hash matches the lockfile's `sourceHash`
 - **THEN** sync SHALL skip re-rendering for that subagent (optimization)
 
 #### Scenario: Source hash mismatch triggers re-render
 
-- **WHEN** `axm sync` computes the current <name>.md source hash
+- **WHEN** `axm sync` computes the current `<name>.md` source hash
 - **AND** the hash differs from the lockfile's `sourceHash`
 - **THEN** sync SHALL re-render the subagent to all configured agents
-- **AND** SHALL overwrite rendered files that have the managed marker (including manually edited ones)
-
-### Requirement: Lossy rendering warnings
-
-When a subagent uses portable fields that an agent renders with reduced fidelity (lossy mapping), the renderer SHALL return structured lossy-rendering warnings. Warnings SHALL be per-feature-per-agent and SHALL NOT prevent installation.
-
-#### Scenario: toolAccess none identical to readonly for Codex
-
-- **WHEN** a subagent specifies `toolAccess: "none"`
-- **AND** rendering for Codex
-- **THEN** the renderer SHALL produce `sandbox_mode = "read-only"` and return a warning that Codex does not distinguish `"none"` from `"readonly"`
-
-#### Scenario: Background unsupported by most agents
-
-- **WHEN** a subagent specifies `background: true`
-- **AND** rendering for Gemini CLI (which does not support background mode)
-- **THEN** the renderer SHALL omit the background field and return a warning
-
-#### Scenario: Multiple warnings accumulated
-
-- **WHEN** a subagent specifies `background: true` and `model: "powerful"`
-- **AND** rendering for Roo Code (which supports neither)
-- **THEN** the renderer SHALL return one warning per unsupported feature
 
 ### Requirement: Conflict detection at render paths
 
@@ -432,7 +296,7 @@ AXM-managed rendered files SHALL NOT silently overwrite manually-created agent f
 
 #### Scenario: Manual file blocks rendering
 
-- **WHEN** `.claude/agents/code-reviewer.md` exists without the AXM managed header
+- **WHEN** `.claude/agents/code-reviewer.md` exists without an AXM lockfile entry
 - **AND** `axm subagents install` attempts to render `code-reviewer` for Claude Code
 - **THEN** the install SHALL fail with: `Conflict: .claude/agents/code-reviewer.md already exists and is not managed by axm. Use --force to overwrite.`
 
@@ -440,11 +304,11 @@ AXM-managed rendered files SHALL NOT silently overwrite manually-created agent f
 
 - **WHEN** the same conflict exists
 - **AND** `--force` is specified
-- **THEN** the install SHALL overwrite the file with the rendered content including the managed header
+- **THEN** the install SHALL overwrite the file with the rendered content
 
 #### Scenario: Managed file does not conflict
 
-- **WHEN** `.claude/agents/code-reviewer.md` exists WITH the AXM managed header
+- **WHEN** `.claude/agents/code-reviewer.md` exists and is tracked in the lockfile
 - **AND** `axm subagents install` attempts to render `code-reviewer`
 - **THEN** the install SHALL proceed (re-rendering the managed file)
 
@@ -456,7 +320,7 @@ A subagent extension SHALL follow this directory layout within `.axm/extensions/
 .axm/extensions/<owner>/subagents/<name>/
   subagent.json          # Manifest
   src/
-    <name>.md              # Instructions
+    <name>.md            # Instructions
 ```
 
 #### Scenario: Standard layout resolved

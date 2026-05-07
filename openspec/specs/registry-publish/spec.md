@@ -53,7 +53,7 @@ The system SHALL validate the managed extension before publishing.
 #### Scenario: Only managed extensions publishable
 
 - **WHEN** attempting to publish a skill from `.agents/skills/` (non-managed)
-- **THEN** publish fails with an error explaining the skill must be forked first
+- **THEN** publish fails with an error explaining only managed extensions in `.axm/extensions/` can be published, and pointing the user at `axm skills new` to scaffold a managed skill
 
 ### Requirement: Archive creation
 

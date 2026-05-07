@@ -756,7 +756,6 @@ Commands that modify extension state (files, lockfile, settings) support preview
 | `install`   | ✓       | Adds files, updates lockfile and settings    |
 | `uninstall` | ✓       | Removes files, updates lockfile and settings |
 | `update`    | ✓       | Modifies files, updates lockfile             |
-| `fork`      | ✓       | Creates new extension files                  |
 | `enable`    | ✓       | Modifies settings                            |
 | `disable`   | ✓       | Modifies settings                            |
 | `prune`     | ✓       | Removes orphaned files                       |
@@ -808,9 +807,6 @@ axm update
 
 # update extensions for profile
 axm update @wayne-industries
-
-# fork an extension into axm (works with axm or non-axm sources like Claude Code)
-axm fork ./.claude/skills/some-skill [name]
 ```
 
 ---
@@ -908,14 +904,6 @@ Install an extension by identifier.
 axm install <ext>
 ```
 
-##### fork
-
-Fork an extension for customization.
-
-```bash
-axm fork <ext> [name]
-```
-
 ##### uninstall
 
 Remove an installed extension.
@@ -1008,14 +996,6 @@ Scaffold a new skill.
 
 ```bash
 axm skills new <name>
-```
-
-##### skills fork
-
-Copy an existing skill to customize.
-
-```bash
-axm skills fork <skill> [name]
 ```
 
 ##### skills install
@@ -1166,14 +1146,6 @@ Scaffold a new command.
 axm commands new <name>
 ```
 
-##### commands fork
-
-Copy an existing command to customize.
-
-```bash
-axm commands fork <command> [name]
-```
-
 ##### commands install
 
 Install a command from registry or source.
@@ -1260,14 +1232,6 @@ Scaffold a new MCP server wrapper.
 axm mcps new <name>
 ```
 
-##### mcps fork
-
-Copy an existing server to customize.
-
-```bash
-axm mcps fork <server> [name]
-```
-
 ##### mcps install
 
 Install an MCP server from registry or source.
@@ -1352,14 +1316,6 @@ Scaffold a new pack.
 
 ```bash
 axm packs new <name>
-```
-
-##### packs fork
-
-Copy an existing pack to customize.
-
-```bash
-axm packs fork <pack> [name]
 ```
 
 ##### packs install
@@ -1453,9 +1409,9 @@ axm packs validate [pack]
 2. ~~Naming conflict~~ **Decided:** Error by default, `--force` to overwrite.
    Same-source version comparison deferred to future.
 3. ~~External install~~ **Decided:** `install` honors external source (tracks
-   origin). `fork` converts to AXM-managed extension for customization/publishing.
+   origin).
 4. ~~Init with existing extensions~~ **Decided:** Prompt user with options:
-   (a) fork into AXM-managed, (b) continue sourcing if origin detectable, (c) remove.
+   (a) continue sourcing if origin detectable, (b) remove.
 5. ~~Checksum verification~~ **Deferred:** Post-Phase 4. Applicable for remote
    registry publish/install only.
 6. ~~Extension provenance~~ **Deferred:** Post-Phase 4. Remote registry concern.
@@ -1463,19 +1419,17 @@ axm packs validate [pack]
 
 ### Phase 2: Complete Skills & Filesystem Registry
 
-1. `import` vs `fork` — which term better communicates the action?
-2. Rename command — should there be an explicit rename operation?
-3. Rollback mechanism — how should failed updates be handled? Options:
+1. Rollback mechanism — how should failed updates be handled? Options:
    - Automatic rollback to previous version on failure
    - Manual recovery via `axm restore` command
    - No rollback (user re-installs manually)
-4. User-level settings — should `~/.axm/settings.json` be supported for global
+2. User-level settings — should `~/.axm/settings.json` be supported for global
    defaults?
-5. Environment variable overrides — should settings be configurable via
+3. Environment variable overrides — should settings be configurable via
    environment variables (e.g., `AXM_SCOPE`, `AXM_REGISTRY`)?
-6. Moving extensions between levels — what about copying an extension to/from
+4. Moving extensions between levels — what about copying an extension to/from
    user/project level?
-7. Doctor/validate conditions — what checks should `axm doctor` perform? The
+5. Doctor/validate conditions — what checks should `axm doctor` perform? The
    `validate` subcommands will be a subset of these. Candidates:
    - Invalid manifests (missing required fields, malformed JSON)
    - Missing dependencies (pack references non-existent extension)
@@ -1483,17 +1437,17 @@ axm packs validate [pack]
    - Stale lockfile (extensions modified since last install)
    - Broken symlinks (agent skill directories)
    - Outdated extensions (newer versions available)
-8. `axm version` command — should there be a dedicated version command, or is
+6. `axm version` command — should there be a dedicated version command, or is
    `--version` flag sufficient?
-9. `--json` flag — is machine-readable JSON output needed for scripting/tooling
+7. `--json` flag — is machine-readable JSON output needed for scripting/tooling
    integration?
-10. Glob/profile patterns — should commands support patterns like `@wayne/*` or
-    `**/*-skill` for bulk operations?
-11. Explicit disable syntax — should sources/agents support `false` value to
-    explicitly disable (e.g., `"bitbucket": false`)? Currently, removing the key
-    entirely is the only way to disable. Explicit disable could prevent
-    auto-detection from re-enabling removed items.
-12. Agent configuration objects — should agents support per-agent configuration
+8. Glob/profile patterns — should commands support patterns like `@wayne/*` or
+   `**/*-skill` for bulk operations?
+9. Explicit disable syntax — should sources/agents support `false` value to
+   explicitly disable (e.g., `"bitbucket": false`)? Currently, removing the key
+   entirely is the only way to disable. Explicit disable could prevent
+   auto-detection from re-enabling removed items.
+10. Agent configuration objects — should agents support per-agent configuration
     (custom paths, extension type overrides)? Currently agents is a simple list
     of agent IDs. Could expand to object syntax: `{ "codex": { "skills": { "path": "..." } } }`.
 

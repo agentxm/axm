@@ -29,6 +29,40 @@ describe("SubagentFrontmatterSchema", () => {
     expect(result.toolAccess).toBe("readonly");
     expect(result.background).toBe(true);
   });
+
+  it("accepts overrides keyed by agent id", () => {
+    const result = decode({
+      name: "planner",
+      description: "Plans work",
+      overrides: {
+        "claude-code": { disallowedTools: "Edit,Write" },
+        codex: { model: "gpt-5-codex" },
+      },
+    });
+    expect(result.overrides?.["claude-code"]?.["disallowedTools"]).toBe("Edit,Write");
+    expect(result.overrides?.["codex"]?.["model"]).toBe("gpt-5-codex");
+  });
+
+  it("accepts null in overrides to remove a field", () => {
+    const result = decode({
+      name: "planner",
+      description: "Plans work",
+      overrides: {
+        "claude-code": { model: null },
+      },
+    });
+    expect(result.overrides?.["claude-code"]?.["model"]).toBeNull();
+  });
+
+  it("rejects flat overrides (legacy shape)", () => {
+    expect(() =>
+      decode({
+        name: "planner",
+        description: "Plans work",
+        overrides: { disallowedTools: "Edit,Write" },
+      }),
+    ).toThrow();
+  });
 });
 
 describe("parseSubagentMd", () => {

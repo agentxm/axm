@@ -18,6 +18,8 @@ export type {
 
 export { rendered, skipped } from "./types.js";
 
+export { applyOverrides } from "./overrides.js";
+
 export type { ModelMappingResult } from "./model-mapping.js";
 export { mapModelTier } from "./model-mapping.js";
 

@@ -24,6 +24,7 @@ import { computeSourceHash, RenderedFilesMapSchema } from "../../extensions/rend
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "../paths.js";
 import type { SubagentPathSource } from "../paths.js";
 import { parseSubagentMd } from "../subagent-content.js";
+import { warnOnOrphanOverrides } from "../rendering/overrides.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
 
 // -----------------------------------------------------------------------------
@@ -135,6 +136,12 @@ export const enableSubagent: OperationHandler<
     // Render to all configured agents
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
+    yield* warnOnOrphanOverrides(
+      op.args.subagentName,
+      frontmatter?.overrides,
+      configuredAgents.map((a) => a.id),
+    );
+
     const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
 
     yield* Effect.forEach(
@@ -152,7 +159,7 @@ export const enableSubagent: OperationHandler<
               toolAccess: frontmatter?.toolAccess,
               background: frontmatter?.background,
               body: parsed.body,
-              agentOverrides: frontmatter?.overrides,
+              agentOverrides: frontmatter?.overrides?.[agent.id],
             },
             force: false,
           })

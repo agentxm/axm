@@ -102,6 +102,14 @@ describe("buildRooModeEntry", () => {
       });
       expect(result.entry["whenToUse"]).toBe("When reviewing code");
     });
+
+    it("null override removes a base-entry field", () => {
+      const result = buildRooModeEntry({
+        ...baseInput,
+        agentOverrides: { description: null },
+      });
+      expect("description" in result.entry).toBe(false);
+    });
   });
 });
 

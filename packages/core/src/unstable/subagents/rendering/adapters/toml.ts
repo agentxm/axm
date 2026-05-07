@@ -11,6 +11,7 @@
 import * as Schema from "effect/Schema";
 import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
 import { mapModelTier } from "../model-mapping.js";
+import { applyOverrides } from "../overrides.js";
 import { mapToolAccess } from "../tool-access-mapping.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 
@@ -19,14 +20,21 @@ const decodeRenderedFilePath = Schema.decodeUnknownSync(
 );
 
 /**
- * Escape a string value for TOML.
- * Uses triple-quoted strings for multiline content, regular quotes otherwise.
+ * Serialize a single value to a TOML right-hand side.
+ *
+ * Strings use triple-quoted form when they contain newlines and regular
+ * quotes otherwise. Numbers and booleans pass through. Other types are
+ * coerced via `String(...)` and quoted.
  */
-const tomlStringValue = (value: string): string => {
-  if (value.includes("\n")) {
-    return `"""\n${value.replace(/"""/g, '"\\"\\""')}"""`;
+const tomlValue = (value: unknown): string => {
+  if (typeof value === "boolean" || typeof value === "number") {
+    return String(value);
   }
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  const str = typeof value === "string" ? value : String(value);
+  if (str.includes("\n")) {
+    return `"""\n${str.replace(/"""/g, '"\\"\\""')}"""`;
+  }
+  return `"${str.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 };
 
 /**
@@ -36,15 +44,15 @@ const tomlStringValue = (value: string): string => {
  */
 export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome => {
   const warnings: Array<LossyRenderingWarning> = [];
-  const lines: Array<string> = [];
+  const fields: Record<string, unknown> = {};
 
-  lines.push(`name = ${tomlStringValue(input.name)}`);
-  lines.push(`description = ${tomlStringValue(input.description)}`);
+  fields["name"] = input.name;
+  fields["description"] = input.description;
 
   // Model mapping
   const modelResult = mapModelTier(input.model, "codex");
   if (modelResult.value !== undefined) {
-    lines.push(`model = ${tomlStringValue(modelResult.value)}`);
+    fields["model"] = modelResult.value;
   }
   if (modelResult.warning !== undefined) {
     warnings.push(modelResult.warning);
@@ -53,7 +61,7 @@ export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome =>
   // Tool access mapping (maps to sandbox_mode)
   const toolResult = mapToolAccess(input.toolAccess, "codex");
   for (const [key, value] of Object.entries(toolResult.fields)) {
-    lines.push(`${key} = ${tomlStringValue(String(value))}`);
+    fields[key] = value;
   }
   warnings.push(...toolResult.warnings);
 
@@ -67,22 +75,10 @@ export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome =>
   }
 
   // Developer instructions (body)
-  lines.push(`developer_instructions = ${tomlStringValue(input.body)}`);
+  fields["developer_instructions"] = input.body;
 
-  // Apply agent-specific overrides — override any fields set above
-  if (input.agentOverrides !== undefined) {
-    for (const [key, value] of Object.entries(input.agentOverrides)) {
-      // Find and replace existing line, or append
-      const prefix = `${key} = `;
-      const existingIdx = lines.findIndex((l) => l.startsWith(prefix));
-      const line = `${key} = ${tomlStringValue(String(value))}`;
-      if (existingIdx !== -1) {
-        lines[existingIdx] = line;
-      } else {
-        lines.push(line);
-      }
-    }
-  }
+  const merged = applyOverrides(fields, input.agentOverrides);
+  const lines = Object.entries(merged).map(([key, value]) => `${key} = ${tomlValue(value)}`);
 
   const path = decodeRenderedFilePath(`.codex/agents/${input.name}.toml`);
 

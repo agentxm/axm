@@ -93,5 +93,26 @@ describe("renderToml", () => {
       if (result._tag !== "Rendered") return;
       expect(result.outputs[0]?.content).toContain('model_reasoning_effort = "high"');
     });
+
+    it("null override removes a portable-mapped field", () => {
+      const result = renderToml({
+        ...baseInput,
+        toolAccess: "readonly",
+        agentOverrides: { sandbox_mode: null },
+      });
+      if (result._tag !== "Rendered") return;
+      expect(result.outputs[0]?.content).not.toContain("sandbox_mode");
+    });
+
+    it("preserves boolean and number values from overrides without quoting", () => {
+      const result = renderToml({
+        ...baseInput,
+        agentOverrides: { verbose: true, retries: 3 },
+      });
+      if (result._tag !== "Rendered") return;
+      const content = result.outputs[0]?.content ?? "";
+      expect(content).toContain("verbose = true");
+      expect(content).toContain("retries = 3");
+    });
   });
 });

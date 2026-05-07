@@ -25,7 +25,9 @@ export const SubagentFrontmatterSchema = Schema.Struct({
   model: Schema.optional(Schema.String),
   toolAccess: Schema.optional(ToolAccessLevelSchema),
   background: Schema.optional(Schema.Boolean),
-  overrides: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  overrides: Schema.optional(
+    Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.NullOr(Schema.Unknown))),
+  ),
 }).annotate({
   identifier: "SubagentFrontmatter",
   title: "Subagent Frontmatter",
@@ -81,7 +83,8 @@ export const parseSubagentMd = (
           code: "SUBAGENT_FRONTMATTER_INVALID",
           what: "Invalid subagent frontmatter",
           details: [error instanceof Error ? error.message : String(error)],
-          howToFix: "Check the frontmatter fields in your subagent content file.",
+          howToFix:
+            "Check the frontmatter fields. `overrides` must be keyed by agent ID, e.g. `overrides.claude-code: { ... }`. See `axm help subagents`.",
           cause: error,
         }),
     });

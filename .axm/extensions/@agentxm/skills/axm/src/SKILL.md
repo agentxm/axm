@@ -1,7 +1,7 @@
 ---
 name: axm
 description: |
-  For managing (install/update/edit/publish/enable/disable) agent skills, subagents, and commands
+  For managing (install/update/editing/publish/enable/disable) agent skills, subagents, and commands. Always consult for anything involving agent skills, subagents, or slash commands in this workspace.
 ---
 
 # AXM

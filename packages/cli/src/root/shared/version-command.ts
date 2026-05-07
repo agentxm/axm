@@ -7,12 +7,18 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { previewFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { parseFqn } from "@agentxm/client-core/unstable/extensions";
+import {
+  extensionTypeSentenceLabels,
+  extensionTypeToPlural,
+  parseFqn,
+} from "@agentxm/client-core/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   bumpManifestVersion,
+  isVersionableType,
+  versionableTypes,
   type BumpManifestVersionResult,
   type VersionableExtensionType,
   type VersionBump,
@@ -73,7 +79,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
       return yield* makeAppError({
         code: "VERSION_SET_TARGET_MISSING",
         what: "`set` requires an exact semver version",
-        howToFix: `Run \`axm ${args.type === "command" ? "commands" : "skills"} version ${args.handle} set 1.2.3\`.`,
+        howToFix: `Run \`axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3\`.`,
       });
     }
 
@@ -96,7 +102,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
     const renderer = yield* CliRenderer;
     if (
       yield* renderer.document(
-        `${args.type === "command" ? "commands" : "skills"}.version`,
+        `${extensionTypeToPlural[args.type]}.version`,
         { result: toVersionDocument(result) },
         VersionDocumentFields,
       )
@@ -106,11 +112,21 @@ export const handleVersion = (args: VersionHandlerArgs) =>
     yield* renderer.raw(`${result.from} -> ${result.to}\n`);
   });
 
+const exampleNamesByType: Record<VersionableExtensionType, string> = {
+  command: "my-cmd",
+  skill: "code-review",
+  subagent: "researcher",
+  "mcp-server": "my-server",
+  pack: "frontend-tools",
+};
+
 const makeVersionCommand = (type: VersionableExtensionType) => {
-  const plural = type === "command" ? "commands" : "skills";
+  const plural = extensionTypeToPlural[type];
+  const sentence = extensionTypeSentenceLabels[type];
+  const exampleName = exampleNamesByType[type];
   const versionConfig = {
     handle: Argument.string("handle").pipe(
-      Argument.withDescription(`Fully-qualified ${type} handle (@owner/${plural}/name)`),
+      Argument.withDescription(`Fully-qualified ${sentence} handle (@owner/${plural}/name)`),
     ),
     bump: Argument.string("bump").pipe(Argument.withDescription("Version bump rule or set")),
     targetVersion: Argument.string("version").pipe(
@@ -127,14 +143,14 @@ const makeVersionCommand = (type: VersionableExtensionType) => {
     ),
   ).pipe(
     withArgvTracking(versionConfig),
-    Command.withDescription(`Bump a managed ${type} manifest version`),
+    Command.withDescription(`Bump a managed ${sentence} manifest version`),
     Command.withExamples([
       {
-        command: `axm ${plural} version @acme/${plural}/my-${type} patch`,
+        command: `axm ${plural} version @acme/${plural}/${exampleName} patch`,
         description: "Bump the patch version",
       },
       {
-        command: `axm ${plural} version @acme/${plural}/my-${type} set 1.2.3`,
+        command: `axm ${plural} version @acme/${plural}/${exampleName} set 1.2.3`,
         description: "Set an exact version",
       },
     ]),
@@ -143,6 +159,9 @@ const makeVersionCommand = (type: VersionableExtensionType) => {
 
 export const commandsVersionCommand = makeVersionCommand("command");
 export const skillsVersionCommand = makeVersionCommand("skill");
+export const subagentsVersionCommand = makeVersionCommand("subagent");
+export const mcpServersVersionCommand = makeVersionCommand("mcp-server");
+export const packsVersionCommand = makeVersionCommand("pack");
 
 export interface RootVersionHandlerArgs {
   readonly handle: string;
@@ -151,17 +170,24 @@ export interface RootVersionHandlerArgs {
   readonly preview: boolean;
 }
 
+const supportedHandleHints = versionableTypes
+  .map((type) => `\`@owner/${extensionTypeToPlural[type]}/name\``)
+  .join(", ");
+
+const supportedTypeList = versionableTypes.map((type) => extensionTypeToPlural[type]).join(", ");
+
 const inferVersionableType = (handle: string) =>
   Effect.gen(function* () {
     const fqn = yield* parseFqn(handle);
-    if (fqn.type !== "command" && fqn.type !== "skill") {
+    if (!isVersionableType(fqn.type)) {
       return yield* makeAppError({
         code: "INVALID_EXTENSION_TYPE",
-        what: `Versioning is only supported for skills and commands, got ${handle}`,
-        howToFix: "Use a handle like `@owner/skills/name` or `@owner/commands/name`.",
+        what: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
+        details: [`Supported types: ${supportedTypeList}`],
+        howToFix: `Use a handle like ${supportedHandleHints}.`,
       });
     }
-    return fqn.type satisfies VersionableExtensionType;
+    return fqn.type;
   });
 
 export const handleRootVersion = (args: RootVersionHandlerArgs) =>
@@ -170,10 +196,14 @@ export const handleRootVersion = (args: RootVersionHandlerArgs) =>
     return yield* handleVersion({ ...args, type });
   });
 
+const supportedTypePluralPattern = versionableTypes
+  .map((type) => extensionTypeToPlural[type])
+  .join("|");
+
 const rootVersionConfig = {
   handle: Argument.string("handle").pipe(
     Argument.withDescription(
-      "Fully-qualified extension handle (@owner/skills/name or @owner/commands/name)",
+      `Fully-qualified extension handle (@owner/<${supportedTypePluralPattern}>/name)`,
     ),
   ),
   bump: Argument.string("bump").pipe(Argument.withDescription("Version bump rule or set")),
@@ -194,7 +224,7 @@ export const versionCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(rootVersionConfig),
-  Command.withDescription("Bump a managed skill or command manifest version"),
+  Command.withDescription("Bump a managed extension manifest version"),
   Command.withExamples([
     {
       command: "axm version @acme/commands/my-cmd patch",
@@ -205,8 +235,16 @@ export const versionCommand = Command.make(
       description: "Bump a skill's minor version",
     },
     {
-      command: "axm version @acme/skills/code-review set 1.2.3",
-      description: "Set an exact version",
+      command: "axm version @acme/subagents/researcher patch",
+      description: "Bump a subagent's patch version",
+    },
+    {
+      command: "axm version @acme/mcp-servers/my-server minor",
+      description: "Bump an MCP server's minor version",
+    },
+    {
+      command: "axm version @acme/packs/frontend-tools set 1.2.3",
+      description: "Set an exact pack version",
     },
   ]),
 );

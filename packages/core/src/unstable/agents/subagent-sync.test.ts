@@ -24,11 +24,11 @@ const decodeRenderedFilePath = Schema.decodeUnknownSync(
 const makeRenderInput = (name = "test-subagent"): SubagentRenderInput => ({
   agentId: "claude-code",
   name,
-  description: "A test subagent for unit tests.",
-  model: "default",
-  toolAccess: "full",
-  background: false,
   body: "You are a helpful test subagent.",
+  frontmatter: {
+    name,
+    description: "A test subagent for unit tests.",
+  },
   agentOverrides: undefined,
 });
 

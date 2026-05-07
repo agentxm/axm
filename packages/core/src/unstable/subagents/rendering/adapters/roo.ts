@@ -6,30 +6,21 @@
  * `settings/custom_modes.yaml` (user scope).
  *
  * The mode entry is a data structure — the actual file read-modify-write
- * is handled separately.
+ * is handled separately. The user's frontmatter passes through verbatim,
+ * with structural Roo fields layered on top: `slug` is always
+ * `input.name`, the body splits into `roleDefinition` / `customInstructions`,
+ * and `groups` falls back to a sane default when not provided. Then
+ * `agentOverrides[roo-code]` is merged on top.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
-import { mapModelTier } from "../model-mapping.js";
 import { applyOverrides } from "../overrides.js";
-import { mapToolAccess } from "../tool-access-mapping.js";
 import type { SubagentRenderInput } from "../types.js";
 
-/** Default groups when tool access mapping returns no groups. */
+/** Default groups when the user does not specify any. */
 const DEFAULT_GROUPS: ReadonlyArray<string> = ["read", "edit", "command", "mcp"];
-
-/**
- * Extract groups from tool access fields, falling back to default.
- */
-const extractGroups = (fields: Readonly<Record<string, unknown>>): ReadonlyArray<string> => {
-  const groups = fields["groups"];
-  if (Array.isArray(groups)) {
-    return groups.filter((g): g is string => typeof g === "string");
-  }
-  return DEFAULT_GROUPS;
-};
 
 /**
  * A Roo Code custom mode entry.
@@ -75,6 +66,9 @@ export const splitBody = (body: string): { roleDefinition: string; customInstruc
   };
 };
 
+const isStringArray = (value: unknown): value is ReadonlyArray<string> =>
+  Array.isArray(value) && value.every((g): g is string => typeof g === "string");
+
 /**
  * Build a Roo Code mode entry from a subagent render input.
  *
@@ -85,37 +79,18 @@ export const splitBody = (body: string): { roleDefinition: string; customInstruc
  * @experimental This API is unstable and may change without notice.
  */
 export const buildRooModeEntry = (input: SubagentRenderInput): RooModeResult => {
-  const warnings: Array<LossyRenderingWarning> = [];
-
   const { roleDefinition, customInstructions } = splitBody(input.body);
 
-  // Model — Roo has no model field
-  const modelResult = mapModelTier(input.model, "roo-code");
-  if (modelResult.warning !== undefined) {
-    warnings.push(modelResult.warning);
-  }
-
-  // Tool access → groups
-  const toolResult = mapToolAccess(input.toolAccess, "roo-code");
-  warnings.push(...toolResult.warnings);
-  const groups = extractGroups(toolResult.fields);
-
-  // Background — Roo does not support background mode
-  if (input.background === true) {
-    warnings.push({
-      agent: "roo-code",
-      feature: "background",
-      message: "Roo Code does not support background mode; background: true will be ignored",
-    });
-  }
+  const fmGroups = input.frontmatter["groups"];
+  const groups: ReadonlyArray<string> = isStringArray(fmGroups) ? fmGroups : DEFAULT_GROUPS;
 
   const baseEntry: Record<string, unknown> = {
+    ...input.frontmatter,
     slug: input.name,
     name: input.name,
     roleDefinition,
     ...(customInstructions.length > 0 ? { customInstructions } : {}),
     groups,
-    description: input.description,
   };
 
   // Assertion needed: overrides may intentionally delete fields the
@@ -124,7 +99,7 @@ export const buildRooModeEntry = (input: SubagentRenderInput): RooModeResult => 
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   const entry = applyOverrides(baseEntry, input.agentOverrides) as unknown as RooModeEntry;
 
-  return { entry, warnings };
+  return { entry, warnings: [] };
 };
 
 /**

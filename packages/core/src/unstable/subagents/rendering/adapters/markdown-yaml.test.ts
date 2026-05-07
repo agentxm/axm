@@ -5,16 +5,16 @@ import type { SubagentRenderInput } from "../types.js";
 const baseInput: SubagentRenderInput = {
   agentId: "claude-code",
   name: "code-reviewer",
-  description: "Reviews code changes for quality",
-  model: undefined,
-  toolAccess: undefined,
-  background: undefined,
   body: "You are a code reviewer. Review all changes carefully.",
+  frontmatter: {
+    name: "code-reviewer",
+    description: "Reviews code changes for quality",
+  },
   agentOverrides: undefined,
 };
 
 describe("renderMarkdownYaml", () => {
-  it("renders basic subagent for Claude Code", () => {
+  it("renders frontmatter and body", () => {
     const result = renderMarkdownYaml(baseInput);
     expect(result._tag).toBe("Rendered");
     if (result._tag !== "Rendered") return;
@@ -23,6 +23,7 @@ describe("renderMarkdownYaml", () => {
     const output = result.outputs[0];
     expect(output?.path).toBe(".claude/agents/code-reviewer.md");
     expect(output?.content).toContain("---");
+    expect(output?.content).toContain("name: code-reviewer");
     expect(output?.content).toContain("description: Reviews code changes for quality");
     expect(output?.content).toContain("You are a code reviewer.");
   });
@@ -34,75 +35,25 @@ describe("renderMarkdownYaml", () => {
     expect(firstLine).toBe("---");
   });
 
-  describe("model tiers", () => {
-    it("maps fast to haiku for Claude Code", () => {
-      const result = renderMarkdownYaml({ ...baseInput, model: "fast" });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("model: haiku");
+  it("passes arbitrary frontmatter keys through verbatim", () => {
+    const result = renderMarkdownYaml({
+      ...baseInput,
+      frontmatter: {
+        name: "code-reviewer",
+        model: "claude-opus-4-6",
+        disallowedTools: "Edit,Write,Bash",
+        custom: { nested: 1 },
+      },
     });
-
-    it("maps powerful to opus for Claude Code", () => {
-      const result = renderMarkdownYaml({ ...baseInput, model: "powerful" });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("model: opus");
-    });
-
-    it("passes through concrete model IDs", () => {
-      const result = renderMarkdownYaml({ ...baseInput, model: "claude-opus-4-6" });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("model: claude-opus-4-6");
-    });
-
-    it("maps inherit to inherit for Claude Code", () => {
-      const result = renderMarkdownYaml({ ...baseInput, model: "inherit" });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("model: inherit");
-    });
-  });
-
-  describe("tool access", () => {
-    it("omits tool fields for full access", () => {
-      const result = renderMarkdownYaml({ ...baseInput, toolAccess: "full" });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).not.toContain("disallowedTools");
-      expect(result.outputs[0]?.content).not.toContain("tools:");
-    });
-
-    it("sets disallowedTools for readonly (Claude Code)", () => {
-      const result = renderMarkdownYaml({ ...baseInput, toolAccess: "readonly" });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("disallowedTools: Edit,Write,Bash");
-    });
-
-    it("sets empty tools for none (Claude Code)", () => {
-      const result = renderMarkdownYaml({ ...baseInput, toolAccess: "none" });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain('tools: ""');
-    });
-  });
-
-  describe("background", () => {
-    it("includes background for Claude Code", () => {
-      const result = renderMarkdownYaml({ ...baseInput, background: true });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("background: true");
-      expect(result.warnings).toEqual([]);
-    });
-
-    it("warns for unsupported agents", () => {
-      const result = renderMarkdownYaml({
-        ...baseInput,
-        agentId: "gemini-cli",
-        background: true,
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).not.toContain("background:");
-      expect(result.warnings.some((w) => w.feature === "background")).toBe(true);
-    });
+    if (result._tag !== "Rendered") return;
+    const content = result.outputs[0]?.content ?? "";
+    expect(content).toContain("model: claude-opus-4-6");
+    expect(content).toContain("disallowedTools: Edit,Write,Bash");
+    expect(content).toContain("nested: 1");
   });
 
   describe("overrides", () => {
-    it("merges overrides on top of portable fields", () => {
+    it("merges overrides on top of frontmatter", () => {
       const result = renderMarkdownYaml({
         ...baseInput,
         agentOverrides: {
@@ -115,27 +66,25 @@ describe("renderMarkdownYaml", () => {
       expect(result.outputs[0]?.content).toContain("effort: high");
     });
 
-    it("override takes precedence over portable mapping", () => {
+    it("override replaces a frontmatter field", () => {
       const result = renderMarkdownYaml({
         ...baseInput,
-        toolAccess: "readonly",
-        agentOverrides: {
-          disallowedTools: "Write",
-        },
+        frontmatter: { name: "code-reviewer", model: "haiku" },
+        agentOverrides: { model: "opus" },
       });
       if (result._tag !== "Rendered") return;
-      // Override should win — only "Write", not "Edit,Write,Bash"
-      expect(result.outputs[0]?.content).toContain("disallowedTools: Write");
-      expect(result.outputs[0]?.content).not.toContain("Edit,Write,Bash");
+      expect(result.outputs[0]?.content).toContain("model: opus");
+      expect(result.outputs[0]?.content).not.toContain("model: haiku");
     });
 
-    it("null override removes a portable-mapped field", () => {
+    it("null override removes a frontmatter field", () => {
       const result = renderMarkdownYaml({
         ...baseInput,
-        toolAccess: "readonly",
-        agentOverrides: {
-          disallowedTools: null,
+        frontmatter: {
+          name: "code-reviewer",
+          disallowedTools: "Edit,Write,Bash",
         },
+        agentOverrides: { disallowedTools: null },
       });
       if (result._tag !== "Rendered") return;
       expect(result.outputs[0]?.content).not.toContain("disallowedTools");
@@ -144,9 +93,7 @@ describe("renderMarkdownYaml", () => {
     it("null override on absent field is a no-op", () => {
       const result = renderMarkdownYaml({
         ...baseInput,
-        agentOverrides: {
-          neverEmitted: null,
-        },
+        agentOverrides: { neverEmitted: null },
       });
       if (result._tag !== "Rendered") return;
       expect(result.outputs[0]?.content).not.toContain("neverEmitted");
@@ -169,27 +116,12 @@ describe("renderMarkdownYaml", () => {
       if (result._tag !== "Rendered") return;
       expect(result.outputs[0]?.path).toBe(expectedPath);
     });
-  });
 
-  it("renders for Cursor with readonly tool access", () => {
-    const result = renderMarkdownYaml({
-      ...baseInput,
-      agentId: "cursor",
-      toolAccess: "readonly",
+    it("falls back to .<agent>/agents/ for unknown agents", () => {
+      const result = renderMarkdownYaml({ ...baseInput, agentId: "novel-agent" });
+      if (result._tag !== "Rendered") return;
+      expect(result.outputs[0]?.path).toBe(".novel-agent/agents/code-reviewer.md");
     });
-    if (result._tag !== "Rendered") return;
-    expect(result.outputs[0]?.content).toContain("readonly: true");
-  });
-
-  it("renders for Copilot with full tool access", () => {
-    const result = renderMarkdownYaml({
-      ...baseInput,
-      agentId: "github-copilot",
-      toolAccess: "full",
-    });
-    if (result._tag !== "Rendered") return;
-    const content = result.outputs[0]?.content ?? "";
-    expect(content).toContain('- "*"');
   });
 
   it("renders empty body without trailing content", () => {

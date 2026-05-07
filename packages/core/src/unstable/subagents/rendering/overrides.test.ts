@@ -39,10 +39,86 @@ describe("applyOverrides", () => {
     expect(result).toEqual({ keep: "yes", overwrite: "new", add: "hello" });
   });
 
+  it("merges nested objects and preserves existing keys", () => {
+    const result = applyOverrides(
+      { permissions: { read: true, write: true } },
+      { permissions: { write: false } },
+    );
+    expect(result).toEqual({ permissions: { read: true, write: false } });
+  });
+
+  it("removes nested fields when value is null", () => {
+    const result = applyOverrides(
+      { permissions: { read: true, write: true } },
+      { permissions: { write: null } },
+    );
+    expect(result).toEqual({ permissions: { read: true } });
+  });
+
+  it("null on an absent nested key is a no-op", () => {
+    const result = applyOverrides(
+      { permissions: { read: true } },
+      { permissions: { missing: null } },
+    );
+    expect(result).toEqual({ permissions: { read: true } });
+  });
+
+  it("replaces arrays without concatenating or merging elements", () => {
+    const result = applyOverrides(
+      { tools: ["Read", "Write"], nested: { modes: [{ id: "old" }] } },
+      { tools: ["Bash"], nested: { modes: [{ id: "new" }] } },
+    );
+    expect(result).toEqual({ tools: ["Bash"], nested: { modes: [{ id: "new" }] } });
+  });
+
+  it("replaces objects with primitives", () => {
+    const result = applyOverrides({ permissions: { read: true } }, { permissions: "all" });
+    expect(result).toEqual({ permissions: "all" });
+  });
+
+  it("replaces primitives with objects", () => {
+    const result = applyOverrides({ permissions: "all" }, { permissions: { read: true } });
+    expect(result).toEqual({ permissions: { read: true } });
+  });
+
+  it("merges deeply nested objects", () => {
+    const result = applyOverrides(
+      {
+        config: {
+          permissions: {
+            filesystem: {
+              read: true,
+              write: true,
+            },
+          },
+        },
+      },
+      {
+        config: {
+          permissions: {
+            filesystem: {
+              write: false,
+            },
+          },
+        },
+      },
+    );
+    expect(result).toEqual({
+      config: {
+        permissions: {
+          filesystem: {
+            read: true,
+            write: false,
+          },
+        },
+      },
+    });
+  });
+
   it("does not mutate the input", () => {
-    const fields = { a: 1 };
-    applyOverrides(fields, { a: null, b: 2 });
-    expect(fields).toEqual({ a: 1 });
+    const fields = { a: 1, nested: { keep: true } };
+    applyOverrides(fields, { a: null, b: 2, nested: { add: true } });
+    expect(fields).toEqual({ a: 1, nested: { keep: true } });
   });
 
   it("preserves falsy non-null values", () => {

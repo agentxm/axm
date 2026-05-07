@@ -8,14 +8,9 @@
 
 - **WHEN** user runs `axm subagents new code-reviewer`
 - **AND** workspace default owner is `@acme`
-- **THEN** the CLI SHALL create `.axm/extensions/@acme/subagents/code-reviewer/subagent.json` with `type: "subagent"`, `name: "code-reviewer"`, `owner: "@acme"`, `version: "0.1.0"`, `model: "default"`, `toolAccess: "full"`, `background: false`
-- **AND** SHALL create `.axm/extensions/@acme/subagents/code-reviewer/src/code-reviewer.md` with YAML frontmatter (`name`, `description` placeholder, `model: default`, `toolAccess: full`, `background: false`) and a starter instructions body
+- **THEN** the CLI SHALL create `.axm/extensions/@acme/subagents/code-reviewer/subagent.json` with `type: "subagent"`, `name: "code-reviewer"`, `owner: "@acme"`, and an initial `version`
+- **AND** SHALL create `.axm/extensions/@acme/subagents/code-reviewer/src/code-reviewer.md` with YAML frontmatter containing only `name: code-reviewer` and a starter instructions body
 - **AND** the manifest `name`, frontmatter `name`, and filename basename SHALL all be `code-reviewer`
-
-#### Scenario: Scaffold with custom options
-
-- **WHEN** user runs `axm subagents new code-reviewer --tool-access readonly --model fast --background`
-- **THEN** both the manifest and <name>.md frontmatter SHALL reflect `toolAccess: "readonly"`, `model: "fast"`, `background: true`
 
 ### Requirement: Name validation
 

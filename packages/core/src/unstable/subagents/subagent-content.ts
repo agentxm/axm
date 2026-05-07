@@ -1,8 +1,10 @@
 /**
- * Subagent content file module for subagent content parsing and frontmatter schemas.
+ * Subagent content file module for subagent content parsing.
  *
- * Defines the frontmatter schema for subagent content files and a parser that
- * combines the shared frontmatter utility with subagent-specific validation.
+ * The content file's YAML frontmatter is largely free-form: only `name` is
+ * required and validated. `agentOverrides`, when present, is recognized for
+ * use in per-agent rendering. Any other frontmatter keys flow through
+ * verbatim to the agent-native file produced by the renderer.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -12,34 +14,26 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { parseFrontmatterEffect, type FrontmatterResult } from "../extensions/frontmatter.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { ToolAccessLevelSchema } from "./tool-access.js";
 
 /**
- * Schema for subagent content frontmatter fields.
+ * Map of agent-id → merge patch applied during per-agent rendering.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentFrontmatterSchema = Schema.Struct({
+export type SubagentAgentOverrides = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+
+/**
+ * Schema for the only required frontmatter field — `name`.
+ *
+ * Used to validate that `name` is present and a string. The full frontmatter
+ * map is preserved verbatim and surfaced as `frontmatter`.
+ */
+const NameOnlySchema = Schema.Struct({
   name: Schema.String,
-  description: Schema.String,
-  model: Schema.optional(Schema.String),
-  toolAccess: Schema.optional(ToolAccessLevelSchema),
-  background: Schema.optional(Schema.Boolean),
-  overrides: Schema.optional(
-    Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.NullOr(Schema.Unknown))),
-  ),
 }).annotate({
-  identifier: "SubagentFrontmatter",
-  title: "Subagent Frontmatter",
-  description: "YAML frontmatter fields for subagent content files.",
+  identifier: "SubagentFrontmatterName",
+  description: "Required `name` field for subagent frontmatter.",
 });
-
-/**
- * Inferred type for SubagentFrontmatter schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SubagentFrontmatter = Schema.Schema.Type<typeof SubagentFrontmatterSchema>;
 
 /**
  * Result of parsing a subagent content file.
@@ -47,17 +41,34 @@ export type SubagentFrontmatter = Schema.Schema.Type<typeof SubagentFrontmatterS
  * @experimental This API is unstable and may change without notice.
  */
 export interface SubagentContentResult {
-  /** Parsed and validated frontmatter. */
-  readonly frontmatter: Option.Option<SubagentFrontmatter>;
+  /** The full frontmatter map, opaque except for `name`. Empty when no frontmatter. */
+  readonly frontmatter: Option.Option<Readonly<Record<string, unknown>>>;
+  /** The `agentOverrides` map keyed by agent id, when present and structurally valid. */
+  readonly agentOverrides: Option.Option<SubagentAgentOverrides>;
   /** Content body after the frontmatter block, or full content if no frontmatter. */
   readonly body: string;
 }
 
+const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const extractAgentOverrides = (
+  fm: Readonly<Record<string, unknown>>,
+): Option.Option<SubagentAgentOverrides> => {
+  const raw = fm["agentOverrides"];
+  if (!isPlainObject(raw)) return Option.none();
+  const out: Record<string, Readonly<Record<string, unknown>>> = {};
+  for (const [agentId, patch] of Object.entries(raw)) {
+    if (isPlainObject(patch)) out[agentId] = patch;
+  }
+  return Option.some(out);
+};
+
 /**
  * Parse a subagent content file into validated frontmatter and body.
  *
- * Delegates to the shared frontmatter parser, then validates the
- * frontmatter against `SubagentFrontmatterSchema`.
+ * Validates only that frontmatter is present and that its `name` matches
+ * the expected name. All other keys are preserved verbatim.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -76,30 +87,44 @@ export const parseSubagentMd = (
       });
     }
 
-    const frontmatter = yield* Effect.try({
-      try: () => Schema.decodeUnknownSync(SubagentFrontmatterSchema)(parsed.frontmatter),
+    yield* Effect.try({
+      try: () => Schema.decodeUnknownSync(NameOnlySchema)(parsed.frontmatter),
       catch: (error) =>
         makeAppError({
           code: "SUBAGENT_FRONTMATTER_INVALID",
           what: "Invalid subagent frontmatter",
           details: [error instanceof Error ? error.message : String(error)],
-          howToFix:
-            "Check the frontmatter fields. `overrides` must be keyed by agent ID, e.g. `overrides.claude-code: { ... }`. See `axm help subagents`.",
+          howToFix: "Frontmatter must include a string `name` field.",
           cause: error,
         }),
     });
 
-    if (frontmatter.name !== expectedName) {
+    if (!isPlainObject(parsed.frontmatter)) {
+      return yield* makeAppError({
+        code: "SUBAGENT_FRONTMATTER_INVALID",
+        what: "Subagent frontmatter must be a YAML mapping",
+        howToFix: `Add YAML frontmatter with name: ${expectedName}.`,
+      });
+    }
+
+    const fm = parsed.frontmatter;
+    const name = fm["name"];
+
+    if (name !== expectedName) {
       return yield* makeAppError({
         code: "SUBAGENT_NAME_MISMATCH",
-        what: `Subagent frontmatter name "${frontmatter.name}" does not match expected name "${expectedName}"`,
+        what: `Subagent frontmatter name "${String(name)}" does not match expected name "${expectedName}"`,
         details: [
           `Expected frontmatter name: ${expectedName}`,
-          `Actual frontmatter name: ${frontmatter.name}`,
+          `Actual frontmatter name: ${String(name)}`,
         ],
         howToFix: `Set subagent.json name, frontmatter name, and filename to ${expectedName}.`,
       });
     }
 
-    return { frontmatter: Option.some(frontmatter), body: parsed.body };
+    return {
+      frontmatter: Option.some(fm),
+      agentOverrides: extractAgentOverrides(fm),
+      body: parsed.body,
+    };
   });

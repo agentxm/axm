@@ -1,20 +1,19 @@
 /**
  * Shared types for subagent renderers.
  *
- * These types define the inputs and outputs for all subagent renderer functions.
- * They are plain interfaces so that renderers remain pure functions.
+ * Renderers translate an opaque frontmatter map (plus the `agentOverrides`
+ * merge patch for the target agent) into agent-native files. Renderers do
+ * not interpret portable fields — they format-translate verbatim.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import type { LossyRenderingWarning } from "../../commands/rendering-warnings.js";
 import type { RenderedFilePath } from "../../extensions/rendered-files.js";
-import type { ToolAccessLevel } from "../tool-access.js";
 
 /**
- * Agent-specific overrides from subagent content frontmatter `overrides` field.
- * A record of string keys to unknown values that the renderer merges on top
- * of portable fields.
+ * Per-agent override map applied as an RFC 7396 JSON Merge Patch on top of
+ * the user's frontmatter for the target agent.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -30,17 +29,11 @@ export interface SubagentRenderInput {
   readonly agentId: string;
   /** Subagent name (used for filenames and identifiers). */
   readonly name: string;
-  /** Human-readable description (used for auto-delegation hints). */
-  readonly description: string;
-  /** Portable model tier or concrete model ID. */
-  readonly model: string | undefined;
-  /** Portable tool access level. */
-  readonly toolAccess: ToolAccessLevel | undefined;
-  /** Whether the subagent runs in background mode. */
-  readonly background: boolean | undefined;
   /** Subagent content body text (after frontmatter). */
   readonly body: string;
-  /** Agent-specific overrides from subagent content frontmatter `overrides` field. */
+  /** The user's frontmatter map, opaque to the renderer (excluding `agentOverrides`). */
+  readonly frontmatter: Readonly<Record<string, unknown>>;
+  /** Merge patch applied on top of the frontmatter map for this agent. */
   readonly agentOverrides: AgentOverrides | undefined;
 }
 

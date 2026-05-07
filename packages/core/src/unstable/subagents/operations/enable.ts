@@ -27,6 +27,18 @@ import { parseSubagentMd } from "../subagent-content.js";
 import { warnOnOrphanOverrides } from "../rendering/overrides.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
 
+/**
+ * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
+ * not leak into rendered files.
+ */
+const stripAgentOverrides = (
+  fm: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
+  if (!("agentOverrides" in fm)) return fm;
+  const { agentOverrides: _agentOverrides, ...rest } = fm;
+  return rest;
+};
+
 // -----------------------------------------------------------------------------
 // Operation types
 // -----------------------------------------------------------------------------
@@ -131,14 +143,19 @@ export const enableSubagent: OperationHandler<
     );
     const parsed = yield* parseSubagentMd(rawContent, op.args.subagentName);
     const currentHash = computeSourceHash(rawContent);
-    const frontmatter = Option.getOrUndefined(parsed.frontmatter);
+    const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
+      parsed.frontmatter,
+      () => ({}),
+    );
+    const agentOverrides = Option.getOrUndefined(parsed.agentOverrides);
+    const renderFrontmatter = stripAgentOverrides(frontmatter);
 
     // Render to all configured agents
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
     yield* warnOnOrphanOverrides(
       op.args.subagentName,
-      frontmatter?.overrides,
+      agentOverrides,
       configuredAgents.map((a) => a.id),
     );
 
@@ -154,12 +171,9 @@ export const enableSubagent: OperationHandler<
             input: {
               agentId: agent.id,
               name: op.args.subagentName,
-              description: frontmatter?.description ?? "",
-              model: frontmatter?.model,
-              toolAccess: frontmatter?.toolAccess,
-              background: frontmatter?.background,
               body: parsed.body,
-              agentOverrides: frontmatter?.overrides?.[agent.id],
+              frontmatter: renderFrontmatter,
+              agentOverrides: agentOverrides?.[agent.id],
             },
             force: false,
           })

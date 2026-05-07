@@ -89,12 +89,14 @@ describe("commands uninstall.handler", () => {
 
   const makeLayers = () => {
     const ctx = makeWorkspaceHandlerTestContext();
-    const cmdMgrLayer = Layer.provide(CommandManagerLive, ctx.fullLayer);
+    const agentRepoLayer = Layer.provide(CodingAgentRepositoryLive, ctx.fullLayer);
+    const managerDeps = Layer.mergeAll(ctx.fullLayer, agentRepoLayer);
+    const cmdMgrLayer = Layer.provide(CommandManagerLive, managerDeps);
     const actionsLayer = Layer.provide(
       UninstallCommandCommandWorkflowActionsLive,
-      Layer.mergeAll(ctx.fullLayer, cmdMgrLayer),
+      Layer.mergeAll(ctx.fullLayer, agentRepoLayer, cmdMgrLayer),
     );
-    const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive, actionsLayer);
+    const fullLayer = Layer.mergeAll(ctx.fullLayer, agentRepoLayer, cmdMgrLayer, actionsLayer);
     return { ...ctx, fullLayer, provide: makeEffectProvide(fullLayer) };
   };
 

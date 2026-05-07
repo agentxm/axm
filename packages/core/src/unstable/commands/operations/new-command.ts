@@ -8,12 +8,20 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import {
+  computeSourceHash,
+  decodeExtensionNameSync,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../../extensions/index.js";
+import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import type { Handle } from "../../extensions/handle.js";
+import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   COMMAND_MANIFEST_FILENAME,
   COMMAND_MANIFEST_SCHEMA_URL,
@@ -21,10 +29,15 @@ import {
 } from "../manifest-schema.js";
 import { commandContentFilename } from "../paths.js";
 import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { CodingAgentRepository } from "../../agents/index.js";
+import { parseCommandMd } from "../command-content.js";
+import { renderToAgents } from "./shared-command-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
 // -----------------------------------------------------------------------------
+
+const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 
 /**
  * Args for the new-command operation.
@@ -36,6 +49,8 @@ export interface NewCommandOperationArgs {
   readonly owner: Handle;
   /** Description for the command. */
   readonly description: string;
+  /** Overwrite existing rendered command files. */
+  readonly force: boolean;
 }
 
 /**
@@ -75,13 +90,14 @@ const INITIAL_COMMAND_VERSION = decodeExactSemverVersionSync("0.1.0");
  */
 export const newCommand: OperationHandler<
   NewCommandOperation,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
 
-    const { name, owner, description } = op.args;
+    const { name, owner, description, force } = op.args;
 
     // 1. Compute managed extension directory
     const targetDir = path.join(
@@ -142,20 +158,53 @@ export const newCommand: OperationHandler<
 
     // 5. Write starter content file (<name>.md) in src/
     const contentFilename = commandContentFilename(name);
-    yield* fs
-      .writeFileString(path.join(srcDir, contentFilename), makeCommandMd(name, description))
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "COMMAND_CREATE_FAILED",
-            what: `Failed to write ${contentFilename}`,
-            cause: e,
-          }),
-        ),
-      );
+    const commandMdContent = makeCommandMd(name, description);
+    yield* fs.writeFileString(path.join(srcDir, contentFilename), commandMdContent).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "COMMAND_CREATE_FAILED",
+          what: `Failed to write ${contentFilename}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    const { frontmatter, body } = yield* parseCommandMd(commandMdContent);
+    const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
+      commandName: name,
+      frontmatter,
+      body,
+      manifest,
+      owner,
+      workspaceRoot: ws.baseDir,
+      force,
+    });
+
+    const fqn = `${owner}/commands/${name}`;
+    yield* ws.setCommandEntry(name, {
+      source: fqn,
+      enabled: true,
+      authored: true,
+    });
+
+    const now = new Date();
+    const lockEntry: CommandLockEntry = {
+      type: "registry",
+      owner,
+      name: decodeExtensionNameSync(name),
+      resolvedVersion: INITIAL_COMMAND_VERSION,
+      integrity: "",
+      sourceName: "local",
+      agents: successfulAgents,
+      installedAt: now,
+      updatedAt: now,
+      sourceHash: computeSourceHash(body),
+      renderedFiles: decodeRenderedFilesMap(rawRenderedFiles),
+    };
+    yield* ws.setCommandLock({ name, lockEntry });
 
     return {
       result: "success",
-      message: `Created command ${owner}/commands/${name}`,
+      message: `Created command ${fqn}`,
     } satisfies JobStepResult;
   });

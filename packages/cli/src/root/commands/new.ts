@@ -13,9 +13,13 @@ import {
 import type { NewCommandOperation } from "@agentxm/client-core/unstable/commands";
 import { newCommand as newCommandOp } from "@agentxm/client-core/unstable/commands";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import {
+  DEFAULT_WORKSPACE_SCOPE,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
@@ -69,6 +73,8 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   // 3. Check the managed extension directory doesn't already exist
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const ws = yield* WorkspaceMutations;
+  const agentRepo = yield* CodingAgentRepository;
   const targetDir = path.join(
     path.resolve("."),
     REGISTRY_EXTENSIONS_DIR,
@@ -89,7 +95,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   // 4. Build operation
   const op = {
     name: "new-command",
-    args: { name: args.name, owner, description: args.description },
+    args: { name: args.name, owner, description: args.description, force: args.force },
   } satisfies NewCommandOperation;
 
   // 5. Build plan with inline run closure
@@ -102,6 +108,8 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
       Effect.map(toJobStepResult),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
+      Effect.provideService(WorkspaceMutations, ws),
+      Effect.provideService(CodingAgentRepository, agentRepo),
     ),
   };
 

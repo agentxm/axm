@@ -37,6 +37,21 @@ const writeSubagentExtension = (baseDir: string, name: string) => {
   );
 };
 
+const writeCommandExtension = (baseDir: string, name: string) => {
+  const commandDir = path.join(baseDir, ".axm", "extensions", "@acme", "commands", name);
+  writeJson(path.join(commandDir, "command.json"), {
+    owner: "@acme",
+    type: "command",
+    name,
+    version: "1.0.0",
+  });
+  fs.mkdirSync(path.join(commandDir, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(commandDir, "src", `${name}.md`),
+    `---\nname: ${name}\ndescription: Test command\n---\n\n# ${name}\n`,
+  );
+};
+
 const writeRenderedSubagent = (
   baseDir: string,
   agentDir: string,
@@ -147,6 +162,25 @@ describe("root sync handler", () => {
       const renderedSkill = path.join(tempDir, ".claude", "skills", "review", "SKILL.md");
       expect(fs.existsSync(renderedSkill)).toBe(true);
       expect(fs.readFileSync(renderedSkill, "utf-8")).toContain("# Review");
+    }),
+  );
+
+  it.effect("renders settings-owned command extensions", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        commands: {
+          review: "@acme/commands/review",
+        },
+      });
+      writeCommandExtension(tempDir, "review");
+
+      yield* provide(handleSync({ dryRun: false }));
+
+      const renderedCommand = path.join(tempDir, ".claude", "commands", "review.md");
+      expect(fs.existsSync(renderedCommand)).toBe(true);
+      expect(fs.readFileSync(renderedCommand, "utf-8")).toContain("# review");
     }),
   );
 

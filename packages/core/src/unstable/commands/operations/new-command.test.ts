@@ -11,8 +11,12 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
+import { CodingAgentRepository } from "../../agents/index.js";
 import { normalizeHandle } from "../../extensions/index.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import type { NewCommandOperation } from "./new-command.js";
 import { newCommand } from "./new-command.js";
 
@@ -29,6 +33,7 @@ const makeOp = (
     name,
     owner: normalizeHandle(opts.owner ?? "@acme"),
     description: opts.description ?? "",
+    force: false,
   },
 });
 
@@ -50,6 +55,18 @@ describe("new-command operation", () => {
     process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  const testLayer = () =>
+    Layer.mergeAll(
+      NodeServices.layer,
+      Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(path.join(tempDir, ".axm"))),
+      Layer.succeed(CodingAgentRepository, {
+        get: () => Effect.die(new Error("not used")),
+        all: Effect.succeed([]),
+        getConfiguredAgents: () => Effect.succeed([]),
+        getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+      }),
+    );
 
   it.effect("creates directory with manifest and ${name}.md content file", () =>
     Effect.gen(function* () {
@@ -93,7 +110,7 @@ describe("new-command operation", () => {
       expect(content).toContain("name: my-cmd");
       expect(content).toContain("description: A new command");
       expect(content).toContain("Describe what this command does");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(testLayer())),
   );
 
   it.effect("includes description in manifest and ${name}.md when provided", () =>
@@ -126,7 +143,7 @@ describe("new-command operation", () => {
       );
       const content = fs.readFileSync(commandMdPath, "utf-8");
       expect(content).toContain("description: Does cool things");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(testLayer())),
   );
 
   it.effect("fails when directory already exists", () =>
@@ -143,6 +160,6 @@ describe("new-command operation", () => {
       if ("code" in result) {
         expect(result.code).toBe("COMMAND_DIR_EXISTS");
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(testLayer())),
   );
 });

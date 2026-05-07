@@ -31,7 +31,12 @@ import { copyExtensionDirectory, validatePathSafety } from "../extensions/utils.
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
-import { checkInstalledOnDisk } from "./operations/shared-command-helpers.js";
+import { CodingAgentRepository } from "../agents/index.js";
+import {
+  checkInstalledOnDisk,
+  readCommandContent,
+  renderToAgents,
+} from "./operations/shared-command-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -157,6 +162,7 @@ export const CommandManagerLive = Layer.effect(
   CommandManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const agentRepo = yield* CodingAgentRepository;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const baseDir = ws.baseDir;
@@ -166,9 +172,16 @@ export const CommandManagerLive = Layer.effect(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
+    const serviceLayer = Layer.merge(
+      fsPathLayer,
+      Layer.merge(
+        Layer.succeed(CodingAgentRepository, agentRepo),
+        Layer.succeed(WorkspaceMutations, ws),
+      ),
+    );
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      Effect.provide(effect, fsPathLayer);
+      Effect.provide(effect, serviceLayer);
 
     // --- Registry materialization ---
     // NOTE: Materialization logic here mirrors install.ts but differs structurally:
@@ -340,17 +353,52 @@ export const CommandManagerLive = Layer.effect(
 
     const materializeInstall: ExtensionManager<CommandExtensionRef>["materializeInstall"] =
       Effect.fn("CommandManager.materializeInstall")(function* ({ ref }) {
-        switch (ref.refType) {
-          case "registry":
-            yield* materializeFromRegistry(ref);
-            break;
-          case "git-hosted":
-            yield* materializeFromGitHosted(ref);
-            break;
-          case "local":
-            yield* materializeFromLocal(ref);
-            break;
-        }
+        const canonicalPath = yield* Effect.gen(function* () {
+          switch (ref.refType) {
+            case "registry":
+              return yield* materializeFromRegistry(ref);
+            case "git-hosted":
+              return yield* materializeFromGitHosted(ref);
+            case "local":
+              return yield* materializeFromLocal(ref);
+          }
+        });
+
+        const { frontmatter, body, manifest } = yield* provide(
+          readCommandContent(canonicalPath, ref.command.name, "INSTALL_COMMAND"),
+        );
+
+        const owner =
+          ref.refType === "registry"
+            ? ref.owner
+            : yield* ws.getConfiguredOwner().pipe(
+                Effect.flatMap(
+                  Option.match({
+                    onNone: () =>
+                      Effect.fail(
+                        makeAppError({
+                          code: "OWNER_REQUIRED",
+                          what: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
+                          howToFix:
+                            "Set `owner` in `.axm/settings.json` (project or global) before syncing non-registry commands.",
+                        }),
+                      ),
+                    onSome: Effect.succeed,
+                  }),
+                ),
+              );
+
+        yield* provide(
+          renderToAgents({
+            commandName: ref.command.name,
+            frontmatter,
+            body,
+            manifest,
+            owner,
+            workspaceRoot: baseDir,
+            force: false,
+          }),
+        );
       }, Effect.asVoid);
 
     const materializeUninstall: ExtensionManager<CommandExtensionRef>["materializeUninstall"] =

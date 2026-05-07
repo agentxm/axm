@@ -10,10 +10,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
+import { makeEffectProvide } from "../../test-helpers.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleCommandsNew, type CommandsNewHandlerArgs } from "./new.js";
 
@@ -68,7 +71,15 @@ describe("commands-new.handler", () => {
     verbose?: boolean;
     debug?: boolean;
     nonInteractive?: boolean;
-  }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  }) => {
+    const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+    const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
+
+    return {
+      ...ctx,
+      provide: makeEffectProvide(fullLayer),
+    };
+  };
 
   describe("success", () => {
     it.effect("creates command with manifest and ${name}.md content file", () => {
@@ -111,6 +122,26 @@ describe("commands-new.handler", () => {
           const commandMd = fs.readFileSync(commandMdPath, "utf-8");
           expect(commandMd).toContain("name: my-command");
           expect(commandMd).toContain("description: A new command");
+
+          const renderedPath = path.join(tempDir, ".claude", "commands", "my-command.md");
+          expect(fs.existsSync(renderedPath)).toBe(true);
+          expect(fs.readFileSync(renderedPath, "utf-8")).toContain(
+            "Describe what this command does",
+          );
+
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
+          );
+          expect(settings.commands?.["my-command"]).toEqual({
+            source: "@acme/commands/my-command",
+            authored: true,
+          });
+
+          const lockfile = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          expect(lockfile).toContain("my-command:");
+          expect(lockfile).toContain("sourceName: local");
+          expect(lockfile).toContain("claude-code");
+          expect(lockfile).toContain(".claude/commands/my-command.md");
 
           expect(logs.success.some((m) => m.includes("@acme/commands/my-command"))).toBe(true);
         }),

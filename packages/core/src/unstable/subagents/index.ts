@@ -34,8 +34,9 @@ export {
 
 // Paths
 export {
-  SUBAGENT_CONTENT_FILENAME,
   computeSubagentPaths,
+  subagentContentFilename,
+  subagentContentPath,
   type SubagentPathSource,
   type SubagentDirPaths,
 } from "./paths.js";

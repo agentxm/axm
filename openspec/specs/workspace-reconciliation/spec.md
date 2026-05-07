@@ -2,30 +2,30 @@
 
 ### Requirement: Reconciliation engine supports subagent render-on-install
 
-`axm sync` SHALL reconcile subagents across all configured agents using render-on-install. Unlike skills (symlinks), subagent reconciliation involves rendering agent-native files from the canonical SUBAGENT.md.
+`axm sync` SHALL reconcile subagents across all configured agents using render-on-install. Unlike skills (symlinks), subagent reconciliation involves rendering agent-native files from the canonical <name>.md.
 
 #### Scenario: Full reconciliation flow
 
 - **WHEN** `axm sync` is run
 - **AND** `code-reviewer` is in settings with `enabled: true`
-- **THEN** the sync engine SHALL read `.axm/extensions/.../SUBAGENT.md`
+- **THEN** the sync engine SHALL read `.axm/extensions/.../<name>.md`
 - **AND** SHALL render agent-native files for each configured agent
 - **AND** SHALL update the entry-level `sourceHash` and `renderedFiles` paths in the lockfile
 
 #### Scenario: Skip re-render when source unchanged
 
-- **WHEN** `axm sync` computes the source hash of SUBAGENT.md
+- **WHEN** `axm sync` computes the source hash of <name>.md
 - **AND** the hash matches the lockfile's entry-level `sourceHash`
 - **THEN** the sync engine SHOULD skip re-rendering for that subagent (optimization)
 
 ### Requirement: Frontmatter-to-manifest sync during reconciliation
 
-`axm sync` SHALL sync `description`, `model`, `toolAccess`, and `background` from SUBAGENT.md frontmatter to the manifest for each managed subagent.
+`axm sync` SHALL sync `description`, `model`, `toolAccess`, and `background` from <name>.md frontmatter to the manifest for each managed subagent.
 
 #### Scenario: Manifest updated from frontmatter
 
 - **WHEN** `axm sync` runs
-- **AND** SUBAGENT.md frontmatter has `model: "fast"` but manifest has `model: "default"`
+- **AND** <name>.md frontmatter has `model: "fast"` but manifest has `model: "default"`
 - **THEN** sync SHALL update the manifest to `model: "fast"`
 
 ### Requirement: Re-rendering on source change
@@ -35,14 +35,14 @@
 #### Scenario: Source changed, rendered file re-rendered
 
 - **WHEN** `axm sync` runs
-- **AND** the SUBAGENT.md source hash differs from the lockfile's `sourceHash`
+- **AND** the <name>.md source hash differs from the lockfile's `sourceHash`
 - **THEN** sync SHALL re-render agent-native files for all configured agents
 - **AND** SHALL overwrite rendered files that contain the managed marker
 
 #### Scenario: Source unchanged, rendering skipped
 
 - **WHEN** `axm sync` runs
-- **AND** the SUBAGENT.md source hash matches the lockfile's `sourceHash`
+- **AND** the <name>.md source hash matches the lockfile's `sourceHash`
 - **THEN** sync SHALL skip re-rendering for that subagent (optimization)
 
 ### Requirement: Agent list change reconciliation

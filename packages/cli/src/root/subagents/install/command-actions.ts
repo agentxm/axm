@@ -105,7 +105,7 @@ const discoverHowToFix = (source: Source, error: unknown): string => {
     return "Verify the configured registry is reachable and contains the requested owner/subagent.";
   }
   if (source.type === "local") {
-    return "Verify the source path contains directories with SUBAGENT.md files.";
+    return "Verify the source path contains subagent directories with <name>.md files.";
   }
   return "Verify the source is reachable and contains valid subagent directories.";
 };
@@ -115,9 +115,9 @@ const noSubagentsFoundHowToFix = (source: Source): string => {
     return "Verify the owner and subagent name exist in the configured registry.";
   }
   if (source.type === "local") {
-    return "Verify the source path contains directories with SUBAGENT.md files.";
+    return "Verify the source path contains subagent directories with <name>.md files.";
   }
-  return "Verify the source contains subagent directories with SUBAGENT.md files.";
+  return "Verify the source contains subagent directories with <name>.md files.";
 };
 
 const formatRegistryProbe = (probe: RegistryLookupProbe): string => {

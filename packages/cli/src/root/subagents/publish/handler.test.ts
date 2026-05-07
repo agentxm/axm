@@ -22,6 +22,7 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  getAppError,
   getErrorResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -65,13 +66,14 @@ const initWorkspace = (
   );
 };
 
-/** Create a managed subagent extension in .axm/extensions/ with manifest and SUBAGENT.md. */
+/** Create a managed subagent extension in .axm/extensions/ with manifest and <name>.md. */
 const createManagedSubagent = (
   tempDir: string,
   owner: string,
   name: string,
   manifest: Record<string, unknown>,
   frontmatter?: Record<string, string>,
+  contentFilename = `${name}.md`,
 ) => {
   const extDir = path.join(tempDir, ".axm", "extensions", owner, "subagents", name);
   const srcDir = path.join(extDir, "src");
@@ -88,7 +90,7 @@ const createManagedSubagent = (
   const fmYaml = Object.entries(fm)
     .map(([k, v]) => `${k}: "${v}"`)
     .join("\n");
-  fs.writeFileSync(path.join(srcDir, "SUBAGENT.md"), `---\n${fmYaml}\n---\n\n# ${name}\n`);
+  fs.writeFileSync(path.join(srcDir, contentFilename), `---\n${fmYaml}\n---\n\n# ${name}\n`);
   return extDir;
 };
 
@@ -334,7 +336,7 @@ describe("subagents-publish.handler", () => {
         "src",
       );
       fs.mkdirSync(srcDir, { recursive: true });
-      fs.writeFileSync(path.join(srcDir, "SUBAGENT.md"), "# No manifest\n");
+      fs.writeFileSync(path.join(srcDir, "no-manifest.md"), "# No manifest\n");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
@@ -420,6 +422,82 @@ describe("subagents-publish.handler", () => {
           );
           const updatedManifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(updatedManifest.description).toBe("new description from frontmatter");
+        }),
+      );
+    });
+  });
+
+  describe("identity validation", () => {
+    it.effect("fails when frontmatter name differs from manifest name", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedSubagent(
+        tempDir,
+        "@test",
+        "identity-check",
+        {
+          name: "@test/subagents/identity-check",
+          version: "1.0.0",
+          agents: ["claude-code"],
+        },
+        {
+          name: "other-name",
+          description: "bad identity",
+        },
+      );
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const caught = yield* handlePublish(
+            defaultArgs(["@test/subagents/identity-check"], { registry: Option.some("local") }),
+          ).pipe(Effect.flip);
+          const error = getAppError(caught);
+
+          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.details.join("\n")).toContain("SUBAGENT_NAME_MISMATCH");
+          expect(error.details.join("\n")).toContain("frontmatter name");
+          expect(Option.getOrUndefined(error.howToFix) ?? "").toContain("identity-check");
+        }),
+      );
+    });
+
+    it.effect("fails when content filename differs from manifest name", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedSubagent(
+        tempDir,
+        "@test",
+        "identity-check",
+        {
+          name: "@test/subagents/identity-check",
+          version: "1.0.0",
+          agents: ["claude-code"],
+        },
+        {
+          name: "identity-check",
+          description: "bad filename",
+        },
+        "wrong-name.md",
+      );
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const caught = yield* handlePublish(
+            defaultArgs(["@test/subagents/identity-check"], { registry: Option.some("local") }),
+          ).pipe(Effect.flip);
+          const error = getAppError(caught);
+
+          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.details.join("\n")).toContain("PUBLISH_SUBAGENT_CONTENT_MISSING");
+          expect(error.details.join("\n")).toContain("expected identity-check.md");
+          expect(error.details.join("\n")).toContain("wrong-name.md");
+          expect(Option.getOrUndefined(error.howToFix) ?? "").toContain("identity-check.md");
         }),
       );
     });

@@ -49,7 +49,7 @@ After disable, `axm subagents enable` SHALL re-render the subagent from the pres
 
 - **WHEN** `code-reviewer` was disabled (rendered files removed, source preserved)
 - **AND** user runs `axm subagents enable code-reviewer`
-- **THEN** the CLI SHALL re-render agent-native files from the canonical `SUBAGENT.md`
+- **THEN** the CLI SHALL re-render agent-native files from the canonical `<name>.md`
 
 ### Requirement: Scope flag
 

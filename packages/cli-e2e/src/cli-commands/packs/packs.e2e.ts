@@ -80,7 +80,7 @@ function writeSubagentPackage(workspaceRoot: string, name: string, version = "1.
   const srcDir = path.join(subagentDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
-    path.join(srcDir, "SUBAGENT.md"),
+    path.join(srcDir, `${name}.md`),
     [
       "---",
       `name: "${name}"`,

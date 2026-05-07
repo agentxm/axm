@@ -28,6 +28,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { parseSubagentMd, projectFrontmatterToManifest } from "../subagent-content.js";
+import { subagentContentFilename, subagentContentPath } from "../paths.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -61,7 +62,7 @@ export type PublishSubagentOperation = Operation<"publish-subagent", PublishSuba
  * Publish-subagent operation handler.
  *
  * 1. Read and validate `subagent.json` manifest
- * 2. Sync frontmatter fields from SUBAGENT.md to manifest
+ * 2. Validate and sync frontmatter fields from the subagent content file to manifest
  * 3. Build zip archive of extension directory
  * 4. Compute SRI integrity hash
  * 5. Resolve target registry provider by source name
@@ -128,43 +129,60 @@ export const publishSubagent: OperationHandler<
       ),
     );
 
-    // Sync frontmatter fields from SUBAGENT.md to manifest
-    const contentPath = path.join(extensionDir, "src", "SUBAGENT.md");
+    // Validate the three-way identity and sync portable frontmatter fields to manifest.
+    const contentRoot = path.join(extensionDir, "src");
+    const expectedFilename = subagentContentFilename(manifest.name);
+    const contentPath = subagentContentPath(path.join, contentRoot, manifest.name);
     const contentExists = yield* fs.exists(contentPath).pipe(Effect.orElseSucceed(() => false));
 
-    if (contentExists) {
-      const rawContent = yield* fs.readFileString(contentPath).pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "PUBLISH_SUBAGENT_CONTENT_READ_FAILED",
-            what: `Failed to read SUBAGENT.md: ${contentPath}`,
-            cause: e,
-          }),
-        ),
+    if (!contentExists) {
+      const foundMarkdownFiles = yield* fs.readDirectory(contentRoot).pipe(
+        Effect.map((entries) => entries.filter((entry) => entry.endsWith(".md"))),
+        Effect.catch(() => Effect.succeed([])),
       );
-      const parsed = yield* parseSubagentMd(rawContent);
-      if (Option.isSome(parsed.frontmatter)) {
-        const projected = projectFrontmatterToManifest(parsed.frontmatter.value);
-        manifest = {
-          ...manifest,
-          ...(projected.description !== undefined && { description: projected.description }),
-          ...(projected.model !== undefined && { model: projected.model }),
-          ...(projected.toolAccess !== undefined && { toolAccess: projected.toolAccess }),
-          ...(projected.background !== undefined && { background: projected.background }),
-        };
-
-        // Write synced manifest back to disk
-        yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "PUBLISH_SUBAGENT_MANIFEST_WRITE_FAILED",
-              what: `Failed to write synced manifest: ${manifestPath}`,
-              cause: e,
-            }),
-          ),
-        );
-      }
+      return yield* makeAppError({
+        code: "PUBLISH_SUBAGENT_CONTENT_MISSING",
+        what: `Missing subagent content file: expected ${expectedFilename}`,
+        details: [
+          `Expected path: ${contentPath}`,
+          ...(foundMarkdownFiles.length > 0
+            ? [`Found Markdown files: ${foundMarkdownFiles.join(", ")}`]
+            : []),
+        ],
+        howToFix: `Rename the subagent content file to ${expectedFilename} and ensure its frontmatter name is ${manifest.name}.`,
+      });
     }
+
+    const rawContent = yield* fs.readFileString(contentPath).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "PUBLISH_SUBAGENT_CONTENT_READ_FAILED",
+          what: `Failed to read ${expectedFilename}: ${contentPath}`,
+          cause: e,
+        }),
+      ),
+    );
+    const parsed = yield* parseSubagentMd(rawContent, manifest.name);
+    const frontmatter = Option.getOrThrow(parsed.frontmatter);
+    const projected = projectFrontmatterToManifest(frontmatter);
+    manifest = {
+      ...manifest,
+      ...(projected.description !== undefined && { description: projected.description }),
+      ...(projected.model !== undefined && { model: projected.model }),
+      ...(projected.toolAccess !== undefined && { toolAccess: projected.toolAccess }),
+      ...(projected.background !== undefined && { background: projected.background }),
+    };
+
+    // Write synced manifest back to disk
+    yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "PUBLISH_SUBAGENT_MANIFEST_WRITE_FAILED",
+          what: `Failed to write synced manifest: ${manifestPath}`,
+          cause: e,
+        }),
+      ),
+    );
 
     // Build zip archive from extension directory (includes manifest + src/)
     const archive = yield* buildZipArchive(extensionDir, "PUBLISH_SUBAGENT_ARCHIVE_FAILED");

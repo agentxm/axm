@@ -300,22 +300,27 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     preview: args.preview,
   });
 
-  const failedStepDetails =
+  const failedStepErrors =
     resolvedPlan._tag === "ExecutedPlan"
       ? resolvedPlan.jobs
           .flatMap((job) => job.steps)
-          .flatMap((step) =>
-            step.result.result === "error"
-              ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
-              : [],
-          )
+          .flatMap((step) => (step.result.result === "error" ? [step.result] : []))
       : [];
+  const failedStepDetails = failedStepErrors.map(
+    (result) => `${result.message}: ${result.error.what} (${result.error.code})`,
+  );
 
   if (failedStepDetails.length > 0) {
+    const [singleFailure] = failedStepErrors;
+    const howToFix =
+      failedStepErrors.length === 1 && singleFailure !== undefined
+        ? Option.getOrUndefined(singleFailure.error.howToFix)
+        : undefined;
     return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
       what: `Failed to publish ${failedStepDetails.length} subagent${failedStepDetails.length === 1 ? "" : "s"}`,
       details: failedStepDetails,
+      ...(howToFix !== undefined ? { howToFix } : {}),
     });
   }
 

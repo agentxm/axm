@@ -16,9 +16,10 @@ import {
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
-  SUBAGENT_CONTENT_FILENAME,
   computeSubagentPaths,
   isToolAccessLevel,
+  subagentContentFilename,
+  subagentContentPath,
   type SubagentManifest,
 } from "@agentxm/client-core/unstable/subagents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -174,21 +175,25 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
           ),
         );
 
-      // Write starter SUBAGENT.md
+      // Write starter content file
       const subagentMdContent = makeSubagentMd({
         name: args.name,
         model: args.model,
         toolAccess: args.toolAccess,
         background: args.background,
       });
+      const contentFilename = subagentContentFilename(args.name);
 
       yield* fs
-        .writeFileString(path.join(subagentSrcPath, SUBAGENT_CONTENT_FILENAME), subagentMdContent)
+        .writeFileString(
+          subagentContentPath(path.join, subagentSrcPath, args.name),
+          subagentMdContent,
+        )
         .pipe(
           Effect.mapError((e) =>
             makeAppError({
               code: "SUBAGENT_CREATE_FAILED",
-              what: `Failed to write SUBAGENT.md`,
+              what: `Failed to write ${contentFilename}`,
               cause: e,
             }),
           ),

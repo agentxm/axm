@@ -63,11 +63,11 @@ const initWorkspace = (
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
-/** Create a canonical subagent directory with SUBAGENT.md. */
+/** Create a canonical subagent directory with <name>.md. */
 const createCanonicalSubagent = (base: string, name: string) => {
   const dir = path.join(base, ".axm", "extensions", "external", "subagents", name);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, "SUBAGENT.md"), `# ${name}`);
+  fs.writeFileSync(path.join(dir, `${name}.md`), `# ${name}`);
   return dir;
 };
 

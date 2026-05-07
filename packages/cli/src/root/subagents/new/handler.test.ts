@@ -1,7 +1,7 @@
 /**
  * Unit tests for the subagents new handler.
  *
- * Tests profile resolution, name validation, manifest creation, SUBAGENT.md,
+ * Tests profile resolution, name validation, manifest creation, <name>.md,
  * settings registration, rendering, and error paths.
  */
 
@@ -95,7 +95,7 @@ describe("subagents-new.handler", () => {
   };
 
   describe("success", () => {
-    it.effect("creates subagent with manifest, SUBAGENT.md, and settings", () => {
+    it.effect("creates subagent with manifest, <name>.md, and settings", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
 
@@ -120,7 +120,7 @@ describe("subagents-new.handler", () => {
           expect(manifest.name).toBe("my-subagent");
           expect(manifest.version).toBe("0.0.1");
 
-          // Verify SUBAGENT.md
+          // Verify my-subagent.md
           const subagentMdPath = path.join(
             tempDir,
             ".axm",
@@ -129,7 +129,7 @@ describe("subagents-new.handler", () => {
             "subagents",
             "my-subagent",
             "src",
-            "SUBAGENT.md",
+            "my-subagent.md",
           );
           expect(fs.existsSync(subagentMdPath)).toBe(true);
           const subagentMd = fs.readFileSync(subagentMdPath, "utf-8");
@@ -304,8 +304,8 @@ describe("subagents-new.handler", () => {
     });
   });
 
-  describe("SUBAGENT.md content", () => {
-    it.effect("writes SUBAGENT.md with frontmatter and placeholder body", () => {
+  describe("<name>.md content", () => {
+    it.effect("writes <name>.md with frontmatter and placeholder body", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
@@ -321,7 +321,7 @@ describe("subagents-new.handler", () => {
             "subagents",
             "my-tool",
             "src",
-            "SUBAGENT.md",
+            "my-tool.md",
           );
           const content = fs.readFileSync(subagentMdPath, "utf-8");
 
@@ -357,7 +357,7 @@ describe("subagents-new.handler", () => {
             "subagents",
             "my-tool",
             "src",
-            "SUBAGENT.md",
+            "my-tool.md",
           );
           const content = fs.readFileSync(subagentMdPath, "utf-8");
 

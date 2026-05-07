@@ -1,7 +1,7 @@
 /**
- * Subagent content file module for SUBAGENT.md parsing and frontmatter schemas.
+ * Subagent content file module for subagent content parsing and frontmatter schemas.
  *
- * Defines the frontmatter schema for SUBAGENT.md files, a parser that
+ * Defines the frontmatter schema for subagent content files, a parser that
  * combines the shared frontmatter utility with subagent-specific validation,
  * and a transformation for syncing frontmatter fields to manifest fields.
  *
@@ -16,7 +16,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { ToolAccessLevelSchema } from "./tool-access.js";
 
 /**
- * Schema for SUBAGENT.md frontmatter fields.
+ * Schema for subagent content frontmatter fields.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -30,7 +30,7 @@ export const SubagentFrontmatterSchema = Schema.Struct({
 }).annotate({
   identifier: "SubagentFrontmatter",
   title: "Subagent Frontmatter",
-  description: "YAML frontmatter fields for SUBAGENT.md files.",
+  description: "YAML frontmatter fields for subagent content files.",
 });
 
 /**
@@ -41,31 +41,38 @@ export const SubagentFrontmatterSchema = Schema.Struct({
 export type SubagentFrontmatter = Schema.Schema.Type<typeof SubagentFrontmatterSchema>;
 
 /**
- * Result of parsing a SUBAGENT.md file.
+ * Result of parsing a subagent content file.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface SubagentContentResult {
-  /** Parsed and validated frontmatter, or Option.none() if no frontmatter block was found. */
+  /** Parsed and validated frontmatter. */
   readonly frontmatter: Option.Option<SubagentFrontmatter>;
   /** Content body after the frontmatter block, or full content if no frontmatter. */
   readonly body: string;
 }
 
 /**
- * Parse a SUBAGENT.md file's content into validated frontmatter and body.
+ * Parse a subagent content file into validated frontmatter and body.
  *
  * Delegates to the shared frontmatter parser, then validates the
  * frontmatter against `SubagentFrontmatterSchema`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const parseSubagentMd = (content: string): Effect.Effect<SubagentContentResult, AppError> =>
+export const parseSubagentMd = (
+  content: string,
+  expectedName: string,
+): Effect.Effect<SubagentContentResult, AppError> =>
   Effect.gen(function* () {
     const parsed: FrontmatterResult = yield* parseFrontmatterEffect(content);
 
     if (parsed.frontmatter === undefined) {
-      return { frontmatter: Option.none(), body: parsed.body };
+      return yield* makeAppError({
+        code: "SUBAGENT_FRONTMATTER_MISSING",
+        what: `Missing subagent frontmatter for "${expectedName}"`,
+        howToFix: `Add YAML frontmatter with name: ${expectedName}.`,
+      });
     }
 
     const frontmatter = yield* Effect.try({
@@ -73,12 +80,24 @@ export const parseSubagentMd = (content: string): Effect.Effect<SubagentContentR
       catch: (error) =>
         makeAppError({
           code: "SUBAGENT_FRONTMATTER_INVALID",
-          what: "Invalid SUBAGENT.md frontmatter",
+          what: "Invalid subagent frontmatter",
           details: [error instanceof Error ? error.message : String(error)],
-          howToFix: "Check the frontmatter fields in your SUBAGENT.md file.",
+          howToFix: "Check the frontmatter fields in your subagent content file.",
           cause: error,
         }),
     });
+
+    if (frontmatter.name !== expectedName) {
+      return yield* makeAppError({
+        code: "SUBAGENT_NAME_MISMATCH",
+        what: `Subagent frontmatter name "${frontmatter.name}" does not match expected name "${expectedName}"`,
+        details: [
+          `Expected frontmatter name: ${expectedName}`,
+          `Actual frontmatter name: ${frontmatter.name}`,
+        ],
+        howToFix: `Set subagent.json name, frontmatter name, and filename to ${expectedName}.`,
+      });
+    }
 
     return { frontmatter: Option.some(frontmatter), body: parsed.body };
   });
@@ -87,7 +106,7 @@ export const parseSubagentMd = (content: string): Effect.Effect<SubagentContentR
  * Schema for manifest fields projected from frontmatter.
  *
  * Used during publish to sync description, model, toolAccess, and background
- * from SUBAGENT.md frontmatter into the subagent manifest.
+ * from subagent content frontmatter into the subagent manifest.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -99,7 +118,7 @@ export const ManifestFieldsFromFrontmatterSchema = Schema.Struct({
 }).annotate({
   identifier: "SubagentManifestFieldsFromFrontmatter",
   title: "Subagent Manifest Fields from Frontmatter",
-  description: "Fields projected from SUBAGENT.md frontmatter to subagent manifest.",
+  description: "Fields projected from subagent content frontmatter to subagent manifest.",
 });
 
 /**

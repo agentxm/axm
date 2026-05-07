@@ -27,7 +27,7 @@ const createManagedSubagent = (
 
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
-    path.join(srcDir, "SUBAGENT.md"),
+    path.join(srcDir, `${name}.md`),
     [
       "---",
       `name: "${name}"`,
@@ -58,7 +58,7 @@ const createManagedSubagent = (
 };
 
 describe("axm subagents publish", () => {
-  it("publishes a subagent with manifest and SUBAGENT.md in the archive", async () => {
+  it("publishes a subagent with manifest and <name>.md in the archive", async () => {
     const temp = createTempDir();
     const registryDir = createTempDir("axm-registry-");
 
@@ -99,7 +99,7 @@ describe("axm subagents publish", () => {
 
       const archiveEntries = Object.keys(unzipSync(fs.readFileSync(archivePath)));
       expect(archiveEntries).toContain("subagent.json");
-      expect(archiveEntries).toContain("src/SUBAGENT.md");
+      expect(archiveEntries).toContain("src/researcher.md");
     } finally {
       temp.cleanup();
       registryDir.cleanup();

@@ -44,7 +44,18 @@ export interface SubagentDirPaths {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SUBAGENT_CONTENT_FILENAME = "SUBAGENT.md";
+export const subagentContentFilename = (name: string): string => `${name}.md`;
+
+/**
+ * Content path for subagent instructions.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const subagentContentPath = (
+  join: (...paths: string[]) => string,
+  root: string,
+  name: string,
+): string => join(root, subagentContentFilename(name));
 
 /**
  * Pure function to compute subagent directory paths.

@@ -12,7 +12,7 @@ import type { RenderedFilePath } from "../../extensions/rendered-files.js";
 import type { ToolAccessLevel } from "../tool-access.js";
 
 /**
- * Agent-specific overrides from SUBAGENT.md frontmatter `overrides` field.
+ * Agent-specific overrides from subagent content frontmatter `overrides` field.
  * A record of string keys to unknown values that the renderer merges on top
  * of portable fields.
  *
@@ -38,9 +38,9 @@ export interface SubagentRenderInput {
   readonly toolAccess: ToolAccessLevel | undefined;
   /** Whether the subagent runs in background mode. */
   readonly background: boolean | undefined;
-  /** SUBAGENT.md body text (after frontmatter). */
+  /** Subagent content body text (after frontmatter). */
   readonly body: string;
-  /** Agent-specific overrides from SUBAGENT.md frontmatter `overrides` field. */
+  /** Agent-specific overrides from subagent content frontmatter `overrides` field. */
   readonly agentOverrides: AgentOverrides | undefined;
 }
 

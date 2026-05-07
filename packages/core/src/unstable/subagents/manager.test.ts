@@ -266,11 +266,11 @@ describe("SubagentManager", () => {
         addSubagent: addSubagentSpy,
       });
 
-      // Create source directory with SUBAGENT.md
+      // Create source directory with planner.md
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       nodeFs.mkdirSync(sourceDir, { recursive: true });
       nodeFs.writeFileSync(
-        nodePath.join(sourceDir, "SUBAGENT.md"),
+        nodePath.join(sourceDir, "planner.md"),
         makeSubagentContent("planner", "Plans work"),
       );
 
@@ -323,11 +323,11 @@ describe("SubagentManager", () => {
         addSubagent: addSubagentSpy,
       });
 
-      // Create source directory with SUBAGENT.md
+      // Create source directory with planner.md
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       nodeFs.mkdirSync(sourceDir, { recursive: true });
       const content = makeSubagentContent("planner", "Plans work");
-      nodeFs.writeFileSync(nodePath.join(sourceDir, "SUBAGENT.md"), content);
+      nodeFs.writeFileSync(nodePath.join(sourceDir, "planner.md"), content);
       const hash = computeSourceHash(content);
 
       const axmDir = nodePath.join(tmpDir, "project", ".axm");
@@ -431,7 +431,7 @@ describe("SubagentManager", () => {
         yield* Effect.sync(() => {
           nodeFs.mkdirSync(nodePath.join(canonicalDir, "src"), { recursive: true });
           nodeFs.writeFileSync(
-            nodePath.join(canonicalDir, "src", "SUBAGENT.md"),
+            nodePath.join(canonicalDir, "src", "planner.md"),
             makeSubagentContent("planner", "Plans work"),
           );
         });

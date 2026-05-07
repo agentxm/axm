@@ -2,20 +2,29 @@
 
 ### Requirement: Publish subagent to registry
 
-`axm subagents publish` SHALL validate both `subagent.json` and `src/SUBAGENT.md`, sync the manifest from frontmatter, and upload both files to the target registry.
+`axm subagents publish` SHALL validate both `subagent.json` and `src/<name>.md`, sync the manifest from frontmatter, and upload both files to the target registry.
+
+Publish SHALL require `subagent.json` `name`, `<name>.md` frontmatter `name`, and the content file basename to match exactly. Publish SHALL NOT auto-sync `name`.
 
 #### Scenario: Successful publish
 
 - **WHEN** user runs `axm subagents publish @acme/subagents/code-reviewer`
-- **AND** both manifest and SUBAGENT.md are valid
+- **AND** both manifest and <name>.md are valid
 - **THEN** the CLI SHALL sync `description`, `model`, `toolAccess`, and `background` from frontmatter to manifest
 - **AND** SHALL upload both files to the registry
 
-#### Scenario: Missing SUBAGENT.md fails
+#### Scenario: Missing <name>.md fails
 
 - **WHEN** user runs `axm subagents publish @acme/subagents/code-reviewer`
-- **AND** `src/SUBAGENT.md` does not exist
+- **AND** `src/<name>.md` does not exist
 - **THEN** the CLI SHALL fail with an error indicating the content file is missing
+
+#### Scenario: Identity mismatch fails
+
+- **WHEN** user runs `axm subagents publish @acme/subagents/code-reviewer`
+- **AND** `subagent.json` has `name: "code-reviewer"`
+- **AND** the content file is not `src/code-reviewer.md` or its frontmatter `name` is different
+- **THEN** the CLI SHALL fail with an actionable identity mismatch error
 
 ### Requirement: Manifest validation
 
@@ -35,11 +44,11 @@ Publish SHALL validate manifest completeness including required fields and versi
 
 ### Requirement: Frontmatter sync before upload
 
-Publish SHALL sync `description`, `model`, `toolAccess`, and `background` from SUBAGENT.md frontmatter to the manifest before uploading.
+Publish SHALL sync `description`, `model`, `toolAccess`, and `background` from <name>.md frontmatter to the manifest before uploading.
 
 #### Scenario: Drifted description synced
 
-- **WHEN** SUBAGENT.md frontmatter has `description: "Updated"` and manifest has `description: "Old"`
+- **WHEN** <name>.md frontmatter has `description: "Updated"` and manifest has `description: "Old"`
 - **AND** user runs `axm subagents publish`
 - **THEN** the manifest SHALL be updated to `description: "Updated"` before upload
 

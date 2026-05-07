@@ -2,7 +2,7 @@
 
 ### Requirement: Update subagents and re-render
 
-`axm subagents update` SHALL fetch the latest versions matching version constraints, update the canonical SUBAGENT.md, and re-render all agent-native files.
+`axm subagents update` SHALL fetch the latest versions matching version constraints, update the canonical <name>.md, and re-render all agent-native files.
 
 #### Scenario: Update all subagents
 

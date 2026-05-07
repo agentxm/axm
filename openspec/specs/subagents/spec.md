@@ -30,11 +30,13 @@ The subagent manifest (`subagent.json`) SHALL extend `CommonManifestFields` with
 - **WHEN** `subagent.json` contains `toolAccess: "limited"`
 - **THEN** manifest validation SHALL fail with an error indicating the valid values
 
-### Requirement: Subagent content file (SUBAGENT.md)
+### Requirement: Subagent content file (<name>.md)
 
-The subagent content file SHALL be named `SUBAGENT.md` and reside in `src/` within the extension directory. It SHALL use YAML frontmatter for portable metadata and a Markdown body for the system prompt / instructions.
+The subagent content file SHALL be named `<name>.md` and reside in `src/` within the extension directory. It SHALL use YAML frontmatter for portable metadata and a Markdown body for the system prompt / instructions.
 
-SUBAGENT.md frontmatter SHALL support these fields:
+The manifest `name`, frontmatter `name`, and content file basename without `.md` SHALL match exactly.
+
+<name>.md frontmatter SHALL support these fields:
 
 - `name`: required string
 - `description`: required string (used for auto-delegation hints)
@@ -43,27 +45,33 @@ SUBAGENT.md frontmatter SHALL support these fields:
 - `background`: optional boolean
 - `overrides`: optional record keyed by agent ID, where each value is a record of agent-native field overrides
 
-#### Scenario: SUBAGENT.md with frontmatter and body
+#### Scenario: <name>.md with frontmatter and body
 
-- **WHEN** a subagent package contains `subagent.json` and `src/SUBAGENT.md`
-- **AND** `SUBAGENT.md` has YAML frontmatter with `name`, `description`, and a Markdown body
+- **WHEN** a subagent package contains `subagent.json` and `src/<name>.md`
+- **AND** `<name>.md` has YAML frontmatter with `name`, `description`, and a Markdown body
 - **THEN** the frontmatter SHALL be parsed for portable metadata
 - **AND** the Markdown body SHALL be used as the subagent's instructions/system prompt
 
-#### Scenario: Missing SUBAGENT.md
+#### Scenario: Missing <name>.md
 
-- **WHEN** a subagent package contains `subagent.json` but no `src/SUBAGENT.md`
+- **WHEN** a subagent package contains `subagent.json` but no `src/<name>.md`
 - **THEN** materialization SHALL fail with an error indicating the content file is missing
 
-#### Scenario: SUBAGENT.md with agent-specific overrides
+#### Scenario: Identity mismatch rejected
 
-- **WHEN** `SUBAGENT.md` frontmatter contains `overrides: { "claude-code": { "permissionMode": "acceptEdits" }, "codex": { "sandbox_mode": "workspace-write" } }`
+- **WHEN** a subagent package contains `subagent.json` with `name: "code-reviewer"`
+- **AND** the content file is not `src/code-reviewer.md` or its frontmatter `name` is not `code-reviewer`
+- **THEN** parsing or publishing SHALL fail with an error identifying the expected name
+
+#### Scenario: <name>.md with agent-specific overrides
+
+- **WHEN** `<name>.md` frontmatter contains `overrides: { "claude-code": { "permissionMode": "acceptEdits" }, "codex": { "sandbox_mode": "workspace-write" } }`
 - **THEN** frontmatter parsing SHALL succeed
 - **AND** overrides SHALL be preserved for use during agent-specific rendering
 
 ### Requirement: Frontmatter-to-manifest sync
 
-SUBAGENT.md frontmatter SHALL be the source of truth for `description`, `model`, `toolAccess`, and `background`. The manifest SHALL contain synced copies of these fields for registry search and filtering.
+<name>.md frontmatter SHALL be the source of truth for `description`, `model`, `toolAccess`, and `background`. The manifest SHALL contain synced copies of these fields for registry search and filtering.
 
 Sync SHALL occur at these points:
 
@@ -71,25 +79,25 @@ Sync SHALL occur at these points:
 - `axm sync` overwrites manifest values with frontmatter values
 - `axm subagents publish` syncs before upload
 
-Between sync points, local edits to SUBAGENT.md frontmatter may drift from the manifest. This is expected during development.
+Between sync points, local edits to <name>.md frontmatter may drift from the manifest. This is expected during development.
 
 #### Scenario: Sync overwrites manifest from frontmatter
 
-- **WHEN** `SUBAGENT.md` frontmatter has `description: "Updated description"`
+- **WHEN** `<name>.md` frontmatter has `description: "Updated description"`
 - **AND** `subagent.json` has `description: "Old description"`
 - **AND** `axm sync` is run
 - **THEN** `subagent.json` SHALL be updated to `description: "Updated description"`
 
 #### Scenario: Publish syncs before upload
 
-- **WHEN** `SUBAGENT.md` frontmatter has `model: "fast"`
+- **WHEN** `<name>.md` frontmatter has `model: "fast"`
 - **AND** `subagent.json` has `model: "default"`
 - **AND** `axm subagents publish` is run
 - **THEN** the manifest SHALL be synced to `model: "fast"` before the upload occurs
 
 ### Requirement: Per-format-family rendering
 
-AXM SHALL render subagents into agent-native formats using format-family renderers. Each renderer SHALL be a pure function that accepts the manifest, SUBAGENT.md content (frontmatter + body), and agent-specific configuration, and returns a rendered subagent file.
+AXM SHALL render subagents into agent-native formats using format-family renderers. Each renderer SHALL be a pure function that accepts the manifest, <name>.md content (frontmatter + body), and agent-specific configuration, and returns a rendered subagent file.
 
 The format families SHALL be:
 
@@ -104,7 +112,7 @@ The format families SHALL be:
 
 - **WHEN** rendering a subagent for Claude Code
 - **THEN** the renderer SHALL produce a `.md` file with YAML frontmatter containing `name`, `description`, and supported fields (`tools`/`disallowedTools`, `model`, `background`)
-- **AND** the Markdown body from SUBAGENT.md SHALL follow the frontmatter
+- **AND** the Markdown body from <name>.md SHALL follow the frontmatter
 
 #### Scenario: TOML rendering for Codex
 
@@ -129,14 +137,14 @@ The format families SHALL be:
 #### Scenario: Roo Code body split with single paragraph
 
 - **WHEN** rendering a subagent for Roo Code
-- **AND** the SUBAGENT.md body contains only a single paragraph (no blank line)
+- **AND** the <name>.md body contains only a single paragraph (no blank line)
 - **THEN** the entire body SHALL become `roleDefinition`
 - **AND** `customInstructions` SHALL be empty or omitted
 
 #### Scenario: Codex TOML multiline instructions
 
 - **WHEN** rendering a subagent for Codex
-- **AND** the SUBAGENT.md body contains multiple lines and Markdown formatting
+- **AND** the <name>.md body contains multiple lines and Markdown formatting
 - **THEN** the `developer_instructions` TOML field SHALL use a multiline literal string (triple-quoted `"""..."""`)
 - **AND** the Markdown content SHALL be preserved verbatim (no escaping of `#`, `*`, etc.)
 
@@ -222,24 +230,24 @@ Each agent adapter SHALL map portable `toolAccess` values to agent-native tool c
 
 ### Requirement: Agent-specific overrides
 
-When SUBAGENT.md frontmatter contains an `overrides` map, the agent adapter SHALL merge override values on top of portable fields during rendering. Overrides use agent-native field names and require no translation.
+When <name>.md frontmatter contains an `overrides` map, the agent adapter SHALL merge override values on top of portable fields during rendering. Overrides use agent-native field names and require no translation.
 
 #### Scenario: Claude Code override merged
 
-- **WHEN** SUBAGENT.md frontmatter contains `overrides: { "claude-code": { "permissionMode": "acceptEdits", "effort": "high" } }`
+- **WHEN** <name>.md frontmatter contains `overrides: { "claude-code": { "permissionMode": "acceptEdits", "effort": "high" } }`
 - **AND** rendering for Claude Code
 - **THEN** the rendered frontmatter SHALL include `permissionMode: acceptEdits` and `effort: high` in addition to portable fields
 
 #### Scenario: Override for non-configured agent ignored
 
-- **WHEN** SUBAGENT.md frontmatter contains `overrides: { "codex": { "sandbox_mode": "workspace-write" } }`
+- **WHEN** <name>.md frontmatter contains `overrides: { "codex": { "sandbox_mode": "workspace-write" } }`
 - **AND** Codex is NOT a configured agent
 - **THEN** the Codex override SHALL be ignored during rendering
 
 #### Scenario: Override takes precedence over portable mapping
 
 - **WHEN** a subagent has `toolAccess: "readonly"` (portable)
-- **AND** SUBAGENT.md frontmatter contains `overrides: { "codex": { "sandbox_mode": "workspace-write" } }`
+- **AND** <name>.md frontmatter contains `overrides: { "codex": { "sandbox_mode": "workspace-write" } }`
 - **AND** rendering for Codex
 - **THEN** the rendered TOML SHALL contain `sandbox_mode = "workspace-write"` (override wins)
 
@@ -314,7 +322,7 @@ Each `CodingAgent` SHALL support subagent operations via three methods:
 
 #### Scenario: Add subagent to agent
 
-- **WHEN** `addSubagent` is called with a manifest and SUBAGENT.md content
+- **WHEN** `addSubagent` is called with a manifest and <name>.md content
 - **THEN** the agent adapter SHALL resolve the subagents directory, call the appropriate renderer, and write the rendered file
 - **AND** SHALL return a sync outcome including any warnings
 
@@ -367,7 +375,7 @@ Subagent rendering SHALL respect workspace scope. Project scope renders to proje
 
 `SubagentLockEntry` SHALL include:
 
-- An entry-level `sourceHash` — hash of SUBAGENT.md portable inputs (frontmatter + body). Used to decide whether re-rendering is needed. Entry-level because all agents share the same canonical source
+- An entry-level `sourceHash` — hash of <name>.md portable inputs (frontmatter + body). Used to decide whether re-rendering is needed. Entry-level because all agents share the same canonical source
 - A `renderedFiles` map keyed by agent ID, where each value is an array of `{ path }` objects tracking rendered file locations
 
 This is the same shared rendered-file tracking model used by `CommandLockEntry` and `SkillLockEntry` (copy mode), defined in the shared `RenderedFilesMapSchema`. No per-agent `contentHash` — drift detection uses the managed marker and source hash, not output hashing.
@@ -385,13 +393,13 @@ This is the same shared rendered-file tracking model used by `CommandLockEntry` 
 
 #### Scenario: Source hash enables re-render skip
 
-- **WHEN** `axm sync` computes the current SUBAGENT.md source hash
+- **WHEN** `axm sync` computes the current <name>.md source hash
 - **AND** the hash matches the lockfile's `sourceHash`
 - **THEN** sync SHALL skip re-rendering for that subagent (optimization)
 
 #### Scenario: Source hash mismatch triggers re-render
 
-- **WHEN** `axm sync` computes the current SUBAGENT.md source hash
+- **WHEN** `axm sync` computes the current <name>.md source hash
 - **AND** the hash differs from the lockfile's `sourceHash`
 - **THEN** sync SHALL re-render the subagent to all configured agents
 - **AND** SHALL overwrite rendered files that have the managed marker (including manually edited ones)
@@ -448,14 +456,14 @@ A subagent extension SHALL follow this directory layout within `.axm/extensions/
 .axm/extensions/<owner>/subagents/<name>/
   subagent.json          # Manifest
   src/
-    SUBAGENT.md              # Instructions
+    <name>.md              # Instructions
 ```
 
 #### Scenario: Standard layout resolved
 
 - **WHEN** AXM resolves a subagent extension at `@acme/subagents/code-reviewer`
 - **THEN** the manifest SHALL be at `.axm/extensions/@acme/subagents/code-reviewer/subagent.json`
-- **AND** the content file SHALL be at `.axm/extensions/@acme/subagents/code-reviewer/src/SUBAGENT.md`
+- **AND** the content file SHALL be at `.axm/extensions/@acme/subagents/code-reviewer/src/code-reviewer.md`
 
 ### Requirement: FQN segment
 

@@ -21,7 +21,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { computeSourceHash, RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
-import { computeSubagentPaths, SUBAGENT_CONTENT_FILENAME } from "../paths.js";
+import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "../paths.js";
 import type { SubagentPathSource } from "../paths.js";
 import { parseSubagentMd } from "../subagent-content.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
@@ -63,7 +63,7 @@ const lockEntryToPathSource = (lockEntry: SubagentLockEntry): SubagentPathSource
  * 1. Read configured agents, lock entry
  * 2. Compute canonical path
  * 3. Verify canonical directory exists
- * 4. Read and parse SUBAGENT.md
+ * 4. Read and parse the subagent content file
  * 5. Render to all agents (concurrent)
  * 6. Update lockfile with rendered files and source hash
  * 7. Update settings entry to set enabled: true
@@ -115,18 +115,20 @@ export const enableSubagent: OperationHandler<
       });
     }
 
-    // Read and parse SUBAGENT.md
-    const contentPath = path.join(paths.subagentSrcPath, SUBAGENT_CONTENT_FILENAME);
+    // Read and parse the subagent content file
+    const expectedFilename = subagentContentFilename(op.args.subagentName);
+    const contentPath = subagentContentPath(path.join, paths.subagentSrcPath, op.args.subagentName);
     const rawContent = yield* fs.readFileString(contentPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "SUBAGENT_CONTENT_READ_FAILED",
-          what: `Failed to read ${SUBAGENT_CONTENT_FILENAME} from ${paths.subagentSrcPath}`,
+          what: `Failed to read ${expectedFilename} from ${paths.subagentSrcPath}`,
+          howToFix: `Ensure the subagent content file exists at ${contentPath}.`,
           cause: error,
         }),
       ),
     );
-    const parsed = yield* parseSubagentMd(rawContent);
+    const parsed = yield* parseSubagentMd(rawContent, op.args.subagentName);
     const currentHash = computeSourceHash(rawContent);
     const frontmatter = Option.getOrUndefined(parsed.frontmatter);
 

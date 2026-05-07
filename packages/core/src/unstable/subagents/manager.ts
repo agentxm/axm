@@ -26,7 +26,7 @@ import {
   stripFileProtocol,
   computeIntegrity,
 } from "../utils/index.js";
-import { computeSubagentPaths, SUBAGENT_CONTENT_FILENAME } from "./paths.js";
+import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "./subagent-content.js";
 import { computeSourceHash, RenderedFilesMapSchema } from "../extensions/rendered-files.js";
@@ -78,20 +78,22 @@ export const SubagentManagerLive = Layer.effect(
       return { sanitized, paths };
     };
 
-    // Read and parse SUBAGENT.md from canonical source
-    const readSubagentContent = (subagentSrcPath: string) =>
+    // Read and parse subagent content from canonical source
+    const readSubagentContent = (subagentSrcPath: string, name: string) =>
       Effect.gen(function* () {
-        const contentPath = path.join(subagentSrcPath, SUBAGENT_CONTENT_FILENAME);
+        const expectedFilename = subagentContentFilename(name);
+        const contentPath = subagentContentPath(path.join, subagentSrcPath, name);
         const rawContent = yield* fs.readFileString(contentPath).pipe(
           Effect.mapError((error) =>
             makeAppError({
               code: "SUBAGENT_CONTENT_READ_FAILED",
-              what: `Failed to read ${SUBAGENT_CONTENT_FILENAME} from ${subagentSrcPath}`,
+              what: `Failed to read ${expectedFilename} from ${subagentSrcPath}`,
+              howToFix: `Ensure the subagent content file exists at ${contentPath}.`,
               cause: error,
             }),
           ),
         );
-        const parsed = yield* parseSubagentMd(rawContent);
+        const parsed = yield* parseSubagentMd(rawContent, name);
         return { rawContent, parsed };
       });
 
@@ -230,8 +232,11 @@ export const SubagentManagerLive = Layer.effect(
         // --- Materialize canonical source ---
         yield* materializeCanonical(ref, sanitized, canonicalPath, subagentSrcPath);
 
-        // --- Read SUBAGENT.md ---
-        const { rawContent, parsed } = yield* readSubagentContent(subagentSrcPath);
+        // --- Read content file ---
+        const { rawContent, parsed } = yield* readSubagentContent(
+          subagentSrcPath,
+          ref.subagent.name,
+        );
         const currentHash = computeSourceHash(rawContent);
 
         // --- Source-hash-based skip logic (6.4) ---

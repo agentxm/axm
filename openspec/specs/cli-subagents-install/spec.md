@@ -19,12 +19,12 @@
 
 ### Requirement: Install flow
 
-Subagent installation SHALL follow this sequence: resolve source, materialize subagent package, read manifest and SUBAGENT.md, render to agents, update settings, update lockfile with renderedFiles.
+Subagent installation SHALL follow this sequence: resolve source, materialize subagent package, read manifest and <name>.md, render to agents, update settings, update lockfile with renderedFiles.
 
 #### Scenario: Full install flow
 
 - **WHEN** user runs `axm subagents install @acme/subagents/code-reviewer`
-- **THEN** the CLI SHALL resolve the source, materialize the package to `.axm/extensions/`, read `subagent.json` and `src/SUBAGENT.md`, render to each configured agent's subagents directory, write a subagent entry to `settings.json`, and write a lock entry with the `renderedFiles` map
+- **THEN** the CLI SHALL resolve the source, materialize the package to `.axm/extensions/`, read `subagent.json` and `src/<name>.md`, render to each configured agent's subagents directory, write a subagent entry to `settings.json`, and write a lock entry with the `renderedFiles` map
 
 #### Scenario: Rendered files placed in agent directories
 

@@ -379,24 +379,24 @@ describe("subagents-publish.handler", () => {
     });
   });
 
-  describe("frontmatter sync", () => {
-    it.effect("syncs frontmatter fields to manifest during publish", () => {
+  describe("manifest is the source of truth", () => {
+    it.effect("does not rewrite the manifest from frontmatter on publish", () => {
       const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      createManagedSubagent(
+      const extDir = createManagedSubagent(
         tempDir,
         "@test",
-        "synced-subagent",
+        "manifest-source-of-truth",
         {
-          name: "@test/subagents/synced-subagent",
+          name: "@test/subagents/manifest-source-of-truth",
           version: "1.0.0",
           agents: ["claude-code"],
-          description: "old description",
+          description: "manifest description",
         },
         {
-          name: "synced-subagent",
-          description: "new description from frontmatter",
+          name: "manifest-source-of-truth",
+          description: "frontmatter description (should not be projected)",
         },
       );
 
@@ -405,23 +405,16 @@ describe("subagents-publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handlePublish(
-            defaultArgs(["@test/subagents/synced-subagent"], { registry: Option.some("local") }),
+            defaultArgs(["@test/subagents/manifest-source-of-truth"], {
+              registry: Option.some("local"),
+            }),
           );
 
           expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Verify the manifest was synced
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@test",
-            "subagents",
-            "synced-subagent",
-            "subagent.json",
-          );
+          const manifestPath = path.join(extDir, "subagent.json");
           const updatedManifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(updatedManifest.description).toBe("new description from frontmatter");
+          expect(updatedManifest.description).toBe("manifest description");
         }),
       );
     });

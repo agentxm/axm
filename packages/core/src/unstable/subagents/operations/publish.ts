@@ -27,7 +27,7 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { parseSubagentMd, projectFrontmatterToManifest } from "../subagent-content.js";
+import { parseSubagentMd } from "../subagent-content.js";
 import { subagentContentFilename, subagentContentPath } from "../paths.js";
 
 // -----------------------------------------------------------------------------
@@ -62,7 +62,7 @@ export type PublishSubagentOperation = Operation<"publish-subagent", PublishSuba
  * Publish-subagent operation handler.
  *
  * 1. Read and validate `subagent.json` manifest
- * 2. Validate and sync frontmatter fields from the subagent content file to manifest
+ * 2. Validate the content file exists and its frontmatter `name` matches the manifest
  * 3. Build zip archive of extension directory
  * 4. Compute SRI integrity hash
  * 5. Resolve target registry provider by source name
@@ -117,7 +117,7 @@ export const publishSubagent: OperationHandler<
         }),
     });
 
-    let manifest: SubagentManifest = yield* Schema.decodeUnknownEffect(SubagentManifestSchema)(
+    const manifest: SubagentManifest = yield* Schema.decodeUnknownEffect(SubagentManifestSchema)(
       manifestJson,
     ).pipe(
       Effect.mapError((e) =>
@@ -129,7 +129,9 @@ export const publishSubagent: OperationHandler<
       ),
     );
 
-    // Validate the three-way identity and sync portable frontmatter fields to manifest.
+    // Validate that the content file exists at the expected path and that its
+    // frontmatter `name` matches the manifest. The manifest is the source of
+    // truth for portable fields; this check just guards against drift.
     const contentRoot = path.join(extensionDir, "src");
     const expectedFilename = subagentContentFilename(manifest.name);
     const contentPath = subagentContentPath(path.join, contentRoot, manifest.name);
@@ -162,27 +164,7 @@ export const publishSubagent: OperationHandler<
         }),
       ),
     );
-    const parsed = yield* parseSubagentMd(rawContent, manifest.name);
-    const frontmatter = Option.getOrThrow(parsed.frontmatter);
-    const projected = projectFrontmatterToManifest(frontmatter);
-    manifest = {
-      ...manifest,
-      ...(projected.description !== undefined && { description: projected.description }),
-      ...(projected.model !== undefined && { model: projected.model }),
-      ...(projected.toolAccess !== undefined && { toolAccess: projected.toolAccess }),
-      ...(projected.background !== undefined && { background: projected.background }),
-    };
-
-    // Write synced manifest back to disk
-    yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "PUBLISH_SUBAGENT_MANIFEST_WRITE_FAILED",
-          what: `Failed to write synced manifest: ${manifestPath}`,
-          cause: e,
-        }),
-      ),
-    );
+    yield* parseSubagentMd(rawContent, manifest.name);
 
     // Build zip archive from extension directory (includes manifest + src/)
     const archive = yield* buildZipArchive(extensionDir, "PUBLISH_SUBAGENT_ARCHIVE_FAILED");

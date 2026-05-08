@@ -42,4 +42,13 @@ export {
   routeNameInput,
   routeRegistryInput,
 } from "./resolve-source.js";
+export {
+  resolveIdentifier,
+  resolveInstalledIdentifier,
+  resolveInstalledIdentifierNameOrInput,
+  type IdentifierResolutionScope,
+  type IdentifierResourceType,
+  type ResolveIdentifierArgs,
+  type ResolvedIdentifier,
+} from "./resolve-identifier.js";
 export { resolveSourcePattern } from "./resolve-source-pattern.js";

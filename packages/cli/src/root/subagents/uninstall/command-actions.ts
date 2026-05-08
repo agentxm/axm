@@ -14,6 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
@@ -93,8 +94,15 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
           return { subagents: [] } satisfies ParsedSubagentUninstallArgs;
         }
 
-        // For literal names not in installed set, still include them
-        const names = subagentNames.length > 0 ? subagentNames : [args.subagent];
+        const names =
+          subagentNames.length > 0
+            ? subagentNames
+            : [
+                yield* resolveInstalledIdentifierNameOrInput({
+                  input: args.subagent,
+                  resourceType: "subagent",
+                }).pipe(Effect.provideService(WorkspaceMutations, ws)),
+              ];
 
         return { subagents: names } satisfies ParsedSubagentUninstallArgs;
       });

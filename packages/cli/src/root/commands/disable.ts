@@ -5,11 +5,8 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { DisableCommandOperation } from "@agentxm/client-core/unstable/commands";
 import { disableCommand as runDisableCommand } from "@agentxm/client-core/unstable/commands";
@@ -28,7 +25,7 @@ import {
 } from "./preview-sections.js";
 
 export interface DisableCommandHandlerArgs {
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -45,9 +42,14 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
 
   yield* renderer.info("axm commands disable");
 
+  const commandName = yield* resolveInstalledIdentifierNameOrInput({
+    input: args.name,
+    resourceType: "command",
+  });
+
   // Load installed commands (configured + implicit) from the read-model record projection.
   const installedCommands = yield* ws.records.getInstalledCommands();
-  const installedEntry = installedCommands[args.name];
+  const installedEntry = installedCommands[commandName];
 
   // Validate: command is installed (ignored names are excluded from installed)
   if (installedEntry === undefined) {
@@ -63,19 +65,19 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
     if (
       yield* emitNoOpResult("commands.disable", {
         planName: "Disable command",
-        planDescription: `Disable ${args.name}`,
-        message: `Command '${args.name}' is already disabled`,
+        planDescription: `Disable ${commandName}`,
+        message: `Command '${commandName}' is already disabled`,
       })
     ) {
       return;
     }
 
-    yield* renderer.info(`Command '${args.name}' is already disabled`);
+    yield* renderer.info(`Command '${commandName}' is already disabled`);
     yield* renderer.success("Nothing to do.");
     return;
   }
 
-  const lockedEntry = yield* ws.getLockedCommand(args.name);
+  const lockedEntry = yield* ws.getLockedCommand(commandName);
   const planSections = Option.isSome(lockedEntry)
     ? combinePlanSections(
         makeAgentSection(
@@ -93,13 +95,13 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   // Build operation
   const op = {
     name: "disable-command",
-    args: { commandName: args.name },
+    args: { commandName },
   } satisfies DisableCommandOperation;
 
   // Build plan with inline run closure
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.name,
+    label: commandName,
     run: runDisableCommand(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(WorkspaceMutations, ws),
@@ -112,7 +114,7 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   const plan: Plan = {
     _tag: "Plan",
     name: "Disable command",
-    description: Option.some(`Disable ${args.name}`),
+    description: Option.some(`Disable ${commandName}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
     ...(planSections === undefined ? {} : { sections: planSections }),
   };
@@ -143,7 +145,7 @@ export const disableCommand = Command.make(
   "disable",
   disableConfig,
   ({ name, scope, yes, force, preview }) =>
-    handleDisableCommand({ name: decodeExtensionNameSync(name), yes, force, preview }).pipe(
+    handleDisableCommand({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
       withRuntime("commands disable"),
     ),

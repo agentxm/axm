@@ -11,7 +11,10 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
-import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
+import {
+  resolveInstalledIdentifierNameOrInput,
+  resolveSource,
+} from "@agentxm/client-core/unstable/source-resolution";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
@@ -105,10 +108,18 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
       : subagentEntries;
 
   // Step 3: Filter by --subagent glob patterns
+  const subagentFilters = yield* Effect.forEach(args.subagents, (subagent) =>
+    subagent.includes("*")
+      ? Effect.succeed(subagent)
+      : resolveInstalledIdentifierNameOrInput({
+          input: subagent,
+          resourceType: "subagent",
+        }),
+  );
   const filteredEntries = (() => {
     if (args.subagents.length === 0) return sourceFilteredEntries;
     const allNames = sourceFilteredEntries.map(([name]) => name);
-    const matchedNames = expandGlobs(args.subagents, allNames);
+    const matchedNames = expandGlobs(subagentFilters, allNames);
     const matchedSet = new Set(matchedNames);
     return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
   })();

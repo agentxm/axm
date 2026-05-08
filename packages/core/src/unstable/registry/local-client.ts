@@ -213,6 +213,27 @@ export const createLocalRegistryClient = (
 ): RegistryClient => ({
   getExtensionsByScope: (args) =>
     Effect.gen(function* () {
+      if (args.owner === "*") {
+        const extensionsDir = path.join(registryRoot, "extensions");
+        const indexes = yield* scanAllExtensions(fs, path, extensionsDir);
+        const manifests = Array.getSomes(
+          indexes
+            .filter((index) => args.types.length === 0 || args.types.includes(index.type))
+            .filter((index) => args.names.length === 0 || args.names.includes(index.name))
+            .map((index) => indexToManifest(index, Option.none())),
+        );
+        const total = manifests.length;
+        const sliced = manifests.slice(args.offset);
+        const extensions = Option.match(args.limit, {
+          onNone: () => sliced,
+          onSome: (l) => sliced.slice(0, l),
+        });
+        return {
+          extensions,
+          total,
+        } satisfies GetExtensionsByOwnerResponse;
+      }
+
       const findForName = (name: string) =>
         Effect.gen(function* () {
           const requestedTypes: ReadonlyArray<ExtensionType> =

@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -30,9 +31,14 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
 
   yield* renderer.info("axm subagents disable");
 
+  const subagentName = yield* resolveInstalledIdentifierNameOrInput({
+    input: args.name,
+    resourceType: "subagent",
+  });
+
   // Load installed subagents (configured + implicit) from the read-model record projection.
   const installedSubagents = yield* ws.records.getInstalledSubagents();
-  const installedEntry = installedSubagents[args.name];
+  const installedEntry = installedSubagents[subagentName];
 
   // Validate: subagent is installed (ignored names are excluded from installed)
   if (installedEntry === undefined) {
@@ -48,14 +54,14 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     if (
       yield* emitNoOpResult("subagents.disable", {
         planName: "Disable subagent",
-        planDescription: `Disable ${args.name}`,
-        message: `Subagent '${args.name}' is already disabled`,
+        planDescription: `Disable ${subagentName}`,
+        message: `Subagent '${subagentName}' is already disabled`,
       })
     ) {
       return;
     }
 
-    yield* renderer.info(`Subagent '${args.name}' is already disabled`);
+    yield* renderer.info(`Subagent '${subagentName}' is already disabled`);
     yield* renderer.success("Nothing to do.");
     return;
   }
@@ -63,7 +69,7 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
   // Build operation — operation handles configured, settings-only, and implicit promotion
   const op = {
     name: "disable-subagent",
-    args: { subagentName: args.name },
+    args: { subagentName },
   } satisfies DisableSubagentOperation;
 
   // Build plan with inline run closure
@@ -78,7 +84,7 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.name,
+    label: subagentName,
     run: disableSubagent(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(WorkspaceMutations, ws),
@@ -91,7 +97,7 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
   const plan: Plan = {
     _tag: "Plan",
     name: "Disable subagent",
-    description: Option.some(`Disable ${args.name}`),
+    description: Option.some(`Disable ${subagentName}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 

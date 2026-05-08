@@ -5,6 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { DisableSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { disableSkill } from "@agentxm/client-core/unstable/skills";
@@ -31,9 +32,14 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   yield* renderer.info("axm skills disable");
 
+  const skillName = yield* resolveInstalledIdentifierNameOrInput({
+    input: args.name,
+    resourceType: "skill",
+  });
+
   // Load installed skills (configured + implicit) from the read-model record projection.
   const installedSkills = yield* ws.records.getInstalledSkills();
-  const installedEntry = installedSkills[args.name];
+  const installedEntry = installedSkills[skillName];
 
   // Validate: skill is installed (ignored names are excluded from installed)
   if (installedEntry === undefined) {
@@ -49,14 +55,14 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     if (
       yield* emitNoOpResult("skills.disable", {
         planName: "Disable skill",
-        planDescription: `Disable ${args.name}`,
-        message: `Skill '${args.name}' is already disabled`,
+        planDescription: `Disable ${skillName}`,
+        message: `Skill '${skillName}' is already disabled`,
       })
     ) {
       return;
     }
 
-    yield* renderer.info(`Skill '${args.name}' is already disabled`);
+    yield* renderer.info(`Skill '${skillName}' is already disabled`);
     yield* renderer.success("Nothing to do.");
     return;
   }
@@ -64,7 +70,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
   // Build operation — operation handles configured, settings-only, and implicit promotion
   const op = {
     name: "disable-skill",
-    args: { skillName: args.name },
+    args: { skillName },
   } satisfies DisableSkillOperation;
 
   // Build plan with inline run closure
@@ -79,7 +85,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.name,
+    label: skillName,
     run: disableSkill(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(WorkspaceMutations, ws),
@@ -91,7 +97,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
   const plan: Plan = {
     _tag: "Plan",
     name: "Disable skill",
-    description: Option.some(`Disable ${args.name}`),
+    description: Option.some(`Disable ${skillName}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 

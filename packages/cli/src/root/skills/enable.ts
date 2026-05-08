@@ -4,10 +4,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { EnableSkillOperation } from "@agentxm/client-core/unstable/skills";
@@ -21,7 +18,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
 export interface EnableHandlerArgs {
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -35,9 +32,14 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   yield* renderer.info("axm skills enable");
 
+  const skillName = yield* resolveInstalledIdentifierNameOrInput({
+    input: args.name,
+    resourceType: "skill",
+  });
+
   // Load installed skills (configured + implicit) from the read-model record projection.
   const installedSkills = yield* ws.records.getInstalledSkills();
-  const entry = installedSkills[args.name];
+  const entry = installedSkills[skillName];
 
   // Validate: skill is installed (ignored names are excluded from installed)
   if (entry === undefined) {
@@ -53,14 +55,14 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     if (
       yield* emitNoOpResult("skills.enable", {
         planName: "Enable skill",
-        planDescription: `Enable ${args.name}`,
-        message: `Skill '${args.name}' is already enabled`,
+        planDescription: `Enable ${skillName}`,
+        message: `Skill '${skillName}' is already enabled`,
       })
     ) {
       return;
     }
 
-    yield* renderer.info(`Skill '${args.name}' is already enabled`);
+    yield* renderer.info(`Skill '${skillName}' is already enabled`);
     yield* renderer.success("Nothing to do.");
     return;
   }
@@ -68,7 +70,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   // Build operation — operation handles both lock-backed and settings-only paths
   const op = {
     name: "enable-skill",
-    args: { skillName: args.name },
+    args: { skillName },
   } satisfies EnableSkillOperation;
 
   // Build plan with inline run closure
@@ -83,7 +85,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.name,
+    label: skillName,
     run: enableSkill(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(WorkspaceMutations, ws),
@@ -95,7 +97,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   const plan: Plan = {
     _tag: "Plan",
     name: "Enable skill",
-    description: Option.some(`Enable ${args.name}`),
+    description: Option.some(`Enable ${skillName}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
@@ -125,7 +127,7 @@ export const enableCommand = Command.make(
   "enable",
   enableConfig,
   ({ name, scope, yes, force, preview }) =>
-    handleEnable({ name: decodeExtensionNameSync(name), yes, force, preview }).pipe(
+    handleEnable({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
       withRuntime("skills enable"),
     ),

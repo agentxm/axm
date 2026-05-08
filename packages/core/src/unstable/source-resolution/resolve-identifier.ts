@@ -1,0 +1,455 @@
+import * as Array from "effect/Array";
+import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
+import * as Result from "effect/Result";
+
+import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  decodeExtensionNameSync,
+  extensionTypePluralSentenceLabels,
+  formatFqn,
+  parseFullyQualifiedNameParts,
+  parseRegistrySourcePatternParts,
+  toExtensionTypePlural,
+  type ExtensionName,
+  type ExtensionType,
+  type Handle,
+} from "../extensions/index.js";
+import type { CommandLockEntry, SkillLockEntry, SubagentLockEntry } from "../lockfile/index.js";
+import { createRegistryClient } from "../registry/index.js";
+import { WorkspaceMutations } from "../workspace/index.js";
+
+export type IdentifierResourceType = "skill" | "command" | "subagent";
+export type IdentifierResolutionScope = "installed" | "registry" | "both";
+
+export interface ResolvedIdentifier {
+  readonly input: string;
+  readonly owner: Option.Option<Handle>;
+  readonly type: IdentifierResourceType;
+  readonly name: ExtensionName;
+  readonly fqn: string;
+  readonly installedName: Option.Option<string>;
+  readonly registryLocation: Option.Option<URL>;
+  readonly source: "installed" | "registry" | "passthrough";
+}
+
+export interface ResolveIdentifierArgs {
+  readonly input: string;
+  readonly resourceType: IdentifierResourceType;
+  readonly scope: IdentifierResolutionScope;
+}
+
+interface IdentifierCandidate {
+  readonly owner: Option.Option<Handle>;
+  readonly type: IdentifierResourceType;
+  readonly name: ExtensionName;
+  readonly fqn: string;
+  readonly installedName: Option.Option<string>;
+  readonly registryLocation: Option.Option<URL>;
+  readonly source: "installed" | "registry";
+}
+
+interface IdentifierParts {
+  readonly owner: Handle;
+  readonly type: IdentifierResourceType;
+  readonly name: ExtensionName;
+}
+
+const isIdentifierResourceType = (type: ExtensionType): type is IdentifierResourceType =>
+  type === "skill" || type === "command" || type === "subagent";
+
+const decodeName = (input: string) =>
+  Effect.try({
+    try: () => decodeExtensionNameSync(input),
+    catch: () =>
+      makeAppError({
+        code: "NOT_FOUND",
+        what: `No ${input} identifier could be resolved`,
+        howToFix: "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
+      }),
+  });
+
+const makeCandidate = (
+  parts: IdentifierParts,
+  installedName: Option.Option<string>,
+  source: "installed" | "registry",
+): IdentifierCandidate => ({
+  owner: Option.some(parts.owner),
+  type: parts.type,
+  name: parts.name,
+  fqn: formatFqn(parts),
+  installedName,
+  registryLocation: Option.none(),
+  source,
+});
+
+const lockEntryParts = (
+  resourceType: IdentifierResourceType,
+  entry: SkillLockEntry | CommandLockEntry | SubagentLockEntry,
+): Option.Option<IdentifierParts> => {
+  if (entry.type !== "registry") return Option.none();
+  return Option.some({
+    owner: entry.owner,
+    type: resourceType,
+    name: entry.name,
+  });
+};
+
+const configuredSourceParts = (
+  resourceType: IdentifierResourceType,
+  source: string,
+): Option.Option<IdentifierParts> => {
+  const parsed = parseRegistrySourcePatternParts(source);
+  if (parsed === undefined || parsed.name === undefined) return Option.none();
+  if (parsed.type !== undefined && parsed.type !== toExtensionTypePlural(resourceType)) {
+    return Option.none();
+  }
+  return Option.some({
+    owner: parsed.owner,
+    type: resourceType,
+    name: parsed.name,
+  });
+};
+
+const matchesInput = (input: string, candidate: IdentifierCandidate): boolean =>
+  candidate.fqn === input ||
+  candidate.name === input ||
+  (Option.isSome(candidate.installedName) && candidate.installedName.value === input);
+
+const dedupeCandidates = (
+  candidates: ReadonlyArray<IdentifierCandidate>,
+): ReadonlyArray<IdentifierCandidate> => {
+  const deduped: IdentifierCandidate[] = [];
+  const chooseCandidate = (existing: IdentifierCandidate, next: IdentifierCandidate) => {
+    if (Option.isNone(existing.owner) && Option.isSome(next.owner)) return next;
+    return existing;
+  };
+
+  for (const candidate of candidates) {
+    if (Option.isSome(candidate.installedName)) {
+      const candidateInstalledName = candidate.installedName.value;
+      const existingIndex = deduped.findIndex(
+        (entry) =>
+          Option.isSome(entry.installedName) &&
+          entry.installedName.value === candidateInstalledName,
+      );
+      const existing = deduped[existingIndex];
+      if (existing !== undefined) {
+        deduped[existingIndex] = chooseCandidate(existing, candidate);
+        continue;
+      }
+    }
+
+    const existingFqnIndex = deduped.findIndex((entry) => entry.fqn === candidate.fqn);
+    const existingFqn = deduped[existingFqnIndex];
+    if (existingFqn !== undefined) {
+      deduped[existingFqnIndex] = chooseCandidate(existingFqn, candidate);
+      continue;
+    }
+
+    deduped.push(candidate);
+  }
+  return deduped;
+};
+
+const installedCandidates = (
+  input: string,
+  resourceType: IdentifierResourceType,
+): Effect.Effect<ReadonlyArray<IdentifierCandidate>, AppError, WorkspaceMutations> =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const candidates: IdentifierCandidate[] = [];
+
+    switch (resourceType) {
+      case "skill": {
+        const [locked, configured] = yield* Effect.all(
+          [ws.getLockedSkills(), ws.records.getConfiguredSkills()],
+          { concurrency: "unbounded" },
+        );
+        for (const [name, entry] of Object.entries(locked)) {
+          const parts = lockEntryParts(resourceType, entry);
+          if (Option.isSome(parts)) {
+            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
+          } else if (name === input) {
+            const decodedName = yield* decodeName(name);
+            candidates.push({
+              owner: Option.none<Handle>(),
+              type: resourceType,
+              name: decodedName,
+              fqn: name,
+              installedName: Option.some(name),
+              registryLocation: Option.none(),
+              source: "installed",
+            });
+          }
+        }
+        for (const [name, entry] of Object.entries(configured)) {
+          const parts = configuredSourceParts(resourceType, entry.source);
+          if (Option.isSome(parts)) {
+            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
+          }
+        }
+        break;
+      }
+      case "command": {
+        const [locked, configured] = yield* Effect.all(
+          [ws.getLockedCommands(), ws.records.getConfiguredCommands()],
+          { concurrency: "unbounded" },
+        );
+        for (const [name, entry] of Object.entries(locked)) {
+          const parts = lockEntryParts(resourceType, entry);
+          if (Option.isSome(parts)) {
+            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
+          } else if (name === input) {
+            const decodedName = yield* decodeName(name);
+            candidates.push({
+              owner: Option.none<Handle>(),
+              type: resourceType,
+              name: decodedName,
+              fqn: name,
+              installedName: Option.some(name),
+              registryLocation: Option.none(),
+              source: "installed",
+            });
+          }
+        }
+        for (const [name, entry] of Object.entries(configured)) {
+          const parts = configuredSourceParts(resourceType, entry.source);
+          if (Option.isSome(parts)) {
+            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
+          }
+        }
+        break;
+      }
+      case "subagent": {
+        const [locked, configured] = yield* Effect.all(
+          [ws.getLockedSubagents(), ws.records.getConfiguredSubagents()],
+          { concurrency: "unbounded" },
+        );
+        for (const [name, entry] of Object.entries(locked)) {
+          const parts = lockEntryParts(resourceType, entry);
+          if (Option.isSome(parts)) {
+            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
+          } else if (name === input) {
+            const decodedName = yield* decodeName(name);
+            candidates.push({
+              owner: Option.none<Handle>(),
+              type: resourceType,
+              name: decodedName,
+              fqn: name,
+              installedName: Option.some(name),
+              registryLocation: Option.none(),
+              source: "installed",
+            });
+          }
+        }
+        for (const [name, entry] of Object.entries(configured)) {
+          const parts = configuredSourceParts(resourceType, entry.source);
+          if (Option.isSome(parts)) {
+            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
+          }
+        }
+        break;
+      }
+    }
+
+    return dedupeCandidates(candidates).filter((candidate) => matchesInput(input, candidate));
+  });
+
+const registryCandidates = (
+  input: string,
+  resourceType: IdentifierResourceType,
+): Effect.Effect<
+  ReadonlyArray<IdentifierCandidate>,
+  AppError,
+  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const name = yield* decodeName(input);
+    const ws = yield* WorkspaceMutations;
+    const registrySources = yield* ws.getRegistrySourceHosts();
+
+    const results = yield* Effect.forEach(
+      registrySources,
+      (sourceConfig) =>
+        Effect.gen(function* () {
+          const location =
+            sourceConfig.location.protocol === "file:"
+              ? sourceConfig.location.pathname
+              : sourceConfig.location.href;
+          const client = yield* createRegistryClient(location);
+          const result = yield* client.getExtensionsByScope({
+            owner: "*",
+            names: [name],
+            types: [resourceType],
+            limit: Option.none(),
+            offset: 0,
+          });
+          return result.extensions.map((entry) => ({
+            ...makeCandidate(
+              {
+                owner: entry.owner,
+                type: resourceType,
+                name: entry.name,
+              },
+              Option.none(),
+              "registry",
+            ),
+            registryLocation: Option.some(sourceConfig.location),
+          }));
+        }).pipe(Effect.result),
+      { concurrency: "unbounded" },
+    );
+
+    return dedupeCandidates(
+      Array.flatten(
+        Array.getSuccesses(results).map((result) =>
+          result.filter((candidate) => candidate.name === name),
+        ),
+      ),
+    );
+  });
+
+const notFound = (
+  input: string,
+  resourceType: IdentifierResourceType,
+  scope: IdentifierResolutionScope,
+) =>
+  makeAppError({
+    code: "NOT_FOUND",
+    what: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
+    howToFix: "Check the name, or re-run with a fully-qualified name.",
+  });
+
+const ambiguous = (
+  input: string,
+  resourceType: IdentifierResourceType,
+  scope: IdentifierResolutionScope,
+  candidates: ReadonlyArray<IdentifierCandidate>,
+) =>
+  makeAppError({
+    code: "AMBIGUOUS_IDENTIFIER",
+    what: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
+    howToFix: "Re-run with the fully-qualified name.",
+  });
+
+const resolveFromCandidates = (
+  input: string,
+  resourceType: IdentifierResourceType,
+  scope: IdentifierResolutionScope,
+  candidates: ReadonlyArray<IdentifierCandidate>,
+) =>
+  Effect.gen(function* () {
+    if (candidates.length === 0) {
+      return yield* notFound(input, resourceType, scope);
+    }
+    if (candidates.length > 1) {
+      return yield* ambiguous(input, resourceType, scope, candidates);
+    }
+    const [candidate] = candidates;
+    if (candidate === undefined) {
+      return yield* notFound(input, resourceType, scope);
+    }
+    return {
+      input,
+      owner: candidate.owner,
+      type: candidate.type,
+      name: candidate.name,
+      fqn: candidate.fqn,
+      installedName: candidate.installedName,
+      registryLocation: candidate.registryLocation,
+      source: candidate.source,
+    } satisfies ResolvedIdentifier;
+  });
+
+export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
+  Effect.gen(function* () {
+    const trimmed = args.input.trim();
+    const parsed = parseFullyQualifiedNameParts(trimmed);
+    if (parsed !== undefined) {
+      if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
+        return yield* makeAppError({
+          code: "NOT_FOUND",
+          what: `"${trimmed}" is not a ${args.resourceType} identifier`,
+          howToFix: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
+        });
+      }
+
+      if (args.scope === "installed" || args.scope === "both") {
+        const installed = yield* installedCandidates(trimmed, args.resourceType);
+        if (installed.length > 0) {
+          return yield* resolveFromCandidates(trimmed, args.resourceType, "installed", installed);
+        }
+        if (args.scope === "installed") {
+          return yield* notFound(trimmed, args.resourceType, args.scope);
+        }
+      }
+
+      return {
+        input: trimmed,
+        owner: Option.some(parsed.owner),
+        type: args.resourceType,
+        name: parsed.name,
+        fqn: formatFqn(parsed),
+        installedName: Option.some(parsed.name),
+        registryLocation: Option.none(),
+        source: "passthrough" as const,
+      } satisfies ResolvedIdentifier;
+    }
+
+    switch (args.scope) {
+      case "installed": {
+        const candidates = yield* installedCandidates(trimmed, args.resourceType);
+        return yield* resolveFromCandidates(trimmed, args.resourceType, args.scope, candidates);
+      }
+      case "registry": {
+        const candidates = yield* registryCandidates(trimmed, args.resourceType);
+        return yield* resolveFromCandidates(trimmed, args.resourceType, args.scope, candidates);
+      }
+      case "both": {
+        const installed = yield* installedCandidates(trimmed, args.resourceType);
+        if (installed.length > 0) {
+          return yield* resolveFromCandidates(trimmed, args.resourceType, "installed", installed);
+        }
+        const registry = yield* registryCandidates(trimmed, args.resourceType);
+        return yield* resolveFromCandidates(trimmed, args.resourceType, "registry", registry);
+      }
+    }
+  });
+
+export const resolveInstalledIdentifier = (args: {
+  readonly input: string;
+  readonly resourceType: IdentifierResourceType;
+}) =>
+  Effect.gen(function* () {
+    const trimmed = args.input.trim();
+    const parsed = parseFullyQualifiedNameParts(trimmed);
+    if (parsed !== undefined) {
+      if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
+        return yield* makeAppError({
+          code: "NOT_FOUND",
+          what: `"${trimmed}" is not a ${args.resourceType} identifier`,
+          howToFix: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
+        });
+      }
+    }
+
+    const candidates = yield* installedCandidates(trimmed, args.resourceType);
+    return yield* resolveFromCandidates(trimmed, args.resourceType, "installed", candidates);
+  });
+
+export const resolveInstalledIdentifierNameOrInput = (args: {
+  readonly input: string;
+  readonly resourceType: IdentifierResourceType;
+}) =>
+  Effect.gen(function* () {
+    const trimmed = args.input.trim();
+    const result = yield* Effect.result(resolveInstalledIdentifier(args));
+    if (Result.isFailure(result)) {
+      if (result.failure.code === "NOT_FOUND") return trimmed;
+      return yield* result.failure;
+    }
+    return Option.getOrElse(result.success.installedName, () => result.success.name);
+  });

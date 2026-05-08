@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -30,9 +31,14 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
 
   yield* renderer.info("axm subagents enable");
 
+  const subagentName = yield* resolveInstalledIdentifierNameOrInput({
+    input: args.name,
+    resourceType: "subagent",
+  });
+
   // Load installed subagents (configured + implicit) from the read-model record projection.
   const installedSubagents = yield* ws.records.getInstalledSubagents();
-  const entry = installedSubagents[args.name];
+  const entry = installedSubagents[subagentName];
 
   // Validate: subagent is installed (ignored names are excluded from installed)
   if (entry === undefined) {
@@ -48,14 +54,14 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
     if (
       yield* emitNoOpResult("subagents.enable", {
         planName: "Enable subagent",
-        planDescription: `Enable ${args.name}`,
-        message: `Subagent '${args.name}' is already enabled`,
+        planDescription: `Enable ${subagentName}`,
+        message: `Subagent '${subagentName}' is already enabled`,
       })
     ) {
       return;
     }
 
-    yield* renderer.info(`Subagent '${args.name}' is already enabled`);
+    yield* renderer.info(`Subagent '${subagentName}' is already enabled`);
     yield* renderer.success("Nothing to do.");
     return;
   }
@@ -63,7 +69,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
   // Build operation — operation handles both lock-backed and settings-only paths
   const op = {
     name: "enable-subagent",
-    args: { subagentName: args.name },
+    args: { subagentName },
   } satisfies EnableSubagentOperation;
 
   // Build plan with inline run closure
@@ -78,7 +84,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.name,
+    label: subagentName,
     run: enableSubagent(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(WorkspaceMutations, ws),
@@ -91,7 +97,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
   const plan: Plan = {
     _tag: "Plan",
     name: "Enable subagent",
-    description: Option.some(`Enable ${args.name}`),
+    description: Option.some(`Enable ${subagentName}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 

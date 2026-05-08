@@ -8,6 +8,11 @@ import {
   extensionTypeToPlural,
   parseFullyQualifiedNameParts,
 } from "@agentxm/client-core/unstable/extensions";
+import {
+  resolveIdentifier,
+  type IdentifierResourceType,
+  type ResolvedIdentifier,
+} from "@agentxm/client-core/unstable/source-resolution";
 import { createRegistryClient, type ExtensionIndex } from "@agentxm/client-core/unstable/registry";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
@@ -15,6 +20,7 @@ export interface ViewHandlerArgs {
   readonly handle: string;
   readonly field: Option.Option<string>;
   readonly registry: Option.Option<string>;
+  readonly type?: Option.Option<IdentifierResourceType>;
 }
 
 interface TargetRegistry {
@@ -112,17 +118,86 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     } satisfies TargetRegistry;
   });
 
-const parseHandle = (handle: string) =>
+const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>) =>
   Effect.gen(function* () {
     const parts = parseFullyQualifiedNameParts(handle);
-    if (parts === undefined) {
+    if (parts !== undefined) {
+      return parts;
+    }
+
+    if (Option.isSome(type)) {
+      const resolved = yield* Effect.scoped(
+        resolveIdentifier({
+          input: handle,
+          resourceType: type.value,
+          scope: "both",
+        }),
+      );
+      const owner = Option.getOrUndefined(resolved.owner);
+      if (owner === undefined) {
+        return yield* makeAppError({
+          code: "VIEW_INVALID_HANDLE",
+          what: `Extension "${handle}" does not have a registry owner`,
+          howToFix: "Use a fully-qualified registry handle like @owner/skills/name.",
+        });
+      }
+      return {
+        owner,
+        type: resolved.type,
+        name: resolved.name,
+      };
+    }
+
+    const resolved = yield* resolveBareViewHandle(handle);
+    const owner = Option.getOrUndefined(resolved.owner);
+    if (owner === undefined) {
       return yield* makeAppError({
         code: "VIEW_INVALID_HANDLE",
         what: `Invalid extension handle: ${handle}`,
-        howToFix: "Use a fully-qualified handle like @owner/skills/name or @owner/commands/name.",
+        howToFix:
+          "Use a fully-qualified handle like @owner/skills/name, or pass --type for a bare name.",
       });
     }
-    return parts;
+    return { owner, type: resolved.type, name: resolved.name };
+  });
+
+const resolveBareViewHandle = (handle: string) =>
+  Effect.gen(function* () {
+    const attempts = yield* Effect.forEach(
+      ["skill", "command", "subagent"] as const,
+      (resourceType) =>
+        Effect.scoped(
+          resolveIdentifier({
+            input: handle,
+            resourceType,
+            scope: "both",
+          }),
+        ).pipe(Effect.result),
+      { concurrency: "unbounded" },
+    );
+    const matches = attempts.flatMap(
+      (result): ReadonlyArray<ResolvedIdentifier> =>
+        result._tag === "Success" ? [result.success] : [],
+    );
+
+    if (matches.length === 1) {
+      const [match] = matches;
+      if (match !== undefined) return match;
+    }
+
+    if (matches.length > 1) {
+      return yield* makeAppError({
+        code: "AMBIGUOUS_IDENTIFIER",
+        what: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
+        howToFix: "Re-run with --type or the fully-qualified name.",
+      });
+    }
+
+    return yield* makeAppError({
+      code: "NOT_FOUND",
+      what: `No extension named "${handle}" was found`,
+      howToFix: "Check the name, pass --type, or use a fully-qualified name.",
+    });
   });
 
 const toDocumentData = (index: ExtensionIndex): ViewDocumentData => {
@@ -179,7 +254,7 @@ export const handleView = (args: ViewHandlerArgs) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const targetRegistry = yield* resolveTargetRegistry(args.registry);
-    const parts = yield* parseHandle(args.handle);
+    const parts = yield* parseHandle(args.handle, args.type ?? Option.none());
     const client = yield* createRegistryClient(targetRegistry.registryUrl);
     const indexOption = yield* client.getExtensionIndex(parts);
 

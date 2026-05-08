@@ -1,11 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-  type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+import { type ExtensionName, type Handle } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient, type RegistryClient } from "@agentxm/client-core/unstable/registry";
 import type {
   InputParseResult,
@@ -14,6 +10,7 @@ import type {
 } from "@agentxm/client-core/unstable/sources";
 import {
   resolveShorthandInputSource,
+  resolveIdentifier,
   resolveSlashInputSource,
   routeUrlInput,
 } from "@agentxm/client-core/unstable/source-resolution";
@@ -122,14 +119,12 @@ const resolveRegistrySource = (
       });
     }
 
-    const checked: string[] = [];
     const issues: RegistryLookupIssue[] = [];
 
     // Sequential for...of + yield* with early return: first-match semantics.
     // Effect.forEach doesn't fit because we return on the first successful match
     // while accumulating errors/issues from non-matching registries.
     for (const regConfig of registrySources) {
-      checked.push(regConfig.location.href);
       const client = yield* createRegistryClient(regConfig.location.href);
       const matchResult = yield* checkRegistryMatch({
         client,
@@ -202,99 +197,76 @@ const resolveSkillRegistrySourceByName = (
   resolutionOptions: Option.Option<ResolveSkillInstallSourceOptions>,
 ) =>
   Effect.gen(function* () {
-    const extensionName = yield* Effect.try({
-      try: () => decodeExtensionNameSync(name),
-      catch: () =>
-        makeAppError({
-          code: "INVALID_SOURCE",
-          what: `Invalid skill name: "${name}"`,
-          howToFix:
-            "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
-        }),
-    });
-
     const ws = yield* WorkspaceMutations;
-
-    // Configured owner: project settings -> user settings -> none
-    const maybeProfile = yield* ws.getConfiguredOwner();
-
-    if (Option.isNone(maybeProfile)) {
-      return yield* makeAppError({
-        code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${extensionName}" could not be looked up (no default owner)`,
-        howToFix:
-          "Configure an owner in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @owner/skills/name",
-      });
-    }
-    const owner = maybeProfile.value;
-
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${owner}/${extensionName}" could not be looked up (no registry sources)`,
+        what: `Skill "${name}" could not be looked up (no registry sources)`,
         howToFix:
           "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
       });
     }
+    const maybeProfile = yield* ws.getConfiguredOwner();
 
-    const checked: string[] = [];
-    const issues: RegistryLookupIssue[] = [];
-    // Sequential for...of + yield* with early return: first-match semantics.
-    // Effect.forEach doesn't fit because we return on the first successful match
-    // while accumulating errors/issues from non-matching registries.
-    for (const reg of registryHosts) {
-      checked.push(reg.location.href);
-      const client = yield* createRegistryClient(reg.location.href);
-      const existsResult = yield* client
-        .extensionExists({ owner, type: "skill", name: extensionName })
-        .pipe(Effect.result);
-      if (existsResult._tag === "Failure") {
-        if (Option.isSome(resolutionOptions)) {
-          resolutionOptions.value.onRegistryProbe({
-            location: reg.location.href,
-            outcome: "error",
-            reason: Option.some(summarizeLookupError(existsResult.failure)),
-          });
-        }
-        issues.push(toLookupIssue(reg.location, existsResult.failure));
-        continue;
-      }
-
-      if (existsResult.success.exists) {
-        if (Option.isSome(resolutionOptions)) {
-          resolutionOptions.value.onRegistryProbe({
-            location: reg.location.href,
-            outcome: "matched",
-            reason: Option.none<string>(),
-          });
-        }
-        return {
-          type: "registry" as const,
-          location: reg.location,
-          owner: Option.some(owner),
-        } satisfies RegistrySource;
-      }
-
-      if (Option.isSome(resolutionOptions)) {
-        resolutionOptions.value.onRegistryProbe({
-          location: reg.location.href,
-          outcome: "not-found",
-          reason: Option.none<string>(),
+    const resolved = yield* Effect.scoped(
+      resolveIdentifier({
+        input: name,
+        resourceType: "skill",
+        scope: "registry",
+      }),
+    ).pipe(
+      Effect.mapError((error) => {
+        if (error.code !== "NOT_FOUND") return error;
+        const label = Option.match(maybeProfile, {
+          onNone: () => name,
+          onSome: (owner) => `${owner}/${name}`,
         });
-      }
+        return makeAppError({
+          code: "REGISTRY_SKILL_NOT_FOUND",
+          what: Option.isNone(maybeProfile)
+            ? `Skill "${name}" could not be looked up (no default owner)`
+            : `Skill "${label}" was not found in configured registries`,
+          howToFix:
+            "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
+          cause: error,
+        });
+      }),
+    );
+    const resolvedOwner = Option.getOrUndefined(resolved.owner);
+    if (resolvedOwner === undefined) {
+      return yield* makeAppError({
+        code: "REGISTRY_SKILL_NOT_FOUND",
+        what: `Skill "${name}" was not found in configured registries`,
+        howToFix:
+          "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
+      });
+    }
+    const defaultRegistry = registryHosts[0];
+    if (defaultRegistry === undefined) {
+      return yield* makeAppError({
+        code: "REGISTRY_SKILL_NOT_FOUND",
+        what: `Skill "${name}" could not be looked up (no registry sources)`,
+      });
     }
 
-    return yield* makeAppError({
-      code: "REGISTRY_SKILL_NOT_FOUND",
-      what: `Skill "${owner}/${extensionName}" was not found in configured registries`,
-      howToFix: registryLookupHowToFix({
-        issues,
-        fallback:
-          "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
-      }),
-    });
+    if (Option.isSome(resolutionOptions)) {
+      resolutionOptions.value.onRegistryProbe({
+        location: Option.getOrElse(
+          Option.map(resolved.registryLocation, (location) => location.href),
+          () => defaultRegistry.location.href,
+        ),
+        outcome: "matched",
+        reason: Option.none<string>(),
+      });
+    }
+
+    return {
+      type: "registry" as const,
+      location: Option.getOrElse(resolved.registryLocation, () => defaultRegistry.location),
+      owner: Option.some(resolvedOwner),
+    } satisfies RegistrySource;
   });
 
 const resolveSkillRegistrySource = (

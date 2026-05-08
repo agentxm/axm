@@ -96,7 +96,7 @@ describe("subagents-new.handler", () => {
 
   describe("success", () => {
     it.effect("creates subagent with manifest, <name>.md, and settings", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
 
       return provide(
@@ -158,6 +158,18 @@ describe("subagents-new.handler", () => {
           });
 
           expect(logs.success.some((m) => m.includes("@acme/subagents/my-subagent"))).toBe(true);
+          expect(rendererState.breadcrumbs).toEqual([
+            {
+              task: "edit",
+              description:
+                "Edit `.axm/extensions/@acme/subagents/my-subagent/src/my-subagent.md` to fill in instructions",
+            },
+            {
+              task: "sync",
+              description: "Apply changes to your workspace",
+              command: ["axm", "sync"],
+            },
+          ]);
         }),
       );
     });

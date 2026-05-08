@@ -28,6 +28,7 @@ import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/u
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { emitPlanResolutionResult } from "../../../json-output.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -284,11 +285,36 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* previewOrApplyPlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
 
-  yield* renderer.success(`Created subagent ${fqn}`);
+  const breadcrumbs = [
+    {
+      task: "edit",
+      description: `Edit \`.axm/extensions/${owner}/subagents/${args.name}/src/${args.name}.md\` to fill in instructions`,
+    },
+    {
+      task: "sync",
+      description: "Apply changes to your workspace",
+      command: ["axm", "sync"],
+    },
+  ];
+
+  const emitted = yield* emitPlanResolutionResult(
+    "subagents.new",
+    resolution,
+    resolution._tag === "ExecutedPlan"
+      ? { summary: `Created subagent ${fqn}`, breadcrumbs }
+      : undefined,
+  );
+
+  if (resolution._tag === "ExecutedPlan") {
+    yield* renderer.success(`Created subagent ${fqn}`, {
+      breadcrumbs,
+      withoutBreadcrumbs: emitted,
+    });
+  }
 });

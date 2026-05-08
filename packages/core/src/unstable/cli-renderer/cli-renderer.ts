@@ -3,6 +3,8 @@ import * as ServiceMap from "effect/Context";
 import type * as Schema from "effect/Schema";
 import type * as Stream from "effect/Stream";
 
+import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+
 // ---------------------------------------------------------------------------
 // Supporting types
 // ---------------------------------------------------------------------------
@@ -130,6 +132,16 @@ export interface BoxOptions {
   readonly rounded?: boolean;
 }
 
+export interface BreadcrumbOptions {
+  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+  readonly withoutBreadcrumbs?: boolean;
+}
+
+export interface SuccessOptions extends BreadcrumbOptions {
+  readonly data?: unknown;
+  readonly summary?: string;
+}
+
 // ---------------------------------------------------------------------------
 // CliRenderer service
 // ---------------------------------------------------------------------------
@@ -142,10 +154,14 @@ export class CliRenderer extends ServiceMap.Service<
     readonly outro: (message: string) => Effect.Effect<void>;
     readonly message: (message: string) => Effect.Effect<void>;
     readonly info: (message: string) => Effect.Effect<void>;
-    readonly success: (message: string) => Effect.Effect<void>;
+    readonly success: (message: string, options?: SuccessOptions) => Effect.Effect<void>;
     readonly step: (message: string) => Effect.Effect<void>;
     readonly warn: (message: string) => Effect.Effect<void>;
-    readonly error: (message: string) => Effect.Effect<void>;
+    readonly error: (message: string, options?: BreadcrumbOptions) => Effect.Effect<void>;
+    readonly breadcrumbs: (
+      crumbs: ReadonlyArray<Breadcrumb>,
+      options?: BreadcrumbOptions,
+    ) => Effect.Effect<void>;
     readonly cancel: (message?: string) => Effect.Effect<void>;
     readonly note: (message: string, title?: string) => Effect.Effect<void>;
     readonly box: (message: string, title?: string, opts?: BoxOptions) => Effect.Effect<void>;
@@ -195,10 +211,12 @@ export class CliRenderer extends ServiceMap.Service<
       command: TCommand,
       body: Schema.Struct.Type<Fields>,
       fields: Fields,
+      options?: SuccessOptions,
     ) => Effect.Effect<boolean, never, Schema.Struct.EncodingServices<Fields>>;
     readonly result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
+      options?: SuccessOptions,
     ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
     readonly resultStream: <S extends Schema.Top>(
       stream: Stream.Stream<Schema.Schema.Type<S>>,

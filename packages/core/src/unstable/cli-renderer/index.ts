@@ -1,5 +1,6 @@
 export {
   CliRenderer,
+  type BreadcrumbOptions,
   type BoxOptions,
   type DetailFieldConfig,
   type DetailView,
@@ -11,6 +12,7 @@ export {
   type ResolvedTableColumn,
   type SpinnerHandle,
   type SpinnerOptions,
+  type SuccessOptions,
   type Task,
   type TaskLogConfig,
   type TaskLogGroupHandle,

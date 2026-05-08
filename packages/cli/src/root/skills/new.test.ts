@@ -77,7 +77,7 @@ describe("skills-new.handler", () => {
 
   describe("success", () => {
     it.effect("creates skill with manifest, SKILL.md, settings, and symlinks", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
 
       return provide(
@@ -144,6 +144,18 @@ describe("skills-new.handler", () => {
           expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
 
           expect(logs.success.some((m) => m.includes("@acme/skills/my-skill"))).toBe(true);
+          expect(rendererState.breadcrumbs).toEqual([
+            {
+              task: "edit",
+              description:
+                "Edit `.axm/extensions/@acme/skills/my-skill/src/SKILL.md` to fill in instructions",
+            },
+            {
+              task: "sync",
+              description: "Apply changes to your workspace",
+              command: ["axm", "sync"],
+            },
+          ]);
         }),
       );
     });

@@ -124,9 +124,30 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     force: args.force,
     preview: args.preview,
   });
-  yield* emitPlanResolutionResult("skills.new", resolution);
 
-  yield* renderer.success(`Created skill ${fqn}`);
+  const breadcrumbs = [
+    {
+      task: "edit",
+      description: `Edit \`.axm/extensions/${owner}/skills/${args.name}/src/SKILL.md\` to fill in instructions`,
+    },
+    {
+      task: "sync",
+      description: "Apply changes to your workspace",
+      command: ["axm", "sync"],
+    },
+  ];
+
+  const emitted = yield* emitPlanResolutionResult(
+    "skills.new",
+    resolution,
+    resolution._tag === "ExecutedPlan"
+      ? { summary: `Created skill ${fqn}`, breadcrumbs }
+      : undefined,
+  );
+
+  if (resolution._tag === "ExecutedPlan") {
+    yield* renderer.success(`Created skill ${fqn}`, { breadcrumbs, withoutBreadcrumbs: emitted });
+  }
 });
 
 const newConfig = {

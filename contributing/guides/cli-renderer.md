@@ -163,6 +163,8 @@ This keeps the published contract and the emitted bytes aligned.
 `CliRenderer` owns channel discipline:
 
 - `result` and `resultStream` emit command data to stdout
+- `breadcrumbs` emits advisory follow-up tasks; machine mode also emits
+  `breadcrumb` events on stderr
 - `json` and `raw` are escape hatches; use them sparingly
 - `info`, `message`, `success`, `warn`, `error`, spinners, and progress are
   diagnostics
@@ -249,6 +251,21 @@ Recommended top-level fields:
 Avoid top-level `type` for successful command results unless it adds real
 meaning. `command` already identifies the payload family.
 
+Advisory follow-up tasks use breadcrumbs. When a result needs breadcrumbs,
+wrap the encoded command document in the JSON envelope:
+
+```json
+{
+  "ok": true,
+  "data": { "_version": 1, "command": "commands.new", "result": {} },
+  "summary": "Created command @acme/commands/review",
+  "breadcrumbs": [
+    { "task": "edit", "description": "Edit `.axm/extensions/.../review.md`" },
+    { "task": "sync", "description": "Apply changes", "command": ["axm", "sync"] }
+  ]
+}
+```
+
 ---
 
 ## Field Rules
@@ -274,20 +291,23 @@ JSON errors should preserve the structured data already present in `AppError`.
 
 ```json
 {
-  "type": "error",
-  "_version": 1,
+  "ok": false,
   "code": "AUTH_TOKEN_REQUIRED",
   "message": "No authentication token is available",
   "details": ["Checked AXM_TOKEN and persisted credentials"],
   "howToFix": "Set AXM_TOKEN or run `axm auth login`.",
+  "breadcrumbs": [
+    { "task": "login", "description": "Authenticate", "command": ["axm", "auth", "login"] }
+  ],
   "exitCode": 1
 }
 ```
 
 Rules:
 
-- keep `type: "error"` for easy routing
+- use `ok: false` for error routing
 - include `details` and `howToFix` when available
+- include `breadcrumbs` for structured follow-up tasks when useful
 - include `exitCode`
 - keep stderr human-readable in all modes
 

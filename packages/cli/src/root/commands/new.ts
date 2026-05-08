@@ -117,10 +117,29 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     force: args.force,
     preview: args.preview,
   });
-  yield* emitPlanResolutionResult("commands.new", resolution);
+
+  const breadcrumbs = [
+    {
+      task: "edit",
+      description: `Edit \`.axm/extensions/${owner}/commands/${args.name}/src/COMMAND.md\` to fill in instructions`,
+    },
+    {
+      task: "sync",
+      description: "Apply changes to your workspace",
+      command: ["axm", "sync"],
+    },
+  ];
+
+  const emitted = yield* emitPlanResolutionResult(
+    "commands.new",
+    resolution,
+    resolution._tag === "ExecutedPlan"
+      ? { summary: `Created command ${fqn}`, breadcrumbs }
+      : undefined,
+  );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created command ${fqn}`);
+    yield* renderer.success(`Created command ${fqn}`, { breadcrumbs, withoutBreadcrumbs: emitted });
   }
 });
 

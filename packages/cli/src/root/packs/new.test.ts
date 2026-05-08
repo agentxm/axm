@@ -74,7 +74,7 @@ describe("packs-new.handler", () => {
 
   describe("success", () => {
     it.effect("creates pack manifest and registers in settings", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
@@ -112,6 +112,18 @@ describe("packs-new.handler", () => {
           });
 
           expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
+          expect(rendererState.breadcrumbs).toEqual([
+            {
+              task: "edit",
+              description:
+                "Edit `.axm/extensions/@acme/packs/frontend-tools/extension-pack.json` to fill in pack contents",
+            },
+            {
+              task: "sync",
+              description: "Apply changes to your workspace",
+              command: ["axm", "sync"],
+            },
+          ]);
         }),
       );
     });

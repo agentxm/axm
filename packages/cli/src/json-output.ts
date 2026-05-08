@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type {
+  Breadcrumb,
   CommandOutcomeSummary,
   SourceKind,
   SubjectType,
@@ -165,6 +166,11 @@ export const toPlanResolutionResult = (resolution: PlanResolution): PlanResoluti
 export const emitPlanResolutionResult = <TCommand extends string>(
   command: TCommand,
   resolution: PlanResolution,
+  options?: {
+    readonly summary?: string;
+    readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+    readonly withoutBreadcrumbs?: boolean;
+  },
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -172,6 +178,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       command,
       { result: toPlanResolutionResult(resolution) },
       PlanResolutionDocumentFields,
+      options,
     );
   });
 

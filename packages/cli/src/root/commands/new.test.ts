@@ -72,7 +72,7 @@ describe("commands-new.handler", () => {
 
   describe("success", () => {
     it.effect("creates command with manifest and COMMAND.md", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
@@ -113,6 +113,18 @@ describe("commands-new.handler", () => {
           expect(commandMd).toContain("description: A new command");
 
           expect(logs.success.some((m) => m.includes("@acme/commands/my-command"))).toBe(true);
+          expect(rendererState.breadcrumbs).toEqual([
+            {
+              task: "edit",
+              description:
+                "Edit `.axm/extensions/@acme/commands/my-command/src/COMMAND.md` to fill in instructions",
+            },
+            {
+              task: "sync",
+              description: "Apply changes to your workspace",
+              command: ["axm", "sync"],
+            },
+          ]);
         }),
       );
     });

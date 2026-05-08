@@ -8,6 +8,7 @@ import * as Stream from "effect/Stream";
 import { makeCommandDocument, makeCommandDocumentSchema } from "../cli-runtime/command-document.js";
 import {
   CliRenderer,
+  type BreadcrumbOptions,
   type BoxOptions,
   type DetailView,
   type LogMessage,
@@ -15,6 +16,7 @@ import {
   type ProgressHandle,
   type SpinnerHandle,
   type SpinnerOptions,
+  type SuccessOptions,
   type TableView,
   type TaskLogConfig,
   type TaskLogGroupHandle,
@@ -22,6 +24,7 @@ import {
   type TreeDef,
   type TreeNode,
 } from "./cli-renderer.js";
+import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all CliRenderer calls
@@ -51,6 +54,7 @@ export interface TestRendererState {
   readonly cancelMessages: Array<string>;
   readonly introTitles: Array<string>;
   readonly outroMessages: Array<string>;
+  readonly breadcrumbs: Array<Breadcrumb>;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +73,7 @@ const makeEmptyState = (): TestRendererState => ({
   cancelMessages: [],
   introTitles: [],
   outroMessages: [],
+  breadcrumbs: [],
 });
 
 const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
@@ -192,9 +197,12 @@ const makeTestRendererService = (
       Effect.sync(() => {
         state.logs.push({ _tag: "info", message });
       }),
-    success: (message: string) =>
+    success: (message: string, options?: SuccessOptions) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "success", message });
+        if (options?.withoutBreadcrumbs !== true && options?.breadcrumbs !== undefined) {
+          state.breadcrumbs.push(...options.breadcrumbs);
+        }
       }),
     step: (message: string) =>
       Effect.sync(() => {
@@ -204,9 +212,18 @@ const makeTestRendererService = (
       Effect.sync(() => {
         state.logs.push({ _tag: "warn", message });
       }),
-    error: (message: string) =>
+    error: (message: string, options?: BreadcrumbOptions) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "error", message });
+        if (options?.withoutBreadcrumbs !== true && options?.breadcrumbs !== undefined) {
+          state.breadcrumbs.push(...options.breadcrumbs);
+        }
+      }),
+    breadcrumbs: (crumbs: ReadonlyArray<Breadcrumb>, options?: BreadcrumbOptions) =>
+      Effect.sync(() => {
+        if (options?.withoutBreadcrumbs !== true) {
+          state.breadcrumbs.push(...crumbs);
+        }
       }),
     cancel: (message?: string) =>
       Effect.sync(() => {
@@ -397,16 +414,35 @@ const makeTestRendererService = (
       command: TCommand,
       body: Schema.Struct.Type<Fields>,
       fields: Fields,
+      options?: SuccessOptions,
     ) =>
       Effect.sync(() => {
+        if (
+          resultReturnValue &&
+          options?.withoutBreadcrumbs !== true &&
+          options?.breadcrumbs !== undefined
+        ) {
+          state.breadcrumbs.push(...options.breadcrumbs);
+        }
         state.results.push({
           data: makeCommandDocument(command, body),
           schema: Option.some(makeCommandDocumentSchema(command, fields)),
         });
         return resultReturnValue;
       }),
-    result: <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
+    result: <S extends Schema.Top>(
+      data: Schema.Schema.Type<S>,
+      schema: S,
+      options?: SuccessOptions,
+    ) =>
       Effect.sync(() => {
+        if (
+          resultReturnValue &&
+          options?.withoutBreadcrumbs !== true &&
+          options?.breadcrumbs !== undefined
+        ) {
+          state.breadcrumbs.push(...options.breadcrumbs);
+        }
         state.results.push({
           data,
           schema: Option.some(schema),

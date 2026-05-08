@@ -1,7 +1,8 @@
 import * as Console from "effect/Console";
 import * as Schema from "effect/Schema";
 
-import { JsonSchemaVersion, JsonSchemaVersionSchema } from "./json-envelope.js";
+const StreamEventVersion = 1;
+const StreamEventVersionSchema = Schema.Literal(StreamEventVersion);
 
 // ---------------------------------------------------------------------------
 // Output format
@@ -23,7 +24,7 @@ export type OutputFormat = "text" | "json";
 // ---------------------------------------------------------------------------
 
 export const ProgressEventSchema = Schema.Struct({
-  _version: JsonSchemaVersionSchema,
+  _version: StreamEventVersionSchema,
   type: Schema.Literal("progress"),
   phase: Schema.String,
   percent: Schema.Number,
@@ -36,7 +37,7 @@ export const ProgressEventSchema = Schema.Struct({
 export type ProgressEvent = typeof ProgressEventSchema.Type;
 
 export const LogEventSchema = Schema.Struct({
-  _version: JsonSchemaVersionSchema,
+  _version: StreamEventVersionSchema,
   type: Schema.Literal("log"),
   level: Schema.Literals(["info", "warn", "error"] as const).annotate({
     identifier: "LogLevel",
@@ -52,7 +53,7 @@ export const LogEventSchema = Schema.Struct({
 export type LogEvent = typeof LogEventSchema.Type;
 
 export const ErrorEventSchema = Schema.Struct({
-  _version: JsonSchemaVersionSchema,
+  _version: StreamEventVersionSchema,
   type: Schema.Literal("error"),
   code: Schema.String,
   message: Schema.String,
@@ -66,7 +67,20 @@ export const ErrorEventSchema = Schema.Struct({
 });
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 
-export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent;
+export const BreadcrumbEventSchema = Schema.Struct({
+  _version: StreamEventVersionSchema,
+  type: Schema.Literal("breadcrumb"),
+  task: Schema.String,
+  description: Schema.String,
+  command: Schema.optional(Schema.Array(Schema.String)),
+}).annotate({
+  identifier: "BreadcrumbEvent",
+  title: "Breadcrumb Event",
+  description: "NDJSON breadcrumb event with a suggested follow-up task.",
+});
+export type BreadcrumbEvent = typeof BreadcrumbEventSchema.Type;
+
+export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent | BreadcrumbEvent;
 
 // ---------------------------------------------------------------------------
 // Event emitter — writes a single NDJSON line to stderr
@@ -74,4 +88,4 @@ export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent;
 
 export const emitEvent = (event: StreamEvent) => Console.error(JSON.stringify(event));
 
-export { JsonSchemaVersion };
+export { StreamEventVersion };

@@ -3,9 +3,9 @@ import * as ServiceMap from "effect/Context";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
-import { JsonSchemaVersion } from "@agentxm/client-core/unstable/cli-runtime";
-
 import { LearnMore, makeAxmFormatter } from "./formatter.js";
+
+const JsonDocumentVersion = 1;
 
 const makeHelpDoc = (overrides: Partial<HelpDoc> = {}): HelpDoc => ({
   description: "",
@@ -203,7 +203,7 @@ describe("makeAxmFormatter", () => {
 
       const output = JSON.parse(jsonFormatter.formatHelpDoc(doc));
       expect(output).toMatchObject({
-        _version: JsonSchemaVersion,
+        _version: JsonDocumentVersion,
         type: "help",
         usage: "axm skills install [flags]",
         learnMore: footerText,
@@ -229,7 +229,7 @@ describe("makeAxmFormatter", () => {
 
     it("serializes version output as JSON", () => {
       expect(JSON.parse(jsonFormatter.formatVersion("axm", "1.2.3"))).toEqual({
-        _version: JsonSchemaVersion,
+        _version: JsonDocumentVersion,
         type: "version",
         name: "axm",
         version: "1.2.3",

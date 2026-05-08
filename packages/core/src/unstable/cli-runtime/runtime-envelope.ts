@@ -25,9 +25,44 @@ import { CommandArgv, serializeArgv } from "./command-argv.js";
 import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
+import type { Breadcrumb } from "./breadcrumb.js";
+import { StreamEventVersion } from "./output-mode.js";
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
+};
+
+const formatBreadcrumbCommand = (command: ReadonlyArray<string>): string => command.join(" ");
+
+const writeTextBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void => {
+  if (breadcrumbs.length === 0) {
+    return;
+  }
+
+  writeStderr(
+    [
+      "Next:",
+      ...breadcrumbs.map((crumb) => {
+        const command =
+          crumb.command === undefined ? "" : ` · ${formatBreadcrumbCommand(crumb.command)}`;
+        return `  ${crumb.description}${command}`;
+      }),
+    ].join("\n"),
+  );
+};
+
+const writeMachineBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void => {
+  for (const crumb of breadcrumbs) {
+    writeStderr(
+      JSON.stringify({
+        _version: StreamEventVersion,
+        type: "breadcrumb",
+        task: crumb.task,
+        description: crumb.description,
+        ...(crumb.command !== undefined ? { command: [...crumb.command] } : {}),
+      }),
+    );
+  }
 };
 
 export type ExpectedCliError = AppError | PromptCancelled;
@@ -53,9 +88,11 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
 
     if (format === "text") {
       writeStderr(renderAppError(error, { verbose, debug }));
+      writeTextBreadcrumbs(error.breadcrumbs ?? []);
       return;
     }
 
+    writeMachineBreadcrumbs(error.breadcrumbs ?? []);
     process.stdout.write(
       JSON.stringify(
         makeJsonErrorEnvelopeFromAppError(error, defaultExitCodeForExpectedError(error)),

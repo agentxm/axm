@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 
-import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
+import { StreamEventVersion } from "../cli-runtime/output-mode.js";
 import { CliRenderer, type DetailView, type TableView } from "./cli-renderer.js";
 import { MachineRenderer } from "./cli-renderer-machine.js";
 
@@ -48,7 +48,7 @@ const parseStderrEvents = () =>
     if (typeof event !== "object" || event === null || Array.isArray(event)) {
       throw new Error("Expected stderr event record");
     }
-    if (event._version !== JsonSchemaVersion) {
+    if (event._version !== StreamEventVersion) {
       throw new Error("Expected stderr event _version");
     }
     const { _version: _eventVersion, ...rest } = event;
@@ -127,6 +127,34 @@ describe("MachineRenderer", () => {
         );
         const events = parseStderrEvents();
         expect(events[0]).toEqual({ type: "log", level: "info", message: "Done" });
+      }),
+    );
+
+    it.effect("success emits breadcrumb events when provided", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.success("Done", {
+              breadcrumbs: [
+                { task: "edit", description: "Edit the file" },
+                { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+              ],
+            });
+          }),
+        );
+        const events = parseStderrEvents();
+        expect(events).toEqual([
+          { type: "log", level: "info", message: "Done" },
+          { type: "breadcrumb", task: "edit", description: "Edit the file" },
+          {
+            type: "breadcrumb",
+            task: "sync",
+            description: "Apply changes",
+            command: ["axm", "sync"],
+          },
+        ]);
+        expect(stdoutWrites).toHaveLength(0);
       }),
     );
 
@@ -427,6 +455,51 @@ describe("MachineRenderer", () => {
           command: "skills.list",
           items: [{ name: "my-skill" }],
           count: 1,
+        });
+      }),
+    );
+
+    it.effect("wraps command document output in a success envelope with breadcrumbs", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.document(
+              "commands.new",
+              { result: { outcome: "applied" } },
+              { result: Schema.Struct({ outcome: Schema.Literal("applied") }) },
+              {
+                summary: "Created command @acme/commands/my-command",
+                breadcrumbs: [
+                  { task: "edit", description: "Edit the file" },
+                  { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+                ],
+              },
+            );
+          }),
+        );
+
+        expect(parseStderrEvents()).toEqual([
+          { type: "breadcrumb", task: "edit", description: "Edit the file" },
+          {
+            type: "breadcrumb",
+            task: "sync",
+            description: "Apply changes",
+            command: ["axm", "sync"],
+          },
+        ]);
+        expect(parseStdout()[0]).toEqual({
+          ok: true,
+          data: {
+            _version: 1,
+            command: "commands.new",
+            result: { outcome: "applied" },
+          },
+          summary: "Created command @acme/commands/my-command",
+          breadcrumbs: [
+            { task: "edit", description: "Edit the file" },
+            { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+          ],
         });
       }),
     );

@@ -135,6 +135,32 @@ describe("InteractiveRenderer", () => {
         expect(stdoutWrites).toHaveLength(0);
       }),
     );
+
+    it.effect("renders breadcrumbs after success output", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.success("Created", {
+              breadcrumbs: [
+                { task: "edit", description: "Edit `.axm/extensions/example.md`" },
+                {
+                  task: "sync",
+                  description: "Apply changes to your workspace",
+                  command: ["axm", "sync"],
+                },
+              ],
+            });
+          }),
+        );
+
+        const output = stripAnsi(stderrWrites.join(""));
+        expect(output).toContain("✔  Created\n");
+        expect(output).toContain("Next:\n");
+        expect(output).toContain("  Edit `.axm/extensions/example.md`\n");
+        expect(output).toContain("  Apply changes to your workspace · axm sync\n");
+      }),
+    );
   });
 
   describe("activity methods", () => {

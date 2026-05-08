@@ -6,19 +6,23 @@ import * as Stream from "effect/Stream";
 
 import {
   CliRenderer,
+  type BreadcrumbOptions,
   type DetailView,
   type LogLevel,
   type ProgressConfig,
   type ProgressHandle,
   type SpinnerHandle,
   type SpinnerOptions,
+  type SuccessOptions,
   type TableView,
   type TaskLogConfig,
   type TaskLogGroupHandle,
   type TaskLogHandle,
 } from "./cli-renderer.js";
+import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import { makeCommandDocument, makeCommandDocumentSchema } from "../cli-runtime/command-document.js";
-import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
+import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
+import { StreamEventVersion } from "../cli-runtime/output-mode.js";
 
 // ---------------------------------------------------------------------------
 // Helpers — NDJSON event emission to stderr
@@ -26,7 +30,7 @@ import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
 
 const emitStderrEvent = (event: Record<string, unknown>) =>
   Effect.sync(() => {
-    process.stderr.write(JSON.stringify({ _version: JsonSchemaVersion, ...event }) + "\n");
+    process.stderr.write(JSON.stringify({ _version: StreamEventVersion, ...event }) + "\n");
   });
 
 const emitLogEvent = (level: "info" | "warn" | "error", message: string) =>
@@ -37,6 +41,45 @@ const levelToLogLevel = (level: LogLevel): "info" | "warn" | "error" => {
   if (level === "error") return "error";
   return "info";
 };
+
+const normalizeBreadcrumbs = (
+  crumbs: ReadonlyArray<Breadcrumb> | undefined,
+  options?: BreadcrumbOptions,
+): ReadonlyArray<Breadcrumb> =>
+  options?.withoutBreadcrumbs === true || crumbs === undefined || crumbs.length === 0 ? [] : crumbs;
+
+const emitBreadcrumbs = (
+  crumbs: ReadonlyArray<Breadcrumb> | undefined,
+  options?: BreadcrumbOptions,
+) =>
+  Effect.forEach(
+    normalizeBreadcrumbs(crumbs, options),
+    (crumb) =>
+      emitStderrEvent({
+        type: "breadcrumb",
+        task: crumb.task,
+        description: crumb.description,
+        ...(crumb.command !== undefined ? { command: [...crumb.command] } : {}),
+      }),
+    { concurrency: 1 },
+  ).pipe(Effect.asVoid);
+
+const shouldWrapSuccess = (options: SuccessOptions | undefined): boolean =>
+  options?.data !== undefined ||
+  options?.summary !== undefined ||
+  normalizeBreadcrumbs(options?.breadcrumbs, options).length > 0;
+
+const makeSuccessEnvelope = (data: unknown, options: SuccessOptions | undefined) => {
+  const summary = options?.summary;
+  return makeJsonSuccessEnvelope({
+    data,
+    ...(summary !== undefined ? { summary } : {}),
+    breadcrumbs: normalizeBreadcrumbs(options?.breadcrumbs, options),
+  });
+};
+
+const wrapSuccessOutput = (data: unknown, options: SuccessOptions | undefined): unknown =>
+  shouldWrapSuccess(options) ? makeSuccessEnvelope(data, options) : data;
 
 // ---------------------------------------------------------------------------
 // Noop handles for machine mode
@@ -211,10 +254,17 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     outro: (message) => emitLogEvent("info", message),
     message: (message) => emitLogEvent("info", message),
     info: (message) => emitLogEvent("info", message),
-    success: (message) => emitLogEvent("info", message),
+    success: (message, options?: SuccessOptions) =>
+      emitLogEvent("info", message).pipe(
+        Effect.andThen(emitBreadcrumbs(options?.breadcrumbs, options)),
+      ),
     step: (message) => emitLogEvent("info", message),
     warn: (message) => emitLogEvent("warn", message),
-    error: (message) => emitLogEvent("error", message),
+    error: (message, options?: BreadcrumbOptions) =>
+      emitLogEvent("error", message).pipe(
+        Effect.andThen(emitBreadcrumbs(options?.breadcrumbs, options)),
+      ),
+    breadcrumbs: emitBreadcrumbs,
     cancel: (message) => (message ? emitLogEvent("info", message) : Effect.void),
     note: (message, title) => emitLogEvent("info", title ? `${title}: ${message}` : message),
     box: (message, title) => emitLogEvent("info", title ? `${title}: ${message}` : message),
@@ -323,16 +373,25 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       command: TCommand,
       body: Schema.Struct.Type<Fields>,
       fields: Fields,
+      options?: SuccessOptions,
     ) =>
       encodeUnknownJson(
         makeCommandDocument(command, body),
         makeCommandDocumentSchema(command, fields),
       ).pipe(
+        Effect.tap(() => emitBreadcrumbs(options?.breadcrumbs, options)),
+        Effect.map((encoded) => wrapSuccessOutput(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),
       ),
-    result: <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
+    result: <S extends Schema.Top>(
+      data: Schema.Schema.Type<S>,
+      schema: S,
+      options?: SuccessOptions,
+    ) =>
       encodeJson(data, schema).pipe(
+        Effect.tap(() => emitBreadcrumbs(options?.breadcrumbs, options)),
+        Effect.map((encoded) => wrapSuccessOutput(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),
       ),

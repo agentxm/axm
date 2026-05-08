@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer";
 
 import {
   CliRenderer,
+  type BreadcrumbOptions,
   type DetailView,
   type ResolvedDetailField,
   type ProgressConfig,
@@ -11,12 +12,17 @@ import {
   type ResolvedTableColumn,
   type SpinnerHandle,
   type SpinnerOptions,
+  type SuccessOptions,
   type TableView,
   type TreeDef,
   type TreeNode,
 } from "./cli-renderer.js";
+import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import * as chrome from "./ansi-chrome.js";
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
+
+const ANSI_DIM = "\u001b[2m";
+const ANSI_RESET = "\u001b[0m";
 
 // ---------------------------------------------------------------------------
 // Stdout helpers
@@ -30,6 +36,11 @@ const writeStdout = (content: string) =>
 const writeStdoutLine = (content: string) =>
   Effect.sync(() => {
     process.stdout.write(content + "\n");
+  });
+
+const writeStderrLine = (content: string) =>
+  Effect.sync(() => {
+    process.stderr.write(content + "\n");
   });
 
 // ---------------------------------------------------------------------------
@@ -230,6 +241,37 @@ const taskCompletionMessage = (title: string, result: string | void): string => 
   return `${title}: ${result}`;
 };
 
+const formatCommand = (command: ReadonlyArray<string>): string => command.join(" ");
+
+const normalizeBreadcrumbs = (
+  crumbs: ReadonlyArray<Breadcrumb> | undefined,
+  options?: BreadcrumbOptions,
+): ReadonlyArray<Breadcrumb> =>
+  options?.withoutBreadcrumbs === true || crumbs === undefined || crumbs.length === 0 ? [] : crumbs;
+
+const renderBreadcrumbs = (
+  crumbs: ReadonlyArray<Breadcrumb>,
+  options?: BreadcrumbOptions,
+): Effect.Effect<void> => {
+  const visible = normalizeBreadcrumbs(crumbs, options);
+  if (visible.length === 0) {
+    return Effect.void;
+  }
+
+  const lines = [
+    `${ANSI_DIM}Next:${ANSI_RESET}`,
+    ...visible.map((crumb) => {
+      const command =
+        crumb.command === undefined
+          ? ""
+          : `${ANSI_DIM} · ${formatCommand(crumb.command)}${ANSI_RESET}`;
+      return `  ${crumb.description}${command}`;
+    }),
+  ];
+
+  return writeStderrLine(lines.join("\n"));
+};
+
 export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
   const liveWithSpinner = <A, E, R>(
     message: string,
@@ -295,10 +337,17 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
     outro: chrome.outro,
     message: (message) => chrome.logLine("message", message),
     info: (message) => chrome.logLine("info", message),
-    success: (message) => chrome.logLine("success", message),
+    success: (message, options?: SuccessOptions) =>
+      chrome
+        .logLine("success", message)
+        .pipe(Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], options))),
     step: (message) => chrome.logLine("step", message),
     warn: (message) => chrome.logLine("warn", message),
-    error: (message) => chrome.logLine("error", message),
+    error: (message, options?: BreadcrumbOptions) =>
+      chrome
+        .logLine("error", message)
+        .pipe(Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], options))),
+    breadcrumbs: renderBreadcrumbs,
     cancel: (message) => chrome.cancel(message ?? "Cancelled"),
     note: chrome.note,
     box: chrome.box,

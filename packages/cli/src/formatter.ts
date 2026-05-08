@@ -9,12 +9,10 @@ import * as ServiceMap from "effect/Context";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
-import {
-  JsonSchemaVersion,
-  JsonSchemaVersionSchema,
-} from "@agentxm/client-core/unstable/cli-runtime";
-
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
+
+const JsonDocumentVersion = 1;
+const JsonDocumentVersionSchema = Schema.Literal(JsonDocumentVersion);
 
 /**
  * Annotation key for "learn more" footer text.
@@ -92,7 +90,7 @@ type JsonExampleDoc = {
 };
 
 type JsonHelpDoc = {
-  readonly _version: typeof JsonSchemaVersion;
+  readonly _version: typeof JsonDocumentVersion;
   readonly type: "help";
   readonly description: string;
   readonly usage: string;
@@ -138,7 +136,7 @@ const JsonExampleDocSchema = Schema.Struct({
 });
 
 const JsonHelpDocSchema = Schema.Struct({
-  _version: JsonSchemaVersionSchema,
+  _version: JsonDocumentVersionSchema,
   type: Schema.Literal("help"),
   description: Schema.String,
   usage: Schema.String,
@@ -151,7 +149,7 @@ const JsonHelpDocSchema = Schema.Struct({
 });
 
 const JsonVersionDocSchema = Schema.Struct({
-  _version: JsonSchemaVersionSchema,
+  _version: JsonDocumentVersionSchema,
   type: Schema.Literal("version"),
   name: Schema.String,
   version: Schema.String,
@@ -170,7 +168,7 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   const learnMore = getLearnMore(doc);
 
   return {
-    _version: JsonSchemaVersion,
+    _version: JsonDocumentVersion,
     type: "help",
     description: adjusted.description,
     usage: adjusted.usage,
@@ -300,7 +298,7 @@ export const makeAxmFormatter = (options?: {
       json
         ? JSON.stringify(
             Schema.encodeSync(JsonVersionDocSchema)({
-              _version: JsonSchemaVersion,
+              _version: JsonDocumentVersion,
               type: "version",
               name,
               version,

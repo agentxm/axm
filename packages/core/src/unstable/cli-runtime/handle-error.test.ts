@@ -3,7 +3,6 @@ import { CliError } from "effect/unstable/cli";
 import { classifyError } from "./handle-error.js";
 import { handleError } from "./handle-error.js";
 import { effectCliExit } from "./effect-cli-exit.js";
-import { JsonSchemaVersion } from "./json-envelope.js";
 
 // ---------------------------------------------------------------------------
 // classifyError — pure classification tests
@@ -72,8 +71,7 @@ describe("classifyError — CliError (non-ShowHelp)", () => {
     expect(result.output?.channel).toBe("stdout");
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
-      _version: JsonSchemaVersion,
-      type: "error",
+      ok: false,
       code: "USAGE_ERROR",
       exitCode: 2,
     });
@@ -109,8 +107,7 @@ describe("classifyError — generic errors", () => {
     expect(result.output?.channel).toBe("stdout");
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
-      _version: JsonSchemaVersion,
-      type: "error",
+      ok: false,
       code: "UNKNOWN_ERROR",
       message: "boom",
       exitCode: 1,

@@ -3,15 +3,26 @@ export type {
   ProgressEvent,
   LogEvent,
   ErrorEvent,
+  BreadcrumbEvent,
   StreamEvent,
 } from "./output-mode.js";
-export { ProgressEventSchema, LogEventSchema, ErrorEventSchema, emitEvent } from "./output-mode.js";
 export {
-  JsonSchemaVersion,
-  JsonSchemaVersionSchema,
+  ProgressEventSchema,
+  LogEventSchema,
+  ErrorEventSchema,
+  BreadcrumbEventSchema,
+  emitEvent,
+} from "./output-mode.js";
+export { BreadcrumbSchema, type Breadcrumb } from "./breadcrumb.js";
+export {
+  JsonEnvelopeSchema,
+  JsonSuccessEnvelopeSchema,
   JsonErrorEnvelopeSchema,
+  makeJsonSuccessEnvelope,
   makeJsonErrorEnvelope,
   makeJsonErrorEnvelopeFromAppError,
+  type JsonEnvelope,
+  type JsonSuccessEnvelope,
   type JsonErrorEnvelope,
 } from "./json-envelope.js";
 export {

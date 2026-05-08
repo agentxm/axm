@@ -113,9 +113,33 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     force: args.force,
     preview: args.preview,
   });
-  yield* emitPlanResolutionResult("packs.new", resolution);
 
-  yield* renderer.success(`Created extension pack ${fqn}`);
+  const breadcrumbs = [
+    {
+      task: "edit",
+      description: `Edit \`.axm/extensions/${owner}/packs/${args.name}/extension-pack.json\` to fill in pack contents`,
+    },
+    {
+      task: "sync",
+      description: "Apply changes to your workspace",
+      command: ["axm", "sync"],
+    },
+  ];
+
+  const emitted = yield* emitPlanResolutionResult(
+    "packs.new",
+    resolution,
+    resolution._tag === "ExecutedPlan"
+      ? { summary: `Created extension pack ${fqn}`, breadcrumbs }
+      : undefined,
+  );
+
+  if (resolution._tag === "ExecutedPlan") {
+    yield* renderer.success(`Created extension pack ${fqn}`, {
+      breadcrumbs,
+      withoutBreadcrumbs: emitted,
+    });
+  }
 });
 
 const newConfig = {

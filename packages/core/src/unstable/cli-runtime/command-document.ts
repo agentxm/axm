@@ -1,9 +1,10 @@
 import * as Schema from "effect/Schema";
 
-import { JsonSchemaVersion, JsonSchemaVersionSchema } from "./json-envelope.js";
+const CommandDocumentVersion = 1;
+const CommandDocumentVersionSchema = Schema.Literal(CommandDocumentVersion);
 
 export type CommandDocument<TCommand extends string, TBody extends object> = {
-  readonly _version: typeof JsonSchemaVersion;
+  readonly _version: typeof CommandDocumentVersion;
   readonly command: TCommand;
 } & TBody;
 
@@ -11,7 +12,7 @@ export const makeCommandDocument = <TCommand extends string, TBody extends objec
   command: TCommand,
   body: TBody,
 ): CommandDocument<TCommand, TBody> => ({
-  _version: JsonSchemaVersion,
+  _version: CommandDocumentVersion,
   command,
   ...body,
 });
@@ -24,7 +25,7 @@ export const makeCommandDocumentSchema = <
   fields: Fields,
 ) =>
   Schema.Struct({
-    _version: JsonSchemaVersionSchema,
+    _version: CommandDocumentVersionSchema,
     command: Schema.Literal(command),
     ...fields,
   });

@@ -104,7 +104,6 @@ describe("view handler", () => {
 
         expect(rendererState.results[0]?.data).toEqual(
           expect.objectContaining({
-            command: "view",
             data: expect.objectContaining({
               handle: "@test/skills/code-review",
               latest: { version: "1.2.3", published: "2026-01-01T00:00:00.000Z" },

@@ -169,11 +169,6 @@ export const runCliInvocation = (
       makeAppError({
         code: "CODING_AGENT_MCP_CLI_EXECUTION_FAILED",
         what: `Failed to execute MCP CLI command: ${invocation.command}`,
-        details: [
-          `args=${redactSecrets(invocation.args.join(" "))}`,
-          `cwd=${invocation.cwd}`,
-          `error=${String(error)}`,
-        ],
         cause: error,
       }),
   });
@@ -187,7 +182,6 @@ const decodeJsonConfig = (
       makeAppError({
         code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
         what: `Invalid MCP config format: ${configPath}`,
-        details: [error.message],
         cause: error,
       }),
     ),

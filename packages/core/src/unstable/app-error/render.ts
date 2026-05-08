@@ -17,27 +17,12 @@ const isAppError = (cause: unknown): cause is AppError =>
 const formatCause = (
   cause: unknown,
   options: { readonly verbose: boolean; readonly debug: boolean },
-  parentDetails: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
   if (cause === undefined || cause === null) return [];
 
   if (isAppError(cause)) {
     const causeHeadline = `${cause.what} (${cause.code})`;
-    const parentDetailSet = new Set(parentDetails);
-    const hasEquivalentParentSummary = Array.from(parentDetailSet).some(
-      (detail) => detail === causeHeadline || detail.endsWith(`: ${causeHeadline}`),
-    );
-    const lines = hasEquivalentParentSummary ? [] : [`Cause: ${causeHeadline}`];
-
-    if (options.debug) {
-      for (const detail of cause.details) {
-        if (parentDetailSet.has(detail)) {
-          continue;
-        }
-        lines.push(`Cause detail: ${detail}`);
-      }
-    }
-    return lines;
+    return [`Cause: ${causeHeadline}`];
   }
 
   if (cause instanceof Error) {
@@ -71,16 +56,12 @@ export const renderAppError = (
 
   lines.push(`\u2717 ${error.what} (${error.code})`);
 
-  for (const detail of error.details) {
-    lines.push(`  ${detail}`);
-  }
-
   if (Option.isSome(error.howToFix)) {
     lines.push(`  ${error.howToFix.value}`);
   }
 
   if (options.verbose || options.debug) {
-    for (const line of formatCause(error.cause, options, error.details)) {
+    for (const line of formatCause(error.cause, options)) {
       lines.push(`  ${line}`);
     }
   }

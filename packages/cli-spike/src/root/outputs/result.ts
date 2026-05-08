@@ -7,10 +7,7 @@ import {
   type DetailView,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  makeCommandDocumentSchema,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 
@@ -64,10 +61,7 @@ const OutputsResultDocumentFields = {
   count: Schema.Number,
 } satisfies Schema.Struct.Fields;
 
-export const OutputsResultOutputSchema = makeCommandDocumentSchema(
-  "outputs.result",
-  OutputsResultDocumentFields,
-);
+export const OutputsResultOutputSchema = Schema.Struct(OutputsResultDocumentFields);
 export type OutputsResultOutput = typeof OutputsResultOutputSchema.Type;
 
 const sampleData: PetResult = {
@@ -92,7 +86,7 @@ const resultConfig = {
 export const handleResult = (args: { readonly stream: boolean }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const body: Schema.Struct.Type<typeof OutputsResultDocumentFields> = args.stream
+    const body: OutputsResultOutput = args.stream
       ? {
           data: {
             kind: "list",
@@ -108,7 +102,7 @@ export const handleResult = (args: { readonly stream: boolean }) =>
           count: 1,
         };
 
-    if (yield* renderer.document("outputs.result", body, OutputsResultDocumentFields)) {
+    if (yield* renderer.result(body, OutputsResultOutputSchema)) {
       return;
     }
 

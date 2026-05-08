@@ -82,16 +82,6 @@ const isAppErrorCheck = (error: unknown): error is AppError =>
   "what" in error &&
   "code" in error;
 
-const summarizeDiscoverError = (error: unknown): string => {
-  if (isAppErrorCheck(error)) {
-    return `${error.what} (${error.code})`;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-};
-
 const isRemoteReadNotImplemented = (error: unknown): boolean =>
   isAppErrorCheck(error) &&
   (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
@@ -221,7 +211,6 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                   return yield* makeAppError({
                     code: "INVALID_SOURCE",
                     what: "Invalid source: Unable to parse source",
-                    details: [`Provided: ${args.source || "(empty)"}`],
                     howToFix:
                       "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
                   });
@@ -317,11 +306,9 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                       Array.filter((ref): ref is SubagentExtensionRef => ref.type === "subagent"),
                     ),
                     Effect.mapError((error) => {
-                      const reason = summarizeDiscoverError(error);
                       return makeAppError({
                         code: "DISCOVER_FAILED",
                         what: "Failed to discover subagents from source",
-                        details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
                         howToFix: discoverHowToFix(req.source, error),
                         cause: error,
                       });
@@ -333,7 +320,6 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                             makeAppError({
                               code: "NO_SUBAGENTS_FOUND",
                               what: "No subagents found in source",
-                              details: [`Source: ${sources.origin(req.source)}`],
                               howToFix: noSubagentsFoundHowToFix(req.source),
                             }),
                           ),

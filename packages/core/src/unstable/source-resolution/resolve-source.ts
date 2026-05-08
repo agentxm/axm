@@ -73,7 +73,7 @@ const firstSuccess = <A, E, R>(
 // -----------------------------------------------------------------------------
 
 /** Get configured sources from workspace, mapping errors to AppError. */
-const getConfiguredSources = (input: string) =>
+const getConfiguredSources = (_input: string) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     return yield* ws.getConfiguredSources().pipe(
@@ -81,7 +81,6 @@ const getConfiguredSources = (input: string) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to get configured sources: ${e._tag}`,
-          details: [input],
         }),
       ),
     );
@@ -112,7 +111,6 @@ const parseShorthandForSource = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
-          details: [input],
         }),
       );
   }
@@ -125,14 +123,13 @@ const parseShorthandForSource = (
 const configToSource = (
   config: SourceHostConfig,
   params: SourceParams,
-  input: string,
+  _input: string,
 ): Effect.Effect<Source, AppError> => {
   const mismatch = () =>
     Effect.fail(
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Source params type "${params.type}" does not match config type "${config.type}"`,
-        details: [input],
       }),
     );
 
@@ -173,7 +170,6 @@ export const routeUrlInput = (url: URL, input: string) =>
     const noMatch = makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `No configured source matches URL "${url.href}"`,
-      details: [input],
     });
 
     const tryParseUrl = (
@@ -205,7 +201,6 @@ export const routeUrlInput = (url: URL, input: string) =>
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `No configured source matches URL "${url.href}"`,
-        details: [input],
       }),
     );
   });
@@ -221,7 +216,6 @@ const routeOpaqueUrl = (url: URL, input: string) =>
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Unable to parse source",
-        details: [input],
       });
     }
 
@@ -244,7 +238,6 @@ const routeOpaqueUrl = (url: URL, input: string) =>
     return yield* makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `No configured source matches URL "${url.href}"`,
-      details: [input],
     });
   });
 
@@ -266,7 +259,6 @@ export const routeScpInput = (
     const noMatch = makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `No configured source matches SCP address "${scpInput}"`,
-      details: [input],
     });
 
     const tryParseScp = (
@@ -300,7 +292,6 @@ export const routeScpInput = (
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `No configured source matches SCP address "${scpInput}"`,
-        details: [input],
       }),
     );
   });
@@ -331,7 +322,6 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
         return yield* makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `No source config found for source type "${prefix}". Add a source config via settings.`,
-          details: [input],
         });
       }
       return yield* configToSource(config, params, input);
@@ -343,7 +333,6 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Unknown shorthand prefix: "${prefix}"`,
-        details: [input],
       });
     }
 
@@ -362,7 +351,7 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 /** Route NameInput: look up installed skill in lockfile, then configured skills. */
 export const routeNameInput = (
   name: string,
-  input: string,
+  _input: string,
 ): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -373,7 +362,6 @@ export const routeNameInput = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to read lockfile: ${e._tag}`,
-          details: [input],
         }),
       ),
     );
@@ -388,7 +376,6 @@ export const routeNameInput = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to read settings: ${e._tag}`,
-          details: [input],
         }),
       ),
     );
@@ -400,7 +387,6 @@ export const routeNameInput = (
     return yield* makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
-      details: [input],
     });
   });
 
@@ -411,7 +397,7 @@ export const routeRegistryInput = (
     readonly owner: Handle;
     readonly name: Option.Option<ExtensionName>;
   },
-  input: string,
+  _input: string,
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -422,7 +408,6 @@ export const routeRegistryInput = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to get registry sources: ${e._tag}`,
-          details: [input],
         }),
       ),
     );
@@ -431,7 +416,6 @@ export const routeRegistryInput = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `No registry source configured for owner "${pattern.owner}"`,
-        details: [input],
       });
     }
 
@@ -440,7 +424,6 @@ export const routeRegistryInput = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `No registry source configured for owner "${pattern.owner}"`,
-        details: [input],
       });
     }
     return {
@@ -492,7 +475,6 @@ export const resolveSlashInputSource = (
             makeAppError({
               code: "SOURCE_PARSE_FAILED",
               what: `Failed to get registry sources: ${e._tag}`,
-              details: [input],
             }),
           ),
         );
@@ -537,7 +519,6 @@ export const resolveSlashInputSource = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — no git hosting sources configured`,
-        details: [input],
       });
     }
 
@@ -545,7 +526,6 @@ export const resolveSlashInputSource = (
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — use github:${pattern.first}/${pattern.second}, gitlab:${pattern.first}/${pattern.second}, or bitbucket:${pattern.first}/${pattern.second}`,
-        details: [input],
       }),
     );
   });
@@ -575,7 +555,6 @@ export const resolveSource = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Source string cannot be empty",
-        details: [input],
       });
     }
 
@@ -584,7 +563,6 @@ export const resolveSource = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Unable to parse source",
-        details: [input],
       });
     }
 
@@ -612,7 +590,6 @@ export const resolveSource = (
         return yield* makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
-          details: [input],
         });
     }
   });

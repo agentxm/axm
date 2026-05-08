@@ -3,10 +3,7 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  makeCommandDocumentSchema,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { type FakePetHabitat, FakePetStore } from "../../fake-pet-store.js";
 import { withRuntime } from "../../runtime.js";
@@ -44,7 +41,7 @@ const PetsListDocumentFields = {
   count: Schema.Number,
 } satisfies Schema.Struct.Fields;
 
-export const PetsListOutputSchema = makeCommandDocumentSchema("pets.list", PetsListDocumentFields);
+export const PetsListOutputSchema = Schema.Struct(PetsListDocumentFields);
 export type PetsListOutput = typeof PetsListOutputSchema.Type;
 
 const listConfig = {
@@ -67,10 +64,9 @@ export const handleList = (args: {
       args.species.length === 0 ? pets : pets.filter((pet) => args.species.includes(pet.species));
 
     if (
-      yield* renderer.document(
-        "pets.list",
+      yield* renderer.result(
         { items: filteredPets, count: filteredPets.length },
-        PetsListDocumentFields,
+        PetsListOutputSchema,
       )
     ) {
       return;
@@ -109,7 +105,7 @@ export const listCommand = Command.make("list", listConfig, ({ habitat, species 
     },
     {
       command: "axm-spike pets list --json",
-      description: "Emit { command, items, count }",
+      description: "Emit { ok, items, count }",
     },
   ]),
 );

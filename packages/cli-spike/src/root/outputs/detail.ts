@@ -4,10 +4,7 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  makeCommandDocumentSchema,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 
@@ -39,10 +36,7 @@ const OutputsDetailDocumentFields = {
   data: SamplePetDetailSchema,
 } satisfies Schema.Struct.Fields;
 
-export const OutputsDetailOutputSchema = makeCommandDocumentSchema(
-  "outputs.detail",
-  OutputsDetailDocumentFields,
-);
+export const OutputsDetailOutputSchema = Schema.Struct(OutputsDetailDocumentFields);
 export type OutputsDetailOutput = typeof OutputsDetailOutputSchema.Type;
 
 const sampleItem: SamplePetDetail = {
@@ -62,9 +56,7 @@ export const handleDetail = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
 
-    if (
-      yield* renderer.document("outputs.detail", { data: sampleItem }, OutputsDetailDocumentFields)
-    ) {
+    if (yield* renderer.result({ data: sampleItem }, OutputsDetailOutputSchema)) {
       return;
     }
 
@@ -85,7 +77,7 @@ export const detailCommand = Command.make("detail", detailConfig, ({ title }) =>
     },
     {
       command: "axm-spike outputs detail --json",
-      description: "Emit { command, data } for one sample pet",
+      description: "Emit { ok, data } for one sample pet",
     },
   ]),
 );

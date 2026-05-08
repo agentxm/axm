@@ -184,7 +184,6 @@ export const publishMcpServer: (
           makeAppError({
             code: "PUBLISH_MCP_SERVER_PUBLISH_FAILED",
             what: "Failed to publish to registry",
-            details: [e.what],
             cause: e,
           }),
         ),

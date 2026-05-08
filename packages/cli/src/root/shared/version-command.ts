@@ -66,7 +66,6 @@ const parseBump = (bump: string) => {
       return makeAppError({
         code: "VERSION_BUMP_INVALID",
         what: `Invalid version bump: ${bump}`,
-        details: ["Supported bumps: patch, minor, major, prerelease, set"],
       });
   }
 };
@@ -101,10 +100,9 @@ export const handleVersion = (args: VersionHandlerArgs) =>
 
     const renderer = yield* CliRenderer;
     if (
-      yield* renderer.document(
-        `${extensionTypeToPlural[args.type]}.version`,
+      yield* renderer.result(
         { result: toVersionDocument(result) },
-        VersionDocumentFields,
+        Schema.Struct(VersionDocumentFields),
       )
     ) {
       return;
@@ -174,8 +172,6 @@ const supportedHandleHints = versionableTypes
   .map((type) => `\`@owner/${extensionTypeToPlural[type]}/name\``)
   .join(", ");
 
-const supportedTypeList = versionableTypes.map((type) => extensionTypeToPlural[type]).join(", ");
-
 const inferVersionableType = (handle: string) =>
   Effect.gen(function* () {
     const fqn = yield* parseFqn(handle);
@@ -183,7 +179,6 @@ const inferVersionableType = (handle: string) =>
       return yield* makeAppError({
         code: "INVALID_EXTENSION_TYPE",
         what: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
-        details: [`Supported types: ${supportedTypeList}`],
         howToFix: `Use a handle like ${supportedHandleHints}.`,
       });
     }

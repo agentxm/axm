@@ -160,21 +160,18 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_INVALID_FORMAT",
               what: "MCP server source must include /mcp-servers/ segment",
-              details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/mcp-servers/server-name format.",
             });
           case "missing-name":
             return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_MISSING_NAME",
               what: "MCP server source must include a server name",
-              details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/mcp-servers/server-name format.",
             });
           default:
             return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
               what: "MCP servers can only be installed from a registry",
-              details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/mcp-servers/server-name or just server-name.",
             });
         }
@@ -190,7 +187,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               makeAppError({
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
-                details: [`Provided: ${parsed.resolvedInput}`],
                 howToFix: "Use @owner/mcp-servers/server-name or just server-name.",
                 cause: error,
               }),
@@ -201,7 +197,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
               what: "MCP servers can only be installed from a registry",
-              details: [`Provided source type: ${source.type}`],
               howToFix: "Use a registry source: @owner/mcp-servers/server-name",
             });
           }
@@ -237,7 +232,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                     makeAppError({
                       code: "MCP_SERVER_FETCH_FAILED",
                       what: "Failed to fetch MCP server from registry",
-                      details: [`Server: ${req.owner}/mcp-servers/${req.serverName}`],
                       howToFix: "Verify the server name and registry configuration.",
                       cause: error,
                     }),

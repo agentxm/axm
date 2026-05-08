@@ -7,7 +7,8 @@ import * as Stream from "effect/Stream";
 import {
   CliRenderer,
   type BreadcrumbOptions,
-  type DetailView,
+  type DetailOptions,
+  type ListPayload,
   type LogLevel,
   type ProgressConfig,
   type ProgressHandle,
@@ -15,14 +16,13 @@ import {
   type SpinnerOptions,
   type SuccessOptions,
   type TableView,
+  type TreePayload,
   type TaskLogConfig,
   type TaskLogGroupHandle,
   type TaskLogHandle,
 } from "./cli-renderer.js";
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
-import { makeCommandDocument, makeCommandDocumentSchema } from "../cli-runtime/command-document.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
-import { StreamEventVersion } from "../cli-runtime/output-mode.js";
 
 // ---------------------------------------------------------------------------
 // Helpers — NDJSON event emission to stderr
@@ -30,7 +30,7 @@ import { StreamEventVersion } from "../cli-runtime/output-mode.js";
 
 const emitStderrEvent = (event: Record<string, unknown>) =>
   Effect.sync(() => {
-    process.stderr.write(JSON.stringify({ _version: StreamEventVersion, ...event }) + "\n");
+    process.stderr.write(JSON.stringify(event) + "\n");
   });
 
 const emitLogEvent = (level: "info" | "warn" | "error", message: string) =>
@@ -60,26 +60,19 @@ const emitBreadcrumbs = (
         task: crumb.task,
         description: crumb.description,
         ...(crumb.command !== undefined ? { command: [...crumb.command] } : {}),
+        ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
       }),
     { concurrency: 1 },
   ).pipe(Effect.asVoid);
 
-const shouldWrapSuccess = (options: SuccessOptions | undefined): boolean =>
-  options?.data !== undefined ||
-  options?.summary !== undefined ||
-  normalizeBreadcrumbs(options?.breadcrumbs, options).length > 0;
-
 const makeSuccessEnvelope = (data: unknown, options: SuccessOptions | undefined) => {
   const summary = options?.summary;
   return makeJsonSuccessEnvelope({
-    data,
+    payload: data,
     ...(summary !== undefined ? { summary } : {}),
     breadcrumbs: normalizeBreadcrumbs(options?.breadcrumbs, options),
   });
 };
-
-const wrapSuccessOutput = (data: unknown, options: SuccessOptions | undefined): unknown =>
-  shouldWrapSuccess(options) ? makeSuccessEnvelope(data, options) : data;
 
 // ---------------------------------------------------------------------------
 // Noop handles for machine mode
@@ -190,9 +183,6 @@ const writeStdoutLine = (content: string) =>
 
 const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
   Schema.encodeEffect(schema)(data).pipe(Effect.orDie);
-
-const encodeUnknownJson = <S extends Schema.Top>(data: unknown, schema: S) =>
-  Schema.encodeUnknownEffect(schema)(data).pipe(Effect.orDie);
 
 // ---------------------------------------------------------------------------
 // MachineRenderer — NDJSON chrome on stderr, JSON data on stdout
@@ -365,25 +355,61 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     // Data display — no-ops in machine mode
     table: <T extends object>(_items: ReadonlyArray<T>, _view: TableView<T>, _caption?: string) =>
       Effect.void,
-    detail: <T extends object>(_item: T, _view: DetailView<T>, _title?: string) => Effect.void,
-    tree: () => Effect.void,
-
-    // Machine data output (stdout)
-    document: <TCommand extends string, const Fields extends Schema.Struct.Fields>(
-      command: TCommand,
-      body: Schema.Struct.Type<Fields>,
-      fields: Fields,
-      options?: SuccessOptions,
-    ) =>
-      encodeUnknownJson(
-        makeCommandDocument(command, body),
-        makeCommandDocumentSchema(command, fields),
-      ).pipe(
-        Effect.tap(() => emitBreadcrumbs(options?.breadcrumbs, options)),
-        Effect.map((encoded) => wrapSuccessOutput(encoded, options)),
+    list: <T extends object>(_entity: string, payload: ListPayload<T>) =>
+      Effect.succeed(payload).pipe(
+        Effect.tap(() => emitBreadcrumbs(payload.breadcrumbs, payload)),
+        Effect.map(
+          ({
+            withoutBreadcrumbs: _withoutBreadcrumbs,
+            breadcrumbs: _breadcrumbs,
+            summary: _summary,
+            ...data
+          }) => makeSuccessEnvelope(data, payload),
+        ),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),
       ),
+    // Assertion needed: function implements the service's overloaded detail signature.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    detail: ((first: unknown, second: unknown, third?: unknown) => {
+      if (typeof first === "string") {
+        // Assertion needed: overloaded renderer call carries options in the third argument.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        const options = third as DetailOptions | undefined;
+        return Effect.succeed(second).pipe(
+          Effect.tap(() => emitBreadcrumbs(options?.breadcrumbs, options)),
+          Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
+          Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
+          Effect.as(true),
+        );
+      }
+      return Effect.void;
+    }) as typeof CliRenderer.Service.detail,
+    // Assertion needed: function implements the service's overloaded tree signature.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    tree: ((first: unknown, second: unknown) => {
+      if (typeof first === "string") {
+        // Assertion needed: overloaded renderer call carries tree payload in the second argument.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        const payload = second as TreePayload<object>;
+        return Effect.succeed(payload).pipe(
+          Effect.tap(() => emitBreadcrumbs(payload.breadcrumbs, payload)),
+          Effect.map(
+            ({
+              withoutBreadcrumbs: _withoutBreadcrumbs,
+              breadcrumbs: _breadcrumbs,
+              summary: _summary,
+              ...data
+            }) => makeSuccessEnvelope(data, payload),
+          ),
+          Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
+          Effect.as(true),
+        );
+      }
+      return Effect.void;
+    }) as typeof CliRenderer.Service.tree,
+
+    // Machine data output (stdout)
     result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
@@ -391,7 +417,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     ) =>
       encodeJson(data, schema).pipe(
         Effect.tap(() => emitBreadcrumbs(options?.breadcrumbs, options)),
-        Effect.map((encoded) => wrapSuccessOutput(encoded, options)),
+        Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),
       ),

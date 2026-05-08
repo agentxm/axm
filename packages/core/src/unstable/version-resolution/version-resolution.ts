@@ -84,7 +84,6 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
           makeAppError({
             code: "VERSION_RESOLUTION_NETWORK_ERROR",
             what: "Failed to reach GitHub API",
-            details: [`URL: ${url}`],
             howToFix: "Check your network connection and try again.",
             cause,
           }),
@@ -95,7 +94,6 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
       return yield* makeAppError({
         code: "VERSION_RESOLUTION_GITHUB_ERROR",
         what: `GitHub API returned status ${String(response.status)}`,
-        details: [`URL: ${url}`],
         howToFix:
           "Check your network connection and try again. If the problem persists, GitHub may be experiencing issues.",
       });
@@ -106,7 +104,6 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
         makeAppError({
           code: "VERSION_RESOLUTION_INVALID_RESPONSE",
           what: "Failed to parse GitHub API response as JSON",
-          details: [`URL: ${url}`],
           howToFix: "This may indicate a GitHub API change. Please try again or report the issue.",
           cause,
         }),
@@ -117,12 +114,11 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
 /**
  * Map schema decode errors to `AppError`.
  */
-const mapDecodeError = (url: string) =>
+const mapDecodeError = (_url: string) =>
   Effect.mapError((cause: Schema.SchemaError) =>
     makeAppError({
       code: "VERSION_RESOLUTION_INVALID_RESPONSE",
       what: "GitHub API returned an unexpected response shape",
-      details: [`URL: ${url}`],
       howToFix: "This may indicate a GitHub API change. Please try again or report the issue.",
       cause,
     }),
@@ -173,7 +169,6 @@ const resolveRemoteVersion = (httpClient: HttpClient.HttpClient, repo: string) =
     return yield* makeAppError({
       code: "VERSION_RESOLUTION_NO_CLI_RELEASE",
       what: "No CLI release found on GitHub",
-      details: [`Repository: ${repo}`],
       howToFix: "Ensure the repository has at least one release tagged with the 'cli-v' prefix.",
     });
   });

@@ -1,7 +1,10 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  CliRenderer,
+  registerEntity,
+  type TableView,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
@@ -11,17 +14,11 @@ export interface ListHandlerArgs {
   readonly agents: readonly string[];
 }
 
-const SkillListItemSchema = Schema.Struct({
-  name: Schema.String,
-  type: Schema.String,
-  agents: Schema.Array(Schema.String),
-});
-type SkillListItem = typeof SkillListItemSchema.Type;
-
-const SkillListDocumentFields = {
-  items: Schema.Array(SkillListItemSchema),
-  count: Schema.Number,
-} satisfies Schema.Struct.Fields;
+interface SkillListItem {
+  readonly name: string;
+  readonly type: string;
+  readonly agents: ReadonlyArray<string>;
+}
 
 const SkillListTable = {
   columns: {
@@ -33,6 +30,13 @@ const SkillListTable = {
     },
   },
 } as const satisfies TableView<SkillListItem>;
+
+registerEntity<SkillListItem>("skill", {
+  list: {
+    columns: SkillListTable.columns,
+    emptyMessage: "No skills installed",
+  },
+});
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
   const renderer = yield* CliRenderer;
@@ -52,9 +56,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     agents: entry.agents,
   }));
 
-  if (
-    yield* renderer.document("skills.list", { items, count: items.length }, SkillListDocumentFields)
-  ) {
+  if (yield* renderer.list("skill", { items, count: items.length })) {
     return;
   }
 

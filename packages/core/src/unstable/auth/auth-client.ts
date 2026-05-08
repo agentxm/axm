@@ -207,7 +207,6 @@ const pollOnceInternal = (
                 makeAppError({
                   code: "AUTH_LOGIN_FAILED",
                   what: "Device token exchange failed with an unexpected error",
-                  details: code !== undefined ? [`Error code: ${code}`] : [],
                   howToFix: "Try running `axm login` again.",
                   cause: error,
                 }),
@@ -271,7 +270,6 @@ export const AuthClientLive = Layer.effect(
             makeAppError({
               code: "AUTH_LOGIN_FAILED",
               what: "Could not connect to the registry",
-              details: [`Registry: ${registryUrl}`],
               howToFix: "Verify the registry is running and reachable, then try again.",
               cause: error,
             }),
@@ -399,7 +397,6 @@ export const AuthClientLive = Layer.effect(
               return makeAppError({
                 code: "AUTH_SERVER_ERROR",
                 what: "Registry returned server error",
-                details: [`Registry: ${registryUrl}`],
                 howToFix: "The registry may be temporarily unavailable. Try again later.",
                 cause: error,
               });
@@ -407,7 +404,6 @@ export const AuthClientLive = Layer.effect(
             return makeAppError({
               code: "AUTH_UNAUTHENTICATED",
               what: "Could not connect to the registry",
-              details: [`Registry: ${registryUrl}`],
               howToFix: "Verify the registry is running and reachable, then try again.",
               cause: error,
             });

@@ -45,7 +45,6 @@ const resolveDependencyType = (
     makeAppError({
       code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
       what: `Extension pack dependency type mismatch for expected ${expectedType}`,
-      details: [`Expected ${expectedType}, received ${parsedType}`],
     }),
   );
 };

@@ -408,7 +408,6 @@ export const createLocalRegistryClient = (
           return yield* makeAppError({
             code: "REGISTRY_PUBLISH_FAILED",
             what: `Version ${args.version} already exists with different integrity`,
-            details: [`Expected ${existingVersion.integrity}, got ${args.metadata.integrity}`],
           });
         }
 

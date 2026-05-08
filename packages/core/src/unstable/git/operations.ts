@@ -45,12 +45,10 @@ const mapGitError =
   (operation: GitOperation, context?: string) =>
   (error: unknown): AppError => {
     const baseMessage = context ?? `Git ${operation} failed`;
-    const details = error instanceof Error ? [error.message] : [String(error)];
 
     return makeAppError({
       code: operationToCode[operation],
       what: baseMessage,
-      details,
       cause: error,
     });
   };

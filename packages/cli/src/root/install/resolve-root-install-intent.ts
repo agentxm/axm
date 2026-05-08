@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as SchemaIssue from "effect/SchemaIssue";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -62,7 +61,6 @@ export const resolveRootInstallIntent = (input: string) =>
       return yield* makeAppError({
         code: "INSTALL_SOURCE_NOT_FQN",
         what: "Root install only accepts registry FQNs",
-        details: [`Provided: ${source}`],
         howToFix: rootInstallRegistryOnlyHowToFix(source),
       });
     }
@@ -73,7 +71,6 @@ export const resolveRootInstallIntent = (input: string) =>
           return makeAppError({
             code: "INSTALL_SOURCE_UNKNOWN_TYPE",
             what: "Install source uses an unsupported plural type",
-            details: [`Provided: ${source}`, `Supported types: ${supportedRootInstallTypes}`],
             howToFix: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
             cause: error,
           });
@@ -82,7 +79,6 @@ export const resolveRootInstallIntent = (input: string) =>
         return makeAppError({
           code: "INSTALL_SOURCE_INVALID_FQN",
           what: "Install source must be a registry FQN",
-          details: [SchemaIssue.makeFormatterDefault()(error.issue)],
           howToFix: `Use ${rootInstallFqnGrammar} with one of: ${supportedRootInstallTypes}.`,
           cause: error,
         });
@@ -93,7 +89,6 @@ export const resolveRootInstallIntent = (input: string) =>
       return yield* makeAppError({
         code: "INSTALL_SOURCE_UNSUPPORTED_TYPE",
         what: "Root install does not support that extension type",
-        details: [`Provided: ${source}`, `Supported types: ${supportedRootInstallTypes}`],
         howToFix: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
       });
     }

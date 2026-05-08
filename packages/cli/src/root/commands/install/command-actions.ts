@@ -175,21 +175,18 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "COMMAND_SOURCE_INVALID_FORMAT",
               what: "Command source must include /commands/ segment",
-              details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/commands/command-name format.",
             });
           case "missing-name":
             return yield* makeAppError({
               code: "COMMAND_SOURCE_MISSING_NAME",
               what: "Command source must include a command name",
-              details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/commands/command-name format.",
             });
           default:
             return yield* makeAppError({
               code: "COMMAND_SOURCE_NOT_REGISTRY",
               what: "Commands can only be installed from a registry",
-              details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/commands/command-name or just command-name.",
             });
         }
@@ -205,7 +202,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               makeAppError({
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
-                details: [`Provided: ${parsed.resolvedInput}`],
                 howToFix: "Use @owner/commands/command-name or just command-name.",
                 cause: error,
               }),
@@ -216,7 +212,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "COMMAND_SOURCE_NOT_REGISTRY",
               what: "Commands can only be installed from a registry",
-              details: [`Provided source type: ${source.type}`],
               howToFix: "Use a registry source: @owner/commands/command-name",
             });
           }
@@ -252,7 +247,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                     makeAppError({
                       code: "COMMAND_FETCH_FAILED",
                       what: "Failed to fetch command from registry",
-                      details: [`Command: ${req.owner}/commands/${req.commandName}`],
                       howToFix: "Verify the command name and registry configuration.",
                       cause: error,
                     }),

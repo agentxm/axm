@@ -30,7 +30,7 @@ const decodeGitHostedSourceParamParts = Schema.decodeUnknownResult(GitHostedSour
  */
 export const parseProviderShorthand = (
   input: string,
-  original: string,
+  _original: string,
 ): Effect.Effect<GitHostedSourceParamParts, AppError> =>
   Effect.gen(function* () {
     const match = input.match(PROVIDER_SHORTHAND_PATTERN);
@@ -38,7 +38,6 @@ export const parseProviderShorthand = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Invalid shorthand format",
-        details: [original],
       });
     }
 
@@ -53,7 +52,6 @@ export const parseProviderShorthand = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Invalid shorthand format",
-        details: [original],
       });
     }
 

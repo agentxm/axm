@@ -29,10 +29,9 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 
   if (Option.isNone(existing)) {
     if (
-      yield* renderer.document(
-        "auth.logout",
+      yield* renderer.result(
         { result: { status: "not-logged-in", registryHost } },
-        LogoutDocumentFields,
+        Schema.Struct(LogoutDocumentFields),
       )
     ) {
       return;
@@ -57,7 +56,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const status = Option.isSome(revokeResult) ? "logged-out" : "logged-out-local-only";
   const result = { status, registryHost, ...optionalHandle } as const;
 
-  if (yield* renderer.document("auth.logout", { result }, LogoutDocumentFields)) {
+  if (yield* renderer.result({ result }, Schema.Struct(LogoutDocumentFields))) {
     return;
   }
 

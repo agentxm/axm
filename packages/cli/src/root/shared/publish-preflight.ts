@@ -36,7 +36,6 @@ export const checkPublishVersionPreflight = (args: {
     return yield* makeAppError({
       code: "PUBLISH_VERSION_NOT_BUMPED",
       what: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
-      details: [`Registry: ${args.registryName}`, `Extension: ${local.fqn}`],
       howToFix: `Bump the version first:\n  axm ${plural} version ${local.fqn} patch\n\nOverride with --force.`,
     });
   });

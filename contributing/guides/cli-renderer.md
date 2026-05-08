@@ -1,5 +1,7 @@
 ---
 status: active
+last-reviewed: 2026-05-08
+version: 0.2.0
 description: CLI renderer design for human output, machine JSON contracts, and stderr diagnostics
 depends-on:
   - ../../AGENTS.md
@@ -33,7 +35,7 @@ handler authoring live in [CLI Design Guide](./cli-design.md).
 - [terraform output](https://developer.hashicorp.com/terraform/cli/commands/output) -
   raw scalar versus JSON output
 - [terraform JSON format](https://developer.hashicorp.com/terraform/internals/json-format) -
-  document-level schema design
+  schema design
 - [Effect Schema Classes](https://effect.website/docs/schema/classes/) -
   class-based schemas and modeling tradeoffs
 - [Effect Schema Documentation](https://effect.website/docs/schema/) -
@@ -51,7 +53,7 @@ handler authoring live in [CLI Design Guide](./cli-design.md).
 - Effect Schema v4 is the source of truth for published JSON output contracts
 - `--json` should ship only once the output schema is published and tested
 - stdout is reserved for final data; diagnostics belong on stderr
-- Breaking JSON changes require a schema version bump
+- Breaking JSON changes require an OpenSpec change and contract tests
 
 ---
 
@@ -81,9 +83,9 @@ clearly deserve JSON before its output schema has been designed.
 ### Shipping Gate
 
 `--json` is a global CLI mode and should parse on every command. The shipping
-gate applies to whether a command publishes a structured stdout result
-document. A command should emit a schema-backed stdout result only when all of
-the following are true:
+gate applies to whether a command publishes a structured stdout result. A
+command should emit a schema-backed stdout result only when all of the following
+are true:
 
 - the result shape is defined with a published Effect Schema v4 schema
 - help can describe the payload keys and major fields
@@ -92,8 +94,8 @@ the following are true:
 - machine-output tests cover the contract
 
 These are release gates for publishing a structured stdout contract, not for
-parsing `--json` itself. Commands that do not yet publish a result document may
-still run in machine mode and emit diagnostics on stderr only.
+parsing `--json` itself. Commands that do not yet publish a result may still run
+in machine mode and emit diagnostics on stderr only.
 
 ---
 
@@ -101,7 +103,7 @@ still run in machine mode and emit diagnostics on stderr only.
 
 Use Effect Schema v4 for all published machine-readable output:
 
-- command result documents on stdout
+- command results on stdout
 - structured error payloads
 - machine stderr event contracts
 
@@ -115,16 +117,18 @@ Export schema and type together:
 
 ```typescript
 export const SkillsListOutputSchema = Schema.Struct({
-  command: Schema.Literal("skills.list"),
   items: Schema.Array(SkillListItemSchema),
   count: Schema.Number,
 });
 export type SkillsListOutput = typeof SkillsListOutputSchema.Type;
 ```
 
-Use `_version` only for CLI stream transport events, not command response
-documents. If a nested resource payload has its own version field, keep that
-nested version local to the resource schema.
+Do not add a top-level `command` discriminator to successful JSON payloads. The
+invoked CLI command is already known out of band, and entity-driven renderers
+carry human rendering metadata without changing the wire payload.
+
+If a nested resource payload has its own version field, keep that nested version
+local to the resource schema.
 
 ### Preferred Schema Forms
 
@@ -136,10 +140,10 @@ For CLI wire contracts, prefer simple data schemas:
 - `Schema.Literal`
 - schema-level transforms when the wire type and in-memory type differ
 
-Do not default to `Schema.Class` for CLI output documents.
+Do not default to `Schema.Class` for CLI output.
 
 Use `Schema.Class` only when the output type is also a meaningful shared domain
-model with invariants or behavior. Most CLI result documents are better modeled
+model with invariants or behavior. Most CLI result payloads are better modeled
 as plain wire schemas.
 
 ### Encoding Rule
@@ -162,6 +166,8 @@ This keeps the published contract and the emitted bytes aligned.
 `CliRenderer` owns channel discipline:
 
 - `result` and `resultStream` emit command data to stdout
+- `list(entity, ...)`, `detail(entity, ...)`, and `tree(entity, ...)` render
+  entity-shaped data through the registry while preserving the same JSON payload
 - `breadcrumbs` emits advisory follow-up tasks; machine mode also emits
   `breadcrumb` events on stderr
 - `json` and `raw` are escape hatches; use them sparingly
@@ -181,9 +187,13 @@ interleaving business logic with ad hoc log formatting.
 
 Return current state or identity.
 
-- Detail command -> one `data` object
+- Detail command -> one entity object
 - List command -> `items` array plus summary metadata when useful
-- Empty lists still return a valid document, not an info log
+- Empty lists still return a valid result, not an info log
+
+Register shared entity renderers with the TypeScript-only entity registry. The
+registry owns human columns/detail/tree rendering; it does not add fields to
+machine JSON.
 
 ### Mutating Commands
 
@@ -201,19 +211,19 @@ Include:
 Some commands are intentionally pipe-friendly in text mode, like `auth token`.
 
 - text mode may emit a raw scalar when that is the primary UX
-- `--json` must still return a typed document
+- `--json` must still return a typed result
 
 ---
 
-## JSON Document Shape
+## JSON Shape
 
 Use a top-level object for every command result.
 
-Define that top-level object as an Effect Schema v4 schema.
+Machine mode wraps every successful payload in a flat success envelope:
 
 ```json
 {
-  "command": "skills.list",
+  "ok": true,
   "items": [
     {
       "name": "@acme/skills/code-review",
@@ -233,7 +243,6 @@ Why an object, even for lists:
 
 Recommended top-level fields:
 
-- `command`: stable command id such as `skills.list`, required
 - exactly one primary payload key:
   - `data` for single resources
   - `items` for collections
@@ -244,16 +253,22 @@ Recommended top-level fields:
   - `nextCursor`
   - `generatedAt`
 
-Avoid top-level `type` for successful command results unless it adds real
-meaning. `command` already identifies the payload family.
+Reserved top-level fields:
 
-Advisory follow-up tasks use breadcrumbs. When a result needs breadcrumbs,
-wrap the encoded command document in the JSON envelope:
+- `ok`
+- `summary`
+- `breadcrumbs`
+
+Payload schemas must not define reserved fields. Avoid top-level `type` for
+successful command results unless it adds real domain meaning.
+
+Advisory follow-up tasks use breadcrumbs. When a result needs breadcrumbs, add
+them to the same flat envelope:
 
 ```json
 {
   "ok": true,
-  "data": { "command": "commands.new", "result": {} },
+  "result": {},
   "summary": "Created command @acme/commands/review",
   "breadcrumbs": [
     { "task": "edit", "description": "Edit `.axm/extensions/.../review.md`" },
@@ -283,14 +298,13 @@ checks` adding `bucket` on top of raw `state` is the right pattern.
 
 ## Errors
 
-JSON errors should preserve the structured data already present in `AppError`.
+JSON errors use a fixed envelope:
 
 ```json
 {
   "ok": false,
   "code": "AUTH_TOKEN_REQUIRED",
   "message": "No authentication token is available",
-  "details": ["Checked AXM_TOKEN and persisted credentials"],
   "howToFix": "Set AXM_TOKEN or run `axm auth login`.",
   "breadcrumbs": [
     { "task": "login", "description": "Authenticate", "command": ["axm", "auth", "login"] }
@@ -302,10 +316,10 @@ JSON errors should preserve the structured data already present in `AppError`.
 Rules:
 
 - use `ok: false` for error routing
-- include `details` and `howToFix` when available
+- include `howToFix` when available
 - include `breadcrumbs` for structured follow-up tasks when useful
 - include `exitCode`
-- keep stderr human-readable in all modes
+- emit a matching stderr `error` event in machine mode
 
 ---
 
@@ -330,7 +344,7 @@ Future-friendly extension:
 
 Current contract:
 
-- stdout: final JSON result document
+- stdout: final JSON result object
 - stderr: NDJSON diagnostics for logs and progress
 
 Keep that split. Do not overload `--json` to mean "mixed result and progress
@@ -342,8 +356,9 @@ own contract and version.
 Recommended stderr event shape:
 
 ```json
-{"_version":1,"type":"progress","phase":"download","percent":25,"message":"Downloading"}
-{"_version":1,"type":"log","level":"info","message":"Resolved 3 skills"}
+{"type":"progress","phase":"download","percent":25,"message":"Downloading"}
+{"type":"log","level":"info","message":"Resolved 3 skills"}
+{"type":"error","code":"AUTH_TOKEN_REQUIRED","message":"No authentication token is available","exitCode":1}
 ```
 
 ---
@@ -354,7 +369,7 @@ For commands that support machine output:
 
 1. Build a result object in domain terms
 2. Validate or encode it with an Effect Schema
-3. Render once through `CliRenderer.result`
+3. Render once through `CliRenderer.result`, `list`, `detail`, or `tree`
 
 Do not emit human `info` lines as the primary data path for JSON-capable
 commands.
@@ -368,7 +383,8 @@ commands.
 3. Convert read-only commands first: list, info, and whoami-style queries
 4. Convert mutating commands next with operation summary schemas
 5. Keep `--json` off commands until their contract passes the shipping gate
-6. Expand JSON error payloads to include `details`, `howToFix`, and `exitCode`
+6. Keep JSON error payloads aligned with `ok`, `code`, `message`, `howToFix`,
+   `breadcrumbs`, and `exitCode`
 7. Add help-level field documentation and machine-mode tests per command
 
 ---

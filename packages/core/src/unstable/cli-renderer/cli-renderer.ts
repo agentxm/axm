@@ -124,6 +124,19 @@ export interface TreeDef<T> {
   readonly icon?: (item: T) => string | undefined;
 }
 
+export interface ListPayload<T extends object> extends SuccessOptions {
+  readonly items: ReadonlyArray<T>;
+  readonly count?: number;
+}
+
+export interface DetailOptions extends BreadcrumbOptions {
+  readonly title?: string;
+}
+
+export interface TreePayload<T extends object> extends SuccessOptions {
+  readonly roots: ReadonlyArray<TreeNode<T>>;
+}
+
 export interface BoxOptions {
   readonly contentAlignment?: "left" | "center" | "right";
   readonly titleAlignment?: "left" | "center" | "right";
@@ -138,7 +151,6 @@ export interface BreadcrumbOptions {
 }
 
 export interface SuccessOptions extends BreadcrumbOptions {
-  readonly data?: unknown;
   readonly summary?: string;
 }
 
@@ -195,24 +207,20 @@ export class CliRenderer extends ServiceMap.Service<
       view: TableView<T>,
       caption?: string,
     ) => Effect.Effect<void>;
-    readonly detail: <T extends object>(
-      item: T,
-      view: DetailView<T>,
-      title?: string,
-    ) => Effect.Effect<void>;
-    readonly tree: <T>(
-      roots: ReadonlyArray<TreeNode<T>>,
-      def: TreeDef<T>,
-      title?: string,
-    ) => Effect.Effect<void>;
+    readonly list: <T extends object>(
+      entity: string,
+      payload: ListPayload<T>,
+    ) => Effect.Effect<boolean>;
+    readonly detail: {
+      <T extends object>(item: T, view: DetailView<T>, title?: string): Effect.Effect<void>;
+      <T extends object>(entity: string, item: T, options?: DetailOptions): Effect.Effect<boolean>;
+    };
+    readonly tree: {
+      <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string): Effect.Effect<void>;
+      <T extends object>(entity: string, payload: TreePayload<T>): Effect.Effect<boolean>;
+    };
 
     // Machine data output (stdout)
-    readonly document: <TCommand extends string, const Fields extends Schema.Struct.Fields>(
-      command: TCommand,
-      body: Schema.Struct.Type<Fields>,
-      fields: Fields,
-      options?: SuccessOptions,
-    ) => Effect.Effect<boolean, never, Schema.Struct.EncodingServices<Fields>>;
     readonly result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,

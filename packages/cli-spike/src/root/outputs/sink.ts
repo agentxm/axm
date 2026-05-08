@@ -8,10 +8,7 @@ import {
   type DetailView,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  makeCommandDocumentSchema,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 
@@ -56,10 +53,7 @@ const OutputsSinkDocumentFields = {
   count: Schema.Number,
 } satisfies Schema.Struct.Fields;
 
-export const OutputsSinkOutputSchema = makeCommandDocumentSchema(
-  "outputs.sink",
-  OutputsSinkDocumentFields,
-);
+export const OutputsSinkOutputSchema = Schema.Struct(OutputsSinkDocumentFields);
 export type OutputsSinkOutput = typeof OutputsSinkOutputSchema.Type;
 
 const samplePets: ReadonlyArray<Pet> = [
@@ -98,11 +92,7 @@ export const handleSink = Effect.gen(function* () {
 
   // --- JSON path: emit structured data and return early ---
   if (
-    yield* renderer.document(
-      "outputs.sink",
-      { items: samplePets, count: samplePets.length },
-      OutputsSinkDocumentFields,
-    )
+    yield* renderer.result({ items: samplePets, count: samplePets.length }, OutputsSinkOutputSchema)
   ) {
     return;
   }
@@ -224,7 +214,7 @@ export const sinkCommand = Command.make("sink", sinkConfig, () =>
     },
     {
       command: "axm-spike outputs sink --json",
-      description: "Emit { command, items, count }",
+      description: "Emit { ok, items, count }",
     },
   ]),
 );

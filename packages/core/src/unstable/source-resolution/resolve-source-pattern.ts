@@ -149,7 +149,6 @@ export const resolveSourcePattern = (
           return yield* makeAppError({
             code: "NO_SKILLS_MATCHED",
             what: "No skills matched the given pattern",
-            details: [`Pattern: ${input}`, `Available: ${candidates.names.join(", ")}`],
             howToFix: "Check installed skill names with `axm skills list`.",
           });
         }

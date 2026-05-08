@@ -188,7 +188,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         return yield* makeAppError({
           code: "EXTENSION_NOT_FOUND",
           what: `Extension pack "${args.pack}" cannot be published from a non-registry source`,
-          details: [`Source: ${entry.source}`],
           howToFix:
             "Only packs sourced from a registry namespace (`@owner/packs/name`) can be published.",
         });
@@ -221,7 +220,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           return yield* makeAppError({
             code: "EXTENSION_NOT_FOUND",
             what: `Managed extension pack not found: ${packName}`,
-            details: [`Expected at: ${packDir}`],
             howToFix:
               "Only managed extension packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
           });
@@ -237,7 +235,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           return yield* makeAppError({
             code: "MISSING_MANIFEST",
             what: `Missing manifest: ${EXTENSION_PACK_MANIFEST_FILENAME}`,
-            details: [`Expected at: ${manifestPath}`],
             howToFix: `Ensure the pack has a valid ${EXTENSION_PACK_MANIFEST_FILENAME} manifest.`,
           });
         }
@@ -372,7 +369,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       return yield* makeAppError({
         code: "PUBLISH_PLAN_FAILED",
         what: `Failed to publish ${failedStepDetails.length} extension pack item${failedStepDetails.length === 1 ? "" : "s"}`,
-        details: failedStepDetails,
       });
     }
   }

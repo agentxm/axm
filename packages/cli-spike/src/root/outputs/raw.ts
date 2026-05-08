@@ -4,10 +4,7 @@ import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  makeCommandDocumentSchema,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 
@@ -21,10 +18,7 @@ const OutputsRawDocumentFields = {
   data: RawOutputDataSchema,
 } satisfies Schema.Struct.Fields;
 
-export const OutputsRawOutputSchema = makeCommandDocumentSchema(
-  "outputs.raw",
-  OutputsRawDocumentFields,
-);
+export const OutputsRawOutputSchema = Schema.Struct(OutputsRawDocumentFields);
 export type OutputsRawOutput = typeof OutputsRawOutputSchema.Type;
 
 const rawConfig = {
@@ -47,7 +41,7 @@ export const handleRaw = (args: { readonly content: Option.Option<string> }) =>
       lines: content.split("\n"),
     };
 
-    if (yield* renderer.document("outputs.raw", { data }, OutputsRawDocumentFields)) {
+    if (yield* renderer.result({ data }, OutputsRawOutputSchema)) {
       return;
     }
 
@@ -70,7 +64,7 @@ export const rawCommand = Command.make("raw", rawConfig, ({ content }) =>
     },
     {
       command: "axm-spike outputs raw --json",
-      description: "Emit { command, data: { content, lines } }",
+      description: "Emit { ok, data: { content, lines } }",
     },
   ]),
 );

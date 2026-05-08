@@ -108,7 +108,6 @@ const resolveRegistrySource = (
         makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
           what: `Failed to read configured registry sources for owner "${owner}"`,
-          details: [input],
           howToFix: "Check that your workspace settings file is valid and accessible",
           cause: e,
         }),
@@ -119,7 +118,6 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
         what: `No registry source is configured for owner "${owner}"`,
-        details: [`Provided: ${input}`],
         howToFix: `Add a registry source for owner "${owner}" using "axm sources add"`,
       });
     }
@@ -180,11 +178,6 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${owner}/${skillName}" was not found in configured registries`,
-        details: [
-          `Provided: ${input}`,
-          `Checked registries: ${checked.join(", ")}`,
-          ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
-        ],
         howToFix: registryLookupHowToFix({
           issues,
           fallback:
@@ -196,11 +189,6 @@ const resolveRegistrySource = (
     return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
       what: `None of the configured registry sources contain owner "${owner}"`,
-      details: [
-        `Provided: ${input}`,
-        `Checked registries: ${checked.join(", ")}`,
-        ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
-      ],
       howToFix: registryLookupHowToFix({
         issues,
         fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
@@ -220,7 +208,6 @@ const resolveSkillRegistrySourceByName = (
         makeAppError({
           code: "INVALID_SOURCE",
           what: `Invalid skill name: "${name}"`,
-          details: [`Provided: ${input}`],
           howToFix:
             "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
         }),
@@ -235,7 +222,6 @@ const resolveSkillRegistrySourceByName = (
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${extensionName}" could not be looked up (no default owner)`,
-        details: [`Provided: ${input}`, `No default owner configured and not logged in`],
         howToFix:
           "Configure an owner in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @owner/skills/name",
       });
@@ -248,11 +234,6 @@ const resolveSkillRegistrySourceByName = (
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${owner}/${extensionName}" could not be looked up (no registry sources)`,
-        details: [
-          `Provided: ${input}`,
-          `Default owner: ${owner}`,
-          `No registry sources configured`,
-        ],
         howToFix:
           "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
       });
@@ -308,12 +289,6 @@ const resolveSkillRegistrySourceByName = (
     return yield* makeAppError({
       code: "REGISTRY_SKILL_NOT_FOUND",
       what: `Skill "${owner}/${extensionName}" was not found in configured registries`,
-      details: [
-        `Provided: ${input}`,
-        `Default owner: ${owner}`,
-        `Checked registries: ${checked.join(", ")}`,
-        ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
-      ],
       howToFix: registryLookupHowToFix({
         issues,
         fallback:
@@ -332,7 +307,6 @@ const resolveSkillRegistrySource = (
       return yield* makeAppError({
         code: "SKILL_INSTALL_WRONG_TYPE",
         what: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
-        details: [pattern.owner],
         howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
     }
@@ -382,7 +356,6 @@ export const resolveSkillInstallSource = (
         return yield* makeAppError({
           code: "SKILL_INSTALL_UNSUPPORTED_INPUT",
           what: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
-          details: [parseResult.originalInput],
           howToFix:
             "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",
         });

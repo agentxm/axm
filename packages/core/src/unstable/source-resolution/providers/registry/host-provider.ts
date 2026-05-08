@@ -334,7 +334,6 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
         return yield* makeAppError({
           code: "SOURCE_FETCH_FAILED",
           what: `Integrity mismatch for ${type}:${name}@${version}`,
-          details: [`Expected ${expectedIntegrity.value}, got ${actualIntegrity}`],
         });
       }
     }

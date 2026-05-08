@@ -77,10 +77,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     return yield* makeAppError({
       code: "SUBAGENT_NAME_INVALID",
       what: `Invalid subagent name: "${args.name}"`,
-      details: [
-        "Subagent names must be lowercase, start with a letter or digit,",
-        "contain only letters, digits, and hyphens, and not exceed 64 characters.",
-      ],
       howToFix: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
     });
   }

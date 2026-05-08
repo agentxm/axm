@@ -119,7 +119,6 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
           return yield* makeAppError({
             code: "INSTALL_COMMAND_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            details: [`Expected ${ref.integrity.value}, got ${actualIntegrity}`],
           });
         }
       }

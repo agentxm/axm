@@ -28,7 +28,6 @@ describe("pets list handler", () => {
       const result = expectDefined(state.results[0], "Expected one machine result");
       const output = decodePetsListOutput(result.data);
 
-      expect(output.command).toBe("pets.list");
       expect(output.count).toBe(2);
       expect(output.items.map((pet) => pet.name)).toEqual(["Mochi", "Pickles"]);
       expect(state.tables).toHaveLength(0);

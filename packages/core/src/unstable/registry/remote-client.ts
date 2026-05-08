@@ -55,7 +55,6 @@ import {
   mapSchemaError,
   mapUnexpectedStatusError,
   getErrorCode,
-  buildErrorDetails,
   getRetryAfterSeconds,
   buildNetworkHowToFix,
   buildNetworkDiagnosis,
@@ -467,7 +466,6 @@ export const createRemoteRegistryClient = (
           return yield* makeAppError({
             code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
             what: "Remote discovery response does not match expected schema",
-            details: ["Search pagination indicated more results but omitted the next cursor."],
           });
         }
 
@@ -761,14 +759,13 @@ export const createRemoteRegistryClient = (
   const mapPublishError = (
     e: unknown,
     networkHowToFix: string,
-    networkDiagnosisDetails: ReadonlyArray<string>,
+    _networkDiagnosisDetails: ReadonlyArray<string>,
   ): AppError => {
     // HttpClientError — network error
     if (isHttpClientError(e)) {
       return makeAppError({
         code: "REGISTRY_PUBLISH_NETWORK_ERROR",
         what: "Failed to connect to the remote registry",
-        details: [...networkDiagnosisDetails, e.message],
         howToFix: networkHowToFix,
         cause: e,
       });
@@ -786,7 +783,6 @@ export const createRemoteRegistryClient = (
         return makeAppError({
           code: "REGISTRY_PUBLISH_QUOTA_EXCEEDED",
           what: "Storage quota exceeded",
-          details: buildErrorDetails(e),
           howToFix: "Storage quota exceeded for this extension",
           cause: e,
         });
@@ -799,7 +795,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_CONFLICT",
         what: "Version already exists with different content",
-        details: buildErrorDetails(e),
         howToFix:
           "This version already exists with different content. Bump the version in your manifest.",
         cause: e,
@@ -816,7 +811,6 @@ export const createRemoteRegistryClient = (
         return makeAppError({
           code: "REGISTRY_PUBLISH_INVALID_ARCHIVE",
           what: "Invalid extension archive",
-          details: buildErrorDetails(e),
           howToFix: "Check the extension directory and rebuild",
           cause: e,
         });
@@ -824,7 +818,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_FAILED",
         what: "Publish request failed",
-        details: buildErrorDetails(e),
         cause: e,
       });
     }
@@ -834,7 +827,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_TOO_LARGE",
         what: "Extension archive exceeds size limit",
-        details: buildErrorDetails(e),
         howToFix: "Reduce archive size or remove unnecessary files",
         cause: e,
       });
@@ -845,7 +837,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_INVALID_ARCHIVE",
         what: "Unsupported archive content type",
-        details: buildErrorDetails(e),
         cause: e,
       });
     }
@@ -857,7 +848,6 @@ export const createRemoteRegistryClient = (
         return makeAppError({
           code: "REGISTRY_PUBLISH_INTEGRITY_MISMATCH",
           what: "Archive integrity does not match",
-          details: buildErrorDetails(e),
           cause: e,
         });
       }
@@ -865,7 +855,6 @@ export const createRemoteRegistryClient = (
         return makeAppError({
           code: "REGISTRY_PUBLISH_MANIFEST_INVALID",
           what: "Extension manifest validation failed",
-          details: buildErrorDetails(e),
           howToFix: "Check your extension manifest",
           cause: e,
         });
@@ -873,7 +862,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_FAILED",
         what: "Publish request failed with validation error",
-        details: buildErrorDetails(e),
         cause: e,
       });
     }
@@ -888,7 +876,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_THROTTLED",
         what: "Publish request was rate limited",
-        details: buildErrorDetails(e),
         howToFix: retryMsg,
         cause: e,
       });
@@ -899,7 +886,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_DISABLED",
         what: "Publishing is temporarily disabled",
-        details: buildErrorDetails(e),
         howToFix: "Publishing is temporarily disabled. Try again later.",
         cause: e,
       });
@@ -915,7 +901,6 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "REGISTRY_PUBLISH_FAILED",
         what: "Publish failed",
-        details: buildErrorDetails(e),
         cause: e,
       });
     }

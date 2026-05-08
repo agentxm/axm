@@ -4,7 +4,6 @@ import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { makeCommandDocumentSchema } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   discover,
   type DiscoverPackageResult,
@@ -40,7 +39,7 @@ const DiscoverOutputFields = {
   registryAvailable: Schema.Boolean,
 } satisfies Schema.Struct.Fields;
 
-export const DiscoverOutputSchema = makeCommandDocumentSchema("discover", DiscoverOutputFields);
+export const DiscoverOutputSchema = Schema.Struct(DiscoverOutputFields);
 export type DiscoverOutput = typeof DiscoverOutputSchema.Type;
 
 interface DiscoverTableRow {
@@ -130,7 +129,7 @@ export const handleDiscoverWith = <E, R>(
     const result = yield* runDiscover(projectDir);
     const output = toDiscoverOutput(result);
 
-    if (yield* renderer.document("discover", output, DiscoverOutputFields)) {
+    if (yield* renderer.result(output, DiscoverOutputSchema)) {
       return;
     }
 

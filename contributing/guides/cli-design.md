@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-04-08
-version: 0.2.0
+last-reviewed: 2026-05-08
+version: 0.2.1
 description: CLI command design conventions for command shape, flags, prompts, and handler structure
 depends-on:
   - ../../CLAUDE.md
@@ -147,12 +147,13 @@ Use this guide and the related CLI guides like this:
 At the output boundary: commands decide whether they are human-only or
 JSON-capable, and handlers build structured results before rendering.
 `CliRenderer` owns channel discipline and wire format — see
-[CLI Renderer Guide](./cli-renderer.md) for document shapes, error payloads,
+[CLI Renderer Guide](./cli-renderer.md) for JSON shapes, error payloads,
 and stderr contracts.
 
 Use breadcrumbs for suggestive next steps after scaffold or recovery flows.
 Keep `task` as a short verb slug (`edit`, `sync`, `login`), put nuance in
-`description`, and set `command` only when the step is directly runnable.
+`description`, and set either `command` (argv array) or `cmd` (display string)
+when the step is directly runnable.
 
 ---
 

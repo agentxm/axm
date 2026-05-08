@@ -2,6 +2,7 @@ import { CliError } from "effect/unstable/cli";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
+import type { ErrorEvent } from "./output-mode.js";
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
@@ -12,6 +13,7 @@ const writeStderr = (message: string): void => {
  */
 export interface ErrorClassification {
   readonly exitCode: number;
+  readonly errorEvent?: ErrorEvent;
   readonly output?: {
     readonly channel: "stdout" | "stderr";
     readonly content: string;
@@ -49,6 +51,12 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
           : error.message;
       return {
         exitCode: 2,
+        errorEvent: {
+          type: "error",
+          code: "USAGE_ERROR",
+          message,
+          exitCode: 2,
+        },
         output: {
           channel: "stdout",
           content:
@@ -80,6 +88,12 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
 
   return {
     exitCode: 1,
+    errorEvent: {
+      type: "error",
+      code,
+      message,
+      exitCode: 1,
+    },
     output: {
       channel: "stdout",
       content:
@@ -107,6 +121,9 @@ export const handleError = (error: unknown, format: OutputFormat): never => {
 
   if (result.output) {
     if (result.output.channel === "stdout") {
+      if (format !== "text" && result.errorEvent !== undefined) {
+        writeStderr(JSON.stringify(result.errorEvent));
+      }
       process.stdout.write(result.output.content);
       if (result.stderrMessage) {
         writeStderr(result.stderrMessage);

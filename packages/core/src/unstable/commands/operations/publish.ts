@@ -122,7 +122,6 @@ export const publishCommand: (
       return yield* makeAppError({
         code: "PUBLISH_COMMAND_MANIFEST_SCHEMA_INVALID",
         what: agentsFieldValidation.failure.detail,
-        details: ["Target agents are configured in settings.agents, not extension manifests."],
       });
     }
 
@@ -189,7 +188,6 @@ export const publishCommand: (
           makeAppError({
             code: "PUBLISH_COMMAND_PUBLISH_FAILED",
             what: "Failed to publish to registry",
-            details: [e.what],
             cause: e,
           }),
         ),

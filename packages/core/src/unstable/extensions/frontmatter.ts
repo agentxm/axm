@@ -92,7 +92,6 @@ export const parseFrontmatterEffect = (
       makeAppError({
         code: "FRONTMATTER_PARSE_ERROR",
         what: "Failed to parse YAML frontmatter",
-        details: [error instanceof Error ? error.message : String(error)],
         howToFix: "Ensure the frontmatter block contains valid YAML between --- delimiters.",
         cause: error,
       }),

@@ -65,7 +65,6 @@ describe("checkAzureReposRepoExists", () => {
         expect(error).toBeInstanceOf(AppError);
         expect(error.code).toBe("SOURCE_PARSE_FAILED");
         expect(error.what).toBe("Not found on Azure Repos");
-        expect(error.details).toEqual(["myorg/myproject/nonexistent"]);
       }),
     );
   });

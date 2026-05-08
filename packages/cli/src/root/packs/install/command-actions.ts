@@ -379,7 +379,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "PACK_SOURCE_INVALID_FORMAT",
                 what: "Extension pack source must include /packs/ segment",
-                details: [`Provided: ${trimmed}`],
                 howToFix:
                   "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
               });
@@ -387,14 +386,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "PACK_SOURCE_MISSING_NAME",
                 what: "Extension pack source must include a pack name",
-                details: [`Provided: ${trimmed}`],
                 howToFix: "Use @owner/packs/pack-name format.",
               });
             default:
               return yield* makeAppError({
                 code: "PACK_SOURCE_NOT_REGISTRY",
                 what: "Packs can only be installed from a registry",
-                details: [`Provided: ${trimmed}`],
                 howToFix:
                   "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
               });
@@ -413,7 +410,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   makeAppError({
                     code: "INVALID_SOURCE",
                     what: `Invalid source: ${error.message}`,
-                    details: [`Provided: ${parsed.resolvedInput}`],
                     howToFix: "Use @owner/packs/pack-name or just pack-name.",
                     cause: error,
                   }),
@@ -426,7 +422,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "PACK_SOURCE_NOT_REGISTRY",
               what: "Packs can only be installed from a registry",
-              details: [`Provided source type: ${source.type}`],
               howToFix: "Use a registry source: @owner/packs/pack-name",
             });
           }
@@ -539,10 +534,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       return yield* makeAppError({
                         code: "PACK_FETCH_FAILED",
                         what: "Failed to fetch pack from registry",
-                        details: [
-                          `Pack: ${req.owner}/packs/${req.packName}`,
-                          `Lookup probes: ${probes.map(formatRegistryProbe).join("; ")}`,
-                        ],
                         howToFix:
                           "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
                       });
@@ -551,10 +542,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     return yield* makeAppError({
                       code: "PACK_FETCH_FAILED",
                       what: "Failed to fetch pack from registry",
-                      details: [
-                        `Pack: ${req.owner}/packs/${req.packName}`,
-                        `Reason: ${summarizeLookupError(initialResult.failure)}`,
-                      ],
                       howToFix: "Verify the extension pack name and registry configuration.",
                       cause: initialResult.failure,
                     });

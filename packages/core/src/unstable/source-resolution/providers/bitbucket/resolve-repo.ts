@@ -6,7 +6,7 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { BitbucketSourceParams } from "../../../sources/types.js";
 
-const headRequest = (url: string, input: string) =>
+const headRequest = (url: string, _input: string) =>
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     return yield* client.execute(HttpClientRequest.head(url)).pipe(
@@ -14,7 +14,6 @@ const headRequest = (url: string, input: string) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to check Bitbucket: ${error instanceof Error ? error.message : String(error)}`,
-          details: [input],
           cause: error,
         }),
       ),

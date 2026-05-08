@@ -4,10 +4,7 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  makeCommandDocumentSchema,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 
@@ -70,10 +67,7 @@ const OutputsTreeDocumentFields = {
   data: OutputsTreeDataSchema,
 } satisfies Schema.Struct.Fields;
 
-export const OutputsTreeOutputSchema = makeCommandDocumentSchema(
-  "outputs.tree",
-  OutputsTreeDocumentFields,
-);
+export const OutputsTreeOutputSchema = Schema.Struct(OutputsTreeDocumentFields);
 export type OutputsTreeOutput = typeof OutputsTreeOutputSchema.Type;
 
 interface TreeInput {
@@ -92,14 +86,13 @@ export const handleTree = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     if (
-      yield* renderer.document(
-        "outputs.tree",
+      yield* renderer.result(
         {
           data: {
             roots: toFileNodes(sampleTree),
           },
         },
-        OutputsTreeDocumentFields,
+        OutputsTreeOutputSchema,
       )
     ) {
       return;
@@ -130,7 +123,7 @@ export const treeCommand = Command.make("tree", treeConfig, ({ title }) =>
     },
     {
       command: "axm-spike outputs tree --json",
-      description: "Emit { command, data: { roots } }",
+      description: "Emit { ok, data: { roots } }",
     },
   ]),
 );

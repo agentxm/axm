@@ -144,7 +144,6 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       return yield* makeAppError({
         code: "PLAN_BLOCKED_BY_ERRORS",
         what: "Plan has errors that prevent execution",
-        details: readiness.errorMessages,
         howToFix: flags.blockedByErrorsHowToFix ?? "Re-run with --force to override",
       });
     }

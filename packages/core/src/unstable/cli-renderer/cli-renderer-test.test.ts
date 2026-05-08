@@ -416,22 +416,17 @@ describe("TestRenderer", () => {
     );
   });
 
-  describe("document(), result(), and resultStream()", () => {
-    it.effect("document() returns false (interactive mode)", () =>
+  describe("list(), result(), and resultStream()", () => {
+    it.effect("list() returns false (interactive mode)", () =>
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
         const result = yield* Effect.gen(function* () {
           const r = yield* CliRenderer;
-          return yield* r.document(
-            "skills.list",
-            { items: [{ name: "test" }], count: 1 },
-            { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
-          );
+          return yield* r.list("skill", { items: [{ name: "test" }], count: 1 });
         }).pipe(Effect.provide(layer));
         expect(result).toBe(false);
         expect(state.results).toHaveLength(1);
         expect(state.results[0]?.data).toEqual({
-          command: "skills.list",
           items: [{ name: "test" }],
           count: 1,
         });
@@ -466,28 +461,23 @@ describe("TestRenderer", () => {
       }),
     );
 
-    it.effect("document() captures the derived schema", () =>
+    it.effect("list() captures payload without schema", () =>
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
-        const fields = {
-          items: Schema.Array(Schema.Struct({ name: Schema.String })),
-          count: Schema.Number,
-        } satisfies Schema.Struct.Fields;
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.document("skills.list", { items: [{ name: "test" }], count: 1 }, fields);
+            yield* r.list("skill", { items: [{ name: "test" }], count: 1 });
           }),
           layer,
         );
         const firstResult = state.results[0];
-        assertDefined(firstResult, "Expected document result entry");
+        assertDefined(firstResult, "Expected list result entry");
         expect(firstResult.data).toEqual({
-          command: "skills.list",
           items: [{ name: "test" }],
           count: 1,
         });
-        expect(Option.isSome(firstResult.schema)).toBe(true);
+        expect(Option.isNone(firstResult.schema)).toBe(true);
       }),
     );
 
@@ -563,20 +553,15 @@ describe("TestRenderer", () => {
 // ---------------------------------------------------------------------------
 
 describe("TestMachineRenderer", () => {
-  it.effect("document() returns true (machine mode)", () =>
+  it.effect("list() returns true (machine mode)", () =>
     Effect.gen(function* () {
       const { layer, state } = TestMachineRenderer.make();
       const result = yield* Effect.gen(function* () {
         const r = yield* CliRenderer;
-        return yield* r.document(
-          "skills.list",
-          { items: [{ name: "test" }], count: 1 },
-          { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
-        );
+        return yield* r.list("skill", { items: [{ name: "test" }], count: 1 });
       }).pipe(Effect.provide(layer));
       expect(result).toBe(true);
       expect(state.results[0]?.data).toEqual({
-        command: "skills.list",
         items: [{ name: "test" }],
         count: 1,
       });

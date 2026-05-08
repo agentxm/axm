@@ -8,7 +8,6 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
       what: "WorkspaceMutations not initialized",
-      details: ["Looked for: .axm/settings.json"],
       howToFix: Option.some("Run 'axm setup' to create one."),
       cause: undefined,
     });
@@ -18,7 +17,6 @@ describe("renderAppError", () => {
     expect(result).toBe(
       [
         "\u2717 WorkspaceMutations not initialized (WORKSPACE_NOT_INIT)",
-        "  Looked for: .axm/settings.json",
         "  Run 'axm setup' to create one.",
       ].join("\n"),
     );
@@ -28,23 +26,19 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: ["Package: @handle/name"],
       howToFix: Option.none(),
       cause: undefined,
     });
 
     const result = renderAppError(error);
 
-    expect(result).toBe(
-      ["\u2717 Installation failed (INSTALL_FAILED)", "  Package: @handle/name"].join("\n"),
-    );
+    expect(result).toBe("\u2717 Installation failed (INSTALL_FAILED)");
   });
 
-  it("formats error with empty details", () => {
+  it("formats error with no optional fields", () => {
     const error = new AppError({
       code: "UNKNOWN",
       what: "Something went wrong",
-      details: [],
       howToFix: Option.none(),
       cause: undefined,
     });
@@ -58,7 +52,6 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INVALID_SOURCE",
       what: "Could not resolve source",
-      details: ["Input: my-skill", "No matching extensions found"],
       howToFix: Option.some("Try a local path or GitHub shorthand."),
       cause: undefined,
     });
@@ -68,8 +61,6 @@ describe("renderAppError", () => {
     expect(result).toBe(
       [
         "\u2717 Could not resolve source (INVALID_SOURCE)",
-        "  Input: my-skill",
-        "  No matching extensions found",
         "  Try a local path or GitHub shorthand.",
       ].join("\n"),
     );
@@ -79,7 +70,6 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: [],
       howToFix: Option.none(),
       cause: new Error("permission denied"),
     });
@@ -97,7 +87,6 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: [],
       howToFix: Option.none(),
       cause,
     });
@@ -109,11 +98,10 @@ describe("renderAppError", () => {
     expect(result).toContain("Stack:  at test");
   });
 
-  it("does not duplicate cause details already present on parent error", () => {
+  it("renders nested AppError cause in verbose mode", () => {
     const nested = new AppError({
       code: "REGISTRY_PUBLISH_NETWORK_ERROR",
       what: "Failed to connect to the remote registry",
-      details: ["Request: PUT https://localhost:4300/v1/extensions/@axm/skill/effect-basics/0.1.0"],
       howToFix: Option.none(),
       cause: undefined,
     });
@@ -121,21 +109,15 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "PUBLISH_SKILL_PUBLISH_FAILED",
       what: 'Failed to publish to registry "local-registry"',
-      details: [
-        "Registry source: local-registry",
-        "Registry error: Failed to connect to the remote registry (REGISTRY_PUBLISH_NETWORK_ERROR)",
-        "Request: PUT https://localhost:4300/v1/extensions/@axm/skill/effect-basics/0.1.0",
-      ],
       howToFix: Option.none(),
       cause: nested,
     });
 
     const result = renderAppError(error, { verbose: true, debug: true });
 
-    expect(result).not.toContain(
+    expect(result).toContain(
       "Cause: Failed to connect to the remote registry (REGISTRY_PUBLISH_NETWORK_ERROR)",
     );
-    expect(result.match(/Cause detail: Request: PUT/g)).toBeNull();
   });
 });
 

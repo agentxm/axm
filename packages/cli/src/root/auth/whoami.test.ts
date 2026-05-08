@@ -142,7 +142,6 @@ describe("auth whoami handler", () => {
         yield* handleWhoami();
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          command: "auth.whoami",
           data: {
             userHandle: ALICE,
             email: "alice@example.com",

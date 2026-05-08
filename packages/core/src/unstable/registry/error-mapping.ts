@@ -199,7 +199,6 @@ export const mapAuthUnauthenticated = (
   return makeAppError({
     code: "AUTH_UNAUTHENTICATED",
     what: "Authentication required",
-    details,
     howToFix: howToFix ?? "Run `axm login` to sign in.",
     cause: error,
   });
@@ -239,7 +238,6 @@ export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>)
   return makeAppError({
     code: "AUTH_UNAUTHORIZED",
     what: "Insufficient permissions",
-    details,
     howToFix: "You do not have permission for this operation. Check your account permissions.",
     cause: error,
   });
@@ -261,7 +259,6 @@ export const mapNetworkError = (
   makeAppError({
     code,
     what,
-    details: [...buildNetworkDiagnosis(baseUrl), error.message],
     howToFix: buildNetworkHowToFix(baseUrl),
     cause: error,
   });
@@ -277,10 +274,6 @@ export const mapSchemaError = (error: unknown, code: string, what: string): AppE
   makeAppError({
     code,
     what,
-    details: (() => {
-      const msg = getString(error, "message");
-      return msg !== undefined ? [msg] : [];
-    })(),
     cause: error,
   });
 
@@ -309,7 +302,6 @@ export const mapUnexpectedStatusError = (
   return makeAppError({
     code,
     what,
-    details,
     cause: error,
   });
 };

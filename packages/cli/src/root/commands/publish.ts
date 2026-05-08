@@ -197,7 +197,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
           what: `Command "${name}" cannot be published from a non-registry source`,
-          details: [`Source: ${entry.source}`],
           howToFix:
             "Only commands sourced from a registry namespace (`@owner/commands/name`) can be published.",
         }),
@@ -241,7 +240,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "EXTENSION_NOT_FOUND",
                 what: `Managed extension not found: ${extName}`,
-                details: [`Expected at: ${extensionDir}`],
                 howToFix:
                   "Only managed extensions (in .axm/extensions/) can be published. Create with `axm commands new` first.",
               });
@@ -256,7 +254,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "MISSING_MANIFEST",
                 what: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
-                details: [`Expected at: ${manifestPath}`],
                 howToFix: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
               });
             }
@@ -271,7 +268,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "MISSING_COMMAND_MD",
                 what: `Missing ${contentFilename}`,
-                details: [`Expected at: ${commandMdPath}`],
                 howToFix: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
               });
             }
@@ -351,7 +347,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
       what: `Failed to publish ${failedStepDetails.length} command${failedStepDetails.length === 1 ? "" : "s"}`,
-      details: failedStepDetails,
     });
   }
 

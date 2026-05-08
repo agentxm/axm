@@ -167,8 +167,7 @@ describe("determineSkillsToInstall", () => {
           );
 
           expect(error._tag).toBe("AppError");
-          expect(error.details.join(", ")).toContain("commit");
-          expect(error.details.join(", ")).toContain("review-pr");
+          expect(error.what).toContain("effect-*");
         }),
       ),
     );

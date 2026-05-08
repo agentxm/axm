@@ -302,11 +302,9 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     const binaryInfoOpt = resolvePlatformBinary(platform, arch);
 
     if (Option.isNone(binaryInfoOpt)) {
-      const supported = SUPPORTED_TARGETS.map((t) => `${t.platform}-${t.arch}`).join(", ");
       return yield* makeAppError({
         code: "UPGRADE_UNSUPPORTED_PLATFORM",
         what: `Unsupported platform: ${platform}-${arch}`,
-        details: [`Supported targets: ${supported}`],
         howToFix: "Build from source or use a supported platform.",
       });
     }
@@ -398,7 +396,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     }
   })();
 
-  if (yield* renderer.document("upgrade", { result }, UpgradeDocumentFields)) {
+  if (yield* renderer.result({ result }, Schema.Struct(UpgradeDocumentFields))) {
     return;
   }
 

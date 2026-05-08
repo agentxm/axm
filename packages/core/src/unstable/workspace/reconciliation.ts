@@ -206,12 +206,6 @@ export const buildReconciliationSnapshot = (
     };
   });
 
-const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<string> =>
-  snapshot.unresolved.map(
-    ({ declaration, reason }) =>
-      `${declaration.type}:${declaration.owner}/${declaration.name} (${reason})`,
-  );
-
 export const runReadRecoverOperation = (
   context: ReconciliationContext,
 ): Effect.Effect<
@@ -301,7 +295,6 @@ export const runReconcileMaterializeOperation = (
         error: makeAppError({
           code: "LOCKFILE_RECONCILE_SOURCE_UNREACHABLE",
           what: "Required declaration sources are unreachable during reconciliation",
-          details: formatUnresolved(snapshot),
         }),
       } satisfies JobStepResult;
     }

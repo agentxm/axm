@@ -19,7 +19,6 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
         makeAppError({
           code: "SKILL_SOURCE_INVALID",
           what: `Invalid skill source for ${name}: ${cause.message}`,
-          details: [`Source: ${source}`],
           cause,
         }),
       ),
@@ -52,7 +51,6 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
           makeAppError({
             code: "SKILL_SOURCE_RESOLUTION_FAILED",
             what: `Failed to resolve configured skill "${name}"`,
-            details: [`Source: ${source}`],
             howToFix: `Verify the configured source is reachable and still contains the skill.`,
             cause,
           }),
@@ -64,7 +62,6 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
       return yield* makeAppError({
         code: "SKILL_SOURCE_MISSING",
         what: `Configured skill "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
         howToFix: `Verify the configured source still contains the skill or update settings.json.`,
       });
     }
@@ -83,7 +80,6 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
         makeAppError({
           code: "SUBAGENT_SOURCE_INVALID",
           what: `Invalid subagent source for ${name}: ${cause.message}`,
-          details: [`Source: ${source}`],
           cause,
         }),
       ),
@@ -116,7 +112,6 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
           makeAppError({
             code: "SUBAGENT_SOURCE_RESOLUTION_FAILED",
             what: `Failed to resolve configured subagent "${name}"`,
-            details: [`Source: ${source}`],
             howToFix: `Verify the configured source is reachable and still contains the subagent.`,
             cause,
           }),
@@ -128,7 +123,6 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
       return yield* makeAppError({
         code: "SUBAGENT_SOURCE_MISSING",
         what: `Configured subagent "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
         howToFix: `Verify the configured source still contains the subagent or update settings.json.`,
       });
     }
@@ -147,7 +141,6 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
       return yield* makeAppError({
         code: "WORKSPACE_INSTALL_SOURCE_INVALID",
         what: `The configured command entry "${name}" is invalid.`,
-        details: [`Source: ${source}`],
         howToFix: `Use a name like "@owner/commands/name".`,
       });
     }
@@ -159,7 +152,6 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
         makeAppError({
           code: "COMMAND_SOURCE_INVALID",
           what: `Invalid command source for ${name}: ${cause.message}`,
-          details: [`Source: ${source}`],
           cause,
         }),
       ),
@@ -180,7 +172,6 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
           makeAppError({
             code: "COMMAND_SOURCE_RESOLUTION_FAILED",
             what: `Failed to resolve configured command "${name}"`,
-            details: [`Source: ${source}`],
             howToFix: `Verify the configured registry source is reachable and still contains the command.`,
             cause,
           }),
@@ -192,7 +183,6 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
       return yield* makeAppError({
         code: "COMMAND_SOURCE_MISSING",
         what: `Configured command "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
         howToFix: `Verify the configured source still contains the command or update settings.json.`,
       });
     }
@@ -211,7 +201,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
       return yield* makeAppError({
         code: "WORKSPACE_INSTALL_SOURCE_INVALID",
         what: `The configured MCP server entry "${name}" is invalid.`,
-        details: [`Source: ${source}`],
         howToFix: `Use a name like "@owner/mcp-servers/name".`,
       });
     }
@@ -223,7 +212,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
         makeAppError({
           code: "MCP_SERVER_SOURCE_INVALID",
           what: `Invalid MCP server source for ${name}: ${cause.message}`,
-          details: [`Source: ${source}`],
           cause,
         }),
       ),
@@ -244,7 +232,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
           makeAppError({
             code: "MCP_SERVER_SOURCE_RESOLUTION_FAILED",
             what: `Failed to resolve configured MCP server "${name}"`,
-            details: [`Source: ${source}`],
             howToFix: `Verify the configured registry source is reachable and still contains the MCP server.`,
             cause,
           }),
@@ -256,7 +243,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
       return yield* makeAppError({
         code: "MCP_SERVER_SOURCE_MISSING",
         what: `Configured MCP server "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
         howToFix: `Verify the configured source still contains the MCP server or update settings.json.`,
       });
     }
@@ -275,7 +261,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       return yield* makeAppError({
         code: "WORKSPACE_INSTALL_SOURCE_INVALID",
         what: `The configured extension pack entry "${name}" is invalid.`,
-        details: [`Source: ${source}`],
         howToFix: `Use a name like "@owner/packs/name".`,
       });
     }
@@ -287,7 +272,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
         makeAppError({
           code: "PACK_SOURCE_INVALID",
           what: `Invalid extension pack source for ${name}: ${cause.message}`,
-          details: [`Source: ${source}`],
           cause,
         }),
       ),
@@ -339,7 +323,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
         makeAppError({
           code: "PACK_SOURCE_RESOLUTION_FAILED",
           what: `Failed to resolve configured extension pack "${name}"`,
-          details: [`Source: ${source}`],
           howToFix:
             "Verify the configured registry source is reachable and still contains the extension pack.",
           cause,
@@ -352,7 +335,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       return yield* makeAppError({
         code: "PACK_SOURCE_MISSING",
         what: `Configured extension pack "${name}" could not be found in its source`,
-        details: [`Source: ${source}`],
         howToFix:
           "Verify the configured source still contains the extension pack or update settings.json.",
       });

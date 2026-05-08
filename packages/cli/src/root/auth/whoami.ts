@@ -69,7 +69,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   };
 
   // Step 3: Display result
-  if (yield* renderer.document("auth.whoami", { data: identity }, WhoamiDocumentFields)) {
+  if (yield* renderer.result({ data: identity }, Schema.Struct(WhoamiDocumentFields))) {
     return;
   }
 

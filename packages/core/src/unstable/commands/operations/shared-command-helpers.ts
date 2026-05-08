@@ -110,7 +110,6 @@ export const readCommandContent = (
           makeAppError({
             code: `${errorPrefix}_MANIFEST_INVALID`,
             what: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
-            details: [error instanceof Error ? error.message : String(error)],
             cause: error,
           }),
       });

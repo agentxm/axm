@@ -190,7 +190,6 @@ describe("commands list.handler", () => {
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          command: "commands.list",
           count: 1,
           items: [
             {

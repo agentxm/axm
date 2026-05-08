@@ -124,7 +124,6 @@ export const publishSubagent: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_SUBAGENT_MANIFEST_SCHEMA_INVALID",
         what: agentsFieldValidation.failure.detail,
-        details: ["Target agents are configured in settings.agents, not extension manifests."],
       });
     }
 
@@ -149,19 +148,9 @@ export const publishSubagent: OperationHandler<
     const contentExists = yield* fs.exists(contentPath).pipe(Effect.orElseSucceed(() => false));
 
     if (!contentExists) {
-      const foundMarkdownFiles = yield* fs.readDirectory(contentRoot).pipe(
-        Effect.map((entries) => entries.filter((entry) => entry.endsWith(".md"))),
-        Effect.catch(() => Effect.succeed([])),
-      );
       return yield* makeAppError({
         code: "PUBLISH_SUBAGENT_CONTENT_MISSING",
         what: `Missing subagent content file: expected ${expectedFilename}`,
-        details: [
-          `Expected path: ${contentPath}`,
-          ...(foundMarkdownFiles.length > 0
-            ? [`Found Markdown files: ${foundMarkdownFiles.join(", ")}`]
-            : []),
-        ],
         howToFix: `Rename the subagent content file to ${expectedFilename} and ensure its frontmatter name is ${manifest.name}.`,
       });
     }
@@ -238,13 +227,6 @@ export const publishSubagent: OperationHandler<
           makeAppError({
             code: "PUBLISH_SUBAGENT_PUBLISH_FAILED",
             what: `Failed to publish to registry "${op.args.registryName}"`,
-            details: [
-              `Registry source: ${op.args.registryName}`,
-              `Registry URL: ${registryUrl}`,
-              `Extension: ${op.args.name}@${manifest.version}`,
-              `Registry error: ${e.what} (${e.code})`,
-              ...e.details,
-            ],
             ...(Option.isSome(e.howToFix) && { howToFix: e.howToFix.value }),
             cause: e,
           }),

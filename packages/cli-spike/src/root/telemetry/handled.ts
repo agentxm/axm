@@ -11,7 +11,6 @@ const handleHandledTelemetry = Effect.fail(
   makeAppError({
     code: "SPIKE_HANDLED_ERROR",
     what: "Simulated handled telemetry failure",
-    details: ["Raised by axm-spike to verify handled error reporting."],
     howToFix: "Run `axm-spike telemetry defect` to exercise defect telemetry.",
   }),
 );

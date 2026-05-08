@@ -17,7 +17,6 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Invalid GitLab SSH URL format",
-        details: [input],
       }),
     );
   }
@@ -32,7 +31,6 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: "Invalid GitLab SSH URL format",
-          details: [input],
         }),
       );
 };

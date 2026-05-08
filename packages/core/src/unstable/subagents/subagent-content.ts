@@ -93,7 +93,6 @@ export const parseSubagentMd = (
         makeAppError({
           code: "SUBAGENT_FRONTMATTER_INVALID",
           what: "Invalid subagent frontmatter",
-          details: [error instanceof Error ? error.message : String(error)],
           howToFix: "Frontmatter must include a string `name` field.",
           cause: error,
         }),
@@ -114,10 +113,6 @@ export const parseSubagentMd = (
       return yield* makeAppError({
         code: "SUBAGENT_NAME_MISMATCH",
         what: `Subagent frontmatter name "${String(name)}" does not match expected name "${expectedName}"`,
-        details: [
-          `Expected frontmatter name: ${expectedName}`,
-          `Actual frontmatter name: ${String(name)}`,
-        ],
         howToFix: `Set subagent.json name, frontmatter name, and filename to ${expectedName}.`,
       });
     }

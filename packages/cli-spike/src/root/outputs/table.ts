@@ -4,10 +4,7 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  makeCommandDocumentSchema,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
 
@@ -36,10 +33,7 @@ const OutputsTableDocumentFields = {
   count: Schema.Number,
 } satisfies Schema.Struct.Fields;
 
-export const OutputsTableOutputSchema = makeCommandDocumentSchema(
-  "outputs.table",
-  OutputsTableDocumentFields,
-);
+export const OutputsTableOutputSchema = Schema.Struct(OutputsTableDocumentFields);
 export type OutputsTableOutput = typeof OutputsTableOutputSchema.Type;
 
 const samplePets: ReadonlyArray<SamplePet> = [
@@ -58,10 +52,9 @@ export const handleTable = (args: { readonly caption: Option.Option<string> }) =
     const renderer = yield* CliRenderer;
 
     if (
-      yield* renderer.document(
-        "outputs.table",
+      yield* renderer.result(
         { items: samplePets, count: samplePets.length },
-        OutputsTableDocumentFields,
+        OutputsTableOutputSchema,
       )
     ) {
       return;
@@ -82,7 +75,7 @@ export const tableCommand = Command.make("table", tableConfig, ({ caption }) =>
     },
     {
       command: "axm-spike outputs table --json",
-      description: "Emit { command, items, count }",
+      description: "Emit { ok, items, count }",
     },
   ]),
 );

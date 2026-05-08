@@ -380,7 +380,6 @@ describe("displayPlan", () => {
                         error: makeAppError({
                           code: "PUBLISH_FAILED",
                           what: "Failed to publish",
-                          details: ["Registry URL: https://registry.example.com"],
                           cause: new Error("connection refused"),
                         }),
                       },
@@ -394,11 +393,6 @@ describe("displayPlan", () => {
           expect(logsByTag(state).error.some((m) => m.includes("Cause: connection refused"))).toBe(
             true,
           );
-          expect(
-            logsByTag(state).error.some((m) =>
-              m.includes("Registry URL: https://registry.example.com"),
-            ),
-          ).toBe(true);
         }),
       { verbose: true, debug: true },
     ),

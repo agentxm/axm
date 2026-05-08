@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { GitHubSourceParams } from "../../../sources/types.js";
 
-const headRequest = (url: string, input: string) =>
+const headRequest = (url: string, _input: string) =>
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     const request = HttpClientRequest.head(url);
@@ -15,7 +15,6 @@ const headRequest = (url: string, input: string) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to check GitHub: ${error.reason._tag === "TransportError" ? String(error.reason.cause) : `HTTP error`}`,
-          details: [input],
           cause: error,
         }),
       ),

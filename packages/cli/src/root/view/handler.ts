@@ -199,7 +199,6 @@ export const handleView = (args: ViewHandlerArgs) =>
         return yield* makeAppError({
           code: "VIEW_UNKNOWN_FIELD",
           what: `Unknown view field: ${field}`,
-          details: [`Supported fields: ${supportedFields.join(", ")}`],
         });
       }
       const value = fieldValue(data, field);
@@ -213,7 +212,7 @@ export const handleView = (args: ViewHandlerArgs) =>
       return;
     }
 
-    if (yield* renderer.document("view", { data }, ViewDocumentFields)) {
+    if (yield* renderer.result({ data }, Schema.Struct(ViewDocumentFields))) {
       return;
     }
 

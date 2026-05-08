@@ -52,7 +52,6 @@ const handleHelpTopic = (topic: Option.Option<string>) =>
         makeAppError({
           code: "HELP_UNKNOWN_TOPIC",
           what: `Unknown help topic '${name}'`,
-          details: [`Available topics: ${HELP_TOPIC_NAMES.join(", ")}`],
           howToFix: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",
         }),
       );

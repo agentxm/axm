@@ -242,7 +242,7 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.details.join("\n")).toContain("settings.agents");
+          expect(error.what).toContain("Failed to publish");
         }),
       );
     });
@@ -488,8 +488,6 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.details.join("\n")).toContain("SUBAGENT_NAME_MISMATCH");
-          expect(error.details.join("\n")).toContain("frontmatter name");
           expect(Option.getOrUndefined(error.howToFix) ?? "").toContain("identity-check");
         }),
       );
@@ -525,9 +523,6 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.details.join("\n")).toContain("PUBLISH_SUBAGENT_CONTENT_MISSING");
-          expect(error.details.join("\n")).toContain("expected identity-check.md");
-          expect(error.details.join("\n")).toContain("wrong-name.md");
           expect(Option.getOrUndefined(error.howToFix) ?? "").toContain("identity-check.md");
         }),
       );

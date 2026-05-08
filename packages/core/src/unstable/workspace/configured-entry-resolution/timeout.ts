@@ -4,7 +4,7 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 export const CONFIGURED_ENTRY_RESOLUTION_TIMEOUT = "2 seconds";
 
 export const withConfiguredEntryResolutionTimeout =
-  (source: string) =>
+  (_source: string) =>
   <A, R>(effect: Effect.Effect<A, AppError, R>) =>
     effect.pipe(
       Effect.timeoutOrElse({
@@ -14,7 +14,6 @@ export const withConfiguredEntryResolutionTimeout =
             makeAppError({
               code: "CONFIGURED_ENTRY_RESOLUTION_TIMEOUT",
               what: "Timed out while resolving a configured extension source",
-              details: [`Source: ${source}`],
             }),
           ),
       }),

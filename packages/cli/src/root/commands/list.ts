@@ -1,25 +1,22 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  CliRenderer,
+  registerEntity,
+  type TableView,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
-const CommandListItemSchema = Schema.Struct({
-  name: Schema.String,
-  lifecycle: Schema.String,
-  enabled: Schema.Boolean,
-  source: Schema.String,
-});
-type CommandListItem = typeof CommandListItemSchema.Type;
-
-const CommandListDocumentFields = {
-  items: Schema.Array(CommandListItemSchema),
-  count: Schema.Number,
-} satisfies Schema.Struct.Fields;
+interface CommandListItem {
+  readonly name: string;
+  readonly lifecycle: string;
+  readonly enabled: boolean;
+  readonly source: string;
+}
 
 const CommandListTable = {
   columns: {
@@ -35,6 +32,13 @@ const CommandListTable = {
     },
   },
 } as const satisfies TableView<CommandListItem>;
+
+registerEntity<CommandListItem>("command", {
+  list: {
+    columns: CommandListTable.columns,
+    emptyMessage: "No commands installed",
+  },
+});
 
 export const handleListCommands = Effect.fn("ListCommands.handle")(function* () {
   const renderer = yield* CliRenderer;
@@ -59,13 +63,7 @@ export const handleListCommands = Effect.fn("ListCommands.handle")(function* () 
 
   const items = [...installedItems, ...unmanagedItems];
 
-  if (
-    yield* renderer.document(
-      "commands.list",
-      { items, count: items.length },
-      CommandListDocumentFields,
-    )
-  ) {
+  if (yield* renderer.list("command", { items, count: items.length })) {
     return;
   }
 

@@ -47,7 +47,6 @@ export const validateIgnoredConfigConflicts = (
       return yield* makeAppError({
         code: "SETTINGS_IGNORED_CONFIG_CONFLICT",
         what: `Configured extensions conflict with ignored patterns: ${conflicts.join(", ")}`,
-        details: conflicts,
         howToFix:
           "Remove conflicting entries from either the configured extensions or the ignored patterns in settings",
       });

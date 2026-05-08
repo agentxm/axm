@@ -7,7 +7,6 @@ describe("AppError", () => {
     const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
       what: "WorkspaceMutations not initialized",
-      details: ["Looked for: .axm/settings.json"],
       howToFix: Option.some("Run 'axm setup' to create one."),
       cause: new Error("original"),
     });
@@ -15,7 +14,6 @@ describe("AppError", () => {
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
     expect(error.what).toBe("WorkspaceMutations not initialized");
-    expect(error.details).toEqual(["Looked for: .axm/settings.json"]);
     expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm setup' to create one.");
     expect(error.cause).toBeInstanceOf(Error);
   });
@@ -24,24 +22,11 @@ describe("AppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: ["Package: @handle/name"],
       howToFix: Option.none(),
       cause: undefined,
     });
 
     expect(Option.isNone(error.howToFix)).toBe(true);
-  });
-
-  it("constructs with empty details", () => {
-    const error = new AppError({
-      code: "UNKNOWN",
-      what: "Something went wrong",
-      details: [],
-      howToFix: Option.none(),
-      cause: undefined,
-    });
-
-    expect(error.details).toEqual([]);
   });
 });
 
@@ -50,7 +35,6 @@ describe("makeAppError", () => {
     const error = makeAppError({
       code: "WORKSPACE_NOT_INIT",
       what: "WorkspaceMutations not initialized",
-      details: ["Looked for: .axm/settings.json"],
       howToFix: "Run 'axm setup' to create one.",
       cause: new Error("original"),
     });
@@ -58,16 +42,14 @@ describe("makeAppError", () => {
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
     expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm setup' to create one.");
-    expect(error.details).toEqual(["Looked for: .axm/settings.json"]);
   });
 
-  it("defaults details to empty array", () => {
+  it("defaults optional fields", () => {
     const error = makeAppError({
       code: "TEST",
       what: "Test error",
     });
 
-    expect(error.details).toEqual([]);
     expect(Option.isNone(error.howToFix)).toBe(true);
     expect(error.cause).toBeUndefined();
   });

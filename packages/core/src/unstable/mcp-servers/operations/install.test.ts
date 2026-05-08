@@ -437,7 +437,6 @@ describe("installMcpServer", () => {
         if (result.result === "error") {
           expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
           expect(result.error.what).toContain("exact semver");
-          expect(result.error.details.join("\n")).toContain("Received: ^1.0.0");
         }
       }),
     );

@@ -96,7 +96,6 @@ const syncConfiguredAgentsOnUninstall = (args: {
       return yield* makeAppError({
         code: "CODING_AGENT_UNKNOWN_CONFIGURED",
         what: message,
-        details: unknownConfiguredAgentIds,
       });
     }
 
@@ -122,25 +121,17 @@ const syncConfiguredAgentsOnUninstall = (args: {
 
     const misconfigured = Array.filter(outcomes, ({ outcome }) => outcome._tag === "misconfigured");
     if (misconfigured.length > 0) {
-      const details = misconfigured.map(({ agentId, outcome }) =>
-        outcome._tag === "misconfigured" ? `${agentId}: ${outcome.reason}` : `${agentId}: invalid`,
-      );
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
         what: `MCP server ${args.serverName} could not be removed from configured agents`,
-        details,
       });
     }
 
     const failed = Array.filter(outcomes, ({ outcome }) => outcome._tag === "failed");
     if (args.strict && failed.length > 0) {
-      const details = failed.map(({ agentId, outcome }) =>
-        outcome._tag === "failed" ? `${agentId}: ${outcome.reason}` : `${agentId}: failed`,
-      );
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_FAILED",
         what: `MCP server ${args.serverName} removal sync failed in strict mode`,
-        details,
       });
     }
 
@@ -153,13 +144,9 @@ const syncConfiguredAgentsOnUninstall = (args: {
         REQUIRED_AGENT_IDS.has(agentId),
     );
     if (strictDisabledFailures.length > 0) {
-      const details = strictDisabledFailures.map(({ agentId, outcome }) =>
-        outcome._tag === "success" ? `${agentId}: disabled` : `${agentId}: ${outcome.reason}`,
-      );
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
         what: `MCP server ${args.serverName} removal sync disabled for required configured agents`,
-        details,
       });
     }
 

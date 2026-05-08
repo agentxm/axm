@@ -194,7 +194,6 @@ export const installExtensionPack: OperationHandler<
           return yield* makeAppError({
             code: "PACK_DEPENDENCY_METADATA_MISMATCH",
             what: `Extension pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
-            details: missingDependencies.map((dependency) => `Missing: ${dependency}`),
             howToFix:
               "Republish the extension pack or repair the registry metadata before installing this pack.",
           });

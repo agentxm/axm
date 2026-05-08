@@ -6,6 +6,8 @@ export {
   type DetailView,
   type LogLevel,
   type LogMessage,
+  type ListPayload,
+  type DetailOptions,
   type ProgressConfig,
   type ProgressHandle,
   type ResolvedDetailField,
@@ -26,6 +28,7 @@ export {
   type ViewKey,
 } from "./cli-renderer.js";
 export { resolveDetailFields, resolveTableColumns } from "./command-output.js";
+export { getEntityView, registerEntity, type EntityView } from "./entity-registry.js";
 export { InteractiveRenderer } from "./cli-renderer-interactive.js";
 export { MachineRenderer } from "./cli-renderer-machine.js";
 export {

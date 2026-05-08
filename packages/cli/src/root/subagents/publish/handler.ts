@@ -186,7 +186,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
           what: `Subagent "${name}" cannot be published from a non-registry source`,
-          details: [`Source: ${entry.source}`],
           howToFix:
             "Only subagents sourced from a registry namespace (`@owner/subagents/name`) can be published.",
         }),
@@ -229,7 +228,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "EXTENSION_NOT_FOUND",
                 what: `Managed extension not found: ${extName}`,
-                details: [`Expected at: ${extensionDir}`],
                 howToFix:
                   "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed subagent with `axm subagents new` first.",
               });
@@ -244,7 +242,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "MISSING_MANIFEST",
                 what: `Missing manifest: ${MANIFEST_FILENAME}`,
-                details: [`Expected at: ${manifestPath}`],
                 howToFix: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
               });
             }
@@ -319,7 +316,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
       what: `Failed to publish ${failedStepDetails.length} subagent${failedStepDetails.length === 1 ? "" : "s"}`,
-      details: failedStepDetails,
       ...(howToFix !== undefined ? { howToFix } : {}),
     });
   }

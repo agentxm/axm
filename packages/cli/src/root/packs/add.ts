@@ -82,7 +82,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
                   makeAppError({
                     code: "OWNER_REQUIRED",
                     what: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
-                    details: [`Source: ${packSource}`],
                     howToFix:
                       "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
                   }),

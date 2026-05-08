@@ -10,12 +10,13 @@ import {
 } from "./json-envelope.js";
 
 describe("BreadcrumbSchema", () => {
-  it("decodes manual and runnable breadcrumbs", () => {
+  it("decodes template and runnable breadcrumbs", () => {
     const decode = Schema.decodeUnknownSync(BreadcrumbSchema);
 
-    expect(decode({ task: "edit", description: "Edit the file" })).toEqual({
+    expect(decode({ task: "edit", description: "Edit the file", cmd: "axm edit" })).toEqual({
       task: "edit",
       description: "Edit the file",
+      cmd: "axm edit",
     });
     expect(
       decode({ task: "sync", description: "Apply changes", command: ["axm", "sync"] }),
@@ -25,15 +26,21 @@ describe("BreadcrumbSchema", () => {
       command: ["axm", "sync"],
     });
   });
+
+  it("rejects breadcrumbs without command or cmd", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(BreadcrumbSchema)({ task: "edit", description: "Edit the file" }),
+    ).toThrow("Expected breadcrumb command or cmd");
+  });
 });
 
 describe("JsonEnvelopeSchema", () => {
   it("decodes success envelopes with breadcrumbs", () => {
     const envelope = makeJsonSuccessEnvelope({
-      data: { name: "code-reviewer" },
+      payload: { name: "code-reviewer" },
       summary: "Created subagent code-reviewer",
       breadcrumbs: [
-        { task: "edit", description: "Edit the file" },
+        { task: "edit", description: "Edit the file", cmd: "axm edit" },
         { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
       ],
     });

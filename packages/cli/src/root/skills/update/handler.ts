@@ -104,7 +104,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               makeAppError({
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
-                details: [`Provided: ${sourceValue}`],
                 cause: error,
               }),
             ),
@@ -222,7 +221,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "UPDATE_SOURCE_EMPTY",
           what: `Registry skill "${skillFqn}" has no published versions`,
-          details: [`Source: ${sources.origin(source)}`],
           howToFix: "Publish a version before running `axm skills update`.",
         });
       }
@@ -236,7 +234,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "UPDATE_CONSTRAINT_UNSATISFIABLE",
           what: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
-          details: [`Source: ${sources.origin(source)}`],
           howToFix: "Relax the version constraint or update the dependent pack constraints.",
         });
       }
@@ -256,7 +253,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "UPDATE_RESOLUTION_FAILED",
           what: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
-          details: [`Source: ${sources.origin(source)}`],
           howToFix: "Verify the registry index and package metadata are consistent.",
         });
       }
@@ -276,14 +272,13 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       });
     });
 
-  const decodeConfiguredSkillName = (name: string, sourceStr: string) =>
+  const decodeConfiguredSkillName = (name: string, _sourceStr: string) =>
     Effect.try({
       try: () => decodeExtensionNameSync(name),
       catch: () =>
         makeAppError({
           code: "INVALID_SOURCE",
           what: `Configured skill name "${name}" is invalid`,
-          details: [`Source: ${sourceStr}`],
           howToFix:
             "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
         }),

@@ -26,13 +26,21 @@ import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-r
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import type { Breadcrumb } from "./breadcrumb.js";
-import { StreamEventVersion } from "./output-mode.js";
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
 };
 
 const formatBreadcrumbCommand = (command: ReadonlyArray<string>): string => command.join(" ");
+const formatBreadcrumbAction = (crumb: Breadcrumb): string => {
+  if (crumb.command !== undefined) {
+    return ` · ${formatBreadcrumbCommand(crumb.command)}`;
+  }
+  if (crumb.cmd !== undefined) {
+    return ` · ${crumb.cmd}`;
+  }
+  return "";
+};
 
 const writeTextBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void => {
   if (breadcrumbs.length === 0) {
@@ -43,9 +51,7 @@ const writeTextBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void => {
     [
       "Next:",
       ...breadcrumbs.map((crumb) => {
-        const command =
-          crumb.command === undefined ? "" : ` · ${formatBreadcrumbCommand(crumb.command)}`;
-        return `  ${crumb.description}${command}`;
+        return `  ${crumb.description}${formatBreadcrumbAction(crumb)}`;
       }),
     ].join("\n"),
   );
@@ -55,14 +61,26 @@ const writeMachineBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void =
   for (const crumb of breadcrumbs) {
     writeStderr(
       JSON.stringify({
-        _version: StreamEventVersion,
         type: "breadcrumb",
         task: crumb.task,
         description: crumb.description,
         ...(crumb.command !== undefined ? { command: [...crumb.command] } : {}),
+        ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
       }),
     );
   }
+};
+
+const writeMachineError = (error: AppError, exitCode: number): void => {
+  writeStderr(
+    JSON.stringify({
+      type: "error",
+      code: error.code,
+      message: error.what,
+      ...(Option.isSome(error.howToFix) ? { howToFix: error.howToFix.value } : {}),
+      exitCode,
+    }),
+  );
 };
 
 export type ExpectedCliError = AppError | PromptCancelled;
@@ -92,13 +110,11 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
       return;
     }
 
+    const exitCode = defaultExitCodeForExpectedError(error);
     writeMachineBreadcrumbs(error.breadcrumbs ?? []);
+    writeMachineError(error, exitCode);
     process.stdout.write(
-      JSON.stringify(
-        makeJsonErrorEnvelopeFromAppError(error, defaultExitCodeForExpectedError(error)),
-        null,
-        2,
-      ) + "\n",
+      JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, exitCode), null, 2) + "\n",
     );
     writeStderr(`\u2717 ${error.what}`);
   });

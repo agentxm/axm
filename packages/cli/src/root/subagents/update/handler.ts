@@ -83,7 +83,6 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
               makeAppError({
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
-                details: [`Provided: ${sourceValue}`],
                 cause: error,
               }),
             ),

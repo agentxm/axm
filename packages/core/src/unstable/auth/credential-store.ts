@@ -95,7 +95,6 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
           makeAppError({
             code: "AUTH_CREDENTIAL_STORE_FAILED",
             what: `Failed to create credentials directory: ${dir}`,
-            details: [String(error)],
             howToFix: `Ensure you have write access to ~/.config/`,
             cause: error,
           }),
@@ -134,7 +133,6 @@ const readCredentialFile = (
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to read credential file",
-          details: [String(error)],
           cause: error,
         }),
       ),
@@ -146,7 +144,6 @@ const readCredentialFile = (
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to parse credential file",
-          details: [String(error)],
           howToFix:
             "The credential file may be corrupt. Delete it and re-authenticate with `axm login`.",
           cause: error,
@@ -174,7 +171,6 @@ const writeCredentialFile = (
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to encode credential file",
-          details: [String(error)],
           cause: error,
         }),
       ),
@@ -185,7 +181,6 @@ const writeCredentialFile = (
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to write credential file",
-          details: [String(error)],
           cause: error,
         }),
       ),

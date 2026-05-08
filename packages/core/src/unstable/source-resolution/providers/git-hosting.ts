@@ -70,7 +70,6 @@ export const createGitHostingSourceHostProvider = <
             makeAppError({
               code: "SOURCE_FETCH_FAILED",
               what: "Failed to create temp directory",
-              details: [error.message],
               cause: error,
             }),
           ),
@@ -91,7 +90,6 @@ export const createGitHostingSourceHostProvider = <
           makeAppError({
             code: "SOURCE_FETCH_FAILED",
             what: "Failed to discover skills",
-            details: [error.message],
             cause: error,
           }),
         ),

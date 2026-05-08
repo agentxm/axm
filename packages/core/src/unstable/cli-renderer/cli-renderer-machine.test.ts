@@ -3,7 +3,6 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 
-import { StreamEventVersion } from "../cli-runtime/output-mode.js";
 import { CliRenderer, type DetailView, type TableView } from "./cli-renderer.js";
 import { MachineRenderer } from "./cli-renderer-machine.js";
 
@@ -48,11 +47,7 @@ const parseStderrEvents = () =>
     if (typeof event !== "object" || event === null || Array.isArray(event)) {
       throw new Error("Expected stderr event record");
     }
-    if (event._version !== StreamEventVersion) {
-      throw new Error("Expected stderr event _version");
-    }
-    const { _version: _eventVersion, ...rest } = event;
-    return rest;
+    return event;
   });
 
 const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()));
@@ -416,70 +411,59 @@ describe("MachineRenderer", () => {
   });
 
   // -------------------------------------------------------------------------
-  // document() — standard command document output
+  // list() — entity-driven list output
   // -------------------------------------------------------------------------
 
-  describe("document()", () => {
+  describe("list()", () => {
     it.effect("returns true", () =>
       Effect.gen(function* () {
         const result = yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            return yield* r.document(
-              "skills.list",
-              { items: [{ name: "test" }], count: 1 },
-              { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
-            );
+            return yield* r.list("skill", { items: [{ name: "test" }], count: 1 });
           }),
         );
         expect(result).toBe(true);
       }),
     );
 
-    it.effect("writes the standard command document to stdout", () =>
+    it.effect("writes a flat success envelope to stdout", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.document(
-              "skills.list",
-              { items: [{ name: "my-skill" }], count: 1 },
-              { items: Schema.Array(Schema.Struct({ name: Schema.String })), count: Schema.Number },
-            );
+            yield* r.list("skill", { items: [{ name: "my-skill" }], count: 1 });
           }),
         );
         expect(stdoutWrites).toHaveLength(1);
         const parsed = parseStdout();
         expect(parsed[0]).toEqual({
-          command: "skills.list",
+          ok: true,
           items: [{ name: "my-skill" }],
           count: 1,
         });
       }),
     );
 
-    it.effect("wraps command document output in a success envelope with breadcrumbs", () =>
+    it.effect("includes summary and breadcrumbs in the flat envelope", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.document(
-              "commands.new",
-              { result: { outcome: "applied" } },
-              { result: Schema.Struct({ outcome: Schema.Literal("applied") }) },
-              {
-                summary: "Created command @acme/commands/my-command",
-                breadcrumbs: [
-                  { task: "edit", description: "Edit the file" },
-                  { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
-                ],
-              },
-            );
+            yield* r.list("command", {
+              items: [{ name: "my-command" }],
+              count: 1,
+              summary: "Created command @acme/commands/my-command",
+              breadcrumbs: [
+                { task: "edit", description: "Edit the file", cmd: "axm edit" },
+                { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+              ],
+            });
           }),
         );
 
         expect(parseStderrEvents()).toEqual([
-          { type: "breadcrumb", task: "edit", description: "Edit the file" },
+          { type: "breadcrumb", task: "edit", description: "Edit the file", cmd: "axm edit" },
           {
             type: "breadcrumb",
             task: "sync",
@@ -489,13 +473,11 @@ describe("MachineRenderer", () => {
         ]);
         expect(parseStdout()[0]).toEqual({
           ok: true,
-          data: {
-            command: "commands.new",
-            result: { outcome: "applied" },
-          },
+          items: [{ name: "my-command" }],
+          count: 1,
           summary: "Created command @acme/commands/my-command",
           breadcrumbs: [
-            { task: "edit", description: "Edit the file" },
+            { task: "edit", description: "Edit the file", cmd: "axm edit" },
             { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
           ],
         });
@@ -533,7 +515,7 @@ describe("MachineRenderer", () => {
         );
         expect(stdoutWrites).toHaveLength(1);
         const parsed = parseStdout();
-        expect(parsed[0]).toEqual({ name: "my-skill", version: "1.0.0" });
+        expect(parsed[0]).toEqual({ ok: true, name: "my-skill", version: "1.0.0" });
       }),
     );
 

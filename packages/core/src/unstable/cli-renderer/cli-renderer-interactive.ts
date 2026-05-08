@@ -6,6 +6,8 @@ import {
   CliRenderer,
   type BreadcrumbOptions,
   type DetailView,
+  type DetailOptions,
+  type ListPayload,
   type ResolvedDetailField,
   type ProgressConfig,
   type ProgressHandle,
@@ -14,12 +16,14 @@ import {
   type SpinnerOptions,
   type SuccessOptions,
   type TableView,
+  type TreePayload,
   type TreeDef,
   type TreeNode,
 } from "./cli-renderer.js";
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import * as chrome from "./ansi-chrome.js";
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
+import { getEntityView } from "./entity-registry.js";
 
 const ANSI_DIM = "\u001b[2m";
 const ANSI_RESET = "\u001b[0m";
@@ -227,6 +231,50 @@ const formatTree = <T>(
   return lines.join("\n");
 };
 
+const objectKeys = (item: object): ReadonlyArray<string> => Object.keys(item);
+
+const makeGenericTableView = <T extends object>(items: ReadonlyArray<T>): TableView<T> => {
+  const sample = items[0];
+  const columns =
+    sample === undefined
+      ? {}
+      : Object.fromEntries(
+          objectKeys(sample).map((key) => [
+            key,
+            {
+              header: key,
+              render: (_value: unknown, row: T) => {
+                const value = Object.entries(row).find(([entryKey]) => entryKey === key)?.[1];
+                return value == null ? "" : String(value);
+              },
+            },
+          ]),
+        );
+
+  // Assertion needed: generic fallback derives keys dynamically from the item object.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return { columns } as unknown as TableView<T>;
+};
+
+const makeGenericDetailView = <T extends object>(item: T): DetailView<T> => {
+  const fields = Object.fromEntries(
+    objectKeys(item).map((key) => [
+      key,
+      {
+        label: key,
+        render: (_value: unknown, row: T) => {
+          const value = Object.entries(row).find(([entryKey]) => entryKey === key)?.[1];
+          return value == null ? "" : String(value);
+        },
+      },
+    ]),
+  );
+
+  // Assertion needed: generic fallback derives keys dynamically from the item object.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return { fields } as unknown as DetailView<T>;
+};
+
 // ---------------------------------------------------------------------------
 // InteractiveRenderer layer
 // ---------------------------------------------------------------------------
@@ -242,6 +290,13 @@ const taskCompletionMessage = (title: string, result: string | void): string => 
 };
 
 const formatCommand = (command: ReadonlyArray<string>): string => command.join(" ");
+
+const formatBreadcrumbCommand = (crumb: Breadcrumb): string => {
+  if (crumb.command !== undefined) {
+    return formatCommand(crumb.command);
+  }
+  return crumb.cmd ?? "";
+};
 
 const normalizeBreadcrumbs = (
   crumbs: ReadonlyArray<Breadcrumb> | undefined,
@@ -261,10 +316,8 @@ const renderBreadcrumbs = (
   const lines = [
     `${ANSI_DIM}Next:${ANSI_RESET}`,
     ...visible.map((crumb) => {
-      const command =
-        crumb.command === undefined
-          ? ""
-          : `${ANSI_DIM} · ${formatCommand(crumb.command)}${ANSI_RESET}`;
+      const formatted = formatBreadcrumbCommand(crumb);
+      const command = formatted.length === 0 ? "" : `${ANSI_DIM} · ${formatted}${ANSI_RESET}`;
       return `  ${crumb.description}${command}`;
     }),
   ];
@@ -385,20 +438,83 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
       if (output) return writeStdoutLine(output);
       return Effect.void;
     },
-    detail: <T extends object>(item: T, view: DetailView<T>, title?: string) => {
-      const fields = resolveDetailFields(view);
-      const output = formatDetail(item, fields, title);
+    list: <T extends object>(entity: string, payload: ListPayload<T>) => {
+      const view = getEntityView<T>(entity)?.list;
+      if (payload.items.length === 0) {
+        return view?.emptyMessage === undefined
+          ? Effect.succeed(false)
+          : writeStdoutLine(view.emptyMessage).pipe(Effect.as(false));
+      }
+      const tableView =
+        view === undefined ? makeGenericTableView(payload.items) : { columns: view.columns };
+      const output = formatTable(payload.items, resolveTableColumns(tableView));
+      return (output ? writeStdoutLine(output) : Effect.void).pipe(
+        Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], payload)),
+        Effect.as(false),
+      );
+    },
+    // Assertion needed: function implements the service's overloaded detail signature.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    detail: ((first: unknown, second: unknown, third?: unknown) => {
+      if (typeof first === "string") {
+        // Assertion needed: overloaded renderer call narrows by entity string at runtime.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        const item = second as object;
+        // Assertion needed: overloaded renderer call carries options in the third argument.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        const options = third as DetailOptions | undefined;
+        const view = getEntityView<object>(first)?.detail;
+        const detailView =
+          view === undefined ? makeGenericDetailView(item) : { fields: view.fields };
+        const title = options?.title ?? view?.title?.(item);
+        const output = formatDetail(item, resolveDetailFields(detailView), title);
+        return (output ? writeStdoutLine(output) : Effect.void).pipe(
+          Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], options)),
+          Effect.as(false),
+        );
+      }
+
+      // Assertion needed: overloaded renderer call carries the item in the first argument.
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const item = first as object;
+      // Assertion needed: overloaded renderer call carries the detail view in the second argument.
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const view = second as DetailView<object>;
+      const title = typeof third === "string" ? third : undefined;
+      const output = formatDetail(item, resolveDetailFields(view), title);
       if (output) return writeStdoutLine(output);
       return Effect.void;
-    },
-    tree: <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string) => {
+    }) as typeof CliRenderer.Service.detail,
+    // Assertion needed: function implements the service's overloaded tree signature.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    tree: ((first: unknown, second: unknown, third?: unknown) => {
+      if (typeof first === "string") {
+        // Assertion needed: overloaded renderer call carries tree payload in the second argument.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        const payload = second as TreePayload<object>;
+        const view = getEntityView<object>(first)?.tree;
+        if (view === undefined) {
+          return Effect.succeed(false);
+        }
+        const output = formatTree(payload.roots, view);
+        return (output ? writeStdoutLine(output) : Effect.void).pipe(
+          Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], payload)),
+          Effect.as(false),
+        );
+      }
+      // Assertion needed: overloaded renderer call carries roots in the first argument.
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const roots = first as ReadonlyArray<TreeNode<unknown>>;
+      // Assertion needed: overloaded renderer call carries the tree definition in the second argument.
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const def = second as TreeDef<unknown>;
+      const title = typeof third === "string" ? third : undefined;
       const output = formatTree(roots, def, title);
       if (output) return writeStdoutLine(output);
       return Effect.void;
-    },
+    }) as typeof CliRenderer.Service.tree,
 
     // Machine data output
-    document: () => Effect.succeed(false),
     result: () => Effect.succeed(false),
     resultStream: () => Effect.succeed(false),
 

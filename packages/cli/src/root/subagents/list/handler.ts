@@ -1,24 +1,21 @@
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  CliRenderer,
+  registerEntity,
+  type TableView,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 export interface ListSubagentsHandlerArgs {
   readonly agents: readonly string[];
 }
 
-const SubagentListItemSchema = Schema.Struct({
-  name: Schema.String,
-  lifecycle: Schema.String,
-  enabled: Schema.Boolean,
-  agents: Schema.Array(Schema.String),
-});
-type SubagentListItem = typeof SubagentListItemSchema.Type;
-
-const SubagentListDocumentFields = {
-  items: Schema.Array(SubagentListItemSchema),
-  count: Schema.Number,
-} satisfies Schema.Struct.Fields;
+interface SubagentListItem {
+  readonly name: string;
+  readonly lifecycle: string;
+  readonly enabled: boolean;
+  readonly agents: ReadonlyArray<string>;
+}
 
 const SubagentListTable = {
   columns: {
@@ -35,6 +32,13 @@ const SubagentListTable = {
     },
   },
 } as const satisfies TableView<SubagentListItem>;
+
+registerEntity<SubagentListItem>("subagent", {
+  list: {
+    columns: SubagentListTable.columns,
+    emptyMessage: "No subagents installed",
+  },
+});
 
 export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
   args: ListSubagentsHandlerArgs,
@@ -60,13 +64,7 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
     agents: lockedSubagents[name]?.agents ?? [],
   }));
 
-  if (
-    yield* renderer.document(
-      "subagents.list",
-      { items, count: items.length },
-      SubagentListDocumentFields,
-    )
-  ) {
+  if (yield* renderer.list("subagent", { items, count: items.length })) {
     return;
   }
 

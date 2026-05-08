@@ -181,8 +181,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     agentDescriptors.length > 0 ? yield* scanAllSubagentFiles(location.baseDir) : [];
 
   if (
-    yield* renderer.document(
-      "setup",
+    yield* renderer.result(
       {
         result: {
           scope: location.scope,
@@ -192,7 +191,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
           ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
         },
       },
-      SetupDocumentFields,
+      Schema.Struct(SetupDocumentFields),
     )
   ) {
     return;

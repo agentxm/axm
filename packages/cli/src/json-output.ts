@@ -174,10 +174,9 @@ export const emitPlanResolutionResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    return yield* renderer.document(
-      command,
+    return yield* renderer.result(
       { result: toPlanResolutionResult(resolution) },
-      PlanResolutionDocumentFields,
+      Schema.Struct(PlanResolutionDocumentFields),
       options,
     );
   });
@@ -211,8 +210,7 @@ export const emitNoOpResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    return yield* renderer.document(
-      command,
+    return yield* renderer.result(
       {
         result: {
           outcome: "no-op",
@@ -229,6 +227,6 @@ export const emitNoOpResult = <TCommand extends string>(
           steps: [],
         },
       },
-      PlanResolutionDocumentFields,
+      Schema.Struct(PlanResolutionDocumentFields),
     );
   });

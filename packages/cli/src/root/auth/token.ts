@@ -33,7 +33,7 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested
   if (json) {
-    yield* renderer.document("auth.token", { data: { token: token.token } }, TokenDocumentFields);
+    yield* renderer.result({ data: { token: token.token } }, Schema.Struct(TokenDocumentFields));
     return;
   }
 

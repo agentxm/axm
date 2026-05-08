@@ -176,10 +176,7 @@ describe("subagents install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("DISCOVER_FAILED");
-        const details = appError.details;
-        const reason = details.find((d) => d.startsWith("Reason:"));
-        expect(reason).toBeDefined();
-        expect(reason).not.toBe("Reason:");
+        expect(appError.cause).toBeDefined();
       }),
     );
   });

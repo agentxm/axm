@@ -122,9 +122,6 @@ export const resolveManifestVersionInfo = (
       return yield* makeAppError({
         code: "INVALID_EXTENSION_TYPE",
         what: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
-        details: [
-          `Supported types: ${versionableTypes.map((type) => extensionTypeToPlural[type]).join(", ")}`,
-        ],
       });
     }
 

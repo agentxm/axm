@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as SchemaIssue from "effect/SchemaIssue";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -62,7 +61,6 @@ export const resolveRootUpdateIntent = (input: string) =>
       return yield* makeAppError({
         code: "UPDATE_SOURCE_NOT_FQN",
         what: "Root update only accepts registry FQNs",
-        details: [`Provided: ${source}`],
         howToFix: rootUpdateRegistryOnlyHowToFix(source),
       });
     }
@@ -73,7 +71,6 @@ export const resolveRootUpdateIntent = (input: string) =>
           return makeAppError({
             code: "UPDATE_SOURCE_UNKNOWN_TYPE",
             what: "Update source uses an unsupported plural type",
-            details: [`Provided: ${source}`, `Supported types: ${supportedRootUpdateTypes}`],
             howToFix: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
             cause: error,
           });
@@ -82,7 +79,6 @@ export const resolveRootUpdateIntent = (input: string) =>
         return makeAppError({
           code: "UPDATE_SOURCE_INVALID_FQN",
           what: "Update source must be a registry FQN",
-          details: [SchemaIssue.makeFormatterDefault()(error.issue)],
           howToFix: `Use ${rootUpdateFqnGrammar} with one of: ${supportedRootUpdateTypes}.`,
           cause: error,
         });
@@ -93,7 +89,6 @@ export const resolveRootUpdateIntent = (input: string) =>
       return yield* makeAppError({
         code: "UPDATE_SOURCE_UNSUPPORTED_TYPE",
         what: "Root update does not support that extension type",
-        details: [`Provided: ${source}`, `Supported types: ${supportedRootUpdateTypes}`],
         howToFix: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
       });
     }

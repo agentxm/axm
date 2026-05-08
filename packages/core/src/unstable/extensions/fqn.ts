@@ -26,7 +26,6 @@ export const parseFqn = (input: string) =>
       return yield* makeAppError({
         code: "INVALID_FQN",
         what: `Invalid fully qualified name: ${input}`,
-        details: ["Expected format: @handle/type/name (e.g., @acme/skills/code-review)"],
         howToFix:
           "Use the 3-segment format: @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name",
       });

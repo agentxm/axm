@@ -192,7 +192,6 @@ export const publishExtensionPack: OperationHandler<
           makeAppError({
             code: "PUBLISH_PACK_PUBLISH_FAILED",
             what: "Failed to publish to registry",
-            details: [e.what],
             cause: e,
           }),
         ),

@@ -1,9 +1,6 @@
 import * as Console from "effect/Console";
 import * as Schema from "effect/Schema";
 
-const StreamEventVersion = 1;
-const StreamEventVersionSchema = Schema.Literal(StreamEventVersion);
-
 // ---------------------------------------------------------------------------
 // Output format
 // ---------------------------------------------------------------------------
@@ -24,7 +21,6 @@ export type OutputFormat = "text" | "json";
 // ---------------------------------------------------------------------------
 
 export const ProgressEventSchema = Schema.Struct({
-  _version: StreamEventVersionSchema,
   type: Schema.Literal("progress"),
   phase: Schema.String,
   percent: Schema.Number,
@@ -37,7 +33,6 @@ export const ProgressEventSchema = Schema.Struct({
 export type ProgressEvent = typeof ProgressEventSchema.Type;
 
 export const LogEventSchema = Schema.Struct({
-  _version: StreamEventVersionSchema,
   type: Schema.Literal("log"),
   level: Schema.Literals(["info", "warn", "error"] as const).annotate({
     identifier: "LogLevel",
@@ -53,11 +48,9 @@ export const LogEventSchema = Schema.Struct({
 export type LogEvent = typeof LogEventSchema.Type;
 
 export const ErrorEventSchema = Schema.Struct({
-  _version: StreamEventVersionSchema,
   type: Schema.Literal("error"),
   code: Schema.String,
   message: Schema.String,
-  details: Schema.optional(Schema.Array(Schema.String)),
   howToFix: Schema.optional(Schema.String),
   exitCode: Schema.optional(Schema.Number),
 }).annotate({
@@ -68,11 +61,11 @@ export const ErrorEventSchema = Schema.Struct({
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 
 export const BreadcrumbEventSchema = Schema.Struct({
-  _version: StreamEventVersionSchema,
   type: Schema.Literal("breadcrumb"),
   task: Schema.String,
   description: Schema.String,
   command: Schema.optional(Schema.Array(Schema.String)),
+  cmd: Schema.optional(Schema.String),
 }).annotate({
   identifier: "BreadcrumbEvent",
   title: "Breadcrumb Event",
@@ -87,5 +80,3 @@ export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent | BreadcrumbEven
 // ---------------------------------------------------------------------------
 
 export const emitEvent = (event: StreamEvent) => Console.error(JSON.stringify(event));
-
-export { StreamEventVersion };

@@ -5,12 +5,12 @@ import * as Option from "effect/Option";
 import type * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
-import { makeCommandDocument, makeCommandDocumentSchema } from "../cli-runtime/command-document.js";
 import {
   CliRenderer,
   type BreadcrumbOptions,
   type BoxOptions,
-  type DetailView,
+  type DetailOptions,
+  type ListPayload,
   type LogMessage,
   type ProgressConfig,
   type ProgressHandle,
@@ -21,8 +21,8 @@ import {
   type TaskLogConfig,
   type TaskLogGroupHandle,
   type TaskLogHandle,
-  type TreeDef,
   type TreeNode,
+  type TreePayload,
 } from "./cli-renderer.js";
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 
@@ -392,44 +392,81 @@ const makeTestRendererService = (
           ...(caption !== undefined && { caption }),
         });
       }),
-    detail: <T extends object>(item: T, view: DetailView<T>, title?: string) =>
-      Effect.sync(() => {
-        state.details.push({
-          item,
-          view,
-          ...(title !== undefined && { title }),
-        });
-      }),
-    tree: <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string) =>
-      Effect.sync(() => {
-        state.trees.push({
-          roots: Array.from(roots),
-          def,
-          ...(title !== undefined && { title }),
-        });
-      }),
-
-    // Machine data output (stdout)
-    document: <TCommand extends string, const Fields extends Schema.Struct.Fields>(
-      command: TCommand,
-      body: Schema.Struct.Type<Fields>,
-      fields: Fields,
-      options?: SuccessOptions,
-    ) =>
+    list: <T extends object>(_entity: string, payload: ListPayload<T>) =>
       Effect.sync(() => {
         if (
           resultReturnValue &&
-          options?.withoutBreadcrumbs !== true &&
-          options?.breadcrumbs !== undefined
+          payload.withoutBreadcrumbs !== true &&
+          payload.breadcrumbs !== undefined
         ) {
-          state.breadcrumbs.push(...options.breadcrumbs);
+          state.breadcrumbs.push(...payload.breadcrumbs);
         }
         state.results.push({
-          data: makeCommandDocument(command, body),
-          schema: Option.some(makeCommandDocumentSchema(command, fields)),
+          data: payload,
+          schema: Option.none(),
         });
         return resultReturnValue;
       }),
+    // Assertion needed: function implements the service's overloaded detail signature.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    detail: ((first: unknown, second: unknown, third?: unknown) =>
+      Effect.sync(() => {
+        if (typeof first === "string") {
+          // Assertion needed: overloaded renderer call carries options in the third argument.
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+          const options = third as DetailOptions | undefined;
+          if (
+            resultReturnValue &&
+            options?.withoutBreadcrumbs !== true &&
+            options?.breadcrumbs !== undefined
+          ) {
+            state.breadcrumbs.push(...options.breadcrumbs);
+          }
+          state.results.push({
+            data: second,
+            schema: Option.none(),
+          });
+          return resultReturnValue;
+        }
+        state.details.push({
+          item: first,
+          view: second,
+          ...(typeof third === "string" && { title: third }),
+        });
+        return undefined;
+      })) as typeof CliRenderer.Service.detail,
+    // Assertion needed: function implements the service's overloaded tree signature.
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    tree: ((first: unknown, second: unknown, third?: unknown) =>
+      Effect.sync(() => {
+        if (typeof first === "string") {
+          // Assertion needed: overloaded renderer call carries tree payload in the second argument.
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+          const payload = second as TreePayload<object>;
+          if (
+            resultReturnValue &&
+            payload.withoutBreadcrumbs !== true &&
+            payload.breadcrumbs !== undefined
+          ) {
+            state.breadcrumbs.push(...payload.breadcrumbs);
+          }
+          state.results.push({
+            data: payload,
+            schema: Option.none(),
+          });
+          return resultReturnValue;
+        }
+        state.trees.push({
+          // Assertion needed: overloaded renderer call carries roots in the first argument.
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+          roots: Array.from(first as ReadonlyArray<TreeNode<unknown>>),
+          def: second,
+          ...(typeof third === "string" && { title: third }),
+        });
+        return undefined;
+      })) as typeof CliRenderer.Service.tree,
+
+    // Machine data output (stdout)
     result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,

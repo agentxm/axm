@@ -236,7 +236,6 @@ const installFromRegistry = (
           return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            details: [`Expected ${ref.integrity.value}, got ${actualIntegrity}`],
           });
         }
       }
@@ -403,7 +402,6 @@ export const installSkill: OperationHandler<
         error: makeAppError({
           code: "CODING_AGENT_UNKNOWN_CONFIGURED",
           what: message,
-          details: unknownConfiguredAgentIds,
         }),
       } satisfies JobStepResult;
     }
@@ -428,11 +426,6 @@ export const installSkill: OperationHandler<
       ({ outcome }) => outcome._tag === "misconfigured",
     );
     if (misconfigured.length > 0) {
-      const details = misconfigured.map(({ agentId, outcome }) =>
-        outcome._tag === "misconfigured"
-          ? `${agentId}: ${outcome.reason}`
-          : `${agentId}: invalid skills directory configuration`,
-      );
       const message = `Failed to resolve skills directories for ${ref.skill.name}`;
       return {
         result: "error",
@@ -440,7 +433,6 @@ export const installSkill: OperationHandler<
         error: makeAppError({
           code: "SKILL_DIR_MISCONFIGURED",
           what: message,
-          details,
         }),
       } satisfies JobStepResult;
     }
@@ -554,7 +546,6 @@ export const installSkill: OperationHandler<
         error: makeAppError({
           code: "SKILL_INSTALL_PARTIAL_FAILED",
           what: message,
-          details: failedAgents,
         }),
       } satisfies JobStepResult;
     }

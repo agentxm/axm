@@ -537,7 +537,7 @@ const JsonDocumentFields = {
 const emitJsonDocument = (doc: LintJsonDocument) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    return yield* renderer.document("lint", { result: doc }, JsonDocumentFields);
+    return yield* renderer.result({ result: doc }, Schema.Struct(JsonDocumentFields));
   });
 
 const emitHumanOutput = (args: {

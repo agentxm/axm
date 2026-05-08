@@ -234,7 +234,7 @@ describe("publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.details.join("\n")).toContain("settings.agents");
+          expect(error.what).toContain("Failed to publish");
         }),
       );
     });
@@ -708,7 +708,7 @@ describe("publish.handler", () => {
                 error: true as const,
                 code: e.code,
                 what: e.what,
-                details: e.details,
+                cause: e.cause,
               }),
             ),
           );
@@ -716,8 +716,6 @@ describe("publish.handler", () => {
           expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });
           if (result.error) {
             expect(result.what).toContain("Failed to publish");
-            expect(result.details[0]).toContain("PUBLISH_SKILL_PUBLISH_FAILED");
-            expect(result.details[0]).not.toContain("Registry URL:");
           }
           expect(logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);

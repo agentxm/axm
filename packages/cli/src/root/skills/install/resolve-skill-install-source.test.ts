@@ -301,7 +301,7 @@ describe("resolveSkillInstallSource", () => {
       expect(error._tag).toBe("AppError");
       expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
       expect(error.what).toContain("@acme/my-skill");
-      expect(error.details.join(" ")).toContain("Checked registries:");
+      expect(error.what).toContain("not found");
     });
   });
 });
@@ -437,9 +437,6 @@ describe("resolveSkillRegistrySourceByName", () => {
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
         expect(error.what).toContain("@myns/missing-skill");
         expect(error.what).toContain("not found");
-        const detailsText = error.details.join(" ");
-        expect(detailsText).toContain(`file://${registryA}`);
-        expect(detailsText).toContain(`file://${registryB}`);
       });
     },
   );
@@ -459,8 +456,6 @@ describe("resolveSkillRegistrySourceByName", () => {
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
         expect(error.what).toContain("no default owner");
-        const detailsText = error.details.join(" ");
-        expect(detailsText).toContain("No default owner configured");
       });
     },
   );
@@ -476,8 +471,6 @@ describe("resolveSkillRegistrySourceByName", () => {
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
         expect(error.what).toContain("no registry sources");
-        const detailsText = error.details.join(" ");
-        expect(detailsText).toContain("No registry sources configured");
       });
     },
   );

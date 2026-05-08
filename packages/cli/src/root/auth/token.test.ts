@@ -148,7 +148,6 @@ describe("auth token handler", () => {
         yield* handleToken();
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          command: "auth.token",
           data: { token: "axm_ses_mytoken" },
         });
       }),

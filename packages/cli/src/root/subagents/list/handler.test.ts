@@ -256,7 +256,6 @@ describe("subagents list.handler", () => {
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          command: "subagents.list",
           count: 1,
           items: [
             {

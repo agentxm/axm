@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as SchemaIssue from "effect/SchemaIssue";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -62,7 +61,6 @@ export const resolveRootUninstallIntent = (input: string) =>
       return yield* makeAppError({
         code: "UNINSTALL_SOURCE_NOT_FQN",
         what: "Root uninstall only accepts registry FQNs",
-        details: [`Provided: ${source}`],
         howToFix: rootUninstallRegistryOnlyHowToFix(source),
       });
     }
@@ -73,7 +71,6 @@ export const resolveRootUninstallIntent = (input: string) =>
           return makeAppError({
             code: "UNINSTALL_SOURCE_UNKNOWN_TYPE",
             what: "Uninstall source uses an unsupported plural type",
-            details: [`Provided: ${source}`, `Supported types: ${supportedRootUninstallTypes}`],
             howToFix: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
             cause: error,
           });
@@ -82,7 +79,6 @@ export const resolveRootUninstallIntent = (input: string) =>
         return makeAppError({
           code: "UNINSTALL_SOURCE_INVALID_FQN",
           what: "Uninstall source must be a registry FQN",
-          details: [SchemaIssue.makeFormatterDefault()(error.issue)],
           howToFix: `Use ${rootUninstallFqnGrammar} with one of: ${supportedRootUninstallTypes}.`,
           cause: error,
         });
@@ -93,7 +89,6 @@ export const resolveRootUninstallIntent = (input: string) =>
       return yield* makeAppError({
         code: "UNINSTALL_SOURCE_UNSUPPORTED_TYPE",
         what: "Root uninstall does not support that extension type",
-        details: [`Provided: ${source}`, `Supported types: ${supportedRootUninstallTypes}`],
         howToFix: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
       });
     }

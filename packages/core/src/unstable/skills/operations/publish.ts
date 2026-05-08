@@ -117,7 +117,6 @@ export const publishSkill: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_SKILL_MANIFEST_SCHEMA_INVALID",
         what: agentsFieldValidation.failure.detail,
-        details: ["Target agents are configured in settings.agents, not extension manifests."],
       });
     }
 
@@ -194,13 +193,6 @@ export const publishSkill: OperationHandler<
           makeAppError({
             code: "PUBLISH_SKILL_PUBLISH_FAILED",
             what: `Failed to publish to registry "${op.args.registryName}"`,
-            details: [
-              `Registry source: ${op.args.registryName}`,
-              `Registry URL: ${registryUrl}`,
-              `Extension: ${op.args.name}@${manifest.version}`,
-              `Registry error: ${e.what} (${e.code})`,
-              ...e.details,
-            ],
             ...(Option.isSome(e.howToFix) && { howToFix: e.howToFix.value }),
             cause: e,
           }),

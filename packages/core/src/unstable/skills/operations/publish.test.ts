@@ -266,14 +266,7 @@ describe("publishSkill", () => {
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)), Effect.flip);
 
         expect(error.what).toBe('Failed to publish to registry "local"');
-        expect(error.details).toEqual(
-          expect.arrayContaining([
-            expect.stringContaining("Registry source: local"),
-            expect.stringContaining("Registry URL:"),
-            expect.stringContaining("Registry error:"),
-            expect.stringContaining("already exists with different integrity"),
-          ]),
-        );
+        expect(error.cause).toMatchObject({ _tag: "AppError" });
       }),
     );
   });

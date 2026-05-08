@@ -166,7 +166,7 @@ export const handleOutdatedWith = <E, R>(
     const entries = yield* collect(args.type);
 
     if (entries.length === 0) {
-      if (yield* renderer.document("outdated", { data: [], count: 0 }, OutdatedDocumentFields)) {
+      if (yield* renderer.result({ data: [], count: 0 }, Schema.Struct(OutdatedDocumentFields))) {
         return;
       }
       yield* renderer.info("No configured extensions.");
@@ -177,10 +177,9 @@ export const handleOutdatedWith = <E, R>(
     const jsonRows = outdated.map(entryToJsonRow);
 
     if (
-      yield* renderer.document(
-        "outdated",
+      yield* renderer.result(
         { data: jsonRows, count: jsonRows.length },
-        OutdatedDocumentFields,
+        Schema.Struct(OutdatedDocumentFields),
       )
     ) {
       return;

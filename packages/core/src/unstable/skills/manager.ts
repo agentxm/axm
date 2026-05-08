@@ -114,15 +114,9 @@ export const SkillManagerLive = Layer.effect(
         ({ outcome }) => outcome._tag === "misconfigured",
       );
       if (misconfigured.length > 0) {
-        const details = misconfigured.map(({ agent, outcome }) =>
-          outcome._tag === "misconfigured"
-            ? `${agent.id}: ${outcome.reason}`
-            : `${agent.id}: invalid configuration`,
-        );
         return yield* makeAppError({
           code: "SKILL_DIR_MISCONFIGURED",
           what: "One or more configured agents have invalid skills directory settings",
-          details,
         });
       }
 

@@ -241,49 +241,54 @@ describe("axm-spike source smoke", () => {
 
   it("emits the published items document for pets list", async () => {
     const result = await runSpike(["pets", "list", "--json"]);
-    const output = decodePetsListOutput(JSON.parse(result.stdout));
+    const parsed = JSON.parse(result.stdout);
+    const output = decodePetsListOutput(parsed);
 
     expect(result.exitCode).toBe(0);
-    expect(output.command).toBe("pets.list");
+    expect(parsed).toMatchObject({ ok: true });
     expect(output.count).toBeGreaterThan(0);
     expect(output.items[0]?.name).toBeDefined();
   });
 
   it("emits the published document for outputs raw", async () => {
     const result = await runSpike(["outputs", "raw", "--json"]);
-    const output = decodeOutputsRaw(JSON.parse(result.stdout));
+    const parsed = JSON.parse(result.stdout);
+    const output = decodeOutputsRaw(parsed);
 
     expect(result.exitCode).toBe(0);
-    expect(output.command).toBe("outputs.raw");
+    expect(parsed).toMatchObject({ ok: true });
     expect(output.data.lines).toContain("Name: axm-spike");
   });
 
   it("emits the published document for outputs detail", async () => {
     const result = await runSpike(["outputs", "detail", "--json"]);
-    const output = decodeOutputsDetail(JSON.parse(result.stdout));
+    const parsed = JSON.parse(result.stdout);
+    const output = decodeOutputsDetail(parsed);
 
     expect(result.exitCode).toBe(0);
-    expect(output.command).toBe("outputs.detail");
+    expect(parsed).toMatchObject({ ok: true });
     expect(output.data.name).toBe("Mochi");
     expect(output.data.habitat).toBe("showroom");
   });
 
   it("emits the published document for outputs table", async () => {
     const result = await runSpike(["outputs", "table", "--json"]);
-    const output = decodeOutputsTable(JSON.parse(result.stdout));
+    const parsed = JSON.parse(result.stdout);
+    const output = decodeOutputsTable(parsed);
 
     expect(result.exitCode).toBe(0);
-    expect(output.command).toBe("outputs.table");
+    expect(parsed).toMatchObject({ ok: true });
     expect(output.count).toBe(4);
     expect(output.items[0]?.name).toBe("Mochi");
   });
 
   it("emits the stable stream document for outputs result", async () => {
     const result = await runSpike(["outputs", "result", "--stream", "--json"]);
-    const output = decodeOutputsResult(JSON.parse(result.stdout));
+    const parsed = JSON.parse(result.stdout);
+    const output = decodeOutputsResult(parsed);
 
     expect(result.exitCode).toBe(0);
-    expect(output.command).toBe("outputs.result");
+    expect(parsed).toMatchObject({ ok: true });
     expect(output.count).toBe(3);
     expect(output.data.kind).toBe("list");
     if (output.data.kind !== "list") {
@@ -294,10 +299,11 @@ describe("axm-spike source smoke", () => {
 
   it("emits the recursive document for outputs tree", async () => {
     const result = await runSpike(["outputs", "tree", "--json"]);
-    const output = decodeOutputsTree(JSON.parse(result.stdout));
+    const parsed = JSON.parse(result.stdout);
+    const output = decodeOutputsTree(parsed);
 
     expect(result.exitCode).toBe(0);
-    expect(output.command).toBe("outputs.tree");
+    expect(parsed).toMatchObject({ ok: true });
     expect(output.data.roots[0]?.name).toBe("packages");
     expect(output.data.roots[0]?.children?.[0]?.children?.[0]?.name).toBe("src");
   });

@@ -166,7 +166,6 @@ export const SubagentManagerLive = Layer.effect(
               return yield* makeAppError({
                 code: "INSTALL_SUBAGENT_INTEGRITY_MISMATCH",
                 what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-                details: [`Expected ${ref.integrity.value}, got ${actualIntegrity}`],
               });
             }
           }

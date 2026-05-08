@@ -152,7 +152,6 @@ export const McpServerManagerLive = Layer.effect(
               return yield* makeAppError({
                 code: "INSTALL_MCP_SERVER_INTEGRITY_MISMATCH",
                 what: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
-                details: [`Expected ${registryRef.integrity.value}, got ${actualIntegrity}`],
               });
             }
           }

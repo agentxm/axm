@@ -108,7 +108,6 @@ const resolveRegistrySource = (
         makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
           what: `Failed to read configured registry sources for owner "${owner}"`,
-          details: [input],
           howToFix: "Check that your workspace settings file is valid and accessible",
           cause: e,
         }),
@@ -119,7 +118,6 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
         what: `No registry source is configured for owner "${owner}"`,
-        details: [`Provided: ${input}`],
         howToFix: `Add a registry source for owner "${owner}" using "axm sources add"`,
       });
     }
@@ -178,11 +176,6 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
         what: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
-        details: [
-          `Provided: ${input}`,
-          `Checked registries: ${checked.join(", ")}`,
-          ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
-        ],
         howToFix: registryLookupHowToFix({
           issues,
           fallback:
@@ -194,11 +187,6 @@ const resolveRegistrySource = (
     return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
       what: `None of the configured registry sources contain owner "${owner}"`,
-      details: [
-        `Provided: ${input}`,
-        `Checked registries: ${checked.join(", ")}`,
-        ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
-      ],
       howToFix: registryLookupHowToFix({
         issues,
         fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
@@ -218,7 +206,6 @@ const resolveSubagentRegistrySourceByName = (
         makeAppError({
           code: "INVALID_SOURCE",
           what: `Invalid subagent name: "${name}"`,
-          details: [`Provided: ${input}`],
           howToFix:
             "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
         }),
@@ -231,7 +218,6 @@ const resolveSubagentRegistrySourceByName = (
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
         what: `Subagent "${extensionName}" could not be looked up (no default owner)`,
-        details: [`Provided: ${input}`, `No default owner configured and not logged in`],
         howToFix:
           "Configure an owner in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @owner/subagents/name",
       });
@@ -244,11 +230,6 @@ const resolveSubagentRegistrySourceByName = (
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
         what: `Subagent "${owner}/${extensionName}" could not be looked up (no registry sources)`,
-        details: [
-          `Provided: ${input}`,
-          `Default owner: ${owner}`,
-          `No registry sources configured`,
-        ],
         howToFix:
           "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
       });
@@ -301,12 +282,6 @@ const resolveSubagentRegistrySourceByName = (
     return yield* makeAppError({
       code: "REGISTRY_SUBAGENT_NOT_FOUND",
       what: `Subagent "${owner}/${extensionName}" was not found in configured registries`,
-      details: [
-        `Provided: ${input}`,
-        `Default owner: ${owner}`,
-        `Checked registries: ${checked.join(", ")}`,
-        ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
-      ],
       howToFix: registryLookupHowToFix({
         issues,
         fallback:
@@ -325,7 +300,6 @@ const resolveSubagentRegistrySource = (
       return yield* makeAppError({
         code: "SUBAGENT_INSTALL_WRONG_TYPE",
         what: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
-        details: [pattern.owner],
         howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a subagent`,
       });
     }
@@ -375,7 +349,6 @@ export const resolveSubagentInstallSource = (
         return yield* makeAppError({
           code: "SUBAGENT_INSTALL_UNSUPPORTED_INPUT",
           what: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
-          details: [parseResult.originalInput],
           howToFix:
             "Use a registry reference (e.g., @owner/subagents/name), a URL, or a shorthand (owner/repo) instead",
         });

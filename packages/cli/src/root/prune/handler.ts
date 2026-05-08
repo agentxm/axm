@@ -107,10 +107,9 @@ export const handleRootPrune = Effect.fn("RootPrune.handle")(function* (
   // JSON mode: output via document, optionally prune
   if (artifacts.length === 0) {
     if (
-      yield* renderer.document(
-        "prune",
+      yield* renderer.result(
         { artifacts: noArtifacts, count: 0, pruned: false },
-        PruneDocumentFields,
+        Schema.Struct(PruneDocumentFields),
       )
     ) {
       return;
@@ -124,10 +123,9 @@ export const handleRootPrune = Effect.fn("RootPrune.handle")(function* (
     yield* removeArtifacts(artifacts);
 
     if (
-      yield* renderer.document(
-        "prune",
+      yield* renderer.result(
         { artifacts: [...artifacts], count: artifacts.length, pruned: true },
-        PruneDocumentFields,
+        Schema.Struct(PruneDocumentFields),
       )
     ) {
       return;
@@ -141,10 +139,9 @@ export const handleRootPrune = Effect.fn("RootPrune.handle")(function* (
 
   // Without --yes: read-only preview
   if (
-    yield* renderer.document(
-      "prune",
+    yield* renderer.result(
       { artifacts: [...artifacts], count: artifacts.length, pruned: false },
-      PruneDocumentFields,
+      Schema.Struct(PruneDocumentFields),
     )
   ) {
     return;

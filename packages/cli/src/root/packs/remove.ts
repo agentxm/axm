@@ -76,7 +76,6 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
                   makeAppError({
                     code: "OWNER_REQUIRED",
                     what: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
-                    details: [`Source: ${packSource}`],
                     howToFix:
                       "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
                   }),
@@ -150,7 +149,6 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       return yield* makeAppError({
         code: "NO_EXTENSIONS_MATCHED",
         what: `No extensions in extension pack match '${args.extension}'`,
-        details: allNames.length > 0 ? [`Available: ${allNames.join(", ")}`] : [],
         howToFix: "Check extension pack contents",
       });
     }
@@ -158,7 +156,6 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     return yield* makeAppError({
       code: "EXTENSION_NOT_IN_PACK",
       what: `Extension '${args.extension}' is not in the extension pack`,
-      details: allNames.length > 0 ? [`Available: ${allNames.join(", ")}`] : [],
       howToFix: "Check the extension pack manifest for available extensions",
     });
   }

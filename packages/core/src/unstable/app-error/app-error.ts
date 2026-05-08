@@ -6,7 +6,6 @@ import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: string;
   readonly what: string;
-  readonly details: ReadonlyArray<string>;
   readonly howToFix: Option.Option<string>;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause: unknown;
@@ -15,7 +14,6 @@ export class AppError extends Data.TaggedError("AppError")<{
 export const makeAppError = (args: {
   readonly code: string;
   readonly what: string;
-  readonly details?: ReadonlyArray<string>;
   readonly howToFix?: string;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause?: unknown;
@@ -23,7 +21,6 @@ export const makeAppError = (args: {
   new AppError({
     code: args.code,
     what: args.what,
-    details: args.details ?? [],
     howToFix: Option.fromUndefinedOr(args.howToFix),
     breadcrumbs: args.breadcrumbs ?? [],
     cause: args.cause,

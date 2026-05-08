@@ -307,7 +307,7 @@ describe("commands-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.details.join("\n")).toContain("settings.agents");
+          expect(error.what).toContain("Failed to publish");
         }),
       );
     });

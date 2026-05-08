@@ -60,7 +60,7 @@ The `axm outdated` command SHALL support `--json` output following the standard 
 #### Scenario: JSON output lists outdated extensions
 
 - **WHEN** the user runs `axm outdated --json`
-- **THEN** the command SHALL output a JSON object with `_version`, `command`, and `data` fields
+- **THEN** the command SHALL output a JSON object with `command` and `data` fields
 - **AND** `data` SHALL include an array of entries, each with `ref`, `type`, `installedVersion`, `constraint`, `latestMatching`, and `latestAvailable` fields
 
 ### Requirement: Outdated command is read-only

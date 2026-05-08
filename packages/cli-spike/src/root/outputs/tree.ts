@@ -130,7 +130,7 @@ export const treeCommand = Command.make("tree", treeConfig, ({ title }) =>
     },
     {
       command: "axm-spike outputs tree --json",
-      description: "Emit { _version, command, data: { roots } }",
+      description: "Emit { command, data: { roots } }",
     },
   ]),
 );

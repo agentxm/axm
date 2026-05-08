@@ -224,7 +224,7 @@ export const sinkCommand = Command.make("sink", sinkConfig, () =>
     },
     {
       command: "axm-spike outputs sink --json",
-      description: "Emit { _version, command, items, count }",
+      description: "Emit { command, items, count }",
     },
   ]),
 );

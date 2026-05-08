@@ -70,7 +70,7 @@ export const rawCommand = Command.make("raw", rawConfig, ({ content }) =>
     },
     {
       command: "axm-spike outputs raw --json",
-      description: "Emit { _version, command, data: { content, lines } }",
+      description: "Emit { command, data: { content, lines } }",
     },
   ]),
 );

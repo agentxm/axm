@@ -82,7 +82,7 @@ export const tableCommand = Command.make("table", tableConfig, ({ caption }) =>
     },
     {
       command: "axm-spike outputs table --json",
-      description: "Emit { _version, command, items, count }",
+      description: "Emit { command, items, count }",
     },
   ]),
 );

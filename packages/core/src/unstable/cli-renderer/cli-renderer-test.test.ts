@@ -431,7 +431,6 @@ describe("TestRenderer", () => {
         expect(result).toBe(false);
         expect(state.results).toHaveLength(1);
         expect(state.results[0]?.data).toEqual({
-          _version: 1,
           command: "skills.list",
           items: [{ name: "test" }],
           count: 1,
@@ -484,7 +483,6 @@ describe("TestRenderer", () => {
         const firstResult = state.results[0];
         assertDefined(firstResult, "Expected document result entry");
         expect(firstResult.data).toEqual({
-          _version: 1,
           command: "skills.list",
           items: [{ name: "test" }],
           count: 1,
@@ -578,7 +576,6 @@ describe("TestMachineRenderer", () => {
       }).pipe(Effect.provide(layer));
       expect(result).toBe(true);
       expect(state.results[0]?.data).toEqual({
-        _version: 1,
         command: "skills.list",
         items: [{ name: "test" }],
         count: 1,

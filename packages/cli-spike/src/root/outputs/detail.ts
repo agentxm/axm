@@ -85,7 +85,7 @@ export const detailCommand = Command.make("detail", detailConfig, ({ title }) =>
     },
     {
       command: "axm-spike outputs detail --json",
-      description: "Emit { _version, command, data } for one sample pet",
+      description: "Emit { command, data } for one sample pet",
     },
   ]),
 );

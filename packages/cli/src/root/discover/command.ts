@@ -28,7 +28,7 @@ export const discoverCommand = Command.make("discover", discoverConfig, ({ path 
     },
     {
       command: "axm discover --json",
-      description: "Emit { _version, command, items, count, totalDetected, registryAvailable }",
+      description: "Emit { command, items, count, totalDetected, registryAvailable }",
     },
   ]),
 );

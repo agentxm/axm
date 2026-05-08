@@ -79,7 +79,7 @@ The `axm update` command SHALL support `--json` output following the standard JS
 #### Scenario: JSON output for workspace update
 
 - **WHEN** the user runs `axm update --json --yes`
-- **THEN** the command SHALL output a JSON object with `_version`, `command`, and `data` fields
+- **THEN** the command SHALL output a JSON object with `command` and `data` fields
 - **AND** the `data` field SHALL include the plan resolution result
 
 ### Requirement: Root update command aggregates per-type update workflows

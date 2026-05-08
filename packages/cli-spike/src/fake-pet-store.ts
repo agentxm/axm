@@ -7,7 +7,6 @@ import * as ServiceMap from "effect/Context";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 export const FakePetRecordSchema = Schema.Struct({
-  _version: Schema.Literal(1),
   name: Schema.String,
   species: Schema.String,
   age: Schema.String,
@@ -49,7 +48,6 @@ export interface AdoptionOutcome {
 
 const FAKE_PETS: ReadonlyArray<FakePetRecord> = [
   {
-    _version: 1,
     name: "Mochi",
     species: "cat",
     age: "2 years",
@@ -57,7 +55,6 @@ const FAKE_PETS: ReadonlyArray<FakePetRecord> = [
     habitat: "showroom",
   },
   {
-    _version: 1,
     name: "Pickles",
     species: "dog",
     age: "4 months",
@@ -65,7 +62,6 @@ const FAKE_PETS: ReadonlyArray<FakePetRecord> = [
     habitat: "showroom",
   },
   {
-    _version: 1,
     name: "Juniper",
     species: "rabbit",
     age: "1 year",

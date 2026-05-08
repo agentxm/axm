@@ -3,9 +3,6 @@ import * as Schema from "effect/Schema";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
-const JsonDocumentVersion = 1;
-const JsonDocumentVersionSchema = Schema.Literal(JsonDocumentVersion);
-
 const isSubcommandDoc = (doc: HelpDoc): boolean => {
   const beforeBrackets = doc.usage.replace(/\s*[[<].*$/, "").trim();
   const tokens = beforeBrackets.split(/\s+/).filter((token) => token.length > 0);
@@ -65,7 +62,6 @@ type JsonExampleDoc = {
 };
 
 export type JsonHelpDoc = {
-  readonly _version: typeof JsonDocumentVersion;
   readonly type: "help";
   readonly description: string;
   readonly usage: string;
@@ -110,7 +106,6 @@ const JsonExampleDocSchema = Schema.Struct({
 });
 
 export const JsonHelpDocSchema = Schema.Struct({
-  _version: JsonDocumentVersionSchema,
   type: Schema.Literal("help"),
   description: Schema.String,
   usage: Schema.String,
@@ -122,7 +117,6 @@ export const JsonHelpDocSchema = Schema.Struct({
 });
 
 export const JsonVersionDocSchema = Schema.Struct({
-  _version: JsonDocumentVersionSchema,
   type: Schema.Literal("version"),
   name: Schema.String,
   version: Schema.String,
@@ -142,7 +136,6 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   const adjusted = getAdjustedHelpDoc(doc);
 
   return {
-    _version: JsonDocumentVersion,
     type: "help",
     description: adjusted.description,
     usage: adjusted.usage,
@@ -189,7 +182,6 @@ export const makeSpikeFormatter = (options?: {
       json
         ? JSON.stringify(
             Schema.encodeSync(JsonVersionDocSchema)({
-              _version: JsonDocumentVersion,
               type: "version",
               name,
               version,

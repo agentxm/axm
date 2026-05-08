@@ -109,7 +109,7 @@ export const listCommand = Command.make("list", listConfig, ({ habitat, species 
     },
     {
       command: "axm-spike pets list --json",
-      description: "Emit { _version, command, items, count }",
+      description: "Emit { command, items, count }",
     },
   ]),
 );

@@ -11,9 +11,6 @@ import { CliOutput } from "effect/unstable/cli";
 
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 
-const JsonDocumentVersion = 1;
-const JsonDocumentVersionSchema = Schema.Literal(JsonDocumentVersion);
-
 /**
  * Annotation key for "learn more" footer text.
  * Attach to commands via `Command.annotate(LearnMore, "...")`.
@@ -90,7 +87,6 @@ type JsonExampleDoc = {
 };
 
 type JsonHelpDoc = {
-  readonly _version: typeof JsonDocumentVersion;
   readonly type: "help";
   readonly description: string;
   readonly usage: string;
@@ -136,7 +132,6 @@ const JsonExampleDocSchema = Schema.Struct({
 });
 
 const JsonHelpDocSchema = Schema.Struct({
-  _version: JsonDocumentVersionSchema,
   type: Schema.Literal("help"),
   description: Schema.String,
   usage: Schema.String,
@@ -149,7 +144,6 @@ const JsonHelpDocSchema = Schema.Struct({
 });
 
 const JsonVersionDocSchema = Schema.Struct({
-  _version: JsonDocumentVersionSchema,
   type: Schema.Literal("version"),
   name: Schema.String,
   version: Schema.String,
@@ -168,7 +162,6 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   const learnMore = getLearnMore(doc);
 
   return {
-    _version: JsonDocumentVersion,
     type: "help",
     description: adjusted.description,
     usage: adjusted.usage,
@@ -298,7 +291,6 @@ export const makeAxmFormatter = (options?: {
       json
         ? JSON.stringify(
             Schema.encodeSync(JsonVersionDocSchema)({
-              _version: JsonDocumentVersion,
               type: "version",
               name,
               version,

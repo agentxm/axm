@@ -451,7 +451,6 @@ describe("MachineRenderer", () => {
         expect(stdoutWrites).toHaveLength(1);
         const parsed = parseStdout();
         expect(parsed[0]).toEqual({
-          _version: 1,
           command: "skills.list",
           items: [{ name: "my-skill" }],
           count: 1,
@@ -491,7 +490,6 @@ describe("MachineRenderer", () => {
         expect(parseStdout()[0]).toEqual({
           ok: true,
           data: {
-            _version: 1,
             command: "commands.new",
             result: { outcome: "applied" },
           },

@@ -136,7 +136,6 @@ describe("discover handler", () => {
         Effect.sync(() => {
           expect(rendererState.results).toHaveLength(1);
           expect(rendererState.results[0]?.data).toMatchObject({
-            _version: 1,
             command: "discover",
             count: 2,
             totalDetected: 2,

@@ -156,7 +156,6 @@ describe("outdated handler", () => {
           expect(rendererState.results).toHaveLength(1);
           const doc = rendererState.results[0]?.data;
           expect(doc).toMatchObject({
-            _version: 1,
             command: "outdated",
             count: 2,
           });
@@ -196,7 +195,6 @@ describe("outdated handler", () => {
         Effect.sync(() => {
           expect(rendererState.results).toHaveLength(1);
           expect(rendererState.results[0]?.data).toMatchObject({
-            _version: 1,
             command: "outdated",
             count: 0,
             data: [],

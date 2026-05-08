@@ -115,7 +115,6 @@ Export schema and type together:
 
 ```typescript
 export const SkillsListOutputSchema = Schema.Struct({
-  _version: Schema.Literal(1),
   command: Schema.Literal("skills.list"),
   items: Schema.Array(SkillListItemSchema),
   count: Schema.Number,
@@ -123,9 +122,9 @@ export const SkillsListOutputSchema = Schema.Struct({
 export type SkillsListOutput = typeof SkillsListOutputSchema.Type;
 ```
 
-Use `_version` for CLI transport envelopes. If a nested resource payload also
-has its own version field, keep that nested version local to the resource
-schema instead of inventing a second top-level transport key.
+Use `_version` only for CLI stream transport events, not command response
+documents. If a nested resource payload has its own version field, keep that
+nested version local to the resource schema.
 
 ### Preferred Schema Forms
 
@@ -214,7 +213,6 @@ Define that top-level object as an Effect Schema v4 schema.
 
 ```json
 {
-  "_version": 1,
   "command": "skills.list",
   "items": [
     {
@@ -230,13 +228,11 @@ Define that top-level object as an Effect Schema v4 schema.
 
 Why an object, even for lists:
 
-- versioning lives at the document root
 - metadata can be added without replacing the top-level type
 - consumers do not need out-of-band knowledge to interpret the payload
 
 Recommended top-level fields:
 
-- `_version`: integer, required
 - `command`: stable command id such as `skills.list`, required
 - exactly one primary payload key:
   - `data` for single resources
@@ -257,7 +253,7 @@ wrap the encoded command document in the JSON envelope:
 ```json
 {
   "ok": true,
-  "data": { "_version": 1, "command": "commands.new", "result": {} },
+  "data": { "command": "commands.new", "result": {} },
   "summary": "Created command @acme/commands/review",
   "breadcrumbs": [
     { "task": "edit", "description": "Edit `.axm/extensions/.../review.md`" },

@@ -17,7 +17,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Invalid GitHub SSH URL format",
+        message: "Invalid GitHub SSH URL format",
       }),
     );
   }
@@ -32,7 +32,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: "Invalid GitHub SSH URL format",
+          message: "Invalid GitHub SSH URL format",
         }),
       );
 };

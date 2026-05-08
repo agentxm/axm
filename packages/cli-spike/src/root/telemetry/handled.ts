@@ -11,7 +11,7 @@ const handleHandledTelemetry = Effect.fail(
   makeAppError({
     code: "SPIKE_HANDLED_ERROR",
     category: "internal",
-    what: "Simulated handled telemetry failure",
+    message: "Simulated handled telemetry failure",
     breadcrumbs: [
       {
         task: "Recover",

@@ -44,7 +44,7 @@ const makeFailingReadyStep = (label: string): PlannedJobStep => ({
     makeAppError({
       code: "TEST_OP_FAILED",
       category: "internal",
-      what: `Failed ${label}`,
+      message: `Failed ${label}`,
     }),
   ),
 });

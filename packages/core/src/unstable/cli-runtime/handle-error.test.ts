@@ -95,7 +95,7 @@ describe("classifyError — AppError", () => {
     const error = makeAppError({
       code: "AUTH_UNAUTHENTICATED",
       category: "auth",
-      what: "Authentication required",
+      message: "Authentication required",
       retryable: false,
       httpStatus: 401,
     });

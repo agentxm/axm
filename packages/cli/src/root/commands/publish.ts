@@ -90,7 +90,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
         makeAppError({
           code: "REGISTRY_SOURCES_FAILED",
           category: "internal",
-          what: `Failed to get registry sources: ${e._tag}`,
+          message: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
       ),
@@ -100,8 +100,8 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
-        category: "internal",
-        what: "No registry sources configured",
+        category: "usage",
+        message: "No registry sources configured",
         breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
       });
     }
@@ -118,7 +118,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
         makeAppError({
           code: "PUBLISH_COMMAND_REGISTRY_LOOKUP_FAILED",
           category: "internal",
-          what: `Failed to lookup registry source "${registry.value}"`,
+          message: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
       ),
@@ -128,7 +128,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "PUBLISH_COMMAND_REGISTRY_NOT_FOUND",
         category: "not_found",
-        what: `Registry source "${registry.value}" not found or not a registry source`,
+        message: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
 
@@ -190,7 +190,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
           category: "not_found",
-          what: `Command "${name}" is not installed in this workspace`,
+          message: `Command "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
               task: "Recover",
@@ -207,7 +207,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
           category: "not_found",
-          what: `Command "${name}" cannot be published from a non-registry source`,
+          message: `Command "${name}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
               task: "Recover",
@@ -236,7 +236,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               makeAppError({
                 code: "EXTENSION_NOT_FOUND",
                 category: "not_found",
-                what: `Missing extension name for parsed FQN ${fqn.owner}/commands/${fqn.name}`,
+                message: `Missing extension name for parsed FQN ${fqn.owner}/commands/${fqn.name}`,
               }),
             );
           }
@@ -257,7 +257,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "EXTENSION_NOT_FOUND",
                 category: "not_found",
-                what: `Managed extension not found: ${extName}`,
+                message: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
                     task: "Recover",
@@ -277,7 +277,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "MISSING_MANIFEST",
                 category: "not_found",
-                what: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
+                message: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
                 breadcrumbs: [
                   {
                     task: "Recover",
@@ -297,7 +297,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "MISSING_COMMAND_MD",
                 category: "not_found",
-                what: `Missing ${contentFilename}`,
+                message: `Missing ${contentFilename}`,
                 breadcrumbs: [
                   {
                     task: "Recover",
@@ -373,7 +373,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
           .flatMap((job) => job.steps)
           .flatMap((step) =>
             step.result.result === "error"
-              ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
+              ? [`${step.label}: ${step.result.error.message} (${step.result.error.code})`]
               : [],
           )
       : [];
@@ -382,7 +382,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
       category: "internal",
-      what: `Failed to publish ${failedStepDetails.length} command${failedStepDetails.length === 1 ? "" : "s"}`,
+      message: `Failed to publish ${failedStepDetails.length} command${failedStepDetails.length === 1 ? "" : "s"}`,
     });
   }
 

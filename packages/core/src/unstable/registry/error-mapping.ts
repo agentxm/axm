@@ -212,7 +212,7 @@ export const mapAuthUnauthenticated = (
   return makeAppError({
     code: "AUTH_UNAUTHENTICATED",
     category: "auth",
-    what: "Authentication required",
+    message: "Authentication required",
     breadcrumbs: [
       {
         task: "Sign in",
@@ -258,7 +258,7 @@ export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>)
   return makeAppError({
     code: "AUTH_UNAUTHORIZED",
     category: "forbidden",
-    what: "Insufficient permissions",
+    message: "Insufficient permissions",
     breadcrumbs: [
       {
         task: "Check permissions",
@@ -280,13 +280,13 @@ export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>)
 export const mapNetworkError = (
   error: HttpClientError.HttpClientError,
   code: string,
-  what: string,
+  message: string,
   baseUrl: string,
 ): AppError =>
   makeAppError({
     category: "network",
     code,
-    what,
+    message,
     retryable: true,
     ...(error.reason._tag === "StatusCodeError"
       ? { httpStatus: error.reason.response.status }
@@ -302,11 +302,11 @@ export const mapNetworkError = (
 /**
  * Map a Schema decode error to an AppError.
  */
-export const mapSchemaError = (error: unknown, code: string, what: string): AppError =>
+export const mapSchemaError = (error: unknown, code: string, message: string): AppError =>
   makeAppError({
     category: "validation",
     code,
-    what,
+    message,
     cause: error,
   });
 
@@ -320,7 +320,7 @@ export const mapSchemaError = (error: unknown, code: string, what: string): AppE
 export const mapUnexpectedStatusError = (
   error: RegistryClientError<string, unknown>,
   code: string,
-  what: string,
+  message: string,
 ): AppError => {
   const details: Array<string> = [];
   const cause = error.cause;
@@ -335,7 +335,7 @@ export const mapUnexpectedStatusError = (
   return makeAppError({
     category: "internal",
     code,
-    what,
+    message,
     cause: error,
   });
 };

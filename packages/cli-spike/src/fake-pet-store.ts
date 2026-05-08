@@ -81,7 +81,7 @@ const getPetByName = (name: string) =>
       makeAppError({
         code: "SPIKE_PET_NOT_FOUND",
         category: "not_found",
-        what: `No sample pet named '${name}' exists`,
+        message: `No sample pet named '${name}' exists`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -148,7 +148,7 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
                 makeAppError({
                   code: "SPIKE_PET_NOT_FOUND",
                   category: "not_found",
-                  what: `No ${request.habitat} sample pet named '${petName}' exists`,
+                  message: `No ${request.habitat} sample pet named '${petName}' exists`,
                   breadcrumbs: [
                     {
                       task: "Recover",
@@ -180,7 +180,7 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
         return yield* makeAppError({
           code: "PET_ADOPTION_BLOCKED",
           category: "conflict",
-          what: plan.blocker.value,
+          message: plan.blocker.value,
           breadcrumbs: [
             {
               task: "Recover",

@@ -86,7 +86,7 @@ export const publishCommand: (
       return yield* makeAppError({
         code: "PUBLISH_COMMAND_NOT_FOUND",
         category: "not_found",
-        what: `Managed extension not found: ${extensionDir}`,
+        message: `Managed extension not found: ${extensionDir}`,
       });
     }
 
@@ -97,7 +97,7 @@ export const publishCommand: (
         makeAppError({
           code: "PUBLISH_COMMAND_MANIFEST_READ_FAILED",
           category: "internal",
-          what: `Failed to read manifest: ${manifestPath}`,
+          message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -112,7 +112,7 @@ export const publishCommand: (
         makeAppError({
           code: "PUBLISH_COMMAND_MANIFEST_PARSE_FAILED",
           category: "validation",
-          what: `Invalid JSON in manifest: ${manifestPath}`,
+          message: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -125,7 +125,7 @@ export const publishCommand: (
       return yield* makeAppError({
         code: "PUBLISH_COMMAND_MANIFEST_SCHEMA_INVALID",
         category: "validation",
-        what: agentsFieldValidation.failure.detail,
+        message: agentsFieldValidation.failure.detail,
       });
     }
 
@@ -136,7 +136,7 @@ export const publishCommand: (
         makeAppError({
           code: "PUBLISH_COMMAND_MANIFEST_SCHEMA_INVALID",
           category: "validation",
-          what: `Invalid manifest schema: ${manifestPath}`,
+          message: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -154,7 +154,7 @@ export const publishCommand: (
         makeAppError({
           code: "PUBLISH_COMMAND_REGISTRY_LOOKUP_FAILED",
           category: "internal",
-          what: `Failed to lookup registry source "${op.args.registryName}"`,
+          message: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
       ),
@@ -164,7 +164,7 @@ export const publishCommand: (
       return yield* makeAppError({
         code: "PUBLISH_COMMAND_REGISTRY_NOT_FOUND",
         category: "not_found",
-        what: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -193,9 +193,10 @@ export const publishCommand: (
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "PUBLISH_COMMAND_PUBLISH_FAILED",
-            category: "internal",
-            what: "Failed to publish to registry",
+            code: "PUBLISH_REGISTRY_FAILED",
+            category: "network",
+            reason: "registry_publish",
+            message: "Registry publish did not complete",
             cause: e,
           }),
         ),

@@ -265,7 +265,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)), Effect.flip);
 
-        expect(error.what).toBe('Failed to publish to registry "local"');
+        expect(error.message).toBe('Registry publish did not complete "local"');
         expect(error.cause).toMatchObject({ _tag: "AppError" });
       }),
     );
@@ -356,7 +356,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/skills/nonexistent", registryName: "local" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");
@@ -372,7 +372,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/skills/my-skill", registryName: "nonexistent" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");

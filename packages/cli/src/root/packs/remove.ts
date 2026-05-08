@@ -56,7 +56,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     return yield* makeAppError({
       code: "PACK_NOT_FOUND",
       category: "not_found",
-      what: `Extension pack '${args.pack}' not found`,
+      message: `Extension pack '${args.pack}' not found`,
       breadcrumbs: [
         {
           task: "Recover",
@@ -82,7 +82,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
                   makeAppError({
                     code: "OWNER_REQUIRED",
                     category: "internal",
-                    what: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
+                    message: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
                     breadcrumbs: [
                       {
                         task: "Recover",
@@ -107,7 +107,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       makeAppError({
         code: "PACK_NOT_FOUND",
         category: "not_found",
-        what: `Extension pack manifest not found at ${manifestPath}`,
+        message: `Extension pack manifest not found at ${manifestPath}`,
         breadcrumbs: [{ task: "Recover", description: "Ensure the extension pack exists on disk" }],
         cause: e,
       }),
@@ -125,7 +125,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
         category: "validation",
-        what: `Failed to parse extension pack manifest: ${manifestPath}`,
+        message: `Failed to parse extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
   });
@@ -135,7 +135,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       makeAppError({
         code: "PACK_MANIFEST_INVALID",
         category: "validation",
-        what: `Invalid extension pack manifest: ${manifestPath}`,
+        message: `Invalid extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -164,7 +164,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       return yield* makeAppError({
         code: "NO_EXTENSIONS_MATCHED",
         category: "internal",
-        what: `No extensions in extension pack match '${args.extension}'`,
+        message: `No extensions in extension pack match '${args.extension}'`,
         breadcrumbs: [{ task: "Recover", description: "Check extension pack contents" }],
       });
     }
@@ -172,7 +172,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     return yield* makeAppError({
       code: "EXTENSION_NOT_IN_PACK",
       category: "internal",
-      what: `Extension '${args.extension}' is not in the extension pack`,
+      message: `Extension '${args.extension}' is not in the extension pack`,
       breadcrumbs: [
         {
           task: "Recover",

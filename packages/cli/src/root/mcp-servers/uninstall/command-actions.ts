@@ -84,7 +84,7 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           return yield* makeAppError({
             code: "MCP_SERVER_NOT_INSTALLED",
             category: "internal",
-            what: `MCP server "${parsed.serverName}" is not installed`,
+            message: `MCP server "${parsed.serverName}" is not installed`,
             breadcrumbs: [
               { task: "Recover", description: "Check installed MCP servers and verify the name." },
             ],

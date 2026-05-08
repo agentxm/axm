@@ -24,8 +24,8 @@ const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
     if (args.all) {
       return yield* makeAppError({
         code: "SKILLS_INSTALL_ALL_REQUIRES_SOURCE",
-        category: "internal",
-        what: "The --all flag requires a source for skills install",
+        category: "usage",
+        message: "The --all flag requires a source for skills install",
         breadcrumbs: [
           {
             task: "Recover",
@@ -39,8 +39,8 @@ const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
     if (args.skills.length > 0) {
       return yield* makeAppError({
         code: "SKILLS_INSTALL_SELECTOR_REQUIRES_SOURCE",
-        category: "internal",
-        what: "The --skill flag requires a source for skills install",
+        category: "usage",
+        message: "The --skill flag requires a source for skills install",
         breadcrumbs: [
           {
             task: "Recover",

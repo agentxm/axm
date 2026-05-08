@@ -67,7 +67,7 @@ const decodeName = (input: string) =>
       makeAppError({
         code: "NOT_FOUND",
         category: "not_found",
-        what: `No ${input} identifier could be resolved`,
+        message: `No ${input} identifier could be resolved`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -327,7 +327,7 @@ const notFound = (
   makeAppError({
     code: "NOT_FOUND",
     category: "not_found",
-    what: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
+    message: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
     breadcrumbs: [
       { task: "Recover", description: "Check the name, or re-run with a fully-qualified name." },
     ],
@@ -342,7 +342,7 @@ const ambiguous = (
   makeAppError({
     code: "AMBIGUOUS_IDENTIFIER",
     category: "internal",
-    what: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
+    message: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
     breadcrumbs: [{ task: "Recover", description: "Re-run with the fully-qualified name." }],
   });
 
@@ -384,7 +384,7 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
         return yield* makeAppError({
           code: "NOT_FOUND",
           category: "not_found",
-          what: `"${trimmed}" is not a ${args.resourceType} identifier`,
+          message: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
               task: "Recover",
@@ -448,7 +448,7 @@ export const resolveInstalledIdentifier = (args: {
         return yield* makeAppError({
           code: "NOT_FOUND",
           category: "not_found",
-          what: `"${trimmed}" is not a ${args.resourceType} identifier`,
+          message: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
               task: "Recover",

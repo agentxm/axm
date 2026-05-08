@@ -81,7 +81,7 @@ const getConfiguredSources = (_input: string) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to get configured sources: ${e._tag}`,
+          message: `Failed to get configured sources: ${e._tag}`,
         }),
       ),
     );
@@ -112,7 +112,7 @@ const parseShorthandForSource = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
+          message: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
         }),
       );
   }
@@ -132,7 +132,7 @@ const configToSource = (
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `Source params type "${params.type}" does not match config type "${config.type}"`,
+        message: `Source params type "${params.type}" does not match config type "${config.type}"`,
       }),
     );
 
@@ -173,7 +173,7 @@ export const routeUrlInput = (url: URL, input: string) =>
     const noMatch = makeAppError({
       code: "SOURCE_PARSE_FAILED",
       category: "validation",
-      what: `No configured source matches URL "${url.href}"`,
+      message: `No configured source matches URL "${url.href}"`,
     });
 
     const tryParseUrl = (
@@ -205,7 +205,7 @@ export const routeUrlInput = (url: URL, input: string) =>
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `No configured source matches URL "${url.href}"`,
+        message: `No configured source matches URL "${url.href}"`,
       }),
     );
   });
@@ -221,7 +221,7 @@ const routeOpaqueUrl = (url: URL, input: string) =>
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Unable to parse source",
+        message: "Unable to parse source",
       });
     }
 
@@ -244,7 +244,7 @@ const routeOpaqueUrl = (url: URL, input: string) =>
     return yield* makeAppError({
       code: "SOURCE_PARSE_FAILED",
       category: "validation",
-      what: `No configured source matches URL "${url.href}"`,
+      message: `No configured source matches URL "${url.href}"`,
     });
   });
 
@@ -266,7 +266,7 @@ export const routeScpInput = (
     const noMatch = makeAppError({
       code: "SOURCE_PARSE_FAILED",
       category: "validation",
-      what: `No configured source matches SCP address "${scpInput}"`,
+      message: `No configured source matches SCP address "${scpInput}"`,
     });
 
     const tryParseScp = (
@@ -300,7 +300,7 @@ export const routeScpInput = (
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `No configured source matches SCP address "${scpInput}"`,
+        message: `No configured source matches SCP address "${scpInput}"`,
       }),
     );
   });
@@ -331,7 +331,7 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
         return yield* makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `No source config found for source type "${prefix}". Add a source config via settings.`,
+          message: `No source config found for source type "${prefix}". Add a source config via settings.`,
         });
       }
       return yield* configToSource(config, params, input);
@@ -343,7 +343,7 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `Unknown shorthand prefix: "${prefix}"`,
+        message: `Unknown shorthand prefix: "${prefix}"`,
       });
     }
 
@@ -373,7 +373,7 @@ export const routeNameInput = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to read lockfile: ${e._tag}`,
+          message: `Failed to read lockfile: ${e._tag}`,
         }),
       ),
     );
@@ -388,7 +388,7 @@ export const routeNameInput = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to read settings: ${e._tag}`,
+          message: `Failed to read settings: ${e._tag}`,
         }),
       ),
     );
@@ -400,7 +400,7 @@ export const routeNameInput = (
     return yield* makeAppError({
       code: "SOURCE_PARSE_FAILED",
       category: "validation",
-      what: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+      message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
     });
   });
 
@@ -422,7 +422,7 @@ export const routeRegistryInput = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to get registry sources: ${e._tag}`,
+          message: `Failed to get registry sources: ${e._tag}`,
         }),
       ),
     );
@@ -431,7 +431,7 @@ export const routeRegistryInput = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `No registry source configured for owner "${pattern.owner}"`,
+        message: `No registry source configured for owner "${pattern.owner}"`,
       });
     }
 
@@ -440,7 +440,7 @@ export const routeRegistryInput = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `No registry source configured for owner "${pattern.owner}"`,
+        message: `No registry source configured for owner "${pattern.owner}"`,
       });
     }
     return {
@@ -492,7 +492,7 @@ export const resolveSlashInputSource = (
             makeAppError({
               code: "SOURCE_PARSE_FAILED",
               category: "validation",
-              what: `Failed to get registry sources: ${e._tag}`,
+              message: `Failed to get registry sources: ${e._tag}`,
             }),
           ),
         );
@@ -537,7 +537,7 @@ export const resolveSlashInputSource = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — no git hosting sources configured`,
+        message: `Ambiguous pattern '${pattern.first}/${pattern.second}' — no git hosting sources configured`,
       });
     }
 
@@ -545,7 +545,7 @@ export const resolveSlashInputSource = (
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — use github:${pattern.first}/${pattern.second}, gitlab:${pattern.first}/${pattern.second}, or bitbucket:${pattern.first}/${pattern.second}`,
+        message: `Ambiguous pattern '${pattern.first}/${pattern.second}' — use github:${pattern.first}/${pattern.second}, gitlab:${pattern.first}/${pattern.second}, or bitbucket:${pattern.first}/${pattern.second}`,
       }),
     );
   });
@@ -575,7 +575,7 @@ export const resolveSource = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Source string cannot be empty",
+        message: "Source string cannot be empty",
       });
     }
 
@@ -584,7 +584,7 @@ export const resolveSource = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Unable to parse source",
+        message: "Unable to parse source",
       });
     }
 
@@ -612,7 +612,7 @@ export const resolveSource = (
         return yield* makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
+          message: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
         });
     }
   });

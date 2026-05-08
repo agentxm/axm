@@ -34,7 +34,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
         makeAppError({
           code: "SYMLINK_CREATE_FAILED",
           category: "internal",
-          what: `Failed to resolve target path`,
+          message: `Failed to resolve target path`,
           cause: e,
         }),
       ),
@@ -64,7 +64,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
           makeAppError({
             code: "SYMLINK_CREATE_FAILED",
             category: "internal",
-            what: `Failed to remove existing path at ${opts.link}`,
+            message: `Failed to remove existing path at ${opts.link}`,
             cause: e,
           }),
         ),
@@ -78,7 +78,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
         makeAppError({
           code: "SYMLINK_CREATE_FAILED",
           category: "internal",
-          what: `Failed to create parent directory ${linkParent}`,
+          message: `Failed to create parent directory ${linkParent}`,
           cause: e,
         }),
       ),
@@ -90,7 +90,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
         makeAppError({
           code: "SYMLINK_CREATE_FAILED",
           category: "internal",
-          what: `Failed to create symlink at ${opts.link}`,
+          message: `Failed to create symlink at ${opts.link}`,
           cause: e,
         }),
       ),

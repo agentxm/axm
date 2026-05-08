@@ -51,7 +51,8 @@ export const exitCodeForCategory = (category: AppErrorCategory): number => {
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: string;
   readonly category: AppErrorCategory;
-  readonly what: string;
+  readonly message: string;
+  readonly reason?: string;
   readonly retryable?: boolean;
   readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
@@ -61,7 +62,8 @@ export class AppError extends Data.TaggedError("AppError")<{
 export const makeAppError = (args: {
   readonly code: string;
   readonly category: AppErrorCategory;
-  readonly what: string;
+  readonly message: string;
+  readonly reason?: string;
   readonly retryable?: boolean;
   readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
@@ -70,9 +72,15 @@ export const makeAppError = (args: {
   new AppError({
     code: args.code,
     category: args.category,
-    what: args.what,
+    message: args.message,
+    ...(args.reason !== undefined ? { reason: args.reason } : {}),
     ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
     ...(args.httpStatus !== undefined ? { httpStatus: args.httpStatus } : {}),
-    breadcrumbs: args.breadcrumbs ?? [],
+    breadcrumbs:
+      args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
+        ? args.breadcrumbs
+        : args.category === "internal"
+          ? []
+          : [{ task: "Recover", description: "Review the message, adjust the input, and retry." }],
     cause: args.cause,
   });

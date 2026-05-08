@@ -92,7 +92,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
       return yield* makeAppError({
         code: "INSTALL_MCP_SERVER_PATH_TRAVERSAL",
         category: "internal",
-        what: `Path traversal detected: ${canonicalPath}`,
+        message: `Path traversal detected: ${canonicalPath}`,
       });
     }
 
@@ -102,7 +102,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
         makeAppError({
           code: "INSTALL_MCP_SERVER_PATH_CHECK_FAILED",
           category: "internal",
-          what: `Failed to check if canonical path exists: ${canonicalPath}`,
+          message: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
       ),
@@ -128,7 +128,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
           return yield* makeAppError({
             code: "INSTALL_MCP_SERVER_INTEGRITY_MISMATCH",
             category: "internal",
-            what: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            message: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
       }
@@ -137,8 +137,8 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
         Effect.mapError((e) =>
           makeAppError({
             code: "INSTALL_MCP_SERVER_TEMP_DIR_FAILED",
-            category: "internal",
-            what: `Failed to create temporary directory for registry install`,
+            category: "validation",
+            message: `Temporary directory for registry install could not be created`,
             cause: e,
           }),
         ),
@@ -152,8 +152,8 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             Effect.mapError((e) =>
               makeAppError({
                 code: "INSTALL_MCP_SERVER_COPY_FAILED",
-                category: "internal",
-                what: `Failed to create canonical directory: ${canonicalPath}`,
+                category: "validation",
+                message: `Failed to create canonical directory: ${canonicalPath}`,
                 cause: e,
               }),
             ),
@@ -163,8 +163,8 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             Effect.mapError((e) =>
               makeAppError({
                 code: "INSTALL_MCP_SERVER_COPY_FAILED",
-                category: "internal",
-                what: `Failed to read extracted directory`,
+                category: "validation",
+                message: `Extracted directory could not be read`,
                 cause: e,
               }),
             ),
@@ -241,7 +241,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       return yield* makeAppError({
         code: "CODING_AGENT_UNKNOWN_CONFIGURED",
         category: "not_found",
-        what: message,
+        message: message,
       });
     }
 
@@ -273,7 +273,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
         category: "internal",
-        what: `MCP server ${args.serverName} could not be synced to configured agents`,
+        message: `MCP server ${args.serverName} could not be synced to configured agents`,
       });
     }
 
@@ -282,7 +282,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_FAILED",
         category: "internal",
-        what: `MCP server ${args.serverName} sync failed in strict mode`,
+        message: `MCP server ${args.serverName} sync failed in strict mode`,
       });
     }
 
@@ -298,7 +298,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
         category: "internal",
-        what: `MCP server ${args.serverName} sync disabled for required configured agents`,
+        message: `MCP server ${args.serverName} sync disabled for required configured agents`,
       });
     }
 
@@ -352,7 +352,7 @@ export const installMcpServer: (
       return yield* makeAppError({
         code: "INSTALL_MCP_SERVER_UNSUPPORTED_REF_TYPE",
         category: "internal",
-        what: `Unsupported ref type for MCP server install: ${ref.refType}`,
+        message: `Unsupported ref type for MCP server install: ${ref.refType}`,
       });
     }
 

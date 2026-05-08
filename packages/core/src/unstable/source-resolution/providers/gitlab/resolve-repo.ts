@@ -14,7 +14,7 @@ const headRequest = (url: string, _input: string) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to check GitLab: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Failed to check GitLab: ${error instanceof Error ? error.message : String(error)}`,
           cause: error,
         }),
       ),

@@ -148,8 +148,8 @@ export const ExtensionPackManagerLive = Layer.effect(
             Effect.mapError((e: Error) =>
               makeAppError({
                 code: "PACK_FETCH_FAILED",
-                category: "internal",
-                what: `Failed to fetch extension pack archive: ${e.message}`,
+                category: "network",
+                message: `Failed to fetch extension pack archive: ${e.message}`,
                 cause: e,
               }),
             ),
@@ -160,7 +160,7 @@ export const ExtensionPackManagerLive = Layer.effect(
                 makeAppError({
                   code: "PACK_EXTRACT_FAILED",
                   category: "internal",
-                  what: `Failed to extract extension pack to ${packDir}`,
+                  message: `Failed to extract extension pack to ${packDir}`,
                   cause: e,
                 }),
               ),

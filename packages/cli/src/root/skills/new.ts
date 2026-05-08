@@ -58,7 +58,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     return yield* makeAppError({
       code: "SKILL_NAME_INVALID",
       category: "validation",
-      what: `Invalid skill name: "${args.name}"`,
+      message: `Invalid skill name: "${args.name}"`,
       breadcrumbs: [
         {
           task: "Recover",
@@ -74,7 +74,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     return yield* makeAppError({
       code: "SKILL_ALREADY_EXISTS",
       category: "conflict",
-      what: `Skill '${args.name}' already exists in settings`,
+      message: `Skill '${args.name}' already exists in settings`,
       breadcrumbs: [
         {
           task: "Recover",

@@ -64,7 +64,7 @@ describe("requireInteractive", () => {
       }
 
       expect(exit.code).toBe("PROMPT_REQUIRED");
-      expect(exit.what).toContain("Prompt value");
+      expect(exit.message).toContain("Prompt value");
     }),
   );
 

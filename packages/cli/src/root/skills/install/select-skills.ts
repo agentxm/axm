@@ -72,8 +72,8 @@ export const determineSkillsToInstall = (
       if (matched.length === 0) {
         return yield* makeAppError({
           code: "NO_SKILLS_MATCHED",
-          category: "internal",
-          what: `No skills matched: ${args.requestedSkills.join(", ")}`,
+          category: "not_found",
+          message: `No skills matched: ${args.requestedSkills.join(", ")}`,
           breadcrumbs: [
             { task: "Recover", description: "Check the skill names or patterns and try again." },
           ],

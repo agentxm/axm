@@ -11,7 +11,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { errAuthRequired, type AppError, makeAppError } from "../app-error/index.js";
 import {
   CredentialStore,
   RegistryUrl,
@@ -23,12 +23,7 @@ import {
 // Constants
 // -----------------------------------------------------------------------------
 
-const AUTH_LOGIN_REQUIRED = makeAppError({
-  code: "AUTH_LOGIN_REQUIRED",
-  category: "internal",
-  what: "Authentication required",
-  breadcrumbs: [{ task: "Recover", description: 'Run "axm auth login" to sign in, then retry.' }],
-});
+const AUTH_LOGIN_REQUIRED = errAuthRequired();
 
 // -----------------------------------------------------------------------------
 // Auth guard combinator
@@ -44,7 +39,7 @@ const isRemoteRegistryUrl = (registryUrl: string) =>
       makeAppError({
         code: "AUTH_INVALID_REGISTRY_URL",
         category: "validation",
-        what: `Invalid registry URL: ${registryUrl}`,
+        message: `Invalid registry URL: ${registryUrl}`,
         breadcrumbs: [{ task: "Recover", description: "Check the registry URL in your settings." }],
         cause: error,
       }),

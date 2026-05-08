@@ -62,7 +62,7 @@ const MYORG = normalizeHandle("@myorg");
 const serviceStubs: SourceHostProvidersService = {
   find: () => Effect.succeed([]),
   fetch: () =>
-    Effect.fail(makeAppError({ code: "FETCH_FAILED", category: "internal", what: "stub" })),
+    Effect.fail(makeAppError({ code: "FETCH_FAILED", category: "internal", message: "stub" })),
   cloneUrl: () => Option.none(),
   origin: () => "unknown",
 };
@@ -373,7 +373,7 @@ describe("packs install handler", () => {
               preview: false,
             }).pipe(Effect.flip),
           );
-          expect(error.what).toContain("registry");
+          expect(error.message).toContain("registry");
         }),
       );
     });
@@ -391,7 +391,7 @@ describe("packs install handler", () => {
               preview: false,
             }).pipe(Effect.flip),
           );
-          expect(error.what).toContain("registry");
+          expect(error.message).toContain("registry");
         }),
       );
     });
@@ -787,7 +787,7 @@ describe("packs install handler", () => {
             makeAppError({
               code: "FETCH_FAILED",
               category: "internal",
-              what: "Unexpected fetch call",
+              message: "Unexpected fetch call",
             }),
           );
         },
@@ -956,7 +956,7 @@ describe("packs install handler", () => {
               makeAppError({
                 code: "REGISTRY_REMOTE_NOT_SUPPORTED",
                 category: "internal",
-                what: "remote registry not yet supported",
+                message: "remote registry not yet supported",
               }),
             );
           }
@@ -1008,7 +1008,7 @@ describe("packs install handler", () => {
               makeAppError({
                 code: "REGISTRY_REMOTE_NOT_SUPPORTED",
                 category: "internal",
-                what: "remote registry not yet supported",
+                message: "remote registry not yet supported",
               }),
             );
           }

@@ -27,7 +27,7 @@ describe("resolveRootUpdateIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UPDATE_SOURCE_NOT_FQN");
-      expect(appError.what).toContain("only accepts registry FQNs");
+      expect(appError.message).toContain("only accepts registry FQNs");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("axm skills update owner/repo");

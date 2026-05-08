@@ -35,8 +35,8 @@ import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "PROMPT_REQUIRED",
-  category: "internal",
-  what: "Interactive prompt required: Select agents to configure",
+  category: "usage",
+  message: "Interactive prompt required: Select agents to configure",
   breadcrumbs: [
     { task: "Recover", description: "Provide WorkspaceInitializationInteraction in the runtime." },
   ],
@@ -78,7 +78,7 @@ const readSettingsFromReadModel = (
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           category: "validation",
-          what: "Failed to read workspace settings",
+          message: "Workspace settings could not be read",
           cause: error,
         }),
       ),
@@ -120,7 +120,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
           makeAppError({
             code: "WORKSPACE_INITIALIZATION_FAILED",
             category: "internal",
-            what: `Failed to detect agents: ${error.message}`,
+            message: `Failed to detect agents: ${error.message}`,
             cause: error,
           }),
         ),
@@ -180,7 +180,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           category: "validation",
-          what: `Failed to check if settings file exists: ${settingsPath}`,
+          message: `Failed to check if settings file exists: ${settingsPath}`,
           cause: error,
         }),
       ),
@@ -190,7 +190,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
         makeAppError({
           code: "LOCKFILE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to check if lockfile exists: ${lockfilePath}`,
+          message: `Failed to check if lockfile exists: ${lockfilePath}`,
           cause: error,
         }),
       ),

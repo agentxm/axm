@@ -110,7 +110,7 @@ const makeWorkspaceMock = (
               makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
                 category: "internal",
-                what: "Mock write failed",
+                message: "Mock write failed",
                 cause: error,
               }),
           }),
@@ -131,7 +131,7 @@ const makeWorkspaceMock = (
               makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
                 category: "internal",
-                what: "Mock write failed",
+                message: "Mock write failed",
                 cause: error,
               }),
           }),
@@ -457,7 +457,7 @@ describe("installSkill", () => {
             makeAppError({
               code: "SETTINGS_WRITE_FAILED",
               category: "internal",
-              what: "write failed",
+              message: "write failed",
               cause: new Error("write failed"),
             }),
           ),
@@ -532,11 +532,11 @@ describe("installSkill", () => {
         const result = yield* installSkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
           Effect.provide(withServices(axmDir)),
           // AppError is in the E channel — catch it as applyPlan would
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("Failed to copy");
+        expect(result.message).toContain("could not be copied");
       }),
     );
 
@@ -550,11 +550,11 @@ describe("installSkill", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("Failed to copy");
+        expect(result.message).toContain("could not be copied");
       }),
     );
   });
@@ -616,7 +616,7 @@ describe("installSkill", () => {
             makeAppError({
               code: "LOCKFILE_WRITE_FAILED",
               category: "internal",
-              what: "write failed",
+              message: "write failed",
               cause: new Error("write failed"),
             }),
           ),

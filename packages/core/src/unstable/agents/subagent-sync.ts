@@ -88,7 +88,7 @@ export const writeSubagentFiles = (
         makeAppError({
           code: "SUBAGENT_SYNC_WRITE_FAILED",
           category: "internal",
-          what: `Failed to create subagents directory: ${subagentsDir}`,
+          message: `Failed to create subagents directory: ${subagentsDir}`,
           cause: error,
         }),
       ),
@@ -103,7 +103,7 @@ export const writeSubagentFiles = (
           makeAppError({
             code: "SUBAGENT_SYNC_WRITE_FAILED",
             category: "internal",
-            what: `Failed to create directory: ${parentDir}`,
+            message: `Failed to create directory: ${parentDir}`,
             cause: error,
           }),
         ),
@@ -114,7 +114,7 @@ export const writeSubagentFiles = (
           makeAppError({
             code: "SUBAGENT_SYNC_WRITE_FAILED",
             category: "internal",
-            what: `Failed to write subagent file: ${filePath}`,
+            message: `Failed to write subagent file: ${filePath}`,
             cause: error,
           }),
         ),
@@ -152,7 +152,7 @@ export const removeSubagentFiles = (
             makeAppError({
               code: "SUBAGENT_SYNC_REMOVE_FAILED",
               category: "internal",
-              what: `Failed to remove subagent file: ${filePath}`,
+              message: `Failed to remove subagent file: ${filePath}`,
               cause: error,
             }),
           ),
@@ -253,7 +253,7 @@ export const addRooSubagent = (
         makeAppError({
           code: "SUBAGENT_SYNC_WRITE_FAILED",
           category: "internal",
-          what: `Failed to create directory: ${parentDir}`,
+          message: `Failed to create directory: ${parentDir}`,
           cause: error,
         }),
       ),
@@ -264,7 +264,7 @@ export const addRooSubagent = (
         makeAppError({
           code: "SUBAGENT_SYNC_WRITE_FAILED",
           category: "internal",
-          what: `Failed to write roomodes file: ${roomodesPath}`,
+          message: `Failed to write roomodes file: ${roomodesPath}`,
           cause: error,
         }),
       ),
@@ -310,7 +310,7 @@ export const removeRooSubagent = (
         makeAppError({
           code: "SUBAGENT_SYNC_REMOVE_FAILED",
           category: "internal",
-          what: `Failed to write roomodes file: ${roomodesPath}`,
+          message: `Failed to write roomodes file: ${roomodesPath}`,
           cause: error,
         }),
       ),

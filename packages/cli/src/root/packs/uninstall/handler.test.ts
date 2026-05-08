@@ -209,14 +209,14 @@ describe("packs uninstall handler", () => {
             preview: false,
           }).pipe(
             Effect.catchTag("AppError", (e) =>
-              Effect.succeed({ error: true, code: e.code, what: e.what }),
+              Effect.succeed({ error: true, code: e.code, message: e.message }),
             ),
           );
 
           expect(result).toMatchObject({
             error: true,
             code: "EXTENSION_NOT_FOUND",
-            what: expect.stringContaining("nonexistent-pack"),
+            message: expect.stringContaining("nonexistent-pack"),
           });
         }),
       );

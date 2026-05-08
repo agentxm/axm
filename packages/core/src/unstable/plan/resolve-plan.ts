@@ -41,8 +41,8 @@ import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js
 
 const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
   code: "PROMPT_REQUIRED",
-  category: "internal",
-  what: "Interactive prompt required: Apply changes?",
+  category: "usage",
+  message: "Interactive prompt required: Apply changes?",
   breadcrumbs: [{ task: "Recover", description: "Provide ResolvePlanInteraction in the runtime." }],
 });
 
@@ -109,7 +109,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           category: "validation",
-          what: "Failed to read workspace settings",
+          message: "Workspace settings could not be read",
           cause: error,
         }),
       ),
@@ -146,7 +146,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       return yield* makeAppError({
         code: "PLAN_BLOCKED_BY_ERRORS",
         category: "conflict",
-        what: "Plan has errors that prevent execution",
+        message: "Plan has errors that prevent execution",
         breadcrumbs: [
           {
             task: "Recover",

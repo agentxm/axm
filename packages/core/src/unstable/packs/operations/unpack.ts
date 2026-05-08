@@ -66,7 +66,7 @@ export const unpackExtensionPack: OperationHandler<
       return yield* makeAppError({
         code: "PACK_NOT_INSTALLED",
         category: "internal",
-        what: `Extension pack "${op.args.name}" is not installed`,
+        message: `Extension pack "${op.args.name}" is not installed`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -82,7 +82,7 @@ export const unpackExtensionPack: OperationHandler<
       return yield* makeAppError({
         code: "PACK_UNPACK_UNSUPPORTED",
         category: "internal",
-        what: `Cannot unpack "${op.args.name}" — only registry extension packs can be unpacked`,
+        message: `Cannot unpack "${op.args.name}" — only registry extension packs can be unpacked`,
       });
     }
 

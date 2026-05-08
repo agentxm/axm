@@ -58,7 +58,7 @@ with structured fields for rendering:
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: string;
   readonly category: AppErrorCategory;
-  readonly what: string;
+  readonly message: string;
   readonly retryable?: boolean;
   readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
@@ -84,7 +84,7 @@ Use `makeAppError` for convenience construction:
 const error = makeAppError({
   code: "INSTALL_FAILED",
   category: "not_found",
-  what: "Installation failed",
+  message: "Installation failed",
   breadcrumbs: [{ task: "Check package", description: "Check the package name and try again" }],
   cause: originalError,
 });
@@ -136,7 +136,7 @@ typed `Data.TaggedError` subclass only when it earns its keep.
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Every caller recovers the same way**      | If all `catchTag("FooError")` handlers do the same thing, use a result value instead (see [Prefer result values](#prefer-result-values-over-uniform-recovery-errors)) |
 | **The error is only produced in one place** | A single `mapError` to `makeAppError` is simpler than defining + translating a typed error                                                                            |
-| **The metadata fits AppError's shape**      | `code`, `category`, `what`, `retryable`, `httpStatus`, and `breadcrumbs` already carry the information callers need                                                   |
+| **The metadata fits AppError's shape**      | `code`, `category`, `message`, `retryable`, `httpStatus`, and `breadcrumbs` already carry the information callers need                                                |
 | **Callers only need the code to decide**    | `catchIf(e => e.code === "MANIFEST_MISSING", ...)` works without a new type                                                                                           |
 
 ### When you introduce a typed service error
@@ -164,7 +164,7 @@ const program = manifestService.load(path).pipe(
       makeAppError({
         code: "MANIFEST_LOAD_FAILED",
         category: "validation",
-        what: `Could not load manifest: ${e.reason}`,
+        message: `Could not load manifest: ${e.reason}`,
         breadcrumbs: [{ task: "Inspect manifest", description: `Check ${e.path}` }],
         cause: e,
       })
@@ -220,7 +220,7 @@ yield *
   makeAppError({
     code: "INSTALL_FAILED",
     category: "internal",
-    what: "Installation failed",
+    message: "Installation failed",
   });
 ```
 
@@ -305,7 +305,7 @@ manifestService
   .load(path)
   .pipe(
     Effect.catchTag("ManifestError", (e) =>
-      Effect.fail(makeAppError({ code: "MANIFEST_MISSING", what: e.reason })),
+      Effect.fail(makeAppError({ code: "MANIFEST_MISSING", message: e.reason })),
     ),
   );
 
@@ -313,7 +313,7 @@ manifestService
 program.pipe(
   Effect.catchIf(
     (e) => e.code === "AUTH_UNAUTHENTICATED",
-    () => Effect.fail(makeAppError({ code: "LOGIN_REQUIRED", what: "Please log in" })),
+    () => Effect.fail(makeAppError({ code: "LOGIN_REQUIRED", message: "Please log in" })),
   ),
 );
 
@@ -322,7 +322,7 @@ httpClient
   .get(url)
   .pipe(
     Effect.mapError((e) =>
-      makeAppError({ code: "NETWORK_ERROR", what: "Request failed", cause: e }),
+      makeAppError({ code: "NETWORK_ERROR", message: "Request failed", cause: e }),
     ),
   );
 ```
@@ -343,7 +343,9 @@ which request triggered it, what recovery was attempted.
 const getManifest = (path: string) =>
   storage.read(path).pipe(
     Effect.tapError(() => Effect.logWarning("storage read failed")),
-    Effect.mapError((e) => makeAppError({ code: "MANIFEST_MISSING", what: "Manifest not found" })),
+    Effect.mapError((e) =>
+      makeAppError({ code: "MANIFEST_MISSING", message: "Manifest not found" }),
+    ),
   );
 
 // handler logs again
@@ -358,7 +360,7 @@ const getManifest = (path: string) =>
     .read(path)
     .pipe(
       Effect.mapError((e) =>
-        makeAppError({ code: "MANIFEST_MISSING", what: "Manifest not found" }),
+        makeAppError({ code: "MANIFEST_MISSING", message: "Manifest not found" }),
       ),
     );
 
@@ -439,7 +441,7 @@ const program = Effect.gen(function* () {
     Effect.fail(
       makeAppError({
         code: "MANIFEST_LOAD_FAILED",
-        what: "Could not load manifest",
+        message: "Could not load manifest",
         cause: e,
       }),
     ),
@@ -481,7 +483,7 @@ const update = (id: string) =>
     if (!result) {
       return yield* makeAppError({
         code: "UPDATE_NOT_FOUND",
-        what: "Resource not found",
+        message: "Resource not found",
       });
     }
     return result;
@@ -621,7 +623,7 @@ const get = (id: string) =>
     Effect.mapError((e) =>
       makeAppError({
         code: "MANIFEST_MISSING",
-        what: "Could not load manifest",
+        message: "Could not load manifest",
         cause: e,
       }),
     ),
@@ -636,7 +638,7 @@ const getWithLogging = (id: string) =>
           Effect.fail(
             makeAppError({
               code: "MANIFEST_MISSING",
-              what: "Could not load manifest",
+              message: "Could not load manifest",
               cause: e,
             }),
           ),

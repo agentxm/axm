@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { envOption } from "../utils/index.js";
 
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { errAuthRequired, type AppError, makeAppError } from "../app-error/index.js";
 import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
@@ -37,7 +37,7 @@ const parseOrigin = (url: string) =>
       makeAppError({
         code: "AUTH_INVALID_URL",
         category: "validation",
-        what: `Invalid URL: ${url}`,
+        message: `Invalid URL: ${url}`,
         breadcrumbs: [{ task: "Recover", description: "Check the registry URL in your settings." }],
         cause: error,
       }),
@@ -72,18 +72,7 @@ const persistRefreshedCredentials = (registryUrl: string, token: NormalizedToken
     return makeStoredTokenSource(registryUrl, token);
   });
 
-const makeLoginRequiredError = () =>
-  makeAppError({
-    code: "AUTH_LOGIN_REQUIRED",
-    category: "internal",
-    what: "Authentication required",
-    breadcrumbs: [
-      {
-        task: "Recover",
-        description: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
-      },
-    ],
-  });
+const makeLoginRequiredError = () => errAuthRequired();
 
 /**
  * Read the locally-stored user handle for the given registry URL.

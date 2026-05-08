@@ -78,7 +78,7 @@ export const readCommandContent = (
           makeAppError({
             code: `${errorPrefix}_READ_FAILED`,
             category: "internal",
-            what: `Failed to read ${contentFilename} at ${commandMdPath}`,
+            message: `Failed to read ${contentFilename} at ${commandMdPath}`,
             cause: e,
           }),
         ),
@@ -101,7 +101,7 @@ export const readCommandContent = (
           makeAppError({
             code: `${errorPrefix}_READ_FAILED`,
             category: "internal",
-            what: `Failed to read ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
+            message: `Failed to read ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: e,
           }),
         ),
@@ -112,7 +112,7 @@ export const readCommandContent = (
           makeAppError({
             code: `${errorPrefix}_MANIFEST_INVALID`,
             category: "internal",
-            what: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
+            message: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: error,
           }),
       });
@@ -209,7 +209,7 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
                 agentId: agent.id,
                 outcome: {
                   _tag: "unsupported" as const,
-                  reason: `Agent addCommand failed: ${err.what}`,
+                  reason: `Agent addCommand failed: ${err.message}`,
                 },
                 warnings: emptyWarnings,
               });

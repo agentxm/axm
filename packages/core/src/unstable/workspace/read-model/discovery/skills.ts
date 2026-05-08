@@ -260,7 +260,7 @@ export const skillsInDir = (
         makeAppError({
           code: "SKILLS_DISCOVERY_FAILED",
           category: "internal",
-          what: `Directory does not exist or is not accessible: ${searchRoot}`,
+          message: `Directory does not exist or is not accessible: ${searchRoot}`,
           cause: error,
         }),
       ),
@@ -270,7 +270,7 @@ export const skillsInDir = (
       return yield* makeAppError({
         code: "SKILLS_DISCOVERY_FAILED",
         category: "internal",
-        what: `Path is not a directory: ${searchRoot}`,
+        message: `Path is not a directory: ${searchRoot}`,
       });
     }
 

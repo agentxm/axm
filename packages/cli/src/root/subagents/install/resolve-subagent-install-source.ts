@@ -37,12 +37,12 @@ const isAppError = (error: unknown): error is AppError =>
   error !== null &&
   "_tag" in error &&
   error._tag === "AppError" &&
-  "what" in error &&
+  "message" in error &&
   "code" in error;
 
 const summarizeLookupError = (error: unknown): string => {
   if (isAppError(error)) {
-    return `${error.what} (${error.code})`;
+    return `${error.message} (${error.code})`;
   }
   if (error instanceof Error) {
     return error.message;
@@ -105,7 +105,7 @@ const resolveRegistrySource = (
         makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
           category: "internal",
-          what: `Failed to read configured registry sources for owner "${owner}"`,
+          message: `Failed to read configured registry sources for owner "${owner}"`,
           breadcrumbs: [
             {
               task: "Recover",
@@ -121,7 +121,7 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
         category: "internal",
-        what: `No registry source is configured for owner "${owner}"`,
+        message: `No registry source is configured for owner "${owner}"`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -183,7 +183,7 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
         category: "not_found",
-        what: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
+        message: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -200,7 +200,7 @@ const resolveRegistrySource = (
     return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
       category: "not_found",
-      what: `None of the configured registry sources contain owner "${owner}"`,
+      message: `None of the configured registry sources contain owner "${owner}"`,
       breadcrumbs: [
         {
           task: "Recover",
@@ -226,7 +226,7 @@ const resolveSubagentRegistrySourceByName = (
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
         category: "not_found",
-        what: `Subagent "${name}" could not be looked up (no registry sources)`,
+        message: `Subagent "${name}" could not be looked up (no registry sources)`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -254,7 +254,7 @@ const resolveSubagentRegistrySourceByName = (
         return makeAppError({
           code: "REGISTRY_SUBAGENT_NOT_FOUND",
           category: "not_found",
-          what: Option.isNone(maybeProfile)
+          message: Option.isNone(maybeProfile)
             ? `Subagent "${name}" could not be looked up (no default owner)`
             : `Subagent "${label}" was not found in configured registries`,
           breadcrumbs: [
@@ -273,7 +273,7 @@ const resolveSubagentRegistrySourceByName = (
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
         category: "not_found",
-        what: `Subagent "${name}" was not found in configured registries`,
+        message: `Subagent "${name}" was not found in configured registries`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -289,7 +289,7 @@ const resolveSubagentRegistrySourceByName = (
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
         category: "not_found",
-        what: `Subagent "${name}" could not be looked up (no registry sources)`,
+        message: `Subagent "${name}" could not be looked up (no registry sources)`,
       });
     }
 
@@ -321,7 +321,7 @@ const resolveSubagentRegistrySource = (
       return yield* makeAppError({
         code: "SUBAGENT_INSTALL_WRONG_TYPE",
         category: "internal",
-        what: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
+        message: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -376,7 +376,7 @@ export const resolveSubagentInstallSource = (
         return yield* makeAppError({
           code: "SUBAGENT_INSTALL_UNSUPPORTED_INPUT",
           category: "internal",
-          what: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
+          message: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
           breadcrumbs: [
             {
               task: "Recover",

@@ -242,7 +242,7 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.what).toContain("Failed to publish");
+          expect(error.message).toContain("Failed to publish");
         }),
       );
     });
@@ -381,9 +381,9 @@ describe("subagents-publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs(["@test/subagents/no-manifest"])).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
           );
-          expect(getErrorResult(result).what).toContain("Missing manifest");
+          expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
       );
     });
@@ -402,7 +402,7 @@ describe("subagents-publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                what: e.what,
+                message: e.message,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),
@@ -410,7 +410,7 @@ describe("subagents-publish.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.what).toContain("Managed extension not found");
+          expect(errorResult.message).toContain("Managed extension not found");
           expect(errorResult.guidance).toContain("axm subagents new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");

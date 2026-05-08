@@ -67,7 +67,7 @@ const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string)
       makeAppError({
         code: "AGENT_DETECTION_FAILED",
         category: "internal",
-        what: `Failed to scan subagent files for ${agent.name}`,
+        message: `Failed to scan subagent files for ${agent.name}`,
         cause: error,
       }),
     ),

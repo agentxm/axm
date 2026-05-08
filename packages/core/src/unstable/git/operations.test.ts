@@ -120,12 +120,12 @@ describe("git", () => {
       const error = makeAppError({
         code: "GIT_CLONE_FAILED",
         category: "internal",
-        what: "Failed to clone repository",
+        message: "Failed to clone repository",
       });
 
       expect(error._tag).toBe("AppError");
       expect(error.code).toBe("GIT_CLONE_FAILED");
-      expect(error.what).toBe("Failed to clone repository");
+      expect(error.message).toBe("Failed to clone repository");
     });
 
     it("can include a cause", () => {
@@ -133,7 +133,7 @@ describe("git", () => {
       const error = makeAppError({
         code: "GIT_CLONE_FAILED",
         category: "internal",
-        what: "Failed to clone repository",
+        message: "Failed to clone repository",
         cause,
       });
 

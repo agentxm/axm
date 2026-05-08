@@ -118,7 +118,7 @@ Body.`,
     Effect.gen(function* () {
       const error = yield* parseSubagentMd("# Planner\n", "planner").pipe(Effect.flip);
       expect(error.code).toBe("SUBAGENT_FRONTMATTER_MISSING");
-      expect(error.what).toContain("planner");
+      expect(error.message).toContain("planner");
     }),
   );
 
@@ -134,8 +134,8 @@ Body.`,
       ).pipe(Effect.flip);
 
       expect(error.code).toBe("SUBAGENT_NAME_MISMATCH");
-      expect(error.what).toContain("researcher");
-      expect(error.what).toContain("planner");
+      expect(error.message).toContain("researcher");
+      expect(error.message).toContain("planner");
     }),
   );
 

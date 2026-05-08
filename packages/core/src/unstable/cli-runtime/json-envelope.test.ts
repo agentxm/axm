@@ -48,36 +48,40 @@ describe("JsonEnvelopeSchema", () => {
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual(envelope);
   });
 
-  it("decodes error envelopes with breadcrumbs from AppError", () => {
+  it("emits the documented AppError envelope shape", () => {
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({
-        code: "WORKSPACE_NOT_FOUND",
-        category: "not_found",
-        what: "No workspace found",
+        code: "AUTH_LOGIN_REQUIRED",
+        category: "auth",
+        message: "Authentication required",
+        reason: "session_expired",
+        retryable: false,
+        httpStatus: 401,
         breadcrumbs: [
           {
-            task: "init",
-            description: "Initialize an AXM workspace",
-            command: ["axm", "init"],
+            task: "Run `axm auth login`",
+            description: "Sign in, then retry.",
           },
         ],
       }),
-      2,
+      4,
     );
 
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
       ok: false,
-      code: "WORKSPACE_NOT_FOUND",
-      category: "not_found",
-      message: "No workspace found",
+      category: "auth",
+      code: "AUTH_LOGIN_REQUIRED",
+      message: "Authentication required",
+      reason: "session_expired",
       breadcrumbs: [
         {
-          task: "init",
-          description: "Initialize an AXM workspace",
-          command: ["axm", "init"],
+          task: "Run `axm auth login`",
+          description: "Sign in, then retry.",
         },
       ],
-      exitCode: 2,
+      retryable: false,
+      httpStatus: 401,
+      exitCode: 4,
     });
   });
 });

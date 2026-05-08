@@ -359,7 +359,7 @@ describe("detectAgent", () => {
         expect(error).toBeInstanceOf(AppError);
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("AGENT_DETECTION_FAILED");
-        expect(error.what).toContain("Claude Code");
+        expect(error.message).toContain("Claude Code");
       }),
     );
 

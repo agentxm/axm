@@ -203,7 +203,7 @@ export const CommandManagerLive = Layer.effect(
           return yield* makeAppError({
             code: "INSTALL_COMMAND_PATH_TRAVERSAL",
             category: "internal",
-            what: `Path traversal detected: ${canonicalPath}`,
+            message: `Path traversal detected: ${canonicalPath}`,
           });
         }
 
@@ -212,7 +212,7 @@ export const CommandManagerLive = Layer.effect(
             makeAppError({
               code: "INSTALL_COMMAND_PATH_CHECK_FAILED",
               category: "internal",
-              what: `Failed to check if canonical path exists: ${canonicalPath}`,
+              message: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
           ),
@@ -238,7 +238,7 @@ export const CommandManagerLive = Layer.effect(
               return yield* makeAppError({
                 code: "INSTALL_COMMAND_INTEGRITY_MISMATCH",
                 category: "internal",
-                what: `Integrity mismatch for ${ref.name}@${ref.version}`,
+                message: `Integrity mismatch for ${ref.name}@${ref.version}`,
               });
             }
           }
@@ -247,8 +247,8 @@ export const CommandManagerLive = Layer.effect(
             Effect.mapError((e) =>
               makeAppError({
                 code: "INSTALL_COMMAND_TEMP_DIR_FAILED",
-                category: "internal",
-                what: `Failed to create temporary directory for registry install`,
+                category: "validation",
+                message: `Temporary directory for registry install could not be created`,
                 cause: e,
               }),
             ),
@@ -261,8 +261,8 @@ export const CommandManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "INSTALL_COMMAND_COPY_FAILED",
-                    category: "internal",
-                    what: `Failed to create canonical directory: ${canonicalPath}`,
+                    category: "validation",
+                    message: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
                   }),
                 ),
@@ -271,8 +271,8 @@ export const CommandManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "INSTALL_COMMAND_COPY_FAILED",
-                    category: "internal",
-                    what: `Failed to read extracted directory`,
+                    category: "validation",
+                    message: `Extracted directory could not be read`,
                     cause: e,
                   }),
                 ),
@@ -314,8 +314,8 @@ export const CommandManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "INSTALL_COMMAND_COPY_FAILED",
-                  category: "internal",
-                  what: `Failed to copy command files to ${canonicalPath}`,
+                  category: "validation",
+                  message: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
               ),
@@ -346,8 +346,8 @@ export const CommandManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "INSTALL_COMMAND_COPY_FAILED",
-                  category: "internal",
-                  what: `Failed to copy command files to ${canonicalPath}`,
+                  category: "validation",
+                  message: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
               ),
@@ -386,7 +386,7 @@ export const CommandManagerLive = Layer.effect(
                         makeAppError({
                           code: "OWNER_REQUIRED",
                           category: "internal",
-                          what: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
+                          message: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
                           breadcrumbs: [
                             {
                               task: "Recover",

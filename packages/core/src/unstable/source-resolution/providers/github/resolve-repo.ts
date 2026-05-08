@@ -15,7 +15,7 @@ const headRequest = (url: string, _input: string) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to check GitHub: ${error.reason._tag === "TransportError" ? String(error.reason.cause) : `HTTP error`}`,
+          message: `Failed to check GitHub: ${error.reason._tag === "TransportError" ? String(error.reason.cause) : `HTTP error`}`,
           cause: error,
         }),
       ),

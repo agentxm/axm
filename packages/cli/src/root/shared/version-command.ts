@@ -66,7 +66,7 @@ const parseBump = (bump: string) => {
       return makeAppError({
         code: "VERSION_BUMP_INVALID",
         category: "validation",
-        what: `Invalid version bump: ${bump}`,
+        message: `Invalid version bump: ${bump}`,
       });
   }
 };
@@ -79,7 +79,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
       return yield* makeAppError({
         code: "VERSION_SET_TARGET_MISSING",
         category: "not_found",
-        what: "`set` requires an exact semver version",
+        message: "`set` requires an exact semver version",
         breadcrumbs: [
           {
             task: "Recover",
@@ -93,7 +93,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
       return yield* makeAppError({
         code: "VERSION_TARGET_UNEXPECTED",
         category: "internal",
-        what: `Version target is only valid with "set", got ${bump}`,
+        message: `Version target is only valid with "set", got ${bump}`,
       });
     }
 
@@ -187,7 +187,7 @@ const inferVersionableType = (handle: string) =>
       return yield* makeAppError({
         code: "INVALID_EXTENSION_TYPE",
         category: "validation",
-        what: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
+        message: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
         breadcrumbs: [
           { task: "Recover", description: `Use a handle like ${supportedHandleHints}.` },
         ],

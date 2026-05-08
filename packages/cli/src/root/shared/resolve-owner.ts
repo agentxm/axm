@@ -13,7 +13,7 @@ const makeOwnerRequiredError = (action: string): AppError =>
   makeAppError({
     code: "OWNER_REQUIRED",
     category: "internal",
-    what: `No owner configured for ${action}`,
+    message: `No owner configured for ${action}`,
     breadcrumbs: [
       {
         task: "Recover",

@@ -19,7 +19,7 @@ export const checkAzureReposRepoExists = (
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: `Failed to check Azure Repos: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Failed to check Azure Repos: ${error instanceof Error ? error.message : String(error)}`,
           cause: error,
         }),
       ),
@@ -29,7 +29,7 @@ export const checkAzureReposRepoExists = (
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: `Not found on Azure Repos`,
+        message: `Not found on Azure Repos`,
       });
     }
   });

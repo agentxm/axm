@@ -68,7 +68,7 @@ export const uninstallExtensionPack: OperationHandler<
         makeAppError({
           code: "UNINSTALL_PACK_LOCKFILE_READ_FAILED",
           category: "internal",
-          what: `Failed to read lockfile: ${e.what}`,
+          message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
       ),
@@ -143,7 +143,7 @@ export const uninstallExtensionPack: OperationHandler<
     Effect.catch((error) =>
       Effect.succeed({
         result: "error",
-        message: `Failed to uninstall extension pack: ${error.what}`,
+        message: `Failed to uninstall extension pack: ${error.message}`,
         error,
       } satisfies JobStepResult),
     ),

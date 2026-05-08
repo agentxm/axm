@@ -85,7 +85,7 @@ export const copySkill: OperationHandler<
       return yield* makeAppError({
         code: "COPY_SKILL_UNSUPPORTED_SOURCE",
         category: "internal",
-        what: `copy-skill does not support ${ref.source.type} sources`,
+        message: `copy-skill does not support ${ref.source.type} sources`,
       });
     }
     const sourcePath = stripFileProtocol(ref.location);
@@ -96,7 +96,7 @@ export const copySkill: OperationHandler<
         makeAppError({
           code: "COPY_SKILL_FAILED",
           category: "internal",
-          what: `Failed to copy skill files to ${targetDir}`,
+          message: `Failed to copy skill files to ${targetDir}`,
           cause: e,
         }),
       ),
@@ -117,7 +117,7 @@ export const copySkill: OperationHandler<
         makeAppError({
           code: "COPY_SKILL_MANIFEST_WRITE_FAILED",
           category: "internal",
-          what: `Failed to write manifest: ${manifestPath}`,
+          message: `Failed to write manifest: ${manifestPath}`,
           cause: e,
         }),
       ),

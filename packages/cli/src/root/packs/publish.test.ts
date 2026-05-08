@@ -295,9 +295,9 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublishPack(defaultArgs("@test/packs/no-manifest")).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
           );
-          expect(getErrorResult(result).what).toContain("Missing manifest");
+          expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
       );
     });
@@ -457,7 +457,7 @@ describe("packs publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                what: e.what,
+                message: e.message,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),
@@ -465,7 +465,7 @@ describe("packs publish.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.what).toContain("Managed extension pack not found");
+          expect(errorResult.message).toContain("Managed extension pack not found");
           expect(errorResult.guidance).toContain("axm packs new");
           expect(rendererState.spinnerMessages).toContain("Validating extension pack...");
           expect(rendererState.spinnerMessages).toContain("Failed");

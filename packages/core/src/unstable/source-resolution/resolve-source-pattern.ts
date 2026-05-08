@@ -148,8 +148,8 @@ export const resolveSourcePattern = (
         if (matchedNames.length === 0) {
           return yield* makeAppError({
             code: "NO_SKILLS_MATCHED",
-            category: "internal",
-            what: "No skills matched the given pattern",
+            category: "not_found",
+            message: "No skills matched the given pattern",
             breadcrumbs: [
               {
                 task: "Recover",

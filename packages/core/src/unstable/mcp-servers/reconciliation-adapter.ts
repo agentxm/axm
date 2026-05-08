@@ -113,7 +113,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
           makeAppError({
             code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
             category: "internal",
-            what: `Failed to check MCP server path: ${canonicalPath}`,
+            message: `Failed to check MCP server path: ${canonicalPath}`,
             cause: error,
           }),
         ),

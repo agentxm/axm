@@ -38,7 +38,7 @@ import {
   stripFileProtocol,
 } from "../../utils/index.js";
 import { validatePathSafety } from "../../extensions/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { errInstallFailed, makeAppError } from "../../app-error/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
@@ -99,10 +99,9 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     yield* removeFromAllCanonicalLocations(fs, ws.baseDir, "skills", sanitizedName, path);
     yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
-        makeAppError({
+        errInstallFailed({
           code: "INSTALL_SKILL_COPY_FAILED",
-          category: "internal",
-          what: `Failed to copy skill files to ${copyTarget}`,
+          message: "Skill files could not be copied to the canonical location",
           cause: e,
         }),
       ),
@@ -212,7 +211,7 @@ const installFromRegistry = (
         makeAppError({
           code: "INSTALL_SKILL_PATH_CHECK_FAILED",
           category: "internal",
-          what: `Failed to check if canonical path exists: ${canonicalPath}`,
+          message: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
       ),
@@ -238,17 +237,16 @@ const installFromRegistry = (
           return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
             category: "internal",
-            what: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            message: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
       }
 
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
-          makeAppError({
+          errInstallFailed({
             code: "INSTALL_SKILL_TEMP_DIR_FAILED",
-            category: "internal",
-            what: `Failed to create temporary directory for registry install`,
+            message: "Temporary directory for registry install could not be created",
             cause: e,
           }),
         ),
@@ -406,7 +404,7 @@ export const installSkill: OperationHandler<
         error: makeAppError({
           code: "CODING_AGENT_UNKNOWN_CONFIGURED",
           category: "not_found",
-          what: message,
+          message: message,
         }),
       } satisfies JobStepResult;
     }
@@ -437,8 +435,8 @@ export const installSkill: OperationHandler<
         message,
         error: makeAppError({
           code: "SKILL_DIR_MISCONFIGURED",
-          category: "internal",
-          what: message,
+          category: "validation",
+          message: message,
         }),
       } satisfies JobStepResult;
     }
@@ -552,7 +550,7 @@ export const installSkill: OperationHandler<
         error: makeAppError({
           code: "SKILL_INSTALL_PARTIAL_FAILED",
           category: "internal",
-          what: message,
+          message: message,
         }),
       } satisfies JobStepResult;
     }

@@ -342,7 +342,7 @@ describe("packs unpack.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                what: e.what,
+                message: e.message,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),
@@ -350,7 +350,7 @@ describe("packs unpack.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.what).toContain("not installed");
+          expect(errorResult.message).toContain("not installed");
           expect(errorResult.guidance).toContain("axm packs install");
           expect(rendererState.spinnerMessages).toContain("Checking pack...");
           expect(rendererState.spinnerMessages).toContain("Failed");

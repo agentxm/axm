@@ -48,7 +48,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
             makeAppError({
               code: "AUTH_REVOKE_FAILED",
               category: "internal",
-              what: "Revoke failed",
+              message: "Revoke failed",
             }),
           )
       : () => Effect.void,

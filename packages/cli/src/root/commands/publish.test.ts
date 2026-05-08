@@ -246,7 +246,7 @@ describe("commands-publish.handler", () => {
           ).pipe(Effect.flip);
 
           const error = getAppError(result);
-          expect(error.what).toContain("local version 1.0.0 is not greater");
+          expect(error.message).toContain("local version 1.0.0 is not greater");
           expect(error.breadcrumbs?.[0]?.description ?? "").toContain(
             "axm commands version @test/commands/stale-cmd patch",
           );
@@ -307,7 +307,7 @@ describe("commands-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.what).toContain("Failed to publish");
+          expect(error.message).toContain("Failed to publish");
         }),
       );
     });
@@ -373,8 +373,10 @@ describe("commands-publish.handler", () => {
         Effect.gen(function* () {
           const result = yield* handleCommandsPublish(
             defaultArgs(["@test/commands/no-manifest"]),
-          ).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })));
-          expect(getErrorResult(result).what).toContain("Missing manifest");
+          ).pipe(
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
+          );
+          expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
       );
     });
@@ -404,9 +406,9 @@ describe("commands-publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleCommandsPublish(defaultArgs(["@test/commands/no-md"])).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
           );
-          expect(getErrorResult(result).what).toContain("Missing no-md.md");
+          expect(getErrorResult(result).message).toContain("Missing no-md.md");
         }),
       );
     });
@@ -427,7 +429,7 @@ describe("commands-publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                what: e.what,
+                message: e.message,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),
@@ -435,7 +437,7 @@ describe("commands-publish.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.what).toContain("Managed extension not found");
+          expect(errorResult.message).toContain("Managed extension not found");
           expect(errorResult.guidance).toContain("axm commands new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");

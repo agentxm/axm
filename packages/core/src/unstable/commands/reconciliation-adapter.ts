@@ -113,7 +113,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
           makeAppError({
             code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
             category: "internal",
-            what: `Failed to check command path: ${canonicalPath}`,
+            message: `Failed to check command path: ${canonicalPath}`,
             cause: error,
           }),
         ),

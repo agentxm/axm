@@ -116,7 +116,7 @@ export const newCommand: OperationHandler<
       return yield* makeAppError({
         code: "COMMAND_DIR_EXISTS",
         category: "conflict",
-        what: `Directory "${name}" already exists`,
+        message: `Directory "${name}" already exists`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -131,8 +131,8 @@ export const newCommand: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "COMMAND_CREATE_FAILED",
-          category: "internal",
-          what: `Failed to create command directory: ${targetDir}`,
+          category: "validation",
+          message: `Failed to create command directory: ${targetDir}`,
           cause: e,
         }),
       ),
@@ -157,8 +157,8 @@ export const newCommand: OperationHandler<
         Effect.mapError((e) =>
           makeAppError({
             code: "COMMAND_CREATE_FAILED",
-            category: "internal",
-            what: `Failed to write command manifest`,
+            category: "validation",
+            message: `Command manifest could not be written`,
             cause: e,
           }),
         ),
@@ -171,8 +171,8 @@ export const newCommand: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "COMMAND_CREATE_FAILED",
-          category: "internal",
-          what: `Failed to write ${contentFilename}`,
+          category: "validation",
+          message: `Failed to write ${contentFilename}`,
           cause: e,
         }),
       ),

@@ -67,7 +67,7 @@ const decodeExactVersion = (value: unknown, manifestPath: string) =>
       makeAppError({
         code: "INVALID_MANIFEST_VERSION",
         category: "validation",
-        what: `Invalid version in manifest: ${manifestPath}`,
+        message: `Invalid version in manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -83,7 +83,7 @@ const parseManifestJson = (content: string, manifestPath: string) =>
       makeAppError({
         code: "MANIFEST_PARSE_FAILED",
         category: "validation",
-        what: `Invalid JSON in manifest: ${manifestPath}`,
+        message: `Invalid JSON in manifest: ${manifestPath}`,
         cause: e,
       }),
   });
@@ -96,7 +96,7 @@ const readManifestRecord = (manifestPath: string) =>
         makeAppError({
           code: "MANIFEST_READ_FAILED",
           category: "internal",
-          what: `Failed to read manifest: ${manifestPath}`,
+          message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -106,7 +106,7 @@ const readManifestRecord = (manifestPath: string) =>
       return yield* makeAppError({
         code: "MANIFEST_SCHEMA_INVALID",
         category: "validation",
-        what: `Manifest must be a JSON object: ${manifestPath}`,
+        message: `Manifest must be a JSON object: ${manifestPath}`,
       });
     }
     return { content, manifest: Object.fromEntries(Object.entries(manifest)) };
@@ -126,7 +126,7 @@ export const resolveManifestVersionInfo = (
       return yield* makeAppError({
         code: "INVALID_EXTENSION_TYPE",
         category: "validation",
-        what: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
+        message: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
       });
     }
 
@@ -144,7 +144,7 @@ export const resolveManifestVersionInfo = (
       return yield* makeAppError({
         code: "MANIFEST_NOT_FOUND",
         category: "not_found",
-        what: `Manifest not found: ${manifestPath}`,
+        message: `Manifest not found: ${manifestPath}`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -172,7 +172,7 @@ const bumpVersion = (from: ExactSemverVersion, bump: VersionBump, manifestPath: 
       return yield* makeAppError({
         code: "INVALID_VERSION_BUMP",
         category: "validation",
-        what: `Could not bump version "${from}" in ${manifestPath}`,
+        message: `Could not bump version "${from}" in ${manifestPath}`,
       });
     }
     return yield* decodeExactVersion(next, manifestPath);
@@ -203,7 +203,7 @@ export const bumpManifestVersion = (args: {
           makeAppError({
             code: "MANIFEST_WRITE_FAILED",
             category: "internal",
-            what: `Failed to write manifest: ${info.manifestPath}`,
+            message: `Failed to write manifest: ${info.manifestPath}`,
             cause: e,
           }),
         ),

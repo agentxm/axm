@@ -20,7 +20,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Invalid Azure Repos URL format",
+        message: "Invalid Azure Repos URL format",
       }),
     );
   }
@@ -30,7 +30,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Invalid Azure Repos URL format",
+        message: "Invalid Azure Repos URL format",
       }),
     );
   }
@@ -46,7 +46,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: "Invalid Azure Repos URL format",
+          message: "Invalid Azure Repos URL format",
         }),
       );
 };

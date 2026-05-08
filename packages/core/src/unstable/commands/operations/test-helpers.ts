@@ -57,7 +57,7 @@ export const makeAgentRepoMock = (
       makeAppError({
         code: "AGENT_NOT_FOUND",
         category: "not_found",
-        what: `Agent ${id} not found`,
+        message: `Agent ${id} not found`,
       }),
     );
   },

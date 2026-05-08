@@ -77,8 +77,8 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "UPGRADE_DOWNLOAD_FAILED",
-          category: "internal",
-          what: "Failed to download update",
+          category: "network",
+          message: "Update download did not complete",
           breadcrumbs: [
             { task: "Recover", description: "Check your network connection and try again." },
           ],
@@ -92,7 +92,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
             makeAppError({
               code: "UPGRADE_DOWNLOAD_TIMEOUT",
               category: "network",
-              what: "Download timed out",
+              message: "Download timed out",
               breadcrumbs: [
                 { task: "Recover", description: "Check your network connection and try again." },
               ],
@@ -110,8 +110,8 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     if (response.status !== 200) {
       return yield* makeAppError({
         code: "UPGRADE_DOWNLOAD_FAILED",
-        category: "internal",
-        what: `Download failed with status ${String(response.status)}`,
+        category: "network",
+        message: `Download failed with status ${String(response.status)}`,
         breadcrumbs: [
           { task: "Recover", description: "Check your network connection and try again." },
         ],
@@ -122,8 +122,8 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       Effect.mapError((cause) =>
         makeAppError({
           code: "UPGRADE_DOWNLOAD_FAILED",
-          category: "internal",
-          what: "Failed to read downloaded data",
+          category: "network",
+          message: "Failed to read downloaded data",
           breadcrumbs: [
             { task: "Recover", description: "Check your network connection and try again." },
           ],
@@ -136,8 +136,8 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     if (bytes.length === 0) {
       return yield* makeAppError({
         code: "UPGRADE_DOWNLOAD_EMPTY",
-        category: "internal",
-        what: "Downloaded file is empty",
+        category: "validation",
+        message: "Downloaded file is empty",
         breadcrumbs: [
           {
             task: "Recover",
@@ -152,7 +152,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
         makeAppError({
           code: "UPGRADE_PERMISSION_DENIED",
           category: "internal",
-          what: `Permission denied writing to ${destPath}`,
+          message: `Permission denied writing to ${destPath}`,
           breadcrumbs: [
             {
               task: "Recover",
@@ -186,7 +186,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
           makeAppError({
             code: "UPGRADE_PERMISSION_DENIED",
             category: "internal",
-            what: `Permission denied replacing ${targetPath}`,
+            message: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
                 task: "Recover",
@@ -205,7 +205,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
           makeAppError({
             code: "UPGRADE_PERMISSION_DENIED",
             category: "internal",
-            what: `Permission denied replacing ${targetPath}`,
+            message: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
                 task: "Recover",
@@ -239,8 +239,8 @@ const verifyBinary = (binaryPath: string) =>
     catch: () =>
       makeAppError({
         code: "UPGRADE_VERIFY_FAILED",
-        category: "internal",
-        what: "Failed to verify new binary",
+        category: "validation",
+        message: "Downloaded binary could not be verified",
         breadcrumbs: [
           {
             task: "Recover",
@@ -347,7 +347,7 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
       return yield* makeAppError({
         code: "UPGRADE_UNSUPPORTED_PLATFORM",
         category: "internal",
-        what: `Unsupported platform: ${platform}-${arch}`,
+        message: `Unsupported platform: ${platform}-${arch}`,
         breadcrumbs: [
           { task: "Recover", description: "Build from source or use a supported platform." },
         ],

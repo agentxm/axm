@@ -210,7 +210,7 @@ describe("removeFromExtensionPack", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");
@@ -262,7 +262,7 @@ describe("removeFromExtensionPack", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");

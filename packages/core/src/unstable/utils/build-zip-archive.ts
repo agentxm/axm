@@ -24,7 +24,7 @@ const requireBinary = (name: string, errorCode: string) =>
       makeAppError({
         code: errorCode,
         category: "internal",
-        what: `Required system command "${name}" not found`,
+        message: `Required system command "${name}" not found`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -78,7 +78,7 @@ export const buildZipArchive = (dir: string, errorCode: string) =>
         makeAppError({
           code: errorCode,
           category: "internal",
-          what: "Failed to build zip archive",
+          message: "Failed to build zip archive",
           cause: e,
         }),
     });

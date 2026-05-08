@@ -86,7 +86,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
         makeAppError({
           code: "REGISTRY_SOURCES_FAILED",
           category: "internal",
-          what: `Failed to get registry sources: ${e._tag}`,
+          message: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
       ),
@@ -96,8 +96,8 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
-        category: "internal",
-        what: "No registry sources configured",
+        category: "usage",
+        message: "No registry sources configured",
         breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
       });
     }
@@ -114,7 +114,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
         makeAppError({
           code: "PUBLISH_SKILL_REGISTRY_LOOKUP_FAILED",
           category: "internal",
-          what: `Failed to lookup registry source "${registry.value}"`,
+          message: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
       ),
@@ -124,7 +124,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
         category: "not_found",
-        what: `Registry source "${registry.value}" not found or not a registry source`,
+        message: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
 
@@ -184,7 +184,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
           category: "not_found",
-          what: `Skill "${name}" is not installed in this workspace`,
+          message: `Skill "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
               task: "Recover",
@@ -202,7 +202,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
           category: "not_found",
-          what: `Skill "${name}" cannot be published from a non-registry source`,
+          message: `Skill "${name}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
               task: "Recover",
@@ -231,7 +231,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
               makeAppError({
                 code: "EXTENSION_NOT_FOUND",
                 category: "not_found",
-                what: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
+                message: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
               }),
             );
           }
@@ -252,7 +252,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "EXTENSION_NOT_FOUND",
                 category: "not_found",
-                what: `Managed extension not found: ${extName}`,
+                message: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
                     task: "Recover",
@@ -272,7 +272,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "MISSING_MANIFEST",
                 category: "not_found",
-                what: `Missing manifest: ${MANIFEST_FILENAME}`,
+                message: `Missing manifest: ${MANIFEST_FILENAME}`,
                 breadcrumbs: [
                   {
                     task: "Recover",
@@ -357,7 +357,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
           .flatMap((job) => job.steps)
           .flatMap((step) =>
             step.result.result === "error"
-              ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
+              ? [`${step.label}: ${step.result.error.message} (${step.result.error.code})`]
               : [],
           )
       : [];
@@ -366,7 +366,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
       category: "internal",
-      what: `Failed to publish ${failedStepDetails.length} skill${failedStepDetails.length === 1 ? "" : "s"}`,
+      message: `Failed to publish ${failedStepDetails.length} skill${failedStepDetails.length === 1 ? "" : "s"}`,
     });
   }
 

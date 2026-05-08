@@ -6,7 +6,7 @@ describe("AppError", () => {
     const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
       category: "internal",
-      what: "WorkspaceMutations not initialized",
+      message: "WorkspaceMutations not initialized",
       breadcrumbs: [{ task: "Recover", description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
@@ -14,7 +14,7 @@ describe("AppError", () => {
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
     expect(error.category).toBe("internal");
-    expect(error.what).toBe("WorkspaceMutations not initialized");
+    expect(error.message).toBe("WorkspaceMutations not initialized");
     expect(error.breadcrumbs?.[0]?.description).toBe("Run 'axm setup' to create one.");
     expect(error.cause).toBeInstanceOf(Error);
   });
@@ -23,7 +23,7 @@ describe("AppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       category: "internal",
-      what: "Installation failed",
+      message: "Installation failed",
       cause: undefined,
     });
 
@@ -36,7 +36,7 @@ describe("makeAppError", () => {
     const error = makeAppError({
       code: "WORKSPACE_NOT_INIT",
       category: "internal",
-      what: "WorkspaceMutations not initialized",
+      message: "WorkspaceMutations not initialized",
       breadcrumbs: [{ task: "Recover", description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
@@ -50,7 +50,7 @@ describe("makeAppError", () => {
     const error = makeAppError({
       code: "TEST",
       category: "internal",
-      what: "Test error",
+      message: "Test error",
     });
 
     expect(error.breadcrumbs).toEqual([]);
@@ -61,7 +61,7 @@ describe("makeAppError", () => {
     const error = makeAppError({
       code: "TEST",
       category: "internal",
-      what: "Test error",
+      message: "Test error",
     });
 
     expect(error.breadcrumbs).toEqual([]);

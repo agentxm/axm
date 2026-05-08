@@ -344,7 +344,7 @@ describe("displayPlan", () => {
                       error: makeAppError({
                         code: "TEST_STEP_FAILED",
                         category: "internal",
-                        what: "failed to apply",
+                        message: "failed to apply",
                       }),
                     },
                   },
@@ -384,7 +384,7 @@ describe("displayPlan", () => {
                         error: makeAppError({
                           code: "PUBLISH_FAILED",
                           category: "internal",
-                          what: "Failed to publish",
+                          message: "Failed to publish",
                           cause: new Error("connection refused"),
                         }),
                       },
@@ -424,7 +424,7 @@ describe("displayPlan", () => {
                       error: makeAppError({
                         code: "TEST_FAILED",
                         category: "internal",
-                        what: "failed",
+                        message: "failed",
                       }),
                     },
                   },

@@ -316,7 +316,10 @@ JSON errors use a fixed envelope:
 Rules:
 
 - use `ok: false` for error routing
-- include `category`
+- include `category`; this is the stable agent-facing discriminator
+- include `code`; this is a specific diagnostic sub-code, not the primary
+  automation branch point
+- include `message`; it is user-facing prose
 - include `retryable` and `httpStatus` when known
 - include `breadcrumbs` for structured follow-up tasks when useful
 - include `exitCode`

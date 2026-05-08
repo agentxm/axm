@@ -10,7 +10,7 @@ const makeResolvedVersionError = (field: string, value: string, cause: unknown):
   makeAppError({
     code: "LOCKFILE_RESOLVED_VERSION_INVALID",
     category: "validation",
-    what: "Lockfile resolved versions must be exact semver values",
+    message: "Lockfile resolved versions must be exact semver values",
     breadcrumbs: [
       {
         task: "Recover",

@@ -10,6 +10,7 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   code: Schema.String,
   category: Schema.Literals(AppErrorCategories),
   message: Schema.String,
+  reason: Schema.optional(Schema.String),
   retryable: Schema.optional(Schema.Boolean),
   httpStatus: Schema.optional(Schema.Number),
   breadcrumbs: Schema.optional(Schema.Array(BreadcrumbSchema)),
@@ -84,6 +85,7 @@ export const makeJsonErrorEnvelope = (args: {
   readonly code: string;
   readonly category: AppErrorCategory;
   readonly message: string;
+  readonly reason?: string;
   readonly retryable?: boolean;
   readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
@@ -93,6 +95,7 @@ export const makeJsonErrorEnvelope = (args: {
   code: args.code,
   category: args.category,
   message: args.message,
+  ...(args.reason !== undefined ? { reason: args.reason } : {}),
   ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
   ...(args.httpStatus !== undefined ? { httpStatus: args.httpStatus } : {}),
   ...(args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
@@ -108,7 +111,8 @@ export const makeJsonErrorEnvelopeFromAppError = (
   makeJsonErrorEnvelope({
     code: error.code,
     category: error.category,
-    message: error.what,
+    message: error.message,
+    ...(error.reason !== undefined ? { reason: error.reason } : {}),
     ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
     ...(error.httpStatus !== undefined ? { httpStatus: error.httpStatus } : {}),
     breadcrumbs: error.breadcrumbs ?? [],

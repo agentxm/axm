@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { errAuthTokenRequired, type AppError, makeAppError } from "../app-error/index.js";
 import { isCI } from "../cli-flags/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { envOption, isContainer, isRoot, isSSH, isWSL } from "../utils/index.js";
@@ -94,8 +94,8 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
         Effect.mapError((error) =>
           makeAppError({
             code: "AUTH_CREDENTIAL_STORE_FAILED",
-            category: "internal",
-            what: `Failed to create credentials directory: ${dir}`,
+            category: "auth",
+            message: `Failed to create credentials directory: ${dir}`,
             breadcrumbs: [
               { task: "Recover", description: `Ensure you have write access to ~/.config/` },
             ],
@@ -135,8 +135,8 @@ const readCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "internal",
-          what: "Failed to read credential file",
+          category: "auth",
+          message: "Credential file could not be read",
           cause: error,
         }),
       ),
@@ -147,8 +147,8 @@ const readCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "internal",
-          what: "Failed to parse credential file",
+          category: "auth",
+          message: "Failed to parse credential file",
           breadcrumbs: [
             {
               task: "Recover",
@@ -180,8 +180,8 @@ const writeCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "internal",
-          what: "Failed to encode credential file",
+          category: "auth",
+          message: "Failed to encode credential file",
           cause: error,
         }),
       ),
@@ -191,8 +191,8 @@ const writeCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "internal",
-          what: "Failed to write credential file",
+          category: "auth",
+          message: "Failed to write credential file",
           cause: error,
         }),
       ),
@@ -238,18 +238,7 @@ export const selectTier = (_env: EnvironmentInfo): StorageTier => "restricted-fi
 export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean =>
   !env.isContainer && !env.isCI;
 
-export const makePersistedCredentialsUnsupportedError = () =>
-  makeAppError({
-    code: "AUTH_TOKEN_REQUIRED",
-    category: "internal",
-    what: "Persisted credentials are disabled in CI and container environments.",
-    breadcrumbs: [
-      {
-        task: "Recover",
-        description: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
-      },
-    ],
-  });
+export const makePersistedCredentialsUnsupportedError = () => errAuthTokenRequired();
 
 // -----------------------------------------------------------------------------
 // Live layer

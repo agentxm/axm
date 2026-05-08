@@ -38,7 +38,7 @@ const preCleanAndCopy = (
           makeAppError({
             code: "INSTALL_SKILL_COPY_FAILED",
             category: "internal",
-            what: `Failed to copy skill files to ${copyTarget}`,
+            message: `Failed to copy skill files to ${copyTarget}`,
             cause: error,
           }),
         ),
@@ -130,7 +130,7 @@ const materializeRegistry = (
         makeAppError({
           code: "INSTALL_SKILL_PATH_CHECK_FAILED",
           category: "internal",
-          what: `Failed to check if canonical path exists: ${canonicalPath}`,
+          message: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: error,
         }),
       ),
@@ -156,7 +156,7 @@ const materializeRegistry = (
           return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
             category: "internal",
-            what: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            message: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
       }
@@ -165,8 +165,8 @@ const materializeRegistry = (
         Effect.mapError((error) =>
           makeAppError({
             code: "INSTALL_SKILL_TEMP_DIR_FAILED",
-            category: "internal",
-            what: `Failed to create temporary directory for registry install`,
+            category: "validation",
+            message: `Temporary directory for registry install could not be created`,
             cause: error,
           }),
         ),

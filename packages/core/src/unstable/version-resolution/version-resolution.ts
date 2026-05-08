@@ -84,7 +84,7 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
           makeAppError({
             code: "VERSION_RESOLUTION_NETWORK_ERROR",
             category: "network",
-            what: "Failed to reach GitHub API",
+            message: "GitHub API is unreachable",
             breadcrumbs: [
               { task: "Recover", description: "Check your network connection and try again." },
             ],
@@ -97,7 +97,7 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
       return yield* makeAppError({
         code: "VERSION_RESOLUTION_GITHUB_ERROR",
         category: "internal",
-        what: `GitHub API returned status ${String(response.status)}`,
+        message: `GitHub API returned status ${String(response.status)}`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -113,7 +113,7 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
         makeAppError({
           code: "VERSION_RESOLUTION_INVALID_RESPONSE",
           category: "validation",
-          what: "Failed to parse GitHub API response as JSON",
+          message: "GitHub API response was not valid JSON",
           breadcrumbs: [
             {
               task: "Recover",
@@ -135,7 +135,7 @@ const mapDecodeError = (_url: string) =>
     makeAppError({
       code: "VERSION_RESOLUTION_INVALID_RESPONSE",
       category: "validation",
-      what: "GitHub API returned an unexpected response shape",
+      message: "GitHub API returned an unexpected response shape",
       breadcrumbs: [
         {
           task: "Recover",
@@ -191,8 +191,8 @@ const resolveRemoteVersion = (httpClient: HttpClient.HttpClient, repo: string) =
     }
     return yield* makeAppError({
       code: "VERSION_RESOLUTION_NO_CLI_RELEASE",
-      category: "internal",
-      what: "No CLI release found on GitHub",
+      category: "not_found",
+      message: "No CLI release found on GitHub",
       breadcrumbs: [
         {
           task: "Recover",

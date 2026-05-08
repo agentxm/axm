@@ -234,7 +234,7 @@ describe("publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(error.what).toContain("Failed to publish");
+          expect(error.message).toContain("Failed to publish");
         }),
       );
     });
@@ -377,9 +377,9 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs(["@test/skills/no-manifest"])).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
           );
-          expect(getErrorResult(result).what).toContain("Missing manifest");
+          expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
       );
     });
@@ -398,7 +398,7 @@ describe("publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                what: e.what,
+                message: e.message,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),
@@ -406,7 +406,7 @@ describe("publish.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.what).toContain("Managed extension not found");
+          expect(errorResult.message).toContain("Managed extension not found");
           expect(errorResult.guidance).toContain("axm skills new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");
@@ -709,7 +709,7 @@ describe("publish.handler", () => {
               Effect.succeed({
                 error: true as const,
                 code: e.code,
-                what: e.what,
+                message: e.message,
                 cause: e.cause,
               }),
             ),
@@ -717,7 +717,7 @@ describe("publish.handler", () => {
 
           expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });
           if (result.error) {
-            expect(result.what).toContain("Failed to publish");
+            expect(result.message).toContain("Failed to publish");
           }
           expect(logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);

@@ -77,7 +77,8 @@ const writeMachineError = (error: AppError, exitCode: number): void => {
       type: "error",
       code: error.code,
       category: error.category,
-      message: error.what,
+      message: error.message,
+      ...(error.reason !== undefined ? { reason: error.reason } : {}),
       ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
       ...(error.httpStatus !== undefined ? { httpStatus: error.httpStatus } : {}),
       exitCode,
@@ -118,7 +119,7 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
     process.stdout.write(
       JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, exitCode), null, 2) + "\n",
     );
-    writeStderr(`\u2717 ${error.what}`);
+    writeStderr(`\u2717 ${error.message}`);
   });
 
 // ---------------------------------------------------------------------------

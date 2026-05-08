@@ -77,7 +77,7 @@ export const uninstallSkill: OperationHandler<
         makeAppError({
           code: "UNINSTALL_SKILL_LOCKFILE_READ_FAILED",
           category: "internal",
-          what: `Failed to read lockfile: ${e.what}`,
+          message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
       ),
@@ -142,7 +142,7 @@ export const uninstallSkill: OperationHandler<
               makeAppError({
                 code: "UNINSTALL_SKILL_LOCKFILE_WRITE_FAILED",
                 category: "internal",
-                what: `Failed to update lockfile: ${e.what}`,
+                message: `Failed to update lockfile: ${e.message}`,
                 cause: e,
               }),
             ),

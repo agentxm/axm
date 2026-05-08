@@ -211,7 +211,7 @@ const buildWorkspaceSkillAgentSnapshot = (
               agentId: agent.id,
               outcome: {
                 _tag: "misconfigured" as const,
-                reason: error.what,
+                reason: error.message,
               },
             }),
           ),

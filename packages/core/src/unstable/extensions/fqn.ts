@@ -26,7 +26,7 @@ export const parseFqn = (input: string) =>
       return yield* makeAppError({
         code: "INVALID_FQN",
         category: "validation",
-        what: `Invalid fully qualified name: ${input}`,
+        message: `Invalid fully qualified name: ${input}`,
         breadcrumbs: [
           {
             task: "Recover",

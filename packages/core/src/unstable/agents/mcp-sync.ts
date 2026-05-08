@@ -169,7 +169,7 @@ export const runCliInvocation = (
       makeAppError({
         code: "CODING_AGENT_MCP_CLI_EXECUTION_FAILED",
         category: "internal",
-        what: `Failed to execute MCP CLI command: ${invocation.command}`,
+        message: `Failed to execute MCP CLI command: ${invocation.command}`,
         cause: error,
       }),
   });
@@ -183,7 +183,7 @@ const decodeJsonConfig = (
       makeAppError({
         code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
         category: "validation",
-        what: `Invalid MCP config format: ${configPath}`,
+        message: `Invalid MCP config format: ${configPath}`,
         cause: error,
       }),
     ),
@@ -203,7 +203,7 @@ const upsertJsonConfigServer = (
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
           category: "internal",
-          what: `Failed to create config directory: ${dir}`,
+          message: `Failed to create config directory: ${dir}`,
           cause: error,
         }),
       ),
@@ -216,7 +216,7 @@ const upsertJsonConfigServer = (
             makeAppError({
               code: "CODING_AGENT_MCP_CONFIG_READ_FAILED",
               category: "internal",
-              what: `Failed to read MCP config: ${configPath}`,
+              message: `Failed to read MCP config: ${configPath}`,
               cause: error,
             }),
           ),
@@ -236,7 +236,7 @@ const upsertJsonConfigServer = (
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
           category: "internal",
-          what: `Failed to write MCP config: ${configPath}`,
+          message: `Failed to write MCP config: ${configPath}`,
           cause: error,
         }),
       ),
@@ -259,7 +259,7 @@ const removeJsonConfigServer = (
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_READ_FAILED",
           category: "internal",
-          what: `Failed to read MCP config: ${configPath}`,
+          message: `Failed to read MCP config: ${configPath}`,
           cause: error,
         }),
       ),
@@ -277,7 +277,7 @@ const removeJsonConfigServer = (
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
           category: "internal",
-          what: `Failed to write MCP config: ${configPath}`,
+          message: `Failed to write MCP config: ${configPath}`,
           cause: error,
         }),
       ),

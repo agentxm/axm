@@ -259,7 +259,7 @@ describe("commands-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleCommandsNew(defaultArgs("my-command")).pipe(Effect.flip);
-          expect(getAppError(error).what).toContain("No owner configured");
+          expect(getAppError(error).message).toContain("No owner configured");
         }),
       );
     });
@@ -329,7 +329,7 @@ describe("commands-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleCommandsNew(defaultArgs("my-command")).pipe(Effect.flip);
-          expect(getAppError(error).what).toContain("already exists");
+          expect(getAppError(error).message).toContain("already exists");
         }),
       );
     });

@@ -66,7 +66,7 @@ export interface TestPromptState {
 
 export interface AppErrorResult {
   readonly error: true;
-  readonly what: string;
+  readonly message: string;
   readonly guidance: string;
 }
 
@@ -168,15 +168,15 @@ export const getErrorResult = (result: unknown): AppErrorResult => {
     result === null ||
     !("error" in result) ||
     result.error !== true ||
-    !("what" in result) ||
-    typeof result.what !== "string"
+    !("message" in result) ||
+    typeof result.message !== "string"
   ) {
     throw new Error("Expected caught AppError result");
   }
 
   return {
     error: true,
-    what: result.what,
+    message: result.message,
     guidance: "guidance" in result && typeof result.guidance === "string" ? result.guidance : "",
   };
 };

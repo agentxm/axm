@@ -134,7 +134,7 @@ describe("unpackExtensionPack", () => {
 
     return Effect.gen(function* () {
       const result = yield* unpackExtensionPack(makeOp("nonexistent")).pipe(
-        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
       );
 
       expect(result.result).toBe("error");

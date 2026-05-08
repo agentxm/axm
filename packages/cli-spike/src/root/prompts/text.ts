@@ -57,7 +57,7 @@ const handleText = (args: {
       return yield* makeAppError({
         code: "PROMPT_VALUE_INVALID",
         category: "validation",
-        what: "Pet name must be at least 1 character",
+        message: "Pet name must be at least 1 character",
         breadcrumbs: [
           {
             task: "Recover",

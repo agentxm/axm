@@ -218,7 +218,7 @@ describe("runInstallCommandWorkflow", () => {
       > = {
         parseArgs: () =>
           Effect.fail(
-            makeAppError({ code: "PARSE_FAILED", category: "validation", what: "bad args" }),
+            makeAppError({ code: "PARSE_FAILED", category: "validation", message: "bad args" }),
           ),
         resolveSourceRequests: () => Effect.succeed([]),
         discoverRefs: () => Effect.succeed([]),
@@ -256,7 +256,7 @@ describe("runInstallCommandWorkflow", () => {
         finalizeIntent: () => Effect.succeed({ intentName: "x" }),
         buildPlan: () =>
           Effect.fail(
-            makeAppError({ code: "PLAN_FAILED", category: "internal", what: "plan error" }),
+            makeAppError({ code: "PLAN_FAILED", category: "internal", message: "plan error" }),
           ),
       };
 
@@ -284,7 +284,7 @@ describe("runInstallCommandWorkflow", () => {
         resolveSourceRequests: () => {
           callOrder.push("resolveSourceRequests");
           return Effect.fail(
-            makeAppError({ code: "SOURCE_FAILED", category: "internal", what: "source error" }),
+            makeAppError({ code: "SOURCE_FAILED", category: "internal", message: "source error" }),
           );
         },
         discoverRefs: () => {

@@ -62,7 +62,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     return yield* makeAppError({
       code: "PACK_NOT_FOUND",
       category: "not_found",
-      what: `Extension pack '${args.pack}' not found`,
+      message: `Extension pack '${args.pack}' not found`,
       breadcrumbs: [
         {
           task: "Recover",
@@ -88,7 +88,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
                   makeAppError({
                     code: "OWNER_REQUIRED",
                     category: "internal",
-                    what: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
+                    message: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
                     breadcrumbs: [
                       {
                         task: "Recover",
@@ -113,7 +113,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       makeAppError({
         code: "PACK_NOT_FOUND",
         category: "not_found",
-        what: `Extension pack manifest not found at ${manifestPath}`,
+        message: `Extension pack manifest not found at ${manifestPath}`,
         breadcrumbs: [{ task: "Recover", description: "Ensure the extension pack exists on disk" }],
         cause: e,
       }),
@@ -131,7 +131,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
         category: "validation",
-        what: `Failed to parse extension pack manifest: ${manifestPath}`,
+        message: `Failed to parse extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
   });
@@ -141,7 +141,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       makeAppError({
         code: "PACK_MANIFEST_INVALID",
         category: "validation",
-        what: `Invalid extension pack manifest: ${manifestPath}`,
+        message: `Invalid extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -167,7 +167,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       return yield* makeAppError({
         code: "NO_EXTENSIONS_MATCHED",
         category: "internal",
-        what: `No managed, registry-sourced extensions match '${args.extension}'`,
+        message: `No managed, registry-sourced extensions match '${args.extension}'`,
         breadcrumbs: [
           { task: "Recover", description: "Check installed extensions with `axm skills list`" },
         ],
@@ -179,7 +179,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       return yield* makeAppError({
         code: "EXTENSION_NOT_REGISTRY",
         category: "internal",
-        what: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
+        message: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -193,7 +193,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     return yield* makeAppError({
       code: "EXTENSION_NOT_FOUND",
       category: "not_found",
-      what: `Extension '${args.extension}' not found in workspace`,
+      message: `Extension '${args.extension}' not found in workspace`,
       breadcrumbs: [
         { task: "Recover", description: "Install the extension first with `axm skills install`" },
       ],

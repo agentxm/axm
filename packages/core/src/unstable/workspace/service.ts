@@ -112,7 +112,7 @@ const contextReadErrorToAppError = (
   makeAppError({
     code: source === "settings" ? "SETTINGS_PARSE_FAILED" : "LOCKFILE_PARSE_FAILED",
     category: "internal",
-    what: `Failed to read workspace ${source}`,
+    message: `Failed to read workspace ${source}`,
     cause: error,
   });
 
@@ -163,7 +163,7 @@ const requireInitializedWorkspace = (
             makeAppError({
               code: "WORKSPACE_NOT_INITIALIZED",
               category: "internal",
-              what: `Workspace settings not found: ${settingsPath}`,
+              message: `Workspace settings not found: ${settingsPath}`,
               breadcrumbs: [
                 { task: "Recover", description: "Run `axm setup` to create the workspace." },
               ],
@@ -252,11 +252,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       record: Readonly<Record<string, T>>,
       key: string,
       code: AppError["code"],
-      what: string,
+      message: string,
     ): Effect.Effect<T, AppError> =>
       key in record && record[key] !== undefined
         ? Effect.succeed(record[key])
-        : Effect.fail(makeAppError({ category: "internal", code, what }));
+        : Effect.fail(makeAppError({ category: "internal", code, message }));
 
     /**
      * Probe lockfile state without mutating disk.
@@ -269,7 +269,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             makeAppError({
               code: "LOCKFILE_PARSE_FAILED",
               category: "validation",
-              what: `Failed to check if lockfile exists at ${lockfilePath}`,
+              message: `Failed to check if lockfile exists at ${lockfilePath}`,
               cause: error,
             }),
           ),
@@ -480,7 +480,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             return yield* makeAppError({
               code: "SKILL_NOT_LOCKED",
               category: "conflict",
-              what: `Skill "${name}" not found in lockfile`,
+              message: `Skill "${name}" not found in lockfile`,
               breadcrumbs: [
                 {
                   task: "Recover",
@@ -667,7 +667,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 makeAppError({
                   code: "SETTINGS_PARSE_FAILED",
                   category: "validation",
-                  what: `Invalid agent ID: ${agentId}`,
+                  message: `Invalid agent ID: ${agentId}`,
                   cause: error,
                 }),
               ),

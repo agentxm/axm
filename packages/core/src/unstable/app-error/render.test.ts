@@ -7,7 +7,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
       category: "internal",
-      what: "WorkspaceMutations not initialized",
+      message: "WorkspaceMutations not initialized",
       breadcrumbs: [{ task: "Recover", description: "Run 'axm setup' to create one." }],
       cause: undefined,
     });
@@ -21,7 +21,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       category: "internal",
-      what: "Installation failed",
+      message: "Installation failed",
       cause: undefined,
     });
 
@@ -34,7 +34,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "UNKNOWN",
       category: "not_found",
-      what: "Something went wrong",
+      message: "Something went wrong",
       cause: undefined,
     });
 
@@ -47,7 +47,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INVALID_SOURCE",
       category: "validation",
-      what: "Could not resolve source",
+      message: "Could not resolve source",
       breadcrumbs: [{ task: "Recover", description: "Try a local path or GitHub shorthand." }],
       cause: undefined,
     });
@@ -61,7 +61,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       category: "internal",
-      what: "Installation failed",
+      message: "Installation failed",
       cause: new Error("permission denied"),
     });
 
@@ -78,7 +78,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       category: "internal",
-      what: "Installation failed",
+      message: "Installation failed",
       cause,
     });
 
@@ -93,21 +93,22 @@ describe("renderAppError", () => {
     const nested = new AppError({
       code: "REGISTRY_PUBLISH_NETWORK_ERROR",
       category: "network",
-      what: "Failed to connect to the remote registry",
+      message: "Remote registry is unreachable",
       cause: undefined,
     });
 
     const error = new AppError({
-      code: "PUBLISH_SKILL_PUBLISH_FAILED",
-      category: "internal",
-      what: 'Failed to publish to registry "local-registry"',
+      code: "PUBLISH_REGISTRY_FAILED",
+      category: "network",
+      reason: "registry_publish",
+      message: 'Failed to publish to registry "local-registry"',
       cause: nested,
     });
 
     const result = renderAppError(error, { verbose: true, debug: true });
 
     expect(result).toContain(
-      "Cause: Failed to connect to the remote registry (REGISTRY_PUBLISH_NETWORK_ERROR)",
+      "Cause: Remote registry is unreachable (REGISTRY_PUBLISH_NETWORK_ERROR)",
     );
   });
 });

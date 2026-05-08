@@ -105,7 +105,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
         makeAppError({
           code: "MATERIALIZE_MANIFEST_READ_FAILED",
           category: "internal",
-          what: `Failed to read manifest at ${manifestPath}`,
+          message: `Failed to read manifest at ${manifestPath}`,
           cause: error,
         }),
       ),
@@ -115,7 +115,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
         makeAppError({
           code: "MATERIALIZE_MANIFEST_INVALID_JSON",
           category: "validation",
-          what: `Manifest at ${manifestPath} is not valid JSON`,
+          message: `Manifest at ${manifestPath} is not valid JSON`,
           cause: error,
         }),
       ),
@@ -148,7 +148,7 @@ export const configuredSkillsToDiskRefs = (
             makeAppError({
               code: "MATERIALIZE_SKILL_MANIFEST_INVALID",
               category: "validation",
-              what: `Skill manifest at ${manifestPath} is invalid`,
+              message: `Skill manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -198,7 +198,7 @@ export const configuredCommandsToDiskRefs = (
             makeAppError({
               code: "MATERIALIZE_COMMAND_MANIFEST_INVALID",
               category: "validation",
-              what: `Command manifest at ${manifestPath} is invalid`,
+              message: `Command manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -244,7 +244,7 @@ export const configuredMcpServersToDiskRefs = (
             makeAppError({
               code: "MATERIALIZE_MCP_SERVER_MANIFEST_INVALID",
               category: "validation",
-              what: `MCP server manifest at ${manifestPath} is invalid`,
+              message: `MCP server manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -290,7 +290,7 @@ export const configuredSubagentsToDiskRefs = (
             makeAppError({
               code: "MATERIALIZE_SUBAGENT_MANIFEST_INVALID",
               category: "validation",
-              what: `Subagent manifest at ${manifestPath} is invalid`,
+              message: `Subagent manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -381,7 +381,7 @@ export const configuredPacksToDiskRefs = (
             makeAppError({
               code: "MATERIALIZE_PACK_MANIFEST_INVALID",
               category: "validation",
-              what: `Extension pack manifest at ${manifestPath} is invalid`,
+              message: `Extension pack manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),

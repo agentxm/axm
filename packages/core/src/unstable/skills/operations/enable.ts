@@ -89,7 +89,7 @@ export const enableSkill: OperationHandler<
       return yield* makeAppError({
         code: "ENABLE_SKILL_MISSING_FILES",
         category: "not_found",
-        what: `Skill files for "${op.args.skillName}" not found at ${skillSrcPath}`,
+        message: `Skill files for "${op.args.skillName}" not found at ${skillSrcPath}`,
         breadcrumbs: [
           { task: "Recover", description: "Try reinstalling the skill with `axm skills install`" },
         ],

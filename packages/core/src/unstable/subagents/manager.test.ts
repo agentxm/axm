@@ -93,7 +93,7 @@ const makeTestLayer = (overrides?: {
         return Effect.fail({
           _tag: "AppError",
           code: "CODING_AGENT_NOT_FOUND",
-          what: `Agent ${id} not found`,
+          message: `Agent ${id} not found`,
         }) as never;
       }
       return Effect.succeed(found);

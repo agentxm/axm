@@ -902,7 +902,7 @@ describe("publishExtension", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_QUOTA_EXCEEDED on 403 with quota_exceeded code", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 403 with quota_exceeded code", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -925,7 +925,8 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_QUOTA_EXCEEDED");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("quota_exceeded");
     }),
   );
 
@@ -953,7 +954,7 @@ describe("publishExtension", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 400 with malformed_archive", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 400 with malformed_archive", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>
         typedErrorResponse(400, "malformed_archive", "Archive is malformed"),
@@ -962,11 +963,12 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("malformed_archive");
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 400 with empty_archive", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 400 with empty_archive", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>
         typedErrorResponse(400, "empty_archive", "Archive is empty"),
@@ -975,11 +977,12 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("empty_archive");
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_TOO_LARGE on 413", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 413", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -999,11 +1002,12 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_TOO_LARGE");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("too_large");
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 415", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 415", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -1023,11 +1027,12 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("unsupported_content_type");
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_INTEGRITY_MISMATCH on 422 with integrity_mismatch", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 422 with integrity_mismatch", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -1047,11 +1052,12 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_INTEGRITY_MISMATCH");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("integrity_mismatch");
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_MANIFEST_INVALID on 422 with manifest_* code", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 422 with manifest_* code", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -1071,11 +1077,12 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_MANIFEST_INVALID");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("manifest_invalid_name");
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_THROTTLED on 429 with retryAfterSeconds", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 429 with retryAfterSeconds", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -1099,12 +1106,13 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_THROTTLED");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("rate_limited");
       expect(error.breadcrumbs?.[0]?.description).toContain("30");
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_DISABLED on 503", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 503", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -1124,7 +1132,8 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_DISABLED");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("publishing_disabled");
     }),
   );
 
@@ -1139,7 +1148,7 @@ describe("publishExtension", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_FAILED on unknown 500 error", () =>
+  it.effect("fails with REGISTRY_PUBLISH_REJECTED on unknown 500 error", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () =>
@@ -1159,7 +1168,8 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_FAILED");
+      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
+      expect(error.reason).toBe("registry_error");
     }),
   );
 });

@@ -83,7 +83,7 @@ const isAppErrorCheck = (error: unknown): error is AppError =>
   error !== null &&
   "_tag" in error &&
   error._tag === "AppError" &&
-  "what" in error &&
+  "message" in error &&
   "code" in error;
 
 const isRemoteReadNotImplemented = (error: unknown): boolean =>
@@ -277,7 +277,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                   return yield* makeAppError({
                     code: "INVALID_SOURCE",
                     category: "validation",
-                    what: "Invalid source: Unable to parse source",
+                    message: "Invalid source: Unable to parse source",
                     breadcrumbs: [
                       {
                         task: "Recover",
@@ -354,8 +354,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             if (req === undefined) {
               return yield* makeAppError({
                 code: "DISCOVER_FAILED",
-                category: "internal",
-                what: "No source request to discover from",
+                category: "usage",
+                message: "No source request to discover from",
               });
             }
 
@@ -376,8 +376,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                     Effect.mapError((error) => {
                       return makeAppError({
                         code: "DISCOVER_FAILED",
-                        category: "internal",
-                        what: "Failed to discover skills from source",
+                        category: "usage",
+                        message: "Failed to discover skills from source",
                         breadcrumbs: [
                           { task: "Recover", description: discoverHowToFix(req.source, error) },
                         ],
@@ -390,8 +390,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                         : Effect.fail(
                             makeAppError({
                               code: "NO_SKILLS_FOUND",
-                              category: "internal",
-                              what: "No skills found in source",
+                              category: "not_found",
+                              message: "No skills found in source",
                               breadcrumbs: [
                                 { task: "Recover", description: noSkillsFoundHowToFix(req.source) },
                               ],
@@ -418,8 +418,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           if (firstDiscoveredRef === undefined) {
             return yield* makeAppError({
               code: "NO_SKILLS_FOUND",
-              category: "internal",
-              what: "No skills found in source",
+              category: "not_found",
+              message: "No skills found in source",
             });
           }
           const nonEmptyDiscoveredRefs: Array.NonEmptyReadonlyArray<SkillExtensionRef> = [

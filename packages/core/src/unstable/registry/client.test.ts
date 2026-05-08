@@ -717,7 +717,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure.code).toBe("REGISTRY_PUBLISH_FAILED");
+        expect(result.failure.code).toBe("REGISTRY_PUBLISH_CONFLICT");
       }
     }).pipe(
       Effect.ensuring(

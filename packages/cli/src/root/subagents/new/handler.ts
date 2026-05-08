@@ -77,7 +77,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     return yield* makeAppError({
       code: "SUBAGENT_NAME_INVALID",
       category: "validation",
-      what: `Invalid subagent name: "${args.name}"`,
+      message: `Invalid subagent name: "${args.name}"`,
       breadcrumbs: [
         {
           task: "Recover",
@@ -93,7 +93,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     return yield* makeAppError({
       code: "SUBAGENT_ALREADY_EXISTS",
       category: "conflict",
-      what: `Subagent '${args.name}' already exists`,
+      message: `Subagent '${args.name}' already exists`,
       breadcrumbs: [
         {
           task: "Recover",
@@ -130,8 +130,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         Effect.mapError((e) =>
           makeAppError({
             code: "SUBAGENT_CREATE_FAILED",
-            category: "internal",
-            what: `Failed to create subagent directory: ${subagentSrcPath}`,
+            category: "validation",
+            message: `Failed to create subagent directory: ${subagentSrcPath}`,
             cause: e,
           }),
         ),
@@ -155,8 +155,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
           Effect.mapError((e) =>
             makeAppError({
               code: "SUBAGENT_CREATE_FAILED",
-              category: "internal",
-              what: `Failed to write subagent manifest`,
+              category: "validation",
+              message: `Subagent manifest could not be written`,
               cause: e,
             }),
           ),
@@ -175,8 +175,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
           Effect.mapError((e) =>
             makeAppError({
               code: "SUBAGENT_CREATE_FAILED",
-              category: "internal",
-              what: `Failed to write ${contentFilename}`,
+              category: "validation",
+              message: `Failed to write ${contentFilename}`,
               cause: e,
             }),
           ),

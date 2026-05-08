@@ -17,7 +17,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Invalid GitLab URL format",
+        message: "Invalid GitLab URL format",
       }),
     );
   }
@@ -27,7 +27,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       makeAppError({
         code: "SOURCE_PARSE_FAILED",
         category: "validation",
-        what: "Invalid GitLab URL format",
+        message: "Invalid GitLab URL format",
       }),
     );
   }
@@ -44,7 +44,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
           category: "validation",
-          what: "Invalid GitLab URL format",
+          message: "Invalid GitLab URL format",
         }),
       );
 };

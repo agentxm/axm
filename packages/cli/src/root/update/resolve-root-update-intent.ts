@@ -60,8 +60,8 @@ export const resolveRootUpdateIntent = (input: string) =>
     if (!source.startsWith("@")) {
       return yield* makeAppError({
         code: "UPDATE_SOURCE_NOT_FQN",
-        category: "internal",
-        what: "Root update only accepts registry FQNs",
+        category: "usage",
+        message: "Root update only accepts registry FQNs",
         breadcrumbs: [{ task: "Recover", description: rootUpdateRegistryOnlyHowToFix(source) }],
       });
     }
@@ -72,7 +72,7 @@ export const resolveRootUpdateIntent = (input: string) =>
           return makeAppError({
             code: "UPDATE_SOURCE_UNKNOWN_TYPE",
             category: "not_found",
-            what: "Update source uses an unsupported plural type",
+            message: "Update source uses an unsupported plural type",
             breadcrumbs: [
               {
                 task: "Recover",
@@ -86,7 +86,7 @@ export const resolveRootUpdateIntent = (input: string) =>
         return makeAppError({
           code: "UPDATE_SOURCE_INVALID_FQN",
           category: "validation",
-          what: "Update source must be a registry FQN",
+          message: "Update source must be a registry FQN",
           breadcrumbs: [
             {
               task: "Recover",
@@ -101,8 +101,8 @@ export const resolveRootUpdateIntent = (input: string) =>
     if (!isInstallableExtensionTypePlural(parsed.type)) {
       return yield* makeAppError({
         code: "UPDATE_SOURCE_UNSUPPORTED_TYPE",
-        category: "internal",
-        what: "Root update does not support that extension type",
+        category: "usage",
+        message: "Root update does not support that extension type",
         breadcrumbs: [
           {
             task: "Recover",

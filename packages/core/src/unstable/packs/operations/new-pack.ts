@@ -82,7 +82,7 @@ export const newExtensionPack: OperationHandler<
         makeAppError({
           code: "PACK_CHECK_FAILED",
           category: "internal",
-          what: `Failed to check if extension pack exists: ${manifestPath}`,
+          message: `Failed to check if extension pack exists: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -92,7 +92,7 @@ export const newExtensionPack: OperationHandler<
       return yield* makeAppError({
         code: "PACK_ALREADY_EXISTS",
         category: "conflict",
-        what: `Extension pack '${fqn}' already exists at ${packDir.canonicalPath}`,
+        message: `Extension pack '${fqn}' already exists at ${packDir.canonicalPath}`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -108,7 +108,7 @@ export const newExtensionPack: OperationHandler<
         makeAppError({
           code: "PACK_CREATE_FAILED",
           category: "internal",
-          what: `Failed to create extension pack directory: ${packDir.canonicalPath}`,
+          message: `Failed to create extension pack directory: ${packDir.canonicalPath}`,
           cause: e,
         }),
       ),
@@ -131,7 +131,7 @@ export const newExtensionPack: OperationHandler<
         makeAppError({
           code: "PACK_CREATE_FAILED",
           category: "internal",
-          what: `Failed to write extension pack manifest: ${manifestPath}`,
+          message: `Failed to write extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),

@@ -477,7 +477,7 @@ describe("disableSkill", () => {
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs))),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");
@@ -510,7 +510,7 @@ describe("disableSkill", () => {
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs))),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");

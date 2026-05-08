@@ -95,7 +95,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
           return yield* makeAppError({
             code: "COMMAND_NOT_INSTALLED",
             category: "internal",
-            what: `Command "${parsed.commandName}" is not installed`,
+            message: `Command "${parsed.commandName}" is not installed`,
             breadcrumbs: [
               { task: "Recover", description: "Check installed commands and verify the name." },
             ],

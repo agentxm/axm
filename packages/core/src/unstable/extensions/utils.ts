@@ -51,7 +51,7 @@ export const validatePathSafety = (baseDir: string, targetPath: string, code: st
     : makeAppError({
         category: "internal",
         code,
-        what: `Path traversal detected: ${targetPath}`,
+        message: `Path traversal detected: ${targetPath}`,
       });
 
 // -----------------------------------------------------------------------------

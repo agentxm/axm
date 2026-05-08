@@ -84,7 +84,7 @@ export const publishExtensionPack: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_PACK_NOT_FOUND",
         category: "not_found",
-        what: `Managed extension pack not found: ${packDir}`,
+        message: `Managed extension pack not found: ${packDir}`,
       });
     }
 
@@ -95,7 +95,7 @@ export const publishExtensionPack: OperationHandler<
         makeAppError({
           code: "PUBLISH_PACK_MANIFEST_READ_FAILED",
           category: "internal",
-          what: `Failed to read manifest: ${manifestPath}`,
+          message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -110,7 +110,7 @@ export const publishExtensionPack: OperationHandler<
         makeAppError({
           code: "PUBLISH_PACK_MANIFEST_PARSE_FAILED",
           category: "validation",
-          what: `Invalid JSON in manifest: ${manifestPath}`,
+          message: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -122,7 +122,7 @@ export const publishExtensionPack: OperationHandler<
         makeAppError({
           code: "PUBLISH_PACK_MANIFEST_SCHEMA_INVALID",
           category: "validation",
-          what: `Invalid manifest schema: ${manifestPath}`,
+          message: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -140,7 +140,7 @@ export const publishExtensionPack: OperationHandler<
         makeAppError({
           code: "PUBLISH_PACK_REGISTRY_LOOKUP_FAILED",
           category: "internal",
-          what: `Failed to lookup registry source "${op.args.registryName}"`,
+          message: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
       ),
@@ -150,7 +150,7 @@ export const publishExtensionPack: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
         category: "not_found",
-        what: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -196,9 +196,10 @@ export const publishExtensionPack: OperationHandler<
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "PUBLISH_PACK_PUBLISH_FAILED",
-            category: "internal",
-            what: "Failed to publish to registry",
+            code: "PUBLISH_REGISTRY_FAILED",
+            category: "network",
+            reason: "registry_publish",
+            message: "Registry publish did not complete",
             cause: e,
           }),
         ),

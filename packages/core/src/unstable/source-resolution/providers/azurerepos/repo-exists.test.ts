@@ -64,7 +64,7 @@ describe("checkAzureReposRepoExists", () => {
 
         expect(error).toBeInstanceOf(AppError);
         expect(error.code).toBe("SOURCE_PARSE_FAILED");
-        expect(error.what).toBe("Not found on Azure Repos");
+        expect(error.message).toBe("Not found on Azure Repos");
       }),
     );
   });
@@ -80,7 +80,7 @@ describe("checkAzureReposRepoExists", () => {
 
         expect(error).toBeInstanceOf(AppError);
         expect(error.code).toBe("SOURCE_PARSE_FAILED");
-        expect(error.what).toContain("Failed to check Azure Repos");
+        expect(error.message).toContain("Failed to check Azure Repos");
       }),
     );
   });

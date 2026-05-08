@@ -137,7 +137,7 @@ describe("resolveRepo", () => {
 
         expect(error).toBeInstanceOf(AppError);
         expect(error.code).toBe("SOURCE_PARSE_FAILED");
-        expect(error.what).toContain("Failed to check Bitbucket");
+        expect(error.message).toContain("Failed to check Bitbucket");
       }),
     );
   });

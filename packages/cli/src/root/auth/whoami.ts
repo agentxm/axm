@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
 import { AuthClient, RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { errAuthRequired } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
@@ -50,12 +50,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
 
   // Step 1: Resolve token
   const token = yield* resolveRequiredToken(registryUrl, {
-    missingTokenError: makeAppError({
-      code: "AUTH_LOGIN_REQUIRED",
-      category: "internal",
-      what: "Not authenticated",
-      breadcrumbs: [{ task: "Recover", description: "Run `axm login` to sign in." }],
-    }),
+    missingTokenError: errAuthRequired("Not authenticated"),
   });
 
   // Step 2: Call getMe

@@ -14,7 +14,7 @@ export const withConfiguredEntryResolutionTimeout =
             makeAppError({
               code: "CONFIGURED_ENTRY_RESOLUTION_TIMEOUT",
               category: "network",
-              what: "Timed out while resolving a configured extension source",
+              message: "Timed out while resolving a configured extension source",
             }),
           ),
       }),

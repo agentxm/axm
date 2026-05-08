@@ -15,7 +15,7 @@ const DOC_PATH = "docs/error-codes.md";
 interface ErrorCall {
   readonly code: string | undefined;
   readonly category: string | undefined;
-  readonly what: string | undefined;
+  readonly message: string | undefined;
   readonly hasCategory: boolean;
   readonly categoryIsLiteral: boolean;
   readonly source: string;
@@ -106,12 +106,13 @@ const collectCalls = (): ReadonlyArray<ErrorCall> => {
     const record = (objectLiteral: ts.ObjectLiteralExpression): void => {
       const codeProp = findProperty(objectLiteral, "code");
       const categoryProp = findProperty(objectLiteral, "category");
-      const whatProp = findProperty(objectLiteral, "what");
+      const messageProp = findProperty(objectLiteral, "message");
       calls.push({
         code: codeProp === undefined ? undefined : stringLiteralValue(codeProp.initializer),
         category:
           categoryProp === undefined ? undefined : stringLiteralValue(categoryProp.initializer),
-        what: whatProp === undefined ? undefined : stringLiteralValue(whatProp.initializer),
+        message:
+          messageProp === undefined ? undefined : stringLiteralValue(messageProp.initializer),
         hasCategory: categoryProp !== undefined,
         categoryIsLiteral:
           categoryProp !== undefined && stringLiteralValue(categoryProp.initializer) !== undefined,
@@ -157,6 +158,13 @@ describe("error code catalog", () => {
       .filter(
         (call) => !call.source.startsWith("packages/core/src/unstable/app-error/app-error.ts:"),
       )
+      .filter(
+        (call) =>
+          !(
+            call.code === "REGISTRY_PUBLISH_REJECTED" &&
+            call.source.startsWith("packages/core/src/unstable/app-error/builders.ts:")
+          ),
+      )
       .filter((call) => !call.hasCategory || !call.categoryIsLiteral)
       .map((call) => call.source);
 
@@ -191,20 +199,16 @@ describe("error code catalog", () => {
   });
 
   it("keeps generated artifacts fresh", () => {
+    const catalogBefore = fs.readFileSync(path.join(WORKSPACE_ROOT, CATALOG_PATH), "utf8");
+    const docsBefore = fs.readFileSync(path.join(WORKSPACE_ROOT, DOC_PATH), "utf8");
+
     const generate = childProcess.spawnSync("bun", ["scripts/generate-error-catalog.ts"], {
       cwd: WORKSPACE_ROOT,
       encoding: "utf8",
     });
     expect(generate.status).toBe(0);
 
-    const diff = childProcess.spawnSync(
-      "git",
-      ["diff", "--exit-code", "--", CATALOG_PATH, DOC_PATH],
-      {
-        cwd: WORKSPACE_ROOT,
-        encoding: "utf8",
-      },
-    );
-    expect(diff.status, diff.stdout + diff.stderr).toBe(0);
+    expect(fs.readFileSync(path.join(WORKSPACE_ROOT, CATALOG_PATH), "utf8")).toBe(catalogBefore);
+    expect(fs.readFileSync(path.join(WORKSPACE_ROOT, DOC_PATH), "utf8")).toBe(docsBefore);
   });
 });

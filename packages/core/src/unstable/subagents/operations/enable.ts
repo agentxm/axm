@@ -124,7 +124,7 @@ export const enableSubagent: OperationHandler<
       return yield* makeAppError({
         code: "ENABLE_SUBAGENT_MISSING_FILES",
         category: "not_found",
-        what: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
+        message: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -142,7 +142,7 @@ export const enableSubagent: OperationHandler<
         makeAppError({
           code: "SUBAGENT_CONTENT_READ_FAILED",
           category: "internal",
-          what: `Failed to read ${expectedFilename} from ${paths.subagentSrcPath}`,
+          message: `Failed to read ${expectedFilename} from ${paths.subagentSrcPath}`,
           breadcrumbs: [
             {
               task: "Recover",

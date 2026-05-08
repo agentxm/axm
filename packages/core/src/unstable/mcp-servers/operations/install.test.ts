@@ -75,7 +75,7 @@ const makeWorkspaceMock = (
               makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
                 category: "internal",
-                what: "Mock write failed",
+                message: "Mock write failed",
                 cause: error,
               }),
           }),
@@ -96,7 +96,7 @@ const makeWorkspaceMock = (
               makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
                 category: "internal",
-                what: "Mock write failed",
+                message: "Mock write failed",
                 cause: error,
               }),
           }),
@@ -389,7 +389,7 @@ describe("installMcpServer", () => {
             makeAppError({
               code: "SETTINGS_WRITE_FAILED",
               category: "internal",
-              what: "write failed",
+              message: "write failed",
               cause: new Error("write failed"),
             }),
           ),
@@ -439,7 +439,7 @@ describe("installMcpServer", () => {
         expect(setMcpServerFn).not.toHaveBeenCalled();
         if (result.result === "error") {
           expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
-          expect(result.error.what).toContain("exact semver");
+          expect(result.error.message).toContain("exact semver");
         }
       }),
     );
@@ -458,7 +458,7 @@ describe("installMcpServer", () => {
 
         const result = yield* installMcpServer(makeOp({ ref })).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );
 
         expect(result.result).toBe("error");

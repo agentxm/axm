@@ -233,7 +233,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(defaultArgs("my-pack", "nonexistent-*")).pipe(
             Effect.flip,
           );
-          expect(getAppError(error).what).toContain("No extensions in extension pack match");
+          expect(getAppError(error).message).toContain("No extensions in extension pack match");
         }),
       );
     });
@@ -304,7 +304,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(
             defaultArgs("my-pack", "@acme/skills/nonexistent"),
           ).pipe(Effect.flip);
-          expect(getAppError(error).what).toContain("not in the extension pack");
+          expect(getAppError(error).message).toContain("not in the extension pack");
         }),
       );
     });
@@ -320,7 +320,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(
             defaultArgs("nonexistent-pack", "@acme/skills/some-ext"),
           ).pipe(Effect.flip);
-          expect(getAppError(error).what).toContain("not found");
+          expect(getAppError(error).message).toContain("not found");
         }),
       );
     });

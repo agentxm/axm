@@ -101,7 +101,7 @@ export const disableSkill: OperationHandler<
         makeAppError({
           code: "DISABLE_SKILL_LOCKFILE_READ_FAILED",
           category: "internal",
-          what: `Failed to read lockfile: ${e.what}`,
+          message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
       ),
@@ -162,7 +162,7 @@ export const disableSkill: OperationHandler<
         return yield* makeAppError({
           code: "DISABLE_SKILL_NO_SOURCE",
           category: "internal",
-          what: `Cannot determine source for implicit skill "${op.args.skillName}"`,
+          message: `Cannot determine source for implicit skill "${op.args.skillName}"`,
           breadcrumbs: [
             { task: "Recover", description: "Provide a source when disabling this skill" },
           ],

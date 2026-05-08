@@ -98,7 +98,7 @@ export const disableSubagent: OperationHandler<
         makeAppError({
           code: "DISABLE_SUBAGENT_LOCKFILE_READ_FAILED",
           category: "internal",
-          what: `Failed to read lockfile: ${e.what}`,
+          message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
       ),
@@ -137,7 +137,7 @@ export const disableSubagent: OperationHandler<
         return yield* makeAppError({
           code: "DISABLE_SUBAGENT_NO_SOURCE",
           category: "internal",
-          what: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
+          message: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
           breadcrumbs: [
             { task: "Recover", description: "Provide a source when disabling this subagent" },
           ],

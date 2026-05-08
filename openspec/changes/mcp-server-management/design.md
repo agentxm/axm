@@ -781,7 +781,7 @@ const handleInstall = Effect.fn("McpInstall.handle")(function* (args: InstallHan
   yield* handle.stop(`Found ${mcpServerRefs.length} server(s)`)
 
   if (mcpServerRefs.length === 0) {
-    return yield* makeAppError({ code: "NO_MCP_SERVERS_FOUND", what: "No MCP servers found" })
+    return yield* makeAppError({ code: "NO_MCP_SERVERS_FOUND", message: "No MCP servers found" })
   }
   const ref = mcpServerRefs[0]
 
@@ -823,7 +823,7 @@ const resolveEnvValues = (envDeclarations, cliEnvFlags, nonInteractive) =>
         if (Option.isSome(nonInteractive) && nonInteractive.value) {
           return yield* makeAppError({
             code: "MCP_ENV_REQUIRED",
-            what: `Required env var ${decl.name} not provided`,
+            message: `Required env var ${decl.name} not provided`,
             howToFix: `Use --env ${decl.name}=VALUE`,
           })
         }
@@ -907,7 +907,7 @@ const handleUninstall = Effect.fn("McpUninstall.handle")(function* (args: Uninst
   if (Option.isNone(lockEntry)) {
     return yield* makeAppError({
       code: "MCP_SERVER_NOT_FOUND",
-      what: `MCP server '${args.name}' is not installed`,
+      message: `MCP server '${args.name}' is not installed`,
       howToFix: "Run `axm mcp list` to see installed servers",
     });
   }
@@ -1026,7 +1026,7 @@ const handleEnable = Effect.fn("McpEnable.handle")(function* (args: EnableHandle
   if (entry === undefined) {
     return yield* makeAppError({
       code: "MCP_SERVER_NOT_FOUND",
-      what: `MCP server '${args.name}' not found`,
+      message: `MCP server '${args.name}' not found`,
       howToFix: "Run `axm mcp list` to see installed servers",
     });
   }
@@ -1043,7 +1043,7 @@ const handleEnable = Effect.fn("McpEnable.handle")(function* (args: EnableHandle
   if (Option.isNone(lockEntry)) {
     return yield* makeAppError({
       code: "MCP_SERVER_NOT_INSTALLED",
-      what: `MCP server '${args.name}' has no lockfile entry`,
+      message: `MCP server '${args.name}' has no lockfile entry`,
       howToFix: "Try reinstalling with `axm mcp install`",
     });
   }
@@ -1147,7 +1147,7 @@ const handleDisable = Effect.fn("McpDisable.handle")(function* (args: DisableHan
   if (entry === undefined) {
     return yield* makeAppError({
       code: "MCP_SERVER_NOT_FOUND",
-      what: `MCP server '${args.name}' not found`,
+      message: `MCP server '${args.name}' not found`,
       howToFix: "Run `axm mcp list` to see installed servers",
     });
   }
@@ -1257,7 +1257,7 @@ const handleUpdate = Effect.fn("McpUpdate.handle")(function* (args: UpdateHandle
       if (entry === undefined) {
         return yield* makeAppError({
           code: "MCP_SERVER_NOT_FOUND",
-          what: `MCP server '${name}' not found`,
+          message: `MCP server '${name}' not found`,
         })
       }
       if (!entry.enabled) {
@@ -1390,7 +1390,7 @@ const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHan
         yield* handle.stop("Failed");
         return yield* makeAppError({
           code: "EXTENSION_NOT_FOUND",
-          what: `Managed MCP server not found: ${extName}`,
+          message: `Managed MCP server not found: ${extName}`,
           details: [`Expected manifest at: ${manifestPath}`],
         });
       }
@@ -1463,7 +1463,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
             ? Effect.fail(
                 makeAppError({
                   code: "NAMESPACE_REQUIRED",
-                  what: "No profile configured for MCP server creation",
+                  message: "No profile configured for MCP server creation",
                   howToFix: "Use --profile or configure via `axm setup`",
                 }),
               )
@@ -1475,7 +1475,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
   if (!NAME_PATTERN.test(args.name) || args.name.length > MAX_NAME_LENGTH) {
     return yield* makeAppError({
       code: "MCP_SERVER_NAME_INVALID",
-      what: `Invalid MCP server name: "${args.name}"`,
+      message: `Invalid MCP server name: "${args.name}"`,
       howToFix: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
     });
   }
@@ -1488,7 +1488,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
   if (args.name in configuredServers) {
     return yield* makeAppError({
       code: "MCP_SERVER_ALREADY_EXISTS",
-      what: `MCP server '${args.name}' already exists in settings`,
+      message: `MCP server '${args.name}' already exists in settings`,
     });
   }
 

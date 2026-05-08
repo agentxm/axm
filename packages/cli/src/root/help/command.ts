@@ -52,7 +52,7 @@ const handleHelpTopic = (topic: Option.Option<string>) =>
         makeAppError({
           code: "HELP_UNKNOWN_TOPIC",
           category: "not_found",
-          what: `Unknown help topic '${name}'`,
+          message: `Unknown help topic '${name}'`,
           breadcrumbs: [
             {
               task: "Recover",

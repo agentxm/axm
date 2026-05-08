@@ -69,8 +69,8 @@ export const createGitHostingSourceHostProvider = <
           Effect.mapError((error) =>
             makeAppError({
               code: "SOURCE_FETCH_FAILED",
-              category: "internal",
-              what: "Failed to create temp directory",
+              category: "network",
+              message: "Temporary source directory could not be created",
               cause: error,
             }),
           ),
@@ -90,8 +90,8 @@ export const createGitHostingSourceHostProvider = <
         Effect.mapError((error) =>
           makeAppError({
             code: "SOURCE_FETCH_FAILED",
-            category: "internal",
-            what: "Failed to discover skills",
+            category: "network",
+            message: "Failed to discover skills",
             cause: error,
           }),
         ),
@@ -135,8 +135,8 @@ export const createGitHostingSourceHostProvider = <
       return Effect.fail(
         makeAppError({
           code: "SOURCE_FETCH_FAILED",
-          category: "internal",
-          what: `Expected ref with location for ${host.type} source, but none was provided`,
+          category: "network",
+          message: `Expected ref with location for ${host.type} source, but none was provided`,
         }),
       );
     }

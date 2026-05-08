@@ -36,7 +36,7 @@ export const checkPublishVersionPreflight = (args: {
     return yield* makeAppError({
       code: "PUBLISH_VERSION_NOT_BUMPED",
       category: "internal",
-      what: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
+      message: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
       breadcrumbs: [
         {
           task: "Recover",

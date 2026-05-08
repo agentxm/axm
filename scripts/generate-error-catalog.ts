@@ -27,7 +27,8 @@ interface BreadcrumbEntry {
 interface CatalogEntry {
   readonly code: string;
   readonly category: string;
-  readonly what: string;
+  readonly message: string;
+  readonly reason?: string;
   readonly breadcrumbs?: ReadonlyArray<BreadcrumbEntry>;
   readonly sources: ReadonlyArray<string>;
 }
@@ -35,10 +36,63 @@ interface CatalogEntry {
 interface MutableCatalogEntry {
   readonly code: string;
   readonly category: string;
-  readonly what: string;
+  readonly message: string;
+  readonly reason?: string;
   readonly breadcrumbs: Array<BreadcrumbEntry>;
   readonly sources: Array<string>;
 }
+
+interface RecordDefaults {
+  readonly code?: string;
+  readonly category?: string;
+  readonly message?: string;
+  readonly reason?: string;
+  readonly ignoreReason?: boolean;
+  readonly breadcrumbs?: ReadonlyArray<BreadcrumbEntry>;
+}
+
+const KnownAreaPrefixes = new Set([
+  "AGENTS",
+  "AUTH",
+  "CLI",
+  "CMD",
+  "COMMAND",
+  "CONFIGURED",
+  "DISCOVER",
+  "EXTENSION",
+  "FRONTMATTER",
+  "GIT",
+  "INSTALL",
+  "INTERNAL",
+  "INVALID",
+  "LINT",
+  "LOCKFILE",
+  "MCP",
+  "NO",
+  "OUTDATED",
+  "PACK",
+  "PLAN",
+  "PROMPT",
+  "PRUNE",
+  "PUBLISH",
+  "REGISTRY",
+  "SETTINGS",
+  "SKILL",
+  "SKILLS",
+  "SOURCE",
+  "SPIKE",
+  "SUBAGENT",
+  "SUBAGENTS",
+  "SYMLINK",
+  "TELEMETRY",
+  "UNINSTALL",
+  "UPDATE",
+  "UPGRADE",
+  "UTILS",
+  "VERSION",
+  "VIEW",
+  "WORKSPACE",
+]);
 
 const readFiles = (dir: string): ReadonlyArray<string> => {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -145,44 +199,115 @@ const collectFromFile = (filePath: string, catalog: Map<string, MutableCatalogEn
 
   const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
 
-  const record = (objectLiteral: ts.ObjectLiteralExpression): void => {
-    const codeProp = findProperty(objectLiteral, "code");
-    const categoryProp = findProperty(objectLiteral, "category");
-    const whatProp = findProperty(objectLiteral, "what");
-    if (codeProp === undefined || categoryProp === undefined || whatProp === undefined) return;
-    const code = stringLiteralValue(codeProp.initializer);
-    const category = stringLiteralValue(categoryProp.initializer);
-    const what = stringLiteralValue(whatProp.initializer);
-    if (code === undefined || category === undefined || what === undefined) return;
-
-    const pos = sourceFile.getLineAndCharacterOfPosition(objectLiteral.getStart(sourceFile));
+  const recordLiteral = (
+    sourceNode: ts.Node,
+    entry: Omit<MutableCatalogEntry, "sources">,
+  ): void => {
+    const pos = sourceFile.getLineAndCharacterOfPosition(sourceNode.getStart(sourceFile));
     const sourceRef = relativeSource(filePath, pos.line + 1);
-    const breadcrumbsProp = findProperty(objectLiteral, "breadcrumbs");
-    const breadcrumbs =
-      breadcrumbsProp === undefined ? [] : (breadcrumbValue(breadcrumbsProp.initializer) ?? []);
-    const existing = catalog.get(code);
+    const existing = catalog.get(entry.code);
 
     if (existing === undefined) {
-      catalog.set(code, {
-        code,
-        category,
-        what,
-        breadcrumbs: [...breadcrumbs],
+      catalog.set(entry.code, {
+        ...entry,
+        breadcrumbs: [...entry.breadcrumbs],
         sources: [sourceRef],
       });
       return;
     }
 
     existing.sources.push(sourceRef);
-    if (existing.breadcrumbs.length === 0 && breadcrumbs.length > 0) {
-      existing.breadcrumbs.push(...breadcrumbs);
+    if (existing.breadcrumbs.length === 0 && entry.breadcrumbs.length > 0) {
+      existing.breadcrumbs.push(...entry.breadcrumbs);
     }
+  };
+
+  const record = (
+    objectLiteral: ts.ObjectLiteralExpression,
+    defaults: RecordDefaults = {},
+  ): void => {
+    const codeProp = findProperty(objectLiteral, "code");
+    const categoryProp = findProperty(objectLiteral, "category");
+    const messageProp = findProperty(objectLiteral, "message");
+    const code = codeProp === undefined ? defaults.code : stringLiteralValue(codeProp.initializer);
+    const category =
+      categoryProp === undefined
+        ? defaults.category
+        : (stringLiteralValue(categoryProp.initializer) ?? defaults.category);
+    const message =
+      messageProp === undefined
+        ? defaults.message
+        : (stringLiteralValue(messageProp.initializer) ?? defaults.message);
+    if (code === undefined || category === undefined || message === undefined) return;
+    const reasonProp = findProperty(objectLiteral, "reason");
+    const reason =
+      defaults.ignoreReason === true
+        ? undefined
+        : reasonProp === undefined
+          ? defaults.reason
+          : (stringLiteralValue(reasonProp.initializer) ?? defaults.reason);
+
+    const breadcrumbsProp = findProperty(objectLiteral, "breadcrumbs");
+    const breadcrumbs =
+      breadcrumbsProp === undefined
+        ? (defaults.breadcrumbs ?? [])
+        : (breadcrumbValue(breadcrumbsProp.initializer) ?? defaults.breadcrumbs ?? []);
+    recordLiteral(objectLiteral, {
+      code,
+      category,
+      message,
+      ...(reason !== undefined ? { reason } : {}),
+      breadcrumbs: [...breadcrumbs],
+    });
   };
 
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node) && isTargetExpression(node.expression)) {
       const arg = node.arguments[0];
       if (arg !== undefined && ts.isObjectLiteralExpression(arg)) record(arg);
+    } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      const arg = node.arguments[0];
+      if (node.expression.text === "errAuthRequired") {
+        recordLiteral(node, {
+          code: "AUTH_LOGIN_REQUIRED",
+          category: "auth",
+          message: "Authentication required",
+          breadcrumbs: [
+            {
+              task: "Run `axm login`",
+              description: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+            },
+          ],
+        });
+      } else if (node.expression.text === "errPublishConflict") {
+        recordLiteral(node, {
+          code: "REGISTRY_PUBLISH_CONFLICT",
+          category: "conflict",
+          message: "Version already exists with different content.",
+          breadcrumbs: [{ task: "Recover", description: "Bump the version in your manifest." }],
+        });
+      } else if (node.expression.text === "errInstallFailed") {
+        if (arg !== undefined && ts.isObjectLiteralExpression(arg)) {
+          record(arg, {
+            category: "validation",
+            breadcrumbs: [
+              { task: "Recover", description: "Check the extension package and try again." },
+            ],
+          });
+        }
+      } else if (node.expression.text === "errRegistryPublishRejected") {
+        if (arg !== undefined && ts.isObjectLiteralExpression(arg)) {
+          record(arg, {
+            code: "REGISTRY_PUBLISH_REJECTED",
+            category: "validation",
+            message: "Registry publish request was rejected",
+            ignoreReason: true,
+            breadcrumbs: [
+              { task: "Recover", description: "Check the extension package and try again." },
+            ],
+          });
+        }
+      }
     } else if (ts.isNewExpression(node) && isAppErrorNewExpression(node)) {
       const arg = node.arguments?.[0];
       if (arg !== undefined && ts.isObjectLiteralExpression(arg)) record(arg);
@@ -199,6 +324,11 @@ const serializeCatalog = (entries: ReadonlyArray<CatalogEntry>): string => {
     .join("\n");
   return `// Generated by scripts/generate-error-catalog.ts. Do not edit by hand.\n\nexport const ErrorCodeCatalog = {\n${body}\n} as const;\n\nexport type ErrorCodeCatalog = typeof ErrorCodeCatalog;\n`;
 };
+
+const defaultBreadcrumbsFor = (entry: CatalogEntry): ReadonlyArray<BreadcrumbEntry> =>
+  entry.category === "internal" || (entry.breadcrumbs !== undefined && entry.breadcrumbs.length > 0)
+    ? (entry.breadcrumbs ?? [])
+    : [{ task: "Recover", description: "Review the message, adjust the input, and retry." }];
 
 const renderBreadcrumbs = (breadcrumbs: ReadonlyArray<BreadcrumbEntry> | undefined): string => {
   if (breadcrumbs === undefined || breadcrumbs.length === 0) return "";
@@ -222,16 +352,18 @@ const serializeDocs = (entries: ReadonlyArray<CatalogEntry>): string => {
     "",
     "Generated by `pnpm nx run core:gen-error-catalog`. Do not edit by hand.",
     "",
+    "## Codes (contract)",
+    "",
   ];
 
   for (const category of categories) {
-    lines.push(`## ${category}`, "");
+    lines.push(`### ${category}`, "");
     for (const entry of entries.filter((candidate) => candidate.category === category)) {
-      lines.push(`### ${entry.code}`);
+      lines.push(`#### ${entry.code}`);
       lines.push("");
-      lines.push(`- Description: ${entry.what}`);
-      lines.push(`- Sources: ${entry.sources.join(", ")}`);
-      const breadcrumbs = renderBreadcrumbs(entry.breadcrumbs);
+      lines.push(`- Message: ${entry.message}`);
+      if (entry.reason !== undefined) lines.push(`- Reason: ${entry.reason}`);
+      const breadcrumbs = renderBreadcrumbs(defaultBreadcrumbsFor(entry));
       if (breadcrumbs.length > 0) {
         lines.push("- Breadcrumbs:");
         lines.push(breadcrumbs);
@@ -240,7 +372,35 @@ const serializeDocs = (entries: ReadonlyArray<CatalogEntry>): string => {
     }
   }
 
+  lines.push("## Sources Index", "");
+  for (const entry of entries) {
+    lines.push(`- ${entry.code}: ${entry.sources.join(", ")}`);
+  }
+  lines.push("");
+
   return `${lines.join("\n").trimEnd()}\n`;
+};
+
+const validateCatalog = (entries: ReadonlyArray<CatalogEntry>): void => {
+  const failures: Array<string> = [];
+  for (const entry of entries) {
+    const area = entry.code.split("_")[0] ?? "";
+    if (!/^[A-Z][A-Z0-9]+(_[A-Z0-9]+)+$/.test(entry.code)) {
+      failures.push(`${entry.code}: code must match AREA_REASON shape`);
+    }
+    if (!KnownAreaPrefixes.has(area)) {
+      failures.push(`${entry.code}: unknown area prefix ${area}`);
+    }
+    if (entry.category !== "internal" && defaultBreadcrumbsFor(entry).length === 0) {
+      failures.push(`${entry.code}: non-internal errors need breadcrumbs`);
+    }
+    if (entry.category !== "internal" && /^Failed to /.test(entry.message)) {
+      failures.push(`${entry.code}: message should be user prose, not 'Failed to ...'`);
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(`Error catalog validation failed:\n${failures.join("\n")}`);
+  }
 };
 
 const mutableCatalog = new Map<string, MutableCatalogEntry>();
@@ -257,12 +417,17 @@ const entries = Array.from(mutableCatalog.values())
     (entry): CatalogEntry => ({
       code: entry.code,
       category: entry.category,
-      what: entry.what,
-      ...(entry.breadcrumbs.length > 0 ? { breadcrumbs: entry.breadcrumbs } : {}),
+      message: entry.message,
+      ...(entry.reason !== undefined ? { reason: entry.reason } : {}),
+      ...(defaultBreadcrumbsFor(entry).length > 0
+        ? { breadcrumbs: defaultBreadcrumbsFor(entry) }
+        : {}),
       sources: entry.sources.sort(),
     }),
   )
   .sort((a, b) => a.code.localeCompare(b.code));
+
+validateCatalog(entries);
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 fs.writeFileSync(OUTPUT_PATH, serializeCatalog(entries));

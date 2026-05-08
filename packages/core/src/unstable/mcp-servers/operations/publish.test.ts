@@ -178,7 +178,7 @@ describe("publishMcpServer", () => {
         makeOp({ name: "@community/mcp-servers/nonexistent", registryName: "local" }),
       ).pipe(
         Effect.provide(withServices(axmDir, registryRoot)),
-        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
       );
 
       expect(result.result).toBe("error");

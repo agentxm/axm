@@ -45,7 +45,7 @@ const makeLayers = (opts?: { readonly browserOpens?: boolean; readonly getMeFail
             makeAppError({
               code: "AUTH_UNAUTHENTICATED",
               category: "auth",
-              what: "Not authenticated or token is invalid",
+              message: "Not authenticated or token is invalid",
             }),
           )
         : Effect.succeed({

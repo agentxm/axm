@@ -149,8 +149,8 @@ export const installExtensionPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "PACK_FETCH_FAILED",
-              category: "internal",
-              what: `Failed to fetch extension pack archive: ${error.message}`,
+              category: "network",
+              message: `Failed to fetch extension pack archive: ${error.message}`,
               cause: error,
             }),
           ),
@@ -162,7 +162,7 @@ export const installExtensionPack: OperationHandler<
             makeAppError({
               code: "PACK_MANIFEST_READ_FAILED",
               category: "internal",
-              what: `Failed to read fetched extension pack manifest: ${manifestPath}`,
+              message: `Failed to read fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
           ),
@@ -176,7 +176,7 @@ export const installExtensionPack: OperationHandler<
             makeAppError({
               code: "PACK_MANIFEST_PARSE_FAILED",
               category: "validation",
-              what: `Invalid JSON in fetched extension pack manifest: ${manifestPath}`,
+              message: `Invalid JSON in fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
         });
@@ -187,7 +187,7 @@ export const installExtensionPack: OperationHandler<
             makeAppError({
               code: "PACK_MANIFEST_INVALID",
               category: "validation",
-              what: `Invalid fetched extension pack manifest: ${manifestPath}`,
+              message: `Invalid fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
           ),
@@ -198,7 +198,7 @@ export const installExtensionPack: OperationHandler<
           return yield* makeAppError({
             code: "PACK_DEPENDENCY_METADATA_MISMATCH",
             category: "internal",
-            what: `Extension pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
+            message: `Extension pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
             breadcrumbs: [
               {
                 task: "Recover",
@@ -214,7 +214,7 @@ export const installExtensionPack: OperationHandler<
             makeAppError({
               code: "PACK_EXTRACT_FAILED",
               category: "internal",
-              what: `Failed to extract extension pack to ${packDir}`,
+              message: `Failed to extract extension pack to ${packDir}`,
               cause: e,
             }),
           ),
@@ -250,7 +250,7 @@ export const installExtensionPack: OperationHandler<
     Effect.catch((error) =>
       Effect.succeed({
         result: "error",
-        message: `Failed to install extension pack: ${error.what}`,
+        message: `Failed to install extension pack: ${error.message}`,
         error,
       } satisfies JobStepResult),
     ),

@@ -37,7 +37,7 @@ export const readAndDecodeManifest = <A>(
         makeAppError({
           code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
           category: "internal",
-          what: `Failed to check ${extensionLabel} path: ${canonicalPath}`,
+          message: `Failed to check ${extensionLabel} path: ${canonicalPath}`,
           cause: error,
         }),
       ),

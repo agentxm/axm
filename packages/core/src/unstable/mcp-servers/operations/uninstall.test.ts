@@ -245,7 +245,7 @@ describe("uninstallMcpServer", () => {
             makeAppError({
               code: "SETTINGS_WRITE_FAILED",
               category: "internal",
-              what: "write failed",
+              message: "write failed",
               cause: new Error("write failed"),
             }),
           ),

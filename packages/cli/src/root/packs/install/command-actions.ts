@@ -95,7 +95,7 @@ const isAppError = (
 ): error is {
   readonly _tag: "AppError";
   readonly code: string;
-  readonly what: string;
+  readonly message: string;
 } =>
   typeof error === "object" &&
   error !== null &&
@@ -103,12 +103,12 @@ const isAppError = (
   error._tag === "AppError" &&
   "code" in error &&
   typeof error.code === "string" &&
-  "what" in error &&
-  typeof error.what === "string";
+  "message" in error &&
+  typeof error.message === "string";
 
 const summarizeLookupError = (error: unknown): string => {
   if (isAppError(error)) {
-    return `${error.what} (${error.code})`;
+    return `${error.message} (${error.code})`;
   }
   if (error instanceof Error && error.message.length > 0) {
     return error.message;
@@ -346,7 +346,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       makeAppError({
                         code: "OWNER_REQUIRED",
                         category: "internal",
-                        what: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
+                        message: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
                         breadcrumbs: [
                           {
                             task: "Recover",
@@ -385,7 +385,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "PACK_SOURCE_INVALID_FORMAT",
                 category: "validation",
-                what: "Extension pack source must include /packs/ segment",
+                message: "Extension pack source must include /packs/ segment",
                 breadcrumbs: [
                   {
                     task: "Recover",
@@ -398,7 +398,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "PACK_SOURCE_MISSING_NAME",
                 category: "not_found",
-                what: "Extension pack source must include a pack name",
+                message: "Extension pack source must include a pack name",
                 breadcrumbs: [
                   { task: "Recover", description: "Use @owner/packs/pack-name format." },
                 ],
@@ -406,8 +406,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             default:
               return yield* makeAppError({
                 code: "PACK_SOURCE_NOT_REGISTRY",
-                category: "internal",
-                what: "Packs can only be installed from a registry",
+                category: "usage",
+                message: "Packs can only be installed from a registry",
                 breadcrumbs: [
                   {
                     task: "Recover",
@@ -431,7 +431,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   makeAppError({
                     code: "INVALID_SOURCE",
                     category: "validation",
-                    what: `Invalid source: ${error.message}`,
+                    message: `Invalid source: ${error.message}`,
                     breadcrumbs: [
                       {
                         task: "Recover",
@@ -448,8 +448,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (source.type !== "registry") {
             return yield* makeAppError({
               code: "PACK_SOURCE_NOT_REGISTRY",
-              category: "internal",
-              what: "Packs can only be installed from a registry",
+              category: "usage",
+              message: "Packs can only be installed from a registry",
               breadcrumbs: [
                 { task: "Recover", description: "Use a registry source: @owner/packs/pack-name" },
               ],
@@ -476,8 +476,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             if (!req) {
               return yield* makeAppError({
                 code: "PACK_NO_SOURCE_REQUEST",
-                category: "internal",
-                what: "No source request provided",
+                category: "usage",
+                message: "No source request provided",
               });
             }
 
@@ -564,8 +564,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     if (!resolvedRefs) {
                       return yield* makeAppError({
                         code: "PACK_FETCH_FAILED",
-                        category: "internal",
-                        what: "Failed to fetch pack from registry",
+                        category: "network",
+                        message: "Pack could not be fetched from registry",
                         breadcrumbs: [
                           {
                             task: "Recover",
@@ -578,8 +578,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   } else if (initialResult._tag === "Failure") {
                     return yield* makeAppError({
                       code: "PACK_FETCH_FAILED",
-                      category: "internal",
-                      what: "Failed to fetch pack from registry",
+                      category: "network",
+                      message: "Pack could not be fetched from registry",
                       breadcrumbs: [
                         {
                           task: "Recover",
@@ -606,7 +606,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     return yield* makeAppError({
                       code: "PACK_NOT_FOUND",
                       category: "not_found",
-                      what: `Extension pack "${req.packName}" not found in registry`,
+                      message: `Extension pack "${req.packName}" not found in registry`,
                       breadcrumbs: [
                         {
                           task: "Recover",
@@ -634,15 +634,15 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           return yield* makeAppError({
             code: "PACK_NOT_FOUND",
             category: "not_found",
-            what: "No extension pack reference found",
+            message: "No extension pack reference found",
           });
         }
 
         if (packRef.type !== "pack") {
           return yield* makeAppError({
             code: "PACK_FETCH_FAILED",
-            category: "internal",
-            what: "Registry did not return a valid extension pack reference",
+            category: "network",
+            message: "Registry did not return a valid extension pack reference",
           });
         }
 

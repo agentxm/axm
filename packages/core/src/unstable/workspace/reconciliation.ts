@@ -186,7 +186,7 @@ export const buildReconciliationSnapshot = (
             makeAppError({
               code: "LOCKFILE_RECONCILE_ADAPTER_MISSING",
               category: "not_found",
-              what: `No reconciliation adapter for ${declaration.type}`,
+              message: `No reconciliation adapter for ${declaration.type}`,
             }),
           );
         }
@@ -238,7 +238,7 @@ const backupInvalidLockfile = (
         makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
           category: "internal",
-          what: "Failed to create temporary directory for invalid lockfile backup",
+          message: "Failed to create temporary directory for invalid lockfile backup",
           cause: error,
         }),
       ),
@@ -251,7 +251,7 @@ const backupInvalidLockfile = (
         makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
           category: "internal",
-          what: `Failed to back up invalid lockfile to ${backupPath}`,
+          message: `Failed to back up invalid lockfile to ${backupPath}`,
           cause: error,
         }),
       ),
@@ -262,7 +262,7 @@ const backupInvalidLockfile = (
         makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
           category: "internal",
-          what: `Failed to remove invalid lockfile after backing up to ${backupPath}`,
+          message: `Failed to remove invalid lockfile after backing up to ${backupPath}`,
           cause: error,
         }),
       ),
@@ -299,7 +299,7 @@ export const runReconcileMaterializeOperation = (
         error: makeAppError({
           code: "LOCKFILE_RECONCILE_SOURCE_UNREACHABLE",
           category: "network",
-          what: "Required declaration sources are unreachable during reconciliation",
+          message: "Required declaration sources are unreachable during reconciliation",
         }),
       } satisfies JobStepResult;
     }
@@ -312,7 +312,7 @@ export const runReconcileMaterializeOperation = (
           makeAppError({
             code: "LOCKFILE_BACKUP_FAILED",
             category: "internal",
-            what: `Failed to check invalid lockfile at ${lockfilePath}`,
+            message: `Failed to check invalid lockfile at ${lockfilePath}`,
             cause: error,
           }),
         ),

@@ -10,7 +10,7 @@ const isAppError = (cause: unknown): cause is AppError =>
   cause !== null &&
   "_tag" in cause &&
   cause._tag === "AppError" &&
-  "what" in cause &&
+  "message" in cause &&
   "code" in cause;
 
 const formatCause = (
@@ -20,7 +20,7 @@ const formatCause = (
   if (cause === undefined || cause === null) return [];
 
   if (isAppError(cause)) {
-    const causeHeadline = `${cause.what} (${cause.code})`;
+    const causeHeadline = `${cause.message} (${cause.code})`;
     return [`Cause: ${causeHeadline}`];
   }
 
@@ -53,7 +53,7 @@ export const renderAppError = (
 ): string => {
   const lines: Array<string> = [];
 
-  lines.push(`\u2717 ${error.what} (${error.code})`);
+  lines.push(`\u2717 ${error.message} (${error.code})`);
 
   if (options.verbose || options.debug) {
     for (const line of formatCause(error.cause, options)) {

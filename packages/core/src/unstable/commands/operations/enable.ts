@@ -73,7 +73,7 @@ export const enableCommand: OperationHandler<
         makeAppError({
           code: "ENABLE_COMMAND_LOCKFILE_READ_FAILED",
           category: "internal",
-          what: `Failed to read lockfile: ${e.what}`,
+          message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
       ),
@@ -116,7 +116,7 @@ export const enableCommand: OperationHandler<
       return yield* makeAppError({
         code: "ENABLE_COMMAND_MISSING_FILES",
         category: "not_found",
-        what: `Command files for "${op.args.commandName}" not found at ${canonicalPath}`,
+        message: `Command files for "${op.args.commandName}" not found at ${canonicalPath}`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -145,7 +145,7 @@ export const enableCommand: OperationHandler<
                     makeAppError({
                       code: "OWNER_REQUIRED",
                       category: "internal",
-                      what: `Cannot re-render non-registry command "${op.args.commandName}" without a configured owner`,
+                      message: `Cannot re-render non-registry command "${op.args.commandName}" without a configured owner`,
                       breadcrumbs: [
                         {
                           task: "Recover",

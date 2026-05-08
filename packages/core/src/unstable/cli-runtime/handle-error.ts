@@ -56,7 +56,8 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
         type: "error",
         code: error.code,
         category: error.category,
-        message: error.what,
+        message: error.message,
+        ...(error.reason !== undefined ? { reason: error.reason } : {}),
         ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
         ...(error.httpStatus !== undefined ? { httpStatus: error.httpStatus } : {}),
         exitCode,
@@ -65,7 +66,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
         channel: "stdout",
         content: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, exitCode), null, 2) + "\n",
       },
-      stderrMessage: `\u2717 ${error.what}`,
+      stderrMessage: `\u2717 ${error.message}`,
     };
   }
 

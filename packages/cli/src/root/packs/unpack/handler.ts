@@ -47,7 +47,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
           return yield* makeAppError({
             code: "PACK_NOT_INSTALLED",
             category: "internal",
-            what: `Pack "${args.name}" is not installed`,
+            message: `Pack "${args.name}" is not installed`,
             breadcrumbs: [
               {
                 task: "Recover",
@@ -63,7 +63,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
           return yield* makeAppError({
             code: "PACK_UNPACK_UNSUPPORTED",
             category: "internal",
-            what: `Cannot unpack "${args.name}" — only registry extension packs can be unpacked`,
+            message: `Cannot unpack "${args.name}" — only registry extension packs can be unpacked`,
           });
         }
 

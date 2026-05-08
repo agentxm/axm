@@ -13,7 +13,7 @@ import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { isNonInteractive, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { errAuthRequired, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { withAuthRuntime } from "../../runtime.js";
 
@@ -39,18 +39,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   // Step 1: Reject non-interactive mode
   const nonInteractive = yield* isNonInteractive;
   if (nonInteractive) {
-    return yield* makeAppError({
-      code: "AUTH_LOGIN_REQUIRED",
-      category: "internal",
-      what: "Login requires an interactive terminal",
-      breadcrumbs: [
-        {
-          task: "Recover",
-          description:
-            "Set the AXM_TOKEN environment variable or run `axm login` in an interactive terminal.",
-        },
-      ],
-    });
+    return yield* errAuthRequired("Login requires an interactive terminal");
   }
 
   // Step 2: Check existing auth — validate token against the server

@@ -53,7 +53,7 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
           error: makeAppError({
             code: "PLAN_STEP_ERROR",
             category: "internal",
-            what: step.errorMessage,
+            message: step.errorMessage,
           }),
         },
       });
@@ -72,7 +72,7 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
             label: step.label,
             result: {
               result: "error",
-              message: `${error.what} (${error.code})`,
+              message: `${error.message} (${error.code})`,
               error,
             },
           });
@@ -89,7 +89,7 @@ const blockStep = (step: PlannedJobStep): CompletedJobStep => ({
     error: makeAppError({
       code: "PLAN_STEP_BLOCKED",
       category: "conflict",
-      what: "blocked by earlier job failure",
+      message: "blocked by earlier job failure",
     }),
   },
 });

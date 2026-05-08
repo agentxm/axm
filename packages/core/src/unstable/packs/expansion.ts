@@ -199,7 +199,7 @@ export const resolveSkillUninstallTargetsFromLockfile = (
         makeAppError({
           code: "SKILL_NOT_FOUND_IN_LOCKFILE",
           category: "not_found",
-          what: `Skill "${entry.skillName}" is not installed`,
+          message: `Skill "${entry.skillName}" is not installed`,
           breadcrumbs: [{ task: "Recover", description: "Check the skill name and try again" }],
         }),
       );

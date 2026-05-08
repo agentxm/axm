@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
 import { RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { errAuthRequired } from "@agentxm/client-core/unstable/app-error";
 import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -24,17 +24,7 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
 
   // Step 1: Resolve token
   const token = yield* resolveRequiredToken(registryUrl, {
-    missingTokenError: makeAppError({
-      code: "AUTH_LOGIN_REQUIRED",
-      category: "internal",
-      what: "No token available",
-      breadcrumbs: [
-        {
-          task: "Recover",
-          description: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
-        },
-      ],
-    }),
+    missingTokenError: errAuthRequired("No token available"),
   });
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested

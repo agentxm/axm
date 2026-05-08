@@ -22,8 +22,8 @@ const resolveNonInteractive = Effect.gen(function* () {
 const promptRequired = (options: InteractiveGuardOptions) =>
   makeAppError({
     code: "PROMPT_REQUIRED",
-    category: "internal",
-    what: `Interactive prompt required: ${options.message}`,
+    category: "usage",
+    message: `Interactive prompt required: ${options.message}`,
     breadcrumbs: [{ task: "Recover", description: options.guidance ?? defaultHowToFix }],
   });
 

@@ -144,7 +144,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
       makeAppError({
         code: "REGISTRY_FETCH_FAILED",
         category: "internal",
-        what: "not implemented",
+        message: "not implemented",
       }),
     ),
   publishExtension: () => Effect.succeed({ published: true } as const),
@@ -159,7 +159,7 @@ const createFailingClient = (): RegistryClient => ({
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         category: "internal",
-        what: "remote registry not yet supported",
+        message: "remote registry not yet supported",
       }),
     ),
   ownerExists: () =>
@@ -167,7 +167,7 @@ const createFailingClient = (): RegistryClient => ({
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         category: "internal",
-        what: "remote registry not yet supported",
+        message: "remote registry not yet supported",
       }),
     ),
   getExtensionIndex: () =>
@@ -175,7 +175,7 @@ const createFailingClient = (): RegistryClient => ({
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         category: "internal",
-        what: "remote registry not yet supported",
+        message: "remote registry not yet supported",
       }),
     ),
   getExtensionPackage: () =>
@@ -183,7 +183,7 @@ const createFailingClient = (): RegistryClient => ({
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         category: "internal",
-        what: "remote registry not yet supported",
+        message: "remote registry not yet supported",
       }),
     ),
   publishExtension: () =>
@@ -191,7 +191,7 @@ const createFailingClient = (): RegistryClient => ({
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         category: "internal",
-        what: "remote registry not yet supported",
+        message: "remote registry not yet supported",
       }),
     ),
   extensionExists: () =>
@@ -199,7 +199,7 @@ const createFailingClient = (): RegistryClient => ({
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         category: "internal",
-        what: "remote registry not yet supported",
+        message: "remote registry not yet supported",
       }),
     ),
   discoverExtensions: () =>
@@ -207,7 +207,7 @@ const createFailingClient = (): RegistryClient => ({
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         category: "internal",
-        what: "remote registry not yet supported",
+        message: "remote registry not yet supported",
       }),
     ),
 });
@@ -652,7 +652,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // it should be a SOURCE_FETCH_FAILED from extractZip, not integrity
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("SOURCE_FETCH_FAILED");
-          expect(result.failure.what).not.toContain("Integrity mismatch");
+          expect(result.failure.message).not.toContain("Integrity mismatch");
         }
       }),
     );
@@ -689,7 +689,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("SOURCE_FETCH_FAILED");
-          expect(result.failure.what).toContain("Integrity mismatch");
+          expect(result.failure.message).toContain("Integrity mismatch");
         }
       }),
     );

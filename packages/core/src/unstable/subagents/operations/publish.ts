@@ -91,7 +91,7 @@ export const publishSubagent: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_SUBAGENT_NOT_FOUND",
         category: "not_found",
-        what: `Managed subagent not found: ${extensionDir}`,
+        message: `Managed subagent not found: ${extensionDir}`,
       });
     }
 
@@ -102,7 +102,7 @@ export const publishSubagent: OperationHandler<
         makeAppError({
           code: "PUBLISH_SUBAGENT_MANIFEST_READ_FAILED",
           category: "internal",
-          what: `Failed to read manifest: ${manifestPath}`,
+          message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -117,7 +117,7 @@ export const publishSubagent: OperationHandler<
         makeAppError({
           code: "PUBLISH_SUBAGENT_MANIFEST_PARSE_FAILED",
           category: "validation",
-          what: `Invalid JSON in manifest: ${manifestPath}`,
+          message: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -127,7 +127,7 @@ export const publishSubagent: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_SUBAGENT_MANIFEST_SCHEMA_INVALID",
         category: "validation",
-        what: agentsFieldValidation.failure.detail,
+        message: agentsFieldValidation.failure.detail,
       });
     }
 
@@ -138,7 +138,7 @@ export const publishSubagent: OperationHandler<
         makeAppError({
           code: "PUBLISH_SUBAGENT_MANIFEST_SCHEMA_INVALID",
           category: "validation",
-          what: `Invalid manifest schema: ${manifestPath}`,
+          message: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -156,7 +156,7 @@ export const publishSubagent: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_SUBAGENT_CONTENT_MISSING",
         category: "not_found",
-        what: `Missing subagent content file: expected ${expectedFilename}`,
+        message: `Missing subagent content file: expected ${expectedFilename}`,
         breadcrumbs: [
           {
             task: "Recover",
@@ -171,7 +171,7 @@ export const publishSubagent: OperationHandler<
         makeAppError({
           code: "PUBLISH_SUBAGENT_CONTENT_READ_FAILED",
           category: "internal",
-          what: `Failed to read ${expectedFilename}: ${contentPath}`,
+          message: `Failed to read ${expectedFilename}: ${contentPath}`,
           cause: e,
         }),
       ),
@@ -190,7 +190,7 @@ export const publishSubagent: OperationHandler<
         makeAppError({
           code: "PUBLISH_SUBAGENT_REGISTRY_LOOKUP_FAILED",
           category: "internal",
-          what: `Failed to lookup registry source "${op.args.registryName}"`,
+          message: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
       ),
@@ -200,7 +200,7 @@ export const publishSubagent: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_SUBAGENT_REGISTRY_NOT_FOUND",
         category: "not_found",
-        what: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -209,7 +209,7 @@ export const publishSubagent: OperationHandler<
       return yield* makeAppError({
         code: "PUBLISH_SUBAGENT_REGISTRY_NOT_FOUND",
         category: "not_found",
-        what: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -240,9 +240,10 @@ export const publishSubagent: OperationHandler<
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "PUBLISH_SUBAGENT_PUBLISH_FAILED",
-            category: "internal",
-            what: `Failed to publish to registry "${op.args.registryName}"`,
+            code: "PUBLISH_REGISTRY_FAILED",
+            category: "network",
+            reason: "registry_publish",
+            message: `Registry publish did not complete "${op.args.registryName}"`,
             ...(e.retryable !== undefined ? { retryable: e.retryable } : {}),
             ...(e.httpStatus !== undefined ? { httpStatus: e.httpStatus } : {}),
             breadcrumbs: e.breadcrumbs ?? [],

@@ -296,7 +296,7 @@ describe("root update handler", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("WORKSPACE_INSTALL_SOURCE_INVALID");
-      expect(appError.what).toBe('The configured command entry "example-command" is invalid.');
+      expect(appError.message).toBe('The configured command entry "example-command" is invalid.');
       expect(appError.breadcrumbs?.[0]?.description).toBe(
         'Use a name like "@owner/commands/name".',
       );

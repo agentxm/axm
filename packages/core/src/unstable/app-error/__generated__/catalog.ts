@@ -3,8 +3,8 @@
 export const ErrorCodeCatalog = {
   AUTH_CREDENTIAL_STORE_FAILED: {
     code: "AUTH_CREDENTIAL_STORE_FAILED",
-    category: "internal",
-    what: "Failed to read credential file",
+    category: "auth",
+    message: "Credential file could not be read",
     breadcrumbs: [
       {
         task: "Recover",
@@ -21,15 +21,15 @@ export const ErrorCodeCatalog = {
   },
   AUTH_LOGIN_CANCELLED: {
     code: "AUTH_LOGIN_CANCELLED",
-    category: "internal",
-    what: "Login was denied or cancelled",
+    category: "auth",
+    message: "Login was denied or cancelled",
     breadcrumbs: [{ task: "Recover", description: "Run `axm login` to try again." }],
     sources: ["packages/core/src/unstable/auth/auth-client.ts:321"],
   },
   AUTH_LOGIN_FAILED: {
     code: "AUTH_LOGIN_FAILED",
-    category: "internal",
-    what: "Lost connection to the registry during login",
+    category: "auth",
+    message: "Lost connection to the registry during login",
     breadcrumbs: [
       {
         task: "Recover",
@@ -48,21 +48,23 @@ export const ErrorCodeCatalog = {
   },
   AUTH_LOGIN_REQUIRED: {
     code: "AUTH_LOGIN_REQUIRED",
-    category: "internal",
-    what: "Authentication required",
-    breadcrumbs: [{ task: "Recover", description: 'Run "axm auth login" to sign in, then retry.' }],
+    category: "auth",
+    message: "Authentication required",
+    breadcrumbs: [
+      {
+        task: "Run `axm login`",
+        description: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+      },
+    ],
     sources: [
-      "packages/cli/src/root/auth/login.ts:42",
-      "packages/cli/src/root/auth/token.ts:27",
-      "packages/cli/src/root/auth/whoami.ts:53",
       "packages/core/src/unstable/auth/guard.ts:26",
-      "packages/core/src/unstable/auth/token-resolution.ts:76",
+      "packages/core/src/unstable/auth/token-resolution.ts:75",
     ],
   },
   AUTH_REFRESH_FAILED: {
     code: "AUTH_REFRESH_FAILED",
-    category: "internal",
-    what: "Token refresh request failed",
+    category: "auth",
+    message: "Token refresh request failed",
     breadcrumbs: [{ task: "Recover", description: "Run `axm login` to re-authenticate." }],
     sources: [
       "packages/core/src/unstable/auth/auth-client.ts:350",
@@ -71,8 +73,8 @@ export const ErrorCodeCatalog = {
   },
   AUTH_SERVER_ERROR: {
     code: "AUTH_SERVER_ERROR",
-    category: "internal",
-    what: "Registry returned server error",
+    category: "network",
+    message: "Registry returned server error",
     breadcrumbs: [
       {
         task: "Recover",
@@ -83,20 +85,17 @@ export const ErrorCodeCatalog = {
   },
   AUTH_TOKEN_REQUIRED: {
     code: "AUTH_TOKEN_REQUIRED",
-    category: "internal",
-    what: "Persisted credentials are disabled in CI and container environments.",
+    category: "auth",
+    message: "No authentication token is available.",
     breadcrumbs: [
-      {
-        task: "Recover",
-        description: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
-      },
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
     ],
-    sources: ["packages/core/src/unstable/auth/credential-store.ts:242"],
+    sources: ["packages/core/src/unstable/app-error/builders.ts:27"],
   },
   AUTH_UNAUTHENTICATED: {
     code: "AUTH_UNAUTHENTICATED",
     category: "auth",
-    what: "Not authenticated or token is invalid",
+    message: "Not authenticated or token is invalid",
     breadcrumbs: [{ task: "Recover", description: "Run `axm login` to re-authenticate." }],
     sources: [
       "packages/core/src/unstable/auth/auth-client.ts:397",
@@ -109,7 +108,7 @@ export const ErrorCodeCatalog = {
   AUTH_UNAUTHORIZED: {
     code: "AUTH_UNAUTHORIZED",
     category: "forbidden",
-    what: "Insufficient permissions",
+    message: "Insufficient permissions",
     breadcrumbs: [
       {
         task: "Check permissions",
@@ -121,14 +120,17 @@ export const ErrorCodeCatalog = {
   },
   COMMAND_CREATE_FAILED: {
     code: "COMMAND_CREATE_FAILED",
-    category: "internal",
-    what: "Failed to write command manifest",
+    category: "validation",
+    message: "Command manifest could not be written",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/commands/operations/new-command.ts:158"],
   },
   COMMAND_FETCH_FAILED: {
     code: "COMMAND_FETCH_FAILED",
-    category: "internal",
-    what: "Failed to fetch command from registry",
+    category: "network",
+    message: "Command could not be fetched from registry",
     breadcrumbs: [
       { task: "Recover", description: "Verify the command name and registry configuration." },
     ],
@@ -137,7 +139,7 @@ export const ErrorCodeCatalog = {
   COMMAND_FRONTMATTER_INVALID: {
     code: "COMMAND_FRONTMATTER_INVALID",
     category: "validation",
-    what: "Command frontmatter must be a YAML mapping",
+    message: "Command frontmatter must be a YAML mapping",
     breadcrumbs: [
       {
         task: "Recover",
@@ -149,21 +151,21 @@ export const ErrorCodeCatalog = {
   COMMAND_SOURCE_INVALID_FORMAT: {
     code: "COMMAND_SOURCE_INVALID_FORMAT",
     category: "validation",
-    what: "Command source must include /commands/ segment",
+    message: "Command source must include /commands/ segment",
     breadcrumbs: [{ task: "Recover", description: "Use @owner/commands/command-name format." }],
     sources: ["packages/cli/src/root/commands/install/command-actions.ts:199"],
   },
   COMMAND_SOURCE_MISSING_NAME: {
     code: "COMMAND_SOURCE_MISSING_NAME",
     category: "not_found",
-    what: "Command source must include a command name",
+    message: "Command source must include a command name",
     breadcrumbs: [{ task: "Recover", description: "Use @owner/commands/command-name format." }],
     sources: ["packages/cli/src/root/commands/install/command-actions.ts:208"],
   },
   COMMAND_SOURCE_NOT_REGISTRY: {
     code: "COMMAND_SOURCE_NOT_REGISTRY",
-    category: "internal",
-    what: "Commands can only be installed from a registry",
+    category: "usage",
+    message: "Commands can only be installed from a registry",
     breadcrumbs: [
       { task: "Recover", description: "Use @owner/commands/command-name or just command-name." },
     ],
@@ -175,13 +177,19 @@ export const ErrorCodeCatalog = {
   CONFIGURED_ENTRY_RESOLUTION_TIMEOUT: {
     code: "CONFIGURED_ENTRY_RESOLUTION_TIMEOUT",
     category: "network",
-    what: "Timed out while resolving a configured extension source",
+    message: "Timed out while resolving a configured extension source",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/workspace/configured-entry-resolution/timeout.ts:14"],
   },
   DISCOVER_FAILED: {
     code: "DISCOVER_FAILED",
-    category: "internal",
-    what: "No source request to discover from",
+    category: "usage",
+    message: "No source request to discover from",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/cli/src/root/skills/install/command-actions.ts:355",
       "packages/cli/src/root/skills/install/command-actions.ts:377",
@@ -192,7 +200,7 @@ export const ErrorCodeCatalog = {
   FRONTMATTER_PARSE_ERROR: {
     code: "FRONTMATTER_PARSE_ERROR",
     category: "validation",
-    what: "Failed to parse YAML frontmatter",
+    message: "YAML frontmatter could not be parsed",
     breadcrumbs: [
       {
         task: "Recover",
@@ -203,17 +211,19 @@ export const ErrorCodeCatalog = {
   },
   INSTALL_COMMAND_COPY_FAILED: {
     code: "INSTALL_COMMAND_COPY_FAILED",
-    category: "internal",
-    what: "Failed to read extracted directory",
+    category: "validation",
+    message: "Extracted directory could not be read",
+    breadcrumbs: [{ task: "Recover", description: "Check the extension package and try again." }],
     sources: [
       "packages/core/src/unstable/commands/manager.ts:272",
-      "packages/core/src/unstable/commands/operations/install.ts:157",
+      "packages/core/src/unstable/commands/operations/install.ts:155",
     ],
   },
   INSTALL_COMMAND_TEMP_DIR_FAILED: {
     code: "INSTALL_COMMAND_TEMP_DIR_FAILED",
-    category: "internal",
-    what: "Failed to create temporary directory for registry install",
+    category: "validation",
+    message: "Temporary directory for registry install could not be created",
+    breadcrumbs: [{ task: "Recover", description: "Check the extension package and try again." }],
     sources: [
       "packages/core/src/unstable/commands/manager.ts:248",
       "packages/core/src/unstable/commands/operations/install.ts:131",
@@ -221,8 +231,11 @@ export const ErrorCodeCatalog = {
   },
   INSTALL_MCP_SERVER_COPY_FAILED: {
     code: "INSTALL_MCP_SERVER_COPY_FAILED",
-    category: "internal",
-    what: "Failed to read extracted directory",
+    category: "validation",
+    message: "Extracted directory could not be read",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/core/src/unstable/mcp-servers/manager.ts:189",
       "packages/core/src/unstable/mcp-servers/operations/install.ts:164",
@@ -230,56 +243,82 @@ export const ErrorCodeCatalog = {
   },
   INSTALL_MCP_SERVER_TEMP_DIR_FAILED: {
     code: "INSTALL_MCP_SERVER_TEMP_DIR_FAILED",
-    category: "internal",
-    what: "Failed to create temporary directory for registry install",
+    category: "validation",
+    message: "Temporary directory for registry install could not be created",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/core/src/unstable/mcp-servers/manager.ts:165",
       "packages/core/src/unstable/mcp-servers/operations/install.ts:138",
     ],
   },
+  INSTALL_SKILL_COPY_FAILED: {
+    code: "INSTALL_SKILL_COPY_FAILED",
+    category: "validation",
+    message: "Skill files could not be copied to the canonical location",
+    breadcrumbs: [{ task: "Recover", description: "Check the extension package and try again." }],
+    sources: ["packages/core/src/unstable/skills/operations/install.ts:102"],
+  },
   INSTALL_SKILL_TEMP_DIR_FAILED: {
     code: "INSTALL_SKILL_TEMP_DIR_FAILED",
-    category: "internal",
-    what: "Failed to create temporary directory for registry install",
+    category: "validation",
+    message: "Temporary directory for registry install could not be created",
+    breadcrumbs: [{ task: "Recover", description: "Check the extension package and try again." }],
     sources: [
       "packages/core/src/unstable/skills/materialization.ts:166",
-      "packages/core/src/unstable/skills/operations/install.ts:248",
+      "packages/core/src/unstable/skills/operations/install.ts:247",
     ],
   },
   INSTALL_SOURCE_INVALID_FQN: {
     code: "INSTALL_SOURCE_INVALID_FQN",
     category: "validation",
-    what: "Install source must be a registry FQN",
+    message: "Install source must be a registry FQN",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/install/resolve-root-install-intent.ts:86"],
   },
   INSTALL_SOURCE_NOT_FQN: {
     code: "INSTALL_SOURCE_NOT_FQN",
-    category: "internal",
-    what: "Root install only accepts registry FQNs",
+    category: "usage",
+    message: "Root install only accepts registry FQNs",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/install/resolve-root-install-intent.ts:61"],
   },
   INSTALL_SOURCE_UNKNOWN_TYPE: {
     code: "INSTALL_SOURCE_UNKNOWN_TYPE",
     category: "not_found",
-    what: "Install source uses an unsupported plural type",
+    message: "Install source uses an unsupported plural type",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/install/resolve-root-install-intent.ts:72"],
   },
   INSTALL_SOURCE_UNSUPPORTED_TYPE: {
     code: "INSTALL_SOURCE_UNSUPPORTED_TYPE",
-    category: "internal",
-    what: "Root install does not support that extension type",
+    category: "usage",
+    message: "Root install does not support that extension type",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/install/resolve-root-install-intent.ts:102"],
   },
   INSTALL_SUBAGENT_TEMP_DIR_FAILED: {
     code: "INSTALL_SUBAGENT_TEMP_DIR_FAILED",
-    category: "internal",
-    what: "Failed to create temporary directory for registry install",
+    category: "validation",
+    message: "Temporary directory for registry install could not be created",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/subagents/manager.ts:185"],
   },
   INVALID_SOURCE: {
     code: "INVALID_SOURCE",
     category: "validation",
-    what: "Invalid source: Unable to parse source",
+    message: "Invalid source: Unable to parse source",
     breadcrumbs: [
       {
         task: "Recover",
@@ -295,25 +334,31 @@ export const ErrorCodeCatalog = {
   LINT_SETTINGS_PARSE_FAILED: {
     code: "LINT_SETTINGS_PARSE_FAILED",
     category: "validation",
-    what: "",
+    message: "",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/lint/handler.ts:197"],
   },
   LOCKFILE_BACKUP_FAILED: {
     code: "LOCKFILE_BACKUP_FAILED",
     category: "internal",
-    what: "Failed to create temporary directory for invalid lockfile backup",
+    message: "Failed to create temporary directory for invalid lockfile backup",
     sources: ["packages/core/src/unstable/workspace/reconciliation.ts:238"],
   },
   LOCKFILE_RECONCILE_SOURCE_UNREACHABLE: {
     code: "LOCKFILE_RECONCILE_SOURCE_UNREACHABLE",
     category: "network",
-    what: "Required declaration sources are unreachable during reconciliation",
+    message: "Required declaration sources are unreachable during reconciliation",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/workspace/reconciliation.ts:299"],
   },
   LOCKFILE_RESOLVED_VERSION_INVALID: {
     code: "LOCKFILE_RESOLVED_VERSION_INVALID",
     category: "validation",
-    what: "Lockfile resolved versions must be exact semver values",
+    message: "Lockfile resolved versions must be exact semver values",
     breadcrumbs: [
       {
         task: "Recover",
@@ -326,7 +371,7 @@ export const ErrorCodeCatalog = {
   LOCKFILE_WRITE_FAILED: {
     code: "LOCKFILE_WRITE_FAILED",
     category: "internal",
-    what: "Failed to encode lockfile",
+    message: "Failed to encode lockfile",
     sources: [
       "packages/core/src/unstable/lockfile/lockfile.ts:77",
       "packages/core/src/unstable/lockfile/lockfile.ts:89",
@@ -334,8 +379,8 @@ export const ErrorCodeCatalog = {
   },
   MCP_SERVER_FETCH_FAILED: {
     code: "MCP_SERVER_FETCH_FAILED",
-    category: "internal",
-    what: "Failed to fetch MCP server from registry",
+    category: "network",
+    message: "MCP server could not be fetched from registry",
     breadcrumbs: [
       { task: "Recover", description: "Verify the server name and registry configuration." },
     ],
@@ -344,21 +389,21 @@ export const ErrorCodeCatalog = {
   MCP_SERVER_SOURCE_INVALID_FORMAT: {
     code: "MCP_SERVER_SOURCE_INVALID_FORMAT",
     category: "validation",
-    what: "MCP server source must include /mcp-servers/ segment",
+    message: "MCP server source must include /mcp-servers/ segment",
     breadcrumbs: [{ task: "Recover", description: "Use @owner/mcp-servers/server-name format." }],
     sources: ["packages/cli/src/root/mcp-servers/install/command-actions.ts:166"],
   },
   MCP_SERVER_SOURCE_MISSING_NAME: {
     code: "MCP_SERVER_SOURCE_MISSING_NAME",
     category: "not_found",
-    what: "MCP server source must include a server name",
+    message: "MCP server source must include a server name",
     breadcrumbs: [{ task: "Recover", description: "Use @owner/mcp-servers/server-name format." }],
     sources: ["packages/cli/src/root/mcp-servers/install/command-actions.ts:175"],
   },
   MCP_SERVER_SOURCE_NOT_REGISTRY: {
     code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
-    category: "internal",
-    what: "MCP servers can only be installed from a registry",
+    category: "usage",
+    message: "MCP servers can only be installed from a registry",
     breadcrumbs: [
       { task: "Recover", description: "Use @owner/mcp-servers/server-name or just server-name." },
     ],
@@ -369,8 +414,8 @@ export const ErrorCodeCatalog = {
   },
   NO_REGISTRY_CONFIGURED: {
     code: "NO_REGISTRY_CONFIGURED",
-    category: "internal",
-    what: "No registry sources configured",
+    category: "usage",
+    message: "No registry sources configured",
     breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
     sources: [
       "packages/cli/src/root/commands/publish.ts:101",
@@ -382,8 +427,11 @@ export const ErrorCodeCatalog = {
   },
   NO_SKILLS_FOUND: {
     code: "NO_SKILLS_FOUND",
-    category: "internal",
-    what: "No skills found in source",
+    category: "not_found",
+    message: "No skills found in source",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/cli/src/root/skills/install/command-actions.ts:391",
       "packages/cli/src/root/skills/install/command-actions.ts:419",
@@ -391,8 +439,8 @@ export const ErrorCodeCatalog = {
   },
   NO_SKILLS_MATCHED: {
     code: "NO_SKILLS_MATCHED",
-    category: "internal",
-    what: "No skills matched the given pattern",
+    category: "not_found",
+    message: "No skills matched the given pattern",
     breadcrumbs: [
       { task: "Recover", description: "Check installed skill names with `axm skills list`." },
     ],
@@ -400,8 +448,11 @@ export const ErrorCodeCatalog = {
   },
   NO_SUBAGENTS_FOUND: {
     code: "NO_SUBAGENTS_FOUND",
-    category: "internal",
-    what: "No subagents found in source",
+    category: "not_found",
+    message: "No subagents found in source",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/cli/src/root/subagents/install/command-actions.ts:330",
       "packages/cli/src/root/subagents/install/command-actions.ts:361",
@@ -409,14 +460,17 @@ export const ErrorCodeCatalog = {
   },
   PACK_DEPENDENCY_RESOLUTION_FAILED: {
     code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
-    category: "internal",
-    what: "Cannot resolve extension pack dependencies from non-registry source",
+    category: "usage",
+    message: "Cannot resolve extension pack dependencies from non-registry source",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/packs/dependency-resolution.ts:59"],
   },
   PACK_FETCH_FAILED: {
     code: "PACK_FETCH_FAILED",
-    category: "internal",
-    what: "Failed to fetch pack from registry",
+    category: "network",
+    message: "Pack could not be fetched from registry",
     breadcrumbs: [
       {
         task: "Recover",
@@ -432,8 +486,8 @@ export const ErrorCodeCatalog = {
   },
   PACK_MANIFEST_STALE: {
     code: "PACK_MANIFEST_STALE",
-    category: "internal",
-    what: "Extension pack manifest is stale — it was modified since the plan was created",
+    category: "conflict",
+    message: "Extension pack manifest is stale — it was modified since the plan was created",
     breadcrumbs: [{ task: "Recover", description: "Re-run the command to create a fresh plan" }],
     sources: [
       "packages/core/src/unstable/packs/operations/add-to-pack.ts:103",
@@ -442,20 +496,26 @@ export const ErrorCodeCatalog = {
   },
   PACK_NO_SOURCE_REQUEST: {
     code: "PACK_NO_SOURCE_REQUEST",
-    category: "internal",
-    what: "No source request provided",
+    category: "usage",
+    message: "No source request provided",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/packs/install/command-actions.ts:477"],
   },
   PACK_NOT_FOUND: {
     code: "PACK_NOT_FOUND",
     category: "not_found",
-    what: "No extension pack reference found",
+    message: "No extension pack reference found",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/packs/install/command-actions.ts:634"],
   },
   PACK_SOURCE_INVALID_FORMAT: {
     code: "PACK_SOURCE_INVALID_FORMAT",
     category: "validation",
-    what: "Extension pack source must include /packs/ segment",
+    message: "Extension pack source must include /packs/ segment",
     breadcrumbs: [
       {
         task: "Recover",
@@ -468,14 +528,14 @@ export const ErrorCodeCatalog = {
   PACK_SOURCE_MISSING_NAME: {
     code: "PACK_SOURCE_MISSING_NAME",
     category: "not_found",
-    what: "Extension pack source must include a pack name",
+    message: "Extension pack source must include a pack name",
     breadcrumbs: [{ task: "Recover", description: "Use @owner/packs/pack-name format." }],
     sources: ["packages/cli/src/root/packs/install/command-actions.ts:398"],
   },
   PACK_SOURCE_NOT_REGISTRY: {
     code: "PACK_SOURCE_NOT_REGISTRY",
-    category: "internal",
-    what: "Packs can only be installed from a registry",
+    category: "usage",
+    message: "Packs can only be installed from a registry",
     breadcrumbs: [
       {
         task: "Recover",
@@ -490,19 +550,25 @@ export const ErrorCodeCatalog = {
   PLAN_BLOCKED_BY_ERRORS: {
     code: "PLAN_BLOCKED_BY_ERRORS",
     category: "conflict",
-    what: "Plan has errors that prevent execution",
+    message: "Plan has errors that prevent execution",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/plan/resolve-plan.ts:146"],
   },
   PLAN_STEP_BLOCKED: {
     code: "PLAN_STEP_BLOCKED",
     category: "conflict",
-    what: "blocked by earlier job failure",
+    message: "blocked by earlier job failure",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/plan/apply-plan.ts:89"],
   },
   PROMPT_REQUIRED: {
     code: "PROMPT_REQUIRED",
-    category: "internal",
-    what: "Interactive prompt required: Apply changes?",
+    category: "usage",
+    message: "Interactive prompt required: Apply changes?",
     breadcrumbs: [
       { task: "Recover", description: "Provide ResolvePlanInteraction in the runtime." },
     ],
@@ -514,7 +580,7 @@ export const ErrorCodeCatalog = {
   PROMPT_VALUE_INVALID: {
     code: "PROMPT_VALUE_INVALID",
     category: "validation",
-    what: "Pet name must be at least 1 character",
+    message: "Pet name must be at least 1 character",
     breadcrumbs: [
       {
         task: "Recover",
@@ -523,165 +589,143 @@ export const ErrorCodeCatalog = {
     ],
     sources: ["packages/cli-spike/src/root/prompts/text.ts:57"],
   },
-  PUBLISH_COMMAND_PUBLISH_FAILED: {
-    code: "PUBLISH_COMMAND_PUBLISH_FAILED",
-    category: "internal",
-    what: "Failed to publish to registry",
-    sources: ["packages/core/src/unstable/commands/operations/publish.ts:195"],
-  },
-  PUBLISH_MCP_SERVER_PUBLISH_FAILED: {
-    code: "PUBLISH_MCP_SERVER_PUBLISH_FAILED",
-    category: "internal",
-    what: "Failed to publish to registry",
-    sources: ["packages/core/src/unstable/mcp-servers/operations/publish.ts:190"],
-  },
-  PUBLISH_PACK_PUBLISH_FAILED: {
-    code: "PUBLISH_PACK_PUBLISH_FAILED",
-    category: "internal",
-    what: "Failed to publish to registry",
-    sources: ["packages/core/src/unstable/packs/operations/publish.ts:198"],
+  PUBLISH_REGISTRY_FAILED: {
+    code: "PUBLISH_REGISTRY_FAILED",
+    category: "network",
+    message: "Registry publish did not complete",
+    reason: "registry_publish",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
+    sources: [
+      "packages/core/src/unstable/commands/operations/publish.ts:195",
+      "packages/core/src/unstable/mcp-servers/operations/publish.ts:190",
+      "packages/core/src/unstable/packs/operations/publish.ts:198",
+    ],
   },
   REGISTRY_PUBLISH_CONFLICT: {
     code: "REGISTRY_PUBLISH_CONFLICT",
     category: "conflict",
-    what: "Version already exists with different content",
-    breadcrumbs: [
-      {
-        task: "Recover",
-        description:
-          "This version already exists with different content. Bump the version in your manifest.",
-      },
-    ],
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:811"],
-  },
-  REGISTRY_PUBLISH_DISABLED: {
-    code: "REGISTRY_PUBLISH_DISABLED",
-    category: "internal",
-    what: "Publishing is temporarily disabled",
-    breadcrumbs: [
-      { task: "Recover", description: "Publishing is temporarily disabled. Try again later." },
-    ],
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:920"],
-  },
-  REGISTRY_PUBLISH_FAILED: {
-    code: "REGISTRY_PUBLISH_FAILED",
-    category: "internal",
-    what: "Invalid index schema",
+    message: "Version already exists with different content.",
+    breadcrumbs: [{ task: "Recover", description: "Bump the version in your manifest." }],
     sources: [
-      "packages/core/src/unstable/registry/local-client.ts:423",
-      "packages/core/src/unstable/registry/remote-client.ts:843",
-      "packages/core/src/unstable/registry/remote-client.ts:894",
-      "packages/core/src/unstable/registry/remote-client.ts:938",
-      "packages/core/src/unstable/registry/remote-client.ts:946",
+      "packages/core/src/unstable/registry/local-client.ts:440",
+      "packages/core/src/unstable/registry/remote-client.ts:814",
     ],
-  },
-  REGISTRY_PUBLISH_INTEGRITY_MISMATCH: {
-    code: "REGISTRY_PUBLISH_INTEGRITY_MISMATCH",
-    category: "internal",
-    what: "Archive integrity does not match",
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:878"],
-  },
-  REGISTRY_PUBLISH_INVALID_ARCHIVE: {
-    code: "REGISTRY_PUBLISH_INVALID_ARCHIVE",
-    category: "validation",
-    what: "Invalid extension archive",
-    breadcrumbs: [{ task: "Recover", description: "Check the extension directory and rebuild" }],
-    sources: [
-      "packages/core/src/unstable/registry/remote-client.ts:833",
-      "packages/core/src/unstable/registry/remote-client.ts:866",
-    ],
-  },
-  REGISTRY_PUBLISH_MANIFEST_INVALID: {
-    code: "REGISTRY_PUBLISH_MANIFEST_INVALID",
-    category: "validation",
-    what: "Extension manifest validation failed",
-    breadcrumbs: [{ task: "Recover", description: "Check your extension manifest" }],
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:886"],
   },
   REGISTRY_PUBLISH_NETWORK_ERROR: {
     code: "REGISTRY_PUBLISH_NETWORK_ERROR",
     category: "network",
-    what: "Failed to connect to the remote registry",
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:777"],
-  },
-  REGISTRY_PUBLISH_QUOTA_EXCEEDED: {
-    code: "REGISTRY_PUBLISH_QUOTA_EXCEEDED",
-    category: "internal",
-    what: "Storage quota exceeded",
-    breadcrumbs: [{ task: "Recover", description: "Storage quota exceeded for this extension" }],
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:796"],
-  },
-  REGISTRY_PUBLISH_THROTTLED: {
-    code: "REGISTRY_PUBLISH_THROTTLED",
-    category: "internal",
-    what: "Publish request was rate limited",
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:909"],
-  },
-  REGISTRY_PUBLISH_TOO_LARGE: {
-    code: "REGISTRY_PUBLISH_TOO_LARGE",
-    category: "internal",
-    what: "Extension archive exceeds size limit",
+    message: "Remote registry is unreachable",
     breadcrumbs: [
-      { task: "Recover", description: "Reduce archive size or remove unnecessary files" },
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
     ],
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:853"],
+    sources: ["packages/core/src/unstable/registry/remote-client.ts:782"],
+  },
+  REGISTRY_PUBLISH_REJECTED: {
+    code: "REGISTRY_PUBLISH_REJECTED",
+    category: "validation",
+    message: "Registry publish request was rejected",
+    breadcrumbs: [{ task: "Recover", description: "Check the extension package and try again." }],
+    sources: [
+      "packages/core/src/unstable/registry/local-client.ts:399",
+      "packages/core/src/unstable/registry/local-client.ts:417",
+      "packages/core/src/unstable/registry/local-client.ts:426",
+      "packages/core/src/unstable/registry/local-client.ts:450",
+      "packages/core/src/unstable/registry/local-client.ts:467",
+      "packages/core/src/unstable/registry/local-client.ts:479",
+      "packages/core/src/unstable/registry/remote-client.ts:801",
+      "packages/core/src/unstable/registry/remote-client.ts:824",
+      "packages/core/src/unstable/registry/remote-client.ts:833",
+      "packages/core/src/unstable/registry/remote-client.ts:842",
+      "packages/core/src/unstable/registry/remote-client.ts:854",
+      "packages/core/src/unstable/registry/remote-client.ts:866",
+      "packages/core/src/unstable/registry/remote-client.ts:874",
+      "packages/core/src/unstable/registry/remote-client.ts:881",
+      "packages/core/src/unstable/registry/remote-client.ts:895",
+      "packages/core/src/unstable/registry/remote-client.ts:906",
+      "packages/core/src/unstable/registry/remote-client.ts:919",
+      "packages/core/src/unstable/registry/remote-client.ts:928",
+      "packages/core/src/unstable/registry/remote-client.ts:935",
+    ],
   },
   REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE: {
     code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
     category: "validation",
-    what: "Remote discovery response does not match expected schema",
+    message: "Remote discovery response does not match expected schema",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
-      "packages/core/src/unstable/registry/remote-client.ts:193",
-      "packages/core/src/unstable/registry/remote-client.ts:469",
+      "packages/core/src/unstable/registry/remote-client.ts:198",
+      "packages/core/src/unstable/registry/remote-client.ts:474",
     ],
   },
   REGISTRY_REMOTE_EXTENSION_CHECK_FAILED: {
     code: "REGISTRY_REMOTE_EXTENSION_CHECK_FAILED",
-    category: "internal",
-    what: "Remote extension check failed",
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:721"],
+    category: "network",
+    message: "Remote extension check failed",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
+    sources: ["packages/core/src/unstable/registry/remote-client.ts:726"],
   },
   REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED: {
     code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
-    category: "internal",
-    what: "Remote owner check failed",
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:545"],
+    category: "network",
+    message: "Remote owner check failed",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
+    sources: ["packages/core/src/unstable/registry/remote-client.ts:550"],
   },
   REGISTRY_REMOTE_PACKAGE_FETCH_FAILED: {
     code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
-    category: "internal",
-    what: "Remote package index request failed",
+    category: "network",
+    message: "Remote package index request failed",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
-      "packages/core/src/unstable/registry/remote-client.ts:631",
-      "packages/core/src/unstable/registry/remote-client.ts:672",
+      "packages/core/src/unstable/registry/remote-client.ts:636",
+      "packages/core/src/unstable/registry/remote-client.ts:677",
     ],
   },
   REGISTRY_REMOTE_PACKAGE_NOT_FOUND: {
     code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
     category: "not_found",
-    what: "Remote package index was not found",
+    message: "Remote package index was not found",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
-      "packages/core/src/unstable/registry/remote-client.ts:603",
-      "packages/core/src/unstable/registry/remote-client.ts:644",
+      "packages/core/src/unstable/registry/remote-client.ts:608",
+      "packages/core/src/unstable/registry/remote-client.ts:649",
     ],
   },
   REGISTRY_REMOTE_VERSION_NOT_FOUND: {
     code: "REGISTRY_REMOTE_VERSION_NOT_FOUND",
     category: "not_found",
-    what: "Requested package version is not available in remote index",
-    sources: ["packages/core/src/unstable/registry/remote-client.ts:577"],
+    message: "Requested package version is not available in remote index",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
+    sources: ["packages/core/src/unstable/registry/remote-client.ts:582"],
   },
   SETTINGS_IGNORED_PATTERN_INVALID: {
     code: "SETTINGS_IGNORED_PATTERN_INVALID",
     category: "validation",
-    what: "Ignored pattern is empty after trimming whitespace",
+    message: "Ignored pattern is empty after trimming whitespace",
     breadcrumbs: [{ task: "Recover", description: "Remove empty ignored patterns from settings" }],
     sources: ["packages/core/src/unstable/settings/ignored-patterns.ts:23"],
   },
   SETTINGS_PARSE_FAILED: {
     code: "SETTINGS_PARSE_FAILED",
     category: "validation",
-    what: "Failed to read workspace settings",
+    message: "Workspace settings could not be read",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/core/src/unstable/plan/resolve-plan.ts:109",
       "packages/core/src/unstable/workspace/initialization.ts:78",
@@ -689,8 +733,11 @@ export const ErrorCodeCatalog = {
   },
   SKILL_CREATE_FAILED: {
     code: "SKILL_CREATE_FAILED",
-    category: "internal",
-    what: "Failed to write skill manifest",
+    category: "validation",
+    message: "Skill manifest could not be written",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/core/src/unstable/skills/operations/new-skill.ts:147",
       "packages/core/src/unstable/skills/operations/new-skill.ts:159",
@@ -698,14 +745,17 @@ export const ErrorCodeCatalog = {
   },
   SKILL_DIR_MISCONFIGURED: {
     code: "SKILL_DIR_MISCONFIGURED",
-    category: "internal",
-    what: "One or more configured agents have invalid skills directory settings",
+    category: "validation",
+    message: "One or more configured agents have invalid skills directory settings",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/core/src/unstable/skills/manager.ts:117"],
   },
   SKILLS_INSTALL_ALL_REQUIRES_SOURCE: {
     code: "SKILLS_INSTALL_ALL_REQUIRES_SOURCE",
-    category: "internal",
-    what: "The --all flag requires a source for skills install",
+    category: "usage",
+    message: "The --all flag requires a source for skills install",
     breadcrumbs: [
       {
         task: "Recover",
@@ -717,8 +767,8 @@ export const ErrorCodeCatalog = {
   },
   SKILLS_INSTALL_SELECTOR_REQUIRES_SOURCE: {
     code: "SKILLS_INSTALL_SELECTOR_REQUIRES_SOURCE",
-    category: "internal",
-    what: "The --skill flag requires a source for skills install",
+    category: "usage",
+    message: "The --skill flag requires a source for skills install",
     breadcrumbs: [
       {
         task: "Recover",
@@ -730,8 +780,11 @@ export const ErrorCodeCatalog = {
   },
   SOURCE_FETCH_FAILED: {
     code: "SOURCE_FETCH_FAILED",
-    category: "internal",
-    what: "Failed to create temp directory",
+    category: "network",
+    message: "Temporary source directory could not be created",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/core/src/unstable/registry/utils.ts:95",
       "packages/core/src/unstable/source-resolution/providers/git-hosting.ts:70",
@@ -747,7 +800,10 @@ export const ErrorCodeCatalog = {
   SOURCE_PARSE_FAILED: {
     code: "SOURCE_PARSE_FAILED",
     category: "validation",
-    what: "Invalid GitLab SSH URL format",
+    message: "Invalid GitLab SSH URL format",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: [
       "packages/core/src/unstable/source-resolution/providers/azurerepos/repo-exists.ts:29",
       "packages/core/src/unstable/source-resolution/providers/azurerepos/scp.ts:21",
@@ -781,7 +837,7 @@ export const ErrorCodeCatalog = {
   SPIKE_HANDLED_ERROR: {
     code: "SPIKE_HANDLED_ERROR",
     category: "internal",
-    what: "Simulated handled telemetry failure",
+    message: "Simulated handled telemetry failure",
     breadcrumbs: [
       {
         task: "Recover",
@@ -792,14 +848,17 @@ export const ErrorCodeCatalog = {
   },
   SUBAGENT_CREATE_FAILED: {
     code: "SUBAGENT_CREATE_FAILED",
-    category: "internal",
-    what: "Failed to write subagent manifest",
+    category: "validation",
+    message: "Subagent manifest could not be written",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/subagents/new/handler.ts:156"],
   },
   SUBAGENT_FRONTMATTER_INVALID: {
     code: "SUBAGENT_FRONTMATTER_INVALID",
     category: "validation",
-    what: "Invalid subagent frontmatter",
+    message: "Invalid subagent frontmatter",
     breadcrumbs: [
       { task: "Recover", description: "Frontmatter must include a string `name` field." },
     ],
@@ -810,8 +869,8 @@ export const ErrorCodeCatalog = {
   },
   SUBAGENTS_INSTALL_ALL_REQUIRES_SOURCE: {
     code: "SUBAGENTS_INSTALL_ALL_REQUIRES_SOURCE",
-    category: "internal",
-    what: "The --all flag requires a source for subagents install",
+    category: "usage",
+    message: "The --all flag requires a source for subagents install",
     breadcrumbs: [
       {
         task: "Recover",
@@ -823,8 +882,8 @@ export const ErrorCodeCatalog = {
   },
   SUBAGENTS_INSTALL_SELECTOR_REQUIRES_SOURCE: {
     code: "SUBAGENTS_INSTALL_SELECTOR_REQUIRES_SOURCE",
-    category: "internal",
-    what: "The --subagent flag requires a source for subagents install",
+    category: "usage",
+    message: "The --subagent flag requires a source for subagents install",
     breadcrumbs: [
       {
         task: "Recover",
@@ -837,37 +896,49 @@ export const ErrorCodeCatalog = {
   SYMLINK_CREATE_FAILED: {
     code: "SYMLINK_CREATE_FAILED",
     category: "internal",
-    what: "Failed to resolve target path",
+    message: "Failed to resolve target path",
     sources: ["packages/core/src/unstable/utils/create-symlink.ts:34"],
   },
   UNINSTALL_SOURCE_INVALID_FQN: {
     code: "UNINSTALL_SOURCE_INVALID_FQN",
     category: "validation",
-    what: "Uninstall source must be a registry FQN",
+    message: "Uninstall source must be a registry FQN",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/uninstall/resolve-root-uninstall-intent.ts:86"],
   },
   UNINSTALL_SOURCE_NOT_FQN: {
     code: "UNINSTALL_SOURCE_NOT_FQN",
-    category: "internal",
-    what: "Root uninstall only accepts registry FQNs",
+    category: "usage",
+    message: "Root uninstall only accepts registry FQNs",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/uninstall/resolve-root-uninstall-intent.ts:61"],
   },
   UNINSTALL_SOURCE_UNKNOWN_TYPE: {
     code: "UNINSTALL_SOURCE_UNKNOWN_TYPE",
     category: "not_found",
-    what: "Uninstall source uses an unsupported plural type",
+    message: "Uninstall source uses an unsupported plural type",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/uninstall/resolve-root-uninstall-intent.ts:72"],
   },
   UNINSTALL_SOURCE_UNSUPPORTED_TYPE: {
     code: "UNINSTALL_SOURCE_UNSUPPORTED_TYPE",
-    category: "internal",
-    what: "Root uninstall does not support that extension type",
+    category: "usage",
+    message: "Root uninstall does not support that extension type",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/uninstall/resolve-root-uninstall-intent.ts:102"],
   },
   UPDATE_FAILED: {
     code: "UPDATE_FAILED",
-    category: "internal",
-    what: "All source re-resolutions failed. Nothing to update.",
+    category: "network",
+    message: "All source re-resolutions failed. Nothing to update.",
     breadcrumbs: [
       { task: "Recover", description: "Verify the original source paths are still accessible." },
     ],
@@ -880,31 +951,43 @@ export const ErrorCodeCatalog = {
   UPDATE_SOURCE_INVALID_FQN: {
     code: "UPDATE_SOURCE_INVALID_FQN",
     category: "validation",
-    what: "Update source must be a registry FQN",
+    message: "Update source must be a registry FQN",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/update/resolve-root-update-intent.ts:86"],
   },
   UPDATE_SOURCE_NOT_FQN: {
     code: "UPDATE_SOURCE_NOT_FQN",
-    category: "internal",
-    what: "Root update only accepts registry FQNs",
+    category: "usage",
+    message: "Root update only accepts registry FQNs",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/update/resolve-root-update-intent.ts:61"],
   },
   UPDATE_SOURCE_UNKNOWN_TYPE: {
     code: "UPDATE_SOURCE_UNKNOWN_TYPE",
     category: "not_found",
-    what: "Update source uses an unsupported plural type",
+    message: "Update source uses an unsupported plural type",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/update/resolve-root-update-intent.ts:72"],
   },
   UPDATE_SOURCE_UNSUPPORTED_TYPE: {
     code: "UPDATE_SOURCE_UNSUPPORTED_TYPE",
-    category: "internal",
-    what: "Root update does not support that extension type",
+    category: "usage",
+    message: "Root update does not support that extension type",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/update/resolve-root-update-intent.ts:102"],
   },
   UPGRADE_DOWNLOAD_EMPTY: {
     code: "UPGRADE_DOWNLOAD_EMPTY",
-    category: "internal",
-    what: "Downloaded file is empty",
+    category: "validation",
+    message: "Downloaded file is empty",
     breadcrumbs: [
       { task: "Recover", description: "Try again. If the problem persists, download manually." },
     ],
@@ -912,8 +995,8 @@ export const ErrorCodeCatalog = {
   },
   UPGRADE_DOWNLOAD_FAILED: {
     code: "UPGRADE_DOWNLOAD_FAILED",
-    category: "internal",
-    what: "Failed to download update",
+    category: "network",
+    message: "Update download did not complete",
     breadcrumbs: [{ task: "Recover", description: "Check your network connection and try again." }],
     sources: [
       "packages/cli/src/root/upgrade/handler.ts:123",
@@ -923,14 +1006,14 @@ export const ErrorCodeCatalog = {
   UPGRADE_DOWNLOAD_TIMEOUT: {
     code: "UPGRADE_DOWNLOAD_TIMEOUT",
     category: "network",
-    what: "Download timed out",
+    message: "Download timed out",
     breadcrumbs: [{ task: "Recover", description: "Check your network connection and try again." }],
     sources: ["packages/cli/src/root/upgrade/handler.ts:92"],
   },
   UPGRADE_VERIFY_FAILED: {
     code: "UPGRADE_VERIFY_FAILED",
-    category: "internal",
-    what: "Failed to verify new binary",
+    category: "validation",
+    message: "Downloaded binary could not be verified",
     breadcrumbs: [
       {
         task: "Recover",
@@ -942,7 +1025,7 @@ export const ErrorCodeCatalog = {
   VERSION_RESOLUTION_INVALID_RESPONSE: {
     code: "VERSION_RESOLUTION_INVALID_RESPONSE",
     category: "validation",
-    what: "Failed to parse GitHub API response as JSON",
+    message: "GitHub API response was not valid JSON",
     breadcrumbs: [
       {
         task: "Recover",
@@ -957,14 +1040,14 @@ export const ErrorCodeCatalog = {
   VERSION_RESOLUTION_NETWORK_ERROR: {
     code: "VERSION_RESOLUTION_NETWORK_ERROR",
     category: "network",
-    what: "Failed to reach GitHub API",
+    message: "GitHub API is unreachable",
     breadcrumbs: [{ task: "Recover", description: "Check your network connection and try again." }],
     sources: ["packages/core/src/unstable/version-resolution/version-resolution.ts:84"],
   },
   VERSION_RESOLUTION_NO_CLI_RELEASE: {
     code: "VERSION_RESOLUTION_NO_CLI_RELEASE",
-    category: "internal",
-    what: "No CLI release found on GitHub",
+    category: "not_found",
+    message: "No CLI release found on GitHub",
     breadcrumbs: [
       {
         task: "Recover",
@@ -977,7 +1060,10 @@ export const ErrorCodeCatalog = {
   VERSION_SET_TARGET_MISSING: {
     code: "VERSION_SET_TARGET_MISSING",
     category: "not_found",
-    what: "`set` requires an exact semver version",
+    message: "`set` requires an exact semver version",
+    breadcrumbs: [
+      { task: "Recover", description: "Review the message, adjust the input, and retry." },
+    ],
     sources: ["packages/cli/src/root/shared/version-command.ts:79"],
   },
 } as const;

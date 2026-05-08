@@ -261,7 +261,7 @@ describe("packs-add.handler", () => {
           const error = yield* handlePacksAdd(defaultArgs("my-pack", "nonexistent-*")).pipe(
             Effect.flip,
           );
-          expect(getAppError(error).what).toContain("No managed");
+          expect(getAppError(error).message).toContain("No managed");
         }),
       );
     });
@@ -284,7 +284,7 @@ describe("packs-add.handler", () => {
           const error = yield* handlePacksAdd(defaultArgs("my-pack", "local-skill")).pipe(
             Effect.flip,
           );
-          expect(getAppError(error).what).toContain("not a managed");
+          expect(getAppError(error).message).toContain("not a managed");
         }),
       );
     });
@@ -300,7 +300,7 @@ describe("packs-add.handler", () => {
           const error = yield* handlePacksAdd(defaultArgs("nonexistent-pack", "some-ext")).pipe(
             Effect.flip,
           );
-          expect(getAppError(error).what).toContain("not found");
+          expect(getAppError(error).message).toContain("not found");
         }),
       );
     });

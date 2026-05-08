@@ -9,9 +9,9 @@
   },
   "devDependencies": {
     "@agentxm/client-e2e-utils": "workspace:*",
-    "fflate": "^0.8.2",
+    "fflate": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "yaml": "^2.8.2"
+    "yaml": "catalog:"
   }
 }

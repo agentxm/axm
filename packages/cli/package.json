@@ -66,15 +66,15 @@
     "@agentxm/client-utils": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
-    "gray-matter": "^4.0.3",
-    "semver": "^7.7.4",
-    "simple-git": "^3.33.0",
-    "yaml": "^2.8.3"
+    "gray-matter": "catalog:",
+    "semver": "catalog:",
+    "simple-git": "catalog:",
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
-    "@types/semver": "^7.5.8",
+    "@types/semver": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

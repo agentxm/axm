@@ -199,22 +199,22 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
-    "fflate": "^0.8.2",
-    "gray-matter": "^4.0.3",
+    "fflate": "catalog:",
+    "gray-matter": "catalog:",
     "jsonc-parser": "^3.3.1",
     "packageurl-js": "^2.0.1",
-    "semver": "^7.7.4",
-    "simple-git": "^3.33.0"
+    "semver": "catalog:",
+    "simple-git": "catalog:"
   },
   "devDependencies": {
     "@agentxm/client-utils": "workspace:^",
     "@effect/openapi-generator": "4.0.0-beta.50",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
-    "@types/semver": "^7.5.8",
+    "@types/semver": "catalog:",
     "swagger2openapi": "^7.0.8",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "yaml": "^2.8.2"
+    "yaml": "catalog:"
   }
 }

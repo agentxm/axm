@@ -138,7 +138,7 @@ describe("outputs commands", () => {
     const parsed = parseJsonOutput(result);
     expect(parsed).toEqual(
       expect.objectContaining({
-        command: "outputs.result",
+        ok: true,
         count: 1,
         data: expect.objectContaining({
           kind: "single",
@@ -157,7 +157,7 @@ describe("outputs commands", () => {
     const parsed = parseJsonOutput(result);
     expect(parsed).toEqual(
       expect.objectContaining({
-        command: "outputs.result",
+        ok: true,
         count: 3,
         data: expect.objectContaining({
           kind: "list",
@@ -183,7 +183,7 @@ describe("outputs commands", () => {
     const parsed = parseJsonOutput(result);
     expect(parsed).toEqual(
       expect.objectContaining({
-        command: "outputs.raw",
+        ok: true,
         data: expect.objectContaining({
           lines: ["Name: axm-spike", "Version: 0.0.1", "Pets: Mochi, Pickles, Juniper"],
         }),
@@ -197,7 +197,7 @@ describe("outputs commands", () => {
     const parsed = parseJsonOutput(result);
     expect(parsed).toEqual(
       expect.objectContaining({
-        command: "outputs.tree",
+        ok: true,
         data: expect.objectContaining({
           roots: expect.arrayContaining([
             expect.objectContaining({

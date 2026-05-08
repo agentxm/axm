@@ -14,6 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
 import type {
@@ -75,7 +76,15 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (
       args: UninstallCommandHandlerArgs,
     ): Effect.Effect<ParsedCommandUninstallArgs, AppError> =>
-      Effect.succeed({ commandName: args.commandName.trim() });
+      Effect.gen(function* () {
+        const commandName = yield* resolveInstalledIdentifierNameOrInput({
+          input: args.commandName.trim(),
+          resourceType: "command",
+        }).pipe(Effect.provideService(WorkspaceMutations, ws));
+        return {
+          commandName,
+        };
+      });
 
     const finalizeIntent = (
       parsed: ParsedCommandUninstallArgs,

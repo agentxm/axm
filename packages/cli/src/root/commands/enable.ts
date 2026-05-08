@@ -5,11 +5,8 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { EnableCommandOperation } from "@agentxm/client-core/unstable/commands";
 import { enableCommand as runEnableCommand } from "@agentxm/client-core/unstable/commands";
@@ -24,7 +21,7 @@ import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeAgentSection } from "./preview-sections.js";
 
 export interface EnableCommandHandlerArgs {
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -41,9 +38,14 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
 
   yield* renderer.info("axm commands enable");
 
+  const commandName = yield* resolveInstalledIdentifierNameOrInput({
+    input: args.name,
+    resourceType: "command",
+  });
+
   // Load installed commands (configured + implicit) from the read-model record projection.
   const installedCommands = yield* ws.records.getInstalledCommands();
-  const entry = installedCommands[args.name];
+  const entry = installedCommands[commandName];
 
   // Validate: command is installed (ignored names are excluded from installed)
   if (entry === undefined) {
@@ -59,19 +61,19 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
     if (
       yield* emitNoOpResult("commands.enable", {
         planName: "Enable command",
-        planDescription: `Enable ${args.name}`,
-        message: `Command '${args.name}' is already enabled`,
+        planDescription: `Enable ${commandName}`,
+        message: `Command '${commandName}' is already enabled`,
       })
     ) {
       return;
     }
 
-    yield* renderer.info(`Command '${args.name}' is already enabled`);
+    yield* renderer.info(`Command '${commandName}' is already enabled`);
     yield* renderer.success("Nothing to do.");
     return;
   }
 
-  const lockedEntry = yield* ws.getLockedCommand(args.name);
+  const lockedEntry = yield* ws.getLockedCommand(commandName);
   const configuredAgentIds = Option.isSome(lockedEntry) ? [] : yield* ws.getConfiguredAgents();
   const planSections = Option.isSome(lockedEntry)
     ? combinePlanSections(
@@ -92,13 +94,13 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   // Build operation
   const op = {
     name: "enable-command",
-    args: { commandName: args.name },
+    args: { commandName },
   } satisfies EnableCommandOperation;
 
   // Build plan with inline run closure
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.name,
+    label: commandName,
     run: runEnableCommand(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(WorkspaceMutations, ws),
@@ -111,7 +113,7 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   const plan: Plan = {
     _tag: "Plan",
     name: "Enable command",
-    description: Option.some(`Enable ${args.name}`),
+    description: Option.some(`Enable ${commandName}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
     ...(planSections === undefined ? {} : { sections: planSections }),
   };
@@ -144,7 +146,7 @@ export const enableCommand = Command.make(
   "enable",
   enableConfig,
   ({ name, scope, yes, force, preview }) =>
-    handleEnableCommand({ name: decodeExtensionNameSync(name), yes, force, preview }).pipe(
+    handleEnableCommand({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
       withRuntime("commands enable"),
     ),

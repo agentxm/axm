@@ -1,11 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-  type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+import { type ExtensionName, type Handle } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient, type RegistryClient } from "@agentxm/client-core/unstable/registry";
 import type {
   InputParseResult,
@@ -14,6 +10,7 @@ import type {
 } from "@agentxm/client-core/unstable/sources";
 import {
   resolveShorthandInputSource,
+  resolveIdentifier,
   resolveSlashInputSource,
   routeUrlInput,
 } from "@agentxm/client-core/unstable/source-resolution";
@@ -212,107 +209,89 @@ const resolveSubagentRegistrySourceByName = (
   resolutionOptions: Option.Option<ResolveSubagentInstallSourceOptions>,
 ) =>
   Effect.gen(function* () {
-    const extensionName = yield* Effect.try({
-      try: () => decodeExtensionNameSync(name),
-      catch: () =>
-        makeAppError({
-          code: "INVALID_SOURCE",
-          what: `Invalid subagent name: "${name}"`,
-          details: [`Provided: ${input}`],
-          howToFix:
-            "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
-        }),
-    });
-
     const ws = yield* WorkspaceMutations;
-    const maybeProfile = yield* ws.getConfiguredOwner();
-
-    if (Option.isNone(maybeProfile)) {
-      return yield* makeAppError({
-        code: "REGISTRY_SUBAGENT_NOT_FOUND",
-        what: `Subagent "${extensionName}" could not be looked up (no default owner)`,
-        details: [`Provided: ${input}`, `No default owner configured and not logged in`],
-        howToFix:
-          "Configure an owner in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @owner/subagents/name",
-      });
-    }
-    const owner = maybeProfile.value;
-
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
-        what: `Subagent "${owner}/${extensionName}" could not be looked up (no registry sources)`,
-        details: [
-          `Provided: ${input}`,
-          `Default owner: ${owner}`,
-          `No registry sources configured`,
-        ],
+        what: `Subagent "${name}" could not be looked up (no registry sources)`,
+        details: [`Provided: ${input}`, `No registry sources configured`],
         howToFix:
           "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
       });
     }
+    const maybeProfile = yield* ws.getConfiguredOwner();
 
-    const checked: string[] = [];
-    const issues: RegistryLookupIssue[] = [];
-    for (const reg of registryHosts) {
-      checked.push(reg.location.href);
-      const client = yield* createRegistryClient(reg.location.href);
-      const existsResult = yield* client
-        .extensionExists({ owner, type: "subagent", name: extensionName })
-        .pipe(Effect.result);
-      if (existsResult._tag === "Failure") {
-        if (Option.isSome(resolutionOptions)) {
-          resolutionOptions.value.onRegistryProbe({
-            location: reg.location.href,
-            outcome: "error",
-            reason: Option.some(summarizeLookupError(existsResult.failure)),
-          });
-        }
-        issues.push(toLookupIssue(reg.location, existsResult.failure));
-        continue;
-      }
-
-      if (existsResult.success.exists) {
-        if (Option.isSome(resolutionOptions)) {
-          resolutionOptions.value.onRegistryProbe({
-            location: reg.location.href,
-            outcome: "matched",
-            reason: Option.none<string>(),
-          });
-        }
-        return {
-          type: "registry" as const,
-          location: reg.location,
-          owner: Option.some(owner),
-        } satisfies RegistrySource;
-      }
-
-      if (Option.isSome(resolutionOptions)) {
-        resolutionOptions.value.onRegistryProbe({
-          location: reg.location.href,
-          outcome: "not-found",
-          reason: Option.none<string>(),
+    const resolved = yield* Effect.scoped(
+      resolveIdentifier({
+        input: name,
+        resourceType: "subagent",
+        scope: "registry",
+      }),
+    ).pipe(
+      Effect.mapError((error) => {
+        if (error.code !== "NOT_FOUND") return error;
+        const label = Option.match(maybeProfile, {
+          onNone: () => name,
+          onSome: (owner) => `${owner}/${name}`,
         });
-      }
+        return makeAppError({
+          code: "REGISTRY_SUBAGENT_NOT_FOUND",
+          what: Option.isNone(maybeProfile)
+            ? `Subagent "${name}" could not be looked up (no default owner)`
+            : `Subagent "${label}" was not found in configured registries`,
+          details: [
+            `Provided: ${input}`,
+            ...(Option.isNone(maybeProfile)
+              ? ["No default owner configured and not logged in"]
+              : [
+                  `Default owner: ${maybeProfile.value}`,
+                  `Checked registries: ${registryHosts.map((host) => host.location.href).join(", ")}`,
+                ]),
+          ],
+          howToFix:
+            "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
+          cause: error,
+        });
+      }),
+    );
+    const resolvedOwner = Option.getOrUndefined(resolved.owner);
+    if (resolvedOwner === undefined) {
+      return yield* makeAppError({
+        code: "REGISTRY_SUBAGENT_NOT_FOUND",
+        what: `Subagent "${name}" was not found in configured registries`,
+        details: [`Provided: ${input}`],
+        howToFix:
+          "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
+      });
     }
 
-    return yield* makeAppError({
-      code: "REGISTRY_SUBAGENT_NOT_FOUND",
-      what: `Subagent "${owner}/${extensionName}" was not found in configured registries`,
-      details: [
-        `Provided: ${input}`,
-        `Default owner: ${owner}`,
-        `Checked registries: ${checked.join(", ")}`,
-        ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
-      ],
-      howToFix: registryLookupHowToFix({
-        issues,
-        fallback:
-          "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
-      }),
-    });
+    const defaultRegistry = registryHosts[0];
+    if (defaultRegistry === undefined) {
+      return yield* makeAppError({
+        code: "REGISTRY_SUBAGENT_NOT_FOUND",
+        what: `Subagent "${name}" could not be looked up (no registry sources)`,
+        details: [`Provided: ${input}`, `No registry sources configured`],
+      });
+    }
+
+    if (Option.isSome(resolutionOptions)) {
+      resolutionOptions.value.onRegistryProbe({
+        location: Option.getOrElse(
+          Option.map(resolved.registryLocation, (location) => location.href),
+          () => defaultRegistry.location.href,
+        ),
+        outcome: "matched",
+        reason: Option.none<string>(),
+      });
+    }
+
+    return {
+      type: "registry" as const,
+      location: Option.getOrElse(resolved.registryLocation, () => defaultRegistry.location),
+      owner: Option.some(resolvedOwner),
+    } satisfies RegistrySource;
   });
 
 const resolveSubagentRegistrySource = (

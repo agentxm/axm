@@ -11,6 +11,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { installCommand as installCommandOp } from "@agentxm/client-core/unstable/commands";
 import {
   resolveSource,
+  resolveInstalledIdentifierNameOrInput,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -68,7 +69,14 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   }
 
   // Step 2: Filter by name if provided
-  const nameValue = Option.getOrUndefined(args.name);
+  const rawNameValue = Option.getOrUndefined(args.name);
+  const nameValue =
+    rawNameValue === undefined
+      ? undefined
+      : yield* resolveInstalledIdentifierNameOrInput({
+          input: rawNameValue,
+          resourceType: "command",
+        });
   const filteredEntries =
     nameValue !== undefined
       ? commandEntries.filter(([name]) => name === nameValue)

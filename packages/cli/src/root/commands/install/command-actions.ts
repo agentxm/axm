@@ -29,6 +29,7 @@ import type { VersionConstraint } from "@agentxm/client-core/unstable/version-co
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
+  resolveIdentifier,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -127,73 +128,91 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (
       args: InstallCommandHandlerArgs,
     ): Effect.Effect<ParsedCommandInstallArgs, AppError> =>
-      Effect.gen(function* () {
-        const trimmed = args.source.trim();
-        const parsed = parseRegistryInstallTarget(trimmed, {
-          expectedType: "command",
-          allowBareName: true,
-        });
+      provide(
+        Effect.gen(function* () {
+          const trimmed = args.source.trim();
+          const parsed = parseRegistryInstallTarget(trimmed, {
+            expectedType: "command",
+            allowBareName: true,
+          });
 
-        if (Result.isSuccess(parsed)) {
-          if (parsed.success.kind === "registry") {
+          if (Result.isSuccess(parsed)) {
+            if (parsed.success.kind === "registry") {
+              return {
+                owner: parsed.success.owner,
+                commandName: parsed.success.name,
+                versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
+                resolvedInput: trimmed,
+                force: false,
+              };
+            }
+
+            const resolvedResult = yield* Effect.result(
+              resolveIdentifier({
+                input: parsed.success.name,
+                resourceType: "command",
+                scope: "registry",
+              }),
+            );
+            if (Result.isFailure(resolvedResult)) {
+              if (resolvedResult.failure.code !== "NOT_FOUND") {
+                return yield* resolvedResult.failure;
+              }
+              const configuredOwner = yield* ws.getConfiguredOwner();
+              if (Option.isSome(configuredOwner)) {
+                return {
+                  owner: configuredOwner.value,
+                  commandName: parsed.success.name,
+                  versionConstraint: Option.none<VersionConstraint>(),
+                  resolvedInput: `${configuredOwner.value}/commands/${parsed.success.name}`,
+                  force: false,
+                };
+              }
+              return yield* resolvedResult.failure;
+            }
+            const resolved = resolvedResult.success;
+            const owner = Option.getOrUndefined(resolved.owner);
+            if (owner === undefined) {
+              return yield* makeAppError({
+                code: "COMMAND_NOT_FOUND",
+                what: `Command "${parsed.success.name}" not found in registry`,
+                howToFix: "Verify the command name, or use @owner/commands/command-name.",
+              });
+            }
             return {
-              owner: parsed.success.owner,
+              owner,
               commandName: parsed.success.name,
-              versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
-              resolvedInput: trimmed,
+              versionConstraint: Option.none<VersionConstraint>(),
+              resolvedInput: resolved.fqn,
               force: false,
             };
           }
 
-          const owner = yield* ws.getConfiguredOwner().pipe(
-            Effect.flatMap(
-              Option.match({
-                onNone: () =>
-                  Effect.fail(
-                    makeAppError({
-                      code: "OWNER_REQUIRED",
-                      what: `Cannot resolve bare command name "${parsed.success.name}" without a configured owner`,
-                      howToFix:
-                        "Use the fully-qualified `@owner/commands/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
-                    }),
-                  ),
-                onSome: Effect.succeed,
-              }),
-            ),
-          );
-          return {
-            owner,
-            commandName: parsed.success.name,
-            versionConstraint: Option.none<VersionConstraint>(),
-            resolvedInput: `${owner}/commands/${parsed.success.name}`,
-            force: false,
-          };
-        }
-
-        switch (parsed.failure.kind) {
-          case "wrong-type":
-            return yield* makeAppError({
-              code: "COMMAND_SOURCE_INVALID_FORMAT",
-              what: "Command source must include /commands/ segment",
-              details: [`Provided: ${trimmed}`],
-              howToFix: "Use @owner/commands/command-name format.",
-            });
-          case "missing-name":
-            return yield* makeAppError({
-              code: "COMMAND_SOURCE_MISSING_NAME",
-              what: "Command source must include a command name",
-              details: [`Provided: ${trimmed}`],
-              howToFix: "Use @owner/commands/command-name format.",
-            });
-          default:
-            return yield* makeAppError({
-              code: "COMMAND_SOURCE_NOT_REGISTRY",
-              what: "Commands can only be installed from a registry",
-              details: [`Provided: ${trimmed}`],
-              howToFix: "Use @owner/commands/command-name or just command-name.",
-            });
-        }
-      });
+          switch (parsed.failure.kind) {
+            case "wrong-type":
+              return yield* makeAppError({
+                code: "COMMAND_SOURCE_INVALID_FORMAT",
+                what: "Command source must include /commands/ segment",
+                details: [`Provided: ${trimmed}`],
+                howToFix: "Use @owner/commands/command-name format.",
+              });
+            case "missing-name":
+              return yield* makeAppError({
+                code: "COMMAND_SOURCE_MISSING_NAME",
+                what: "Command source must include a command name",
+                details: [`Provided: ${trimmed}`],
+                howToFix: "Use @owner/commands/command-name format.",
+              });
+            default:
+              return yield* makeAppError({
+                code: "COMMAND_SOURCE_NOT_REGISTRY",
+                what: "Commands can only be installed from a registry",
+                details: [`Provided: ${trimmed}`],
+                howToFix: "Use @owner/commands/command-name or just command-name.",
+              });
+          }
+        }),
+      );
 
     const resolveSourceRequests = (
       parsed: ParsedCommandInstallArgs,

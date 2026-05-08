@@ -4,6 +4,7 @@ import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
+  resolveInstalledIdentifierNameOrInput,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import * as Array from "effect/Array";
@@ -128,10 +129,18 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       : skillEntries;
 
   // Step 3: Filter by --skill glob patterns
+  const skillFilters = yield* Effect.forEach(args.skills, (skill) =>
+    skill.includes("*")
+      ? Effect.succeed(skill)
+      : resolveInstalledIdentifierNameOrInput({
+          input: skill,
+          resourceType: "skill",
+        }),
+  );
   const filteredEntries = (() => {
     if (args.skills.length === 0) return sourceFilteredEntries;
     const allNames = sourceFilteredEntries.map(([name]) => name);
-    const matchedNames = expandGlobs(args.skills, allNames);
+    const matchedNames = expandGlobs(skillFilters, allNames);
     const matchedSet = new Set(matchedNames);
     return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
   })();

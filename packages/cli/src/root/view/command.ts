@@ -18,10 +18,14 @@ const viewConfig = {
     Flag.withDescription("Target a specific named registry instead of the default"),
     Flag.optional,
   ),
+  type: Flag.choice("type", ["skill", "command", "subagent"] as const).pipe(
+    Flag.withDescription("Resource type for bare-name lookup"),
+    Flag.optional,
+  ),
 } as const;
 
-export const viewCommand = Command.make("view", viewConfig, ({ handle, field, registry }) =>
-  handleView({ handle, field, registry }).pipe(
+export const viewCommand = Command.make("view", viewConfig, ({ handle, field, registry, type }) =>
+  handleView({ handle, field, registry, type }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
     withAuthRuntime("view"),
   ),

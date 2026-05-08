@@ -84,6 +84,7 @@ export const copySkill: OperationHandler<
     if (ref.refType !== "git-hosted" && ref.refType !== "local") {
       return yield* makeAppError({
         code: "COPY_SKILL_UNSUPPORTED_SOURCE",
+        category: "internal",
         what: `copy-skill does not support ${ref.source.type} sources`,
       });
     }
@@ -94,6 +95,7 @@ export const copySkill: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "COPY_SKILL_FAILED",
+          category: "internal",
           what: `Failed to copy skill files to ${targetDir}`,
           cause: e,
         }),
@@ -114,6 +116,7 @@ export const copySkill: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "COPY_SKILL_MANIFEST_WRITE_FAILED",
+          category: "internal",
           what: `Failed to write manifest: ${manifestPath}`,
           cause: e,
         }),

@@ -140,7 +140,13 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   ownerExists: () => Effect.succeed({ exists: false }),
   getExtensionIndex: () => Effect.succeed(Option.none()),
   getExtensionPackage: () =>
-    Effect.fail(makeAppError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
+    Effect.fail(
+      makeAppError({
+        code: "REGISTRY_FETCH_FAILED",
+        category: "internal",
+        what: "not implemented",
+      }),
+    ),
   publishExtension: () => Effect.succeed({ published: true } as const),
   extensionExists: () => Effect.succeed({ exists: false }),
   discoverExtensions: () => Effect.succeed({ results: [], resolvedRecommendations: [] }),
@@ -152,6 +158,7 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        category: "internal",
         what: "remote registry not yet supported",
       }),
     ),
@@ -159,6 +166,7 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        category: "internal",
         what: "remote registry not yet supported",
       }),
     ),
@@ -166,6 +174,7 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        category: "internal",
         what: "remote registry not yet supported",
       }),
     ),
@@ -173,6 +182,7 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        category: "internal",
         what: "remote registry not yet supported",
       }),
     ),
@@ -180,6 +190,7 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        category: "internal",
         what: "remote registry not yet supported",
       }),
     ),
@@ -187,6 +198,7 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        category: "internal",
         what: "remote registry not yet supported",
       }),
     ),
@@ -194,6 +206,7 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        category: "internal",
         what: "remote registry not yet supported",
       }),
     ),

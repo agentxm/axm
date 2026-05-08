@@ -94,8 +94,11 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
         Effect.mapError((error) =>
           makeAppError({
             code: "AUTH_CREDENTIAL_STORE_FAILED",
+            category: "internal",
             what: `Failed to create credentials directory: ${dir}`,
-            howToFix: `Ensure you have write access to ~/.config/`,
+            breadcrumbs: [
+              { task: "Recover", description: `Ensure you have write access to ~/.config/` },
+            ],
             cause: error,
           }),
         ),
@@ -132,6 +135,7 @@ const readCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
+          category: "internal",
           what: "Failed to read credential file",
           cause: error,
         }),
@@ -143,9 +147,15 @@ const readCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
+          category: "internal",
           what: "Failed to parse credential file",
-          howToFix:
-            "The credential file may be corrupt. Delete it and re-authenticate with `axm login`.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "The credential file may be corrupt. Delete it and re-authenticate with `axm login`.",
+            },
+          ],
           cause: error,
         }),
       ),
@@ -170,6 +180,7 @@ const writeCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
+          category: "internal",
           what: "Failed to encode credential file",
           cause: error,
         }),
@@ -180,6 +191,7 @@ const writeCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
+          category: "internal",
           what: "Failed to write credential file",
           cause: error,
         }),
@@ -229,8 +241,14 @@ export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean =>
 export const makePersistedCredentialsUnsupportedError = () =>
   makeAppError({
     code: "AUTH_TOKEN_REQUIRED",
+    category: "internal",
     what: "Persisted credentials are disabled in CI and container environments.",
-    howToFix: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+    breadcrumbs: [
+      {
+        task: "Recover",
+        description: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+      },
+    ],
   });
 
 // -----------------------------------------------------------------------------

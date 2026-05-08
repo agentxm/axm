@@ -44,6 +44,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         Effect.mapError((error) =>
           makeAppError({
             code: "SOURCE_FETCH_FAILED",
+            category: "internal",
             what: `Failed to discover skills`,
             cause: error,
           }),
@@ -73,6 +74,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
       return Effect.fail(
         makeAppError({
           code: "SOURCE_FETCH_FAILED",
+          category: "internal",
           what: "Expected ref with location for local source, but none was provided",
         }),
       );

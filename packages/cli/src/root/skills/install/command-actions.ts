@@ -276,9 +276,15 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 if (Option.isNone(parsedSourceOption)) {
                   return yield* makeAppError({
                     code: "INVALID_SOURCE",
+                    category: "validation",
                     what: "Invalid source: Unable to parse source",
-                    howToFix:
-                      "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+                    breadcrumbs: [
+                      {
+                        task: "Recover",
+                        description:
+                          "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+                      },
+                    ],
                   });
                 }
 
@@ -348,6 +354,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             if (req === undefined) {
               return yield* makeAppError({
                 code: "DISCOVER_FAILED",
+                category: "internal",
                 what: "No source request to discover from",
               });
             }
@@ -369,8 +376,11 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                     Effect.mapError((error) => {
                       return makeAppError({
                         code: "DISCOVER_FAILED",
+                        category: "internal",
                         what: "Failed to discover skills from source",
-                        howToFix: discoverHowToFix(req.source, error),
+                        breadcrumbs: [
+                          { task: "Recover", description: discoverHowToFix(req.source, error) },
+                        ],
                         cause: error,
                       });
                     }),
@@ -380,8 +390,11 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                         : Effect.fail(
                             makeAppError({
                               code: "NO_SKILLS_FOUND",
+                              category: "internal",
                               what: "No skills found in source",
-                              howToFix: noSkillsFoundHowToFix(req.source),
+                              breadcrumbs: [
+                                { task: "Recover", description: noSkillsFoundHowToFix(req.source) },
+                              ],
                             }),
                           ),
                     ),
@@ -405,6 +418,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           if (firstDiscoveredRef === undefined) {
             return yield* makeAppError({
               code: "NO_SKILLS_FOUND",
+              category: "internal",
               what: "No skills found in source",
             });
           }

@@ -304,19 +304,20 @@ JSON errors use a fixed envelope:
 {
   "ok": false,
   "code": "AUTH_TOKEN_REQUIRED",
+  "category": "auth",
   "message": "No authentication token is available",
-  "howToFix": "Set AXM_TOKEN or run `axm auth login`.",
   "breadcrumbs": [
     { "task": "login", "description": "Authenticate", "command": ["axm", "auth", "login"] }
   ],
-  "exitCode": 1
+  "exitCode": 4
 }
 ```
 
 Rules:
 
 - use `ok: false` for error routing
-- include `howToFix` when available
+- include `category`
+- include `retryable` and `httpStatus` when known
 - include `breadcrumbs` for structured follow-up tasks when useful
 - include `exitCode`
 - emit a matching stderr `error` event in machine mode
@@ -358,7 +359,7 @@ Recommended stderr event shape:
 ```json
 {"type":"progress","phase":"download","percent":25,"message":"Downloading"}
 {"type":"log","level":"info","message":"Resolved 3 skills"}
-{"type":"error","code":"AUTH_TOKEN_REQUIRED","message":"No authentication token is available","exitCode":1}
+{"type":"error","code":"AUTH_TOKEN_REQUIRED","category":"auth","message":"No authentication token is available","exitCode":4}
 ```
 
 ---
@@ -383,7 +384,7 @@ commands.
 3. Convert read-only commands first: list, info, and whoami-style queries
 4. Convert mutating commands next with operation summary schemas
 5. Keep `--json` off commands until their contract passes the shipping gate
-6. Keep JSON error payloads aligned with `ok`, `code`, `message`, `howToFix`,
+6. Keep JSON error payloads aligned with `ok`, `code`, `category`, `message`,
    `breadcrumbs`, and `exitCode`
 7. Add help-level field documentation and machine-mode tests per command
 

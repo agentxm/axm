@@ -247,7 +247,7 @@ describe("commands-publish.handler", () => {
 
           const error = getAppError(result);
           expect(error.what).toContain("local version 1.0.0 is not greater");
-          expect(Option.getOrThrow(error.howToFix)).toContain(
+          expect(error.breadcrumbs?.[0]?.description ?? "").toContain(
             "axm commands version @test/commands/stale-cmd patch",
           );
         }),
@@ -428,13 +428,15 @@ describe("commands-publish.handler", () => {
               Effect.succeed({
                 error: true,
                 what: e.what,
-                howToFix: Option.getOrElse(e.howToFix, () => ""),
+                guidance: (e.breadcrumbs ?? [])
+                  .map((breadcrumb) => breadcrumb.description)
+                  .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.what).toContain("Managed extension not found");
-          expect(errorResult.howToFix).toContain("axm commands new");
+          expect(errorResult.guidance).toContain("axm commands new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),

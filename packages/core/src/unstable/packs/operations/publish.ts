@@ -83,6 +83,7 @@ export const publishExtensionPack: OperationHandler<
     if (!packDirExists) {
       return yield* makeAppError({
         code: "PUBLISH_PACK_NOT_FOUND",
+        category: "not_found",
         what: `Managed extension pack not found: ${packDir}`,
       });
     }
@@ -93,6 +94,7 @@ export const publishExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_PACK_MANIFEST_READ_FAILED",
+          category: "internal",
           what: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -107,6 +109,7 @@ export const publishExtensionPack: OperationHandler<
       catch: (e) =>
         makeAppError({
           code: "PUBLISH_PACK_MANIFEST_PARSE_FAILED",
+          category: "validation",
           what: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -118,6 +121,7 @@ export const publishExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_PACK_MANIFEST_SCHEMA_INVALID",
+          category: "validation",
           what: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
@@ -135,6 +139,7 @@ export const publishExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_PACK_REGISTRY_LOOKUP_FAILED",
+          category: "internal",
           what: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
@@ -144,6 +149,7 @@ export const publishExtensionPack: OperationHandler<
     if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
       return yield* makeAppError({
         code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
+        category: "not_found",
         what: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
@@ -191,6 +197,7 @@ export const publishExtensionPack: OperationHandler<
         Effect.mapError((e) =>
           makeAppError({
             code: "PUBLISH_PACK_PUBLISH_FAILED",
+            category: "internal",
             what: "Failed to publish to registry",
             cause: e,
           }),

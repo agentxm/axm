@@ -43,7 +43,14 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
 
   const authClientLayer = AuthClientTest({
     revokeToken: opts?.revokeFails
-      ? () => Effect.fail(makeAppError({ code: "AUTH_REVOKE_FAILED", what: "Revoke failed" }))
+      ? () =>
+          Effect.fail(
+            makeAppError({
+              code: "AUTH_REVOKE_FAILED",
+              category: "internal",
+              what: "Revoke failed",
+            }),
+          )
       : () => Effect.void,
   });
 

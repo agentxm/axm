@@ -48,6 +48,7 @@ const mapGitError =
 
     return makeAppError({
       code: operationToCode[operation],
+      category: "internal",
       what: baseMessage,
       cause: error,
     });

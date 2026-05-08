@@ -399,13 +399,15 @@ describe("publish.handler", () => {
               Effect.succeed({
                 error: true,
                 what: e.what,
-                howToFix: Option.getOrElse(e.howToFix, () => ""),
+                guidance: (e.breadcrumbs ?? [])
+                  .map((breadcrumb) => breadcrumb.description)
+                  .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.what).toContain("Managed extension not found");
-          expect(errorResult.howToFix).toContain("axm skills new");
+          expect(errorResult.guidance).toContain("axm skills new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),

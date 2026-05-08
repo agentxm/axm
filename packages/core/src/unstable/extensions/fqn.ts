@@ -25,9 +25,15 @@ export const parseFqn = (input: string) =>
     if (parsed === undefined) {
       return yield* makeAppError({
         code: "INVALID_FQN",
+        category: "validation",
         what: `Invalid fully qualified name: ${input}`,
-        howToFix:
-          "Use the 3-segment format: @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Use the 3-segment format: @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name",
+          },
+        ],
       });
     }
     return parsed;

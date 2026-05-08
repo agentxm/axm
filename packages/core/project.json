@@ -21,6 +21,23 @@
         "cwd": "packages/core"
       }
     },
+    "gen-error-catalog": {
+      "cache": true,
+      "inputs": [
+        "production",
+        "{workspaceRoot}/packages/*/src/**/*.test.ts",
+        "{workspaceRoot}/scripts/generate-error-catalog.ts"
+      ],
+      "outputs": [
+        "{workspaceRoot}/docs/error-codes.md",
+        "{projectRoot}/src/unstable/app-error/__generated__/catalog.ts"
+      ],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/generate-error-catalog.ts",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "build": {
       "cache": true,
       "dependsOn": ["generate-schemas", "^build"],

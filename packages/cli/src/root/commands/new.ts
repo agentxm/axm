@@ -61,8 +61,14 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   ) {
     return yield* makeAppError({
       code: "COMMAND_NAME_INVALID",
+      category: "validation",
       what: `Invalid command name: "${args.name}"`,
-      howToFix: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
+        },
+      ],
     });
   }
 
@@ -83,8 +89,14 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   if (dirExists) {
     return yield* makeAppError({
       code: "COMMAND_DIR_EXISTS",
+      category: "conflict",
       what: `Managed command directory already exists: ${targetDir}`,
-      howToFix: "Choose a different name or remove the existing directory first",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Choose a different name or remove the existing directory first",
+        },
+      ],
     });
   }
 

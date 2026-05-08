@@ -82,8 +82,11 @@ export const parseSubagentMd = (
     if (parsed.frontmatter === undefined) {
       return yield* makeAppError({
         code: "SUBAGENT_FRONTMATTER_MISSING",
+        category: "not_found",
         what: `Missing subagent frontmatter for "${expectedName}"`,
-        howToFix: `Add YAML frontmatter with name: ${expectedName}.`,
+        breadcrumbs: [
+          { task: "Recover", description: `Add YAML frontmatter with name: ${expectedName}.` },
+        ],
       });
     }
 
@@ -92,8 +95,11 @@ export const parseSubagentMd = (
       catch: (error) =>
         makeAppError({
           code: "SUBAGENT_FRONTMATTER_INVALID",
+          category: "validation",
           what: "Invalid subagent frontmatter",
-          howToFix: "Frontmatter must include a string `name` field.",
+          breadcrumbs: [
+            { task: "Recover", description: "Frontmatter must include a string `name` field." },
+          ],
           cause: error,
         }),
     });
@@ -101,8 +107,11 @@ export const parseSubagentMd = (
     if (!isPlainObject(parsed.frontmatter)) {
       return yield* makeAppError({
         code: "SUBAGENT_FRONTMATTER_INVALID",
+        category: "validation",
         what: "Subagent frontmatter must be a YAML mapping",
-        howToFix: `Add YAML frontmatter with name: ${expectedName}.`,
+        breadcrumbs: [
+          { task: "Recover", description: `Add YAML frontmatter with name: ${expectedName}.` },
+        ],
       });
     }
 
@@ -112,8 +121,14 @@ export const parseSubagentMd = (
     if (name !== expectedName) {
       return yield* makeAppError({
         code: "SUBAGENT_NAME_MISMATCH",
+        category: "internal",
         what: `Subagent frontmatter name "${String(name)}" does not match expected name "${expectedName}"`,
-        howToFix: `Set subagent.json name, frontmatter name, and filename to ${expectedName}.`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Set subagent.json name, frontmatter name, and filename to ${expectedName}.`,
+          },
+        ],
       });
     }
 

@@ -123,8 +123,14 @@ export const enableSubagent: OperationHandler<
     if (!exists) {
       return yield* makeAppError({
         code: "ENABLE_SUBAGENT_MISSING_FILES",
+        category: "not_found",
         what: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
-        howToFix: "Try reinstalling the subagent with `axm subagents install`",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: "Try reinstalling the subagent with `axm subagents install`",
+          },
+        ],
       });
     }
 
@@ -135,8 +141,14 @@ export const enableSubagent: OperationHandler<
       Effect.mapError((error) =>
         makeAppError({
           code: "SUBAGENT_CONTENT_READ_FAILED",
+          category: "internal",
           what: `Failed to read ${expectedFilename} from ${paths.subagentSrcPath}`,
-          howToFix: `Ensure the subagent content file exists at ${contentPath}.`,
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: `Ensure the subagent content file exists at ${contentPath}.`,
+            },
+          ],
           cause: error,
         }),
       ),

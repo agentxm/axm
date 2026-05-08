@@ -175,8 +175,14 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             if (owner === undefined) {
               return yield* makeAppError({
                 code: "COMMAND_NOT_FOUND",
+                category: "not_found",
                 what: `Command "${parsed.success.name}" not found in registry`,
-                howToFix: "Verify the command name, or use @owner/commands/command-name.",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: "Verify the command name, or use @owner/commands/command-name.",
+                  },
+                ],
               });
             }
             return {
@@ -192,20 +198,32 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             case "wrong-type":
               return yield* makeAppError({
                 code: "COMMAND_SOURCE_INVALID_FORMAT",
+                category: "validation",
                 what: "Command source must include /commands/ segment",
-                howToFix: "Use @owner/commands/command-name format.",
+                breadcrumbs: [
+                  { task: "Recover", description: "Use @owner/commands/command-name format." },
+                ],
               });
             case "missing-name":
               return yield* makeAppError({
                 code: "COMMAND_SOURCE_MISSING_NAME",
+                category: "not_found",
                 what: "Command source must include a command name",
-                howToFix: "Use @owner/commands/command-name format.",
+                breadcrumbs: [
+                  { task: "Recover", description: "Use @owner/commands/command-name format." },
+                ],
               });
             default:
               return yield* makeAppError({
                 code: "COMMAND_SOURCE_NOT_REGISTRY",
+                category: "internal",
                 what: "Commands can only be installed from a registry",
-                howToFix: "Use @owner/commands/command-name or just command-name.",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: "Use @owner/commands/command-name or just command-name.",
+                  },
+                ],
               });
           }
         }),
@@ -220,8 +238,14 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             Effect.mapError((error) =>
               makeAppError({
                 code: "INVALID_SOURCE",
+                category: "validation",
                 what: `Invalid source: ${error.message}`,
-                howToFix: "Use @owner/commands/command-name or just command-name.",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: "Use @owner/commands/command-name or just command-name.",
+                  },
+                ],
                 cause: error,
               }),
             ),
@@ -230,8 +254,14 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           if (source.type !== "registry") {
             return yield* makeAppError({
               code: "COMMAND_SOURCE_NOT_REGISTRY",
+              category: "internal",
               what: "Commands can only be installed from a registry",
-              howToFix: "Use a registry source: @owner/commands/command-name",
+              breadcrumbs: [
+                {
+                  task: "Recover",
+                  description: "Use a registry source: @owner/commands/command-name",
+                },
+              ],
             });
           }
 
@@ -265,8 +295,14 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                   Effect.mapError((error) =>
                     makeAppError({
                       code: "COMMAND_FETCH_FAILED",
+                      category: "internal",
                       what: "Failed to fetch command from registry",
-                      howToFix: "Verify the command name and registry configuration.",
+                      breadcrumbs: [
+                        {
+                          task: "Recover",
+                          description: "Verify the command name and registry configuration.",
+                        },
+                      ],
                       cause: error,
                     }),
                   ),
@@ -285,16 +321,28 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         if (refs.length === 0) {
           return yield* makeAppError({
             code: "COMMAND_NOT_FOUND",
+            category: "not_found",
             what: `Command "${parsed.commandName}" not found in registry`,
-            howToFix: "Verify the command name and check available commands.",
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description: "Verify the command name and check available commands.",
+              },
+            ],
           });
         }
         const [ref] = refs;
         if (ref === undefined) {
           return yield* makeAppError({
             code: "COMMAND_NOT_FOUND",
+            category: "not_found",
             what: `Command "${parsed.commandName}" not found in registry`,
-            howToFix: "Verify the command name and check available commands.",
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description: "Verify the command name and check available commands.",
+              },
+            ],
           });
         }
         return {

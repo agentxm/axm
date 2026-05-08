@@ -133,8 +133,14 @@ const isRetryableDevicePollError = (
 const makeTransientDevicePollAppError = (cause: unknown) =>
   makeAppError({
     code: "AUTH_LOGIN_FAILED",
+    category: "internal",
     what: "Lost connection to the registry during login",
-    howToFix: "Verify the registry is running and reachable, then try `axm login` again.",
+    breadcrumbs: [
+      {
+        task: "Recover",
+        description: "Verify the registry is running and reachable, then try `axm login` again.",
+      },
+    ],
     cause,
   });
 
@@ -206,8 +212,9 @@ const pollOnceInternal = (
               return Effect.fail(
                 makeAppError({
                   code: "AUTH_LOGIN_FAILED",
+                  category: "internal",
                   what: "Device token exchange failed with an unexpected error",
-                  howToFix: "Try running `axm login` again.",
+                  breadcrumbs: [{ task: "Recover", description: "Try running `axm login` again." }],
                   cause: error,
                 }),
               );
@@ -221,8 +228,9 @@ const pollOnceInternal = (
         return Effect.fail(
           makeAppError({
             code: "AUTH_LOGIN_FAILED",
+            category: "internal",
             what: "Device token exchange failed with an unexpected error",
-            howToFix: "Try running `axm login` again.",
+            breadcrumbs: [{ task: "Recover", description: "Try running `axm login` again." }],
             cause: error,
           }),
         );
@@ -269,8 +277,14 @@ export const AuthClientLive = Layer.effect(
           Effect.mapError((error) =>
             makeAppError({
               code: "AUTH_LOGIN_FAILED",
+              category: "internal",
               what: "Could not connect to the registry",
-              howToFix: "Verify the registry is running and reachable, then try again.",
+              breadcrumbs: [
+                {
+                  task: "Recover",
+                  description: "Verify the registry is running and reachable, then try again.",
+                },
+              ],
               cause: error,
             }),
           ),
@@ -306,14 +320,16 @@ export const AuthClientLive = Layer.effect(
           case "AccessDenied":
             return yield* makeAppError({
               code: "AUTH_LOGIN_CANCELLED",
+              category: "internal",
               what: "Login was denied or cancelled",
-              howToFix: "Run `axm login` to try again.",
+              breadcrumbs: [{ task: "Recover", description: "Run `axm login` to try again." }],
             });
           case "ExpiredToken":
             return yield* makeAppError({
               code: "AUTH_LOGIN_FAILED",
+              category: "internal",
               what: "Login code expired",
-              howToFix: "Run `axm login` to try again.",
+              breadcrumbs: [{ task: "Recover", description: "Run `axm login` to try again." }],
             });
         }
       }
@@ -333,8 +349,11 @@ export const AuthClientLive = Layer.effect(
             Effect.mapError((error) =>
               makeAppError({
                 code: "AUTH_REFRESH_FAILED",
+                category: "internal",
                 what: "Token refresh request failed",
-                howToFix: "Run `axm login` to re-authenticate.",
+                breadcrumbs: [
+                  { task: "Recover", description: "Run `axm login` to re-authenticate." },
+                ],
                 cause: error,
               }),
             ),
@@ -377,16 +396,22 @@ export const AuthClientLive = Layer.effect(
             if (isRegistryClientError("AuthGetMe401")(error)) {
               return makeAppError({
                 code: "AUTH_UNAUTHENTICATED",
+                category: "auth",
                 what: "Not authenticated or token is invalid",
-                howToFix: "Run `axm login` to re-authenticate.",
+                breadcrumbs: [
+                  { task: "Recover", description: "Run `axm login` to re-authenticate." },
+                ],
                 cause: error,
               });
             }
             if (isRegistryClientError("AuthGetMe400")(error)) {
               return makeAppError({
                 code: "AUTH_UNAUTHENTICATED",
+                category: "auth",
                 what: "Not authenticated or token is invalid",
-                howToFix: "Run `axm login` to re-authenticate.",
+                breadcrumbs: [
+                  { task: "Recover", description: "Run `axm login` to re-authenticate." },
+                ],
                 cause: error,
               });
             }
@@ -396,15 +421,27 @@ export const AuthClientLive = Layer.effect(
             if (isAnyRegistryClientError(error) && hasTagSuffix(error, "5xx")) {
               return makeAppError({
                 code: "AUTH_SERVER_ERROR",
+                category: "internal",
                 what: "Registry returned server error",
-                howToFix: "The registry may be temporarily unavailable. Try again later.",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: "The registry may be temporarily unavailable. Try again later.",
+                  },
+                ],
                 cause: error,
               });
             }
             return makeAppError({
               code: "AUTH_UNAUTHENTICATED",
+              category: "auth",
               what: "Could not connect to the registry",
-              howToFix: "Verify the registry is running and reachable, then try again.",
+              breadcrumbs: [
+                {
+                  task: "Recover",
+                  description: "Verify the registry is running and reachable, then try again.",
+                },
+              ],
               cause: error,
             });
           }),
@@ -438,13 +475,37 @@ export const AuthClientLive = Layer.effect(
 export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
   Layer.succeed(AuthClient, {
     initiateDeviceFlow: () =>
-      Effect.fail(makeAppError({ code: "AUTH_LOGIN_FAILED", what: "Not implemented in test" })),
+      Effect.fail(
+        makeAppError({
+          code: "AUTH_LOGIN_FAILED",
+          category: "internal",
+          what: "Not implemented in test",
+        }),
+      ),
     pollDeviceToken: () =>
-      Effect.fail(makeAppError({ code: "AUTH_LOGIN_FAILED", what: "Not implemented in test" })),
+      Effect.fail(
+        makeAppError({
+          code: "AUTH_LOGIN_FAILED",
+          category: "internal",
+          what: "Not implemented in test",
+        }),
+      ),
     refreshToken: () =>
-      Effect.fail(makeAppError({ code: "AUTH_REFRESH_FAILED", what: "Not implemented in test" })),
+      Effect.fail(
+        makeAppError({
+          code: "AUTH_REFRESH_FAILED",
+          category: "internal",
+          what: "Not implemented in test",
+        }),
+      ),
     revokeToken: () => Effect.void,
     getMe: () =>
-      Effect.fail(makeAppError({ code: "AUTH_UNAUTHENTICATED", what: "Not implemented in test" })),
+      Effect.fail(
+        makeAppError({
+          code: "AUTH_UNAUTHENTICATED",
+          category: "auth",
+          what: "Not implemented in test",
+        }),
+      ),
     ...overrides,
   } satisfies AuthClientService);

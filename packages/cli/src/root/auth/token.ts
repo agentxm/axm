@@ -26,8 +26,14 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   const token = yield* resolveRequiredToken(registryUrl, {
     missingTokenError: makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
+      category: "internal",
       what: "No token available",
-      howToFix: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+        },
+      ],
     }),
   });
 

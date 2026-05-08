@@ -104,6 +104,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             Effect.mapError((error) =>
               makeAppError({
                 code: "INVALID_SOURCE",
+                category: "validation",
                 what: `Invalid source: ${error.message}`,
                 cause: error,
               }),
@@ -229,8 +230,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       if (latestVersion === undefined) {
         return yield* makeAppError({
           code: "UPDATE_SOURCE_EMPTY",
+          category: "internal",
           what: `Registry skill "${skillFqn}" has no published versions`,
-          howToFix: "Publish a version before running `axm skills update`.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: "Publish a version before running `axm skills update`.",
+            },
+          ],
         });
       }
 
@@ -242,8 +249,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         });
         return yield* makeAppError({
           code: "UPDATE_CONSTRAINT_UNSATISFIABLE",
+          category: "internal",
           what: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
-          howToFix: "Relax the version constraint or update the dependent pack constraints.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: "Relax the version constraint or update the dependent pack constraints.",
+            },
+          ],
         });
       }
 
@@ -261,8 +274,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       if (exactRef === undefined) {
         return yield* makeAppError({
           code: "UPDATE_RESOLUTION_FAILED",
+          category: "internal",
           what: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
-          howToFix: "Verify the registry index and package metadata are consistent.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: "Verify the registry index and package metadata are consistent.",
+            },
+          ],
         });
       }
 
@@ -287,9 +306,15 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       catch: () =>
         makeAppError({
           code: "INVALID_SOURCE",
+          category: "validation",
           what: `Configured skill name "${name}" is invalid`,
-          howToFix:
-            "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
+            },
+          ],
         }),
     });
 
@@ -368,8 +393,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   if (resolved.length === 0) {
     return yield* makeAppError({
       code: "UPDATE_FAILED",
+      category: "internal",
       what: "All source re-resolutions failed. Nothing to update.",
-      howToFix: "Verify the original source paths are still accessible.",
+      breadcrumbs: [
+        { task: "Recover", description: "Verify the original source paths are still accessible." },
+      ],
     });
   }
 

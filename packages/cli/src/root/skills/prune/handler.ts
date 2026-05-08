@@ -100,8 +100,9 @@ export const removeArtifacts = Effect.fn("SkillsPrune.remove")(function* (
       Effect.mapError((platformError) =>
         makeAppError({
           code: "PRUNE_REMOVE_FAILED",
+          category: "internal",
           what: `Failed to remove artifact at ${artifact.location}`,
-          howToFix: "Check file permissions and try again.",
+          breadcrumbs: [{ task: "Recover", description: "Check file permissions and try again." }],
           cause: platformError,
         }),
       ),

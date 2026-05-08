@@ -73,6 +73,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_SOURCES_FAILED",
+          category: "internal",
           what: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
@@ -83,8 +84,9 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
+        category: "internal",
         what: "No registry sources configured",
-        howToFix: "Run `axm setup` first.",
+        breadcrumbs: [{ task: "Recover", description: "Run `axm setup` first." }],
       });
     }
 
@@ -99,6 +101,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "VIEW_REGISTRY_LOOKUP_FAILED",
+          category: "internal",
           what: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
@@ -108,6 +111,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
         code: "VIEW_REGISTRY_NOT_FOUND",
+        category: "not_found",
         what: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
@@ -137,8 +141,14 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
       if (owner === undefined) {
         return yield* makeAppError({
           code: "VIEW_INVALID_HANDLE",
+          category: "validation",
           what: `Extension "${handle}" does not have a registry owner`,
-          howToFix: "Use a fully-qualified registry handle like @owner/skills/name.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: "Use a fully-qualified registry handle like @owner/skills/name.",
+            },
+          ],
         });
       }
       return {
@@ -153,9 +163,15 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
     if (owner === undefined) {
       return yield* makeAppError({
         code: "VIEW_INVALID_HANDLE",
+        category: "validation",
         what: `Invalid extension handle: ${handle}`,
-        howToFix:
-          "Use a fully-qualified handle like @owner/skills/name, or pass --type for a bare name.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Use a fully-qualified handle like @owner/skills/name, or pass --type for a bare name.",
+          },
+        ],
       });
     }
     return { owner, type: resolved.type, name: resolved.name };
@@ -188,15 +204,24 @@ const resolveBareViewHandle = (handle: string) =>
     if (matches.length > 1) {
       return yield* makeAppError({
         code: "AMBIGUOUS_IDENTIFIER",
+        category: "internal",
         what: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
-        howToFix: "Re-run with --type or the fully-qualified name.",
+        breadcrumbs: [
+          { task: "Recover", description: "Re-run with --type or the fully-qualified name." },
+        ],
       });
     }
 
     return yield* makeAppError({
       code: "NOT_FOUND",
+      category: "not_found",
       what: `No extension named "${handle}" was found`,
-      howToFix: "Check the name, pass --type, or use a fully-qualified name.",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Check the name, pass --type, or use a fully-qualified name.",
+        },
+      ],
     });
   });
 
@@ -261,8 +286,14 @@ export const handleView = (args: ViewHandlerArgs) =>
     if (Option.isNone(indexOption)) {
       return yield* makeAppError({
         code: "VIEW_EXTENSION_NOT_FOUND",
+        category: "not_found",
         what: `Extension ${args.handle} not found on registry "${targetRegistry.registryName}".`,
-        howToFix: `If this extension is private, run "axm login" and try again.`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `If this extension is private, run "axm login" and try again.`,
+          },
+        ],
       });
     }
 
@@ -273,6 +304,7 @@ export const handleView = (args: ViewHandlerArgs) =>
       if (!isSupportedField(field)) {
         return yield* makeAppError({
           code: "VIEW_UNKNOWN_FIELD",
+          category: "not_found",
           what: `Unknown view field: ${field}`,
         });
       }
@@ -280,6 +312,7 @@ export const handleView = (args: ViewHandlerArgs) =>
       if (value === undefined) {
         return yield* makeAppError({
           code: "VIEW_FIELD_EMPTY",
+          category: "internal",
           what: `Field "${field}" is not available for ${data.handle}`,
         });
       }

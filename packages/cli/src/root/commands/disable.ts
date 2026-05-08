@@ -55,8 +55,11 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   if (installedEntry === undefined) {
     return yield* makeAppError({
       code: "COMMAND_NOT_FOUND",
+      category: "not_found",
       what: `Command '${args.name}' is not installed`,
-      howToFix: "Run `axm commands list` to see available commands",
+      breadcrumbs: [
+        { task: "Recover", description: "Run `axm commands list` to see available commands" },
+      ],
     });
   }
 

@@ -343,13 +343,15 @@ describe("packs unpack.handler", () => {
               Effect.succeed({
                 error: true,
                 what: e.what,
-                howToFix: Option.getOrElse(e.howToFix, () => ""),
+                guidance: (e.breadcrumbs ?? [])
+                  .map((breadcrumb) => breadcrumb.description)
+                  .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.what).toContain("not installed");
-          expect(errorResult.howToFix).toContain("axm packs install");
+          expect(errorResult.guidance).toContain("axm packs install");
           expect(rendererState.spinnerMessages).toContain("Checking pack...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),

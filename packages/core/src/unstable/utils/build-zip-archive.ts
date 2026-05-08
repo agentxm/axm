@@ -23,8 +23,14 @@ const requireBinary = (name: string, errorCode: string) =>
     catch: () =>
       makeAppError({
         code: errorCode,
+        category: "internal",
         what: `Required system command "${name}" not found`,
-        howToFix: `Install "${name}" and ensure it is available on your PATH.`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Install "${name}" and ensure it is available on your PATH.`,
+          },
+        ],
       }),
   });
 
@@ -71,6 +77,7 @@ export const buildZipArchive = (dir: string, errorCode: string) =>
       catch: (e) =>
         makeAppError({
           code: errorCode,
+          category: "internal",
           what: "Failed to build zip archive",
           cause: e,
         }),

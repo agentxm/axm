@@ -119,6 +119,7 @@ describe("toPlanResolutionResult", () => {
                 message: "Version already exists",
                 error: makeAppError({
                   code: "PUBLISH_EXISTS",
+                  category: "conflict",
                   what: "Version already exists",
                 }),
               },
@@ -135,6 +136,7 @@ describe("toPlanResolutionResult", () => {
                 message: "blocked by earlier job failure",
                 error: makeAppError({
                   code: "PLAN_STEP_BLOCKED",
+                  category: "conflict",
                   what: "blocked by earlier job failure",
                 }),
               },
@@ -275,7 +277,7 @@ describe("planResolutionToSummary", () => {
               result: {
                 result: "error",
                 message: "failed",
-                error: makeAppError({ code: "FAIL", what: "failed" }),
+                error: makeAppError({ code: "FAIL", category: "internal", what: "failed" }),
               },
             },
             {
@@ -283,7 +285,11 @@ describe("planResolutionToSummary", () => {
               result: {
                 result: "error",
                 message: "blocked",
-                error: makeAppError({ code: "PLAN_STEP_BLOCKED", what: "blocked" }),
+                error: makeAppError({
+                  code: "PLAN_STEP_BLOCKED",
+                  category: "conflict",
+                  what: "blocked",
+                }),
               },
             },
           ],

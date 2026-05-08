@@ -53,7 +53,13 @@ export const makeAgentRepoMock = (
   get: (id) => {
     const found = agents.find((a) => a.id === id);
     if (found) return Effect.succeed(found);
-    return Effect.fail(makeAppError({ code: "AGENT_NOT_FOUND", what: `Agent ${id} not found` }));
+    return Effect.fail(
+      makeAppError({
+        code: "AGENT_NOT_FOUND",
+        category: "not_found",
+        what: `Agent ${id} not found`,
+      }),
+    );
   },
   all: Effect.succeed(agents),
   getConfiguredAgents: () => Effect.succeed(agents),

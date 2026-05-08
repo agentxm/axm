@@ -76,8 +76,14 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   ) {
     return yield* makeAppError({
       code: "SUBAGENT_NAME_INVALID",
+      category: "validation",
       what: `Invalid subagent name: "${args.name}"`,
-      howToFix: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
+        },
+      ],
     });
   }
 
@@ -86,8 +92,15 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   if (Option.isSome(existingSubagent) && !args.force) {
     return yield* makeAppError({
       code: "SUBAGENT_ALREADY_EXISTS",
+      category: "conflict",
       what: `Subagent '${args.name}' already exists`,
-      howToFix: "Choose a different name, remove the existing subagent first, or use --force",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description:
+            "Choose a different name, remove the existing subagent first, or use --force",
+        },
+      ],
     });
   }
 
@@ -117,6 +130,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         Effect.mapError((e) =>
           makeAppError({
             code: "SUBAGENT_CREATE_FAILED",
+            category: "internal",
             what: `Failed to create subagent directory: ${subagentSrcPath}`,
             cause: e,
           }),
@@ -141,6 +155,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
           Effect.mapError((e) =>
             makeAppError({
               code: "SUBAGENT_CREATE_FAILED",
+              category: "internal",
               what: `Failed to write subagent manifest`,
               cause: e,
             }),
@@ -160,6 +175,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
           Effect.mapError((e) =>
             makeAppError({
               code: "SUBAGENT_CREATE_FAILED",
+              category: "internal",
               what: `Failed to write ${contentFilename}`,
               cause: e,
             }),

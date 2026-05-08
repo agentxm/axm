@@ -156,7 +156,10 @@ describe("runUninstallCommandWorkflow", () => {
   it.effect("propagates parseArgs failure", () =>
     Effect.gen(function* () {
       const actions: UninstallExtensionCommandWorkflowActions<TestArgs, TestParsed, TestIntent> = {
-        parseArgs: () => Effect.fail(makeAppError({ code: "PARSE_FAILED", what: "bad args" })),
+        parseArgs: () =>
+          Effect.fail(
+            makeAppError({ code: "PARSE_FAILED", category: "validation", what: "bad args" }),
+          ),
         finalizeIntent: () => Effect.succeed({ targets: [] }),
         buildUninstallPlan: () =>
           Effect.succeed({
@@ -182,7 +185,9 @@ describe("runUninstallCommandWorkflow", () => {
         parseArgs: () => Effect.succeed({ parsedNames: ["x"] }),
         finalizeIntent: () => Effect.succeed({ targets: ["x"] }),
         buildUninstallPlan: () =>
-          Effect.fail(makeAppError({ code: "PLAN_FAILED", what: "plan error" })),
+          Effect.fail(
+            makeAppError({ code: "PLAN_FAILED", category: "internal", what: "plan error" }),
+          ),
       };
 
       const exit = yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
@@ -202,7 +207,9 @@ describe("runUninstallCommandWorkflow", () => {
         parseArgs: () => Effect.succeed({ parsedNames: ["x"] }),
         finalizeIntent: () => {
           callOrder.push("finalizeIntent");
-          return Effect.fail(makeAppError({ code: "INTENT_FAILED", what: "intent error" }));
+          return Effect.fail(
+            makeAppError({ code: "INTENT_FAILED", category: "internal", what: "intent error" }),
+          );
         },
         buildUninstallPlan: () => {
           callOrder.push("buildUninstallPlan");

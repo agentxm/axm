@@ -104,8 +104,14 @@ const resolveRegistrySource = (
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
+          category: "internal",
           what: `Failed to read configured registry sources for owner "${owner}"`,
-          howToFix: "Check that your workspace settings file is valid and accessible",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: "Check that your workspace settings file is valid and accessible",
+            },
+          ],
           cause: e,
         }),
       ),
@@ -114,8 +120,14 @@ const resolveRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
+        category: "internal",
         what: `No registry source is configured for owner "${owner}"`,
-        howToFix: `Add a registry source for owner "${owner}" using "axm sources add"`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Add a registry source for owner "${owner}" using "axm sources add"`,
+          },
+        ],
       });
     }
 
@@ -170,22 +182,34 @@ const resolveRegistrySource = (
       const subagentName = options.subagentName.value;
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
+        category: "not_found",
         what: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
-        howToFix: registryLookupHowToFix({
-          issues,
-          fallback:
-            "Verify the owner/subagent name, or install with an explicit source like github:owner/repo",
-        }),
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: registryLookupHowToFix({
+              issues,
+              fallback:
+                "Verify the owner/subagent name, or install with an explicit source like github:owner/repo",
+            }),
+          },
+        ],
       });
     }
 
     return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
+      category: "not_found",
       what: `None of the configured registry sources contain owner "${owner}"`,
-      howToFix: registryLookupHowToFix({
-        issues,
-        fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
-      }),
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: registryLookupHowToFix({
+            issues,
+            fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
+          }),
+        },
+      ],
     });
   });
 
@@ -201,9 +225,15 @@ const resolveSubagentRegistrySourceByName = (
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
+        category: "not_found",
         what: `Subagent "${name}" could not be looked up (no registry sources)`,
-        howToFix:
-          "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
+          },
+        ],
       });
     }
     const maybeProfile = yield* ws.getConfiguredOwner();
@@ -223,11 +253,17 @@ const resolveSubagentRegistrySourceByName = (
         });
         return makeAppError({
           code: "REGISTRY_SUBAGENT_NOT_FOUND",
+          category: "not_found",
           what: Option.isNone(maybeProfile)
             ? `Subagent "${name}" could not be looked up (no default owner)`
             : `Subagent "${label}" was not found in configured registries`,
-          howToFix:
-            "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
+            },
+          ],
           cause: error,
         });
       }),
@@ -236,9 +272,15 @@ const resolveSubagentRegistrySourceByName = (
     if (resolvedOwner === undefined) {
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
+        category: "not_found",
         what: `Subagent "${name}" was not found in configured registries`,
-        howToFix:
-          "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
+          },
+        ],
       });
     }
 
@@ -246,6 +288,7 @@ const resolveSubagentRegistrySourceByName = (
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "REGISTRY_SUBAGENT_NOT_FOUND",
+        category: "not_found",
         what: `Subagent "${name}" could not be looked up (no registry sources)`,
       });
     }
@@ -277,8 +320,14 @@ const resolveSubagentRegistrySource = (
     if (Option.isSome(pattern.type) && pattern.type.value !== "subagents") {
       return yield* makeAppError({
         code: "SUBAGENT_INSTALL_WRONG_TYPE",
+        category: "internal",
         what: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
-        howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a subagent`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a subagent`,
+          },
+        ],
       });
     }
 
@@ -326,9 +375,15 @@ export const resolveSubagentInstallSource = (
       case "glob-input":
         return yield* makeAppError({
           code: "SUBAGENT_INSTALL_UNSUPPORTED_INPUT",
+          category: "internal",
           what: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
-          howToFix:
-            "Use a registry reference (e.g., @owner/subagents/name), a URL, or a shorthand (owner/repo) instead",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Use a registry reference (e.g., @owner/subagents/name), a URL, or a shorthand (owner/repo) instead",
+            },
+          ],
         });
     }
   });

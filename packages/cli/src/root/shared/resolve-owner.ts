@@ -12,9 +12,15 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 const makeOwnerRequiredError = (action: string): AppError =>
   makeAppError({
     code: "OWNER_REQUIRED",
+    category: "internal",
     what: `No owner configured for ${action}`,
-    howToFix:
-      "Set `owner` in `.axm/settings.json` (run `axm setup`), pass an explicit owner flag, or run `axm login`.",
+    breadcrumbs: [
+      {
+        task: "Recover",
+        description:
+          "Set `owner` in `.axm/settings.json` (run `axm setup`), pass an explicit owner flag, or run `axm login`.",
+      },
+    ],
   });
 
 /**

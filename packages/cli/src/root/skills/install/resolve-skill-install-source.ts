@@ -104,8 +104,14 @@ const resolveRegistrySource = (
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
+          category: "internal",
           what: `Failed to read configured registry sources for owner "${owner}"`,
-          howToFix: "Check that your workspace settings file is valid and accessible",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: "Check that your workspace settings file is valid and accessible",
+            },
+          ],
           cause: e,
         }),
       ),
@@ -114,8 +120,14 @@ const resolveRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
+        category: "internal",
         what: `No registry source is configured for owner "${owner}"`,
-        howToFix: `Add a registry source for owner "${owner}" using "axm sources add"`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Add a registry source for owner "${owner}" using "axm sources add"`,
+          },
+        ],
       });
     }
 
@@ -172,22 +184,34 @@ const resolveRegistrySource = (
       const skillName = options.skillName.value;
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
+        category: "not_found",
         what: `Skill "${owner}/${skillName}" was not found in configured registries`,
-        howToFix: registryLookupHowToFix({
-          issues,
-          fallback:
-            "Verify the owner/skill name, or install with an explicit source like github:owner/repo",
-        }),
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: registryLookupHowToFix({
+              issues,
+              fallback:
+                "Verify the owner/skill name, or install with an explicit source like github:owner/repo",
+            }),
+          },
+        ],
       });
     }
 
     return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
+      category: "not_found",
       what: `None of the configured registry sources contain owner "${owner}"`,
-      howToFix: registryLookupHowToFix({
-        issues,
-        fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
-      }),
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: registryLookupHowToFix({
+            issues,
+            fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
+          }),
+        },
+      ],
     });
   });
 
@@ -203,9 +227,15 @@ const resolveSkillRegistrySourceByName = (
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
+        category: "not_found",
         what: `Skill "${name}" could not be looked up (no registry sources)`,
-        howToFix:
-          "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
+          },
+        ],
       });
     }
     const maybeProfile = yield* ws.getConfiguredOwner();
@@ -225,11 +255,17 @@ const resolveSkillRegistrySourceByName = (
         });
         return makeAppError({
           code: "REGISTRY_SKILL_NOT_FOUND",
+          category: "not_found",
           what: Option.isNone(maybeProfile)
             ? `Skill "${name}" could not be looked up (no default owner)`
             : `Skill "${label}" was not found in configured registries`,
-          howToFix:
-            "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
+            },
+          ],
           cause: error,
         });
       }),
@@ -238,15 +274,22 @@ const resolveSkillRegistrySourceByName = (
     if (resolvedOwner === undefined) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
+        category: "not_found",
         what: `Skill "${name}" was not found in configured registries`,
-        howToFix:
-          "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
+          },
+        ],
       });
     }
     const defaultRegistry = registryHosts[0];
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
+        category: "not_found",
         what: `Skill "${name}" could not be looked up (no registry sources)`,
       });
     }
@@ -278,8 +321,14 @@ const resolveSkillRegistrySource = (
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
       return yield* makeAppError({
         code: "SKILL_INSTALL_WRONG_TYPE",
+        category: "internal",
         what: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
-        howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
+          },
+        ],
       });
     }
 
@@ -327,9 +376,15 @@ export const resolveSkillInstallSource = (
       case "glob-input":
         return yield* makeAppError({
           code: "SKILL_INSTALL_UNSUPPORTED_INPUT",
+          category: "internal",
           what: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
-          howToFix:
-            "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",
+            },
+          ],
         });
     }
   });

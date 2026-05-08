@@ -52,8 +52,9 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   const token = yield* resolveRequiredToken(registryUrl, {
     missingTokenError: makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
+      category: "internal",
       what: "Not authenticated",
-      howToFix: "Run `axm login` to sign in.",
+      breadcrumbs: [{ task: "Recover", description: "Run `axm login` to sign in." }],
     }),
   });
 

@@ -66,6 +66,7 @@ const decodeExactVersion = (value: unknown, manifestPath: string) =>
     Effect.mapError((e) =>
       makeAppError({
         code: "INVALID_MANIFEST_VERSION",
+        category: "validation",
         what: `Invalid version in manifest: ${manifestPath}`,
         cause: e,
       }),
@@ -81,6 +82,7 @@ const parseManifestJson = (content: string, manifestPath: string) =>
     catch: (e) =>
       makeAppError({
         code: "MANIFEST_PARSE_FAILED",
+        category: "validation",
         what: `Invalid JSON in manifest: ${manifestPath}`,
         cause: e,
       }),
@@ -93,6 +95,7 @@ const readManifestRecord = (manifestPath: string) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "MANIFEST_READ_FAILED",
+          category: "internal",
           what: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -102,6 +105,7 @@ const readManifestRecord = (manifestPath: string) =>
     if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
       return yield* makeAppError({
         code: "MANIFEST_SCHEMA_INVALID",
+        category: "validation",
         what: `Manifest must be a JSON object: ${manifestPath}`,
       });
     }
@@ -121,6 +125,7 @@ export const resolveManifestVersionInfo = (
     if (!isVersionableType(fqn.type) || fqn.type !== expectedType) {
       return yield* makeAppError({
         code: "INVALID_EXTENSION_TYPE",
+        category: "validation",
         what: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
       });
     }
@@ -138,8 +143,14 @@ export const resolveManifestVersionInfo = (
     if (!exists) {
       return yield* makeAppError({
         code: "MANIFEST_NOT_FOUND",
+        category: "not_found",
         what: `Manifest not found: ${manifestPath}`,
-        howToFix: `Create the managed extension with \`axm ${extensionTypeToPlural[expectedType]} new\` before running \`axm ${extensionTypeToPlural[expectedType]} version\`.`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Create the managed extension with \`axm ${extensionTypeToPlural[expectedType]} new\` before running \`axm ${extensionTypeToPlural[expectedType]} version\`.`,
+          },
+        ],
       });
     }
 
@@ -160,6 +171,7 @@ const bumpVersion = (from: ExactSemverVersion, bump: VersionBump, manifestPath: 
     if (next === null) {
       return yield* makeAppError({
         code: "INVALID_VERSION_BUMP",
+        category: "validation",
         what: `Could not bump version "${from}" in ${manifestPath}`,
       });
     }
@@ -190,6 +202,7 @@ export const bumpManifestVersion = (args: {
         Effect.mapError((e) =>
           makeAppError({
             code: "MANIFEST_WRITE_FAILED",
+            category: "internal",
             what: `Failed to write manifest: ${info.manifestPath}`,
             cause: e,
           }),

@@ -104,6 +104,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "MATERIALIZE_MANIFEST_READ_FAILED",
+          category: "internal",
           what: `Failed to read manifest at ${manifestPath}`,
           cause: error,
         }),
@@ -113,6 +114,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "MATERIALIZE_MANIFEST_INVALID_JSON",
+          category: "validation",
           what: `Manifest at ${manifestPath} is not valid JSON`,
           cause: error,
         }),
@@ -145,6 +147,7 @@ export const configuredSkillsToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "MATERIALIZE_SKILL_MANIFEST_INVALID",
+              category: "validation",
               what: `Skill manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -194,6 +197,7 @@ export const configuredCommandsToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "MATERIALIZE_COMMAND_MANIFEST_INVALID",
+              category: "validation",
               what: `Command manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -239,6 +243,7 @@ export const configuredMcpServersToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "MATERIALIZE_MCP_SERVER_MANIFEST_INVALID",
+              category: "validation",
               what: `MCP server manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -284,6 +289,7 @@ export const configuredSubagentsToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "MATERIALIZE_SUBAGENT_MANIFEST_INVALID",
+              category: "validation",
               what: `Subagent manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -374,6 +380,7 @@ export const configuredPacksToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "MATERIALIZE_PACK_MANIFEST_INVALID",
+              category: "validation",
               what: `Extension pack manifest at ${manifestPath} is invalid`,
               cause: error,
             }),

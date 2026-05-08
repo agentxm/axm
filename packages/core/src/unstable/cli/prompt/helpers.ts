@@ -8,7 +8,7 @@ import { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 
 interface InteractiveGuardOptions {
   readonly message: string;
-  readonly howToFix?: string;
+  readonly guidance?: string;
 }
 
 const defaultHowToFix = "Pass the value via a flag or remove --non-interactive.";
@@ -22,8 +22,9 @@ const resolveNonInteractive = Effect.gen(function* () {
 const promptRequired = (options: InteractiveGuardOptions) =>
   makeAppError({
     code: "PROMPT_REQUIRED",
+    category: "internal",
     what: `Interactive prompt required: ${options.message}`,
-    howToFix: options.howToFix ?? defaultHowToFix,
+    breadcrumbs: [{ task: "Recover", description: options.guidance ?? defaultHowToFix }],
   });
 
 const runPrompt = <A>(prompt: PromptTypes.Prompt<A>) =>

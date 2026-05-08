@@ -92,6 +92,7 @@ export const publishMcpServer: (
     if (!extensionDirExists) {
       return yield* makeAppError({
         code: "PUBLISH_MCP_SERVER_NOT_FOUND",
+        category: "not_found",
         what: `Managed extension not found: ${extensionDir}`,
       });
     }
@@ -102,6 +103,7 @@ export const publishMcpServer: (
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_MCP_SERVER_MANIFEST_READ_FAILED",
+          category: "internal",
           what: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -116,6 +118,7 @@ export const publishMcpServer: (
       catch: (e) =>
         makeAppError({
           code: "PUBLISH_MCP_SERVER_MANIFEST_PARSE_FAILED",
+          category: "validation",
           what: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -127,6 +130,7 @@ export const publishMcpServer: (
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_MCP_SERVER_MANIFEST_SCHEMA_INVALID",
+          category: "validation",
           what: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
@@ -144,6 +148,7 @@ export const publishMcpServer: (
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_MCP_SERVER_REGISTRY_LOOKUP_FAILED",
+          category: "internal",
           what: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
@@ -153,6 +158,7 @@ export const publishMcpServer: (
     if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
       return yield* makeAppError({
         code: "PUBLISH_MCP_SERVER_REGISTRY_NOT_FOUND",
+        category: "not_found",
         what: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
@@ -183,6 +189,7 @@ export const publishMcpServer: (
         Effect.mapError((e) =>
           makeAppError({
             code: "PUBLISH_MCP_SERVER_PUBLISH_FAILED",
+            category: "internal",
             what: "Failed to publish to registry",
             cause: e,
           }),

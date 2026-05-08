@@ -43,6 +43,7 @@ const makeFailingReadyStep = (label: string): PlannedJobStep => ({
   run: Effect.fail(
     makeAppError({
       code: "TEST_OP_FAILED",
+      category: "internal",
       what: `Failed ${label}`,
     }),
   ),

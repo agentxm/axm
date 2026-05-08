@@ -19,7 +19,7 @@ export interface TelemetryClientService {
     readonly name: string;
     readonly message: string;
     readonly details?: ReadonlyArray<string>;
-    readonly howToFix?: string;
+    readonly category?: string;
     readonly level: "error" | "fatal";
     readonly handled: boolean;
     readonly command: string;
@@ -131,7 +131,10 @@ export const makeTelemetryClient = (
         errors: [{ message: error.message, name: error.name }],
         level: error.level,
         handled: error.handled,
-        tags: { errorCode: error.name },
+        tags: {
+          errorCode: error.name,
+          ...(error.category !== undefined ? { errorCategory: error.category } : {}),
+        },
         fingerprint: [error.name],
         user: { id: distinctId },
         sentAt: now,

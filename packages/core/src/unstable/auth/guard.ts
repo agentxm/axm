@@ -25,8 +25,9 @@ import {
 
 const AUTH_LOGIN_REQUIRED = makeAppError({
   code: "AUTH_LOGIN_REQUIRED",
+  category: "internal",
   what: "Authentication required",
-  howToFix: 'Run "axm auth login" to sign in, then retry.',
+  breadcrumbs: [{ task: "Recover", description: 'Run "axm auth login" to sign in, then retry.' }],
 });
 
 // -----------------------------------------------------------------------------
@@ -42,8 +43,9 @@ const isRemoteRegistryUrl = (registryUrl: string) =>
     catch: (error) =>
       makeAppError({
         code: "AUTH_INVALID_REGISTRY_URL",
+        category: "validation",
         what: `Invalid registry URL: ${registryUrl}`,
-        howToFix: "Check the registry URL in your settings.",
+        breadcrumbs: [{ task: "Recover", description: "Check the registry URL in your settings." }],
         cause: error,
       }),
   });

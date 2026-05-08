@@ -67,7 +67,7 @@ export interface TestPromptState {
 export interface AppErrorResult {
   readonly error: true;
   readonly what: string;
-  readonly howToFix: string;
+  readonly guidance: string;
 }
 
 export const expectDefined = <T>(
@@ -177,7 +177,7 @@ export const getErrorResult = (result: unknown): AppErrorResult => {
   return {
     error: true,
     what: result.what,
-    howToFix: "howToFix" in result && typeof result.howToFix === "string" ? result.howToFix : "",
+    guidance: "guidance" in result && typeof result.guidance === "string" ? result.guidance : "",
   };
 };
 

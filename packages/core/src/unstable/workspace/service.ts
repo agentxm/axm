@@ -111,6 +111,7 @@ const contextReadErrorToAppError = (
 ): AppError =>
   makeAppError({
     code: source === "settings" ? "SETTINGS_PARSE_FAILED" : "LOCKFILE_PARSE_FAILED",
+    category: "internal",
     what: `Failed to read workspace ${source}`,
     cause: error,
   });
@@ -161,8 +162,11 @@ const requireInitializedWorkspace = (
           Effect.fail(
             makeAppError({
               code: "WORKSPACE_NOT_INITIALIZED",
+              category: "internal",
               what: `Workspace settings not found: ${settingsPath}`,
-              howToFix: "Run `axm setup` to create the workspace.",
+              breadcrumbs: [
+                { task: "Recover", description: "Run `axm setup` to create the workspace." },
+              ],
             }),
           ),
         onSome: () => Effect.void,
@@ -252,7 +256,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     ): Effect.Effect<T, AppError> =>
       key in record && record[key] !== undefined
         ? Effect.succeed(record[key])
-        : Effect.fail(makeAppError({ code, what }));
+        : Effect.fail(makeAppError({ category: "internal", code, what }));
 
     /**
      * Probe lockfile state without mutating disk.
@@ -264,6 +268,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.mapError((error) =>
             makeAppError({
               code: "LOCKFILE_PARSE_FAILED",
+              category: "validation",
               what: `Failed to check if lockfile exists at ${lockfilePath}`,
               cause: error,
             }),
@@ -474,8 +479,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           if (Option.isNone(lockEntry)) {
             return yield* makeAppError({
               code: "SKILL_NOT_LOCKED",
+              category: "conflict",
               what: `Skill "${name}" not found in lockfile`,
-              howToFix: "Install the skill first with `axm skills install`",
+              breadcrumbs: [
+                {
+                  task: "Recover",
+                  description: "Install the skill first with `axm skills install`",
+                },
+              ],
             });
           }
 
@@ -655,6 +666,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               Effect.mapError((error) =>
                 makeAppError({
                   code: "SETTINGS_PARSE_FAILED",
+                  category: "validation",
                   what: `Invalid agent ID: ${agentId}`,
                   cause: error,
                 }),

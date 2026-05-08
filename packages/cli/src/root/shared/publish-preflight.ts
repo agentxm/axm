@@ -35,7 +35,13 @@ export const checkPublishVersionPreflight = (args: {
     const plural = extensionTypeToPlural[args.type];
     return yield* makeAppError({
       code: "PUBLISH_VERSION_NOT_BUMPED",
+      category: "internal",
       what: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
-      howToFix: `Bump the version first:\n  axm ${plural} version ${local.fqn} patch\n\nOverride with --force.`,
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: `Bump the version first:\n  axm ${plural} version ${local.fqn} patch\n\nOverride with --force.`,
+        },
+      ],
     });
   });

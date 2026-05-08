@@ -60,8 +60,9 @@ export const resolveRootUpdateIntent = (input: string) =>
     if (!source.startsWith("@")) {
       return yield* makeAppError({
         code: "UPDATE_SOURCE_NOT_FQN",
+        category: "internal",
         what: "Root update only accepts registry FQNs",
-        howToFix: rootUpdateRegistryOnlyHowToFix(source),
+        breadcrumbs: [{ task: "Recover", description: rootUpdateRegistryOnlyHowToFix(source) }],
       });
     }
 
@@ -70,16 +71,28 @@ export const resolveRootUpdateIntent = (input: string) =>
         if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
           return makeAppError({
             code: "UPDATE_SOURCE_UNKNOWN_TYPE",
+            category: "not_found",
             what: "Update source uses an unsupported plural type",
-            howToFix: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
+              },
+            ],
             cause: error,
           });
         }
 
         return makeAppError({
           code: "UPDATE_SOURCE_INVALID_FQN",
+          category: "validation",
           what: "Update source must be a registry FQN",
-          howToFix: `Use ${rootUpdateFqnGrammar} with one of: ${supportedRootUpdateTypes}.`,
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: `Use ${rootUpdateFqnGrammar} with one of: ${supportedRootUpdateTypes}.`,
+            },
+          ],
           cause: error,
         });
       }),
@@ -88,8 +101,14 @@ export const resolveRootUpdateIntent = (input: string) =>
     if (!isInstallableExtensionTypePlural(parsed.type)) {
       return yield* makeAppError({
         code: "UPDATE_SOURCE_UNSUPPORTED_TYPE",
+        category: "internal",
         what: "Root update does not support that extension type",
-        howToFix: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
+          },
+        ],
       });
     }
 

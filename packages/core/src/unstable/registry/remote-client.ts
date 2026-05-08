@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
+import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import { parseFullyQualifiedRefParts } from "../extensions/common.js";
 import {
   decodeExtensionNameSync,
@@ -56,7 +57,7 @@ import {
   mapUnexpectedStatusError,
   getErrorCode,
   getRetryAfterSeconds,
-  buildNetworkHowToFix,
+  buildNetworkBreadcrumbs,
   buildNetworkDiagnosis,
 } from "./error-mapping.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
@@ -191,6 +192,7 @@ const decodeSearchCatalogHit = (
     catch: (cause) =>
       makeAppError({
         code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
+        category: "validation",
         what: "Remote discovery response does not match expected schema",
         cause,
       }),
@@ -284,6 +286,7 @@ export const createRemoteRegistryClient = (
 
     return makeAppError({
       code: `${prefix}_FAILED`,
+      category: "internal",
       what: "Remote discovery failed",
       cause: e,
     });
@@ -465,6 +468,7 @@ export const createRemoteRegistryClient = (
         if (page.cursor === null) {
           return yield* makeAppError({
             code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
+            category: "validation",
             what: "Remote discovery response does not match expected schema",
           });
         }
@@ -540,6 +544,7 @@ export const createRemoteRegistryClient = (
     }
     return makeAppError({
       code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
+      category: "internal",
       what: "Remote owner check failed",
       cause: e,
     });
@@ -571,6 +576,7 @@ export const createRemoteRegistryClient = (
       if (Option.isNone(resolvedVersion)) {
         return yield* makeAppError({
           code: "REGISTRY_REMOTE_VERSION_NOT_FOUND",
+          category: "not_found",
           what: "Requested package version is not available in remote index",
         });
       }
@@ -596,6 +602,7 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsGet404")(e)) {
       return makeAppError({
         code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
+        category: "not_found",
         what: "Remote package index was not found",
       });
     }
@@ -623,6 +630,7 @@ export const createRemoteRegistryClient = (
     }
     return makeAppError({
       code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
+      category: "internal",
       what: "Remote package index request failed",
       cause: e,
     });
@@ -635,6 +643,7 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsDownloadArchive404")(e)) {
       return makeAppError({
         code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
+        category: "not_found",
         what: "Remote package archive was not found",
       });
     }
@@ -662,6 +671,7 @@ export const createRemoteRegistryClient = (
     }
     return makeAppError({
       code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
+      category: "internal",
       what: "Remote package archive request failed",
       cause: e,
     });
@@ -710,6 +720,7 @@ export const createRemoteRegistryClient = (
     }
     return makeAppError({
       code: "REGISTRY_REMOTE_EXTENSION_CHECK_FAILED",
+      category: "internal",
       what: "Remote extension check failed",
       cause: e,
     });
@@ -721,7 +732,7 @@ export const createRemoteRegistryClient = (
   const publishExtension = (
     args: PublishExtensionArgs,
   ): Effect.Effect<PublishExtensionResponse, AppError> => {
-    const networkHowToFix = buildNetworkHowToFix(baseUrl);
+    const networkBreadcrumbs = buildNetworkBreadcrumbs(baseUrl);
     const networkDiagnosisDetails = buildNetworkDiagnosis(baseUrl);
 
     // Build FormData for multipart upload
@@ -748,7 +759,7 @@ export const createRemoteRegistryClient = (
       .pipe(
         Effect.map(() => ({ published: true as const })),
         // Single mapError handler for all error types to avoid error channel narrowing issues
-        Effect.mapError((e) => mapPublishError(e, networkHowToFix, networkDiagnosisDetails)),
+        Effect.mapError((e) => mapPublishError(e, networkBreadcrumbs, networkDiagnosisDetails)),
       );
   };
 
@@ -758,15 +769,17 @@ export const createRemoteRegistryClient = (
    */
   const mapPublishError = (
     e: unknown,
-    networkHowToFix: string,
+    networkBreadcrumbs: ReadonlyArray<Breadcrumb>,
     _networkDiagnosisDetails: ReadonlyArray<string>,
   ): AppError => {
     // HttpClientError — network error
     if (isHttpClientError(e)) {
       return makeAppError({
         code: "REGISTRY_PUBLISH_NETWORK_ERROR",
+        category: "network",
         what: "Failed to connect to the remote registry",
-        howToFix: networkHowToFix,
+        retryable: true,
+        breadcrumbs: networkBreadcrumbs,
         cause: e,
       });
     }
@@ -782,8 +795,11 @@ export const createRemoteRegistryClient = (
       if (Option.isSome(code) && code.value === "quota_exceeded") {
         return makeAppError({
           code: "REGISTRY_PUBLISH_QUOTA_EXCEEDED",
+          category: "internal",
           what: "Storage quota exceeded",
-          howToFix: "Storage quota exceeded for this extension",
+          breadcrumbs: [
+            { task: "Recover", description: "Storage quota exceeded for this extension" },
+          ],
           cause: e,
         });
       }
@@ -794,9 +810,15 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsPublishVersion409")(e)) {
       return makeAppError({
         code: "REGISTRY_PUBLISH_CONFLICT",
+        category: "conflict",
         what: "Version already exists with different content",
-        howToFix:
-          "This version already exists with different content. Bump the version in your manifest.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "This version already exists with different content. Bump the version in your manifest.",
+          },
+        ],
         cause: e,
       });
     }
@@ -810,13 +832,17 @@ export const createRemoteRegistryClient = (
       ) {
         return makeAppError({
           code: "REGISTRY_PUBLISH_INVALID_ARCHIVE",
+          category: "validation",
           what: "Invalid extension archive",
-          howToFix: "Check the extension directory and rebuild",
+          breadcrumbs: [
+            { task: "Recover", description: "Check the extension directory and rebuild" },
+          ],
           cause: e,
         });
       }
       return makeAppError({
         code: "REGISTRY_PUBLISH_FAILED",
+        category: "internal",
         what: "Publish request failed",
         cause: e,
       });
@@ -826,8 +852,11 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsPublishVersion413")(e)) {
       return makeAppError({
         code: "REGISTRY_PUBLISH_TOO_LARGE",
+        category: "internal",
         what: "Extension archive exceeds size limit",
-        howToFix: "Reduce archive size or remove unnecessary files",
+        breadcrumbs: [
+          { task: "Recover", description: "Reduce archive size or remove unnecessary files" },
+        ],
         cause: e,
       });
     }
@@ -836,6 +865,7 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsPublishVersion415")(e)) {
       return makeAppError({
         code: "REGISTRY_PUBLISH_INVALID_ARCHIVE",
+        category: "validation",
         what: "Unsupported archive content type",
         cause: e,
       });
@@ -847,6 +877,7 @@ export const createRemoteRegistryClient = (
       if (Option.isSome(code) && code.value === "integrity_mismatch") {
         return makeAppError({
           code: "REGISTRY_PUBLISH_INTEGRITY_MISMATCH",
+          category: "internal",
           what: "Archive integrity does not match",
           cause: e,
         });
@@ -854,13 +885,15 @@ export const createRemoteRegistryClient = (
       if (Option.isSome(code) && code.value.startsWith("manifest_")) {
         return makeAppError({
           code: "REGISTRY_PUBLISH_MANIFEST_INVALID",
+          category: "validation",
           what: "Extension manifest validation failed",
-          howToFix: "Check your extension manifest",
+          breadcrumbs: [{ task: "Recover", description: "Check your extension manifest" }],
           cause: e,
         });
       }
       return makeAppError({
         code: "REGISTRY_PUBLISH_FAILED",
+        category: "internal",
         what: "Publish request failed with validation error",
         cause: e,
       });
@@ -875,8 +908,9 @@ export const createRemoteRegistryClient = (
       });
       return makeAppError({
         code: "REGISTRY_PUBLISH_THROTTLED",
+        category: "internal",
         what: "Publish request was rate limited",
-        howToFix: retryMsg,
+        breadcrumbs: [{ task: "Recover", description: retryMsg }],
         cause: e,
       });
     }
@@ -885,8 +919,11 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsPublishVersion503")(e)) {
       return makeAppError({
         code: "REGISTRY_PUBLISH_DISABLED",
+        category: "internal",
         what: "Publishing is temporarily disabled",
-        howToFix: "Publishing is temporarily disabled. Try again later.",
+        breadcrumbs: [
+          { task: "Recover", description: "Publishing is temporarily disabled. Try again later." },
+        ],
         cause: e,
       });
     }
@@ -900,6 +937,7 @@ export const createRemoteRegistryClient = (
     if (isAnyRegistryClientError(e)) {
       return makeAppError({
         code: "REGISTRY_PUBLISH_FAILED",
+        category: "internal",
         what: "Publish failed",
         cause: e,
       });
@@ -907,6 +945,7 @@ export const createRemoteRegistryClient = (
 
     return makeAppError({
       code: "REGISTRY_PUBLISH_FAILED",
+      category: "internal",
       what: "Publish failed",
       cause: e,
     });

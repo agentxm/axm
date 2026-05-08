@@ -41,8 +41,9 @@ import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js
 
 const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
   code: "PROMPT_REQUIRED",
+  category: "internal",
   what: "Interactive prompt required: Apply changes?",
-  howToFix: "Provide ResolvePlanInteraction in the runtime.",
+  breadcrumbs: [{ task: "Recover", description: "Provide ResolvePlanInteraction in the runtime." }],
 });
 
 const reconciliationAdapters = [
@@ -107,6 +108,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       Effect.mapError((error) =>
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",
+          category: "validation",
           what: "Failed to read workspace settings",
           cause: error,
         }),
@@ -143,8 +145,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       yield* showPlan(augmentedPlan);
       return yield* makeAppError({
         code: "PLAN_BLOCKED_BY_ERRORS",
+        category: "conflict",
         what: "Plan has errors that prevent execution",
-        howToFix: flags.blockedByErrorsHowToFix ?? "Re-run with --force to override",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: flags.blockedByErrorsHowToFix ?? "Re-run with --force to override",
+          },
+        ],
       });
     }
   }

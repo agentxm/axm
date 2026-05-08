@@ -101,6 +101,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
       Effect.mapError((e) =>
         makeAppError({
           code: "INSTALL_SKILL_COPY_FAILED",
+          category: "internal",
           what: `Failed to copy skill files to ${copyTarget}`,
           cause: e,
         }),
@@ -210,6 +211,7 @@ const installFromRegistry = (
       Effect.mapError((e) =>
         makeAppError({
           code: "INSTALL_SKILL_PATH_CHECK_FAILED",
+          category: "internal",
           what: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
@@ -235,6 +237,7 @@ const installFromRegistry = (
         if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
+            category: "internal",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
@@ -244,6 +247,7 @@ const installFromRegistry = (
         Effect.mapError((e) =>
           makeAppError({
             code: "INSTALL_SKILL_TEMP_DIR_FAILED",
+            category: "internal",
             what: `Failed to create temporary directory for registry install`,
             cause: e,
           }),
@@ -401,6 +405,7 @@ export const installSkill: OperationHandler<
         message,
         error: makeAppError({
           code: "CODING_AGENT_UNKNOWN_CONFIGURED",
+          category: "not_found",
           what: message,
         }),
       } satisfies JobStepResult;
@@ -432,6 +437,7 @@ export const installSkill: OperationHandler<
         message,
         error: makeAppError({
           code: "SKILL_DIR_MISCONFIGURED",
+          category: "internal",
           what: message,
         }),
       } satisfies JobStepResult;
@@ -545,6 +551,7 @@ export const installSkill: OperationHandler<
         message,
         error: makeAppError({
           code: "SKILL_INSTALL_PARTIAL_FAILED",
+          category: "internal",
           what: message,
         }),
       } satisfies JobStepResult;

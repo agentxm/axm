@@ -88,7 +88,10 @@ const makeLayers = (opts?: {
         expires_at: "2099-06-01T00:00:00Z",
       }),
     getMe: opts?.getMeFails
-      ? () => Effect.fail(makeAppError({ code: "AUTH_UNAUTHENTICATED", what: "Token invalid" }))
+      ? () =>
+          Effect.fail(
+            makeAppError({ code: "AUTH_UNAUTHENTICATED", category: "auth", what: "Token invalid" }),
+          )
       : () => Effect.succeed(meData),
   });
 
@@ -287,6 +290,7 @@ describe("auth login handler", () => {
         Effect.fail(
           makeAppError({
             code: "AUTH_UNAUTHENTICATED",
+            category: "auth",
             what: "Not authenticated or token is invalid",
           }),
         ),

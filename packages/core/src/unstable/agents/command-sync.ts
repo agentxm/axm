@@ -90,6 +90,7 @@ export const writeCommandFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "COMMAND_SYNC_WRITE_FAILED",
+          category: "internal",
           what: `Failed to create commands directory: ${parentDir}`,
           cause: error,
         }),
@@ -101,6 +102,7 @@ export const writeCommandFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "COMMAND_SYNC_WRITE_FAILED",
+          category: "internal",
           what: `Failed to write command file: ${filePath}`,
           cause: error,
         }),
@@ -165,6 +167,7 @@ export const removeCommandFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "COMMAND_SYNC_REMOVE_FAILED",
+          category: "internal",
           what: `Failed to remove command file: ${filePath}`,
           cause: error,
         }),

@@ -383,8 +383,6 @@ describe("axm install", () => {
         );
 
         expect(rootResult.exitCode).toBe(surfaceResult.exitCode);
-        expect(rootResult.stdout.command).toBe("install");
-        expect(surfaceResult.stdout.command).toBe(`${surface}.install`);
         expect(rootResult.stdout.result).toEqual(surfaceResult.stdout.result);
         expect(rootResult.stderr).toBe(surfaceResult.stderr);
 

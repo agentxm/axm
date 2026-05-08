@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { getAppError } from "../../test-helpers.js";
@@ -31,12 +30,12 @@ describe("resolveRootUninstallIntent", () => {
 
       expect(appError.code).toBe("UNINSTALL_SOURCE_NOT_FQN");
       expect(appError.what).toContain("only accepts registry FQNs");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm skills uninstall review",
-      );
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm commands uninstall review",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm skills uninstall review");
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm commands uninstall review");
     }),
   );
 
@@ -46,10 +45,12 @@ describe("resolveRootUninstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UNINSTALL_SOURCE_NOT_FQN");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm skills uninstall <name>",
-      );
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(rootFqnGrammarSnippet);
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm skills uninstall <name>");
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain(rootFqnGrammarSnippet);
     }),
   );
 
@@ -59,7 +60,9 @@ describe("resolveRootUninstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UNINSTALL_SOURCE_INVALID_FQN");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(rootFqnGrammarSnippet);
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain(rootFqnGrammarSnippet);
     }),
   );
 
@@ -69,9 +72,9 @@ describe("resolveRootUninstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UNINSTALL_SOURCE_UNSUPPORTED_TYPE");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "skills, commands, mcp-servers, subagents, packs",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
 
@@ -81,9 +84,9 @@ describe("resolveRootUninstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UNINSTALL_SOURCE_UNKNOWN_TYPE");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "skills, commands, mcp-servers, subagents, packs",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
 });

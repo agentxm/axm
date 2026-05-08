@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { getAppError } from "../../test-helpers.js";
@@ -31,12 +30,12 @@ describe("resolveRootInstallIntent", () => {
 
       expect(appError.code).toBe("INSTALL_SOURCE_NOT_FQN");
       expect(appError.what).toContain("only accepts registry FQNs");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm skills install owner/repo",
-      );
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm subagents install owner/repo",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm skills install owner/repo");
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm subagents install owner/repo");
     }),
   );
 
@@ -46,12 +45,12 @@ describe("resolveRootInstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("INSTALL_SOURCE_NOT_FQN");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm skills install ./local-path",
-      );
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm subagents install ./local-path",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm skills install ./local-path");
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm subagents install ./local-path");
     }),
   );
 
@@ -61,9 +60,9 @@ describe("resolveRootInstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("INSTALL_SOURCE_INVALID_FQN");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "@<handle>/<plural-type>/<name>[@<version>]",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("@<handle>/<plural-type>/<name>[@<version>]");
     }),
   );
 
@@ -73,9 +72,9 @@ describe("resolveRootInstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("INSTALL_SOURCE_UNSUPPORTED_TYPE");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "skills, commands, mcp-servers, subagents, packs",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
 
@@ -85,9 +84,9 @@ describe("resolveRootInstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("INSTALL_SOURCE_UNKNOWN_TYPE");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "skills, commands, mcp-servers, subagents, packs",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
 });

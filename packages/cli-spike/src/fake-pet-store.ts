@@ -80,8 +80,14 @@ const getPetByName = (name: string) =>
     Effect.mapError(() =>
       makeAppError({
         code: "SPIKE_PET_NOT_FOUND",
+        category: "not_found",
         what: `No sample pet named '${name}' exists`,
-        howToFix: "Use `axm-spike pets list` to inspect the available sample pets.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: "Use `axm-spike pets list` to inspect the available sample pets.",
+          },
+        ],
       }),
     ),
   );
@@ -141,8 +147,14 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
             : Effect.fail(
                 makeAppError({
                   code: "SPIKE_PET_NOT_FOUND",
+                  category: "not_found",
                   what: `No ${request.habitat} sample pet named '${petName}' exists`,
-                  howToFix: "Choose one of the pets returned by `axm-spike pets list`.",
+                  breadcrumbs: [
+                    {
+                      task: "Recover",
+                      description: "Choose one of the pets returned by `axm-spike pets list`.",
+                    },
+                  ],
                 }),
               ),
         );
@@ -167,9 +179,15 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
       if (Option.isSome(plan.blocker) && !force) {
         return yield* makeAppError({
           code: "PET_ADOPTION_BLOCKED",
+          category: "conflict",
           what: plan.blocker.value,
-          howToFix:
-            "Pass `--force` to override the blocker in this demo, or choose an adoptable pet.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Pass `--force` to override the blocker in this demo, or choose an adoptable pet.",
+            },
+          ],
         });
       }
 

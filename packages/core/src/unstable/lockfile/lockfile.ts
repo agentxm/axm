@@ -63,6 +63,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
+          category: "internal",
           what: `Failed to create directory ${axmDir}`,
           cause: error,
         }),
@@ -75,6 +76,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
       catch: (error) =>
         makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
+          category: "internal",
           what: "Failed to encode lockfile",
           cause: error,
         }),
@@ -86,6 +88,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
       catch: (error) =>
         makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
+          category: "internal",
           what: "Failed to serialize lockfile to YAML",
           cause: error,
         }),
@@ -96,6 +99,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
+          category: "internal",
           what: `Failed to write lockfile temp file at ${tempPath}`,
           cause: error,
         }),
@@ -107,6 +111,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
+          category: "internal",
           what: `Failed to atomically replace lockfile at ${lockfilePath}`,
           cause: error,
         }),

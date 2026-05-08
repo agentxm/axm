@@ -149,6 +149,7 @@ export const installExtensionPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "PACK_FETCH_FAILED",
+              category: "internal",
               what: `Failed to fetch extension pack archive: ${error.message}`,
               cause: error,
             }),
@@ -160,6 +161,7 @@ export const installExtensionPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "PACK_MANIFEST_READ_FAILED",
+              category: "internal",
               what: `Failed to read fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
@@ -173,6 +175,7 @@ export const installExtensionPack: OperationHandler<
           catch: (error) =>
             makeAppError({
               code: "PACK_MANIFEST_PARSE_FAILED",
+              category: "validation",
               what: `Invalid JSON in fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
@@ -183,6 +186,7 @@ export const installExtensionPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "PACK_MANIFEST_INVALID",
+              category: "validation",
               what: `Invalid fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
@@ -193,9 +197,15 @@ export const installExtensionPack: OperationHandler<
         if (missingDependencies.length > 0) {
           return yield* makeAppError({
             code: "PACK_DEPENDENCY_METADATA_MISMATCH",
+            category: "internal",
             what: `Extension pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
-            howToFix:
-              "Republish the extension pack or repair the registry metadata before installing this pack.",
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description:
+                  "Republish the extension pack or repair the registry metadata before installing this pack.",
+              },
+            ],
           });
         }
 
@@ -203,6 +213,7 @@ export const installExtensionPack: OperationHandler<
           Effect.mapError((e) =>
             makeAppError({
               code: "PACK_EXTRACT_FAILED",
+              category: "internal",
               what: `Failed to extract extension pack to ${packDir}`,
               cause: e,
             }),

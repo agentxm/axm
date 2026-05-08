@@ -403,13 +403,15 @@ describe("subagents-publish.handler", () => {
               Effect.succeed({
                 error: true,
                 what: e.what,
-                howToFix: Option.getOrElse(e.howToFix, () => ""),
+                guidance: (e.breadcrumbs ?? [])
+                  .map((breadcrumb) => breadcrumb.description)
+                  .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.what).toContain("Managed extension not found");
-          expect(errorResult.howToFix).toContain("axm subagents new");
+          expect(errorResult.guidance).toContain("axm subagents new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),
@@ -488,7 +490,7 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(Option.getOrUndefined(error.howToFix) ?? "").toContain("identity-check");
+          expect(error.breadcrumbs?.[0]?.description ?? "").toContain("identity-check");
         }),
       );
     });
@@ -523,7 +525,7 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("PUBLISH_PLAN_FAILED");
-          expect(Option.getOrUndefined(error.howToFix) ?? "").toContain("identity-check.md");
+          expect(error.breadcrumbs?.[0]?.description ?? "").toContain("identity-check.md");
         }),
       );
     });

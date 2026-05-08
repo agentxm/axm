@@ -210,9 +210,15 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                 if (Option.isNone(parsedSourceOption)) {
                   return yield* makeAppError({
                     code: "INVALID_SOURCE",
+                    category: "validation",
                     what: "Invalid source: Unable to parse source",
-                    howToFix:
-                      "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+                    breadcrumbs: [
+                      {
+                        task: "Recover",
+                        description:
+                          "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+                      },
+                    ],
                   });
                 }
 
@@ -287,6 +293,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
             if (req === undefined) {
               return yield* makeAppError({
                 code: "DISCOVER_FAILED",
+                category: "internal",
                 what: "No source request to discover from",
               });
             }
@@ -308,8 +315,11 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                     Effect.mapError((error) => {
                       return makeAppError({
                         code: "DISCOVER_FAILED",
+                        category: "internal",
                         what: "Failed to discover subagents from source",
-                        howToFix: discoverHowToFix(req.source, error),
+                        breadcrumbs: [
+                          { task: "Recover", description: discoverHowToFix(req.source, error) },
+                        ],
                         cause: error,
                       });
                     }),
@@ -319,8 +329,14 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                         : Effect.fail(
                             makeAppError({
                               code: "NO_SUBAGENTS_FOUND",
+                              category: "internal",
                               what: "No subagents found in source",
-                              howToFix: noSubagentsFoundHowToFix(req.source),
+                              breadcrumbs: [
+                                {
+                                  task: "Recover",
+                                  description: noSubagentsFoundHowToFix(req.source),
+                                },
+                              ],
                             }),
                           ),
                     ),
@@ -344,6 +360,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
           if (firstDiscoveredRef === undefined) {
             return yield* makeAppError({
               code: "NO_SUBAGENTS_FOUND",
+              category: "internal",
               what: "No subagents found in source",
             });
           }

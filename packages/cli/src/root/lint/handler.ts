@@ -193,7 +193,8 @@ const loadLintConfig = (
     }
     const parsed = Effect.try({
       try: (): unknown => JSON.parse(raw),
-      catch: () => makeAppError({ code: "LINT_SETTINGS_PARSE_FAILED", what: "" }),
+      catch: () =>
+        makeAppError({ code: "LINT_SETTINGS_PARSE_FAILED", category: "validation", what: "" }),
     });
     const parsedOpt = yield* parsed.pipe(
       Effect.map(Option.some),
@@ -711,6 +712,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       Effect.fail(
         makeAppError({
           code: "LINT_WORKSPACE_ROOT_ESCAPE",
+          category: "validation",
           what: `Workspace root '${e.workspaceRoot}' escapes allowed root '${e.allowedRoot}'`,
         }),
       ),

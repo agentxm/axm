@@ -28,7 +28,7 @@ describe("structured output (--json)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
-        command: "auth.logout",
+        ok: true,
         result: {
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
@@ -50,7 +50,7 @@ describe("structured output (--json)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
-        command: "auth.token",
+        ok: true,
         data: { token: "test-json-token" },
       });
     } finally {
@@ -131,7 +131,7 @@ describe("structured output (--json)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
-        command: "auth.token",
+        ok: true,
         data: { token: "ci-json-token" },
       });
     } finally {

@@ -91,6 +91,7 @@ const makeWorkspaceMock = (
         return Effect.fail(
           makeAppError({
             code: "SKILL_NOT_LOCKED",
+            category: "conflict",
             what: `Skill "${name}" not found in lockfile`,
           }),
         );

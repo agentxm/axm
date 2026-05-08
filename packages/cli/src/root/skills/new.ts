@@ -57,8 +57,14 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   ) {
     return yield* makeAppError({
       code: "SKILL_NAME_INVALID",
+      category: "validation",
       what: `Invalid skill name: "${args.name}"`,
-      howToFix: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
+        },
+      ],
     });
   }
 
@@ -67,8 +73,14 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   if (args.name in configuredSkills) {
     return yield* makeAppError({
       code: "SKILL_ALREADY_EXISTS",
+      category: "conflict",
       what: `Skill '${args.name}' already exists in settings`,
-      howToFix: "Choose a different name or remove the existing skill first",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Choose a different name or remove the existing skill first",
+        },
+      ],
     });
   }
 

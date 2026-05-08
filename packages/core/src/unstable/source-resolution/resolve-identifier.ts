@@ -66,8 +66,15 @@ const decodeName = (input: string) =>
     catch: () =>
       makeAppError({
         code: "NOT_FOUND",
+        category: "not_found",
         what: `No ${input} identifier could be resolved`,
-        howToFix: "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
+          },
+        ],
       }),
   });
 
@@ -319,8 +326,11 @@ const notFound = (
 ) =>
   makeAppError({
     code: "NOT_FOUND",
+    category: "not_found",
     what: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
-    howToFix: "Check the name, or re-run with a fully-qualified name.",
+    breadcrumbs: [
+      { task: "Recover", description: "Check the name, or re-run with a fully-qualified name." },
+    ],
   });
 
 const ambiguous = (
@@ -331,8 +341,9 @@ const ambiguous = (
 ) =>
   makeAppError({
     code: "AMBIGUOUS_IDENTIFIER",
+    category: "internal",
     what: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
-    howToFix: "Re-run with the fully-qualified name.",
+    breadcrumbs: [{ task: "Recover", description: "Re-run with the fully-qualified name." }],
   });
 
 const resolveFromCandidates = (
@@ -372,8 +383,14 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({
           code: "NOT_FOUND",
+          category: "not_found",
           what: `"${trimmed}" is not a ${args.resourceType} identifier`,
-          howToFix: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
+            },
+          ],
         });
       }
 
@@ -430,8 +447,14 @@ export const resolveInstalledIdentifier = (args: {
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({
           code: "NOT_FOUND",
+          category: "not_found",
           what: `"${trimmed}" is not a ${args.resourceType} identifier`,
-          howToFix: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
+            },
+          ],
         });
       }
     }

@@ -77,8 +77,11 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "UPGRADE_DOWNLOAD_FAILED",
+          category: "internal",
           what: "Failed to download update",
-          howToFix: "Check your network connection and try again.",
+          breadcrumbs: [
+            { task: "Recover", description: "Check your network connection and try again." },
+          ],
           cause,
         }),
       ),
@@ -88,8 +91,11 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
           Effect.fail(
             makeAppError({
               code: "UPGRADE_DOWNLOAD_TIMEOUT",
+              category: "network",
               what: "Download timed out",
-              howToFix: "Check your network connection and try again.",
+              breadcrumbs: [
+                { task: "Recover", description: "Check your network connection and try again." },
+              ],
             }),
           ),
       }),
@@ -104,8 +110,11 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     if (response.status !== 200) {
       return yield* makeAppError({
         code: "UPGRADE_DOWNLOAD_FAILED",
+        category: "internal",
         what: `Download failed with status ${String(response.status)}`,
-        howToFix: "Check your network connection and try again.",
+        breadcrumbs: [
+          { task: "Recover", description: "Check your network connection and try again." },
+        ],
       });
     }
 
@@ -113,8 +122,11 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       Effect.mapError((cause) =>
         makeAppError({
           code: "UPGRADE_DOWNLOAD_FAILED",
+          category: "internal",
           what: "Failed to read downloaded data",
-          howToFix: "Check your network connection and try again.",
+          breadcrumbs: [
+            { task: "Recover", description: "Check your network connection and try again." },
+          ],
           cause,
         }),
       ),
@@ -124,8 +136,14 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     if (bytes.length === 0) {
       return yield* makeAppError({
         code: "UPGRADE_DOWNLOAD_EMPTY",
+        category: "internal",
         what: "Downloaded file is empty",
-        howToFix: "Try again. If the problem persists, download manually.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: "Try again. If the problem persists, download manually.",
+          },
+        ],
       });
     }
 
@@ -133,9 +151,15 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       Effect.mapError((cause) =>
         makeAppError({
           code: "UPGRADE_PERMISSION_DENIED",
+          category: "internal",
           what: `Permission denied writing to ${destPath}`,
-          howToFix:
-            "Re-run the install script to fix permissions, or run with appropriate privileges.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Re-run the install script to fix permissions, or run with appropriate privileges.",
+            },
+          ],
           cause,
         }),
       ),
@@ -161,9 +185,15 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
         Effect.mapError((cause) =>
           makeAppError({
             code: "UPGRADE_PERMISSION_DENIED",
+            category: "internal",
             what: `Permission denied replacing ${targetPath}`,
-            howToFix:
-              "Re-run the install script to fix permissions, or run with appropriate privileges.",
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description:
+                  "Re-run the install script to fix permissions, or run with appropriate privileges.",
+              },
+            ],
             cause,
           }),
         ),
@@ -174,9 +204,15 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
         Effect.mapError((cause) =>
           makeAppError({
             code: "UPGRADE_PERMISSION_DENIED",
+            category: "internal",
             what: `Permission denied replacing ${targetPath}`,
-            howToFix:
-              "Re-run the install script to fix permissions, or run with appropriate privileges.",
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description:
+                  "Re-run the install script to fix permissions, or run with appropriate privileges.",
+              },
+            ],
             cause,
           }),
         ),
@@ -203,8 +239,14 @@ const verifyBinary = (binaryPath: string) =>
     catch: () =>
       makeAppError({
         code: "UPGRADE_VERIFY_FAILED",
+        category: "internal",
         what: "Failed to verify new binary",
-        howToFix: "The upgrade may have succeeded. Try running `axm --version` to check.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: "The upgrade may have succeeded. Try running `axm --version` to check.",
+          },
+        ],
       }),
   });
 
@@ -304,8 +346,11 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     if (Option.isNone(binaryInfoOpt)) {
       return yield* makeAppError({
         code: "UPGRADE_UNSUPPORTED_PLATFORM",
+        category: "internal",
         what: `Unsupported platform: ${platform}-${arch}`,
-        howToFix: "Build from source or use a supported platform.",
+        breadcrumbs: [
+          { task: "Recover", description: "Build from source or use a supported platform." },
+        ],
       });
     }
 

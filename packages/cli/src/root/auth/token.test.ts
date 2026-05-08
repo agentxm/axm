@@ -5,7 +5,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import {
@@ -91,7 +90,7 @@ describe("auth token handler", () => {
             Effect.succeed({
               error: true,
               code: e.code,
-              howToFix: Option.getOrUndefined(e.howToFix),
+              guidance: e.breadcrumbs?.[0]?.description,
             }),
           ),
         );
@@ -109,14 +108,14 @@ describe("auth token handler", () => {
             Effect.succeed({
               error: true,
               code: e.code,
-              howToFix: Option.getOrUndefined(e.howToFix),
+              guidance: e.breadcrumbs?.[0]?.description,
             }),
           ),
         );
         expect(result).toMatchObject({
           error: true,
           code: "AUTH_TOKEN_REQUIRED",
-          howToFix: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+          guidance: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
         });
       }),
     );

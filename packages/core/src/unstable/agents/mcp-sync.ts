@@ -168,6 +168,7 @@ export const runCliInvocation = (
     catch: (error) =>
       makeAppError({
         code: "CODING_AGENT_MCP_CLI_EXECUTION_FAILED",
+        category: "internal",
         what: `Failed to execute MCP CLI command: ${invocation.command}`,
         cause: error,
       }),
@@ -181,6 +182,7 @@ const decodeJsonConfig = (
     Effect.mapError((error) =>
       makeAppError({
         code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
+        category: "validation",
         what: `Invalid MCP config format: ${configPath}`,
         cause: error,
       }),
@@ -200,6 +202,7 @@ const upsertJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
+          category: "internal",
           what: `Failed to create config directory: ${dir}`,
           cause: error,
         }),
@@ -212,6 +215,7 @@ const upsertJsonConfigServer = (
           Effect.mapError((error) =>
             makeAppError({
               code: "CODING_AGENT_MCP_CONFIG_READ_FAILED",
+              category: "internal",
               what: `Failed to read MCP config: ${configPath}`,
               cause: error,
             }),
@@ -231,6 +235,7 @@ const upsertJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
+          category: "internal",
           what: `Failed to write MCP config: ${configPath}`,
           cause: error,
         }),
@@ -253,6 +258,7 @@ const removeJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_READ_FAILED",
+          category: "internal",
           what: `Failed to read MCP config: ${configPath}`,
           cause: error,
         }),
@@ -270,6 +276,7 @@ const removeJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
+          category: "internal",
           what: `Failed to write MCP config: ${configPath}`,
           cause: error,
         }),

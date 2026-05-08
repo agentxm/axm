@@ -345,9 +345,15 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     Effect.fail(
                       makeAppError({
                         code: "OWNER_REQUIRED",
+                        category: "internal",
                         what: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
-                        howToFix:
-                          "Use the fully-qualified `@owner/packs/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
+                        breadcrumbs: [
+                          {
+                            task: "Recover",
+                            description:
+                              "Use the fully-qualified `@owner/packs/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
+                          },
+                        ],
                       }),
                     ),
                   onSome: Effect.succeed,
@@ -378,22 +384,37 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             case "wrong-type":
               return yield* makeAppError({
                 code: "PACK_SOURCE_INVALID_FORMAT",
+                category: "validation",
                 what: "Extension pack source must include /packs/ segment",
-                howToFix:
-                  "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description:
+                      "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
+                  },
+                ],
               });
             case "missing-name":
               return yield* makeAppError({
                 code: "PACK_SOURCE_MISSING_NAME",
+                category: "not_found",
                 what: "Extension pack source must include a pack name",
-                howToFix: "Use @owner/packs/pack-name format.",
+                breadcrumbs: [
+                  { task: "Recover", description: "Use @owner/packs/pack-name format." },
+                ],
               });
             default:
               return yield* makeAppError({
                 code: "PACK_SOURCE_NOT_REGISTRY",
+                category: "internal",
                 what: "Packs can only be installed from a registry",
-                howToFix:
-                  "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description:
+                      "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
+                  },
+                ],
               });
           }
         }),
@@ -409,8 +430,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 Effect.mapError((error) =>
                   makeAppError({
                     code: "INVALID_SOURCE",
+                    category: "validation",
                     what: `Invalid source: ${error.message}`,
-                    howToFix: "Use @owner/packs/pack-name or just pack-name.",
+                    breadcrumbs: [
+                      {
+                        task: "Recover",
+                        description: "Use @owner/packs/pack-name or just pack-name.",
+                      },
+                    ],
                     cause: error,
                   }),
                 ),
@@ -421,8 +448,11 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (source.type !== "registry") {
             return yield* makeAppError({
               code: "PACK_SOURCE_NOT_REGISTRY",
+              category: "internal",
               what: "Packs can only be installed from a registry",
-              howToFix: "Use a registry source: @owner/packs/pack-name",
+              breadcrumbs: [
+                { task: "Recover", description: "Use a registry source: @owner/packs/pack-name" },
+              ],
             });
           }
 
@@ -446,6 +476,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             if (!req) {
               return yield* makeAppError({
                 code: "PACK_NO_SOURCE_REQUEST",
+                category: "internal",
                 what: "No source request provided",
               });
             }
@@ -533,16 +564,28 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     if (!resolvedRefs) {
                       return yield* makeAppError({
                         code: "PACK_FETCH_FAILED",
+                        category: "internal",
                         what: "Failed to fetch pack from registry",
-                        howToFix:
-                          "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
+                        breadcrumbs: [
+                          {
+                            task: "Recover",
+                            description:
+                              "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
+                          },
+                        ],
                       });
                     }
                   } else if (initialResult._tag === "Failure") {
                     return yield* makeAppError({
                       code: "PACK_FETCH_FAILED",
+                      category: "internal",
                       what: "Failed to fetch pack from registry",
-                      howToFix: "Verify the extension pack name and registry configuration.",
+                      breadcrumbs: [
+                        {
+                          task: "Recover",
+                          description: "Verify the extension pack name and registry configuration.",
+                        },
+                      ],
                       cause: initialResult.failure,
                     });
                   }
@@ -562,9 +605,15 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   if (!resolvedRefs || resolvedRefs.length === 0) {
                     return yield* makeAppError({
                       code: "PACK_NOT_FOUND",
+                      category: "not_found",
                       what: `Extension pack "${req.packName}" not found in registry`,
-                      howToFix:
-                        "Verify the extension pack name and check available extension packs.",
+                      breadcrumbs: [
+                        {
+                          task: "Recover",
+                          description:
+                            "Verify the extension pack name and check available extension packs.",
+                        },
+                      ],
                     });
                   }
 
@@ -584,6 +633,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         if (!packRef) {
           return yield* makeAppError({
             code: "PACK_NOT_FOUND",
+            category: "not_found",
             what: "No extension pack reference found",
           });
         }
@@ -591,6 +641,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         if (packRef.type !== "pack") {
           return yield* makeAppError({
             code: "PACK_FETCH_FAILED",
+            category: "internal",
             what: "Registry did not return a valid extension pack reference",
           });
         }

@@ -156,8 +156,14 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             return Effect.fail(
               makeAppError({
                 code: "EXTENSION_NOT_FOUND",
+                category: "not_found",
                 what: `Pack "${name}" is not installed`,
-                howToFix: `Use the fully-qualified \`@owner/packs/${name}\` form, or check \`axm packs list\`.`,
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: `Use the fully-qualified \`@owner/packs/${name}\` form, or check \`axm packs list\`.`,
+                  },
+                ],
               }),
             );
           },

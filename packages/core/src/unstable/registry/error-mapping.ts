@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
+import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import { isLoopbackAddress } from "../utils/index.js";
 import type { RegistryClientError } from "./__generated__/registry-client.js";
 
@@ -108,10 +109,10 @@ export const isSchemaError = (e: unknown): boolean =>
 // -----------------------------------------------------------------------------
 
 /**
- * Build a user-facing howToFix message for network errors.
+ * Build user-facing breadcrumbs for network errors.
  * Detects localhost+HTTPS mismatches and provides targeted guidance.
  */
-export const buildNetworkHowToFix = (baseUrl: string): string => {
+export const buildNetworkBreadcrumbs = (baseUrl: string): ReadonlyArray<Breadcrumb> => {
   const fallback = "Check registry URL/network connectivity and retry.";
 
   try {
@@ -119,16 +120,28 @@ export const buildNetworkHowToFix = (baseUrl: string): string => {
     const isLocalAddr = isLoopbackAddress(parsed.hostname);
 
     if (isLocalAddr && parsed.protocol === "https:") {
-      return "Ensure local registry is running with TLS, or switch the source URL to http://localhost:<port>.";
+      return [
+        {
+          task: "Recover",
+          description:
+            "Ensure local registry is running with TLS, or switch the source URL to http://localhost:<port>.",
+        },
+      ];
     }
 
     if (isLocalAddr) {
-      return "Ensure local registry is running and reachable at the configured host/port.";
+      return [
+        {
+          task: "Recover",
+          description:
+            "Ensure local registry is running and reachable at the configured host/port.",
+        },
+      ];
     }
 
-    return fallback;
+    return [{ task: "Recover", description: fallback }];
   } catch {
-    return fallback;
+    return [{ task: "Recover", description: fallback }];
   }
 };
 
@@ -189,7 +202,7 @@ export const hasTagSuffix = (e: unknown, suffix: string): boolean => {
  */
 export const mapAuthUnauthenticated = (
   error: RegistryClientError<string, unknown>,
-  howToFix?: string,
+  guidance?: string,
 ): AppError => {
   const details: Array<string> = [];
   const detail = getString(error.cause, "detail");
@@ -198,8 +211,15 @@ export const mapAuthUnauthenticated = (
   }
   return makeAppError({
     code: "AUTH_UNAUTHENTICATED",
+    category: "auth",
     what: "Authentication required",
-    howToFix: howToFix ?? "Run `axm login` to sign in.",
+    breadcrumbs: [
+      {
+        task: "Sign in",
+        description: guidance ?? "Run axm login",
+        ...(guidance === undefined ? { cmd: "axm login" } : {}),
+      },
+    ],
     cause: error,
   });
 };
@@ -237,8 +257,15 @@ export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>)
 
   return makeAppError({
     code: "AUTH_UNAUTHORIZED",
+    category: "forbidden",
     what: "Insufficient permissions",
-    howToFix: "You do not have permission for this operation. Check your account permissions.",
+    breadcrumbs: [
+      {
+        task: "Check permissions",
+        description:
+          "You do not have permission for this operation. Check your account permissions.",
+      },
+    ],
     cause: error,
   });
 };
@@ -257,9 +284,14 @@ export const mapNetworkError = (
   baseUrl: string,
 ): AppError =>
   makeAppError({
+    category: "network",
     code,
     what,
-    howToFix: buildNetworkHowToFix(baseUrl),
+    retryable: true,
+    ...(error.reason._tag === "StatusCodeError"
+      ? { httpStatus: error.reason.response.status }
+      : {}),
+    breadcrumbs: buildNetworkBreadcrumbs(baseUrl),
     cause: error,
   });
 
@@ -272,6 +304,7 @@ export const mapNetworkError = (
  */
 export const mapSchemaError = (error: unknown, code: string, what: string): AppError =>
   makeAppError({
+    category: "validation",
     code,
     what,
     cause: error,
@@ -300,6 +333,7 @@ export const mapUnexpectedStatusError = (
     details.push(`Error code: ${errorCode}`);
   }
   return makeAppError({
+    category: "internal",
     code,
     what,
     cause: error,

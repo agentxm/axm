@@ -114,7 +114,7 @@ describe("TelemetryClientLive", () => {
           name: "WORKSPACE_NOT_FOUND",
           message: "WorkspaceMutations not initialized",
           details: ["some detail"],
-          howToFix: "Run axm setup",
+          category: "not_found",
           level: "error",
           handled: true,
           command: "setup",

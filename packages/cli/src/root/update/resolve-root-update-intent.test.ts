@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { getAppError } from "../../test-helpers.js";
@@ -29,12 +28,12 @@ describe("resolveRootUpdateIntent", () => {
 
       expect(appError.code).toBe("UPDATE_SOURCE_NOT_FQN");
       expect(appError.what).toContain("only accepts registry FQNs");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm skills update owner/repo",
-      );
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm subagents update owner/repo",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm skills update owner/repo");
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm subagents update owner/repo");
     }),
   );
 
@@ -44,12 +43,12 @@ describe("resolveRootUpdateIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UPDATE_SOURCE_NOT_FQN");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm skills update ./local-path",
-      );
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "axm subagents update ./local-path",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm skills update ./local-path");
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("axm subagents update ./local-path");
     }),
   );
 
@@ -59,9 +58,9 @@ describe("resolveRootUpdateIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UPDATE_SOURCE_INVALID_FQN");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "@<handle>/<plural-type>/<name>[@<version>]",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("@<handle>/<plural-type>/<name>[@<version>]");
     }),
   );
 
@@ -71,9 +70,9 @@ describe("resolveRootUpdateIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UPDATE_SOURCE_UNSUPPORTED_TYPE");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "skills, commands, mcp-servers, subagents, packs",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
 
@@ -83,9 +82,9 @@ describe("resolveRootUpdateIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("UPDATE_SOURCE_UNKNOWN_TYPE");
-      expect(Option.getOrElse(appError.howToFix, () => "")).toContain(
-        "skills, commands, mcp-servers, subagents, packs",
-      );
+      expect(
+        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+      ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
 });

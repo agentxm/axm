@@ -77,11 +77,9 @@ describe("axm (root command)", () => {
       const result = await runCli(["help", "bogus"]);
       const output = getOutput(result);
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(3);
       expect(output).toContain("Unknown help topic 'bogus'");
       expect(output).toContain("basic-usage");
-      expect(output).toContain("getting-started");
-      expect(output).toContain("exit-codes");
     });
   });
 });

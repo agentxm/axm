@@ -35,8 +35,11 @@ import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "PROMPT_REQUIRED",
+  category: "internal",
   what: "Interactive prompt required: Select agents to configure",
-  howToFix: "Provide WorkspaceInitializationInteraction in the runtime.",
+  breadcrumbs: [
+    { task: "Recover", description: "Provide WorkspaceInitializationInteraction in the runtime." },
+  ],
 });
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
@@ -74,6 +77,7 @@ const readSettingsFromReadModel = (
       Effect.mapError((error) =>
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",
+          category: "validation",
           what: "Failed to read workspace settings",
           cause: error,
         }),
@@ -115,6 +119,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
         Effect.mapError((error) =>
           makeAppError({
             code: "WORKSPACE_INITIALIZATION_FAILED",
+            category: "internal",
             what: `Failed to detect agents: ${error.message}`,
             cause: error,
           }),
@@ -174,6 +179,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",
+          category: "validation",
           what: `Failed to check if settings file exists: ${settingsPath}`,
           cause: error,
         }),
@@ -183,6 +189,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_PARSE_FAILED",
+          category: "validation",
           what: `Failed to check if lockfile exists: ${lockfilePath}`,
           cause: error,
         }),

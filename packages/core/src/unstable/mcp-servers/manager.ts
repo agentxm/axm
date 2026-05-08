@@ -102,6 +102,7 @@ export const McpServerManagerLive = Layer.effect(
         if (ref.refType !== "registry") {
           return yield* makeAppError({
             code: "INSTALL_MCP_SERVER_UNSUPPORTED_REF_TYPE",
+            category: "internal",
             what: `Unsupported ref type for MCP server install: ${ref.refType}`,
           });
         }
@@ -118,6 +119,7 @@ export const McpServerManagerLive = Layer.effect(
         if (!isPathSafe(baseDir, canonicalPath)) {
           return yield* makeAppError({
             code: "INSTALL_MCP_SERVER_PATH_TRAVERSAL",
+            category: "internal",
             what: `Path traversal detected: ${canonicalPath}`,
           });
         }
@@ -126,6 +128,7 @@ export const McpServerManagerLive = Layer.effect(
           Effect.mapError((e) =>
             makeAppError({
               code: "INSTALL_MCP_SERVER_PATH_CHECK_FAILED",
+              category: "internal",
               what: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
@@ -151,6 +154,7 @@ export const McpServerManagerLive = Layer.effect(
             if (actualIntegrity !== registryRef.integrity.value) {
               return yield* makeAppError({
                 code: "INSTALL_MCP_SERVER_INTEGRITY_MISMATCH",
+                category: "internal",
                 what: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
               });
             }
@@ -160,6 +164,7 @@ export const McpServerManagerLive = Layer.effect(
             Effect.mapError((e) =>
               makeAppError({
                 code: "INSTALL_MCP_SERVER_TEMP_DIR_FAILED",
+                category: "internal",
                 what: `Failed to create temporary directory for registry install`,
                 cause: e,
               }),
@@ -173,6 +178,7 @@ export const McpServerManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "INSTALL_MCP_SERVER_COPY_FAILED",
+                    category: "internal",
                     what: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
                   }),
@@ -182,6 +188,7 @@ export const McpServerManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "INSTALL_MCP_SERVER_COPY_FAILED",
+                    category: "internal",
                     what: `Failed to read extracted directory`,
                     cause: e,
                   }),

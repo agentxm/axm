@@ -27,10 +27,10 @@ describe("BreadcrumbSchema", () => {
     });
   });
 
-  it("rejects breadcrumbs without command or cmd", () => {
-    expect(() =>
+  it("decodes guidance-only breadcrumbs", () => {
+    expect(
       Schema.decodeUnknownSync(BreadcrumbSchema)({ task: "edit", description: "Edit the file" }),
-    ).toThrow("Expected breadcrumb command or cmd");
+    ).toEqual({ task: "edit", description: "Edit the file" });
   });
 });
 
@@ -52,6 +52,7 @@ describe("JsonEnvelopeSchema", () => {
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({
         code: "WORKSPACE_NOT_FOUND",
+        category: "not_found",
         what: "No workspace found",
         breadcrumbs: [
           {
@@ -67,6 +68,7 @@ describe("JsonEnvelopeSchema", () => {
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
       ok: false,
       code: "WORKSPACE_NOT_FOUND",
+      category: "not_found",
       message: "No workspace found",
       breadcrumbs: [
         {

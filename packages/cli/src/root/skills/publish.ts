@@ -85,6 +85,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_SOURCES_FAILED",
+          category: "internal",
           what: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
@@ -95,8 +96,9 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
+        category: "internal",
         what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
+        breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
       });
     }
 
@@ -111,6 +113,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_SKILL_REGISTRY_LOOKUP_FAILED",
+          category: "internal",
           what: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
@@ -120,6 +123,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
         code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
+        category: "not_found",
         what: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
@@ -179,9 +183,15 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
+          category: "not_found",
           what: `Skill "${name}" is not installed in this workspace`,
-          howToFix:
-            "Use the fully-qualified name `@owner/skills/name`, or scaffold a managed skill with `axm skills new` first.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Use the fully-qualified name `@owner/skills/name`, or scaffold a managed skill with `axm skills new` first.",
+            },
+          ],
         }),
       );
     }
@@ -191,9 +201,15 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
+          category: "not_found",
           what: `Skill "${name}" cannot be published from a non-registry source`,
-          howToFix:
-            "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published.",
+            },
+          ],
         }),
       );
     }
@@ -214,6 +230,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
             return Effect.fail(
               makeAppError({
                 code: "EXTENSION_NOT_FOUND",
+                category: "not_found",
                 what: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
               }),
             );
@@ -234,9 +251,15 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
             if (!extensionDirExists) {
               return yield* makeAppError({
                 code: "EXTENSION_NOT_FOUND",
+                category: "not_found",
                 what: `Managed extension not found: ${extName}`,
-                howToFix:
-                  "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed skill with `axm skills new` first.",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description:
+                      "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed skill with `axm skills new` first.",
+                  },
+                ],
               });
             }
 
@@ -248,8 +271,14 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
             if (!manifestExists) {
               return yield* makeAppError({
                 code: "MISSING_MANIFEST",
+                category: "not_found",
                 what: `Missing manifest: ${MANIFEST_FILENAME}`,
-                howToFix: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
+                  },
+                ],
               });
             }
           });
@@ -336,6 +365,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
   if (failedStepDetails.length > 0) {
     return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
+      category: "internal",
       what: `Failed to publish ${failedStepDetails.length} skill${failedStepDetails.length === 1 ? "" : "s"}`,
     });
   }

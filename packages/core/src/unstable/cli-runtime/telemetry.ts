@@ -45,6 +45,7 @@ export interface CliCommandCompletedOptions {
   readonly result: "success" | "error" | "cancelled" | "defect";
   readonly durationMs: number;
   readonly errorCode?: string;
+  readonly errorCategory?: string;
   readonly semanticProperties?: TelemetryProperties;
 }
 
@@ -58,6 +59,7 @@ export const trackCliCommandCompleted = (
       "cli.result": options.result,
       "cli.duration_ms": options.durationMs,
       ...(options.errorCode !== undefined && { "cli.error_code": options.errorCode }),
+      ...(options.errorCategory !== undefined && { "cli.error_category": options.errorCategory }),
       ...(options.semanticProperties ?? {}),
     });
   }).pipe(Effect.catchCause(() => Effect.void));
@@ -96,7 +98,7 @@ export const reportCliError = (
         yield* telemetry.reportError({
           name: error.code,
           message: error.what,
-          ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
+          category: error.category,
           level: "error",
           handled: true,
           command,

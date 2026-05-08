@@ -36,8 +36,9 @@ const parseOrigin = (url: string) =>
     catch: (error) =>
       makeAppError({
         code: "AUTH_INVALID_URL",
+        category: "validation",
         what: `Invalid URL: ${url}`,
-        howToFix: "Check the registry URL in your settings.",
+        breadcrumbs: [{ task: "Recover", description: "Check the registry URL in your settings." }],
         cause: error,
       }),
   });
@@ -74,8 +75,14 @@ const persistRefreshedCredentials = (registryUrl: string, token: NormalizedToken
 const makeLoginRequiredError = () =>
   makeAppError({
     code: "AUTH_LOGIN_REQUIRED",
+    category: "internal",
     what: "Authentication required",
-    howToFix: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+    breadcrumbs: [
+      {
+        task: "Recover",
+        description: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+      },
+    ],
   });
 
 /**

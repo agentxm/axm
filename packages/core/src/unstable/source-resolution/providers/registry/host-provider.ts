@@ -313,6 +313,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     if (ref.refType !== "registry") {
       return yield* makeAppError({
         code: "SOURCE_FETCH_FAILED",
+        category: "internal",
         what: "Ref missing registry details (owner, version, integrity)",
       });
     }
@@ -333,6 +334,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       if (actualIntegrity !== expectedIntegrity.value) {
         return yield* makeAppError({
           code: "SOURCE_FETCH_FAILED",
+          category: "internal",
           what: `Integrity mismatch for ${type}:${name}@${version}`,
         });
       }
@@ -344,6 +346,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
         Effect.mapError((e) =>
           makeAppError({
             code: "SOURCE_FETCH_FAILED",
+            category: "internal",
             what: "Failed to create temp directory",
             cause: e,
           }),

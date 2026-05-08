@@ -77,6 +77,7 @@ export const readCommandContent = (
         Effect.mapError((e) =>
           makeAppError({
             code: `${errorPrefix}_READ_FAILED`,
+            category: "internal",
             what: `Failed to read ${contentFilename} at ${commandMdPath}`,
             cause: e,
           }),
@@ -99,6 +100,7 @@ export const readCommandContent = (
         Effect.mapError((e) =>
           makeAppError({
             code: `${errorPrefix}_READ_FAILED`,
+            category: "internal",
             what: `Failed to read ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: e,
           }),
@@ -109,6 +111,7 @@ export const readCommandContent = (
         catch: (error) =>
           makeAppError({
             code: `${errorPrefix}_MANIFEST_INVALID`,
+            category: "internal",
             what: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: error,
           }),

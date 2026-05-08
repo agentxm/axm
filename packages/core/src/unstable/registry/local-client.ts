@@ -49,6 +49,7 @@ const readExtensionIndex = (
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_FETCH_FAILED",
+          category: "internal",
           what: `Failed to read index: ${idxPath}`,
           cause: e,
         }),
@@ -58,6 +59,7 @@ const readExtensionIndex = (
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_FETCH_FAILED",
+          category: "internal",
           what: `Invalid index schema: ${idxPath}`,
           cause: e,
         }),
@@ -323,6 +325,7 @@ export const createLocalRegistryClient = (
             if (Option.isNone(selected)) {
               return yield* makeAppError({
                 code: "REGISTRY_FETCH_FAILED",
+                category: "internal",
                 what: `No versions found for ${owner}/${args.type}/${args.name}`,
               });
             }
@@ -348,6 +351,7 @@ export const createLocalRegistryClient = (
             if (Option.isNone(selected)) {
               return yield* makeAppError({
                 code: "REGISTRY_FETCH_FAILED",
+                category: "internal",
                 what: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
               });
             }
@@ -361,6 +365,7 @@ export const createLocalRegistryClient = (
       if (!exists) {
         return yield* makeAppError({
           code: "REGISTRY_FETCH_FAILED",
+          category: "internal",
           what: `Archive not found: ${archivePath}`,
         });
       }
@@ -369,6 +374,7 @@ export const createLocalRegistryClient = (
         Effect.mapError((e) =>
           makeAppError({
             code: "REGISTRY_FETCH_FAILED",
+            category: "internal",
             what: `Failed to read archive: ${archivePath}`,
             cause: e,
           }),
@@ -387,6 +393,7 @@ export const createLocalRegistryClient = (
         Effect.mapError((e) =>
           makeAppError({
             code: "REGISTRY_PUBLISH_FAILED",
+            category: "internal",
             what: `Failed to create directory: ${dir}`,
             cause: e,
           }),
@@ -405,6 +412,7 @@ export const createLocalRegistryClient = (
           Effect.mapError((e) =>
             makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
+              category: "internal",
               what: `Failed to read index: ${indexPath}`,
               cause: e,
             }),
@@ -414,6 +422,7 @@ export const createLocalRegistryClient = (
           Effect.mapError((e) =>
             makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
+              category: "internal",
               what: `Invalid index schema`,
               cause: e,
             }),
@@ -428,6 +437,7 @@ export const createLocalRegistryClient = (
           }
           return yield* makeAppError({
             code: "REGISTRY_PUBLISH_FAILED",
+            category: "internal",
             what: `Version ${args.version} already exists with different integrity`,
           });
         }
@@ -441,6 +451,7 @@ export const createLocalRegistryClient = (
           Effect.mapError((e) =>
             makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
+              category: "internal",
               what: `Failed to write index: ${indexPath}`,
               cause: e,
             }),
@@ -458,6 +469,7 @@ export const createLocalRegistryClient = (
           Effect.mapError((e) =>
             makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
+              category: "internal",
               what: `Failed to write index: ${indexPath}`,
               cause: e,
             }),
@@ -470,6 +482,7 @@ export const createLocalRegistryClient = (
         Effect.mapError((e) =>
           makeAppError({
             code: "REGISTRY_PUBLISH_FAILED",
+            category: "internal",
             what: `Failed to write archive: ${archivePath}`,
             cause: e,
           }),

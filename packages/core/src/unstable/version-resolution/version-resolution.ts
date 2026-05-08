@@ -83,8 +83,11 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
         Effect.mapError((cause) =>
           makeAppError({
             code: "VERSION_RESOLUTION_NETWORK_ERROR",
+            category: "network",
             what: "Failed to reach GitHub API",
-            howToFix: "Check your network connection and try again.",
+            breadcrumbs: [
+              { task: "Recover", description: "Check your network connection and try again." },
+            ],
             cause,
           }),
         ),
@@ -93,9 +96,15 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
     if (response.status !== 200) {
       return yield* makeAppError({
         code: "VERSION_RESOLUTION_GITHUB_ERROR",
+        category: "internal",
         what: `GitHub API returned status ${String(response.status)}`,
-        howToFix:
-          "Check your network connection and try again. If the problem persists, GitHub may be experiencing issues.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Check your network connection and try again. If the problem persists, GitHub may be experiencing issues.",
+          },
+        ],
       });
     }
 
@@ -103,8 +112,15 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "VERSION_RESOLUTION_INVALID_RESPONSE",
+          category: "validation",
           what: "Failed to parse GitHub API response as JSON",
-          howToFix: "This may indicate a GitHub API change. Please try again or report the issue.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "This may indicate a GitHub API change. Please try again or report the issue.",
+            },
+          ],
           cause,
         }),
       ),
@@ -118,8 +134,15 @@ const mapDecodeError = (_url: string) =>
   Effect.mapError((cause: Schema.SchemaError) =>
     makeAppError({
       code: "VERSION_RESOLUTION_INVALID_RESPONSE",
+      category: "validation",
       what: "GitHub API returned an unexpected response shape",
-      howToFix: "This may indicate a GitHub API change. Please try again or report the issue.",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description:
+            "This may indicate a GitHub API change. Please try again or report the issue.",
+        },
+      ],
       cause,
     }),
   );
@@ -168,8 +191,15 @@ const resolveRemoteVersion = (httpClient: HttpClient.HttpClient, repo: string) =
     }
     return yield* makeAppError({
       code: "VERSION_RESOLUTION_NO_CLI_RELEASE",
+      category: "internal",
       what: "No CLI release found on GitHub",
-      howToFix: "Ensure the repository has at least one release tagged with the 'cli-v' prefix.",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description:
+            "Ensure the repository has at least one release tagged with the 'cli-v' prefix.",
+        },
+      ],
     });
   });
 

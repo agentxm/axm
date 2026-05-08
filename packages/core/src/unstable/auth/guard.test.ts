@@ -112,7 +112,7 @@ describe("withAuthGuard", () => {
   it.effect("propagates inner effect errors", () => {
     const layer = makeLayers({ hasToken: true });
     const failingEffect = Effect.fail(
-      makeAppError({ code: "PUBLISH_PLAN_FAILED", what: "Publish failed" }),
+      makeAppError({ code: "PUBLISH_PLAN_FAILED", category: "internal", what: "Publish failed" }),
     );
     return withAuthGuard(failingEffect).pipe(
       Effect.provide(layer),

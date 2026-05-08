@@ -60,8 +60,9 @@ export const resolveRootUninstallIntent = (input: string) =>
     if (!source.startsWith("@")) {
       return yield* makeAppError({
         code: "UNINSTALL_SOURCE_NOT_FQN",
+        category: "internal",
         what: "Root uninstall only accepts registry FQNs",
-        howToFix: rootUninstallRegistryOnlyHowToFix(source),
+        breadcrumbs: [{ task: "Recover", description: rootUninstallRegistryOnlyHowToFix(source) }],
       });
     }
 
@@ -70,16 +71,28 @@ export const resolveRootUninstallIntent = (input: string) =>
         if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
           return makeAppError({
             code: "UNINSTALL_SOURCE_UNKNOWN_TYPE",
+            category: "not_found",
             what: "Uninstall source uses an unsupported plural type",
-            howToFix: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
+              },
+            ],
             cause: error,
           });
         }
 
         return makeAppError({
           code: "UNINSTALL_SOURCE_INVALID_FQN",
+          category: "validation",
           what: "Uninstall source must be a registry FQN",
-          howToFix: `Use ${rootUninstallFqnGrammar} with one of: ${supportedRootUninstallTypes}.`,
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: `Use ${rootUninstallFqnGrammar} with one of: ${supportedRootUninstallTypes}.`,
+            },
+          ],
           cause: error,
         });
       }),
@@ -88,8 +101,14 @@ export const resolveRootUninstallIntent = (input: string) =>
     if (!isInstallableExtensionTypePlural(parsed.type)) {
       return yield* makeAppError({
         code: "UNINSTALL_SOURCE_UNSUPPORTED_TYPE",
+        category: "internal",
         what: "Root uninstall does not support that extension type",
-        howToFix: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
+          },
+        ],
       });
     }
 

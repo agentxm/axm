@@ -185,6 +185,7 @@ export const buildReconciliationSnapshot = (
           return Effect.fail(
             makeAppError({
               code: "LOCKFILE_RECONCILE_ADAPTER_MISSING",
+              category: "not_found",
               what: `No reconciliation adapter for ${declaration.type}`,
             }),
           );
@@ -236,6 +237,7 @@ const backupInvalidLockfile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
+          category: "internal",
           what: "Failed to create temporary directory for invalid lockfile backup",
           cause: error,
         }),
@@ -248,6 +250,7 @@ const backupInvalidLockfile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
+          category: "internal",
           what: `Failed to back up invalid lockfile to ${backupPath}`,
           cause: error,
         }),
@@ -258,6 +261,7 @@ const backupInvalidLockfile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
+          category: "internal",
           what: `Failed to remove invalid lockfile after backing up to ${backupPath}`,
           cause: error,
         }),
@@ -294,6 +298,7 @@ export const runReconcileMaterializeOperation = (
         message: "Reconciliation requires unresolved source resolution",
         error: makeAppError({
           code: "LOCKFILE_RECONCILE_SOURCE_UNREACHABLE",
+          category: "network",
           what: "Required declaration sources are unreachable during reconciliation",
         }),
       } satisfies JobStepResult;
@@ -306,6 +311,7 @@ export const runReconcileMaterializeOperation = (
         Effect.mapError((error) =>
           makeAppError({
             code: "LOCKFILE_BACKUP_FAILED",
+            category: "internal",
             what: `Failed to check invalid lockfile at ${lockfilePath}`,
             cause: error,
           }),

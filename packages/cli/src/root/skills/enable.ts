@@ -45,8 +45,11 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   if (entry === undefined) {
     return yield* makeAppError({
       code: "SKILL_NOT_FOUND",
+      category: "not_found",
       what: `Skill '${args.name}' is not installed`,
-      howToFix: "Run `axm skills list` to see available skills",
+      breadcrumbs: [
+        { task: "Recover", description: "Run `axm skills list` to see available skills" },
+      ],
     });
   }
 

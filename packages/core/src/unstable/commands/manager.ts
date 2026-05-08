@@ -202,6 +202,7 @@ export const CommandManagerLive = Layer.effect(
         if (!isPathSafe(baseDir, canonicalPath)) {
           return yield* makeAppError({
             code: "INSTALL_COMMAND_PATH_TRAVERSAL",
+            category: "internal",
             what: `Path traversal detected: ${canonicalPath}`,
           });
         }
@@ -210,6 +211,7 @@ export const CommandManagerLive = Layer.effect(
           Effect.mapError((e) =>
             makeAppError({
               code: "INSTALL_COMMAND_PATH_CHECK_FAILED",
+              category: "internal",
               what: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
@@ -235,6 +237,7 @@ export const CommandManagerLive = Layer.effect(
             if (actualIntegrity !== ref.integrity.value) {
               return yield* makeAppError({
                 code: "INSTALL_COMMAND_INTEGRITY_MISMATCH",
+                category: "internal",
                 what: `Integrity mismatch for ${ref.name}@${ref.version}`,
               });
             }
@@ -244,6 +247,7 @@ export const CommandManagerLive = Layer.effect(
             Effect.mapError((e) =>
               makeAppError({
                 code: "INSTALL_COMMAND_TEMP_DIR_FAILED",
+                category: "internal",
                 what: `Failed to create temporary directory for registry install`,
                 cause: e,
               }),
@@ -257,6 +261,7 @@ export const CommandManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "INSTALL_COMMAND_COPY_FAILED",
+                    category: "internal",
                     what: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
                   }),
@@ -266,6 +271,7 @@ export const CommandManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "INSTALL_COMMAND_COPY_FAILED",
+                    category: "internal",
                     what: `Failed to read extracted directory`,
                     cause: e,
                   }),
@@ -308,6 +314,7 @@ export const CommandManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "INSTALL_COMMAND_COPY_FAILED",
+                  category: "internal",
                   what: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
@@ -339,6 +346,7 @@ export const CommandManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "INSTALL_COMMAND_COPY_FAILED",
+                  category: "internal",
                   what: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
@@ -377,9 +385,15 @@ export const CommandManagerLive = Layer.effect(
                       Effect.fail(
                         makeAppError({
                           code: "OWNER_REQUIRED",
+                          category: "internal",
                           what: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
-                          howToFix:
-                            "Set `owner` in `.axm/settings.json` (project or global) before syncing non-registry commands.",
+                          breadcrumbs: [
+                            {
+                              task: "Recover",
+                              description:
+                                "Set `owner` in `.axm/settings.json` (project or global) before syncing non-registry commands.",
+                            },
+                          ],
                         }),
                       ),
                     onSome: Effect.succeed,

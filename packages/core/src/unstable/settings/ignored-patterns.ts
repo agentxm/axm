@@ -22,8 +22,11 @@ export const normalizeIgnoredPatterns = (patterns: ReadonlyArray<string>) =>
     if (invalid.length > 0) {
       return yield* makeAppError({
         code: "SETTINGS_IGNORED_PATTERN_INVALID",
+        category: "validation",
         what: "Ignored pattern is empty after trimming whitespace",
-        howToFix: "Remove empty ignored patterns from settings",
+        breadcrumbs: [
+          { task: "Recover", description: "Remove empty ignored patterns from settings" },
+        ],
       });
     }
     return Array.dedupe(trimmed);
@@ -46,9 +49,15 @@ export const validateIgnoredConfigConflicts = (
     if (conflicts.length > 0) {
       return yield* makeAppError({
         code: "SETTINGS_IGNORED_CONFIG_CONFLICT",
+        category: "conflict",
         what: `Configured extensions conflict with ignored patterns: ${conflicts.join(", ")}`,
-        howToFix:
-          "Remove conflicting entries from either the configured extensions or the ignored patterns in settings",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Remove conflicting entries from either the configured extensions or the ignored patterns in settings",
+          },
+        ],
       });
     }
   });

@@ -60,8 +60,9 @@ export const resolveRootInstallIntent = (input: string) =>
     if (!source.startsWith("@")) {
       return yield* makeAppError({
         code: "INSTALL_SOURCE_NOT_FQN",
+        category: "internal",
         what: "Root install only accepts registry FQNs",
-        howToFix: rootInstallRegistryOnlyHowToFix(source),
+        breadcrumbs: [{ task: "Recover", description: rootInstallRegistryOnlyHowToFix(source) }],
       });
     }
 
@@ -70,16 +71,28 @@ export const resolveRootInstallIntent = (input: string) =>
         if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
           return makeAppError({
             code: "INSTALL_SOURCE_UNKNOWN_TYPE",
+            category: "not_found",
             what: "Install source uses an unsupported plural type",
-            howToFix: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
+              },
+            ],
             cause: error,
           });
         }
 
         return makeAppError({
           code: "INSTALL_SOURCE_INVALID_FQN",
+          category: "validation",
           what: "Install source must be a registry FQN",
-          howToFix: `Use ${rootInstallFqnGrammar} with one of: ${supportedRootInstallTypes}.`,
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: `Use ${rootInstallFqnGrammar} with one of: ${supportedRootInstallTypes}.`,
+            },
+          ],
           cause: error,
         });
       }),
@@ -88,8 +101,14 @@ export const resolveRootInstallIntent = (input: string) =>
     if (!isInstallableExtensionTypePlural(parsed.type)) {
       return yield* makeAppError({
         code: "INSTALL_SOURCE_UNSUPPORTED_TYPE",
+        category: "internal",
         what: "Root install does not support that extension type",
-        howToFix: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
+          },
+        ],
       });
     }
 

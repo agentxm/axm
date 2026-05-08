@@ -89,6 +89,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_SOURCES_FAILED",
+          category: "internal",
           what: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
@@ -99,8 +100,9 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
+        category: "internal",
         what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
+        breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
       });
     }
 
@@ -115,6 +117,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_COMMAND_REGISTRY_LOOKUP_FAILED",
+          category: "internal",
           what: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
@@ -124,6 +127,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
         code: "PUBLISH_COMMAND_REGISTRY_NOT_FOUND",
+        category: "not_found",
         what: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
@@ -185,9 +189,15 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
+          category: "not_found",
           what: `Command "${name}" is not installed in this workspace`,
-          howToFix:
-            "Use the fully-qualified name `@owner/commands/name`, or run `axm commands new ${name}` to create it first.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Use the fully-qualified name `@owner/commands/name`, or run `axm commands new ${name}` to create it first.",
+            },
+          ],
         }),
       );
     }
@@ -196,9 +206,15 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "EXTENSION_NOT_FOUND",
+          category: "not_found",
           what: `Command "${name}" cannot be published from a non-registry source`,
-          howToFix:
-            "Only commands sourced from a registry namespace (`@owner/commands/name`) can be published.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Only commands sourced from a registry namespace (`@owner/commands/name`) can be published.",
+            },
+          ],
         }),
       );
     }
@@ -219,6 +235,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             return Effect.fail(
               makeAppError({
                 code: "EXTENSION_NOT_FOUND",
+                category: "not_found",
                 what: `Missing extension name for parsed FQN ${fqn.owner}/commands/${fqn.name}`,
               }),
             );
@@ -239,9 +256,15 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             if (!extensionDirExists) {
               return yield* makeAppError({
                 code: "EXTENSION_NOT_FOUND",
+                category: "not_found",
                 what: `Managed extension not found: ${extName}`,
-                howToFix:
-                  "Only managed extensions (in .axm/extensions/) can be published. Create with `axm commands new` first.",
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description:
+                      "Only managed extensions (in .axm/extensions/) can be published. Create with `axm commands new` first.",
+                  },
+                ],
               });
             }
 
@@ -253,8 +276,14 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             if (!manifestExists) {
               return yield* makeAppError({
                 code: "MISSING_MANIFEST",
+                category: "not_found",
                 what: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
-                howToFix: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
+                  },
+                ],
               });
             }
 
@@ -267,8 +296,14 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             if (!commandMdExists) {
               return yield* makeAppError({
                 code: "MISSING_COMMAND_MD",
+                category: "not_found",
                 what: `Missing ${contentFilename}`,
-                howToFix: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
+                breadcrumbs: [
+                  {
+                    task: "Recover",
+                    description: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
+                  },
+                ],
               });
             }
           });
@@ -346,6 +381,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
   if (failedStepDetails.length > 0) {
     return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
+      category: "internal",
       what: `Failed to publish ${failedStepDetails.length} command${failedStepDetails.length === 1 ? "" : "s"}`,
     });
   }

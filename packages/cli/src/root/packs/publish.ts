@@ -78,6 +78,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_SOURCES_FAILED",
+          category: "internal",
           what: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
@@ -88,8 +89,9 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
+        category: "internal",
         what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
+        breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
       });
     }
 
@@ -104,6 +106,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_PACK_REGISTRY_LOOKUP_FAILED",
+          category: "internal",
           what: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
@@ -113,6 +116,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
         code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
+        category: "not_found",
         what: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
@@ -178,18 +182,30 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       if (entry === undefined) {
         return yield* makeAppError({
           code: "EXTENSION_NOT_FOUND",
+          category: "not_found",
           what: `Extension pack "${args.pack}" is not installed in this workspace`,
-          howToFix:
-            "Use the fully-qualified name `@owner/packs/name`, or run `axm packs new ${args.pack}` to create it first.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Use the fully-qualified name `@owner/packs/name`, or run `axm packs new ${args.pack}` to create it first.",
+            },
+          ],
         });
       }
       const parts = parseRegistrySourcePatternParts(entry.source);
       if (parts === undefined || parts.owner === undefined) {
         return yield* makeAppError({
           code: "EXTENSION_NOT_FOUND",
+          category: "not_found",
           what: `Extension pack "${args.pack}" cannot be published from a non-registry source`,
-          howToFix:
-            "Only packs sourced from a registry namespace (`@owner/packs/name`) can be published.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description:
+                "Only packs sourced from a registry namespace (`@owner/packs/name`) can be published.",
+            },
+          ],
         });
       }
       return formatFqn({
@@ -219,9 +235,15 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         if (!packDirExists) {
           return yield* makeAppError({
             code: "EXTENSION_NOT_FOUND",
+            category: "not_found",
             what: `Managed extension pack not found: ${packName}`,
-            howToFix:
-              "Only managed extension packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description:
+                  "Only managed extension packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
+              },
+            ],
           });
         }
 
@@ -234,8 +256,14 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         if (!manifestExists) {
           return yield* makeAppError({
             code: "MISSING_MANIFEST",
+            category: "not_found",
             what: `Missing manifest: ${EXTENSION_PACK_MANIFEST_FILENAME}`,
-            howToFix: `Ensure the pack has a valid ${EXTENSION_PACK_MANIFEST_FILENAME} manifest.`,
+            breadcrumbs: [
+              {
+                task: "Recover",
+                description: `Ensure the pack has a valid ${EXTENSION_PACK_MANIFEST_FILENAME} manifest.`,
+              },
+            ],
           });
         }
 
@@ -252,6 +280,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_READ_FAILED",
+          category: "internal",
           what: `Failed to read extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -266,6 +295,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
+          category: "validation",
           what: `Invalid JSON in extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -275,6 +305,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
+          category: "validation",
           what: `Invalid extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -368,6 +399,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     if (failedStepDetails.length > 0) {
       return yield* makeAppError({
         code: "PUBLISH_PLAN_FAILED",
+        category: "internal",
         what: `Failed to publish ${failedStepDetails.length} extension pack item${failedStepDetails.length === 1 ? "" : "s"}`,
       });
     }
@@ -440,6 +472,7 @@ const makeDependencyStep = (
       return Effect.fail(
         makeAppError({
           code: "PACK_DEPENDENCY_UNSUPPORTED",
+          category: "internal",
           what: `Extension pack dependencies of extension packs are not supported for publishing: ${depFqn}`,
         }),
       );
@@ -449,6 +482,7 @@ const makeDependencyStep = (
       return Effect.fail(
         makeAppError({
           code: "PACK_DEPENDENCY_UNSUPPORTED",
+          category: "internal",
           what: `Publishing ${parsed.type} from pack dependencies is not supported: ${depFqn}`,
         }),
       );

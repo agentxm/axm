@@ -60,6 +60,7 @@ const makeInstallWorkspaceMock = (
           catch: (error) =>
             makeAppError({
               code: "LOCKFILE_WRITE_FAILED",
+              category: "internal",
               what: "Mock write failed",
               cause: error,
             }),
@@ -367,6 +368,7 @@ describe("installCommand", () => {
           Effect.fail(
             makeAppError({
               code: "SETTINGS_WRITE_FAILED",
+              category: "internal",
               what: "write failed",
               cause: new Error("write failed"),
             }),

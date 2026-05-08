@@ -94,6 +94,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
       catch: (e) =>
         makeAppError({
           code: "SOURCE_FETCH_FAILED",
+          category: "internal",
           what: "Failed to decompress zip archive",
           cause: e,
         }),
@@ -112,6 +113,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
               Effect.mapError((e) =>
                 makeAppError({
                   code: "SOURCE_FETCH_FAILED",
+                  category: "internal",
                   what: `Failed to create directory: ${name}`,
                   cause: e,
                 }),
@@ -124,6 +126,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
               Effect.mapError((e) =>
                 makeAppError({
                   code: "SOURCE_FETCH_FAILED",
+                  category: "internal",
                   what: `Failed to create parent directory for: ${name}`,
                   cause: e,
                 }),
@@ -134,6 +137,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
               Effect.mapError((e) =>
                 makeAppError({
                   code: "SOURCE_FETCH_FAILED",
+                  category: "internal",
                   what: `Failed to write file: ${name}`,
                   cause: e,
                 }),

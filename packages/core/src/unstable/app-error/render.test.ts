@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import * as Option from "effect/Option";
 import { AppError } from "./app-error.js";
 import { renderAppError, renderDefect } from "./render.js";
 
@@ -7,26 +6,22 @@ describe("renderAppError", () => {
   it("formats error with all fields", () => {
     const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
+      category: "internal",
       what: "WorkspaceMutations not initialized",
-      howToFix: Option.some("Run 'axm setup' to create one."),
+      breadcrumbs: [{ task: "Recover", description: "Run 'axm setup' to create one." }],
       cause: undefined,
     });
 
     const result = renderAppError(error);
 
-    expect(result).toBe(
-      [
-        "\u2717 WorkspaceMutations not initialized (WORKSPACE_NOT_INIT)",
-        "  Run 'axm setup' to create one.",
-      ].join("\n"),
-    );
+    expect(result).toBe("\u2717 WorkspaceMutations not initialized (WORKSPACE_NOT_INIT)");
   });
 
-  it("formats error with no howToFix", () => {
+  it("formats error with no breadcrumbs", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
+      category: "internal",
       what: "Installation failed",
-      howToFix: Option.none(),
       cause: undefined,
     });
 
@@ -38,8 +33,8 @@ describe("renderAppError", () => {
   it("formats error with no optional fields", () => {
     const error = new AppError({
       code: "UNKNOWN",
+      category: "not_found",
       what: "Something went wrong",
-      howToFix: Option.none(),
       cause: undefined,
     });
 
@@ -51,26 +46,22 @@ describe("renderAppError", () => {
   it("formats error with multiple detail lines", () => {
     const error = new AppError({
       code: "INVALID_SOURCE",
+      category: "validation",
       what: "Could not resolve source",
-      howToFix: Option.some("Try a local path or GitHub shorthand."),
+      breadcrumbs: [{ task: "Recover", description: "Try a local path or GitHub shorthand." }],
       cause: undefined,
     });
 
     const result = renderAppError(error);
 
-    expect(result).toBe(
-      [
-        "\u2717 Could not resolve source (INVALID_SOURCE)",
-        "  Try a local path or GitHub shorthand.",
-      ].join("\n"),
-    );
+    expect(result).toBe("\u2717 Could not resolve source (INVALID_SOURCE)");
   });
 
   it("includes cause message in verbose mode", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
+      category: "internal",
       what: "Installation failed",
-      howToFix: Option.none(),
       cause: new Error("permission denied"),
     });
 
@@ -86,8 +77,8 @@ describe("renderAppError", () => {
     cause.stack = "Error: permission denied\n at test";
     const error = new AppError({
       code: "INSTALL_FAILED",
+      category: "internal",
       what: "Installation failed",
-      howToFix: Option.none(),
       cause,
     });
 
@@ -101,15 +92,15 @@ describe("renderAppError", () => {
   it("renders nested AppError cause in verbose mode", () => {
     const nested = new AppError({
       code: "REGISTRY_PUBLISH_NETWORK_ERROR",
+      category: "network",
       what: "Failed to connect to the remote registry",
-      howToFix: Option.none(),
       cause: undefined,
     });
 
     const error = new AppError({
       code: "PUBLISH_SKILL_PUBLISH_FAILED",
+      category: "internal",
       what: 'Failed to publish to registry "local-registry"',
-      howToFix: Option.none(),
       cause: nested,
     });
 

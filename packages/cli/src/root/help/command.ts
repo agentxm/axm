@@ -51,8 +51,14 @@ const handleHelpTopic = (topic: Option.Option<string>) =>
       return Effect.fail(
         makeAppError({
           code: "HELP_UNKNOWN_TOPIC",
+          category: "not_found",
           what: `Unknown help topic '${name}'`,
-          howToFix: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",
+          breadcrumbs: [
+            {
+              task: "Recover",
+              description: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",
+            },
+          ],
         }),
       );
     },

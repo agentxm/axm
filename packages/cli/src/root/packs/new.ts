@@ -58,6 +58,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_CHECK_FAILED",
+        category: "internal",
         what: `Failed to check if extension pack exists: ${manifestPath}`,
         cause: e,
       }),
@@ -67,8 +68,14 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   if (exists) {
     return yield* makeAppError({
       code: "PACK_ALREADY_EXISTS",
+      category: "conflict",
       what: `Extension pack '${fqn}' already exists at ${packDir.canonicalPath}`,
-      howToFix: "Choose a different name or remove the existing extension pack first",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Choose a different name or remove the existing extension pack first",
+        },
+      ],
     });
   }
 

@@ -3,6 +3,7 @@ import { CliError } from "effect/unstable/cli";
 import { classifyError } from "./handle-error.js";
 import { handleError } from "./handle-error.js";
 import { effectCliExit } from "./effect-cli-exit.js";
+import { makeAppError } from "../app-error/index.js";
 
 // ---------------------------------------------------------------------------
 // classifyError — pure classification tests
@@ -89,6 +90,32 @@ describe("classifyError — EffectCliExit", () => {
   });
 });
 
+describe("classifyError — AppError", () => {
+  it("maps category to exit code and JSON envelope fields", () => {
+    const error = makeAppError({
+      code: "AUTH_UNAUTHENTICATED",
+      category: "auth",
+      what: "Authentication required",
+      retryable: false,
+      httpStatus: 401,
+    });
+
+    const result = classifyError(error, "json");
+
+    expect(result.exitCode).toBe(4);
+    const parsed: unknown = JSON.parse(result.output?.content ?? "");
+    expect(parsed).toMatchObject({
+      ok: false,
+      code: "AUTH_UNAUTHENTICATED",
+      category: "auth",
+      message: "Authentication required",
+      retryable: false,
+      httpStatus: 401,
+      exitCode: 4,
+    });
+  });
+});
+
 describe("classifyError — generic errors", () => {
   it("returns exitCode 1 with stderr output for text format", () => {
     const result = classifyError(new Error("boom"), "text");
@@ -108,7 +135,8 @@ describe("classifyError — generic errors", () => {
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
       ok: false,
-      code: "UNKNOWN_ERROR",
+      code: "INTERNAL_UNCATEGORIZED",
+      category: "internal",
       message: "boom",
       exitCode: 1,
     });

@@ -358,6 +358,7 @@ describe("uninstallSkill", () => {
           Effect.fail(
             makeAppError({
               code: "SETTINGS_WRITE_FAILED",
+              category: "internal",
               what: "write failed",
               cause: new Error("write failed"),
             }),
@@ -582,6 +583,7 @@ describe("uninstallSkill", () => {
                   Effect.fail(
                     makeAppError({
                       code: "LOCKFILE_PARSE_FAILED",
+                      category: "validation",
                       what: "corrupt lockfile",
                     }),
                   ),
@@ -611,6 +613,7 @@ describe("uninstallSkill", () => {
         };
         const writeError = makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
+          category: "internal",
           what: "write failed",
         });
 
@@ -638,6 +641,7 @@ describe("uninstallSkill", () => {
         };
         const writeError = makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
+          category: "internal",
           what: "write failed",
         });
 

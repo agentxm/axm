@@ -24,18 +24,30 @@ const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
     if (args.all) {
       return yield* makeAppError({
         code: "SKILLS_INSTALL_ALL_REQUIRES_SOURCE",
+        category: "internal",
         what: "The --all flag requires a source for skills install",
-        howToFix:
-          "Run `axm skills install <source> --all` or omit --all to install all configured skills.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Run `axm skills install <source> --all` or omit --all to install all configured skills.",
+          },
+        ],
       });
     }
 
     if (args.skills.length > 0) {
       return yield* makeAppError({
         code: "SKILLS_INSTALL_SELECTOR_REQUIRES_SOURCE",
+        category: "internal",
         what: "The --skill flag requires a source for skills install",
-        howToFix:
-          "Run `axm skills install <source> --skill <name>` or omit --skill to install all configured skills.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Run `axm skills install <source> --skill <name>` or omit --skill to install all configured skills.",
+          },
+        ],
       });
     }
   });

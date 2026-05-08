@@ -119,6 +119,7 @@ describe("git", () => {
     it("is a tagged error with correct tag", () => {
       const error = makeAppError({
         code: "GIT_CLONE_FAILED",
+        category: "internal",
         what: "Failed to clone repository",
       });
 
@@ -131,6 +132,7 @@ describe("git", () => {
       const cause = new Error("Original error");
       const error = makeAppError({
         code: "GIT_CLONE_FAILED",
+        category: "internal",
         what: "Failed to clone repository",
         cause,
       });

@@ -41,9 +41,15 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   if (nonInteractive) {
     return yield* makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
+      category: "internal",
       what: "Login requires an interactive terminal",
-      howToFix:
-        "Set the AXM_TOKEN environment variable or run `axm login` in an interactive terminal.",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description:
+            "Set the AXM_TOKEN environment variable or run `axm login` in an interactive terminal.",
+        },
+      ],
     });
   }
 

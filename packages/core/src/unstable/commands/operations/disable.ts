@@ -65,6 +65,7 @@ export const disableCommand: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "DISABLE_COMMAND_LOCKFILE_READ_FAILED",
+          category: "internal",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,
         }),

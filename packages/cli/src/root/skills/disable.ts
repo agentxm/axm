@@ -45,8 +45,11 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
   if (installedEntry === undefined) {
     return yield* makeAppError({
       code: "SKILL_NOT_FOUND",
+      category: "not_found",
       what: `Skill '${args.name}' is not installed`,
-      howToFix: "Run `axm skills list` to see available skills",
+      breadcrumbs: [
+        { task: "Recover", description: "Run `axm skills list` to see available skills" },
+      ],
     });
   }
 

@@ -57,23 +57,35 @@ with structured fields for rendering:
 ```ts
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: string;
+  readonly category: AppErrorCategory;
   readonly what: string;
-  readonly details: ReadonlyArray<string>;
-  readonly howToFix: Option.Option<string>;
+  readonly retryable?: boolean;
+  readonly httpStatus?: number;
+  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause: unknown;
 }> {}
 ```
 
 Error codes use stable `AREA_REASON` names (e.g., `WORKSPACE_NOT_INIT`,
-`INSTALL_FAILED`, `REGISTRY_PUBLISH_NETWORK_ERROR`). Use `makeAppError` for
-convenience construction with optional fields:
+`INSTALL_FAILED`, `REGISTRY_PUBLISH_NETWORK_ERROR`). Name outcomes users can
+react to (`PUBLISH_VERSION_CONFLICT`), not internal checks
+(`LINT_PATH_OUTSIDE_WORKSPACE`, not `LINT_WORKSPACE_ROOT_ESCAPE`).
+
+Every `makeAppError` MUST set a literal `category`. AppError exit codes are a
+pure function of category. Use `retryable` and `httpStatus` for retry/status
+metadata instead of embedding that information in prose.
+
+All next-step guidance belongs in `breadcrumbs`; there is no separate guidance
+string. See the generated catalog: [`docs/error-codes.md`](../../docs/error-codes.md).
+
+Use `makeAppError` for convenience construction:
 
 ```ts
 const error = makeAppError({
   code: "INSTALL_FAILED",
+  category: "not_found",
   what: "Installation failed",
-  details: ["Package not found in registry"],
-  howToFix: "Check the package name and try again",
+  breadcrumbs: [{ task: "Check package", description: "Check the package name and try again" }],
   cause: originalError,
 });
 ```
@@ -124,7 +136,7 @@ typed `Data.TaggedError` subclass only when it earns its keep.
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Every caller recovers the same way**      | If all `catchTag("FooError")` handlers do the same thing, use a result value instead (see [Prefer result values](#prefer-result-values-over-uniform-recovery-errors)) |
 | **The error is only produced in one place** | A single `mapError` to `makeAppError` is simpler than defining + translating a typed error                                                                            |
-| **The metadata fits AppError's shape**      | `code`, `what`, `details`, `howToFix` already carry the information callers need                                                                                      |
+| **The metadata fits AppError's shape**      | `code`, `category`, `what`, `retryable`, `httpStatus`, and `breadcrumbs` already carry the information callers need                                                   |
 | **Callers only need the code to decide**    | `catchIf(e => e.code === "MANIFEST_MISSING", ...)` works without a new type                                                                                           |
 
 ### When you introduce a typed service error
@@ -151,8 +163,9 @@ const program = manifestService.load(path).pipe(
     Effect.fail(
       makeAppError({
         code: "MANIFEST_LOAD_FAILED",
+        category: "validation",
         what: `Could not load manifest: ${e.reason}`,
-        details: [`Path: ${e.path}`],
+        breadcrumbs: [{ task: "Inspect manifest", description: `Check ${e.path}` }],
         cause: e,
       })
     )
@@ -206,6 +219,7 @@ yield * new ManifestError({ reason: "missing", path });
 yield *
   makeAppError({
     code: "INSTALL_FAILED",
+    category: "internal",
     what: "Installation failed",
   });
 ```

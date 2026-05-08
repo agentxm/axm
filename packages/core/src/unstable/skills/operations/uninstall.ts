@@ -76,6 +76,7 @@ export const uninstallSkill: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "UNINSTALL_SKILL_LOCKFILE_READ_FAILED",
+          category: "internal",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,
         }),
@@ -140,6 +141,7 @@ export const uninstallSkill: OperationHandler<
             Effect.mapError((e) =>
               makeAppError({
                 code: "UNINSTALL_SKILL_LOCKFILE_WRITE_FAILED",
+                category: "internal",
                 what: `Failed to update lockfile: ${e.what}`,
                 cause: e,
               }),

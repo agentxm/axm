@@ -24,18 +24,30 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
     if (args.all) {
       return yield* makeAppError({
         code: "SUBAGENTS_INSTALL_ALL_REQUIRES_SOURCE",
+        category: "internal",
         what: "The --all flag requires a source for subagents install",
-        howToFix:
-          "Run `axm subagents install <source> --all` or omit --all to install all configured subagents.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Run `axm subagents install <source> --all` or omit --all to install all configured subagents.",
+          },
+        ],
       });
     }
 
     if (args.subagents.length > 0) {
       return yield* makeAppError({
         code: "SUBAGENTS_INSTALL_SELECTOR_REQUIRES_SOURCE",
+        category: "internal",
         what: "The --subagent flag requires a source for subagents install",
-        howToFix:
-          "Run `axm subagents install <source> --subagent <name>` or omit --subagent to install all configured subagents.",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Run `axm subagents install <source> --subagent <name>` or omit --subagent to install all configured subagents.",
+          },
+        ],
       });
     }
   });

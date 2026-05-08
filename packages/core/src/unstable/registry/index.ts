@@ -45,7 +45,7 @@ export { createRemoteRegistryClient } from "./remote-client.js";
 
 // Error mapping helpers
 export {
-  buildNetworkHowToFix,
+  buildNetworkBreadcrumbs,
   buildNetworkDiagnosis,
   isRegistryClientError,
   isHttpClientError,

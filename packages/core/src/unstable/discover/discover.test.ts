@@ -27,7 +27,9 @@ const makeStubClient = (
     args: DiscoverExtensionsArgs,
   ) => Effect.Effect<DiscoverExtensionsResponse, AppError>,
 ): RegistryClient => {
-  const notImplemented = Effect.fail(makeAppError({ code: "NOT_IMPLEMENTED", what: "stub" }));
+  const notImplemented = Effect.fail(
+    makeAppError({ code: "NOT_IMPLEMENTED", category: "internal", what: "stub" }),
+  );
 
   return {
     getExtensionsByScope: () => notImplemented,
@@ -125,7 +127,13 @@ describe("discover pipeline", () => {
       // When there are no packages, we never call the registry,
       // so registryAvailable defaults to true (no failure occurred)
       const client = makeStubClient(() =>
-        Effect.fail(makeAppError({ code: "REGISTRY_FETCH_FAILED", what: "unreachable" })),
+        Effect.fail(
+          makeAppError({
+            code: "REGISTRY_FETCH_FAILED",
+            category: "internal",
+            what: "unreachable",
+          }),
+        ),
       );
       const result = yield* discover("/tmp/empty-project", client);
 

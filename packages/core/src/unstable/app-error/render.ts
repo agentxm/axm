@@ -1,4 +1,3 @@
-import * as Option from "effect/Option";
 import type { AppError } from "./app-error.js";
 
 const defaultRenderOptions: { readonly verbose: boolean; readonly debug: boolean } = {
@@ -55,10 +54,6 @@ export const renderAppError = (
   const lines: Array<string> = [];
 
   lines.push(`\u2717 ${error.what} (${error.code})`);
-
-  if (Option.isSome(error.howToFix)) {
-    lines.push(`  ${error.howToFix.value}`);
-  }
 
   if (options.verbose || options.debug) {
     for (const line of formatCause(error.cause, options)) {

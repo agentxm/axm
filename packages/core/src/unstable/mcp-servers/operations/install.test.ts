@@ -74,6 +74,7 @@ const makeWorkspaceMock = (
             catch: (error) =>
               makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
+                category: "internal",
                 what: "Mock write failed",
                 cause: error,
               }),
@@ -94,6 +95,7 @@ const makeWorkspaceMock = (
             catch: (error) =>
               makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
+                category: "internal",
                 what: "Mock write failed",
                 cause: error,
               }),
@@ -386,6 +388,7 @@ describe("installMcpServer", () => {
           Effect.fail(
             makeAppError({
               code: "SETTINGS_WRITE_FAILED",
+              category: "internal",
               what: "write failed",
               cause: new Error("write failed"),
             }),

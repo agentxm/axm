@@ -44,6 +44,7 @@ const resolveDependencyType = (
   return Effect.fail(
     makeAppError({
       code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
+      category: "internal",
       what: `Extension pack dependency type mismatch for expected ${expectedType}`,
     }),
   );
@@ -57,6 +58,7 @@ const registrySourceForDependency = (
     return Effect.fail(
       makeAppError({
         code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
+        category: "internal",
         what: `Cannot resolve extension pack dependencies from non-registry source`,
       }),
     );
@@ -102,6 +104,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
     if (matchingRef === undefined) {
       return yield* makeAppError({
         code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
+        category: "internal",
         what: `Unable to resolve extension pack dependency ${fqn}@${constraint}`,
       });
     }

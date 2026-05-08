@@ -250,6 +250,7 @@ describe("uninstallCommand", () => {
           Effect.fail(
             makeAppError({
               code: "SETTINGS_WRITE_FAILED",
+              category: "internal",
               what: "write failed",
               cause: new Error("write failed"),
             }),

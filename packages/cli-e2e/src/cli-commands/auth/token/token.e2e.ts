@@ -23,7 +23,7 @@ describe("axm token", () => {
     });
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
-      command: "auth.token",
+      ok: true,
       data: { token: "test-token-value" },
     });
   });

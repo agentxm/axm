@@ -95,6 +95,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
       const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
       return yield* makeAppError({
         code: "CODING_AGENT_UNKNOWN_CONFIGURED",
+        category: "not_found",
         what: message,
       });
     }
@@ -123,6 +124,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     if (misconfigured.length > 0) {
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
+        category: "internal",
         what: `MCP server ${args.serverName} could not be removed from configured agents`,
       });
     }
@@ -131,6 +133,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     if (args.strict && failed.length > 0) {
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_FAILED",
+        category: "internal",
         what: `MCP server ${args.serverName} removal sync failed in strict mode`,
       });
     }
@@ -146,6 +149,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     if (strictDisabledFailures.length > 0) {
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
+        category: "internal",
         what: `MCP server ${args.serverName} removal sync disabled for required configured agents`,
       });
     }
@@ -203,6 +207,7 @@ export const uninstallMcpServer: (
       Effect.mapError((e) =>
         makeAppError({
           code: "UNINSTALL_MCP_SERVER_LOCKFILE_READ_FAILED",
+          category: "internal",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,
         }),

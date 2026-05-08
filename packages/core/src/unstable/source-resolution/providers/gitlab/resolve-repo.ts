@@ -13,6 +13,7 @@ const headRequest = (url: string, _input: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "SOURCE_PARSE_FAILED",
+          category: "validation",
           what: `Failed to check GitLab: ${error instanceof Error ? error.message : String(error)}`,
           cause: error,
         }),

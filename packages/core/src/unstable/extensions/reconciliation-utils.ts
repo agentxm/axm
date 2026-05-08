@@ -36,6 +36,7 @@ export const readAndDecodeManifest = <A>(
       Effect.mapError((error) =>
         makeAppError({
           code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
+          category: "internal",
           what: `Failed to check ${extensionLabel} path: ${canonicalPath}`,
           cause: error,
         }),

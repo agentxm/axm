@@ -72,6 +72,7 @@ export const enableCommand: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "ENABLE_COMMAND_LOCKFILE_READ_FAILED",
+          category: "internal",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,
         }),
@@ -114,8 +115,14 @@ export const enableCommand: OperationHandler<
     if (!exists) {
       return yield* makeAppError({
         code: "ENABLE_COMMAND_MISSING_FILES",
+        category: "not_found",
         what: `Command files for "${op.args.commandName}" not found at ${canonicalPath}`,
-        howToFix: "Try reinstalling the command with `axm commands install`",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description: "Try reinstalling the command with `axm commands install`",
+          },
+        ],
       });
     }
 
@@ -137,9 +144,15 @@ export const enableCommand: OperationHandler<
                   Effect.fail(
                     makeAppError({
                       code: "OWNER_REQUIRED",
+                      category: "internal",
                       what: `Cannot re-render non-registry command "${op.args.commandName}" without a configured owner`,
-                      howToFix:
-                        "Set `owner` in `.axm/settings.json` (project or global) to enable non-registry commands.",
+                      breadcrumbs: [
+                        {
+                          task: "Recover",
+                          description:
+                            "Set `owner` in `.axm/settings.json` (project or global) to enable non-registry commands.",
+                        },
+                      ],
                     }),
                   ),
                 onSome: Effect.succeed,

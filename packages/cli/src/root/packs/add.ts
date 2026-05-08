@@ -61,8 +61,14 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   if (packEntry === undefined) {
     return yield* makeAppError({
       code: "PACK_NOT_FOUND",
+      category: "not_found",
       what: `Extension pack '${args.pack}' not found`,
-      howToFix: "Run `axm packs new <name>` to create an extension pack first",
+      breadcrumbs: [
+        {
+          task: "Recover",
+          description: "Run `axm packs new <name>` to create an extension pack first",
+        },
+      ],
     });
   }
 
@@ -81,9 +87,15 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
                 Effect.fail(
                   makeAppError({
                     code: "OWNER_REQUIRED",
+                    category: "internal",
                     what: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
-                    howToFix:
-                      "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
+                    breadcrumbs: [
+                      {
+                        task: "Recover",
+                        description:
+                          "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
+                      },
+                    ],
                   }),
                 ),
               onSome: Effect.succeed,
@@ -100,8 +112,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_NOT_FOUND",
+        category: "not_found",
         what: `Extension pack manifest not found at ${manifestPath}`,
-        howToFix: "Ensure the extension pack exists on disk",
+        breadcrumbs: [{ task: "Recover", description: "Ensure the extension pack exists on disk" }],
         cause: e,
       }),
     ),
@@ -117,6 +130,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     catch: (e) =>
       makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
+        category: "validation",
         what: `Failed to parse extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
@@ -126,6 +140,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_MANIFEST_INVALID",
+        category: "validation",
         what: `Invalid extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
@@ -151,8 +166,11 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     if (isGlob) {
       return yield* makeAppError({
         code: "NO_EXTENSIONS_MATCHED",
+        category: "internal",
         what: `No managed, registry-sourced extensions match '${args.extension}'`,
-        howToFix: "Check installed extensions with `axm skills list`",
+        breadcrumbs: [
+          { task: "Recover", description: "Check installed extensions with `axm skills list`" },
+        ],
       });
     }
 
@@ -160,15 +178,25 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     if (args.extension in lockedSkills) {
       return yield* makeAppError({
         code: "EXTENSION_NOT_REGISTRY",
+        category: "internal",
         what: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
-        howToFix: "Only managed, registry-sourced extensions can be added to extension packs",
+        breadcrumbs: [
+          {
+            task: "Recover",
+            description:
+              "Only managed, registry-sourced extensions can be added to extension packs",
+          },
+        ],
       });
     }
 
     return yield* makeAppError({
       code: "EXTENSION_NOT_FOUND",
+      category: "not_found",
       what: `Extension '${args.extension}' not found in workspace`,
-      howToFix: "Install the extension first with `axm skills install`",
+      breadcrumbs: [
+        { task: "Recover", description: "Install the extension first with `axm skills install`" },
+      ],
     });
   }
 

@@ -87,8 +87,11 @@ export const addToExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_NOT_FOUND",
+          category: "not_found",
           what: `Extension pack manifest not found at ${manifestPath}`,
-          howToFix: "Ensure the extension pack exists on disk",
+          breadcrumbs: [
+            { task: "Recover", description: "Ensure the extension pack exists on disk" },
+          ],
           cause: e,
         }),
       ),
@@ -99,8 +102,11 @@ export const addToExtensionPack: OperationHandler<
     if (currentHash !== manifestHash) {
       return yield* makeAppError({
         code: "PACK_MANIFEST_STALE",
+        category: "internal",
         what: `Extension pack manifest is stale — it was modified since the plan was created`,
-        howToFix: "Re-run the command to create a fresh plan",
+        breadcrumbs: [
+          { task: "Recover", description: "Re-run the command to create a fresh plan" },
+        ],
       });
     }
 
@@ -113,6 +119,7 @@ export const addToExtensionPack: OperationHandler<
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
+          category: "validation",
           what: `Failed to parse extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -122,6 +129,7 @@ export const addToExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
+          category: "validation",
           what: `Invalid extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -166,6 +174,7 @@ export const addToExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_WRITE_FAILED",
+          category: "internal",
           what: `Failed to write extension pack manifest: ${manifestPath}`,
           cause: e,
         }),

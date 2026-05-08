@@ -103,7 +103,7 @@ const completedStepToStep = (step: CompletedJobStep): Step => {
   const code = step.result.error.code;
   return {
     label: step.label,
-    status: code === "PLAN_STEP_BLOCKED" ? "blocked" : "failed",
+    status: step.result.message.includes("blocked") ? "blocked" : "failed",
     ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
     code,
   };

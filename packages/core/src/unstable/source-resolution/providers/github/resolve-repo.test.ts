@@ -129,7 +129,7 @@ describe("resolveRepo", () => {
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure._tag).toBe("AppError");
-          expect(result.failure.code).toBe("SOURCE_PARSE_FAILED");
+          expect(result.failure.code).toBe("validation");
           expect(result.failure.message).toContain("Failed to check GitHub");
         }
       }),
@@ -167,7 +167,7 @@ describe("resolveRepo", () => {
 
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("SOURCE_PARSE_FAILED");
+          expect(result.failure.code).toBe("validation");
           expect(result.failure.message).toContain("Failed to check GitHub");
         }
       }),

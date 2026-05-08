@@ -73,8 +73,7 @@ const makeWorkspaceMock = (
             },
             catch: (error) =>
               makeAppError({
-                code: "LOCKFILE_WRITE_FAILED",
-                category: "internal",
+                code: "internal",
                 message: "Mock write failed",
                 cause: error,
               }),
@@ -94,8 +93,7 @@ const makeWorkspaceMock = (
             },
             catch: (error) =>
               makeAppError({
-                code: "LOCKFILE_WRITE_FAILED",
-                category: "internal",
+                code: "internal",
                 message: "Mock write failed",
                 cause: error,
               }),
@@ -387,8 +385,7 @@ describe("installMcpServer", () => {
         const setMcpServerFn = vi.fn(() =>
           Effect.fail(
             makeAppError({
-              code: "SETTINGS_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "write failed",
               cause: new Error("write failed"),
             }),
@@ -438,7 +435,7 @@ describe("installMcpServer", () => {
         expect(result.result).toBe("error");
         expect(setMcpServerFn).not.toHaveBeenCalled();
         if (result.result === "error") {
-          expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(result.error.code).toBe("validation");
           expect(result.error.message).toContain("exact semver");
         }
       }),
@@ -484,7 +481,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("INSTALL_MCP_SERVER_PATH_TRAVERSAL");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );
@@ -532,7 +529,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("CODING_AGENT_UNKNOWN_CONFIGURED");
+          expect(result.error.code).toBe("not_found");
         }
       }),
     );
@@ -585,7 +582,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_FAILED");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );
@@ -663,7 +660,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );
@@ -713,7 +710,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_MISCONFIGURED");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );

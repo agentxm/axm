@@ -115,8 +115,7 @@ export const SkillManagerLive = Layer.effect(
       );
       if (misconfigured.length > 0) {
         return yield* makeAppError({
-          code: "SKILL_DIR_MISCONFIGURED",
-          category: "validation",
+          code: "validation",
           message: "One or more configured agents have invalid skills directory settings",
         });
       }

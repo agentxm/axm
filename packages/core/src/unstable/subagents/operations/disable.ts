@@ -96,8 +96,7 @@ export const disableSubagent: OperationHandler<
     const lockEntryOption = yield* ws.getLockedSubagent(op.args.subagentName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "DISABLE_SUBAGENT_LOCKFILE_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
@@ -135,8 +134,7 @@ export const disableSubagent: OperationHandler<
       const source = hasLockEntry ? deriveSourceString(lockEntryOption.value) : undefined;
       if (source === undefined) {
         return yield* makeAppError({
-          code: "DISABLE_SUBAGENT_NO_SOURCE",
-          category: "internal",
+          code: "internal",
           message: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
           breadcrumbs: [
             { task: "Recover", description: "Provide a source when disabling this subagent" },

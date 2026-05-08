@@ -210,8 +210,7 @@ export const mapAuthUnauthenticated = (
     details.push(detail);
   }
   return makeAppError({
-    code: "AUTH_UNAUTHENTICATED",
-    category: "auth",
+    code: "auth",
     message: "Authentication required",
     breadcrumbs: [
       {
@@ -256,8 +255,7 @@ export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>)
   }
 
   return makeAppError({
-    code: "AUTH_UNAUTHORIZED",
-    category: "forbidden",
+    code: "forbidden",
     message: "Insufficient permissions",
     breadcrumbs: [
       {
@@ -279,18 +277,12 @@ export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>)
  */
 export const mapNetworkError = (
   error: HttpClientError.HttpClientError,
-  code: string,
   message: string,
   baseUrl: string,
 ): AppError =>
   makeAppError({
-    category: "network",
-    code,
+    code: "network",
     message,
-    retryable: true,
-    ...(error.reason._tag === "StatusCodeError"
-      ? { httpStatus: error.reason.response.status }
-      : {}),
     breadcrumbs: buildNetworkBreadcrumbs(baseUrl),
     cause: error,
   });
@@ -302,10 +294,9 @@ export const mapNetworkError = (
 /**
  * Map a Schema decode error to an AppError.
  */
-export const mapSchemaError = (error: unknown, code: string, message: string): AppError =>
+export const mapSchemaError = (error: unknown, message: string): AppError =>
   makeAppError({
-    category: "validation",
-    code,
+    code: "validation",
     message,
     cause: error,
   });
@@ -319,7 +310,6 @@ export const mapSchemaError = (error: unknown, code: string, message: string): A
  */
 export const mapUnexpectedStatusError = (
   error: RegistryClientError<string, unknown>,
-  code: string,
   message: string,
 ): AppError => {
   const details: Array<string> = [];
@@ -333,8 +323,7 @@ export const mapUnexpectedStatusError = (
     details.push(`Error code: ${errorCode}`);
   }
   return makeAppError({
-    category: "internal",
-    code,
+    code: "internal",
     message,
     cause: error,
   });

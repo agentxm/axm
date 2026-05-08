@@ -155,8 +155,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
             return Effect.fail(
               makeAppError({
-                code: "EXTENSION_NOT_FOUND",
-                category: "not_found",
+                code: "not_found",
                 message: `Pack "${name}" is not installed`,
                 breadcrumbs: [
                   {

@@ -51,12 +51,8 @@ describe("JsonEnvelopeSchema", () => {
   it("emits the documented AppError envelope shape", () => {
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({
-        code: "AUTH_LOGIN_REQUIRED",
-        category: "auth",
+        code: "auth",
         message: "Authentication required",
-        reason: "session_expired",
-        retryable: false,
-        httpStatus: 401,
         breadcrumbs: [
           {
             task: "Run `axm auth login`",
@@ -69,18 +65,14 @@ describe("JsonEnvelopeSchema", () => {
 
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
       ok: false,
-      category: "auth",
-      code: "AUTH_LOGIN_REQUIRED",
+      code: "auth",
       message: "Authentication required",
-      reason: "session_expired",
       breadcrumbs: [
         {
           task: "Run `axm auth login`",
           description: "Sign in, then retry.",
         },
       ],
-      retryable: false,
-      httpStatus: 401,
       exitCode: 4,
     });
   });

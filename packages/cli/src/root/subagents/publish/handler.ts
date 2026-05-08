@@ -77,8 +77,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "REGISTRY_SOURCES_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
@@ -88,8 +87,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     const [defaultRegistry] = registrySources;
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
-        code: "NO_REGISTRY_CONFIGURED",
-        category: "usage",
+        code: "usage",
         message: "No registry sources configured",
         breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
       });
@@ -105,8 +103,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_SUBAGENT_REGISTRY_LOOKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
@@ -115,8 +112,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
 
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
-        code: "PUBLISH_SUBAGENT_REGISTRY_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
@@ -177,8 +173,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     if (entry === undefined) {
       return Effect.fail(
         makeAppError({
-          code: "EXTENSION_NOT_FOUND",
-          category: "not_found",
+          code: "not_found",
           message: `Subagent "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
@@ -194,8 +189,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     if (parts === undefined || parts.owner === undefined) {
       return Effect.fail(
         makeAppError({
-          code: "EXTENSION_NOT_FOUND",
-          category: "not_found",
+          code: "not_found",
           message: `Subagent "${name}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
@@ -222,8 +216,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
           if (extName === undefined) {
             return Effect.fail(
               makeAppError({
-                code: "EXTENSION_NOT_FOUND",
-                category: "not_found",
+                code: "not_found",
                 message: `Missing extension name for parsed FQN ${fqn.owner}/subagents/${fqn.name}`,
               }),
             );
@@ -243,8 +236,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
 
             if (!extensionDirExists) {
               return yield* makeAppError({
-                code: "EXTENSION_NOT_FOUND",
-                category: "not_found",
+                code: "not_found",
                 message: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
@@ -263,8 +255,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
 
             if (!manifestExists) {
               return yield* makeAppError({
-                code: "MISSING_MANIFEST",
-                category: "not_found",
+                code: "not_found",
                 message: `Missing manifest: ${MANIFEST_FILENAME}`,
                 breadcrumbs: [
                   {
@@ -343,8 +334,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
         ? (singleFailure.error.breadcrumbs ?? [])
         : [];
     return yield* makeAppError({
-      code: "PUBLISH_PLAN_FAILED",
-      category: "internal",
+      code: "internal",
       message: `Failed to publish ${failedStepDetails.length} subagent${failedStepDetails.length === 1 ? "" : "s"}`,
       breadcrumbs,
     });

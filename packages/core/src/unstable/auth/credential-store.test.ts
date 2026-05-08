@@ -114,7 +114,7 @@ describe("CredentialStore", () => {
         const result = yield* store
           .save(registryUrl, normalizeHandle("@alice"), credentials)
           .pipe(Effect.catchTag("AppError", (error) => Effect.succeed(error.code)));
-        expect(result).toBe("AUTH_TOKEN_REQUIRED");
+        expect(result).toBe("auth");
       }).pipe(Effect.provide(layer));
     });
 

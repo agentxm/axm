@@ -75,8 +75,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     !NAME_PATTERN.test(args.name)
   ) {
     return yield* makeAppError({
-      code: "SUBAGENT_NAME_INVALID",
-      category: "validation",
+      code: "validation",
       message: `Invalid subagent name: "${args.name}"`,
       breadcrumbs: [
         {
@@ -91,8 +90,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   const existingSubagent = yield* ws.getLockedSubagent(args.name);
   if (Option.isSome(existingSubagent) && !args.force) {
     return yield* makeAppError({
-      code: "SUBAGENT_ALREADY_EXISTS",
-      category: "conflict",
+      code: "conflict",
       message: `Subagent '${args.name}' already exists`,
       breadcrumbs: [
         {
@@ -129,8 +127,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       yield* fs.makeDirectory(subagentSrcPath, { recursive: true }).pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "SUBAGENT_CREATE_FAILED",
-            category: "validation",
+            code: "validation",
             message: `Failed to create subagent directory: ${subagentSrcPath}`,
             cause: e,
           }),
@@ -154,8 +151,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         .pipe(
           Effect.mapError((e) =>
             makeAppError({
-              code: "SUBAGENT_CREATE_FAILED",
-              category: "validation",
+              code: "validation",
               message: `Subagent manifest could not be written`,
               cause: e,
             }),
@@ -174,8 +170,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         .pipe(
           Effect.mapError((e) =>
             makeAppError({
-              code: "SUBAGENT_CREATE_FAILED",
-              category: "validation",
+              code: "validation",
               message: `Failed to write ${contentFilename}`,
               cause: e,
             }),

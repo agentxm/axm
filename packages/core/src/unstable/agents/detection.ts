@@ -23,8 +23,7 @@ import type { AgentDescriptor } from "./types.js";
 
 const wrapDetectionError = (message: string) => (error: unknown) =>
   makeAppError({
-    code: "AGENT_DETECTION_FAILED",
-    category: "internal",
+    code: "internal",
     message,
     cause: error,
   });

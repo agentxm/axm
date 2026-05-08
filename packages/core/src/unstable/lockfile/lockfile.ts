@@ -62,8 +62,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "LOCKFILE_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create directory ${axmDir}`,
           cause: error,
         }),
@@ -75,8 +74,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
       try: () => Schema.encodeSync(LockfileSchema)(lockfile),
       catch: (error) =>
         makeAppError({
-          code: "LOCKFILE_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: "Failed to encode lockfile",
           cause: error,
         }),
@@ -87,8 +85,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
       try: () => YAML.stringify(encoded),
       catch: (error) =>
         makeAppError({
-          code: "LOCKFILE_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: "Failed to serialize lockfile to YAML",
           cause: error,
         }),
@@ -98,8 +95,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
     yield* fs.writeFileString(tempPath, yamlContent).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "LOCKFILE_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to write lockfile temp file at ${tempPath}`,
           cause: error,
         }),
@@ -110,8 +106,7 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
     yield* fs.rename(tempPath, lockfilePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "LOCKFILE_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to atomically replace lockfile at ${lockfilePath}`,
           cause: error,
         }),

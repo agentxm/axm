@@ -83,9 +83,7 @@ const isAppErrorCheck = (error: unknown): error is AppError =>
   "code" in error;
 
 const isRemoteReadNotImplemented = (error: unknown): boolean =>
-  isAppErrorCheck(error) &&
-  (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
-    (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
+  isAppErrorCheck(error) && error.message.includes("not implemented");
 
 const discoverHowToFix = (source: Source, error: unknown): string => {
   if (source.type === "registry") {
@@ -209,8 +207,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                 const parsedSourceOption = parseInputPattern(args.source.trim());
                 if (Option.isNone(parsedSourceOption)) {
                   return yield* makeAppError({
-                    code: "INVALID_SOURCE",
-                    category: "validation",
+                    code: "validation",
                     message: "Invalid source: Unable to parse source",
                     breadcrumbs: [
                       {
@@ -292,8 +289,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
             const req = reqs[0];
             if (req === undefined) {
               return yield* makeAppError({
-                code: "DISCOVER_FAILED",
-                category: "usage",
+                code: "usage",
                 message: "No source request to discover from",
               });
             }
@@ -314,8 +310,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                     ),
                     Effect.mapError((error) => {
                       return makeAppError({
-                        code: "DISCOVER_FAILED",
-                        category: "usage",
+                        code: "usage",
                         message: "Failed to discover subagents from source",
                         breadcrumbs: [
                           { task: "Recover", description: discoverHowToFix(req.source, error) },
@@ -328,8 +323,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                         ? Effect.succeed(discoveredSubagents)
                         : Effect.fail(
                             makeAppError({
-                              code: "NO_SUBAGENTS_FOUND",
-                              category: "not_found",
+                              code: "not_found",
                               message: "No subagents found in source",
                               breadcrumbs: [
                                 {
@@ -359,8 +353,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
           const [firstDiscoveredRef, ...remainingDiscoveredRefs] = discoveredRefs;
           if (firstDiscoveredRef === undefined) {
             return yield* makeAppError({
-              code: "NO_SUBAGENTS_FOUND",
-              category: "not_found",
+              code: "not_found",
               message: "No subagents found in source",
             });
           }

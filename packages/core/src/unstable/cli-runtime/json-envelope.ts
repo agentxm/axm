@@ -1,18 +1,14 @@
 import * as Schema from "effect/Schema";
 
-import { AppErrorCategories, type AppError, type AppErrorCategory } from "../app-error/index.js";
+import { AppErrorCodes, type AppError, type AppErrorCode } from "../app-error/index.js";
 import { BreadcrumbSchema, type Breadcrumb } from "./breadcrumb.js";
 
 const ReservedSuccessEnvelopeKeys = new Set(["ok", "summary", "breadcrumbs"]);
 
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
-  code: Schema.String,
-  category: Schema.Literals(AppErrorCategories),
+  code: Schema.Literals(AppErrorCodes),
   message: Schema.String,
-  reason: Schema.optional(Schema.String),
-  retryable: Schema.optional(Schema.Boolean),
-  httpStatus: Schema.optional(Schema.Number),
   breadcrumbs: Schema.optional(Schema.Array(BreadcrumbSchema)),
   exitCode: Schema.Number,
 }).annotate({
@@ -82,22 +78,14 @@ export const makeJsonSuccessEnvelope = (args?: {
 });
 
 export const makeJsonErrorEnvelope = (args: {
-  readonly code: string;
-  readonly category: AppErrorCategory;
+  readonly code: AppErrorCode;
   readonly message: string;
-  readonly reason?: string;
-  readonly retryable?: boolean;
-  readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly exitCode: number;
 }): JsonErrorEnvelope => ({
   ok: false,
   code: args.code,
-  category: args.category,
   message: args.message,
-  ...(args.reason !== undefined ? { reason: args.reason } : {}),
-  ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
-  ...(args.httpStatus !== undefined ? { httpStatus: args.httpStatus } : {}),
   ...(args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
     ? { breadcrumbs: [...args.breadcrumbs] }
     : {}),
@@ -110,11 +98,7 @@ export const makeJsonErrorEnvelopeFromAppError = (
 ): JsonErrorEnvelope =>
   makeJsonErrorEnvelope({
     code: error.code,
-    category: error.category,
     message: error.message,
-    ...(error.reason !== undefined ? { reason: error.reason } : {}),
-    ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
-    ...(error.httpStatus !== undefined ? { httpStatus: error.httpStatus } : {}),
     breadcrumbs: error.breadcrumbs ?? [],
     exitCode,
   });

@@ -80,8 +80,7 @@ export const newExtensionPack: OperationHandler<
     const exists = yield* fs.exists(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PACK_CHECK_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to check if extension pack exists: ${manifestPath}`,
           cause: e,
         }),
@@ -90,8 +89,7 @@ export const newExtensionPack: OperationHandler<
 
     if (exists) {
       return yield* makeAppError({
-        code: "PACK_ALREADY_EXISTS",
-        category: "conflict",
+        code: "conflict",
         message: `Extension pack '${fqn}' already exists at ${packDir.canonicalPath}`,
         breadcrumbs: [
           {
@@ -106,8 +104,7 @@ export const newExtensionPack: OperationHandler<
     yield* fs.makeDirectory(packDir.canonicalPath, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PACK_CREATE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create extension pack directory: ${packDir.canonicalPath}`,
           cause: e,
         }),
@@ -129,8 +126,7 @@ export const newExtensionPack: OperationHandler<
     yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PACK_CREATE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to write extension pack manifest: ${manifestPath}`,
           cause: e,
         }),

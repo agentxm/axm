@@ -1,5 +1,5 @@
 import { CliError } from "effect/unstable/cli";
-import { AppError, exitCodeForCategory, renderAppError } from "../app-error/index.js";
+import { AppError, exitCodeFor, renderAppError } from "../app-error/index.js";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
@@ -41,7 +41,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
   }
 
   if (error instanceof AppError) {
-    const exitCode = exitCodeForCategory(error.category);
+    const exitCode = exitCodeFor(error.code);
 
     if (format === "text") {
       return {
@@ -55,11 +55,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
       errorEvent: {
         type: "error",
         code: error.code,
-        category: error.category,
         message: error.message,
-        ...(error.reason !== undefined ? { reason: error.reason } : {}),
-        ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
-        ...(error.httpStatus !== undefined ? { httpStatus: error.httpStatus } : {}),
         exitCode,
       },
       output: {
@@ -84,8 +80,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
         exitCode: 2,
         errorEvent: {
           type: "error",
-          code: "USAGE_ERROR",
-          category: "usage",
+          code: "usage",
           message,
           exitCode: 2,
         },
@@ -94,8 +89,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
           content:
             JSON.stringify(
               makeJsonErrorEnvelope({
-                code: "USAGE_ERROR",
-                category: "usage",
+                code: "usage",
                 message,
                 exitCode: 2,
               }),
@@ -110,7 +104,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  const code = "INTERNAL_UNCATEGORIZED";
+  const code = "internal";
 
   if (format === "text") {
     return {
@@ -124,7 +118,6 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
     errorEvent: {
       type: "error",
       code,
-      category: "internal",
       message,
       exitCode: 1,
     },
@@ -134,7 +127,6 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
         JSON.stringify(
           makeJsonErrorEnvelope({
             code,
-            category: "internal",
             message,
             exitCode: 1,
           }),

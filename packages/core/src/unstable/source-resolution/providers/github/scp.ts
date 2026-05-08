@@ -15,8 +15,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
   if (!match || !match[1] || !match[2] || !match[3] || match[1] !== hostname) {
     return Effect.fail(
       makeAppError({
-        code: "SOURCE_PARSE_FAILED",
-        category: "validation",
+        code: "validation",
         message: "Invalid GitHub SSH URL format",
       }),
     );
@@ -30,8 +29,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
     ? Effect.succeed(decoded.success satisfies GitHubSourceParams)
     : Effect.fail(
         makeAppError({
-          code: "SOURCE_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: "Invalid GitHub SSH URL format",
         }),
       );

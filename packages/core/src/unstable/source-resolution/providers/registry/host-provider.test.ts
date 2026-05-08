@@ -142,8 +142,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   getExtensionPackage: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_FETCH_FAILED",
-        category: "internal",
+        code: "internal",
         message: "not implemented",
       }),
     ),
@@ -157,56 +156,49 @@ const createFailingClient = (): RegistryClient => ({
   getExtensionsByScope: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        category: "internal",
+        code: "internal",
         message: "remote registry not yet supported",
       }),
     ),
   ownerExists: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        category: "internal",
+        code: "internal",
         message: "remote registry not yet supported",
       }),
     ),
   getExtensionIndex: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        category: "internal",
+        code: "internal",
         message: "remote registry not yet supported",
       }),
     ),
   getExtensionPackage: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        category: "internal",
+        code: "internal",
         message: "remote registry not yet supported",
       }),
     ),
   publishExtension: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        category: "internal",
+        code: "internal",
         message: "remote registry not yet supported",
       }),
     ),
   extensionExists: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        category: "internal",
+        code: "internal",
         message: "remote registry not yet supported",
       }),
     ),
   discoverExtensions: () =>
     Effect.fail(
       makeAppError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        category: "internal",
+        code: "internal",
         message: "remote registry not yet supported",
       }),
     ),
@@ -651,7 +643,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // If it succeeded, that means extraction worked; if it failed,
         // it should be a SOURCE_FETCH_FAILED from extractZip, not integrity
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("SOURCE_FETCH_FAILED");
+          expect(result.failure.code).toBe("network");
           expect(result.failure.message).not.toContain("Integrity mismatch");
         }
       }),
@@ -688,7 +680,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("SOURCE_FETCH_FAILED");
+          expect(result.failure.code).toBe("network");
           expect(result.failure.message).toContain("Integrity mismatch");
         }
       }),
@@ -819,7 +811,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
         const result = yield* provider.find(testSource, defaultFindOptions).pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+          expect(result.failure.code).toBe("internal");
         }
       }),
     );
@@ -850,7 +842,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
         const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+          expect(result.failure.code).toBe("internal");
         }
       }),
     );
@@ -874,7 +866,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
           .pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+          expect(result.failure.code).toBe("internal");
         }
       }),
     );

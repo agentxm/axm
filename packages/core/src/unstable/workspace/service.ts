@@ -110,8 +110,7 @@ const contextReadErrorToAppError = (
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
 ): AppError =>
   makeAppError({
-    code: source === "settings" ? "SETTINGS_PARSE_FAILED" : "LOCKFILE_PARSE_FAILED",
-    category: "internal",
+    code: error._tag === "LockfileParseError" ? "validation" : "internal",
     message: `Failed to read workspace ${source}`,
     cause: error,
   });
@@ -161,8 +160,7 @@ const requireInitializedWorkspace = (
         onNone: () =>
           Effect.fail(
             makeAppError({
-              code: "WORKSPACE_NOT_INITIALIZED",
-              category: "internal",
+              code: "internal",
               message: `Workspace settings not found: ${settingsPath}`,
               breadcrumbs: [
                 { task: "Recover", description: "Run `axm setup` to create the workspace." },
@@ -256,7 +254,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     ): Effect.Effect<T, AppError> =>
       key in record && record[key] !== undefined
         ? Effect.succeed(record[key])
-        : Effect.fail(makeAppError({ category: "internal", code, message }));
+        : Effect.fail(makeAppError({ code, message }));
 
     /**
      * Probe lockfile state without mutating disk.
@@ -267,8 +265,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         const exists = yield* fs.exists(lockfilePath).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "LOCKFILE_PARSE_FAILED",
-              category: "validation",
+              code: "validation",
               message: `Failed to check if lockfile exists at ${lockfilePath}`,
               cause: error,
             }),
@@ -282,10 +279,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         return yield* readLockfileSafe(workspaceDir).pipe(
           Effect.as("ok" as const),
           Effect.catch((error) => {
-            if (
-              error.code === "LOCKFILE_PARSE_FAILED" ||
-              error.code === "LOCKFILE_RESOLVED_VERSION_INVALID"
-            ) {
+            if (error.code === "validation") {
               return Effect.succeed("invalid" as const);
             }
 
@@ -478,8 +472,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
           if (Option.isNone(lockEntry)) {
             return yield* makeAppError({
-              code: "SKILL_NOT_LOCKED",
-              category: "conflict",
+              code: "conflict",
               message: `Skill "${name}" not found in lockfile`,
               breadcrumbs: [
                 {
@@ -613,7 +606,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentEntry = yield* getEntryOrFail(
               currentSkills,
               name,
-              "SKILL_NOT_FOUND",
+              "not_found",
               `Skill "${name}" not found in settings`,
             );
             const updated = updater(currentEntry);
@@ -645,7 +638,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const oldEntry = yield* getEntryOrFail(
               currentLockfile.skills,
               name,
-              "LOCK_ENTRY_NOT_FOUND",
+              "not_found",
               `Lock entry "${name}" not found in lockfile`,
             );
             const updatedLockfile = {
@@ -665,8 +658,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const validId = yield* Schema.decodeUnknownEffect(AgentIdSchema)(agentId).pipe(
               Effect.mapError((error) =>
                 makeAppError({
-                  code: "SETTINGS_PARSE_FAILED",
-                  category: "validation",
+                  code: "validation",
                   message: `Invalid agent ID: ${agentId}`,
                   cause: error,
                 }),

@@ -32,8 +32,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     const resolvedTarget = yield* resolveParentSymlinks(opts.target).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "SYMLINK_CREATE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to resolve target path`,
           cause: e,
         }),
@@ -62,8 +61,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
       yield* fs.remove(opts.link, { recursive: true }).pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "SYMLINK_CREATE_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to remove existing path at ${opts.link}`,
             cause: e,
           }),
@@ -76,8 +74,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     yield* fs.makeDirectory(linkParent, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "SYMLINK_CREATE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create parent directory ${linkParent}`,
           cause: e,
         }),
@@ -88,8 +85,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     yield* fs.symlink(relTarget, opts.link).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "SYMLINK_CREATE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create symlink at ${opts.link}`,
           cause: e,
         }),

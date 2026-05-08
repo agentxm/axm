@@ -34,8 +34,7 @@ export const checkPublishVersionPreflight = (args: {
 
     const plural = extensionTypeToPlural[args.type];
     return yield* makeAppError({
-      code: "PUBLISH_VERSION_NOT_BUMPED",
-      category: "internal",
+      code: "internal",
       message: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
       breadcrumbs: [
         {

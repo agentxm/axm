@@ -140,7 +140,7 @@ describe("resolveLatestVersion", () => {
           );
         });
         const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("VERSION_RESOLUTION_NO_CLI_RELEASE");
+        expect(error.code).toBe("not_found");
       }),
     );
   });
@@ -182,7 +182,7 @@ describe("resolveLatestVersion", () => {
       Effect.gen(function* () {
         const httpClient = makeNetworkErrorClient();
         const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("VERSION_RESOLUTION_NETWORK_ERROR");
+        expect(error.code).toBe("network");
       }),
     );
   });
@@ -198,7 +198,7 @@ describe("resolveLatestVersion", () => {
           () => new Response(JSON.stringify({ message: "Not Found" }), { status: 404 }),
         );
         const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("VERSION_RESOLUTION_GITHUB_ERROR");
+        expect(error.code).toBe("internal");
       }),
     );
 
@@ -208,7 +208,7 @@ describe("resolveLatestVersion", () => {
           () => new Response(JSON.stringify({ message: "rate limit exceeded" }), { status: 403 }),
         );
         const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("VERSION_RESOLUTION_GITHUB_ERROR");
+        expect(error.code).toBe("internal");
       }),
     );
   });

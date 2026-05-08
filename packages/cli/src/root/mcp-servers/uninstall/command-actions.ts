@@ -82,8 +82,7 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         const lockEntry = yield* ws.getLockedMcpServer(parsed.serverName);
         if (Option.isNone(lockEntry)) {
           return yield* makeAppError({
-            code: "MCP_SERVER_NOT_INSTALLED",
-            category: "internal",
+            code: "internal",
             message: `MCP server "${parsed.serverName}" is not installed`,
             breadcrumbs: [
               { task: "Recover", description: "Check installed MCP servers and verify the name." },

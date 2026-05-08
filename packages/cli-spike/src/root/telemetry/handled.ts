@@ -9,8 +9,7 @@ const handledConfig = {} as const;
 
 const handleHandledTelemetry = Effect.fail(
   makeAppError({
-    code: "SPIKE_HANDLED_ERROR",
-    category: "internal",
+    code: "internal",
     message: "Simulated handled telemetry failure",
     breadcrumbs: [
       {

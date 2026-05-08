@@ -81,8 +81,7 @@ export const parseSubagentMd = (
 
     if (parsed.frontmatter === undefined) {
       return yield* makeAppError({
-        code: "SUBAGENT_FRONTMATTER_MISSING",
-        category: "not_found",
+        code: "not_found",
         message: `Missing subagent frontmatter for "${expectedName}"`,
         breadcrumbs: [
           { task: "Recover", description: `Add YAML frontmatter with name: ${expectedName}.` },
@@ -94,8 +93,7 @@ export const parseSubagentMd = (
       try: () => Schema.decodeUnknownSync(NameOnlySchema)(parsed.frontmatter),
       catch: (error) =>
         makeAppError({
-          code: "SUBAGENT_FRONTMATTER_INVALID",
-          category: "validation",
+          code: "validation",
           message: "Invalid subagent frontmatter",
           breadcrumbs: [
             { task: "Recover", description: "Frontmatter must include a string `name` field." },
@@ -106,8 +104,7 @@ export const parseSubagentMd = (
 
     if (!isPlainObject(parsed.frontmatter)) {
       return yield* makeAppError({
-        code: "SUBAGENT_FRONTMATTER_INVALID",
-        category: "validation",
+        code: "validation",
         message: "Subagent frontmatter must be a YAML mapping",
         breadcrumbs: [
           { task: "Recover", description: `Add YAML frontmatter with name: ${expectedName}.` },
@@ -120,8 +117,7 @@ export const parseSubagentMd = (
 
     if (name !== expectedName) {
       return yield* makeAppError({
-        code: "SUBAGENT_NAME_MISMATCH",
-        category: "internal",
+        code: "internal",
         message: `Subagent frontmatter name "${String(name)}" does not match expected name "${expectedName}"`,
         breadcrumbs: [
           {

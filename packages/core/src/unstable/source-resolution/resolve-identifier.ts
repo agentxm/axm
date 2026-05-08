@@ -65,8 +65,7 @@ const decodeName = (input: string) =>
     try: () => decodeExtensionNameSync(input),
     catch: () =>
       makeAppError({
-        code: "NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `No ${input} identifier could be resolved`,
         breadcrumbs: [
           {
@@ -325,8 +324,7 @@ const notFound = (
   scope: IdentifierResolutionScope,
 ) =>
   makeAppError({
-    code: "NOT_FOUND",
-    category: "not_found",
+    code: "not_found",
     message: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
     breadcrumbs: [
       { task: "Recover", description: "Check the name, or re-run with a fully-qualified name." },
@@ -340,8 +338,7 @@ const ambiguous = (
   candidates: ReadonlyArray<IdentifierCandidate>,
 ) =>
   makeAppError({
-    code: "AMBIGUOUS_IDENTIFIER",
-    category: "internal",
+    code: "internal",
     message: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
     breadcrumbs: [{ task: "Recover", description: "Re-run with the fully-qualified name." }],
   });
@@ -382,8 +379,7 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
     if (parsed !== undefined) {
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({
-          code: "NOT_FOUND",
-          category: "not_found",
+          code: "not_found",
           message: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
@@ -446,8 +442,7 @@ export const resolveInstalledIdentifier = (args: {
     if (parsed !== undefined) {
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({
-          code: "NOT_FOUND",
-          category: "not_found",
+          code: "not_found",
           message: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
@@ -471,7 +466,7 @@ export const resolveInstalledIdentifierNameOrInput = (args: {
     const trimmed = args.input.trim();
     const result = yield* Effect.result(resolveInstalledIdentifier(args));
     if (Result.isFailure(result)) {
-      if (result.failure.code === "NOT_FOUND") return trimmed;
+      if (result.failure.code === "not_found") return trimmed;
       return yield* result.failure;
     }
     return Option.getOrElse(result.success.installedName, () => result.success.name);

@@ -103,8 +103,7 @@ const resolveRegistrySource = (
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "REGISTRY_CONFIG_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read configured registry sources for owner "${owner}"`,
           breadcrumbs: [
             {
@@ -119,8 +118,7 @@ const resolveRegistrySource = (
 
     if (registrySources.length === 0) {
       return yield* makeAppError({
-        code: "REGISTRY_NO_SOURCE_CONFIGURED",
-        category: "internal",
+        code: "internal",
         message: `No registry source is configured for owner "${owner}"`,
         breadcrumbs: [
           {
@@ -181,8 +179,7 @@ const resolveRegistrySource = (
     if (Option.isSome(options.subagentName)) {
       const subagentName = options.subagentName.value;
       return yield* makeAppError({
-        code: "REGISTRY_SUBAGENT_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
         breadcrumbs: [
           {
@@ -198,8 +195,7 @@ const resolveRegistrySource = (
     }
 
     return yield* makeAppError({
-      code: "REGISTRY_NAMESPACE_NOT_FOUND",
-      category: "not_found",
+      code: "not_found",
       message: `None of the configured registry sources contain owner "${owner}"`,
       breadcrumbs: [
         {
@@ -224,8 +220,7 @@ const resolveSubagentRegistrySourceByName = (
 
     if (registryHosts.length === 0) {
       return yield* makeAppError({
-        code: "REGISTRY_SUBAGENT_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Subagent "${name}" could not be looked up (no registry sources)`,
         breadcrumbs: [
           {
@@ -246,14 +241,13 @@ const resolveSubagentRegistrySourceByName = (
       }),
     ).pipe(
       Effect.mapError((error) => {
-        if (error.code !== "NOT_FOUND") return error;
+        if (error.code !== "not_found") return error;
         const label = Option.match(maybeProfile, {
           onNone: () => name,
           onSome: (owner) => `${owner}/${name}`,
         });
         return makeAppError({
-          code: "REGISTRY_SUBAGENT_NOT_FOUND",
-          category: "not_found",
+          code: "not_found",
           message: Option.isNone(maybeProfile)
             ? `Subagent "${name}" could not be looked up (no default owner)`
             : `Subagent "${label}" was not found in configured registries`,
@@ -271,8 +265,7 @@ const resolveSubagentRegistrySourceByName = (
     const resolvedOwner = Option.getOrUndefined(resolved.owner);
     if (resolvedOwner === undefined) {
       return yield* makeAppError({
-        code: "REGISTRY_SUBAGENT_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Subagent "${name}" was not found in configured registries`,
         breadcrumbs: [
           {
@@ -287,8 +280,7 @@ const resolveSubagentRegistrySourceByName = (
     const defaultRegistry = registryHosts[0];
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
-        code: "REGISTRY_SUBAGENT_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Subagent "${name}" could not be looked up (no registry sources)`,
       });
     }
@@ -319,8 +311,7 @@ const resolveSubagentRegistrySource = (
   Effect.gen(function* () {
     if (Option.isSome(pattern.type) && pattern.type.value !== "subagents") {
       return yield* makeAppError({
-        code: "SUBAGENT_INSTALL_WRONG_TYPE",
-        category: "internal",
+        code: "internal",
         message: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
         breadcrumbs: [
           {
@@ -374,8 +365,7 @@ export const resolveSubagentInstallSource = (
       case "git-scp-address":
       case "glob-input":
         return yield* makeAppError({
-          code: "SUBAGENT_INSTALL_UNSUPPORTED_INPUT",
-          category: "internal",
+          code: "internal",
           message: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
           breadcrumbs: [
             {

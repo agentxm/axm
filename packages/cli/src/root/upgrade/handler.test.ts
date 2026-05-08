@@ -337,7 +337,7 @@ describe("handleUpgrade", () => {
           const result = yield* handleUpgrade({ force: false }).pipe(
             Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
           );
-          expect(result).toMatchObject({ error: true, code: "UPGRADE_DOWNLOAD_FAILED" });
+          expect(result).toMatchObject({ error: true, code: "network" });
         }),
       );
     });
@@ -351,7 +351,7 @@ describe("handleUpgrade", () => {
           const result = yield* handleUpgrade({ force: false }).pipe(
             Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
           );
-          expect(result).toMatchObject({ error: true, code: "VERSION_RESOLUTION_NETWORK_ERROR" });
+          expect(result).toMatchObject({ error: true, code: "network" });
         }),
       );
     });
@@ -370,7 +370,7 @@ describe("handleUpgrade", () => {
           const result = yield* handleUpgrade({ force: false }).pipe(
             Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
           );
-          expect(result).toMatchObject({ error: true, code: "UPGRADE_DOWNLOAD_EMPTY" });
+          expect(result).toMatchObject({ error: true, code: "validation" });
         }),
       );
     });

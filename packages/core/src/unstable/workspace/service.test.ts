@@ -110,7 +110,7 @@ describe("WorkspaceMutationsService", () => {
 
         const error = yield* getService({ scope: "project" }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("WORKSPACE_NOT_INITIALIZED");
+        expect(appError.code).toBe("internal");
       }),
     );
   });
@@ -389,7 +389,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const error = getAppError(yield* getService(defaultOptions).pipe(Effect.flip));
-        expect(error.code).toBe("SETTINGS_PARSE_FAILED");
+        expect(error.code).toBe("internal");
       }),
     );
   });
@@ -994,7 +994,7 @@ describe("WorkspaceMutationsService", () => {
         const result = yield* ws.addConfiguredAgent("invalid-agent-xyz").pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("SETTINGS_PARSE_FAILED");
+        expect(result.code).toBe("validation");
 
         // Verify settings were not changed
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1196,7 +1196,7 @@ describe("WorkspaceMutationsService", () => {
         const result = yield* ws.getSkillDir("nonexistent").pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("SKILL_NOT_LOCKED");
+        expect(result.code).toBe("conflict");
       }),
     );
   });
@@ -1413,7 +1413,7 @@ describe("WorkspaceMutationsService", () => {
           .pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("SKILL_NOT_FOUND");
+        expect(result.code).toBe("not_found");
       }),
     );
   });
@@ -1462,7 +1462,7 @@ describe("WorkspaceMutationsService", () => {
           .pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("LOCK_ENTRY_NOT_FOUND");
+        expect(result.code).toBe("not_found");
       }),
     );
   });

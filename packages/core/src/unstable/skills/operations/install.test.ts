@@ -108,8 +108,7 @@ const makeWorkspaceMock = (
             },
             catch: (error) =>
               makeAppError({
-                code: "LOCKFILE_WRITE_FAILED",
-                category: "internal",
+                code: "internal",
                 message: "Mock write failed",
                 cause: error,
               }),
@@ -129,8 +128,7 @@ const makeWorkspaceMock = (
             },
             catch: (error) =>
               makeAppError({
-                code: "LOCKFILE_WRITE_FAILED",
-                category: "internal",
+                code: "internal",
                 message: "Mock write failed",
                 cause: error,
               }),
@@ -455,8 +453,7 @@ describe("installSkill", () => {
         const setSkillFn = vi.fn(() =>
           Effect.fail(
             makeAppError({
-              code: "SETTINGS_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "write failed",
               cause: new Error("write failed"),
             }),
@@ -614,8 +611,7 @@ describe("installSkill", () => {
         const setSkillFn = vi.fn(() =>
           Effect.fail(
             makeAppError({
-              code: "LOCKFILE_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "write failed",
               cause: new Error("write failed"),
             }),

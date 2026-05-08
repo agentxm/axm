@@ -111,8 +111,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
       const exists = yield* env.fs.exists(canonicalPath).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to check command path: ${canonicalPath}`,
             cause: error,
           }),

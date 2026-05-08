@@ -67,8 +67,7 @@ export const cleanupStaleManagedSubagentFiles = (args: {
         yield* fs.remove(filePath).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "SUBAGENT_SYNC_REMOVE_FAILED",
-              category: "internal",
+              code: "internal",
               message: `Failed to remove stale managed subagent file: ${filePath}`,
               cause: error,
             }),

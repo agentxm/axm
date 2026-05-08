@@ -53,8 +53,7 @@ const readExtensionIndex = (
     const content = yield* fs.readFileString(idxPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "REGISTRY_FETCH_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read index: ${idxPath}`,
           cause: e,
         }),
@@ -63,8 +62,7 @@ const readExtensionIndex = (
     return yield* decodeExtensionIndexFromJsonString(content).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "REGISTRY_FETCH_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Invalid index schema: ${idxPath}`,
           cause: e,
         }),
@@ -329,8 +327,7 @@ export const createLocalRegistryClient = (
             const selected = selectVersion(index.versions);
             if (Option.isNone(selected)) {
               return yield* makeAppError({
-                code: "REGISTRY_FETCH_FAILED",
-                category: "internal",
+                code: "internal",
                 message: `No versions found for ${owner}/${args.type}/${args.name}`,
               });
             }
@@ -355,8 +352,7 @@ export const createLocalRegistryClient = (
             const selected = resolveVersionEntry(index.versions, Option.some(requestedVersion));
             if (Option.isNone(selected)) {
               return yield* makeAppError({
-                code: "REGISTRY_FETCH_FAILED",
-                category: "internal",
+                code: "internal",
                 message: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
               });
             }
@@ -369,8 +365,7 @@ export const createLocalRegistryClient = (
       const exists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
         return yield* makeAppError({
-          code: "REGISTRY_FETCH_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Archive not found: ${archivePath}`,
         });
       }
@@ -378,8 +373,7 @@ export const createLocalRegistryClient = (
       const archive = yield* fs.readFile(archivePath).pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "REGISTRY_FETCH_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to read archive: ${archivePath}`,
             cause: e,
           }),
@@ -397,7 +391,6 @@ export const createLocalRegistryClient = (
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
         Effect.mapError((e) =>
           errRegistryPublishRejected({
-            reason: "local_registry",
             message: `Registry directory could not be created: ${dir}`,
             cause: e,
           }),
@@ -415,7 +408,6 @@ export const createLocalRegistryClient = (
         const content = yield* fs.readFileString(indexPath).pipe(
           Effect.mapError((e) =>
             errRegistryPublishRejected({
-              reason: "local_registry",
               message: `Registry index could not be read: ${indexPath}`,
               cause: e,
             }),
@@ -424,7 +416,6 @@ export const createLocalRegistryClient = (
         const existingIndex = yield* decodeExtensionIndexFromJsonString(content).pipe(
           Effect.mapError((e) =>
             errRegistryPublishRejected({
-              reason: "local_registry",
               message: "Registry index schema is invalid",
               cause: e,
             }),
@@ -448,7 +439,6 @@ export const createLocalRegistryClient = (
         yield* fs.writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
             errRegistryPublishRejected({
-              reason: "local_registry",
               message: `Registry index could not be written: ${indexPath}`,
               cause: e,
             }),
@@ -465,7 +455,6 @@ export const createLocalRegistryClient = (
         yield* fs.writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
             errRegistryPublishRejected({
-              reason: "local_registry",
               message: `Registry index could not be written: ${indexPath}`,
               cause: e,
             }),
@@ -477,7 +466,6 @@ export const createLocalRegistryClient = (
       yield* fs.writeFile(archivePath, args.archive).pipe(
         Effect.mapError((e) =>
           errRegistryPublishRejected({
-            reason: "local_registry",
             message: `Registry archive could not be written: ${archivePath}`,
             cause: e,
           }),

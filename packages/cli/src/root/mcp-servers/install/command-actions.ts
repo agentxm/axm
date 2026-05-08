@@ -136,8 +136,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 onNone: () =>
                   Effect.fail(
                     makeAppError({
-                      code: "OWNER_REQUIRED",
-                      category: "internal",
+                      code: "internal",
                       message: `Cannot resolve bare MCP server name "${parsed.success.name}" without a configured owner`,
                       breadcrumbs: [
                         {
@@ -164,8 +163,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         switch (parsed.failure.kind) {
           case "wrong-type":
             return yield* makeAppError({
-              code: "MCP_SERVER_SOURCE_INVALID_FORMAT",
-              category: "validation",
+              code: "validation",
               message: "MCP server source must include /mcp-servers/ segment",
               breadcrumbs: [
                 { task: "Recover", description: "Use @owner/mcp-servers/server-name format." },
@@ -173,8 +171,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             });
           case "missing-name":
             return yield* makeAppError({
-              code: "MCP_SERVER_SOURCE_MISSING_NAME",
-              category: "not_found",
+              code: "not_found",
               message: "MCP server source must include a server name",
               breadcrumbs: [
                 { task: "Recover", description: "Use @owner/mcp-servers/server-name format." },
@@ -182,8 +179,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             });
           default:
             return yield* makeAppError({
-              code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
-              category: "usage",
+              code: "usage",
               message: "MCP servers can only be installed from a registry",
               breadcrumbs: [
                 {
@@ -203,8 +199,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           const source = yield* resolveSource(parsed.resolvedInput).pipe(
             Effect.mapError((error) =>
               makeAppError({
-                code: "INVALID_SOURCE",
-                category: "validation",
+                code: "validation",
                 message: `Invalid source: ${error.message}`,
                 breadcrumbs: [
                   {
@@ -219,8 +214,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
           if (source.type !== "registry") {
             return yield* makeAppError({
-              code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
-              category: "usage",
+              code: "usage",
               message: "MCP servers can only be installed from a registry",
               breadcrumbs: [
                 {
@@ -260,8 +254,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 .pipe(
                   Effect.mapError((error) =>
                     makeAppError({
-                      code: "MCP_SERVER_FETCH_FAILED",
-                      category: "network",
+                      code: "network",
                       message: "MCP server could not be fetched from registry",
                       breadcrumbs: [
                         {
@@ -288,8 +281,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         if (refs.length === 0) {
           return yield* makeAppError({
-            code: "MCP_SERVER_NOT_FOUND",
-            category: "not_found",
+            code: "not_found",
             message: `MCP server "${parsed.serverName}" not found in registry`,
             breadcrumbs: [
               {
@@ -302,8 +294,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         const [ref] = refs;
         if (ref === undefined) {
           return yield* makeAppError({
-            code: "MCP_SERVER_NOT_FOUND",
-            category: "not_found",
+            code: "not_found",
             message: `MCP server "${parsed.serverName}" not found in registry`,
             breadcrumbs: [
               {

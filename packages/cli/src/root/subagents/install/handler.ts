@@ -23,8 +23,7 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
   Effect.gen(function* () {
     if (args.all) {
       return yield* makeAppError({
-        code: "SUBAGENTS_INSTALL_ALL_REQUIRES_SOURCE",
-        category: "usage",
+        code: "usage",
         message: "The --all flag requires a source for subagents install",
         breadcrumbs: [
           {
@@ -38,8 +37,7 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
 
     if (args.subagents.length > 0) {
       return yield* makeAppError({
-        code: "SUBAGENTS_INSTALL_SELECTOR_REQUIRES_SOURCE",
-        category: "usage",
+        code: "usage",
         message: "The --subagent flag requires a source for subagents install",
         breadcrumbs: [
           {

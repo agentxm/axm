@@ -43,8 +43,7 @@ const resolveDependencyType = (
 
   return Effect.fail(
     makeAppError({
-      code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
-      category: "usage",
+      code: "usage",
       message: `Extension pack dependency type mismatch for expected ${expectedType}`,
     }),
   );
@@ -57,8 +56,7 @@ const registrySourceForDependency = (
   if (pack.source.type !== "registry") {
     return Effect.fail(
       makeAppError({
-        code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
-        category: "usage",
+        code: "usage",
         message: `Cannot resolve extension pack dependencies from non-registry source`,
       }),
     );
@@ -103,8 +101,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
 
     if (matchingRef === undefined) {
       return yield* makeAppError({
-        code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
-        category: "usage",
+        code: "usage",
         message: `Unable to resolve extension pack dependency ${fqn}@${constraint}`,
       });
     }

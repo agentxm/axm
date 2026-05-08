@@ -299,7 +299,7 @@ describe("resolveSkillInstallSource", () => {
         parseInputOrThrow("@acme/skills/my-skill"),
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
       expect(error._tag).toBe("AppError");
-      expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+      expect(error.code).toBe("not_found");
       expect(error.message).toContain("@acme/my-skill");
       expect(error.message).toContain("not found");
     });
@@ -434,7 +434,7 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.provide(provideLayersWithProfile(sources, Option.some(normalizeHandle("@myns")))),
         );
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+        expect(error.code).toBe("not_found");
         expect(error.message).toContain("@myns/missing-skill");
         expect(error.message).toContain("not found");
       });
@@ -454,7 +454,7 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.provide(provideLayersWithProfile(sources, Option.none())),
         );
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+        expect(error.code).toBe("not_found");
         expect(error.message).toContain("no default owner");
       });
     },
@@ -469,7 +469,7 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.provide(provideLayersWithProfile([], Option.some(normalizeHandle("@myns")))),
         );
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+        expect(error.code).toBe("not_found");
         expect(error.message).toContain("no registry sources");
       });
     },
@@ -548,7 +548,7 @@ describe("resolveSkillUrl", () => {
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
 
       expect(error._tag).toBe("AppError");
-      expect(error.code).toBe("SOURCE_PARSE_FAILED");
+      expect(error.code).toBe("validation");
     });
   });
 });

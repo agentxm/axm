@@ -358,7 +358,7 @@ describe("detectAgent", () => {
         );
         expect(error).toBeInstanceOf(AppError);
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("AGENT_DETECTION_FAILED");
+        expect(error.code).toBe("internal");
         expect(error.message).toContain("Claude Code");
       }),
     );
@@ -499,7 +499,7 @@ describe("detectAgents", () => {
         );
         expect(error).toBeInstanceOf(AppError);
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("AGENT_DETECTION_FAILED");
+        expect(error.code).toBe("internal");
       }),
     );
   });

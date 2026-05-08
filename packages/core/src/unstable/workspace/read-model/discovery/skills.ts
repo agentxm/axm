@@ -258,8 +258,7 @@ export const skillsInDir = (
     const stat = yield* fs.stat(searchRoot).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SKILLS_DISCOVERY_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Directory does not exist or is not accessible: ${searchRoot}`,
           cause: error,
         }),
@@ -268,8 +267,7 @@ export const skillsInDir = (
 
     if (stat.type !== "Directory") {
       return yield* makeAppError({
-        code: "SKILLS_DISCOVERY_FAILED",
-        category: "internal",
+        code: "internal",
         message: `Path is not a directory: ${searchRoot}`,
       });
     }

@@ -215,7 +215,7 @@ describe("packs uninstall handler", () => {
 
           expect(result).toMatchObject({
             error: true,
-            code: "EXTENSION_NOT_FOUND",
+            code: "not_found",
             message: expect.stringContaining("nonexistent-pack"),
           });
         }),

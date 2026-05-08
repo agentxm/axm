@@ -27,17 +27,14 @@ export type ResolvedConfiguredPack = ResolvedConfiguredEntry<ExtensionPackRef>;
 
 export const toConfiguredEntryFailureReason = (error: AppError): ConfiguredEntryFailureReason => {
   switch (error.code) {
-    case "WORKSPACE_INSTALL_SOURCE_INVALID":
+    case "validation":
       return "entry-malformed";
-    case "SKILL_SOURCE_MISSING":
-    case "SUBAGENT_SOURCE_MISSING":
-    case "COMMAND_SOURCE_MISSING":
-    case "MCP_SERVER_SOURCE_MISSING":
-    case "PACK_SOURCE_MISSING":
+    case "not_found":
       return "source-not-found";
-    case "CONFIGURED_ENTRY_RESOLUTION_TIMEOUT":
-      return "source-timeout";
     default:
+      if (error.message.includes("Timed out")) {
+        return "source-timeout";
+      }
       return "source-resolution-failed";
   }
 };

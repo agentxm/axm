@@ -2,7 +2,7 @@ import * as Data from "effect/Data";
 
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 
-export type AppErrorCategory =
+export type AppErrorCode =
   | "usage"
   | "not_found"
   | "auth"
@@ -13,7 +13,7 @@ export type AppErrorCategory =
   | "validation"
   | "internal";
 
-export const AppErrorCategories: ReadonlyArray<AppErrorCategory> = [
+export const AppErrorCodes: ReadonlyArray<AppErrorCode> = [
   "usage",
   "not_found",
   "auth",
@@ -25,8 +25,8 @@ export const AppErrorCategories: ReadonlyArray<AppErrorCategory> = [
   "internal",
 ];
 
-export const exitCodeForCategory = (category: AppErrorCategory): number => {
-  switch (category) {
+export const exitCodeFor = (code: AppErrorCode): number => {
+  switch (code) {
     case "usage":
       return 2;
     case "not_found":
@@ -49,38 +49,23 @@ export const exitCodeForCategory = (category: AppErrorCategory): number => {
 };
 
 export class AppError extends Data.TaggedError("AppError")<{
-  readonly code: string;
-  readonly category: AppErrorCategory;
+  readonly code: AppErrorCode;
   readonly message: string;
-  readonly reason?: string;
-  readonly retryable?: boolean;
-  readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause: unknown;
 }> {}
 
 export const makeAppError = (args: {
-  readonly code: string;
-  readonly category: AppErrorCategory;
+  readonly code: AppErrorCode;
   readonly message: string;
-  readonly reason?: string;
-  readonly retryable?: boolean;
-  readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause?: unknown;
 }): AppError =>
   new AppError({
     code: args.code,
-    category: args.category,
     message: args.message,
-    ...(args.reason !== undefined ? { reason: args.reason } : {}),
-    ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
-    ...(args.httpStatus !== undefined ? { httpStatus: args.httpStatus } : {}),
-    breadcrumbs:
-      args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
-        ? args.breadcrumbs
-        : args.category === "internal"
-          ? []
-          : [{ task: "Recover", description: "Review the message, adjust the input, and retry." }],
+    ...(args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
+      ? { breadcrumbs: args.breadcrumbs }
+      : {}),
     cause: args.cause,
   });

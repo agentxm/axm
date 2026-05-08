@@ -87,8 +87,7 @@ export const enableSkill: OperationHandler<
     const exists = yield* fs.exists(skillSrcPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return yield* makeAppError({
-        code: "ENABLE_SKILL_MISSING_FILES",
-        category: "not_found",
+        code: "not_found",
         message: `Skill files for "${op.args.skillName}" not found at ${skillSrcPath}`,
         breadcrumbs: [
           { task: "Recover", description: "Try reinstalling the skill with `axm skills install`" },

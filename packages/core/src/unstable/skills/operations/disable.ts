@@ -99,8 +99,7 @@ export const disableSkill: OperationHandler<
     const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "DISABLE_SKILL_LOCKFILE_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
@@ -160,8 +159,7 @@ export const disableSkill: OperationHandler<
       );
       if (source === undefined) {
         return yield* makeAppError({
-          code: "DISABLE_SKILL_NO_SOURCE",
-          category: "internal",
+          code: "internal",
           message: `Cannot determine source for implicit skill "${op.args.skillName}"`,
           breadcrumbs: [
             { task: "Recover", description: "Provide a source when disabling this skill" },

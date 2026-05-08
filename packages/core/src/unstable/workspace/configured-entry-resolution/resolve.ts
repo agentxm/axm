@@ -17,8 +17,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "SKILL_SOURCE_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid skill source for ${name}: ${cause.message}`,
           cause,
         }),
@@ -50,8 +49,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
         ),
         Effect.mapError((cause) =>
           makeAppError({
-            code: "SKILL_SOURCE_RESOLUTION_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to resolve configured skill "${name}"`,
             breadcrumbs: [
               {
@@ -67,8 +65,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
     const ref = refs.find((entry) => entry.skill.name === name);
     if (ref === undefined) {
       return yield* makeAppError({
-        code: "SKILL_SOURCE_MISSING",
-        category: "not_found",
+        code: "not_found",
         message: `Configured skill "${name}" could not be found in its source`,
         breadcrumbs: [
           {
@@ -91,8 +88,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "SUBAGENT_SOURCE_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid subagent source for ${name}: ${cause.message}`,
           cause,
         }),
@@ -124,8 +120,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
         ),
         Effect.mapError((cause) =>
           makeAppError({
-            code: "SUBAGENT_SOURCE_RESOLUTION_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to resolve configured subagent "${name}"`,
             breadcrumbs: [
               {
@@ -141,8 +136,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
     const ref = refs.find((entry) => entry.subagent.name === name);
     if (ref === undefined) {
       return yield* makeAppError({
-        code: "SUBAGENT_SOURCE_MISSING",
-        category: "not_found",
+        code: "not_found",
         message: `Configured subagent "${name}" could not be found in its source`,
         breadcrumbs: [
           {
@@ -165,8 +159,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
 
     if (parsed === undefined || parsed.type !== "commands" || parsed.name !== name) {
       return yield* makeAppError({
-        code: "WORKSPACE_INSTALL_SOURCE_INVALID",
-        category: "validation",
+        code: "validation",
         message: `The configured command entry "${name}" is invalid.`,
         breadcrumbs: [{ task: "Recover", description: `Use a name like "@owner/commands/name".` }],
       });
@@ -177,8 +170,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "COMMAND_SOURCE_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid command source for ${name}: ${cause.message}`,
           cause,
         }),
@@ -198,8 +190,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
         ),
         Effect.mapError((cause) =>
           makeAppError({
-            code: "COMMAND_SOURCE_RESOLUTION_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to resolve configured command "${name}"`,
             breadcrumbs: [
               {
@@ -215,8 +206,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
     const ref = refs.find((entry) => entry.command.name === name);
     if (ref === undefined) {
       return yield* makeAppError({
-        code: "COMMAND_SOURCE_MISSING",
-        category: "not_found",
+        code: "not_found",
         message: `Configured command "${name}" could not be found in its source`,
         breadcrumbs: [
           {
@@ -239,8 +229,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
 
     if (parsed === undefined || parsed.type !== "mcp-servers" || parsed.name !== name) {
       return yield* makeAppError({
-        code: "WORKSPACE_INSTALL_SOURCE_INVALID",
-        category: "validation",
+        code: "validation",
         message: `The configured MCP server entry "${name}" is invalid.`,
         breadcrumbs: [
           { task: "Recover", description: `Use a name like "@owner/mcp-servers/name".` },
@@ -253,8 +242,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "MCP_SERVER_SOURCE_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid MCP server source for ${name}: ${cause.message}`,
           cause,
         }),
@@ -274,8 +262,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
         ),
         Effect.mapError((cause) =>
           makeAppError({
-            code: "MCP_SERVER_SOURCE_RESOLUTION_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to resolve configured MCP server "${name}"`,
             breadcrumbs: [
               {
@@ -291,8 +278,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
     const ref = refs.find((entry) => entry.server.name === name);
     if (ref === undefined) {
       return yield* makeAppError({
-        code: "MCP_SERVER_SOURCE_MISSING",
-        category: "not_found",
+        code: "not_found",
         message: `Configured MCP server "${name}" could not be found in its source`,
         breadcrumbs: [
           {
@@ -315,8 +301,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
 
     if (parsed === undefined || parsed.type !== "packs" || parsed.name !== name) {
       return yield* makeAppError({
-        code: "WORKSPACE_INSTALL_SOURCE_INVALID",
-        category: "validation",
+        code: "validation",
         message: `The configured extension pack entry "${name}" is invalid.`,
         breadcrumbs: [{ task: "Recover", description: `Use a name like "@owner/packs/name".` }],
       });
@@ -327,8 +312,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "PACK_SOURCE_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid extension pack source for ${name}: ${cause.message}`,
           cause,
         }),
@@ -379,8 +363,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       ),
       Effect.mapError((cause) =>
         makeAppError({
-          code: "PACK_SOURCE_RESOLUTION_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to resolve configured extension pack "${name}"`,
           breadcrumbs: [
             {
@@ -397,8 +380,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
     const ref = refs.find((entry) => entry.pack.name === name);
     if (ref === undefined) {
       return yield* makeAppError({
-        code: "PACK_SOURCE_MISSING",
-        category: "not_found",
+        code: "not_found",
         message: `Configured extension pack "${name}" could not be found in its source`,
         breadcrumbs: [
           {

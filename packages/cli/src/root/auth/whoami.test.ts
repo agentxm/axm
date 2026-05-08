@@ -88,12 +88,12 @@ describe("auth whoami handler", () => {
         const result = yield* handleWhoami().pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
-        expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
+        expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
   });
 
-  it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
+  it.effect("fails with auth when persisted credentials are disabled", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
@@ -108,7 +108,7 @@ describe("auth whoami handler", () => {
         );
         expect(result).toMatchObject({
           error: true,
-          code: "AUTH_TOKEN_REQUIRED",
+          code: "auth",
           guidance: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
         });
       }),

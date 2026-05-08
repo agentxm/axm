@@ -64,8 +64,7 @@ export const unpackExtensionPack: OperationHandler<
 
     if (Option.isNone(lockedPack)) {
       return yield* makeAppError({
-        code: "PACK_NOT_INSTALLED",
-        category: "internal",
+        code: "internal",
         message: `Extension pack "${op.args.name}" is not installed`,
         breadcrumbs: [
           {
@@ -80,8 +79,7 @@ export const unpackExtensionPack: OperationHandler<
 
     if (entry.type !== "registry") {
       return yield* makeAppError({
-        code: "PACK_UNPACK_UNSUPPORTED",
-        category: "internal",
+        code: "internal",
         message: `Cannot unpack "${op.args.name}" — only registry extension packs can be unpacked`,
       });
     }

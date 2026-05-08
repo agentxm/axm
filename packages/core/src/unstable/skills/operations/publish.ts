@@ -82,8 +82,7 @@ export const publishSkill: OperationHandler<
       .pipe(Effect.orElseSucceed(() => false));
     if (!extensionDirExists) {
       return yield* makeAppError({
-        code: "PUBLISH_SKILL_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Managed extension not found: ${extensionDir}`,
       });
     }
@@ -93,8 +92,7 @@ export const publishSkill: OperationHandler<
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_SKILL_MANIFEST_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -108,8 +106,7 @@ export const publishSkill: OperationHandler<
       },
       catch: (e) =>
         makeAppError({
-          code: "PUBLISH_SKILL_MANIFEST_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -118,8 +115,7 @@ export const publishSkill: OperationHandler<
     const agentsFieldValidation = validateManifestHasNoAgentsField(MANIFEST_FILENAME, manifestJson);
     if (Result.isFailure(agentsFieldValidation)) {
       return yield* makeAppError({
-        code: "PUBLISH_SKILL_MANIFEST_SCHEMA_INVALID",
-        category: "validation",
+        code: "validation",
         message: agentsFieldValidation.failure.detail,
       });
     }
@@ -129,8 +125,7 @@ export const publishSkill: OperationHandler<
     ).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_SKILL_MANIFEST_SCHEMA_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
@@ -147,8 +142,7 @@ export const publishSkill: OperationHandler<
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_SKILL_REGISTRY_LOOKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
@@ -157,8 +151,7 @@ export const publishSkill: OperationHandler<
 
     if (Option.isNone(registrySource)) {
       return yield* makeAppError({
-        code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
@@ -166,8 +159,7 @@ export const publishSkill: OperationHandler<
     const source = registrySource.value;
     if (source.type !== "registry") {
       return yield* makeAppError({
-        code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
@@ -199,12 +191,8 @@ export const publishSkill: OperationHandler<
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "PUBLISH_REGISTRY_FAILED",
-            category: "network",
-            reason: "registry_publish",
+            code: "network",
             message: `Registry publish did not complete "${op.args.registryName}"`,
-            ...(e.retryable !== undefined ? { retryable: e.retryable } : {}),
-            ...(e.httpStatus !== undefined ? { httpStatus: e.httpStatus } : {}),
             breadcrumbs: e.breadcrumbs ?? [],
             cause: e,
           }),

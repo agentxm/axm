@@ -216,10 +216,7 @@ describe("runInstallCommandWorkflow", () => {
         TestRef,
         TestIntent
       > = {
-        parseArgs: () =>
-          Effect.fail(
-            makeAppError({ code: "PARSE_FAILED", category: "validation", message: "bad args" }),
-          ),
+        parseArgs: () => Effect.fail(makeAppError({ code: "validation", message: "bad args" })),
         resolveSourceRequests: () => Effect.succeed([]),
         discoverRefs: () => Effect.succeed([]),
         finalizeIntent: () => Effect.succeed({ intentName: "x" }),
@@ -254,10 +251,7 @@ describe("runInstallCommandWorkflow", () => {
         resolveSourceRequests: () => Effect.succeed([{ source: "x" }]),
         discoverRefs: () => Effect.succeed([{ refName: "x" }]),
         finalizeIntent: () => Effect.succeed({ intentName: "x" }),
-        buildPlan: () =>
-          Effect.fail(
-            makeAppError({ code: "PLAN_FAILED", category: "internal", message: "plan error" }),
-          ),
+        buildPlan: () => Effect.fail(makeAppError({ code: "internal", message: "plan error" })),
       };
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
@@ -283,9 +277,7 @@ describe("runInstallCommandWorkflow", () => {
         parseArgs: () => Effect.succeed({ parsedName: "x" }),
         resolveSourceRequests: () => {
           callOrder.push("resolveSourceRequests");
-          return Effect.fail(
-            makeAppError({ code: "SOURCE_FAILED", category: "internal", message: "source error" }),
-          );
+          return Effect.fail(makeAppError({ code: "internal", message: "source error" }));
         },
         discoverRefs: () => {
           callOrder.push("discoverRefs");

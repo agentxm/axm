@@ -118,8 +118,7 @@ describe("toPlanResolutionResult", () => {
                 result: "error",
                 message: "Version already exists",
                 error: makeAppError({
-                  code: "PUBLISH_EXISTS",
-                  category: "conflict",
+                  code: "conflict",
                   message: "Version already exists",
                 }),
               },
@@ -135,8 +134,7 @@ describe("toPlanResolutionResult", () => {
                 result: "error",
                 message: "blocked by earlier job failure",
                 error: makeAppError({
-                  code: "PLAN_STEP_BLOCKED",
-                  category: "conflict",
+                  code: "conflict",
                   message: "blocked by earlier job failure",
                 }),
               },
@@ -162,13 +160,13 @@ describe("toPlanResolutionResult", () => {
           label: "Publish dependency @acme/skills/code-review",
           status: "failed",
           message: "Version already exists",
-          code: "PUBLISH_EXISTS",
+          code: "conflict",
         },
         {
           label: "Publish @acme/packs/frontend-tools",
           status: "blocked",
           message: "blocked by earlier job failure",
-          code: "PLAN_STEP_BLOCKED",
+          code: "conflict",
         },
       ],
     });
@@ -277,7 +275,7 @@ describe("planResolutionToSummary", () => {
               result: {
                 result: "error",
                 message: "failed",
-                error: makeAppError({ code: "FAIL", category: "internal", message: "failed" }),
+                error: makeAppError({ code: "internal", message: "failed" }),
               },
             },
             {
@@ -286,8 +284,7 @@ describe("planResolutionToSummary", () => {
                 result: "error",
                 message: "blocked",
                 error: makeAppError({
-                  code: "PLAN_STEP_BLOCKED",
-                  category: "conflict",
+                  code: "conflict",
                   message: "blocked",
                 }),
               },

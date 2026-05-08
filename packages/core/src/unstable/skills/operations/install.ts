@@ -100,7 +100,6 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
         errInstallFailed({
-          code: "INSTALL_SKILL_COPY_FAILED",
           message: "Skill files could not be copied to the canonical location",
           cause: e,
         }),
@@ -163,7 +162,7 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
+    yield* validatePathSafety(ws.baseDir, skillSrcPath);
 
     const sourcePath = stripFileProtocol(ref.location);
     yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
@@ -179,7 +178,7 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
+    yield* validatePathSafety(ws.baseDir, skillSrcPath);
 
     const sourcePath = stripFileProtocol(ref.location);
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
@@ -203,14 +202,13 @@ const installFromRegistry = (
       refType: "registry",
       owner: ref.owner,
     });
-    yield* validatePathSafety(ws.baseDir, canonicalPath, "INSTALL_SKILL_PATH_TRAVERSAL");
+    yield* validatePathSafety(ws.baseDir, canonicalPath);
 
     // Synthetic refs from publish may have no integrity — use existing canonical
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "INSTALL_SKILL_PATH_CHECK_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
@@ -235,8 +233,7 @@ const installFromRegistry = (
         const actualIntegrity = yield* computeIntegrity(archive);
         if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
-            code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
-            category: "internal",
+            code: "internal",
             message: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
@@ -245,7 +242,6 @@ const installFromRegistry = (
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
           errInstallFailed({
-            code: "INSTALL_SKILL_TEMP_DIR_FAILED",
             message: "Temporary directory for registry install could not be created",
             cause: e,
           }),
@@ -402,8 +398,7 @@ export const installSkill: OperationHandler<
         result: "error",
         message,
         error: makeAppError({
-          code: "CODING_AGENT_UNKNOWN_CONFIGURED",
-          category: "not_found",
+          code: "not_found",
           message: message,
         }),
       } satisfies JobStepResult;
@@ -434,8 +429,7 @@ export const installSkill: OperationHandler<
         result: "error",
         message,
         error: makeAppError({
-          code: "SKILL_DIR_MISCONFIGURED",
-          category: "validation",
+          code: "validation",
           message: message,
         }),
       } satisfies JobStepResult;
@@ -548,8 +542,7 @@ export const installSkill: OperationHandler<
         result: "error",
         message,
         error: makeAppError({
-          code: "SKILL_INSTALL_PARTIAL_FAILED",
-          category: "internal",
+          code: "internal",
           message: message,
         }),
       } satisfies JobStepResult;

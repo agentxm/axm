@@ -48,13 +48,12 @@ export interface ReadCommandContentResult extends CommandContentResult {
  * canonical command directory. Falls back to legacy root `${name}.md` files.
  *
  * Parses the content file's frontmatter and reads/validates `command.json` if
- * present. The errorPrefix controls which error codes are used so callers
- * retain distinct error identities.
+ * present.
  */
 export const readCommandContent = (
   canonicalPath: string,
   commandName: string,
-  errorPrefix: CommandErrorPrefix,
+  _errorPrefix: CommandErrorPrefix,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -76,8 +75,7 @@ export const readCommandContent = (
       const content = yield* fs.readFileString(commandMdPath).pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: `${errorPrefix}_READ_FAILED`,
-            category: "internal",
+            code: "internal",
             message: `Failed to read ${contentFilename} at ${commandMdPath}`,
             cause: e,
           }),
@@ -99,8 +97,7 @@ export const readCommandContent = (
       const manifestContent = yield* fs.readFileString(manifestPath).pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: `${errorPrefix}_READ_FAILED`,
-            category: "internal",
+            code: "internal",
             message: `Failed to read ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: e,
           }),
@@ -110,8 +107,7 @@ export const readCommandContent = (
         try: () => Schema.decodeUnknownSync(CommandManifestSchema)(JSON.parse(manifestContent)),
         catch: (error) =>
           makeAppError({
-            code: `${errorPrefix}_MANIFEST_INVALID`,
-            category: "internal",
+            code: "internal",
             message: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: error,
           }),

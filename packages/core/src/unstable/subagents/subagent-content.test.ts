@@ -117,7 +117,7 @@ Body.`,
   it.effect("fails when frontmatter is missing", () =>
     Effect.gen(function* () {
       const error = yield* parseSubagentMd("# Planner\n", "planner").pipe(Effect.flip);
-      expect(error.code).toBe("SUBAGENT_FRONTMATTER_MISSING");
+      expect(error.code).toBe("not_found");
       expect(error.message).toContain("planner");
     }),
   );
@@ -133,7 +133,7 @@ Body.`,
         "planner",
       ).pipe(Effect.flip);
 
-      expect(error.code).toBe("SUBAGENT_NAME_MISMATCH");
+      expect(error.code).toBe("internal");
       expect(error.message).toContain("researcher");
       expect(error.message).toContain("planner");
     }),
@@ -150,7 +150,7 @@ Body.`,
         "planner",
       ).pipe(Effect.flip);
 
-      expect(error.code).toBe("SUBAGENT_FRONTMATTER_INVALID");
+      expect(error.code).toBe("validation");
     }),
   );
 });

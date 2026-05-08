@@ -148,8 +148,7 @@ export const installExtensionPack: OperationHandler<
         const fetched = yield* sources.fetch(op.args.ref).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "PACK_FETCH_FAILED",
-              category: "network",
+              code: "network",
               message: `Failed to fetch extension pack archive: ${error.message}`,
               cause: error,
             }),
@@ -160,8 +159,7 @@ export const installExtensionPack: OperationHandler<
         const manifestContent = yield* fs.readFileString(manifestPath).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "PACK_MANIFEST_READ_FAILED",
-              category: "internal",
+              code: "internal",
               message: `Failed to read fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
@@ -174,8 +172,7 @@ export const installExtensionPack: OperationHandler<
           },
           catch: (error) =>
             makeAppError({
-              code: "PACK_MANIFEST_PARSE_FAILED",
-              category: "validation",
+              code: "validation",
               message: `Invalid JSON in fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
@@ -185,8 +182,7 @@ export const installExtensionPack: OperationHandler<
         ).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "PACK_MANIFEST_INVALID",
-              category: "validation",
+              code: "validation",
               message: `Invalid fetched extension pack manifest: ${manifestPath}`,
               cause: error,
             }),
@@ -196,8 +192,7 @@ export const installExtensionPack: OperationHandler<
         const missingDependencies = collectMissingResolvedDependencies(manifest, op);
         if (missingDependencies.length > 0) {
           return yield* makeAppError({
-            code: "PACK_DEPENDENCY_METADATA_MISMATCH",
-            category: "internal",
+            code: "internal",
             message: `Extension pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
             breadcrumbs: [
               {
@@ -212,8 +207,7 @@ export const installExtensionPack: OperationHandler<
         yield* copyExtensionDirectory(fetched.directory, packDir).pipe(
           Effect.mapError((e) =>
             makeAppError({
-              code: "PACK_EXTRACT_FAILED",
-              category: "internal",
+              code: "internal",
               message: `Failed to extract extension pack to ${packDir}`,
               cause: e,
             }),

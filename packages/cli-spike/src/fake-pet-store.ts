@@ -79,8 +79,7 @@ const getPetByName = (name: string) =>
   Effect.fromOption(findPetByName(name)).pipe(
     Effect.mapError(() =>
       makeAppError({
-        code: "SPIKE_PET_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `No sample pet named '${name}' exists`,
         breadcrumbs: [
           {
@@ -146,8 +145,7 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
             ? Effect.succeed(petName)
             : Effect.fail(
                 makeAppError({
-                  code: "SPIKE_PET_NOT_FOUND",
-                  category: "not_found",
+                  code: "not_found",
                   message: `No ${request.habitat} sample pet named '${petName}' exists`,
                   breadcrumbs: [
                     {
@@ -178,8 +176,7 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
 
       if (Option.isSome(plan.blocker) && !force) {
         return yield* makeAppError({
-          code: "PET_ADOPTION_BLOCKED",
-          category: "conflict",
+          code: "conflict",
           message: plan.blocker.value,
           breadcrumbs: [
             {

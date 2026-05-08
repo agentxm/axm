@@ -29,9 +29,9 @@ describe("compiled binary smoke", () => {
   it("exits non-zero for auth token without credentials", async () => {
     const result = await runBinary(["auth", "token"]);
 
-    expect(result.exitCode).toBe(1);
-    expect(getOutput(result)).toContain("AUTH_TOKEN_REQUIRED");
-    expect(getOutput(result)).toContain("Persisted credentials are disabled");
+    expect(result.exitCode).toBe(4);
+    expect(getOutput(result)).toContain("(auth)");
+    expect(getOutput(result)).toContain("Set the AXM_TOKEN environment variable");
   });
 
   it("exits non-zero with an explicit init instruction for skills disable in an uninitialized workspace", async () => {
@@ -46,7 +46,7 @@ describe("compiled binary smoke", () => {
       );
 
       expect(result.exitCode).toBe(1);
-      expect(getOutput(result)).toContain("WORKSPACE_NOT_INITIALIZED");
+      expect(getOutput(result)).toContain("Workspace settings not found");
       expect(getOutput(result)).toContain("axm setup");
     } finally {
       temp.cleanup();

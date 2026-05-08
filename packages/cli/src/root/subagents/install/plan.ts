@@ -51,10 +51,7 @@ export const buildSubagentInstallPlan = ({
     const subagentMgr = yield* SubagentManager;
     const lockedSubagents = yield* workspace.getLockedSubagents().pipe(
       Effect.catch((error) => {
-        if (
-          error.code === "LOCKFILE_PARSE_FAILED" ||
-          error.code === "LOCKFILE_RESOLVED_VERSION_INVALID"
-        ) {
+        if (error.code === "validation") {
           return Effect.succeed({});
         }
 

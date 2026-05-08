@@ -84,8 +84,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SETTINGS_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create directory: ${axmDir}`,
           cause: error,
         }),
@@ -96,8 +95,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     const encoded = yield* Schema.encodeEffect(SettingsSchema)(settings).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SETTINGS_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to encode settings: ${error.message}`,
           cause: error,
         }),
@@ -111,8 +109,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     yield* fs.writeFileString(settingsPath, content).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SETTINGS_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to write settings file: ${settingsPath}`,
           cause: error,
         }),

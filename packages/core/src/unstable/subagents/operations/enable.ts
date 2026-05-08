@@ -122,8 +122,7 @@ export const enableSubagent: OperationHandler<
       .pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return yield* makeAppError({
-        code: "ENABLE_SUBAGENT_MISSING_FILES",
-        category: "not_found",
+        code: "not_found",
         message: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
         breadcrumbs: [
           {
@@ -140,8 +139,7 @@ export const enableSubagent: OperationHandler<
     const rawContent = yield* fs.readFileString(contentPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SUBAGENT_CONTENT_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read ${expectedFilename} from ${paths.subagentSrcPath}`,
           breadcrumbs: [
             {

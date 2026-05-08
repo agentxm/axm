@@ -72,8 +72,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "REGISTRY_SOURCES_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
@@ -83,8 +82,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     const [defaultRegistry] = registrySources;
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
-        code: "NO_REGISTRY_CONFIGURED",
-        category: "usage",
+        code: "usage",
         message: "No registry sources configured",
         breadcrumbs: [{ task: "Recover", description: "Run `axm setup` first." }],
       });
@@ -100,8 +98,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "VIEW_REGISTRY_LOOKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
@@ -110,8 +107,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
 
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
-        code: "VIEW_REGISTRY_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
@@ -140,8 +136,7 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
       const owner = Option.getOrUndefined(resolved.owner);
       if (owner === undefined) {
         return yield* makeAppError({
-          code: "VIEW_INVALID_HANDLE",
-          category: "validation",
+          code: "validation",
           message: `Extension "${handle}" does not have a registry owner`,
           breadcrumbs: [
             {
@@ -162,8 +157,7 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
     const owner = Option.getOrUndefined(resolved.owner);
     if (owner === undefined) {
       return yield* makeAppError({
-        code: "VIEW_INVALID_HANDLE",
-        category: "validation",
+        code: "validation",
         message: `Invalid extension handle: ${handle}`,
         breadcrumbs: [
           {
@@ -203,8 +197,7 @@ const resolveBareViewHandle = (handle: string) =>
 
     if (matches.length > 1) {
       return yield* makeAppError({
-        code: "AMBIGUOUS_IDENTIFIER",
-        category: "internal",
+        code: "internal",
         message: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
         breadcrumbs: [
           { task: "Recover", description: "Re-run with --type or the fully-qualified name." },
@@ -213,8 +206,7 @@ const resolveBareViewHandle = (handle: string) =>
     }
 
     return yield* makeAppError({
-      code: "NOT_FOUND",
-      category: "not_found",
+      code: "not_found",
       message: `No extension named "${handle}" was found`,
       breadcrumbs: [
         {
@@ -285,8 +277,7 @@ export const handleView = (args: ViewHandlerArgs) =>
 
     if (Option.isNone(indexOption)) {
       return yield* makeAppError({
-        code: "VIEW_EXTENSION_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Extension ${args.handle} not found on registry "${targetRegistry.registryName}".`,
         breadcrumbs: [
           {
@@ -303,16 +294,14 @@ export const handleView = (args: ViewHandlerArgs) =>
       const field = args.field.value;
       if (!isSupportedField(field)) {
         return yield* makeAppError({
-          code: "VIEW_UNKNOWN_FIELD",
-          category: "not_found",
+          code: "not_found",
           message: `Unknown view field: ${field}`,
         });
       }
       const value = fieldValue(data, field);
       if (value === undefined) {
         return yield* makeAppError({
-          code: "VIEW_FIELD_EMPTY",
-          category: "internal",
+          code: "internal",
           message: `Field "${field}" is not available for ${data.handle}`,
         });
       }

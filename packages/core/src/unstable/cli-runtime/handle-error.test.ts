@@ -73,7 +73,7 @@ describe("classifyError — CliError (non-ShowHelp)", () => {
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
       ok: false,
-      code: "USAGE_ERROR",
+      code: "usage",
       exitCode: 2,
     });
   });
@@ -91,13 +91,10 @@ describe("classifyError — EffectCliExit", () => {
 });
 
 describe("classifyError — AppError", () => {
-  it("maps category to exit code and JSON envelope fields", () => {
+  it("maps code to exit code and JSON envelope fields", () => {
     const error = makeAppError({
-      code: "AUTH_UNAUTHENTICATED",
-      category: "auth",
+      code: "auth",
       message: "Authentication required",
-      retryable: false,
-      httpStatus: 401,
     });
 
     const result = classifyError(error, "json");
@@ -106,11 +103,8 @@ describe("classifyError — AppError", () => {
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
       ok: false,
-      code: "AUTH_UNAUTHENTICATED",
-      category: "auth",
+      code: "auth",
       message: "Authentication required",
-      retryable: false,
-      httpStatus: 401,
       exitCode: 4,
     });
   });
@@ -135,8 +129,7 @@ describe("classifyError — generic errors", () => {
     const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
       ok: false,
-      code: "INTERNAL_UNCATEGORIZED",
-      category: "internal",
+      code: "internal",
       message: "boom",
       exitCode: 1,
     });

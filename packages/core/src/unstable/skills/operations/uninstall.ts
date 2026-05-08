@@ -75,8 +75,7 @@ export const uninstallSkill: OperationHandler<
     const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "UNINSTALL_SKILL_LOCKFILE_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
@@ -140,8 +139,7 @@ export const uninstallSkill: OperationHandler<
           .pipe(
             Effect.mapError((e) =>
               makeAppError({
-                code: "UNINSTALL_SKILL_LOCKFILE_WRITE_FAILED",
-                category: "internal",
+                code: "internal",
                 message: `Failed to update lockfile: ${e.message}`,
                 cause: e,
               }),

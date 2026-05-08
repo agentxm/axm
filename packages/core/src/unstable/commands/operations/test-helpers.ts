@@ -55,8 +55,7 @@ export const makeAgentRepoMock = (
     if (found) return Effect.succeed(found);
     return Effect.fail(
       makeAppError({
-        code: "AGENT_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Agent ${id} not found`,
       }),
     );

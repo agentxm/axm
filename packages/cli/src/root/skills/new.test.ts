@@ -242,7 +242,7 @@ describe("skills-new.handler", () => {
             ...defaultArgs("valid-name"),
             name: "-bad-name" as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });
@@ -257,7 +257,7 @@ describe("skills-new.handler", () => {
             ...defaultArgs("valid-name"),
             name: "MySkill" as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });
@@ -273,7 +273,7 @@ describe("skills-new.handler", () => {
             ...defaultArgs("valid-name"),
             name: longName as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });

@@ -42,8 +42,7 @@ const makeFailingReadyStep = (label: string): PlannedJobStep => ({
   label,
   run: Effect.fail(
     makeAppError({
-      code: "TEST_OP_FAILED",
-      category: "internal",
+      code: "internal",
       message: `Failed ${label}`,
     }),
   ),
@@ -132,7 +131,7 @@ describe("applyPlan", () => {
       const result = at(steps, 0).result;
       expect(result.result).toBe("error");
       if (result.result === "error") {
-        expect(result.error.code).toBe("TEST_OP_FAILED");
+        expect(result.error.code).toBe("internal");
       }
     }),
   );

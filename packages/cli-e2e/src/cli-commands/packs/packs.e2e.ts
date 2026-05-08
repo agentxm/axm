@@ -832,7 +832,7 @@ describe("axm packs uninstall", () => {
       });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stdout + result.stderr).toContain("EXTENSION_NOT_FOUND");
+      expect(result.stdout + result.stderr).toContain('Pack "nonexistent-pack" is not installed');
     } finally {
       temp.cleanup();
     }

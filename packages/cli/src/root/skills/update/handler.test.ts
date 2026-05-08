@@ -255,7 +255,7 @@ describe("update.handler — error recovery", () => {
         );
 
         // Since all resolutions failed, the handler should fail with UPDATE_FAILED
-        expect(getAppError(error).code).toBe("UPDATE_FAILED");
+        expect(getAppError(error).code).toBe("network");
       }),
     );
   });

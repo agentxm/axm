@@ -76,8 +76,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
     .pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "UPGRADE_DOWNLOAD_FAILED",
-          category: "network",
+          code: "network",
           message: "Update download did not complete",
           breadcrumbs: [
             { task: "Recover", description: "Check your network connection and try again." },
@@ -90,8 +89,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
         orElse: () =>
           Effect.fail(
             makeAppError({
-              code: "UPGRADE_DOWNLOAD_TIMEOUT",
-              category: "network",
+              code: "network",
               message: "Download timed out",
               breadcrumbs: [
                 { task: "Recover", description: "Check your network connection and try again." },
@@ -109,8 +107,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
 
     if (response.status !== 200) {
       return yield* makeAppError({
-        code: "UPGRADE_DOWNLOAD_FAILED",
-        category: "network",
+        code: "network",
         message: `Download failed with status ${String(response.status)}`,
         breadcrumbs: [
           { task: "Recover", description: "Check your network connection and try again." },
@@ -121,8 +118,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     const body = yield* response.arrayBuffer.pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "UPGRADE_DOWNLOAD_FAILED",
-          category: "network",
+          code: "network",
           message: "Failed to read downloaded data",
           breadcrumbs: [
             { task: "Recover", description: "Check your network connection and try again." },
@@ -135,8 +131,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
 
     if (bytes.length === 0) {
       return yield* makeAppError({
-        code: "UPGRADE_DOWNLOAD_EMPTY",
-        category: "validation",
+        code: "validation",
         message: "Downloaded file is empty",
         breadcrumbs: [
           {
@@ -150,8 +145,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     yield* fs.writeFile(destPath, bytes).pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: "UPGRADE_PERMISSION_DENIED",
-          category: "internal",
+          code: "internal",
           message: `Permission denied writing to ${destPath}`,
           breadcrumbs: [
             {
@@ -184,8 +178,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
       yield* fs.rename(sourcePath, targetPath).pipe(
         Effect.mapError((cause) =>
           makeAppError({
-            code: "UPGRADE_PERMISSION_DENIED",
-            category: "internal",
+            code: "internal",
             message: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
@@ -203,8 +196,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
       yield* fs.rename(sourcePath, targetPath).pipe(
         Effect.mapError((cause) =>
           makeAppError({
-            code: "UPGRADE_PERMISSION_DENIED",
-            category: "internal",
+            code: "internal",
             message: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
@@ -238,8 +230,7 @@ const verifyBinary = (binaryPath: string) =>
       }),
     catch: () =>
       makeAppError({
-        code: "UPGRADE_VERIFY_FAILED",
-        category: "validation",
+        code: "validation",
         message: "Downloaded binary could not be verified",
         breadcrumbs: [
           {
@@ -345,8 +336,7 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
 
     if (Option.isNone(binaryInfoOpt)) {
       return yield* makeAppError({
-        code: "UPGRADE_UNSUPPORTED_PLATFORM",
-        category: "internal",
+        code: "internal",
         message: `Unsupported platform: ${platform}-${arch}`,
         breadcrumbs: [
           { task: "Recover", description: "Build from source or use a supported platform." },

@@ -93,8 +93,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
         const lockEntry = yield* ws.getLockedCommand(parsed.commandName);
         if (Option.isNone(lockEntry)) {
           return yield* makeAppError({
-            code: "COMMAND_NOT_INSTALLED",
-            category: "internal",
+            code: "internal",
             message: `Command "${parsed.commandName}" is not installed`,
             breadcrumbs: [
               { task: "Recover", description: "Check installed commands and verify the name." },

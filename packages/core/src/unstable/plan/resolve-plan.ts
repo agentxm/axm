@@ -40,8 +40,7 @@ import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 
 const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
-  code: "PROMPT_REQUIRED",
-  category: "usage",
+  code: "usage",
   message: "Interactive prompt required: Apply changes?",
   breadcrumbs: [{ task: "Recover", description: "Provide ResolvePlanInteraction in the runtime." }],
 });
@@ -107,8 +106,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
       Effect.mapError((error) =>
         makeAppError({
-          code: "SETTINGS_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: "Workspace settings could not be read",
           cause: error,
         }),
@@ -144,8 +142,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     } else {
       yield* showPlan(augmentedPlan);
       return yield* makeAppError({
-        code: "PLAN_BLOCKED_BY_ERRORS",
-        category: "conflict",
+        code: "conflict",
         message: "Plan has errors that prevent execution",
         breadcrumbs: [
           {

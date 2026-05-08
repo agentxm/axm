@@ -103,8 +103,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
     const raw = yield* env.fs.readFileString(manifestPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "MATERIALIZE_MANIFEST_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read manifest at ${manifestPath}`,
           cause: error,
         }),
@@ -113,8 +112,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
     return yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(raw).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "MATERIALIZE_MANIFEST_INVALID_JSON",
-          category: "validation",
+          code: "validation",
           message: `Manifest at ${manifestPath} is not valid JSON`,
           cause: error,
         }),
@@ -146,8 +144,7 @@ export const configuredSkillsToDiskRefs = (
         const manifest = yield* Schema.decodeUnknownEffect(SkillManifestSchema)(json).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "MATERIALIZE_SKILL_MANIFEST_INVALID",
-              category: "validation",
+              code: "validation",
               message: `Skill manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -196,8 +193,7 @@ export const configuredCommandsToDiskRefs = (
         const manifest = yield* Schema.decodeUnknownEffect(CommandManifestSchema)(json).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "MATERIALIZE_COMMAND_MANIFEST_INVALID",
-              category: "validation",
+              code: "validation",
               message: `Command manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -242,8 +238,7 @@ export const configuredMcpServersToDiskRefs = (
         const manifest = yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(json).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "MATERIALIZE_MCP_SERVER_MANIFEST_INVALID",
-              category: "validation",
+              code: "validation",
               message: `MCP server manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -288,8 +283,7 @@ export const configuredSubagentsToDiskRefs = (
         const manifest = yield* Schema.decodeUnknownEffect(SubagentManifestSchema)(json).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "MATERIALIZE_SUBAGENT_MANIFEST_INVALID",
-              category: "validation",
+              code: "validation",
               message: `Subagent manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
@@ -379,8 +373,7 @@ export const configuredPacksToDiskRefs = (
         const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "MATERIALIZE_PACK_MANIFEST_INVALID",
-              category: "validation",
+              code: "validation",
               message: `Extension pack manifest at ${manifestPath} is invalid`,
               cause: error,
             }),

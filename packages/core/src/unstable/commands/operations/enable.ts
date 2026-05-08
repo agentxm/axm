@@ -71,8 +71,7 @@ export const enableCommand: OperationHandler<
     const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "ENABLE_COMMAND_LOCKFILE_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
@@ -114,8 +113,7 @@ export const enableCommand: OperationHandler<
     const exists = yield* fs.exists(canonicalPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return yield* makeAppError({
-        code: "ENABLE_COMMAND_MISSING_FILES",
-        category: "not_found",
+        code: "not_found",
         message: `Command files for "${op.args.commandName}" not found at ${canonicalPath}`,
         breadcrumbs: [
           {
@@ -143,8 +141,7 @@ export const enableCommand: OperationHandler<
                 onNone: () =>
                   Effect.fail(
                     makeAppError({
-                      code: "OWNER_REQUIRED",
-                      category: "internal",
+                      code: "internal",
                       message: `Cannot re-render non-registry command "${op.args.commandName}" without a configured owner`,
                       breadcrumbs: [
                         {

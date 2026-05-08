@@ -68,8 +68,7 @@ export const createGitHostingSourceHostProvider = <
         fs.makeTempDirectory().pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "SOURCE_FETCH_FAILED",
-              category: "network",
+              code: "network",
               message: "Temporary source directory could not be created",
               cause: error,
             }),
@@ -89,8 +88,7 @@ export const createGitHostingSourceHostProvider = <
       }).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "SOURCE_FETCH_FAILED",
-            category: "network",
+            code: "network",
             message: "Failed to discover skills",
             cause: error,
           }),
@@ -134,8 +132,7 @@ export const createGitHostingSourceHostProvider = <
     if (_ref.refType !== "git-hosted") {
       return Effect.fail(
         makeAppError({
-          code: "SOURCE_FETCH_FAILED",
-          category: "network",
+          code: "network",
           message: `Expected ref with location for ${host.type} source, but none was provided`,
         }),
       );

@@ -28,7 +28,7 @@ describe("resolveRootInstallIntent", () => {
       const error = yield* resolveRootInstallIntent("owner/repo").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("INSTALL_SOURCE_NOT_FQN");
+      expect(appError.code).toBe("usage");
       expect(appError.message).toContain("only accepts registry FQNs");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
@@ -44,7 +44,7 @@ describe("resolveRootInstallIntent", () => {
       const error = yield* resolveRootInstallIntent("./local-path").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("INSTALL_SOURCE_NOT_FQN");
+      expect(appError.code).toBe("usage");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("axm skills install ./local-path");
@@ -59,7 +59,7 @@ describe("resolveRootInstallIntent", () => {
       const error = yield* resolveRootInstallIntent("@acme/skills").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("INSTALL_SOURCE_INVALID_FQN");
+      expect(appError.code).toBe("validation");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("@<handle>/<plural-type>/<name>[@<version>]");
@@ -71,7 +71,7 @@ describe("resolveRootInstallIntent", () => {
       const error = yield* resolveRootInstallIntent("@acme/files/policy").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("INSTALL_SOURCE_UNSUPPORTED_TYPE");
+      expect(appError.code).toBe("usage");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");
@@ -83,7 +83,7 @@ describe("resolveRootInstallIntent", () => {
       const error = yield* resolveRootInstallIntent("@acme/widgets/policy").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("INSTALL_SOURCE_UNKNOWN_TYPE");
+      expect(appError.code).toBe("not_found");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");

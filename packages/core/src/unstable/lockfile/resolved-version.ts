@@ -8,8 +8,7 @@ const decodeExactSemverVersion = Schema.decodeUnknownEffect(ExactSemverVersionSc
 
 const makeResolvedVersionError = (field: string, value: string, cause: unknown): AppError =>
   makeAppError({
-    code: "LOCKFILE_RESOLVED_VERSION_INVALID",
-    category: "validation",
+    code: "validation",
     message: "Lockfile resolved versions must be exact semver values",
     breadcrumbs: [
       {

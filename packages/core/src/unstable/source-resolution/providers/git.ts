@@ -31,8 +31,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<GitSource> => 
   find: () =>
     Effect.fail(
       makeAppError({
-        code: "SOURCE_FETCH_FAILED",
-        category: "network",
+        code: "network",
         message: "Generic git sources are not yet supported",
       }),
     ),
@@ -40,8 +39,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<GitSource> => 
   fetch: () =>
     Effect.fail(
       makeAppError({
-        code: "SOURCE_FETCH_FAILED",
-        category: "network",
+        code: "network",
         message: "Generic git sources are not yet supported",
       }),
     ),

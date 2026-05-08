@@ -71,8 +71,7 @@ export const determineSubagentsToInstall = (
 
       if (matched.length === 0) {
         return yield* makeAppError({
-          code: "NO_SUBAGENTS_MATCHED",
-          category: "internal",
+          code: "internal",
           message: `No subagents matched: ${args.requestedSubagents.join(", ")}`,
           breadcrumbs: [
             { task: "Recover", description: "Check the subagent names or patterns and try again." },

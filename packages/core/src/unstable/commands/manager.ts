@@ -201,8 +201,7 @@ export const CommandManagerLive = Layer.effect(
 
         if (!isPathSafe(baseDir, canonicalPath)) {
           return yield* makeAppError({
-            code: "INSTALL_COMMAND_PATH_TRAVERSAL",
-            category: "internal",
+            code: "internal",
             message: `Path traversal detected: ${canonicalPath}`,
           });
         }
@@ -210,8 +209,7 @@ export const CommandManagerLive = Layer.effect(
         const canonicalExists = yield* fs.exists(canonicalPath).pipe(
           Effect.mapError((e) =>
             makeAppError({
-              code: "INSTALL_COMMAND_PATH_CHECK_FAILED",
-              category: "internal",
+              code: "internal",
               message: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
@@ -236,8 +234,7 @@ export const CommandManagerLive = Layer.effect(
             const actualIntegrity = yield* computeIntegrity(archive);
             if (actualIntegrity !== ref.integrity.value) {
               return yield* makeAppError({
-                code: "INSTALL_COMMAND_INTEGRITY_MISMATCH",
-                category: "internal",
+                code: "internal",
                 message: `Integrity mismatch for ${ref.name}@${ref.version}`,
               });
             }
@@ -246,8 +243,7 @@ export const CommandManagerLive = Layer.effect(
           const tmpDir = yield* fs.makeTempDirectory().pipe(
             Effect.mapError((e) =>
               makeAppError({
-                code: "INSTALL_COMMAND_TEMP_DIR_FAILED",
-                category: "validation",
+                code: "validation",
                 message: `Temporary directory for registry install could not be created`,
                 cause: e,
               }),
@@ -260,8 +256,7 @@ export const CommandManagerLive = Layer.effect(
               yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
                 Effect.mapError((e) =>
                   makeAppError({
-                    code: "INSTALL_COMMAND_COPY_FAILED",
-                    category: "validation",
+                    code: "validation",
                     message: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
                   }),
@@ -270,8 +265,7 @@ export const CommandManagerLive = Layer.effect(
               const entries = yield* fs.readDirectory(tmpDir).pipe(
                 Effect.mapError((e) =>
                   makeAppError({
-                    code: "INSTALL_COMMAND_COPY_FAILED",
-                    category: "validation",
+                    code: "validation",
                     message: `Extracted directory could not be read`,
                     cause: e,
                   }),
@@ -303,7 +297,7 @@ export const CommandManagerLive = Layer.effect(
           "commands",
           ref.command.name,
         );
-        yield* validatePathSafety(baseDir, canonicalPath, "INSTALL_COMMAND_PATH_TRAVERSAL");
+        yield* validatePathSafety(baseDir, canonicalPath);
 
         const sourcePath = stripFileProtocol(ref.location);
         const isSelfCopy = path.resolve(sourcePath) === path.resolve(canonicalPath);
@@ -313,8 +307,7 @@ export const CommandManagerLive = Layer.effect(
             copyExtensionDirectory(sourcePath, canonicalPath).pipe(
               Effect.mapError((e) =>
                 makeAppError({
-                  code: "INSTALL_COMMAND_COPY_FAILED",
-                  category: "validation",
+                  code: "validation",
                   message: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
@@ -335,7 +328,7 @@ export const CommandManagerLive = Layer.effect(
           "commands",
           ref.command.name,
         );
-        yield* validatePathSafety(baseDir, canonicalPath, "INSTALL_COMMAND_PATH_TRAVERSAL");
+        yield* validatePathSafety(baseDir, canonicalPath);
 
         const sourcePath = stripFileProtocol(ref.location);
         const isSelfCopy = path.resolve(sourcePath) === path.resolve(canonicalPath);
@@ -345,8 +338,7 @@ export const CommandManagerLive = Layer.effect(
             copyExtensionDirectory(sourcePath, canonicalPath).pipe(
               Effect.mapError((e) =>
                 makeAppError({
-                  code: "INSTALL_COMMAND_COPY_FAILED",
-                  category: "validation",
+                  code: "validation",
                   message: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
@@ -384,8 +376,7 @@ export const CommandManagerLive = Layer.effect(
                     onNone: () =>
                       Effect.fail(
                         makeAppError({
-                          code: "OWNER_REQUIRED",
-                          category: "internal",
+                          code: "internal",
                           message: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
                           breadcrumbs: [
                             {

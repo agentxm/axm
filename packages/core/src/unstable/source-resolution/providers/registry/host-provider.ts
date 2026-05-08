@@ -312,8 +312,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
   Effect.gen(function* () {
     if (ref.refType !== "registry") {
       return yield* makeAppError({
-        code: "SOURCE_FETCH_FAILED",
-        category: "network",
+        code: "network",
         message: "Ref missing registry details (owner, version, integrity)",
       });
     }
@@ -333,8 +332,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       const actualIntegrity = yield* computeIntegrity(archiveBytes);
       if (actualIntegrity !== expectedIntegrity.value) {
         return yield* makeAppError({
-          code: "SOURCE_FETCH_FAILED",
-          category: "network",
+          code: "network",
           message: `Integrity mismatch for ${type}:${name}@${version}`,
         });
       }
@@ -345,8 +343,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "SOURCE_FETCH_FAILED",
-            category: "network",
+            code: "network",
             message: "Temporary source directory could not be created",
             cause: e,
           }),

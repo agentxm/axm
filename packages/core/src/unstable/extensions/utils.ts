@@ -45,12 +45,11 @@ export const sanitizeName = (name: string): string => {
 // Path Safety Validation
 // -----------------------------------------------------------------------------
 
-export const validatePathSafety = (baseDir: string, targetPath: string, code: string) =>
+export const validatePathSafety = (baseDir: string, targetPath: string) =>
   isPathSafe(baseDir, targetPath)
     ? Effect.void
     : makeAppError({
-        category: "internal",
-        code,
+        code: "internal",
         message: `Path traversal detected: ${targetPath}`,
       });
 

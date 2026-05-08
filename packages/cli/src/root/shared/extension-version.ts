@@ -65,8 +65,7 @@ const decodeExactVersion = (value: unknown, manifestPath: string) =>
   Schema.decodeUnknownEffect(ExactSemverVersionSchema)(value).pipe(
     Effect.mapError((e) =>
       makeAppError({
-        code: "INVALID_MANIFEST_VERSION",
-        category: "validation",
+        code: "validation",
         message: `Invalid version in manifest: ${manifestPath}`,
         cause: e,
       }),
@@ -81,8 +80,7 @@ const parseManifestJson = (content: string, manifestPath: string) =>
     },
     catch: (e) =>
       makeAppError({
-        code: "MANIFEST_PARSE_FAILED",
-        category: "validation",
+        code: "validation",
         message: `Invalid JSON in manifest: ${manifestPath}`,
         cause: e,
       }),
@@ -94,8 +92,7 @@ const readManifestRecord = (manifestPath: string) =>
     const content = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "MANIFEST_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -104,8 +101,7 @@ const readManifestRecord = (manifestPath: string) =>
     const manifest = yield* parseManifestJson(content, manifestPath);
     if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
       return yield* makeAppError({
-        code: "MANIFEST_SCHEMA_INVALID",
-        category: "validation",
+        code: "validation",
         message: `Manifest must be a JSON object: ${manifestPath}`,
       });
     }
@@ -124,8 +120,7 @@ export const resolveManifestVersionInfo = (
 
     if (!isVersionableType(fqn.type) || fqn.type !== expectedType) {
       return yield* makeAppError({
-        code: "INVALID_EXTENSION_TYPE",
-        category: "validation",
+        code: "validation",
         message: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
       });
     }
@@ -142,8 +137,7 @@ export const resolveManifestVersionInfo = (
     const exists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
     if (!exists) {
       return yield* makeAppError({
-        code: "MANIFEST_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Manifest not found: ${manifestPath}`,
         breadcrumbs: [
           {
@@ -170,8 +164,7 @@ const bumpVersion = (from: ExactSemverVersion, bump: VersionBump, manifestPath: 
     const next = semver.inc(from, bump);
     if (next === null) {
       return yield* makeAppError({
-        code: "INVALID_VERSION_BUMP",
-        category: "validation",
+        code: "validation",
         message: `Could not bump version "${from}" in ${manifestPath}`,
       });
     }
@@ -201,8 +194,7 @@ export const bumpManifestVersion = (args: {
       yield* fs.writeFileString(info.manifestPath, JSON.stringify(updated, null, 2) + newline).pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "MANIFEST_WRITE_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to write manifest: ${info.manifestPath}`,
             cause: e,
           }),

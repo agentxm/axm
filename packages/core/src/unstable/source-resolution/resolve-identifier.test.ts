@@ -129,7 +129,7 @@ describe("resolveIdentifier", () => {
 
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure.code).toBe("AMBIGUOUS_IDENTIFIER");
+        expect(result.failure.code).toBe("internal");
         expect(result.failure.message).toContain("@acme/skills/code-review");
         expect(result.failure.message).toContain("@other/skills/code-review");
       }
@@ -193,7 +193,7 @@ describe("resolveIdentifier", () => {
 
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure.code).toBe("NOT_FOUND");
+        expect(result.failure.code).toBe("not_found");
       }
     }),
   );

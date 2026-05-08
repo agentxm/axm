@@ -326,7 +326,7 @@ describe("axm-spike telemetry demos", () => {
       expect(result.stderr).toContain("Simulated handled telemetry failure");
       expect(request.url).toBe("/v1/errors");
       expect(body.errors[0]).toEqual({
-        name: "SPIKE_HANDLED_ERROR",
+        name: "internal",
         message: "Simulated handled telemetry failure",
       });
       expect(body.level).toBe("error");

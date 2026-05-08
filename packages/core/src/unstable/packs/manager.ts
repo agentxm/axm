@@ -147,8 +147,7 @@ export const ExtensionPackManagerLive = Layer.effect(
           const fetched = yield* sources.fetch(ref).pipe(
             Effect.mapError((e: Error) =>
               makeAppError({
-                code: "PACK_FETCH_FAILED",
-                category: "network",
+                code: "network",
                 message: `Failed to fetch extension pack archive: ${e.message}`,
                 cause: e,
               }),
@@ -158,8 +157,7 @@ export const ExtensionPackManagerLive = Layer.effect(
             copyExtensionDirectory(fetched.directory, packDir).pipe(
               Effect.mapError((e) =>
                 makeAppError({
-                  code: "PACK_EXTRACT_FAILED",
-                  category: "internal",
+                  code: "internal",
                   message: `Failed to extract extension pack to ${packDir}`,
                   cause: e,
                 }),

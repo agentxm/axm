@@ -50,10 +50,7 @@ export type LogEvent = typeof LogEventSchema.Type;
 export const ErrorEventSchema = Schema.Struct({
   type: Schema.Literal("error"),
   code: Schema.String,
-  category: Schema.optional(Schema.String),
   message: Schema.String,
-  retryable: Schema.optional(Schema.Boolean),
-  httpStatus: Schema.optional(Schema.Number),
   exitCode: Schema.optional(Schema.Number),
 }).annotate({
   identifier: "ErrorEvent",

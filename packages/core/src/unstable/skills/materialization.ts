@@ -36,8 +36,7 @@ const preCleanAndCopy = (
       copyExtensionDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "INSTALL_SKILL_COPY_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to copy skill files to ${copyTarget}`,
             cause: error,
           }),
@@ -61,7 +60,7 @@ const materializeGitHosted = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
+    yield* validatePathSafety(baseDir, skillSrcPath);
     const sourcePath = stripFileProtocol(ref.location);
     yield* preCleanAndCopy(
       fs,
@@ -90,7 +89,7 @@ const materializeLocal = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
+    yield* validatePathSafety(baseDir, skillSrcPath);
     const sourcePath = stripFileProtocol(ref.location);
     const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(skillSrcPath);
     if (!isSelfCopy) {
@@ -123,13 +122,12 @@ const materializeRegistry = (
       source,
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, canonicalPath, "INSTALL_SKILL_PATH_TRAVERSAL");
+    yield* validatePathSafety(baseDir, canonicalPath);
 
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "INSTALL_SKILL_PATH_CHECK_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: error,
         }),
@@ -154,8 +152,7 @@ const materializeRegistry = (
         const actualIntegrity = yield* computeIntegrity(archive);
         if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
-            code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
-            category: "internal",
+            code: "internal",
             message: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
@@ -164,8 +161,7 @@ const materializeRegistry = (
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "INSTALL_SKILL_TEMP_DIR_FAILED",
-            category: "validation",
+            code: "validation",
             message: `Temporary directory for registry install could not be created`,
             cause: error,
           }),

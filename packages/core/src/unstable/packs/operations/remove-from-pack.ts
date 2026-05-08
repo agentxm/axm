@@ -88,8 +88,7 @@ export const removeFromExtensionPack: OperationHandler<
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PACK_NOT_FOUND",
-          category: "not_found",
+          code: "not_found",
           message: `Extension pack manifest not found at ${manifestPath}`,
           breadcrumbs: [
             { task: "Recover", description: "Ensure the extension pack exists on disk" },
@@ -103,8 +102,7 @@ export const removeFromExtensionPack: OperationHandler<
     const currentHash = hashContent(manifestContent);
     if (currentHash !== manifestHash) {
       return yield* makeAppError({
-        code: "PACK_MANIFEST_STALE",
-        category: "conflict",
+        code: "conflict",
         message: `Extension pack manifest is stale — it was modified since the plan was created`,
         breadcrumbs: [
           { task: "Recover", description: "Re-run the command to create a fresh plan" },
@@ -120,8 +118,7 @@ export const removeFromExtensionPack: OperationHandler<
       },
       catch: (e) =>
         makeAppError({
-          code: "PACK_MANIFEST_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to parse extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -130,8 +127,7 @@ export const removeFromExtensionPack: OperationHandler<
     const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PACK_MANIFEST_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -161,8 +157,7 @@ export const removeFromExtensionPack: OperationHandler<
     yield* fs.writeFileString(manifestPath, JSON.stringify(updatedManifest, null, 2) + "\n").pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PACK_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to write extension pack manifest: ${manifestPath}`,
           cause: e,
         }),

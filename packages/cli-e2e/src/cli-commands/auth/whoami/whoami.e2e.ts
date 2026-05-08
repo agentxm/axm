@@ -8,12 +8,12 @@ import { describe, expect, it } from "vitest";
 import { runCli } from "../../../e2e/utils.js";
 
 describe("axm whoami", () => {
-  it("fails with AUTH_TOKEN_REQUIRED when no credentials available", async () => {
+  it("fails with auth when no credentials available", async () => {
     const result = await runCli(["whoami"], {
       env: { AXM_TOKEN: "" },
     });
-    expect(result.exitCode).toBe(1);
-    expect(result.stdout + result.stderr).toContain("AUTH_TOKEN_REQUIRED");
-    expect(result.stderr).toContain("Persisted credentials are disabled");
+    expect(result.exitCode).toBe(4);
+    expect(result.stdout + result.stderr).toContain("(auth)");
+    expect(result.stderr).toContain("Set the AXM_TOKEN environment variable");
   });
 });

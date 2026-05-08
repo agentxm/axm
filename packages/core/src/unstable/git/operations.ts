@@ -33,11 +33,6 @@ const createGit = (baseDir?: string): SimpleGit => {
 
 type GitOperation = "clone" | "get-tree-sha";
 
-const operationToCode: Record<GitOperation, string> = {
-  clone: "GIT_CLONE_FAILED",
-  "get-tree-sha": "GIT_GET_TREE_SHA_FAILED",
-};
-
 /**
  * Maps unknown errors to AppError with appropriate context.
  */
@@ -47,8 +42,7 @@ const mapGitError =
     const baseMessage = context ?? `Git ${operation} failed`;
 
     return makeAppError({
-      code: operationToCode[operation],
-      category: "internal",
+      code: "internal",
       message: baseMessage,
       cause: error,
     });

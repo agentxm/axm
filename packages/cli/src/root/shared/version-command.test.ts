@@ -255,7 +255,7 @@ describe("root version command handler", () => {
           targetVersion: Option.none(),
           preview: false,
         }).pipe(Effect.flip);
-        expect(getAppError(result).code).toBe("INVALID_EXTENSION_TYPE");
+        expect(getAppError(result).code).toBe("validation");
       }),
     );
   });
@@ -271,7 +271,7 @@ describe("root version command handler", () => {
           targetVersion: Option.none(),
           preview: false,
         }).pipe(Effect.flip);
-        expect(getAppError(result).code).toBe("INVALID_FQN");
+        expect(getAppError(result).code).toBe("validation");
       }),
     );
   });

@@ -184,8 +184,7 @@ export const buildReconciliationSnapshot = (
         if (adapter === undefined) {
           return Effect.fail(
             makeAppError({
-              code: "LOCKFILE_RECONCILE_ADAPTER_MISSING",
-              category: "not_found",
+              code: "not_found",
               message: `No reconciliation adapter for ${declaration.type}`,
             }),
           );
@@ -236,8 +235,7 @@ const backupInvalidLockfile = (
     const tempDir = yield* fs.makeTempDirectory({ prefix: "axm-lockfile-backup-" }).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "LOCKFILE_BACKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: "Failed to create temporary directory for invalid lockfile backup",
           cause: error,
         }),
@@ -249,8 +247,7 @@ const backupInvalidLockfile = (
     yield* fs.copyFile(lockfilePath, backupPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "LOCKFILE_BACKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to back up invalid lockfile to ${backupPath}`,
           cause: error,
         }),
@@ -260,8 +257,7 @@ const backupInvalidLockfile = (
     yield* fs.remove(lockfilePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "LOCKFILE_BACKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to remove invalid lockfile after backing up to ${backupPath}`,
           cause: error,
         }),
@@ -297,8 +293,7 @@ export const runReconcileMaterializeOperation = (
         result: "error",
         message: "Reconciliation requires unresolved source resolution",
         error: makeAppError({
-          code: "LOCKFILE_RECONCILE_SOURCE_UNREACHABLE",
-          category: "network",
+          code: "network",
           message: "Required declaration sources are unreachable during reconciliation",
         }),
       } satisfies JobStepResult;
@@ -310,8 +305,7 @@ export const runReconcileMaterializeOperation = (
       const exists = yield* fs.exists(lockfilePath).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "LOCKFILE_BACKUP_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to check invalid lockfile at ${lockfilePath}`,
             cause: error,
           }),

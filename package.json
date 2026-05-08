@@ -48,7 +48,7 @@
     "release:plan:check": "nx release plan:check",
     "release:prepare": "pnpm exec nx run axm:release-prepare --outputStyle=static",
     "release:publish": "pnpm exec nx run axm:release-publish --outputStyle=static",
-    "generate": "pnpm exec nx run axm:generate-registry --outputStyle=static && pnpm exec nx run axm:generate-telemetry --outputStyle=static && pnpm exec nx run core:gen-error-catalog --outputStyle=static",
+    "generate": "pnpm exec nx run axm:generate-registry --outputStyle=static && pnpm exec nx run axm:generate-telemetry --outputStyle=static",
     "generate:registry": "pnpm exec nx run axm:generate-registry --outputStyle=static",
     "generate:telemetry": "pnpm exec nx run axm:generate-telemetry --outputStyle=static"
   },

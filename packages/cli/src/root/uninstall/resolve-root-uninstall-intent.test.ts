@@ -28,7 +28,7 @@ describe("resolveRootUninstallIntent", () => {
       const error = yield* resolveRootUninstallIntent("review").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("UNINSTALL_SOURCE_NOT_FQN");
+      expect(appError.code).toBe("usage");
       expect(appError.message).toContain("only accepts registry FQNs");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
@@ -44,7 +44,7 @@ describe("resolveRootUninstallIntent", () => {
       const error = yield* resolveRootUninstallIntent("./local-path").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("UNINSTALL_SOURCE_NOT_FQN");
+      expect(appError.code).toBe("usage");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("axm skills uninstall <name>");
@@ -59,7 +59,7 @@ describe("resolveRootUninstallIntent", () => {
       const error = yield* resolveRootUninstallIntent("@acme/skills").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("UNINSTALL_SOURCE_INVALID_FQN");
+      expect(appError.code).toBe("validation");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain(rootFqnGrammarSnippet);
@@ -71,7 +71,7 @@ describe("resolveRootUninstallIntent", () => {
       const error = yield* resolveRootUninstallIntent("@acme/files/policy").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("UNINSTALL_SOURCE_UNSUPPORTED_TYPE");
+      expect(appError.code).toBe("usage");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");
@@ -83,7 +83,7 @@ describe("resolveRootUninstallIntent", () => {
       const error = yield* resolveRootUninstallIntent("@acme/widgets/policy").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("UNINSTALL_SOURCE_UNKNOWN_TYPE");
+      expect(appError.code).toBe("not_found");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");

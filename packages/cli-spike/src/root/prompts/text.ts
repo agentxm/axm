@@ -55,8 +55,7 @@ const handleText = (args: {
 
     if (args.validate && Option.isSome(args.value) && name.length < 1) {
       return yield* makeAppError({
-        code: "PROMPT_VALUE_INVALID",
-        category: "validation",
+        code: "validation",
         message: "Pet name must be at least 1 character",
         breadcrumbs: [
           {

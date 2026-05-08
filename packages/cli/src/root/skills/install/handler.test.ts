@@ -229,7 +229,7 @@ describe("skills install handler — error propagation", () => {
             preview: false,
           }).pipe(Effect.flip);
           const appError = getAppError(error);
-          expect(appError.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+          expect(appError.code).toBe("not_found");
         }),
       );
     },
@@ -248,7 +248,7 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("INVALID_SOURCE");
+        expect(appError.code).toBe("validation");
         expect(rendererState.spinnerMessages).toContain("Parsing source...");
         expect(rendererState.spinnerMessages).toContain("Failed");
       }),
@@ -327,7 +327,7 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("DISCOVER_FAILED");
+        expect(appError.code).toBe("usage");
         expect(appError.cause).toBeDefined();
       }),
     );
@@ -352,7 +352,7 @@ describe("skills install handler — error propagation", () => {
         ).pipe(Effect.flip);
 
         const appError = getAppError(error);
-        expect(appError.code).toBe("SKILLS_INSTALL_SELECTOR_REQUIRES_SOURCE");
+        expect(appError.code).toBe("usage");
       }),
     );
   });
@@ -376,7 +376,7 @@ describe("skills install handler — error propagation", () => {
         ).pipe(Effect.flip);
 
         const appError = getAppError(error);
-        expect(appError.code).toBe("SKILLS_INSTALL_ALL_REQUIRES_SOURCE");
+        expect(appError.code).toBe("usage");
       }),
     );
   });

@@ -94,8 +94,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     if (args.strict && unknownConfiguredAgentIds.length > 0) {
       const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
       return yield* makeAppError({
-        code: "CODING_AGENT_UNKNOWN_CONFIGURED",
-        category: "not_found",
+        code: "not_found",
         message: message,
       });
     }
@@ -123,8 +122,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     const misconfigured = Array.filter(outcomes, ({ outcome }) => outcome._tag === "misconfigured");
     if (misconfigured.length > 0) {
       return yield* makeAppError({
-        code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
-        category: "internal",
+        code: "internal",
         message: `MCP server ${args.serverName} could not be removed from configured agents`,
       });
     }
@@ -132,8 +130,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     const failed = Array.filter(outcomes, ({ outcome }) => outcome._tag === "failed");
     if (args.strict && failed.length > 0) {
       return yield* makeAppError({
-        code: "MCP_SERVER_AGENT_SYNC_FAILED",
-        category: "internal",
+        code: "internal",
         message: `MCP server ${args.serverName} removal sync failed in strict mode`,
       });
     }
@@ -148,8 +145,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     );
     if (strictDisabledFailures.length > 0) {
       return yield* makeAppError({
-        code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
-        category: "internal",
+        code: "internal",
         message: `MCP server ${args.serverName} removal sync disabled for required configured agents`,
       });
     }
@@ -206,8 +202,7 @@ export const uninstallMcpServer: (
     const lockEntryOption = yield* ws.getLockedMcpServer(op.args.serverName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "UNINSTALL_MCP_SERVER_LOCKFILE_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),

@@ -563,7 +563,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
         .pipe(Effect.result);
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure.code).toBe("REGISTRY_FETCH_FAILED");
+        expect(result.failure.code).toBe("internal");
       }
     }).pipe(
       Effect.ensuring(
@@ -589,7 +589,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       const result = yield* client.getExtensionPackage(makePackageArgs()).pipe(Effect.result);
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure.code).toBe("REGISTRY_FETCH_FAILED");
+        expect(result.failure.code).toBe("internal");
       }
     }).pipe(
       Effect.ensuring(
@@ -717,7 +717,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure.code).toBe("REGISTRY_PUBLISH_CONFLICT");
+        expect(result.failure.code).toBe("conflict");
       }
     }).pipe(
       Effect.ensuring(

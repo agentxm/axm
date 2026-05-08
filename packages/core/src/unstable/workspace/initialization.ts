@@ -34,8 +34,7 @@ import { WorkspaceInitializationInteraction } from "./initialization-interaction
 import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
-  code: "PROMPT_REQUIRED",
-  category: "usage",
+  code: "usage",
   message: "Interactive prompt required: Select agents to configure",
   breadcrumbs: [
     { task: "Recover", description: "Provide WorkspaceInitializationInteraction in the runtime." },
@@ -76,8 +75,7 @@ const readSettingsFromReadModel = (
       Effect.provide(env),
       Effect.mapError((error) =>
         makeAppError({
-          code: "SETTINGS_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: "Workspace settings could not be read",
           cause: error,
         }),
@@ -118,8 +116,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
       const detectedAgents = yield* detectAgents(options.projectRoot ?? process.cwd()).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "WORKSPACE_INITIALIZATION_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to detect agents: ${error.message}`,
             cause: error,
           }),
@@ -178,8 +175,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
     const settingsExists = yield* fs.exists(settingsPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SETTINGS_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to check if settings file exists: ${settingsPath}`,
           cause: error,
         }),
@@ -188,8 +184,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
     const lockfileExists = yield* fs.exists(lockfilePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "LOCKFILE_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to check if lockfile exists: ${lockfilePath}`,
           cause: error,
         }),

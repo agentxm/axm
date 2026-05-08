@@ -83,8 +83,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
 
     if (!isPathSafe(ws.baseDir, canonicalPath)) {
       return yield* makeAppError({
-        code: "INSTALL_COMMAND_PATH_TRAVERSAL",
-        category: "internal",
+        code: "internal",
         message: `Path traversal detected: ${canonicalPath}`,
       });
     }
@@ -93,8 +92,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "INSTALL_COMMAND_PATH_CHECK_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
@@ -119,8 +117,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
         const actualIntegrity = yield* computeIntegrity(archive);
         if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
-            code: "INSTALL_COMMAND_INTEGRITY_MISMATCH",
-            category: "internal",
+            code: "internal",
             message: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
@@ -129,7 +126,6 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
           errInstallFailed({
-            code: "INSTALL_COMMAND_TEMP_DIR_FAILED",
             message: "Temporary directory for registry install could not be created",
             cause: e,
           }),
@@ -143,7 +139,6 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
           yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
             Effect.mapError((e) =>
               errInstallFailed({
-                code: "INSTALL_COMMAND_COPY_FAILED",
                 message: `Failed to create canonical directory: ${canonicalPath}`,
                 cause: e,
               }),
@@ -153,7 +148,6 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
           const entries = yield* fs.readDirectory(tmpDir).pipe(
             Effect.mapError((e) =>
               errInstallFailed({
-                code: "INSTALL_COMMAND_COPY_FAILED",
                 message: "Extracted directory could not be read",
                 cause: e,
               }),
@@ -189,15 +183,14 @@ const installFromGitHosted = (ref: GitHostedCommandRef) =>
       "commands",
       ref.command.name,
     );
-    yield* validatePathSafety(ws.baseDir, canonicalPath, "INSTALL_COMMAND_PATH_TRAVERSAL");
+    yield* validatePathSafety(ws.baseDir, canonicalPath);
 
     const sourcePath = stripFileProtocol(ref.location);
     yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
     yield* copyExtensionDirectory(sourcePath, canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "INSTALL_COMMAND_COPY_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to copy command files to ${canonicalPath}`,
           cause: e,
         }),
@@ -219,7 +212,7 @@ const installFromLocal = (ref: LocalCommandRef) =>
       "commands",
       ref.command.name,
     );
-    yield* validatePathSafety(ws.baseDir, canonicalPath, "INSTALL_COMMAND_PATH_TRAVERSAL");
+    yield* validatePathSafety(ws.baseDir, canonicalPath);
 
     const sourcePath = stripFileProtocol(ref.location);
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(canonicalPath);
@@ -229,8 +222,7 @@ const installFromLocal = (ref: LocalCommandRef) =>
       yield* copyExtensionDirectory(sourcePath, canonicalPath).pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "INSTALL_COMMAND_COPY_FAILED",
-            category: "validation",
+            code: "validation",
             message: `Failed to copy command files to ${canonicalPath}`,
             cause: e,
           }),
@@ -298,8 +290,7 @@ export const installCommand: (
                 onNone: () =>
                   Effect.fail(
                     makeAppError({
-                      code: "OWNER_REQUIRED",
-                      category: "internal",
+                      code: "internal",
                       message: `Cannot install non-registry command "${ref.command.name}" without a configured owner`,
                       breadcrumbs: [
                         {
@@ -393,8 +384,7 @@ export const installCommand: (
         result: "error",
         message: `Installed ${ref.command.name} but failed to write workspace state`,
         error: makeAppError({
-          code: "INSTALL_COMMAND_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Installed ${ref.command.name} but failed to persist lockfile/settings`,
           breadcrumbs: [{ task: "Recover", description: "Try running the install again" }],
         }),

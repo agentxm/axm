@@ -199,7 +199,7 @@ describe("mcp-sync helpers", () => {
             addArgs(workspaceRoot),
           ).pipe(Effect.flip);
 
-          expect(error.code).toBe("CODING_AGENT_MCP_CONFIG_PARSE_FAILED");
+          expect(error.code).toBe("validation");
           expect(yield* fs.readFileString(configPath)).toBe(invalidConfig);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -229,7 +229,7 @@ describe("mcp-sync helpers", () => {
             addArgs(workspaceRoot),
           ).pipe(Effect.flip);
 
-          expect(error.code).toBe("CODING_AGENT_MCP_CONFIG_PARSE_FAILED");
+          expect(error.code).toBe("validation");
           expect(yield* fs.readFileString(configPath)).toBe(invalidConfig);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });

@@ -82,8 +82,7 @@ export const publishExtensionPack: OperationHandler<
     const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
     if (!packDirExists) {
       return yield* makeAppError({
-        code: "PUBLISH_PACK_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Managed extension pack not found: ${packDir}`,
       });
     }
@@ -93,8 +92,7 @@ export const publishExtensionPack: OperationHandler<
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_PACK_MANIFEST_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -108,8 +106,7 @@ export const publishExtensionPack: OperationHandler<
       },
       catch: (e) =>
         makeAppError({
-          code: "PUBLISH_PACK_MANIFEST_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -120,8 +117,7 @@ export const publishExtensionPack: OperationHandler<
     )(manifestJson).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_PACK_MANIFEST_SCHEMA_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
@@ -138,8 +134,7 @@ export const publishExtensionPack: OperationHandler<
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_PACK_REGISTRY_LOOKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
@@ -148,8 +143,7 @@ export const publishExtensionPack: OperationHandler<
 
     if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
       return yield* makeAppError({
-        code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
@@ -196,9 +190,7 @@ export const publishExtensionPack: OperationHandler<
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "PUBLISH_REGISTRY_FAILED",
-            category: "network",
-            reason: "registry_publish",
+            code: "network",
             message: "Registry publish did not complete",
             cause: e,
           }),

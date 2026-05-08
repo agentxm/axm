@@ -93,18 +93,18 @@ describe("withAuthGuard", () => {
       Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
-        expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
+        expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
   });
 
-  it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
+  it.effect("fails with auth when persisted credentials are disabled", () => {
     const layer = makeLayers({ allowsPersistedCredentials: false });
     return withAuthGuard(makeInnerEffect()).pipe(
       Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
-        expect(result).toMatchObject({ error: true, code: "AUTH_TOKEN_REQUIRED" });
+        expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
   });
@@ -113,8 +113,7 @@ describe("withAuthGuard", () => {
     const layer = makeLayers({ hasToken: true });
     const failingEffect = Effect.fail(
       makeAppError({
-        code: "PUBLISH_PLAN_FAILED",
-        category: "internal",
+        code: "internal",
         message: "Publish failed",
       }),
     );
@@ -122,7 +121,7 @@ describe("withAuthGuard", () => {
       Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
-        expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });
+        expect(result).toMatchObject({ error: true, code: "internal" });
       }),
     );
   });

@@ -12,8 +12,7 @@ export const withConfiguredEntryResolutionTimeout =
         orElse: () =>
           Effect.fail(
             makeAppError({
-              code: "CONFIGURED_ENTRY_RESOLUTION_TIMEOUT",
-              category: "network",
+              code: "network",
               message: "Timed out while resolving a configured extension source",
             }),
           ),

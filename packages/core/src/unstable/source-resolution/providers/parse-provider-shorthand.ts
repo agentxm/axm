@@ -36,8 +36,7 @@ export const parseProviderShorthand = (
     const match = input.match(PROVIDER_SHORTHAND_PATTERN);
     if (!match || !match[1] || !match[2]) {
       return yield* makeAppError({
-        code: "SOURCE_PARSE_FAILED",
-        category: "validation",
+        code: "validation",
         message: "Invalid shorthand format",
       });
     }
@@ -51,8 +50,7 @@ export const parseProviderShorthand = (
 
     if (Result.isFailure(decoded)) {
       return yield* makeAppError({
-        code: "SOURCE_PARSE_FAILED",
-        category: "validation",
+        code: "validation",
         message: "Invalid shorthand format",
       });
     }

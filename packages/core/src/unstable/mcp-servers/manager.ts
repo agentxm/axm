@@ -101,8 +101,7 @@ export const McpServerManagerLive = Layer.effect(
       Effect.fn("McpServerManager.materializeInstall")(function* ({ ref }) {
         if (ref.refType !== "registry") {
           return yield* makeAppError({
-            code: "INSTALL_MCP_SERVER_UNSUPPORTED_REF_TYPE",
-            category: "internal",
+            code: "internal",
             message: `Unsupported ref type for MCP server install: ${ref.refType}`,
           });
         }
@@ -118,8 +117,7 @@ export const McpServerManagerLive = Layer.effect(
 
         if (!isPathSafe(baseDir, canonicalPath)) {
           return yield* makeAppError({
-            code: "INSTALL_MCP_SERVER_PATH_TRAVERSAL",
-            category: "internal",
+            code: "internal",
             message: `Path traversal detected: ${canonicalPath}`,
           });
         }
@@ -127,8 +125,7 @@ export const McpServerManagerLive = Layer.effect(
         const canonicalExists = yield* fs.exists(canonicalPath).pipe(
           Effect.mapError((e) =>
             makeAppError({
-              code: "INSTALL_MCP_SERVER_PATH_CHECK_FAILED",
-              category: "internal",
+              code: "internal",
               message: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
@@ -153,8 +150,7 @@ export const McpServerManagerLive = Layer.effect(
             const actualIntegrity = yield* computeIntegrity(archive);
             if (actualIntegrity !== registryRef.integrity.value) {
               return yield* makeAppError({
-                code: "INSTALL_MCP_SERVER_INTEGRITY_MISMATCH",
-                category: "internal",
+                code: "internal",
                 message: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
               });
             }
@@ -163,8 +159,7 @@ export const McpServerManagerLive = Layer.effect(
           const tmpDir = yield* fs.makeTempDirectory().pipe(
             Effect.mapError((e) =>
               makeAppError({
-                code: "INSTALL_MCP_SERVER_TEMP_DIR_FAILED",
-                category: "validation",
+                code: "validation",
                 message: `Temporary directory for registry install could not be created`,
                 cause: e,
               }),
@@ -177,8 +172,7 @@ export const McpServerManagerLive = Layer.effect(
               yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
                 Effect.mapError((e) =>
                   makeAppError({
-                    code: "INSTALL_MCP_SERVER_COPY_FAILED",
-                    category: "validation",
+                    code: "validation",
                     message: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
                   }),
@@ -187,8 +181,7 @@ export const McpServerManagerLive = Layer.effect(
               const entries = yield* fs.readDirectory(tmpDir).pipe(
                 Effect.mapError((e) =>
                   makeAppError({
-                    code: "INSTALL_MCP_SERVER_COPY_FAILED",
-                    category: "validation",
+                    code: "validation",
                     message: `Extracted directory could not be read`,
                     cause: e,
                   }),

@@ -84,8 +84,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
           const sourceArg = yield* resolveSource(sourceValue).pipe(
             Effect.mapError((error) =>
               makeAppError({
-                code: "INVALID_SOURCE",
-                category: "validation",
+                code: "validation",
                 message: `Invalid source: ${error.message}`,
                 cause: error,
               }),
@@ -219,8 +218,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const resolved = Array.getSomes(results);
   if (resolved.length === 0) {
     return yield* makeAppError({
-      code: "UPDATE_FAILED",
-      category: "network",
+      code: "network",
       message: "All source re-resolutions failed. Nothing to update.",
       breadcrumbs: [
         { task: "Recover", description: "Verify the original source paths are still accessible." },
@@ -239,8 +237,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     if (step.readiness === "error") {
       return Effect.fail(
         makeAppError({
-          code: "UPDATE_INSTALL_BLOCKED",
-          category: "conflict",
+          code: "conflict",
           message: step.errorMessage,
         }),
       );

@@ -64,8 +64,7 @@ export const disableCommand: OperationHandler<
     const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "DISABLE_COMMAND_LOCKFILE_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),

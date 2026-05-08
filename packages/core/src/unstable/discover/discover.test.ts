@@ -27,9 +27,7 @@ const makeStubClient = (
     args: DiscoverExtensionsArgs,
   ) => Effect.Effect<DiscoverExtensionsResponse, AppError>,
 ): RegistryClient => {
-  const notImplemented = Effect.fail(
-    makeAppError({ code: "NOT_IMPLEMENTED", category: "internal", message: "stub" }),
-  );
+  const notImplemented = Effect.fail(makeAppError({ code: "internal", message: "stub" }));
 
   return {
     getExtensionsByScope: () => notImplemented,
@@ -129,8 +127,7 @@ describe("discover pipeline", () => {
       const client = makeStubClient(() =>
         Effect.fail(
           makeAppError({
-            code: "REGISTRY_FETCH_FAILED",
-            category: "internal",
+            code: "internal",
             message: "unreachable",
           }),
         ),

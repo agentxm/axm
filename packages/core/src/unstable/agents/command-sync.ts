@@ -89,8 +89,7 @@ export const writeCommandFile = (
     yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "COMMAND_SYNC_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create commands directory: ${parentDir}`,
           cause: error,
         }),
@@ -101,8 +100,7 @@ export const writeCommandFile = (
     yield* fs.writeFileString(filePath, output.content).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "COMMAND_SYNC_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to write command file: ${filePath}`,
           cause: error,
         }),
@@ -166,8 +164,7 @@ export const removeCommandFile = (
     yield* fs.remove(filePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "COMMAND_SYNC_REMOVE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to remove command file: ${filePath}`,
           cause: error,
         }),

@@ -51,8 +51,7 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
           result: "error",
           message: step.errorMessage,
           error: makeAppError({
-            code: "PLAN_STEP_ERROR",
-            category: "internal",
+            code: "internal",
             message: step.errorMessage,
           }),
         },
@@ -87,8 +86,7 @@ const blockStep = (step: PlannedJobStep): CompletedJobStep => ({
     result: "error",
     message: "blocked by earlier job failure",
     error: makeAppError({
-      code: "PLAN_STEP_BLOCKED",
-      category: "conflict",
+      code: "conflict",
       message: "blocked by earlier job failure",
     }),
   },

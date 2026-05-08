@@ -227,7 +227,7 @@ describe("root uninstall handler", () => {
       );
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("UNINSTALL_SOURCE_INVALID_FQN");
+      expect(appError.code).toBe("validation");
       expect(calls).toEqual([]);
     }),
   );

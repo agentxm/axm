@@ -56,34 +56,25 @@ with structured fields for rendering:
 
 ```ts
 export class AppError extends Data.TaggedError("AppError")<{
-  readonly code: string;
-  readonly category: AppErrorCategory;
+  readonly code: AppErrorCode;
   readonly message: string;
-  readonly retryable?: boolean;
-  readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause: unknown;
 }> {}
 ```
 
-Error codes use stable `AREA_REASON` names (e.g., `WORKSPACE_NOT_INIT`,
-`INSTALL_FAILED`, `REGISTRY_PUBLISH_NETWORK_ERROR`). Name outcomes users can
-react to (`PUBLISH_VERSION_CONFLICT`), not internal checks
-(`LINT_PATH_OUTSIDE_WORKSPACE`, not `LINT_WORKSPACE_ROOT_ESCAPE`).
-
-Every `makeAppError` MUST set a literal `category`. AppError exit codes are a
-pure function of category. Use `retryable` and `httpStatus` for retry/status
-metadata instead of embedding that information in prose.
+`code` is one of the nine CLI error categories: `usage`, `not_found`, `auth`,
+`forbidden`, `conflict`, `rate_limit`, `network`, `validation`, or `internal`.
+AppError exit codes are a pure function of `code`.
 
 All next-step guidance belongs in `breadcrumbs`; there is no separate guidance
-string. See the generated catalog: [`docs/error-codes.md`](../../docs/error-codes.md).
+string.
 
 Use `makeAppError` for convenience construction:
 
 ```ts
 const error = makeAppError({
-  code: "INSTALL_FAILED",
-  category: "not_found",
+  code: "not_found",
   message: "Installation failed",
   breadcrumbs: [{ task: "Check package", description: "Check the package name and try again" }],
   cause: originalError,
@@ -106,8 +97,8 @@ stack trace.
 
 - [ ] **AppError at the boundary** — command handlers translate all errors to
       `AppError` before calling the runtime
-- [ ] **AREA_REASON codes** — error codes are stable, descriptive, and follow
-      the `AREA_REASON` naming convention
+- [ ] **Category code** — `AppError.code` is one of the nine CLI error
+      categories
 - [ ] **Cause preserved** — `makeAppError` wraps the original error in `cause`
       for debugging
 - [ ] **PromptCancelled for cancellation** — user cancellation uses
@@ -117,9 +108,9 @@ stack trace.
 
 ## When to Use Typed Service Errors
 
-Most of the time, `AppError` with an `AREA_REASON` code is sufficient. The
-`code` field distinguishes failure modes and callers can inspect it. Introduce a
-typed `Data.TaggedError` subclass only when it earns its keep.
+Most of the time, `AppError` with a category code plus a clear message and
+breadcrumbs is sufficient. Introduce a typed `Data.TaggedError` subclass only
+when it earns its keep.
 
 ### Typed errors earn their keep when
 
@@ -132,12 +123,12 @@ typed `Data.TaggedError` subclass only when it earns its keep.
 
 ### AppError with a code is enough when
 
-| Signal                                      | Why a new type adds no value                                                                                                                                          |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Every caller recovers the same way**      | If all `catchTag("FooError")` handlers do the same thing, use a result value instead (see [Prefer result values](#prefer-result-values-over-uniform-recovery-errors)) |
-| **The error is only produced in one place** | A single `mapError` to `makeAppError` is simpler than defining + translating a typed error                                                                            |
-| **The metadata fits AppError's shape**      | `code`, `category`, `message`, `retryable`, `httpStatus`, and `breadcrumbs` already carry the information callers need                                                |
-| **Callers only need the code to decide**    | `catchIf(e => e.code === "MANIFEST_MISSING", ...)` works without a new type                                                                                           |
+| Signal                                       | Why a new type adds no value                                                                                                                                          |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Every caller recovers the same way**       | If all `catchTag("FooError")` handlers do the same thing, use a result value instead (see [Prefer result values](#prefer-result-values-over-uniform-recovery-errors)) |
+| **The error is only produced in one place**  | A single `mapError` to `makeAppError` is simpler than defining + translating a typed error                                                                            |
+| **The metadata fits AppError's shape**       | `code`, `message`, `breadcrumbs`, and `cause` already carry the information callers need                                                                              |
+| **Callers only need the category to decide** | `catchIf(e => e.code === "not_found", ...)` works without a new type                                                                                                  |
 
 ### When you introduce a typed service error
 
@@ -162,8 +153,7 @@ const program = manifestService.load(path).pipe(
   Effect.catchTag("ManifestError", (e) =>
     Effect.fail(
       makeAppError({
-        code: "MANIFEST_LOAD_FAILED",
-        category: "validation",
+        code: "validation",
         message: `Could not load manifest: ${e.reason}`,
         breadcrumbs: [{ task: "Inspect manifest", description: `Check ${e.path}` }],
         cause: e,
@@ -218,8 +208,7 @@ yield * new ManifestError({ reason: "missing", path });
 // RIGHT — yield AppError directly
 yield *
   makeAppError({
-    code: "INSTALL_FAILED",
-    category: "internal",
+    code: "internal",
     message: "Installation failed",
   });
 ```
@@ -265,7 +254,7 @@ needed now (not speculatively).
       handling site
 - [ ] **Justified existence** — New error type meets the criteria in
       [When to Use Typed Service Errors](#when-to-use-typed-service-errors);
-      otherwise use `AppError` with an `AREA_REASON` code
+      otherwise use `AppError` with a category code
 
 ---
 
@@ -305,15 +294,15 @@ manifestService
   .load(path)
   .pipe(
     Effect.catchTag("ManifestError", (e) =>
-      Effect.fail(makeAppError({ code: "MANIFEST_MISSING", message: e.reason })),
+      Effect.fail(makeAppError({ code: "validation", message: e.reason })),
     ),
   );
 
 // Code-based — when discriminating between AppErrors
 program.pipe(
   Effect.catchIf(
-    (e) => e.code === "AUTH_UNAUTHENTICATED",
-    () => Effect.fail(makeAppError({ code: "LOGIN_REQUIRED", message: "Please log in" })),
+    (e) => e.code === "auth",
+    () => Effect.fail(makeAppError({ code: "auth", message: "Please log in" })),
   ),
 );
 
@@ -321,9 +310,7 @@ program.pipe(
 httpClient
   .get(url)
   .pipe(
-    Effect.mapError((e) =>
-      makeAppError({ code: "NETWORK_ERROR", message: "Request failed", cause: e }),
-    ),
+    Effect.mapError((e) => makeAppError({ code: "network", message: "Request failed", cause: e })),
   );
 ```
 
@@ -440,7 +427,7 @@ const program = Effect.gen(function* () {
   Effect.catchTag("ManifestError", (e) =>
     Effect.fail(
       makeAppError({
-        code: "MANIFEST_LOAD_FAILED",
+        code: "validation",
         message: "Could not load manifest",
         cause: e,
       }),
@@ -482,7 +469,7 @@ const update = (id: string) =>
     const result = yield* doUpdate(id);
     if (!result) {
       return yield* makeAppError({
-        code: "UPDATE_NOT_FOUND",
+        code: "not_found",
         message: "Resource not found",
       });
     }
@@ -622,7 +609,7 @@ const get = (id: string) =>
   StorageService.fetch(id).pipe(
     Effect.mapError((e) =>
       makeAppError({
-        code: "MANIFEST_MISSING",
+        code: "not_found",
         message: "Could not load manifest",
         cause: e,
       }),
@@ -637,7 +624,7 @@ const getWithLogging = (id: string) =>
         Effect.andThen(
           Effect.fail(
             makeAppError({
-              code: "MANIFEST_MISSING",
+              code: "not_found",
               message: "Could not load manifest",
               cause: e,
             }),
@@ -680,7 +667,7 @@ static readonly layer = Layer.effect(
 - [ ] **Errors exposed in signatures** — Service methods declare domain errors
       in `E`, not suppress them to `never`
 - [ ] **Boundary translation** — Lower-level errors translated to `AppError`
-      with appropriate `AREA_REASON` codes at the handler boundary
+      with appropriate category codes at the handler boundary
 - [ ] **No blanket catch** — `Effect.catch` not used in service methods;
       `catchTag` / `catchTags` used for precise narrowing
 - [ ] **Minimal error surface** — Service error types limited to conditions

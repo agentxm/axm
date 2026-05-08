@@ -303,8 +303,7 @@ JSON errors use a fixed envelope:
 ```json
 {
   "ok": false,
-  "code": "AUTH_TOKEN_REQUIRED",
-  "category": "auth",
+  "code": "auth",
   "message": "No authentication token is available",
   "breadcrumbs": [
     { "task": "login", "description": "Authenticate", "command": ["axm", "auth", "login"] }
@@ -316,11 +315,8 @@ JSON errors use a fixed envelope:
 Rules:
 
 - use `ok: false` for error routing
-- include `category`; this is the stable agent-facing discriminator
-- include `code`; this is a specific diagnostic sub-code, not the primary
-  automation branch point
+- include `code`; this is the stable agent-facing discriminator
 - include `message`; it is user-facing prose
-- include `retryable` and `httpStatus` when known
 - include `breadcrumbs` for structured follow-up tasks when useful
 - include `exitCode`
 - emit a matching stderr `error` event in machine mode
@@ -362,7 +358,7 @@ Recommended stderr event shape:
 ```json
 {"type":"progress","phase":"download","percent":25,"message":"Downloading"}
 {"type":"log","level":"info","message":"Resolved 3 skills"}
-{"type":"error","code":"AUTH_TOKEN_REQUIRED","category":"auth","message":"No authentication token is available","exitCode":4}
+{"type":"error","code":"auth","message":"No authentication token is available","exitCode":4}
 ```
 
 ---

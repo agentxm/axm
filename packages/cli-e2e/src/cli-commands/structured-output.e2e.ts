@@ -87,12 +87,12 @@ describe("structured output (--json)", () => {
           env: { AXM_TOKEN: "" },
         });
 
-        expect(result.exitCode).toBe(1);
+        expect(result.exitCode).toBe(4);
         expect(parseJson(result.stdout)).toMatchObject({
           ok: false,
-          code: "AUTH_TOKEN_REQUIRED",
+          code: "auth",
         });
-        expect(result.stderr).toContain("Persisted credentials are disabled");
+        expect(result.stderr).toContain("Set the AXM_TOKEN environment variable");
       } finally {
         temp.cleanup();
       }

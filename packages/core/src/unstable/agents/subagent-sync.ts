@@ -86,8 +86,7 @@ export const writeSubagentFiles = (
     yield* fs.makeDirectory(subagentsDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SUBAGENT_SYNC_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create subagents directory: ${subagentsDir}`,
           cause: error,
         }),
@@ -101,8 +100,7 @@ export const writeSubagentFiles = (
       yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "SUBAGENT_SYNC_WRITE_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to create directory: ${parentDir}`,
             cause: error,
           }),
@@ -112,8 +110,7 @@ export const writeSubagentFiles = (
       yield* fs.writeFileString(filePath, output.content).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "SUBAGENT_SYNC_WRITE_FAILED",
-            category: "internal",
+            code: "internal",
             message: `Failed to write subagent file: ${filePath}`,
             cause: error,
           }),
@@ -150,8 +147,7 @@ export const removeSubagentFiles = (
         yield* fs.remove(filePath).pipe(
           Effect.mapError((error) =>
             makeAppError({
-              code: "SUBAGENT_SYNC_REMOVE_FAILED",
-              category: "internal",
+              code: "internal",
               message: `Failed to remove subagent file: ${filePath}`,
               cause: error,
             }),
@@ -251,8 +247,7 @@ export const addRooSubagent = (
     yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SUBAGENT_SYNC_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to create directory: ${parentDir}`,
           cause: error,
         }),
@@ -262,8 +257,7 @@ export const addRooSubagent = (
     yield* fs.writeFileString(roomodesPath, newContent).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SUBAGENT_SYNC_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to write roomodes file: ${roomodesPath}`,
           cause: error,
         }),
@@ -308,8 +302,7 @@ export const removeRooSubagent = (
     yield* fs.writeFileString(roomodesPath, newContent).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SUBAGENT_SYNC_REMOVE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to write roomodes file: ${roomodesPath}`,
           cause: error,
         }),

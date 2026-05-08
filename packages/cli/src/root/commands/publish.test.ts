@@ -306,7 +306,7 @@ describe("commands-publish.handler", () => {
           ).pipe(Effect.flip);
           const error = getAppError(caught);
 
-          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.code).toBe("internal");
           expect(error.message).toContain("Failed to publish");
         }),
       );

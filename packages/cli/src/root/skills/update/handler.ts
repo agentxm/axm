@@ -103,8 +103,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           const sourceArg = yield* resolveSource(sourceValue).pipe(
             Effect.mapError((error) =>
               makeAppError({
-                code: "INVALID_SOURCE",
-                category: "validation",
+                code: "validation",
                 message: `Invalid source: ${error.message}`,
                 cause: error,
               }),
@@ -229,8 +228,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       const [latestVersion] = versions;
       if (latestVersion === undefined) {
         return yield* makeAppError({
-          code: "UPDATE_SOURCE_EMPTY",
-          category: "internal",
+          code: "internal",
           message: `Registry skill "${skillFqn}" has no published versions`,
           breadcrumbs: [
             {
@@ -248,8 +246,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           onSome: (constraint) => `"${constraint}"`,
         });
         return yield* makeAppError({
-          code: "UPDATE_CONSTRAINT_UNSATISFIABLE",
-          category: "internal",
+          code: "internal",
           message: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
           breadcrumbs: [
             {
@@ -273,8 +270,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       );
       if (exactRef === undefined) {
         return yield* makeAppError({
-          code: "UPDATE_RESOLUTION_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
           breadcrumbs: [
             {
@@ -305,8 +301,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       try: () => decodeExtensionNameSync(name),
       catch: () =>
         makeAppError({
-          code: "INVALID_SOURCE",
-          category: "validation",
+          code: "validation",
           message: `Configured skill name "${name}" is invalid`,
           breadcrumbs: [
             {
@@ -392,8 +387,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const resolved = Array.getSomes(results);
   if (resolved.length === 0) {
     return yield* makeAppError({
-      code: "UPDATE_FAILED",
-      category: "network",
+      code: "network",
       message: "All source re-resolutions failed. Nothing to update.",
       breadcrumbs: [
         { task: "Recover", description: "Verify the original source paths are still accessible." },

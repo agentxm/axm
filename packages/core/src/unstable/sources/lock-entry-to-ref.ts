@@ -39,22 +39,19 @@ const fileHref = (path: string): string => pathToFileURL(path).href;
 
 const missingSource = (entryType: string, sourceName: string) =>
   makeAppError({
-    code: "LOCK_ENTRY_SOURCE_NOT_CONFIGURED",
-    category: "internal",
+    code: "internal",
     message: `Lockfile ${entryType} entry references source "${sourceName}", but that source is not configured`,
   });
 
 const invalidUrl = (value: string) =>
   makeAppError({
-    code: "LOCK_ENTRY_SOURCE_INVALID_URL",
-    category: "validation",
+    code: "validation",
     message: `Lockfile source URL is invalid: ${value}`,
   });
 
 const invalidName = (name: string) =>
   makeAppError({
-    code: "LOCK_ENTRY_NAME_INVALID",
-    category: "validation",
+    code: "validation",
     message: `Lockfile extension name is invalid: ${name}`,
   });
 
@@ -110,8 +107,7 @@ function findSourceConfig(
     const source = sources.find(hasSourceType(sourceType));
     if (source === undefined) {
       return yield* makeAppError({
-        code: "LOCK_ENTRY_SOURCE_NOT_CONFIGURED",
-        category: "internal",
+        code: "internal",
         message: `Lockfile ${sourceType} entry requires a configured ${sourceType} source`,
       });
     }

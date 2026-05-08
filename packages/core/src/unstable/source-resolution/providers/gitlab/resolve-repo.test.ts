@@ -136,7 +136,7 @@ describe("resolveRepo", () => {
         );
 
         expect(error).toBeInstanceOf(AppError);
-        expect(error.code).toBe("SOURCE_PARSE_FAILED");
+        expect(error.code).toBe("validation");
         expect(error.message).toContain("Failed to check GitLab");
       }),
     );

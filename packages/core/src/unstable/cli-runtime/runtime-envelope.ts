@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
-import { exitCodeForCategory, renderAppError } from "../app-error/index.js";
+import { exitCodeFor, renderAppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
@@ -76,11 +76,7 @@ const writeMachineError = (error: AppError, exitCode: number): void => {
     JSON.stringify({
       type: "error",
       code: error.code,
-      category: error.category,
       message: error.message,
-      ...(error.reason !== undefined ? { reason: error.reason } : {}),
-      ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
-      ...(error.httpStatus !== undefined ? { httpStatus: error.httpStatus } : {}),
       exitCode,
     }),
   );
@@ -90,7 +86,7 @@ export type ExpectedCliError = AppError | PromptCancelled;
 export type CliRuntimeFoundation = CliRenderer | Verbosity;
 
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
-  error._tag === "PromptCancelled" ? 0 : exitCodeForCategory(error.category);
+  error._tag === "PromptCancelled" ? 0 : exitCodeFor(error.code);
 
 const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
   Effect.gen(function* () {
@@ -249,7 +245,7 @@ export const withCliErrorHandling = <A, R>(
                 durationMs,
                 ...(error._tag === "AppError" && {
                   errorCode: error.code,
-                  errorCategory: error.category,
+                  errorCategory: error.code,
                 }),
                 semanticProperties,
               });

@@ -50,8 +50,7 @@ const handleHelpTopic = (topic: Option.Option<string>) =>
 
       return Effect.fail(
         makeAppError({
-          code: "HELP_UNKNOWN_TOPIC",
-          category: "not_found",
+          code: "not_found",
           message: `Unknown help topic '${name}'`,
           breadcrumbs: [
             {

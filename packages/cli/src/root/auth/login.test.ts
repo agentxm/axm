@@ -91,8 +91,7 @@ const makeLayers = (opts?: {
       ? () =>
           Effect.fail(
             makeAppError({
-              code: "AUTH_UNAUTHENTICATED",
-              category: "auth",
+              code: "auth",
               message: "Token invalid",
             }),
           )
@@ -126,7 +125,7 @@ describe("auth login handler", () => {
         const result = yield* handleLogin({ yes: false }).pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
-        expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
+        expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
   });
@@ -138,7 +137,7 @@ describe("auth login handler", () => {
         const result = yield* handleLogin({ yes: false }).pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
-        expect(result).toMatchObject({ error: true, code: "AUTH_TOKEN_REQUIRED" });
+        expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
   });
@@ -293,8 +292,7 @@ describe("auth login handler", () => {
       getMe: () =>
         Effect.fail(
           makeAppError({
-            code: "AUTH_UNAUTHENTICATED",
-            category: "auth",
+            code: "auth",
             message: "Not authenticated or token is invalid",
           }),
         ),

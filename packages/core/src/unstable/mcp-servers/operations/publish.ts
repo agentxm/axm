@@ -91,8 +91,7 @@ export const publishMcpServer: (
       .pipe(Effect.orElseSucceed(() => false));
     if (!extensionDirExists) {
       return yield* makeAppError({
-        code: "PUBLISH_MCP_SERVER_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Managed extension not found: ${extensionDir}`,
       });
     }
@@ -102,8 +101,7 @@ export const publishMcpServer: (
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_MCP_SERVER_MANIFEST_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -117,8 +115,7 @@ export const publishMcpServer: (
       },
       catch: (e) =>
         makeAppError({
-          code: "PUBLISH_MCP_SERVER_MANIFEST_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
@@ -129,8 +126,7 @@ export const publishMcpServer: (
     ).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_MCP_SERVER_MANIFEST_SCHEMA_INVALID",
-          category: "validation",
+          code: "validation",
           message: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
@@ -147,8 +143,7 @@ export const publishMcpServer: (
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "PUBLISH_MCP_SERVER_REGISTRY_LOOKUP_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
@@ -157,8 +152,7 @@ export const publishMcpServer: (
 
     if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
       return yield* makeAppError({
-        code: "PUBLISH_MCP_SERVER_REGISTRY_NOT_FOUND",
-        category: "not_found",
+        code: "not_found",
         message: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
@@ -188,9 +182,7 @@ export const publishMcpServer: (
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "PUBLISH_REGISTRY_FAILED",
-            category: "network",
-            reason: "registry_publish",
+            code: "network",
             message: "Registry publish did not complete",
             cause: e,
           }),

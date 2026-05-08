@@ -18,8 +18,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   if (url.hostname !== hostname) {
     return Effect.fail(
       makeAppError({
-        code: "SOURCE_PARSE_FAILED",
-        category: "validation",
+        code: "validation",
         message: "Invalid Azure Repos URL format",
       }),
     );
@@ -28,8 +27,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   if (!match || !match[1] || !match[2] || !match[3]) {
     return Effect.fail(
       makeAppError({
-        code: "SOURCE_PARSE_FAILED",
-        category: "validation",
+        code: "validation",
         message: "Invalid Azure Repos URL format",
       }),
     );
@@ -44,8 +42,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     ? Effect.succeed(decoded.success satisfies AzureReposSourceParams)
     : Effect.fail(
         makeAppError({
-          code: "SOURCE_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: "Invalid Azure Repos URL format",
         }),
       );

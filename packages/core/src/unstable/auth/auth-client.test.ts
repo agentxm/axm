@@ -167,7 +167,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.initiateDeviceFlow().pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -179,7 +179,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.initiateDeviceFlow().pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -313,7 +313,7 @@ describe("pollOnce", () => {
 
     return Effect.gen(function* () {
       const error = yield* pollOnce(client, "dev_123").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.code).toBe("auth");
       expect(error.message).toBe("Lost connection to the registry during login");
     });
   });
@@ -332,7 +332,7 @@ describe("pollOnce", () => {
 
     return Effect.gen(function* () {
       const error = yield* pollOnce(client, "dev_123").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.code).toBe("auth");
       expect(error.message).toBe("Device token exchange failed with an unexpected error");
     });
   });
@@ -441,7 +441,7 @@ describe("AuthClient.pollDeviceToken", () => {
       yield* TestClock.adjust("1 second");
       const error = yield* Fiber.join(fiber);
 
-      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.code).toBe("auth");
       expect(error.message).toBe("Lost connection to the registry during login");
       expect(callCount).toBe(3);
     }).pipe(Effect.provide(layer));
@@ -459,7 +459,7 @@ describe("AuthClient.pollDeviceToken", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_LOGIN_CANCELLED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -475,7 +475,7 @@ describe("AuthClient.pollDeviceToken", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -559,7 +559,7 @@ describe("AuthClient.refreshToken", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_REFRESH_FAILED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -575,7 +575,7 @@ describe("AuthClient.refreshToken", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_REFRESH_FAILED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -587,7 +587,7 @@ describe("AuthClient.refreshToken", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.refreshToken("axm_ref_old").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_REFRESH_FAILED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 });
@@ -691,7 +691,7 @@ describe("AuthClient.getMe", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -707,7 +707,7 @@ describe("AuthClient.getMe", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -721,7 +721,7 @@ describe("AuthClient.getMe", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 
@@ -733,7 +733,7 @@ describe("AuthClient.getMe", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
-      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+      expect(error.code).toBe("auth");
     }).pipe(Effect.provide(layer));
   });
 

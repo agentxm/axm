@@ -93,8 +93,7 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "AUTH_CREDENTIAL_STORE_FAILED",
-            category: "auth",
+            code: "auth",
             message: `Failed to create credentials directory: ${dir}`,
             breadcrumbs: [
               { task: "Recover", description: `Ensure you have write access to ~/.config/` },
@@ -134,8 +133,7 @@ const readCredentialFile = (
     const content = yield* fs.readFileString(filePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "auth",
+          code: "auth",
           message: "Credential file could not be read",
           cause: error,
         }),
@@ -146,8 +144,7 @@ const readCredentialFile = (
       Effect.map((file) => Option.some(file)),
       Effect.mapError((error) =>
         makeAppError({
-          code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "auth",
+          code: "auth",
           message: "Failed to parse credential file",
           breadcrumbs: [
             {
@@ -179,8 +176,7 @@ const writeCredentialFile = (
     const encoded = yield* Schema.encodeEffect(CredentialFileSchema)(data).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "auth",
+          code: "auth",
           message: "Failed to encode credential file",
           cause: error,
         }),
@@ -190,8 +186,7 @@ const writeCredentialFile = (
     yield* fs.writeFileString(filePath, content).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "AUTH_CREDENTIAL_STORE_FAILED",
-          category: "auth",
+          code: "auth",
           message: "Failed to write credential file",
           cause: error,
         }),

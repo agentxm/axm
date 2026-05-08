@@ -155,7 +155,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               }),
             );
             if (Result.isFailure(resolvedResult)) {
-              if (resolvedResult.failure.code !== "NOT_FOUND") {
+              if (resolvedResult.failure.code !== "not_found") {
                 return yield* resolvedResult.failure;
               }
               const configuredOwner = yield* ws.getConfiguredOwner();
@@ -174,8 +174,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             const owner = Option.getOrUndefined(resolved.owner);
             if (owner === undefined) {
               return yield* makeAppError({
-                code: "COMMAND_NOT_FOUND",
-                category: "not_found",
+                code: "not_found",
                 message: `Command "${parsed.success.name}" not found in registry`,
                 breadcrumbs: [
                   {
@@ -197,8 +196,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           switch (parsed.failure.kind) {
             case "wrong-type":
               return yield* makeAppError({
-                code: "COMMAND_SOURCE_INVALID_FORMAT",
-                category: "validation",
+                code: "validation",
                 message: "Command source must include /commands/ segment",
                 breadcrumbs: [
                   { task: "Recover", description: "Use @owner/commands/command-name format." },
@@ -206,8 +204,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               });
             case "missing-name":
               return yield* makeAppError({
-                code: "COMMAND_SOURCE_MISSING_NAME",
-                category: "not_found",
+                code: "not_found",
                 message: "Command source must include a command name",
                 breadcrumbs: [
                   { task: "Recover", description: "Use @owner/commands/command-name format." },
@@ -215,8 +212,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               });
             default:
               return yield* makeAppError({
-                code: "COMMAND_SOURCE_NOT_REGISTRY",
-                category: "usage",
+                code: "usage",
                 message: "Commands can only be installed from a registry",
                 breadcrumbs: [
                   {
@@ -237,8 +233,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           const source = yield* resolveSource(parsed.resolvedInput).pipe(
             Effect.mapError((error) =>
               makeAppError({
-                code: "INVALID_SOURCE",
-                category: "validation",
+                code: "validation",
                 message: `Invalid source: ${error.message}`,
                 breadcrumbs: [
                   {
@@ -253,8 +248,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
           if (source.type !== "registry") {
             return yield* makeAppError({
-              code: "COMMAND_SOURCE_NOT_REGISTRY",
-              category: "usage",
+              code: "usage",
               message: "Commands can only be installed from a registry",
               breadcrumbs: [
                 {
@@ -294,8 +288,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 .pipe(
                   Effect.mapError((error) =>
                     makeAppError({
-                      code: "COMMAND_FETCH_FAILED",
-                      category: "network",
+                      code: "network",
                       message: "Command could not be fetched from registry",
                       breadcrumbs: [
                         {
@@ -320,8 +313,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         if (refs.length === 0) {
           return yield* makeAppError({
-            code: "COMMAND_NOT_FOUND",
-            category: "not_found",
+            code: "not_found",
             message: `Command "${parsed.commandName}" not found in registry`,
             breadcrumbs: [
               {
@@ -334,8 +326,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         const [ref] = refs;
         if (ref === undefined) {
           return yield* makeAppError({
-            code: "COMMAND_NOT_FOUND",
-            category: "not_found",
+            code: "not_found",
             message: `Command "${parsed.commandName}" not found in registry`,
             breadcrumbs: [
               {

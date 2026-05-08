@@ -114,8 +114,7 @@ export const newCommand: OperationHandler<
 
     if (dirExists) {
       return yield* makeAppError({
-        code: "COMMAND_DIR_EXISTS",
-        category: "conflict",
+        code: "conflict",
         message: `Directory "${name}" already exists`,
         breadcrumbs: [
           {
@@ -130,8 +129,7 @@ export const newCommand: OperationHandler<
     yield* fs.makeDirectory(srcDir, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "COMMAND_CREATE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to create command directory: ${targetDir}`,
           cause: e,
         }),
@@ -156,8 +154,7 @@ export const newCommand: OperationHandler<
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "COMMAND_CREATE_FAILED",
-            category: "validation",
+            code: "validation",
             message: `Command manifest could not be written`,
             cause: e,
           }),
@@ -170,8 +167,7 @@ export const newCommand: OperationHandler<
     yield* fs.writeFileString(path.join(srcDir, contentFilename), commandMdContent).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "COMMAND_CREATE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to write ${contentFilename}`,
           cause: e,
         }),

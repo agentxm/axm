@@ -221,7 +221,7 @@ describe("reconciliation", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("LOCKFILE_RECONCILE_SOURCE_UNREACHABLE");
+          expect(result.error.code).toBe("network");
         }
       }),
     ),

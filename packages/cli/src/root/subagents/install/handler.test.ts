@@ -138,7 +138,7 @@ describe("subagents install handler — error propagation", () => {
             preview: false,
           }).pipe(Effect.flip);
           const appError = getAppError(error);
-          expect(appError.code).toBe("REGISTRY_SUBAGENT_NOT_FOUND");
+          expect(appError.code).toBe("not_found");
         }),
       );
     },
@@ -156,7 +156,7 @@ describe("subagents install handler — error propagation", () => {
           preview: false,
         }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("INVALID_SOURCE");
+        expect(appError.code).toBe("validation");
         expect(rendererState.spinnerMessages).toContain("Parsing source...");
         expect(rendererState.spinnerMessages).toContain("Failed");
       }),
@@ -175,7 +175,7 @@ describe("subagents install handler — error propagation", () => {
           preview: false,
         }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("DISCOVER_FAILED");
+        expect(appError.code).toBe("usage");
         expect(appError.cause).toBeDefined();
       }),
     );
@@ -200,7 +200,7 @@ describe("subagents install handler — error propagation", () => {
         ).pipe(Effect.flip);
 
         const appError = getAppError(error);
-        expect(appError.code).toBe("SUBAGENTS_INSTALL_SELECTOR_REQUIRES_SOURCE");
+        expect(appError.code).toBe("usage");
       }),
     );
   });
@@ -224,7 +224,7 @@ describe("subagents install handler — error propagation", () => {
         ).pipe(Effect.flip);
 
         const appError = getAppError(error);
-        expect(appError.code).toBe("SUBAGENTS_INSTALL_ALL_REQUIRES_SOURCE");
+        expect(appError.code).toBe("usage");
       }),
     );
   });

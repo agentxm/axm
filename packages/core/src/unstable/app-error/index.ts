@@ -1,9 +1,9 @@
 export {
   AppError,
-  AppErrorCategories,
-  exitCodeForCategory,
+  AppErrorCodes,
+  exitCodeFor,
   makeAppError,
-  type AppErrorCategory,
+  type AppErrorCode,
 } from "./app-error.js";
 export {
   BC,

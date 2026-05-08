@@ -63,7 +63,7 @@ describe("requireInteractive", () => {
         throw new Error("Expected AppError");
       }
 
-      expect(exit.code).toBe("PROMPT_REQUIRED");
+      expect(exit.code).toBe("usage");
       expect(exit.message).toContain("Prompt value");
     }),
   );

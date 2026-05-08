@@ -226,18 +226,18 @@ describe("resolveRequiredToken", () => {
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
-      expect(error.code).toBe("AUTH_LOGIN_REQUIRED");
+      expect(error.code).toBe("auth");
       expect(error.breadcrumbs?.[0]?.description).toBe(
         "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
       );
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
+  it.effect("fails with auth when persisted credentials are disabled", () => {
     const layer = makeRuntimeLayer(undefined, AuthClientTest(), false);
     return Effect.gen(function* () {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
-      expect(error.code).toBe("AUTH_TOKEN_REQUIRED");
+      expect(error.code).toBe("auth");
       expect(error.breadcrumbs?.[0]?.description).toBe(
         "Set the AXM_TOKEN environment variable instead of running `axm login`.",
       );

@@ -43,8 +43,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
       }).pipe(
         Effect.mapError((error) =>
           makeAppError({
-            code: "SOURCE_FETCH_FAILED",
-            category: "network",
+            code: "network",
             message: `Failed to discover skills`,
             cause: error,
           }),
@@ -73,8 +72,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
     if (ref.refType !== "local") {
       return Effect.fail(
         makeAppError({
-          code: "SOURCE_FETCH_FAILED",
-          category: "network",
+          code: "network",
           message: "Expected ref with location for local source, but none was provided",
         }),
       );

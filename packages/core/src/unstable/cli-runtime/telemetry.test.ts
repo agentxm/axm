@@ -76,8 +76,7 @@ describe("cli telemetry helpers", () => {
 
       yield* reportCliError(
         makeAppError({
-          code: "WORKSPACE_NOT_FOUND",
-          category: "not_found",
+          code: "not_found",
           message: "WorkspaceMutations not initialized",
           breadcrumbs: [{ task: "Recover", description: "Run axm setup" }],
         }),
@@ -86,7 +85,7 @@ describe("cli telemetry helpers", () => {
 
       expect(capture.errors).toEqual([
         {
-          name: "WORKSPACE_NOT_FOUND",
+          name: "not_found",
           message: "WorkspaceMutations not initialized",
           level: "error",
           handled: true,

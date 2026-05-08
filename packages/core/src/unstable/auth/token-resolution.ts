@@ -35,8 +35,7 @@ const parseOrigin = (url: string) =>
     try: () => new URL(url).origin,
     catch: (error) =>
       makeAppError({
-        code: "AUTH_INVALID_URL",
-        category: "validation",
+        code: "validation",
         message: `Invalid URL: ${url}`,
         breadcrumbs: [{ task: "Recover", description: "Check the registry URL in your settings." }],
         cause: error,
@@ -195,7 +194,7 @@ export const resolveToken = (
  * Resolve a token and fail with the correct auth policy error when none is available.
  *
  * In CI/container environments, persisted credentials are disabled by policy, so
- * callers should surface `AUTH_TOKEN_REQUIRED` instead of suggesting `axm login`.
+ * callers should surface the auth policy error instead of suggesting `axm login`.
  */
 export const resolveRequiredToken = (
   registryUrl: string,

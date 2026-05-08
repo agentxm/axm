@@ -357,8 +357,7 @@ describe("uninstallSkill", () => {
         const removeSkillFn = vi.fn(() =>
           Effect.fail(
             makeAppError({
-              code: "SETTINGS_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "write failed",
               cause: new Error("write failed"),
             }),
@@ -582,8 +581,7 @@ describe("uninstallSkill", () => {
                 lockfileErrorOverride: () =>
                   Effect.fail(
                     makeAppError({
-                      code: "LOCKFILE_PARSE_FAILED",
-                      category: "validation",
+                      code: "validation",
                       message: "corrupt lockfile",
                     }),
                   ),
@@ -594,7 +592,7 @@ describe("uninstallSkill", () => {
         );
 
         const error = getAppError(result);
-        expect(error.code).toBe("UNINSTALL_SKILL_LOCKFILE_READ_FAILED");
+        expect(error.code).toBe("internal");
         expect(error.cause).toBeInstanceOf(AppError);
         // Canonical dir should still exist (error propagated before removal)
         expect(fs.existsSync(canonicalPath)).toBe(true);
@@ -612,8 +610,7 @@ describe("uninstallSkill", () => {
           "my-skill": makeLocalLockEntry(["claude-code", "cursor"]),
         };
         const writeError = makeAppError({
-          code: "LOCKFILE_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: "write failed",
         });
 
@@ -640,8 +637,7 @@ describe("uninstallSkill", () => {
           "my-skill": makeLocalLockEntry(["claude-code"]),
         };
         const writeError = makeAppError({
-          code: "LOCKFILE_WRITE_FAILED",
-          category: "internal",
+          code: "internal",
           message: "write failed",
         });
 

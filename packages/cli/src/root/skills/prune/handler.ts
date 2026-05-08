@@ -99,8 +99,7 @@ export const removeArtifacts = Effect.fn("SkillsPrune.remove")(function* (
     yield* fsService.remove(absolutePath, { recursive: true }).pipe(
       Effect.mapError((platformError) =>
         makeAppError({
-          code: "PRUNE_REMOVE_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to remove artifact at ${artifact.location}`,
           breadcrumbs: [{ task: "Recover", description: "Check file permissions and try again." }],
           cause: platformError,

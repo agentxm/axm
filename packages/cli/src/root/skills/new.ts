@@ -56,8 +56,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     !NAME_PATTERN.test(args.name)
   ) {
     return yield* makeAppError({
-      code: "SKILL_NAME_INVALID",
-      category: "validation",
+      code: "validation",
       message: `Invalid skill name: "${args.name}"`,
       breadcrumbs: [
         {
@@ -72,8 +71,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   const configuredSkills = yield* ws.records.getConfiguredSkills();
   if (args.name in configuredSkills) {
     return yield* makeAppError({
-      code: "SKILL_ALREADY_EXISTS",
-      category: "conflict",
+      code: "conflict",
       message: `Skill '${args.name}' already exists in settings`,
       breadcrumbs: [
         {

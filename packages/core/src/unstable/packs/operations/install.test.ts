@@ -127,7 +127,7 @@ describe("installExtensionPack", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("PACK_DEPENDENCY_METADATA_MISMATCH");
+          expect(result.error.code).toBe("internal");
           expect(result.error.message).toContain("declares dependencies");
         }
       }).pipe(Effect.provide(withServices(projectDir, packSourceDir)));

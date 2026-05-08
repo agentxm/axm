@@ -246,7 +246,7 @@ describe("axm lint (e2e, Phase 7)", () => {
       try {
         const result = await runCli(["sync"], { cwd: temp.path });
         expect(result.exitCode).not.toBe(0);
-        expect(result.stdout + result.stderr).toContain("WORKSPACE_NOT_INITIALIZED");
+        expect(result.stdout + result.stderr).toContain("Workspace settings not found");
       } finally {
         temp.cleanup();
       }

@@ -96,8 +96,7 @@ export const newSkill: OperationHandler<
     const configuredSkills = yield* ws.records.getConfiguredSkills();
     if (name in configuredSkills) {
       return yield* makeAppError({
-        code: "SKILL_ALREADY_EXISTS",
-        category: "conflict",
+        code: "conflict",
         message: `Skill '${name}' already exists in settings`,
         breadcrumbs: [
           {
@@ -120,8 +119,7 @@ export const newSkill: OperationHandler<
     yield* fs.makeDirectory(skillSrcPath, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "SKILL_CREATE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to create skill directory: ${skillSrcPath}`,
           cause: e,
         }),
@@ -145,8 +143,7 @@ export const newSkill: OperationHandler<
       .pipe(
         Effect.mapError((e) =>
           makeAppError({
-            code: "SKILL_CREATE_FAILED",
-            category: "validation",
+            code: "validation",
             message: `Skill manifest could not be written`,
             cause: e,
           }),
@@ -157,8 +154,7 @@ export const newSkill: OperationHandler<
     yield* fs.writeFileString(path.join(skillSrcPath, "SKILL.md"), makeSkillMd(name)).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "SKILL_CREATE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to write SKILL.md`,
           cause: e,
         }),

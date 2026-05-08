@@ -251,7 +251,7 @@ describe("subagents-new.handler", () => {
             ...defaultArgs("valid-name"),
             name: "-bad-name" as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("SUBAGENT_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });
@@ -266,7 +266,7 @@ describe("subagents-new.handler", () => {
             ...defaultArgs("valid-name"),
             name: "MySubagent" as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("SUBAGENT_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });
@@ -282,7 +282,7 @@ describe("subagents-new.handler", () => {
             ...defaultArgs("valid-name"),
             name: longName as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("SUBAGENT_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });

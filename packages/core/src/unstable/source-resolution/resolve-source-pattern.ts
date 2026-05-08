@@ -100,7 +100,7 @@ const resolveNameWithFallback = (
 ) =>
   resolveSource(name).pipe(
     Effect.catchTag("AppError", (error) => {
-      if (error.code !== "SOURCE_PARSE_FAILED") {
+      if (error.code !== "validation") {
         return Effect.fail(error);
       }
 
@@ -147,8 +147,7 @@ export const resolveSourcePattern = (
 
         if (matchedNames.length === 0) {
           return yield* makeAppError({
-            code: "NO_SKILLS_MATCHED",
-            category: "not_found",
+            code: "not_found",
             message: "No skills matched the given pattern",
             breadcrumbs: [
               {
@@ -168,7 +167,7 @@ export const resolveSourcePattern = (
       })
     : resolveSource(input).pipe(
         Effect.catchTag("AppError", (error) => {
-          if (error.code !== "SOURCE_PARSE_FAILED") {
+          if (error.code !== "validation") {
             return Effect.fail(error);
           }
           return Effect.gen(function* () {

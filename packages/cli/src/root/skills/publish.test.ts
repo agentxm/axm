@@ -233,7 +233,7 @@ describe("publish.handler", () => {
           ).pipe(Effect.flip);
           const error = getAppError(caught);
 
-          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.code).toBe("internal");
           expect(error.message).toContain("Failed to publish");
         }),
       );
@@ -715,7 +715,7 @@ describe("publish.handler", () => {
             ),
           );
 
-          expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });
+          expect(result).toMatchObject({ error: true, code: "internal" });
           if (result.error) {
             expect(result.message).toContain("Failed to publish");
           }

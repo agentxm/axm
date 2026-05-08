@@ -98,7 +98,7 @@ describe("git", () => {
         const error = yield* getTreeSha(repoPath, "non-existent").pipe(Effect.flip);
 
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("GIT_GET_TREE_SHA_FAILED");
+        expect(error.code).toBe("internal");
       }),
     );
 
@@ -110,7 +110,7 @@ describe("git", () => {
         const error = yield* getTreeSha(nonGitPath).pipe(Effect.flip);
 
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("GIT_GET_TREE_SHA_FAILED");
+        expect(error.code).toBe("internal");
       }),
     );
   });
@@ -118,21 +118,19 @@ describe("git", () => {
   describe("AppError", () => {
     it("is a tagged error with correct tag", () => {
       const error = makeAppError({
-        code: "GIT_CLONE_FAILED",
-        category: "internal",
+        code: "internal",
         message: "Failed to clone repository",
       });
 
       expect(error._tag).toBe("AppError");
-      expect(error.code).toBe("GIT_CLONE_FAILED");
+      expect(error.code).toBe("internal");
       expect(error.message).toBe("Failed to clone repository");
     });
 
     it("can include a cause", () => {
       const cause = new Error("Original error");
       const error = makeAppError({
-        code: "GIT_CLONE_FAILED",
-        category: "internal",
+        code: "internal",
         message: "Failed to clone repository",
         cause,
       });

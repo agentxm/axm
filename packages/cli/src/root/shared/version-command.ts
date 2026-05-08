@@ -64,8 +64,7 @@ const parseBump = (bump: string) => {
       return Effect.succeed<VersionBump | "set">(bump);
     default:
       return makeAppError({
-        code: "VERSION_BUMP_INVALID",
-        category: "validation",
+        code: "validation",
         message: `Invalid version bump: ${bump}`,
       });
   }
@@ -77,8 +76,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
 
     if (bump === "set" && Option.isNone(args.targetVersion)) {
       return yield* makeAppError({
-        code: "VERSION_SET_TARGET_MISSING",
-        category: "not_found",
+        code: "not_found",
         message: "`set` requires an exact semver version",
         breadcrumbs: [
           {
@@ -91,8 +89,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
 
     if (bump !== "set" && Option.isSome(args.targetVersion)) {
       return yield* makeAppError({
-        code: "VERSION_TARGET_UNEXPECTED",
-        category: "internal",
+        code: "internal",
         message: `Version target is only valid with "set", got ${bump}`,
       });
     }
@@ -185,8 +182,7 @@ const inferVersionableType = (handle: string) =>
     const fqn = yield* parseFqn(handle);
     if (!isVersionableType(fqn.type)) {
       return yield* makeAppError({
-        code: "INVALID_EXTENSION_TYPE",
-        category: "validation",
+        code: "validation",
         message: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
         breadcrumbs: [
           { task: "Recover", description: `Use a handle like ${supportedHandleHints}.` },

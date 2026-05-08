@@ -61,8 +61,7 @@ const MYORG = normalizeHandle("@myorg");
 /** Stub methods for SourceHostProvidersService. */
 const serviceStubs: SourceHostProvidersService = {
   find: () => Effect.succeed([]),
-  fetch: () =>
-    Effect.fail(makeAppError({ code: "FETCH_FAILED", category: "internal", message: "stub" })),
+  fetch: () => Effect.fail(makeAppError({ code: "internal", message: "stub" })),
   cloneUrl: () => Option.none(),
   origin: () => "unknown",
 };
@@ -319,7 +318,7 @@ describe("packs install handler", () => {
           const error = getAppError(
             yield* actions.parseArgs(defaultSourceArgs("@acme/my-pack")).pipe(Effect.flip),
           );
-          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error.code).toBe("usage");
         }),
       );
     });
@@ -334,7 +333,7 @@ describe("packs install handler", () => {
           const error = getAppError(
             yield* actions.parseArgs(defaultSourceArgs("./local-path")).pipe(Effect.flip),
           );
-          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error.code).toBe("usage");
         }),
       );
     });
@@ -349,7 +348,7 @@ describe("packs install handler", () => {
           const error = getAppError(
             yield* actions.parseArgs(defaultSourceArgs("github:owner/repo")).pipe(Effect.flip),
           );
-          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error.code).toBe("usage");
         }),
       );
     });
@@ -411,7 +410,7 @@ describe("packs install handler", () => {
               preview: false,
             }).pipe(Effect.flip),
           );
-          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error.code).toBe("usage");
         }),
       );
     });
@@ -521,7 +520,7 @@ describe("packs install handler", () => {
               preview: true,
             }).pipe(Effect.flip),
           );
-          expect(error.code).toBe("INVALID_SOURCE");
+          expect(error.code).toBe("validation");
           expect(rendererState.spinnerMessages).toContain("Parsing source...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),
@@ -785,8 +784,7 @@ describe("packs install handler", () => {
           }
           return Effect.fail(
             makeAppError({
-              code: "FETCH_FAILED",
-              category: "internal",
+              code: "internal",
               message: "Unexpected fetch call",
             }),
           );
@@ -933,7 +931,7 @@ describe("packs install handler", () => {
               preview: false,
             }).pipe(Effect.flip),
           );
-          expect(error.code).toBe("PACK_NOT_FOUND");
+          expect(error.code).toBe("not_found");
         }),
       );
     });
@@ -954,8 +952,7 @@ describe("packs install handler", () => {
             attemptedRemote = true;
             return Effect.fail(
               makeAppError({
-                code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-                category: "internal",
+                code: "internal",
                 message: "remote registry not yet supported",
               }),
             );
@@ -1006,8 +1003,7 @@ describe("packs install handler", () => {
           if (source.type === "registry" && source.location.protocol !== "file:") {
             return Effect.fail(
               makeAppError({
-                code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-                category: "internal",
+                code: "internal",
                 message: "remote registry not yet supported",
               }),
             );

@@ -158,7 +158,7 @@ describe("new-command operation", () => {
 
       expect(result.result).toBe("error");
       if ("code" in result) {
-        expect(result.code).toBe("COMMAND_DIR_EXISTS");
+        expect(result.code).toBe("conflict");
       }
     }).pipe(Effect.provide(testLayer())),
   );

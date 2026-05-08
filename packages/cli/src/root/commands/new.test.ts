@@ -277,7 +277,7 @@ describe("commands-new.handler", () => {
             // Assertion needed: testing invalid name validation
             name: "-bad-name" as unknown as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("COMMAND_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });
@@ -293,7 +293,7 @@ describe("commands-new.handler", () => {
             // Assertion needed: testing invalid name validation
             name: "MyCommand" as unknown as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("COMMAND_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });
@@ -310,7 +310,7 @@ describe("commands-new.handler", () => {
             // Assertion needed: testing invalid name validation
             name: longName as unknown as ExtensionName,
           }).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("COMMAND_NAME_INVALID");
+          expect(getAppError(error).code).toBe("validation");
         }),
       );
     });

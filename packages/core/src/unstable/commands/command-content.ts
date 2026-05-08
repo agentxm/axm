@@ -66,8 +66,7 @@ export const parseCommandMd = (content: string): Effect.Effect<CommandContentRes
 
     if (!isPlainObject(parsed.frontmatter)) {
       return yield* makeAppError({
-        code: "COMMAND_FRONTMATTER_INVALID",
-        category: "validation",
+        code: "validation",
         message: "Command frontmatter must be a YAML mapping",
         breadcrumbs: [
           {

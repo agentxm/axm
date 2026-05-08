@@ -14,7 +14,7 @@ import { makeAppError } from "../app-error/index.js";
 /**
  * Check that a required system binary exists on PATH.
  */
-const requireBinary = (name: string, errorCode: string) =>
+const requireBinary = (name: string, _errorCode: string) =>
   Effect.tryPromise({
     try: async () => {
       const { execFileSync } = await import("node:child_process");
@@ -22,8 +22,7 @@ const requireBinary = (name: string, errorCode: string) =>
     },
     catch: () =>
       makeAppError({
-        code: errorCode,
-        category: "internal",
+        code: "internal",
         message: `Required system command "${name}" not found`,
         breadcrumbs: [
           {
@@ -76,8 +75,7 @@ export const buildZipArchive = (dir: string, errorCode: string) =>
       },
       catch: (e) =>
         makeAppError({
-          code: errorCode,
-          category: "internal",
+          code: "internal",
           message: "Failed to build zip archive",
           cause: e,
         }),

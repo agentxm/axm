@@ -144,7 +144,7 @@ describe("enableCommand", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("ENABLE_COMMAND_MISSING_FILES");
+          expect(result.error.code).toBe("not_found");
         }
       }),
     );

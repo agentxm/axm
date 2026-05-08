@@ -249,8 +249,7 @@ describe("uninstallCommand", () => {
         const removeCommandFn = vi.fn(() =>
           Effect.fail(
             makeAppError({
-              code: "SETTINGS_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "write failed",
               cause: new Error("write failed"),
             }),

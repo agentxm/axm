@@ -241,7 +241,7 @@ describe("subagents-publish.handler", () => {
           ).pipe(Effect.flip);
           const error = getAppError(caught);
 
-          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.code).toBe("internal");
           expect(error.message).toContain("Failed to publish");
         }),
       );
@@ -489,7 +489,7 @@ describe("subagents-publish.handler", () => {
           ).pipe(Effect.flip);
           const error = getAppError(caught);
 
-          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.code).toBe("internal");
           expect(error.breadcrumbs?.[0]?.description ?? "").toContain("identity-check");
         }),
       );
@@ -524,7 +524,7 @@ describe("subagents-publish.handler", () => {
           ).pipe(Effect.flip);
           const error = getAppError(caught);
 
-          expect(error.code).toBe("PUBLISH_PLAN_FAILED");
+          expect(error.code).toBe("internal");
           expect(error.breadcrumbs?.[0]?.description ?? "").toContain("identity-check.md");
         }),
       );

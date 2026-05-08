@@ -283,14 +283,14 @@ describe("getExtensionIndex", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR on network failure", () =>
+  it.effect("fails with network on network failure", () =>
     Effect.gen(function* () {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs()));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+      expect(error.code).toBe("network");
     }),
   );
 
@@ -305,7 +305,7 @@ describe("getExtensionIndex", () => {
 
         const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs()));
 
-        expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE");
+        expect(error.code).toBe("validation");
       }),
   );
 
@@ -329,7 +329,7 @@ describe("getExtensionIndex", () => {
 
       const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs()));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_FAILED");
+      expect(error.code).toBe("internal");
     }),
   );
 });
@@ -399,7 +399,7 @@ describe("getExtensionsByScope", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR on network failure", () =>
+  it.effect("fails with network on network failure", () =>
     Effect.gen(function* () {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
@@ -414,7 +414,7 @@ describe("getExtensionsByScope", () => {
         }),
       );
 
-      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+      expect(error.code).toBe("network");
     }),
   );
 });
@@ -450,14 +450,14 @@ describe("ownerExists", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR on network failure", () =>
+  it.effect("fails with network on network failure", () =>
     Effect.gen(function* () {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(client.ownerExists(registryOwner));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
+      expect(error.code).toBe("network");
     }),
   );
 
@@ -470,7 +470,7 @@ describe("ownerExists", () => {
 
       const error = yield* runFailure(client.ownerExists(registryOwner));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_INVALID_RESPONSE");
+      expect(error.code).toBe("validation");
     }),
   );
 });
@@ -532,7 +532,7 @@ describe("getExtensionPackage", () => {
 
       const error = yield* runFailure(client.getExtensionPackage(makePackageArgs("nonexistent")));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
+      expect(error.code).toBe("not_found");
     }),
   );
 
@@ -549,7 +549,7 @@ describe("getExtensionPackage", () => {
 
       const error = yield* runFailure(client.getExtensionPackage(makePackageArgs()));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
+      expect(error.code).toBe("not_found");
     }),
   );
 
@@ -564,18 +564,18 @@ describe("getExtensionPackage", () => {
         client.getExtensionPackage(makePackageArgs("test-skill", "99.99.99")),
       );
 
-      expect(error.code).toBe("REGISTRY_REMOTE_VERSION_NOT_FOUND");
+      expect(error.code).toBe("not_found");
     }),
   );
 
-  it.effect("fails with REGISTRY_REMOTE_PACKAGE_FETCH_NETWORK_ERROR on network failure", () =>
+  it.effect("fails with network on network failure", () =>
     Effect.gen(function* () {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(client.getExtensionPackage(makePackageArgs()));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_FETCH_NETWORK_ERROR");
+      expect(error.code).toBe("network");
     }),
   );
 });
@@ -607,14 +607,14 @@ describe("extensionExists", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR on network failure", () =>
+  it.effect("fails with network on network failure", () =>
     Effect.gen(function* () {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(client.extensionExists(makeExistsArgs()));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR");
+      expect(error.code).toBe("network");
     }),
   );
 
@@ -625,7 +625,7 @@ describe("extensionExists", () => {
 
       const error = yield* runFailure(client.extensionExists(makeExistsArgs()));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_FAILED");
+      expect(error.code).toBe("internal");
     }),
   );
 });
@@ -799,21 +799,19 @@ describe("discoverExtensions", () => {
     }),
   );
 
-  it.effect(
-    "fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR when search cannot be reached",
-    () =>
-      Effect.gen(function* () {
-        const httpClient = makeNetworkErrorClient();
-        const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with network when search cannot be reached", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-        const error = yield* runFailure(
-          client.discoverExtensions({
-            packages: [packageUrl("pkg:npm/react")],
-          }),
-        );
+      const error = yield* runFailure(
+        client.discoverExtensions({
+          packages: [packageUrl("pkg:npm/react")],
+        }),
+      );
 
-        expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
-      }),
+      expect(error.code).toBe("network");
+    }),
   );
 });
 
@@ -870,7 +868,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+      expect(error.code).toBe("auth");
     }),
   );
 
@@ -898,7 +896,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("AUTH_UNAUTHORIZED");
+      expect(error.code).toBe("forbidden");
     }),
   );
 
@@ -925,8 +923,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("quota_exceeded");
+      expect(error.code).toBe("conflict");
     }),
   );
 
@@ -950,7 +947,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_CONFLICT");
+      expect(error.code).toBe("conflict");
     }),
   );
 
@@ -963,8 +960,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("malformed_archive");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -977,8 +973,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("empty_archive");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -1002,8 +997,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("too_large");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -1027,8 +1021,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("unsupported_content_type");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -1052,8 +1045,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("integrity_mismatch");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -1077,8 +1069,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("manifest_invalid_name");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -1106,8 +1097,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("rate_limited");
+      expect(error.code).toBe("rate_limit");
       expect(error.breadcrumbs?.[0]?.description).toContain("30");
     }),
   );
@@ -1132,8 +1122,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("publishing_disabled");
+      expect(error.code).toBe("network");
     }),
   );
 
@@ -1144,7 +1133,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
+      expect(error.code).toBe("network");
     }),
   );
 
@@ -1168,8 +1157,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("REGISTRY_PUBLISH_REJECTED");
-      expect(error.reason).toBe("registry_error");
+      expect(error.code).toBe("validation");
     }),
   );
 });
@@ -1186,7 +1174,7 @@ describe("network diagnostics", () => {
 
       const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs("test")));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+      expect(error.code).toBe("network");
       expect(error.breadcrumbs?.[0]?.description).toContain("http://localhost");
     }),
   );
@@ -1198,7 +1186,7 @@ describe("network diagnostics", () => {
 
       const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs("test")));
 
-      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+      expect(error.code).toBe("network");
       expect(error.breadcrumbs?.[0]?.description).toContain("Check registry URL");
     }),
   );

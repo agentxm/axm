@@ -59,8 +59,7 @@ const makeInstallWorkspaceMock = (
           },
           catch: (error) =>
             makeAppError({
-              code: "LOCKFILE_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "Mock write failed",
               cause: error,
             }),
@@ -367,8 +366,7 @@ describe("installCommand", () => {
         const setCommandFn = vi.fn(() =>
           Effect.fail(
             makeAppError({
-              code: "SETTINGS_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "write failed",
               cause: new Error("write failed"),
             }),
@@ -418,7 +416,7 @@ describe("installCommand", () => {
         expect(result.result).toBe("error");
         expect(setCommandFn).not.toHaveBeenCalled();
         if (result.result === "error") {
-          expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(result.error.code).toBe("validation");
           expect(result.error.message).toContain("exact semver");
         }
       }),
@@ -464,7 +462,7 @@ describe("installCommand", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("INSTALL_COMMAND_PATH_TRAVERSAL");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );

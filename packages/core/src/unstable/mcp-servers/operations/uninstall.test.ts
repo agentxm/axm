@@ -243,8 +243,7 @@ describe("uninstallMcpServer", () => {
         const removeMcpServerFn = vi.fn(() =>
           Effect.fail(
             makeAppError({
-              code: "SETTINGS_WRITE_FAILED",
-              category: "internal",
+              code: "internal",
               message: "write failed",
               cause: new Error("write failed"),
             }),
@@ -299,7 +298,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("CODING_AGENT_UNKNOWN_CONFIGURED");
+          expect(result.error.code).toBe("not_found");
         }
       }),
     );
@@ -348,7 +347,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_FAILED");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );
@@ -421,7 +420,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );
@@ -467,7 +466,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_MISCONFIGURED");
+          expect(result.error.code).toBe("internal");
         }
       }),
     );

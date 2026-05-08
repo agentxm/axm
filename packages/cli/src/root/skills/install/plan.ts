@@ -51,10 +51,7 @@ export const buildSkillInstallPlan = ({
     const agentRepo = yield* CodingAgentRepository;
     const lockedSkills = yield* workspace.getLockedSkills().pipe(
       Effect.catch((error) => {
-        if (
-          error.code === "LOCKFILE_PARSE_FAILED" ||
-          error.code === "LOCKFILE_RESOLVED_VERSION_INVALID"
-        ) {
+        if (error.code === "validation") {
           return Effect.succeed({});
         }
 

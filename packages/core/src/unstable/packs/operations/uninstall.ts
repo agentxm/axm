@@ -66,8 +66,7 @@ export const uninstallExtensionPack: OperationHandler<
     const lockedPackOpt = yield* ws.getLockedExtensionPack(op.args.packName).pipe(
       Effect.mapError((e) =>
         makeAppError({
-          code: "UNINSTALL_PACK_LOCKFILE_READ_FAILED",
-          category: "internal",
+          code: "internal",
           message: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),

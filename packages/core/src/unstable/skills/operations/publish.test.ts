@@ -338,7 +338,7 @@ describe("publishSkill", () => {
         if (!("code" in result)) {
           throw new Error("Expected error result with code");
         }
-        expect(result.code).toBe("PUBLISH_SKILL_MANIFEST_SCHEMA_INVALID");
+        expect(result.code).toBe("validation");
       }),
     );
   });

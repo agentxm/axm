@@ -28,8 +28,7 @@ interface Registration extends RegistrationInfo {
 
 const promptRequired = (message: string) =>
   makeAppError({
-    code: "PROMPT_REQUIRED",
-    category: "usage",
+    code: "usage",
     message: `Interactive prompt required: ${message}`,
     breadcrumbs: [
       { task: "Recover", description: "Pass the value via a flag or remove --non-interactive." },

@@ -100,7 +100,7 @@ describe("normalizeIgnoredPatterns", () => {
     Effect.gen(function* () {
       const error = yield* normalizeIgnoredPatterns(["  "]).pipe(Effect.flip);
       expect(error).toBeInstanceOf(AppError);
-      expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -108,7 +108,7 @@ describe("normalizeIgnoredPatterns", () => {
     Effect.gen(function* () {
       const error = yield* normalizeIgnoredPatterns([""]).pipe(Effect.flip);
       expect(error).toBeInstanceOf(AppError);
-      expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
+      expect(error.code).toBe("validation");
     }),
   );
 
@@ -134,7 +134,7 @@ describe("validateIgnoredConfigConflicts", () => {
         Effect.flip,
       );
       expect(error).toBeInstanceOf(AppError);
-      expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
+      expect(error.code).toBe("conflict");
     }),
   );
 
@@ -144,7 +144,7 @@ describe("validateIgnoredConfigConflicts", () => {
         Effect.flip,
       );
       expect(error).toBeInstanceOf(AppError);
-      expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
+      expect(error.code).toBe("conflict");
     }),
   );
 

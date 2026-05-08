@@ -1,4 +1,4 @@
-import { makeAppError, type AppErrorCategory } from "./app-error.js";
+import { makeAppError } from "./app-error.js";
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 
 export const BC = {
@@ -14,8 +14,7 @@ export const BC = {
 
 export const errAuthRequired = (message = "Authentication required", cause?: unknown) =>
   makeAppError({
-    code: "AUTH_LOGIN_REQUIRED",
-    category: "auth",
+    code: "auth",
     message,
     breadcrumbs: [
       BC.run("axm login", "Run `axm login` to sign in, or set the AXM_TOKEN environment variable."),
@@ -25,8 +24,7 @@ export const errAuthRequired = (message = "Authentication required", cause?: unk
 
 export const errAuthTokenRequired = (cause?: unknown) =>
   makeAppError({
-    code: "AUTH_TOKEN_REQUIRED",
-    category: "auth",
+    code: "auth",
     message: "No authentication token is available.",
     breadcrumbs: [BC.do("Set the AXM_TOKEN environment variable instead of running `axm login`.")],
     cause,
@@ -34,8 +32,7 @@ export const errAuthTokenRequired = (cause?: unknown) =>
 
 export const errPublishConflict = (args: { readonly version?: string; readonly cause?: unknown }) =>
   makeAppError({
-    code: "REGISTRY_PUBLISH_CONFLICT",
-    category: "conflict",
+    code: "conflict",
     message:
       args.version === undefined
         ? "Version already exists with different content."
@@ -44,35 +41,22 @@ export const errPublishConflict = (args: { readonly version?: string; readonly c
     cause: args.cause,
   });
 
-export const errInstallFailed = (args: {
-  readonly code: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}) =>
+export const errInstallFailed = (args: { readonly message: string; readonly cause?: unknown }) =>
   makeAppError({
-    code: args.code,
-    category: "validation",
+    code: "validation",
     message: args.message,
     breadcrumbs: [BC.do("Check the extension package and try again.")],
     cause: args.cause,
   });
 
 export const errRegistryPublishRejected = (args: {
-  readonly reason: string;
   readonly message: string;
-  readonly category?: AppErrorCategory;
-  readonly retryable?: boolean;
-  readonly httpStatus?: number;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause?: unknown;
 }) =>
   makeAppError({
-    code: "REGISTRY_PUBLISH_REJECTED",
-    category: args.category ?? "validation",
+    code: "validation",
     message: args.message,
-    reason: args.reason,
-    ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
-    ...(args.httpStatus !== undefined ? { httpStatus: args.httpStatus } : {}),
     breadcrumbs: args.breadcrumbs ?? [BC.do("Check the extension package and try again.")],
     cause: args.cause,
   });

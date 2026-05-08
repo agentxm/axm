@@ -24,8 +24,7 @@ export const parseFqn = (input: string) =>
     const parsed = parseFullyQualifiedNameParts(input);
     if (parsed === undefined) {
       return yield* makeAppError({
-        code: "INVALID_FQN",
-        category: "validation",
+        code: "validation",
         message: `Invalid fully qualified name: ${input}`,
         breadcrumbs: [
           {

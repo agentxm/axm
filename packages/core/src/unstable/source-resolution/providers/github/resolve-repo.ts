@@ -13,8 +13,7 @@ const headRequest = (url: string, _input: string) =>
     return yield* client.execute(request).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "SOURCE_PARSE_FAILED",
-          category: "validation",
+          code: "validation",
           message: `Failed to check GitHub: ${error.reason._tag === "TransportError" ? String(error.reason.cause) : `HTTP error`}`,
           cause: error,
         }),

@@ -78,7 +78,7 @@ export class UninstallPackCommandWorkflowActions extends ServiceMap.Service<
     ParsedPackUninstallArgs,
     UninstallPackCommandIntent
   >
->()("axm.sh/UninstallPackCommandWorkflowActions") {}
+>()("axm.sh/root/packs/uninstall/command-actions/UninstallPackCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

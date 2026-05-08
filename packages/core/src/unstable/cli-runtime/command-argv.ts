@@ -11,7 +11,7 @@ export interface CommandArgvService {
 }
 
 export class CommandArgv extends ServiceMap.Service<CommandArgv, CommandArgvService>()(
-  "@agentxm/client-core/CommandArgv",
+  "@agentxm/client-core/unstable/cli-runtime/command-argv/CommandArgv",
 ) {}
 
 // ---------------------------------------------------------------------------

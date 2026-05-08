@@ -235,4 +235,4 @@ export class CliRenderer extends ServiceMap.Service<
     readonly json: (data: unknown) => Effect.Effect<void>;
     readonly raw: (content: string) => Effect.Effect<void>;
   }
->()("axm.sh/CliRenderer") {}
+>()("@agentxm/client-core/unstable/cli-renderer/cli-renderer/CliRenderer") {}

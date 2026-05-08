@@ -461,7 +461,7 @@ export interface WorkspaceMutationsService {
 export class WorkspaceMutations extends ServiceMap.Service<
   WorkspaceMutations,
   WorkspaceMutationsService
->()("axm.sh/WorkspaceMutations") {
+>()("@agentxm/client-core/unstable/workspace/service-interface/WorkspaceMutations") {
   /**
    * Create a layer from a custom service implementation.
    */

@@ -221,7 +221,7 @@ export class InstallSkillCommandWorkflowActions extends ServiceMap.Service<
     SkillExtensionRef,
     InstallSkillCommandIntent
   >
->()("InstallSkillCommandWorkflowActions") {}
+>()("axm.sh/root/skills/install/command-actions/InstallSkillCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

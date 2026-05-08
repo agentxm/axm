@@ -41,7 +41,7 @@ import {
 export class SkillManager extends ServiceMap.Service<
   SkillManager,
   ExtensionManager<SkillExtensionRef>
->()("axm.sh/SkillManager") {}
+>()("@agentxm/client-core/unstable/skills/manager/SkillManager") {}
 
 // -----------------------------------------------------------------------------
 // Helpers

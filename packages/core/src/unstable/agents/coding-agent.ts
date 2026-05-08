@@ -263,4 +263,4 @@ export type CodingAgentRepositoryService = CodingAgentRepositoryShape<WorkspaceM
 export class CodingAgentRepository extends ServiceMap.Service<
   CodingAgentRepository,
   CodingAgentRepositoryService
->()("CodingAgentRepository") {}
+>()("@agentxm/client-core/unstable/agents/coding-agent/CodingAgentRepository") {}

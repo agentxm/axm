@@ -94,7 +94,7 @@ export interface UpdateCheckService {
  * @experimental This API is unstable and may change without notice.
  */
 export class UpdateCheck extends ServiceMap.Service<UpdateCheck, UpdateCheckService>()(
-  "@agentxm/client-core/UpdateCheck",
+  "@agentxm/client-core/unstable/update-check/update-check/UpdateCheck",
 ) {}
 
 // -----------------------------------------------------------------------------

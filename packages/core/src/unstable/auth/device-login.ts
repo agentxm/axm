@@ -28,7 +28,7 @@ export interface DeviceLoginInteractionService {
 export class DeviceLoginInteraction extends ServiceMap.Service<
   DeviceLoginInteraction,
   DeviceLoginInteractionService
->()("@agentxm/client-core/DeviceLoginInteraction") {}
+>()("@agentxm/client-core/unstable/auth/device-login/DeviceLoginInteraction") {}
 
 // -----------------------------------------------------------------------------
 // Test layer factory

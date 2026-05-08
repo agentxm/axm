@@ -57,7 +57,7 @@ export class UninstallSubagentCommandWorkflowActions extends ServiceMap.Service<
     ParsedSubagentUninstallArgs,
     UninstallSubagentCommandIntent
   >
->()("axm.sh/UninstallSubagentCommandWorkflowActions") {}
+>()("axm.sh/root/subagents/uninstall/command-actions/UninstallSubagentCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

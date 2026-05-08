@@ -161,7 +161,7 @@ export class InstallSubagentCommandWorkflowActions extends ServiceMap.Service<
     SubagentExtensionRef,
     InstallSubagentCommandIntent
   >
->()("axm.sh/InstallSubagentCommandWorkflowActions") {}
+>()("axm.sh/root/subagents/install/command-actions/InstallSubagentCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

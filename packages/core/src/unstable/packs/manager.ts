@@ -39,7 +39,7 @@ import { decodeExactSemverVersionSync } from "../version-constraints/version-con
 export class ExtensionPackManager extends ServiceMap.Service<
   ExtensionPackManager,
   ExtensionManager<ExtensionPackRef>
->()("axm.sh/ExtensionPackManager") {}
+>()("@agentxm/client-core/unstable/packs/manager/ExtensionPackManager") {}
 
 // Build pack SetExtensionPackArgs from a registry ref
 const buildSetExtensionPackArgs = (

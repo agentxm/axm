@@ -54,7 +54,7 @@ export class UninstallMcpServerCommandWorkflowActions extends ServiceMap.Service
     ParsedMcpServerUninstallArgs,
     UninstallMcpServerCommandIntent
   >
->()("axm.sh/UninstallMcpServerCommandWorkflowActions") {}
+>()("axm.sh/root/mcp-servers/uninstall/command-actions/UninstallMcpServerCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

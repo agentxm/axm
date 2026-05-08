@@ -130,7 +130,7 @@ export class FakePetStore extends ServiceMap.Service<
       force: boolean,
     ) => Effect.Effect<AdoptionOutcome, ReturnType<typeof makeAppError>>;
   }
->()("@agentxm/client-spike/FakePetStore") {}
+>()("@agentxm/client-spike/fake-pet-store/FakePetStore") {}
 
 export const FakePetStoreLive = Layer.succeed(FakePetStore, {
   listPets: (habitat) => Effect.succeed(petsInHabitat(habitat)),

@@ -17,7 +17,7 @@ export class Verbosity extends ServiceMap.Service<
     readonly level: VerbosityLevel;
     readonly isAtLeast: (min: VerbosityLevel) => boolean;
   }
->()("axm.sh/Verbosity") {}
+>()("@agentxm/client-core/unstable/cli-flags/verbosity") {}
 
 export const makeVerbosityLayer = (level: VerbosityLevel): Layer.Layer<Verbosity> =>
   Layer.succeed(Verbosity, {

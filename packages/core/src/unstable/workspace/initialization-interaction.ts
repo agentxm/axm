@@ -22,7 +22,9 @@ export interface WorkspaceInitializationInteractionService {
 export class WorkspaceInitializationInteraction extends ServiceMap.Service<
   WorkspaceInitializationInteraction,
   WorkspaceInitializationInteractionService
->()("@agentxm/workspace/WorkspaceInitializationInteraction") {}
+>()(
+  "@agentxm/client-core/unstable/workspace/initialization-interaction/WorkspaceInitializationInteraction",
+) {}
 
 export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,

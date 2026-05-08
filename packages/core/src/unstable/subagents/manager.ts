@@ -53,7 +53,7 @@ const stripAgentOverrides = (
 export class SubagentManager extends ServiceMap.Service<
   SubagentManager,
   ExtensionManager<SubagentExtensionRef>
->()("axm.sh/SubagentManager") {}
+>()("@agentxm/client-core/unstable/subagents/manager/SubagentManager") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

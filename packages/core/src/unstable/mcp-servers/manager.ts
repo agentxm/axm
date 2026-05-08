@@ -32,7 +32,7 @@ import { decodeExactSemverVersionSync } from "../version-constraints/version-con
 export class McpServerManager extends ServiceMap.Service<
   McpServerManager,
   ExtensionManager<McpServerExtensionRef>
->()("axm.sh/McpServerManager") {}
+>()("@agentxm/client-core/unstable/mcp-servers/manager/McpServerManager") {}
 
 // Build lock entry from registry ref
 const buildMcpServerLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntry => ({

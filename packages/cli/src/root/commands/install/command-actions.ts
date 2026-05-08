@@ -95,7 +95,7 @@ export class InstallCommandCommandWorkflowActions extends ServiceMap.Service<
     CommandExtensionRef,
     InstallCommandCommandIntent
   >
->()("axm.sh/InstallCommandCommandWorkflowActions") {}
+>()("axm.sh/root/commands/install/command-actions/InstallCommandCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

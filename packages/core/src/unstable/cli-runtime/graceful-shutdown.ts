@@ -20,7 +20,11 @@ export const withGracefulShutdown = <A, E, R>(
       runFork(
         Fiber.interrupt(fiber).pipe(
           Effect.timeout("5 seconds"),
-          Effect.ensuring(Effect.sync(() => process.exit(exitCode))),
+          Effect.ensuring(
+            Effect.sync(() => {
+              void process.exit(exitCode);
+            }),
+          ),
         ),
       );
     };

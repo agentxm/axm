@@ -27,7 +27,7 @@ import type { JobStepResult } from "../plan/plan.js";
 export class ReconciliationAdapters extends ServiceMap.Service<
   ReconciliationAdapters,
   ReadonlyArray<ReconciliationAdapter>
->()("axm/ReconciliationAdapters") {}
+>()("@agentxm/client-core/unstable/workspace/reconciliation/ReconciliationAdapters") {}
 
 const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
   skills: 0,

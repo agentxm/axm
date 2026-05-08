@@ -79,7 +79,7 @@ interface SetupSkillInstallerService {
 export class SetupSkillInstaller extends ServiceMap.Service<
   SetupSkillInstaller,
   SetupSkillInstallerService
->()("SetupSkillInstaller") {}
+>()("axm.sh/root/setup/SetupSkillInstaller") {}
 
 const SetupSkillInstallerLive = Layer.effect(
   SetupSkillInstaller,

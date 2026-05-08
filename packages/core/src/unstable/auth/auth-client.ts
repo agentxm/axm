@@ -94,7 +94,7 @@ export interface AuthClientService {
 }
 
 export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
-  "@agentxm/client-core/AuthClient",
+  "@agentxm/client-core/unstable/auth/auth-client/AuthClient",
 ) {}
 
 // -----------------------------------------------------------------------------

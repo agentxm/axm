@@ -79,7 +79,7 @@ export class InstallMcpServerCommandWorkflowActions extends ServiceMap.Service<
     McpServerExtensionRef,
     InstallMcpServerCommandIntent
   >
->()("axm.sh/InstallMcpServerCommandWorkflowActions") {}
+>()("axm.sh/root/mcp-servers/install/command-actions/InstallMcpServerCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

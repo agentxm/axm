@@ -117,7 +117,7 @@ export interface CommandSemanticPropertiesService {
 export class CommandSemanticProperties extends ServiceMap.Service<
   CommandSemanticProperties,
   CommandSemanticPropertiesService
->()("@agentxm/client-core/CommandSemanticProperties") {}
+>()("@agentxm/client-core/unstable/cli-runtime/telemetry/CommandSemanticProperties") {}
 
 /**
  * Set semantic telemetry properties from within a command handler.

@@ -49,7 +49,7 @@ export interface CredentialStoreService {
 }
 
 export class CredentialStore extends ServiceMap.Service<CredentialStore, CredentialStoreService>()(
-  "@agentxm/client-core/CredentialStore",
+  "@agentxm/client-core/unstable/auth/credential-store/CredentialStore",
 ) {}
 
 // -----------------------------------------------------------------------------

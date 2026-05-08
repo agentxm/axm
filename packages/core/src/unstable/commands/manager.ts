@@ -45,7 +45,7 @@ import {
 export class CommandManager extends ServiceMap.Service<
   CommandManager,
   ExtensionManager<CommandExtensionRef>
->()("axm.sh/CommandManager") {}
+>()("@agentxm/client-core/unstable/commands/manager/CommandManager") {}
 
 // Build lock entry from registry ref
 const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockEntry => ({

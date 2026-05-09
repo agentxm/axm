@@ -1,15 +1,14 @@
 # Exit codes
 
-| Code | Meaning                                                    |
-| ---- | ---------------------------------------------------------- |
-| 0    | Success, including help output and cancelled prompts.      |
-| 1    | Internal or uncategorized error.                           |
-| 2    | Usage error, such as an unknown flag or CLI parse failure. |
-| 3    | Not found.                                                 |
-| 4    | Authentication required or invalid.                        |
-| 5    | Forbidden — authenticated but lacking permission.          |
-| 6    | Conflict, such as a publish version that already exists.   |
-| 7    | Rate limited.                                              |
-| 8    | Network error.                                             |
-| 9    | Validation error.                                          |
-| 130  | Signal termination, such as SIGINT or SIGTERM.             |
+| Code | Meaning                                                                                  |
+| ---- | ---------------------------------------------------------------------------------------- |
+| 0    | Success. Also used for help output and cancelled prompts.                                |
+| 1    | Unexpected failure. Likely a bug — please report it.                                     |
+| 2    | Invalid command, flags, or arguments. Fix the invocation.                                |
+| 3    | Resource doesn't exist or isn't visible.                                                 |
+| 4    | Credentials are missing, expired, or invalid. Sign in again.                             |
+| 5    | Signed in, but not authorized for this action.                                           |
+| 6    | Conflicts with current state (already exists, version mismatch, concurrent update). Reconcile and retry. |
+| 7    | Rate or quota exceeded. Retry after a backoff.                                           |
+| 8    | Couldn't reach the remote service (DNS, TCP, TLS, timeout). Usually retryable.           |
+| 9    | Input parsed but failed validation. Correct it and retry.                                |

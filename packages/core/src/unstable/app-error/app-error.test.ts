@@ -15,7 +15,7 @@ describe("AppError", () => {
 
     expect(decode("auth")).toBe("auth");
     expect(Object.keys(AppErrorCodeDescriptions).sort()).toEqual([...AppErrorCodes].sort());
-    expect(AppErrorCodeDescriptions.auth).toBe("Caller is not authenticated.");
+    expect(AppErrorCodeDescriptions.auth).toContain("not authenticated");
   });
 
   it("constructs with all fields", () => {

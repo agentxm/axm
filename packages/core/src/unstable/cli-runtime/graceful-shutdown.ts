@@ -5,7 +5,7 @@ import * as Fiber from "effect/Fiber";
  * Wrap a program in signal-aware graceful shutdown.
  *
  * SIGTERM/SIGINT → interrupt the running fiber with a 5s timeout.
- * Exit code 130 = POSIX convention for "terminated by signal" (128 + 2).
+ * Exit code follows POSIX convention (128 + signum): SIGINT=130, SIGTERM=143.
  * Uses Effect.forkChild (supervised) so the fiber dies with parent.
  */
 export const withGracefulShutdown = <A, E, R>(
@@ -29,7 +29,7 @@ export const withGracefulShutdown = <A, E, R>(
       );
     };
 
-    const onSigterm = () => interruptAndExit(130);
+    const onSigterm = () => interruptAndExit(143);
     const onSigint = () => interruptAndExit(130);
     process.on("SIGTERM", onSigterm);
     process.on("SIGINT", onSigint);

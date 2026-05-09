@@ -18,20 +18,23 @@ export const AppErrorCodes = [
 export const AppErrorCodeSchema = Schema.Literals(AppErrorCodes).annotate({
   identifier: "AppErrorCode",
   title: "AppError Code",
-  description: "Coarse category for AppError results, used for exit codes and JSON envelopes.",
+  description:
+    "Error category. Sets the exit code and the `code` field in JSON output.",
 });
 export type AppErrorCode = typeof AppErrorCodeSchema.Type;
 
 export const AppErrorCodeDescriptions: Readonly<Record<AppErrorCode, string>> = {
-  usage: "Caller invoked the CLI incorrectly (bad flag, missing argument).",
-  not_found: "Requested resource does not exist.",
-  auth: "Caller is not authenticated.",
-  forbidden: "Caller is authenticated but lacks permission.",
-  conflict: "Operation conflicts with current state (e.g., already exists).",
-  rate_limit: "Caller exceeded a rate limit.",
-  network: "Network or transport failure reaching a remote service.",
-  validation: "Input failed schema or semantic validation.",
-  internal: "Unexpected internal error; likely a bug.",
+  usage: "Invalid command, flags, or arguments. Fix the invocation.",
+  not_found: "Resource doesn't exist or isn't visible.",
+  auth: "Credentials are missing, expired, or invalid. Sign in again.",
+  forbidden: "Signed in, but not authorized for this action.",
+  conflict:
+    "Conflicts with current state (already exists, version mismatch, concurrent update). Reconcile and retry.",
+  rate_limit: "Rate or quota exceeded. Retry after a backoff.",
+  network:
+    "Couldn't reach the remote service (DNS, TCP, TLS, timeout). Usually retryable.",
+  validation: "Input parsed but failed validation. Correct it and retry.",
+  internal: "Unexpected failure. Likely a bug — please report it.",
 };
 
 export const exitCodeFor = (code: AppErrorCode): number => {

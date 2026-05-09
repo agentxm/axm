@@ -1,4 +1,5 @@
 import "./command.e2e.js";
+import "./cli-commands/json-channel-contract.e2e.js";
 import "./cli-commands/structured-output.e2e.js";
 
 import { describe, expect, it } from "vitest";

@@ -378,6 +378,30 @@ For commands that support machine output:
 Do not emit human `info` lines as the primary data path for JSON-capable
 commands.
 
+`renderer.result` (and the entity helpers) return a `boolean`. They emit only
+in machine mode; in text mode they return `false` so the handler can render a
+human view. The pattern is:
+
+```typescript
+const emitted = yield * renderer.result(payload, ResultSchema);
+if (emitted) return;
+yield * renderer.raw(humanText); // or renderer.message / renderer.table
+```
+
+Never call `process.stdout.write` directly from a handler — JSON mode would
+leak unstructured bytes onto the result channel and break the contract.
+
+## Defects And Unhandled Panics
+
+`writeDefect(cause, format)` in `runtime-envelope.ts` is the single channel for
+unexpected errors:
+
+- text mode: human message on stderr
+- json mode: NDJSON `error` event on stderr **plus** `{ ok: false, code:
+"internal", message }` envelope on stdout
+
+Production callers reach this through `withCliErrorHandling`; do not bypass it.
+
 ---
 
 ## Adoption Plan

@@ -24,7 +24,7 @@ import { CommandArgv, serializeArgv } from "./command-argv.js";
 
 import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
-import { makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
+import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import type { Breadcrumb } from "./breadcrumb.js";
 
 const writeStderr = (message: string): void => {
@@ -78,6 +78,33 @@ const writeMachineError = (error: AppError): void => {
       code: error.code,
       message: error.message,
     }),
+  );
+};
+
+const defectMessage = (cause: Cause.Cause<unknown>): string => {
+  const squashed = Cause.squash(cause);
+  return squashed instanceof Error ? squashed.message : String(squashed);
+};
+
+/**
+ * Emit a defect (unhandled panic) to the appropriate channel.
+ *
+ * - text: human-readable message on stderr.
+ * - json: NDJSON `error` event on stderr + structured envelope on stdout.
+ *
+ * Exported for tests; production callers route through `withCliErrorHandling`.
+ */
+export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): void => {
+  const message = defectMessage(cause);
+
+  if (format === "text") {
+    writeStderr(`✗ ${message}`);
+    return;
+  }
+
+  writeStderr(JSON.stringify({ type: "error", code: "internal", message }));
+  process.stdout.write(
+    JSON.stringify(makeJsonErrorEnvelope({ code: "internal", message }), null, 2) + "\n",
   );
 };
 
@@ -255,8 +282,12 @@ export const withCliErrorHandling = <A, R>(
         if (isEffectCliExit(defect)) {
           return Effect.failCause(cause);
         }
+        if (Cause.hasInterruptsOnly(cause)) {
+          return Effect.failCause(cause);
+        }
 
-        return reportCliDefect(cause, command).pipe(
+        return Effect.sync(() => writeDefect(cause, options.format)).pipe(
+          Effect.andThen(reportCliDefect(cause, command)),
           Effect.andThen(
             Effect.gen(function* () {
               const semanticProperties = yield* getCommandSemanticProperties;
@@ -268,7 +299,7 @@ export const withCliErrorHandling = <A, R>(
               });
             }),
           ),
-          Effect.andThen(Effect.failCause(cause)),
+          Effect.andThen(Effect.die(effectCliExit(ExitCode.Internal))),
         );
       }),
     );

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -8,7 +9,7 @@ import { CliRenderer } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
-import { makeFoundationLayer } from "./runtime-envelope.js";
+import { makeFoundationLayer, writeDefect } from "./runtime-envelope.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -104,4 +105,79 @@ describe("makeFoundationLayer", () => {
       expect(verbosity.level).toBe("verbose");
     }),
   );
+});
+
+// ---------------------------------------------------------------------------
+// writeDefect — JSON-mode channel contract for unhandled defects
+// ---------------------------------------------------------------------------
+
+describe("writeDefect", () => {
+  let stdoutWrites: Array<string>;
+  let stderrWrites: Array<string>;
+  let stdoutWriteSpy: MockInstance;
+  let stderrWriteSpy: MockInstance;
+
+  beforeEach(() => {
+    stdoutWrites = [];
+    stderrWrites = [];
+    stdoutWriteSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((...args: Array<unknown>) => {
+        stdoutWrites.push(String(args[0]));
+        return true;
+      });
+    stderrWriteSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((...args: Array<unknown>) => {
+        stderrWrites.push(String(args[0]));
+        return true;
+      });
+  });
+
+  afterEach(() => {
+    stdoutWriteSpy.mockRestore();
+    stderrWriteSpy.mockRestore();
+  });
+
+  it("text mode: writes human-readable defect to stderr only, leaving stdout untouched", () => {
+    writeDefect(Cause.die(new Error("boom")), "text");
+
+    expect(stdoutWrites).toEqual([]);
+    expect(stderrWrites).toHaveLength(1);
+    expect(stderrWrites[0]).toContain("boom");
+  });
+
+  it("json mode: emits one JSON envelope on stdout and pure NDJSON on stderr", () => {
+    writeDefect(Cause.die(new Error("boom")), "json");
+
+    expect(stdoutWrites).toHaveLength(1);
+    const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
+    expect(stdoutDoc).toMatchObject({
+      ok: false,
+      code: "internal",
+      message: "boom",
+    });
+
+    expect(stderrWrites).toHaveLength(1);
+    for (const line of stderrWrites) {
+      const event: unknown = JSON.parse(line.trim());
+      expect(event).toMatchObject({
+        type: "error",
+        code: "internal",
+        message: "boom",
+      });
+    }
+  });
+
+  it("json mode: stringifies non-Error defects via String()", () => {
+    writeDefect(Cause.die("kaboom"), "json");
+
+    expect(stdoutWrites).toHaveLength(1);
+    const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
+    expect(stdoutDoc).toMatchObject({
+      ok: false,
+      code: "internal",
+      message: "kaboom",
+    });
+  });
 });

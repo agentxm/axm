@@ -1,13 +1,13 @@
 import * as Schema from "effect/Schema";
 
-import { AppErrorCodes, type AppError, type AppErrorCode } from "../app-error/index.js";
+import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
 import { BreadcrumbSchema, type Breadcrumb } from "./breadcrumb.js";
 
 const ReservedSuccessEnvelopeKeys = new Set(["ok", "summary", "breadcrumbs"]);
 
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
-  code: Schema.Literals(AppErrorCodes),
+  code: AppErrorCodeSchema,
   message: Schema.String,
   breadcrumbs: Schema.optional(Schema.Array(BreadcrumbSchema)),
   exitCode: Schema.Number,

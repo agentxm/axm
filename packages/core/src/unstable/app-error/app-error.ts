@@ -1,19 +1,9 @@
 import * as Data from "effect/Data";
+import * as Schema from "effect/Schema";
 
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 
-export type AppErrorCode =
-  | "usage"
-  | "not_found"
-  | "auth"
-  | "forbidden"
-  | "conflict"
-  | "rate_limit"
-  | "network"
-  | "validation"
-  | "internal";
-
-export const AppErrorCodes: ReadonlyArray<AppErrorCode> = [
+export const AppErrorCodes = [
   "usage",
   "not_found",
   "auth",
@@ -23,7 +13,26 @@ export const AppErrorCodes: ReadonlyArray<AppErrorCode> = [
   "network",
   "validation",
   "internal",
-];
+] as const;
+
+export const AppErrorCodeSchema = Schema.Literals(AppErrorCodes).annotate({
+  identifier: "AppErrorCode",
+  title: "AppError Code",
+  description: "Coarse category for AppError results, used for exit codes and JSON envelopes.",
+});
+export type AppErrorCode = typeof AppErrorCodeSchema.Type;
+
+export const AppErrorCodeDescriptions: Readonly<Record<AppErrorCode, string>> = {
+  usage: "Caller invoked the CLI incorrectly (bad flag, missing argument).",
+  not_found: "Requested resource does not exist.",
+  auth: "Caller is not authenticated.",
+  forbidden: "Caller is authenticated but lacks permission.",
+  conflict: "Operation conflicts with current state (e.g., already exists).",
+  rate_limit: "Caller exceeded a rate limit.",
+  network: "Network or transport failure reaching a remote service.",
+  validation: "Input failed schema or semantic validation.",
+  internal: "Unexpected internal error; likely a bug.",
+};
 
 export const exitCodeFor = (code: AppErrorCode): number => {
   switch (code) {

@@ -1,5 +1,7 @@
 export {
   AppError,
+  AppErrorCodeDescriptions,
+  AppErrorCodeSchema,
   AppErrorCodes,
   exitCodeFor,
   makeAppError,

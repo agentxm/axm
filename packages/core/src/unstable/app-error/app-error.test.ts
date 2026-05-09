@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { AppError, makeAppError } from "./app-error.js";
+import * as Schema from "effect/Schema";
+
+import {
+  AppError,
+  AppErrorCodeDescriptions,
+  AppErrorCodeSchema,
+  AppErrorCodes,
+  makeAppError,
+} from "./app-error.js";
 
 describe("AppError", () => {
+  it("derives codes from the schema and exposes descriptions", () => {
+    const decode = Schema.decodeUnknownSync(AppErrorCodeSchema);
+
+    expect(decode("auth")).toBe("auth");
+    expect(Object.keys(AppErrorCodeDescriptions).sort()).toEqual([...AppErrorCodes].sort());
+    expect(AppErrorCodeDescriptions.auth).toBe("Caller is not authenticated.");
+  });
+
   it("constructs with all fields", () => {
     const error = new AppError({
       code: "internal",

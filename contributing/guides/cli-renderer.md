@@ -171,10 +171,10 @@ This keeps the published contract and the emitted bytes aligned.
 - `breadcrumbs` emits advisory follow-up tasks; machine mode also emits
   `breadcrumb` events on stderr
 - `json` and `raw` are escape hatches; use them sparingly
-- `info`, `message`, `success`, `warn`, `error`, spinners, and progress are
-  diagnostics
-- In machine mode, diagnostics are NDJSON on stderr; they are not part of the
-  command result
+- `info`, `message`, and `success` are human narration; machine mode silences
+  those messages
+- `warn`, `error`, spinners, progress, task logs, and breadcrumbs are signal
+  diagnostics; machine mode emits them as NDJSON on stderr
 
 Handlers should compute structured data first, then render once. Avoid
 interleaving business logic with ad hoc log formatting.
@@ -348,7 +348,8 @@ Future-friendly extension:
 Current contract:
 
 - stdout: final JSON result object
-- stderr: NDJSON diagnostics for logs and progress
+- stderr: signal-only NDJSON diagnostics for warnings, errors, breadcrumbs,
+  progress, and task logs
 
 Keep that split. Do not overload `--json` to mean "mixed result and progress
 stream".
@@ -360,7 +361,7 @@ Recommended stderr event shape:
 
 ```json
 {"type":"progress","phase":"download","percent":25,"message":"Downloading"}
-{"type":"log","level":"info","message":"Resolved 3 skills"}
+{"type":"log","level":"warn","message":"Skipped disabled skill foo"}
 {"type":"error","code":"auth","message":"No authentication token is available"}
 ```
 

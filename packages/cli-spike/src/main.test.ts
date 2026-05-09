@@ -232,12 +232,12 @@ describe("axm-spike source smoke", () => {
     expect(output.globalFlags?.map((flag) => flag.name)).toEqual(["json"]);
   });
 
-  it("allows --json on non-document commands without emitting stdout data", async () => {
+  it("allows --json on non-document commands without advisory output", async () => {
     const result = await runSpike(["outputs", "box", "--json"]);
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("This box renders one message at a time.");
+    expect(result.stderr).toBe("");
   });
 
   it("emits the published items document for pets list", async () => {

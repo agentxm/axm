@@ -239,16 +239,13 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
   };
 
   return Layer.succeed(CliRenderer, {
-    // Chrome (stderr) — emit NDJSON log events
-    intro: (title) => emitLogEvent("info", title),
-    outro: (message) => emitLogEvent("info", message),
-    message: (message) => emitLogEvent("info", message),
-    info: (message) => emitLogEvent("info", message),
-    success: (message, options?: SuccessOptions) =>
-      emitLogEvent("info", message).pipe(
-        Effect.andThen(emitBreadcrumbs(options?.breadcrumbs, options)),
-      ),
-    step: (message) => emitLogEvent("info", message),
+    // Chrome (stderr) — signal-only NDJSON events
+    intro: () => Effect.void,
+    outro: () => Effect.void,
+    message: () => Effect.void,
+    info: () => Effect.void,
+    success: (_message, options?: SuccessOptions) => emitBreadcrumbs(options?.breadcrumbs, options),
+    step: () => Effect.void,
     warn: (message) => emitLogEvent("warn", message),
     error: (message, options?: BreadcrumbOptions) =>
       emitLogEvent("error", message).pipe(
@@ -256,8 +253,8 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       ),
     breadcrumbs: emitBreadcrumbs,
     cancel: (message) => (message ? emitLogEvent("info", message) : Effect.void),
-    note: (message, title) => emitLogEvent("info", title ? `${title}: ${message}` : message),
-    box: (message, title) => emitLogEvent("info", title ? `${title}: ${message}` : message),
+    note: () => Effect.void,
+    box: () => Effect.void,
     streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) =>
       Stream.runCollect(stream).pipe(
         Effect.flatMap((chunks) => {

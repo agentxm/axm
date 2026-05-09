@@ -53,12 +53,12 @@ const parseStderrEvents = () =>
 const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()));
 
 // ---------------------------------------------------------------------------
-// Chrome methods — emit NDJSON log events to stderr
+// Chrome methods — stderr is signal-only
 // ---------------------------------------------------------------------------
 
 describe("MachineRenderer", () => {
-  describe("chrome methods emit NDJSON to stderr", () => {
-    it.effect("info emits log event with info level", () =>
+  describe("chrome methods keep advisory narration silent", () => {
+    it.effect("info is silent", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -66,10 +66,119 @@ describe("MachineRenderer", () => {
             yield* r.info("Processing");
           }),
         );
-        const events = parseStderrEvents();
-        expect(events).toHaveLength(1);
-        expect(events[0]).toEqual({ type: "log", level: "info", message: "Processing" });
+        expect(stderrWrites).toHaveLength(0);
         expect(stdoutWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("message is silent", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.message("Hello");
+          }),
+        );
+        expect(stderrWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("success message is silent", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.success("Done");
+          }),
+        );
+        expect(stderrWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("success emits breadcrumb events without the message", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.success("Done", {
+              breadcrumbs: [
+                { task: "edit", description: "Edit the file" },
+                { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+              ],
+            });
+          }),
+        );
+        const events = parseStderrEvents();
+        expect(events).toEqual([
+          { type: "breadcrumb", task: "edit", description: "Edit the file" },
+          {
+            type: "breadcrumb",
+            task: "sync",
+            description: "Apply changes",
+            command: ["axm", "sync"],
+          },
+        ]);
+        expect(stdoutWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("step is silent", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.step("Next step");
+          }),
+        );
+        expect(stderrWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("intro is silent", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.intro("App");
+          }),
+        );
+        expect(stderrWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("outro is silent", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.outro("Bye");
+          }),
+        );
+        expect(stderrWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("note is silent", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.note("body text", "Note Title");
+          }),
+        );
+        expect(stderrWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("box is silent", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.box("content", "heading");
+          }),
+        );
+        expect(stderrWrites).toHaveLength(0);
       }),
     );
 
@@ -99,99 +208,6 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("message emits log event with info level", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.message("Hello");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({ type: "log", level: "info", message: "Hello" });
-      }),
-    );
-
-    it.effect("success emits log event with info level", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.success("Done");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({ type: "log", level: "info", message: "Done" });
-      }),
-    );
-
-    it.effect("success emits breadcrumb events when provided", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.success("Done", {
-              breadcrumbs: [
-                { task: "edit", description: "Edit the file" },
-                { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
-              ],
-            });
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events).toEqual([
-          { type: "log", level: "info", message: "Done" },
-          { type: "breadcrumb", task: "edit", description: "Edit the file" },
-          {
-            type: "breadcrumb",
-            task: "sync",
-            description: "Apply changes",
-            command: ["axm", "sync"],
-          },
-        ]);
-        expect(stdoutWrites).toHaveLength(0);
-      }),
-    );
-
-    it.effect("step emits log event with info level", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.step("Next step");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({ type: "log", level: "info", message: "Next step" });
-      }),
-    );
-
-    it.effect("intro emits log event", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.intro("App");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({ type: "log", level: "info", message: "App" });
-      }),
-    );
-
-    it.effect("outro emits log event", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.outro("Bye");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({ type: "log", level: "info", message: "Bye" });
-      }),
-    );
-
     it.effect("cancel emits log event when message provided", () =>
       Effect.gen(function* () {
         yield* run(
@@ -214,53 +230,6 @@ describe("MachineRenderer", () => {
           }),
         );
         expect(stderrWrites).toHaveLength(0);
-      }),
-    );
-
-    it.effect("note emits with title prefix", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.note("body text", "Note Title");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({
-          type: "log",
-          level: "info",
-          message: "Note Title: body text",
-        });
-      }),
-    );
-
-    it.effect("note emits without title", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.note("just body");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({ type: "log", level: "info", message: "just body" });
-      }),
-    );
-
-    it.effect("box emits with title prefix", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.box("content", "heading");
-          }),
-        );
-        const events = parseStderrEvents();
-        expect(events[0]).toEqual({
-          type: "log",
-          level: "info",
-          message: "heading: content",
-        });
       }),
     );
   });

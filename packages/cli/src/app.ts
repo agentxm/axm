@@ -37,14 +37,13 @@ import { uninstallCommand } from "./root/uninstall/command.js";
 import { pruneCommand } from "./root/prune/command.js";
 import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
-import { helpCommand } from "./root/help/command.js";
+import { helpCommand, ORDERED_TOPIC_NAMES } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
 import { versionCommand } from "./root/shared/version-command.js";
-import { HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
-const HELP_TOPIC_LIST = HELP_TOPIC_NAMES.map((topic) => `  ${topic}`).join("\n");
+const HELP_TOPIC_LIST = ORDERED_TOPIC_NAMES.map((topic) => `  ${topic}`).join("\n");
 const LEARN_MORE_FOOTER = `LEARN MORE\n  Use 'axm help <topic>' to read a topic page.\n\nTOPICS\n${HELP_TOPIC_LIST}\n\nCOMMAND HELP\n  Use 'axm <command> --help' for command help.\n  Report issues at https://github.com/agentxm/axm/issues`;
 
 removeBuiltInFlag(GlobalFlag.Completions);

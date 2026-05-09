@@ -35,7 +35,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "exit-codes",
 ];
 
-const ORDERED_TOPIC_NAMES: ReadonlyArray<HelpTopicName> = (() => {
+export const ORDERED_TOPIC_NAMES: ReadonlyArray<HelpTopicName> = (() => {
   const rank = new Map(TOPIC_ORDER.map((name, index) => [name, index]));
   return [...HELP_TOPIC_NAMES].sort((a, b) => {
     const ra = rank.get(a) ?? Number.MAX_SAFE_INTEGER;

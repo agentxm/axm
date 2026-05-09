@@ -1,5 +1,5 @@
 import { CliError } from "effect/unstable/cli";
-import { AppError, exitCodeFor, renderAppError } from "../app-error/index.js";
+import { AppError, ExitCode, exitCodeFor, renderAppError } from "../app-error/index.js";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
@@ -30,10 +30,10 @@ export interface ErrorClassification {
  * - json:        typed error JSON to stdout + brief message to stderr
  * Exit codes:
  * - ShowHelp (no errors) → 0 (help successfully displayed)
- * - ShowHelp (with errors) → 1 (help displayed due to usage error)
+ * - ShowHelp (with errors) → 2 (usage — help shown due to invocation error)
  * - EffectCliExit → custom exit code
  * - CliError → 2 (usage/validation — bad flags, missing args)
- * - Other → 1 (application/runtime)
+ * - Other → 10 (unexpected internal error)
  */
 export const classifyError = (error: unknown, format: OutputFormat): ErrorClassification => {
   if (isEffectCliExit(error)) {
@@ -56,11 +56,10 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
         type: "error",
         code: error.code,
         message: error.message,
-        exitCode,
       },
       output: {
         channel: "stdout",
-        content: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, exitCode), null, 2) + "\n",
+        content: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n",
       },
       stderrMessage: `\u2717 ${error.message}`,
     };
@@ -68,7 +67,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
 
   if (CliError.isCliError(error)) {
     if (error._tag === "ShowHelp") {
-      return { exitCode: error.errors.length > 0 ? 1 : 0 };
+      return { exitCode: error.errors.length > 0 ? ExitCode.Usage : ExitCode.Success };
     }
 
     if (format !== "text") {
@@ -77,12 +76,11 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
           ? error.errors.map((e: { message?: string }) => e.message ?? String(e)).join("; ")
           : error.message;
       return {
-        exitCode: 2,
+        exitCode: ExitCode.Usage,
         errorEvent: {
           type: "error",
           code: "usage",
           message,
-          exitCode: 2,
         },
         output: {
           channel: "stdout",
@@ -91,7 +89,6 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
               makeJsonErrorEnvelope({
                 code: "usage",
                 message,
-                exitCode: 2,
               }),
               null,
               2,
@@ -100,7 +97,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
       };
     }
 
-    return { exitCode: 2 };
+    return { exitCode: ExitCode.Usage };
   }
 
   const message = error instanceof Error ? error.message : String(error);
@@ -108,18 +105,17 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
 
   if (format === "text") {
     return {
-      exitCode: 1,
+      exitCode: ExitCode.Internal,
       output: { channel: "stderr", content: `\u2717 ${message}` },
     };
   }
 
   return {
-    exitCode: 1,
+    exitCode: ExitCode.Internal,
     errorEvent: {
       type: "error",
       code,
       message,
-      exitCode: 1,
     },
     output: {
       channel: "stdout",
@@ -128,7 +124,6 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
           makeJsonErrorEnvelope({
             code,
             message,
-            exitCode: 1,
           }),
           null,
           2,

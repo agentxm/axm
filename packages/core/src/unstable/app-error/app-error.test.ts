@@ -3,19 +3,29 @@ import * as Schema from "effect/Schema";
 
 import {
   AppError,
-  AppErrorCodeDescriptions,
   AppErrorCodeSchema,
   AppErrorCodes,
+  ExitCode,
+  exitCodeFor,
   makeAppError,
 } from "./app-error.js";
 
 describe("AppError", () => {
-  it("derives codes from the schema and exposes descriptions", () => {
+  it("derives codes from the schema", () => {
     const decode = Schema.decodeUnknownSync(AppErrorCodeSchema);
 
     expect(decode("auth")).toBe("auth");
-    expect(Object.keys(AppErrorCodeDescriptions).sort()).toEqual([...AppErrorCodes].sort());
-    expect(AppErrorCodeDescriptions.auth).toContain("not authenticated");
+  });
+
+  it("maps every AppErrorCode to a defined ExitCode (1:1 except Success)", () => {
+    const exitCodeValues = new Set<number>(Object.values(ExitCode));
+    const mappedExitCodes = AppErrorCodes.map((code) => exitCodeFor(code));
+
+    for (const code of mappedExitCodes) {
+      expect(exitCodeValues.has(code)).toBe(true);
+    }
+    expect(new Set(mappedExitCodes).size).toBe(AppErrorCodes.length);
+    expect(mappedExitCodes.length).toBe(exitCodeValues.size - 1);
   });
 
   it("constructs with all fields", () => {

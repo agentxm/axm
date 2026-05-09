@@ -23,9 +23,10 @@ progress, logs, breadcrumbs, and error events to stderr in machine mode.
 #### Scenario: Error JSON uses the standard error envelope
 
 - **WHEN** a JSON-capable command fails
-- **THEN** stdout SHALL contain `ok: false`, `code`, `message`, and `exitCode`
+- **THEN** stdout SHALL contain `ok: false`, `code`, and `message`
 - **AND** stdout MAY contain `howToFix` and `breadcrumbs`
 - **AND** stdout SHALL NOT contain `details`
+- **AND** stdout SHALL NOT restate the process exit status as `exitCode`
 - **AND** stderr SHALL include an `error` NDJSON event for the same failure
 
 #### Scenario: Machine stderr events are unversioned

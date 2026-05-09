@@ -51,7 +51,6 @@ export const ErrorEventSchema = Schema.Struct({
   type: Schema.Literal("error"),
   code: Schema.String,
   message: Schema.String,
-  exitCode: Schema.optional(Schema.Number),
 }).annotate({
   identifier: "ErrorEvent",
   title: "Error Event",

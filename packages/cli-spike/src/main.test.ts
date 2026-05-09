@@ -322,7 +322,7 @@ describe("axm-spike telemetry demos", () => {
       const request = await waitForErrorRequest(server);
       const body = expectErrorRequestBody(request.body);
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(10);
       expect(result.stderr).toContain("Simulated handled telemetry failure");
       expect(request.url).toBe("/v1/errors");
       expect(body.errors[0]).toEqual({
@@ -349,7 +349,7 @@ describe("axm-spike telemetry demos", () => {
       const request = await waitForErrorRequest(server);
       const body = expectErrorRequestBody(request.body);
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(10);
       expect(result.stderr).toContain("Simulated defect telemetry failure");
       expect(request.url).toBe("/v1/errors");
       expect(body.errors[0]).toEqual({

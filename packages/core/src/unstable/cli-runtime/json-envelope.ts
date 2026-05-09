@@ -10,7 +10,6 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   code: AppErrorCodeSchema,
   message: Schema.String,
   breadcrumbs: Schema.optional(Schema.Array(BreadcrumbSchema)),
-  exitCode: Schema.Number,
 }).annotate({
   identifier: "JsonErrorEnvelope",
   title: "JSON Error Envelope",
@@ -81,7 +80,6 @@ export const makeJsonErrorEnvelope = (args: {
   readonly code: AppErrorCode;
   readonly message: string;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
-  readonly exitCode: number;
 }): JsonErrorEnvelope => ({
   ok: false,
   code: args.code,
@@ -89,16 +87,11 @@ export const makeJsonErrorEnvelope = (args: {
   ...(args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
     ? { breadcrumbs: [...args.breadcrumbs] }
     : {}),
-  exitCode: args.exitCode,
 });
 
-export const makeJsonErrorEnvelopeFromAppError = (
-  error: AppError,
-  exitCode: number,
-): JsonErrorEnvelope =>
+export const makeJsonErrorEnvelopeFromAppError = (error: AppError): JsonErrorEnvelope =>
   makeJsonErrorEnvelope({
     code: error.code,
     message: error.message,
     breadcrumbs: error.breadcrumbs ?? [],
-    exitCode,
   });

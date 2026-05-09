@@ -101,7 +101,7 @@ describe("structured output (--json)", () => {
     it("keeps usage diagnostics on stderr in json mode", async () => {
       const result = await runCli(["token", "--nonexistent-flag", "--json"]);
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(2);
       expect(parseJson(result.stdout)).toMatchObject({
         type: "help",
         usage: "axm token [flags]",

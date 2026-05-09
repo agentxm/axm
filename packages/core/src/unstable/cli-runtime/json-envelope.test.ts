@@ -60,7 +60,6 @@ describe("JsonEnvelopeSchema", () => {
           },
         ],
       }),
-      4,
     );
 
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
@@ -73,7 +72,6 @@ describe("JsonEnvelopeSchema", () => {
           description: "Sign in, then retry.",
         },
       ],
-      exitCode: 4,
     });
   });
 });

@@ -1,8 +1,8 @@
 export {
   AppError,
-  AppErrorCodeDescriptions,
   AppErrorCodeSchema,
   AppErrorCodes,
+  ExitCode,
   exitCodeFor,
   makeAppError,
   type AppErrorCode,

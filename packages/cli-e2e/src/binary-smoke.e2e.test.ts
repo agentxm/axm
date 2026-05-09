@@ -45,7 +45,7 @@ describe("compiled binary smoke", () => {
         },
       );
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(10);
       expect(getOutput(result)).toContain("Workspace settings not found");
       expect(getOutput(result)).toContain("axm setup");
     } finally {

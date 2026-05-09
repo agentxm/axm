@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
-import { exitCodeFor, renderAppError } from "../app-error/index.js";
+import { ExitCode, exitCodeFor, renderAppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
@@ -71,13 +71,12 @@ const writeMachineBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void =
   }
 };
 
-const writeMachineError = (error: AppError, exitCode: number): void => {
+const writeMachineError = (error: AppError): void => {
   writeStderr(
     JSON.stringify({
       type: "error",
       code: error.code,
       message: error.message,
-      exitCode,
     }),
   );
 };
@@ -86,7 +85,7 @@ export type ExpectedCliError = AppError | PromptCancelled;
 export type CliRuntimeFoundation = CliRenderer | Verbosity;
 
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
-  error._tag === "PromptCancelled" ? 0 : exitCodeFor(error.code);
+  error._tag === "PromptCancelled" ? ExitCode.Success : exitCodeFor(error.code);
 
 const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
   Effect.gen(function* () {
@@ -109,12 +108,9 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
       return;
     }
 
-    const exitCode = defaultExitCodeForExpectedError(error);
     writeMachineBreadcrumbs(error.breadcrumbs ?? []);
-    writeMachineError(error, exitCode);
-    process.stdout.write(
-      JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, exitCode), null, 2) + "\n",
-    );
+    writeMachineError(error);
+    process.stdout.write(JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n");
     writeStderr(`\u2717 ${error.message}`);
   });
 

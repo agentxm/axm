@@ -307,8 +307,7 @@ JSON errors use a fixed envelope:
   "message": "No authentication token is available",
   "breadcrumbs": [
     { "task": "login", "description": "Authenticate", "command": ["axm", "auth", "login"] }
-  ],
-  "exitCode": 4
+  ]
 }
 ```
 
@@ -318,8 +317,10 @@ Rules:
 - include `code`; this is the stable agent-facing discriminator
 - include `message`; it is user-facing prose
 - include `breadcrumbs` for structured follow-up tasks when useful
-- include `exitCode`
 - emit a matching stderr `error` event in machine mode
+
+The shell already conveys the process exit status, so the envelope does not
+restate it.
 
 ---
 
@@ -358,7 +359,7 @@ Recommended stderr event shape:
 ```json
 {"type":"progress","phase":"download","percent":25,"message":"Downloading"}
 {"type":"log","level":"info","message":"Resolved 3 skills"}
-{"type":"error","code":"auth","message":"No authentication token is available","exitCode":4}
+{"type":"error","code":"auth","message":"No authentication token is available"}
 ```
 
 ---
@@ -383,8 +384,8 @@ commands.
 3. Convert read-only commands first: list, info, and whoami-style queries
 4. Convert mutating commands next with operation summary schemas
 5. Keep `--json` off commands until their contract passes the shipping gate
-6. Keep JSON error payloads aligned with `ok`, `code`, `category`, `message`,
-   `breadcrumbs`, and `exitCode`
+6. Keep JSON error payloads aligned with `ok`, `code`, `message`, and
+   `breadcrumbs`
 7. Add help-level field documentation and machine-mode tests per command
 
 ---

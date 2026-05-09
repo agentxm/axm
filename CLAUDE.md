@@ -172,7 +172,7 @@ use `../external/Effect-TS/effect-smol`, not `../../Effect-TS/effect-smol`.
 
 | Package                  | Version         | Local path                          | Upstream                                                          | Tag                    |
 | ------------------------ | --------------- | ----------------------------------- | ----------------------------------------------------------------- | ---------------------- |
-| `effect` (+ `@effect/*`) | `4.0.0-beta.50` | `../external/Effect-TS/effect-smol` | [Effect-TS/effect-smol](https://github.com/Effect-TS/effect-smol) | `effect@4.0.0-beta.50` |
+| `effect` (+ `@effect/*`) | `4.0.0-beta.64` | `../external/Effect-TS/effect-smol` | [Effect-TS/effect-smol](https://github.com/Effect-TS/effect-smol) | `effect@4.0.0-beta.64` |
 
 Setup and sync instructions are in the
 [agentxm-internal CLAUDE.md](../agentxm-internal/CLAUDE.md#external-dependency-sources).

@@ -22,7 +22,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -57,7 +57,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -143,7 +143,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -199,7 +199,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "enum": ["ok", "error"] },
+                    "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                     "timestamp": { "type": "string" },
                     "serviceId": { "type": "string" },
                     "level": { "type": "string", "enum": ["basic", "standard", "full"] },
@@ -211,7 +211,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "correlationId": { "type": "string" }
                               },
                               "required": ["status", "correlationId"],
@@ -225,7 +225,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "traceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                               },
                               "required": ["status"],
@@ -239,7 +239,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "counter": { "type": "string" }
                               },
                               "required": ["status", "counter"],
@@ -253,7 +253,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "sentryEventId": {
                                   "anyOf": [{ "type": "string" }, { "type": "null" }]
                                 },
@@ -289,7 +289,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -310,7 +310,7 @@
         "responses": {
           "202": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -347,7 +347,7 @@
         "responses": {
           "202": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }

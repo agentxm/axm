@@ -407,16 +407,25 @@ export const HealthGetObservabilityVerificationParams = Schema.Struct({
   scenarioId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type HealthGetObservabilityVerification200 = {
-  readonly status: "ok" | "error";
+  readonly status: "ok" | "warn" | "error";
   readonly timestamp: string;
   readonly serviceId: string;
   readonly level: "basic" | "standard" | "full";
   readonly checks: {
-    readonly logging?: { readonly status: "ok" | "error"; readonly correlationId: string } | null;
-    readonly tracing?: { readonly status: "ok" | "error"; readonly traceId?: string | null } | null;
-    readonly metrics?: { readonly status: "ok" | "error"; readonly counter: string } | null;
+    readonly logging?: {
+      readonly status: "ok" | "warn" | "error";
+      readonly correlationId: string;
+    } | null;
+    readonly tracing?: {
+      readonly status: "ok" | "warn" | "error";
+      readonly traceId?: string | null;
+    } | null;
+    readonly metrics?: {
+      readonly status: "ok" | "warn" | "error";
+      readonly counter: string;
+    } | null;
     readonly errors?: {
-      readonly status: "ok" | "error";
+      readonly status: "ok" | "warn" | "error";
       readonly sentryEventId?: string | null;
       readonly reason?: "sentry-issue-reporter-disabled" | null;
       readonly message?: string | null;
@@ -424,21 +433,24 @@ export type HealthGetObservabilityVerification200 = {
   };
 };
 export const HealthGetObservabilityVerification200 = Schema.Struct({
-  status: Schema.Literals(["ok", "error"]),
+  status: Schema.Literals(["ok", "warn", "error"]),
   timestamp: Schema.String,
   serviceId: Schema.String,
   level: Schema.Literals(["basic", "standard", "full"]),
   checks: Schema.Struct({
     logging: Schema.optionalKey(
       Schema.Union([
-        Schema.Struct({ status: Schema.Literals(["ok", "error"]), correlationId: Schema.String }),
+        Schema.Struct({
+          status: Schema.Literals(["ok", "warn", "error"]),
+          correlationId: Schema.String,
+        }),
         Schema.Null,
       ]),
     ),
     tracing: Schema.optionalKey(
       Schema.Union([
         Schema.Struct({
-          status: Schema.Literals(["ok", "error"]),
+          status: Schema.Literals(["ok", "warn", "error"]),
           traceId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
         }),
         Schema.Null,
@@ -446,14 +458,14 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
     ),
     metrics: Schema.optionalKey(
       Schema.Union([
-        Schema.Struct({ status: Schema.Literals(["ok", "error"]), counter: Schema.String }),
+        Schema.Struct({ status: Schema.Literals(["ok", "warn", "error"]), counter: Schema.String }),
         Schema.Null,
       ]),
     ),
     errors: Schema.optionalKey(
       Schema.Union([
         Schema.Struct({
-          status: Schema.Literals(["ok", "error"]),
+          status: Schema.Literals(["ok", "warn", "error"]),
           sentryEventId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
           reason: Schema.optionalKey(
             Schema.Union([Schema.Literal("sentry-issue-reporter-disabled"), Schema.Null]),

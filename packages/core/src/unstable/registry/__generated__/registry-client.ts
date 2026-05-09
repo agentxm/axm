@@ -234,16 +234,9 @@ export type UserId = string;
 export const UserId = Schema.String.check(
   Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
     title: "User ID",
-    description: "Unique user identifier.",
+    description:
+      "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
     examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
-export type TokenId = string;
-export const TokenId = Schema.String.check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Token ID",
-    description: "Unique identifier of the token used for this request.",
-    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
 export type ResourceRestrictions = { readonly extensions: ReadonlyArray<string> | null };
@@ -273,11 +266,12 @@ export const UnauthorizedError = Schema.Struct({
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
 });
-export type TokenId1 = string;
-export const TokenId1 = Schema.String.check(
+export type TokenId = string;
+export const TokenId = Schema.String.check(
   Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
     title: "Token ID",
-    description: "Unique token identifier.",
+    description:
+      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
     examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
@@ -348,15 +342,6 @@ export const CreateTokenRequest = Schema.Struct({
   title: "Create Token Request",
   description: "Request body for creating a new personal access token.",
 });
-export type TokenId2 = string;
-export const TokenId2 = Schema.String.check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Token ID",
-    description:
-      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
 export type Handle = string;
 export const Handle = Schema.String.check(
   Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$"), {
@@ -369,6 +354,84 @@ export type OwnerResponse = { readonly displayName: string };
 export const OwnerResponse = Schema.Struct({
   displayName: Schema.String.annotate({ description: "Display name for the owner account." }),
 }).annotate({ title: "Owner Response", description: "Minimal owner summary for machine clients." });
+export type CreateTeamBody = {
+  readonly displayName: string;
+  readonly description?: string | null | null;
+};
+export const CreateTeamBody = Schema.Struct({
+  displayName: Schema.String.annotate({ description: "Display name for the team." }),
+  description: Schema.optionalKey(
+    Schema.Union([
+      Schema.Union([Schema.String, Schema.Null]).annotate({
+        description: "Optional description for the team.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({
+  title: "Create Team Body",
+  description: "Request body for creating a new team under an organization.",
+});
+export type TeamId = string;
+export const TeamId = Schema.String.check(
+  Schema.isPattern(new RegExp("^team_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Team ID",
+    description:
+      "Identifies a team within an organization. Teams group members and receive extension grants that widen access beyond a private extension's owning org.",
+    examples: ["team_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type OrgId = string;
+export const OrgId = Schema.String.check(
+  Schema.isPattern(new RegExp("^org_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Organization ID",
+    description:
+      "Identifies an organization. Organizations own handles and govern team membership and extension publishing permissions.",
+    examples: ["org_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type UserIdRef = string;
+export const UserIdRef = Schema.String.check(
+  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "User ID",
+    description:
+      "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+    examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
+    readOnly: true,
+  }),
+);
+export type UpdateTeamBody = {
+  readonly displayName?: string | null;
+  readonly description?: string | null | null;
+};
+export const UpdateTeamBody = Schema.Struct({
+  displayName: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "New display name for the team." }),
+      Schema.Null,
+    ]),
+  ),
+  description: Schema.optionalKey(
+    Schema.Union([
+      Schema.Union([Schema.String, Schema.Null]).annotate({
+        description: "New description for the team (null to clear).",
+      }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({
+  title: "Update Team Body",
+  description:
+    "Partial update body for a team. At least one of displayName or description must be provided.",
+});
+export type ChangeTeamMemberRoleBody = { readonly role: "admin" | "member" };
+export const ChangeTeamMemberRoleBody = Schema.Struct({
+  role: Schema.Literals(["admin", "member"]).annotate({
+    title: "Team Role",
+    description:
+      "Role within a team — 'admin' manages membership and grants; 'member' inherits grants.",
+  }),
+}).annotate({ title: "Change Team Member Role Body" });
 export type ExtensionName = string;
 export const ExtensionName = Schema.String;
 export type ExtensionType =
@@ -427,15 +490,34 @@ export const Author = Schema.Struct({
 }).annotate({ title: "Author", description: "Author details: name, email, and homepage URL." });
 export type VersionConstraint = string;
 export const VersionConstraint = Schema.String;
-export type PatchVisibilityBody = { readonly visibility: "public" | "unlisted" | "private" };
+export type PatchVisibilityBody = {
+  readonly visibility?: "public" | "internal" | "private" | null;
+  readonly listed?: boolean | null;
+};
 export const PatchVisibilityBody = Schema.Struct({
-  visibility: Schema.Literals(["public", "unlisted", "private"]).annotate({
-    title: "Visibility",
-    description: "Target visibility level for the extension.",
-  }),
+  visibility: Schema.optionalKey(
+    Schema.Union([
+      Schema.Literals(["public", "internal", "private"]).annotate({
+        title: "Visibility",
+        description: "Target visibility tier for the extension.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  listed: Schema.optionalKey(
+    Schema.Union([
+      Schema.Boolean.annotate({
+        title: "Listed",
+        description:
+          "Whether the extension appears on discovery surfaces (search, browse). Independent of visibility.",
+      }),
+      Schema.Null,
+    ]),
+  ),
 }).annotate({
   title: "Patch Visibility Body",
-  description: "Request body for updating an extension's visibility.",
+  description:
+    "Request body for updating an extension's visibility and/or listed flag. At least one field is required.",
 });
 export type ExtensionId = string;
 export const ExtensionId = Schema.String.check(
@@ -458,15 +540,90 @@ export const DeprecateBody = Schema.Struct({
     ]),
   ),
 }).annotate({ title: "Deprecate Body", description: "Request body for deprecating an extension." });
-export type UserId1 = string;
-export const UserId1 = Schema.String.check(
-  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "User ID",
-    description:
-      "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
-    examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
+export type PublishFindingLocation = {
+  readonly file: string;
+  readonly line?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
+  readonly column?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
+  readonly byteOffset?:
+    | number
+    | "NaN"
+    | "Infinity"
+    | "-Infinity"
+    | "Infinity"
+    | "-Infinity"
+    | "NaN";
+  readonly byteLength?:
+    | number
+    | "NaN"
+    | "Infinity"
+    | "-Infinity"
+    | "Infinity"
+    | "-Infinity"
+    | "NaN";
+};
+export const PublishFindingLocation = Schema.Struct({
+  file: Schema.String,
+  line: Schema.optionalKey(
+    Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+  ),
+  column: Schema.optionalKey(
+    Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+  ),
+  byteOffset: Schema.optionalKey(
+    Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+  ),
+  byteLength: Schema.optionalKey(
+    Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+  ),
+}).annotate({
+  title: "Finding Location",
+  description: "Accessor-relative location of a lint finding.",
+});
+export type PublishIdentityMismatchEntry = {
+  readonly field: "owner" | "type" | "name" | "version";
+  readonly urlPath: string | null;
+  readonly content: string | null;
+};
+export const PublishIdentityMismatchEntry = Schema.Struct({
+  field: Schema.Literals(["owner", "type", "name", "version"]),
+  urlPath: Schema.Union([Schema.String, Schema.Null]),
+  content: Schema.Union([Schema.String, Schema.Null]),
+}).annotate({
+  title: "Identity Mismatch Entry",
+  description: "Single divergent identity field between URL-path and archive.",
+});
 export type PutCollaboratorBody = { readonly role: "admin" | "write" | "read" };
 export const PutCollaboratorBody = Schema.Struct({
   role: Schema.Literals(["admin", "write", "read"]).annotate({
@@ -696,8 +853,20 @@ export const AuthMeUser = Schema.Struct({
     Schema.Null,
   ]),
 }).annotate({ title: "Authenticated User", description: "Your profile information." });
+export type AddTeamMemberBody = { readonly userId: UserId; readonly role: "admin" | "member" };
+export const AddTeamMemberBody = Schema.Struct({
+  userId: UserId,
+  role: Schema.Literals(["admin", "member"]).annotate({
+    title: "Team Role",
+    description:
+      "Role within a team — 'admin' manages membership and grants; 'member' inherits grants.",
+  }),
+}).annotate({
+  title: "Add Team Member Body",
+  description: "Request body identifying the user to add to the team and the role to grant.",
+});
 export type AuthMeToken = {
-  readonly id: TokenId;
+  readonly id: string;
   readonly type: "session" | "pat" | "oidc";
   readonly name: string | null;
   readonly scopes: ReadonlyArray<string>;
@@ -705,7 +874,9 @@ export type AuthMeToken = {
   readonly expires_at: string;
 };
 export const AuthMeToken = Schema.Struct({
-  id: TokenId,
+  id: Schema.String.annotate({
+    description: "Opaque identifier of the credential used for this request.",
+  }),
   type: Schema.Literals(["session", "pat", "oidc"]).annotate({
     title: "Token Type",
     description: "The type of authentication token.",
@@ -725,7 +896,7 @@ export const AuthMeToken = Schema.Struct({
   description: "Details about the token you used to authenticate.",
 });
 export type TokenListItem = {
-  readonly id: TokenId1;
+  readonly id: TokenId;
   readonly name: string | null;
   readonly type: string;
   readonly scopes: ReadonlyArray<string>;
@@ -734,7 +905,7 @@ export type TokenListItem = {
   readonly last_used_at: IsoDateTimeString | null;
 };
 export const TokenListItem = Schema.Struct({
-  id: TokenId1,
+  id: TokenId,
   name: Schema.Union([
     Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
     Schema.Null,
@@ -745,6 +916,28 @@ export const TokenListItem = Schema.Struct({
   expires_at: IsoDateTimeString,
   last_used_at: Schema.Union([IsoDateTimeString, Schema.Null]),
 }).annotate({ title: "Token List Item", description: "Summary of an access token." });
+export type CreateTokenResponse = {
+  readonly id: TokenId;
+  readonly token: string;
+  readonly name: string;
+  readonly scopes: ReadonlyArray<string>;
+  readonly created_at: IsoDateTimeString;
+  readonly expires_at: IsoDateTimeString;
+};
+export const CreateTokenResponse = Schema.Struct({
+  id: TokenId,
+  token: Schema.String.annotate({
+    description: "The token value — save this, it won't be shown again.",
+    readOnly: true,
+  }),
+  name: Schema.String,
+  scopes: Schema.Array(Schema.String),
+  created_at: IsoDateTimeString,
+  expires_at: IsoDateTimeString,
+}).annotate({
+  title: "Create Token Response",
+  description: "Your new access token. The token value is only shown once — save it now.",
+});
 export type ForbiddenError = {
   readonly kind: "ForbiddenError";
   readonly type: string;
@@ -767,27 +960,76 @@ export const ForbiddenError = Schema.Struct({
     Schema.Union([ScopeCheckDetails, AuthorizationDenyDetails, PublishDetails]),
   ),
 });
-export type CreateTokenResponse = {
-  readonly id: TokenId2;
-  readonly token: string;
-  readonly name: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly created_at: IsoDateTimeString;
-  readonly expires_at: IsoDateTimeString;
+export type UpsertTeamGrantBody = {
+  readonly teamId: TeamId;
+  readonly role: "read" | "write" | "admin";
 };
-export const CreateTokenResponse = Schema.Struct({
-  id: TokenId2,
-  token: Schema.String.annotate({
-    description: "The token value — save this, it won't be shown again.",
-    readOnly: true,
+export const UpsertTeamGrantBody = Schema.Struct({
+  teamId: TeamId,
+  role: Schema.Literals(["read", "write", "admin"]),
+}).annotate({ title: "Upsert Team Grant Body" });
+export type TeamGrant = {
+  readonly teamId: TeamId;
+  readonly role: "read" | "write" | "admin";
+  readonly grantedBy: string;
+  readonly grantedAt: string;
+};
+export const TeamGrant = Schema.Struct({
+  teamId: TeamId,
+  role: Schema.Literals(["read", "write", "admin"]),
+  grantedBy: Schema.String,
+  grantedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "Team Grant" });
+export type Team = {
+  readonly id: TeamId;
+  readonly organizationId: OrgId;
+  readonly displayName: string;
+  readonly description: string | null;
+  readonly createdAt: string;
+  readonly createdBy: UserIdRef;
+  readonly updatedAt: string;
+};
+export const Team = Schema.Struct({
+  id: TeamId,
+  organizationId: OrgId,
+  displayName: Schema.String,
+  description: Schema.Union([Schema.String, Schema.Null]),
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  createdBy: UserIdRef,
+  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "Team" });
+export type TeamMembership = {
+  readonly teamId: TeamId;
+  readonly userId: UserId;
+  readonly role: "admin" | "member";
+  readonly addedAt: string;
+  readonly addedBy: UserIdRef;
+};
+export const TeamMembership = Schema.Struct({
+  teamId: TeamId,
+  userId: UserId,
+  role: Schema.Literals(["admin", "member"]).annotate({
+    title: "Team Role",
+    description:
+      "Role within a team — 'admin' manages membership and grants; 'member' inherits grants.",
   }),
-  name: Schema.String,
-  scopes: Schema.Array(Schema.String),
-  created_at: IsoDateTimeString,
-  expires_at: IsoDateTimeString,
+  addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  addedBy: UserIdRef,
+}).annotate({ title: "Team Membership" });
+export type PublishIdentity = {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
+};
+export const PublishIdentity = Schema.Struct({
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: ExactSemverVersion,
 }).annotate({
-  title: "Create Token Response",
-  description: "Your new access token. The token value is only shown once — save it now.",
+  title: "Publish Identity",
+  description: "URL-path identity of the extension version under publish.",
 });
 export type SearchHit = {
   readonly name: ExtensionName;
@@ -815,6 +1057,27 @@ export const SearchHit = Schema.Struct({
     Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
   ),
 }).annotate({ title: "Search Hit", description: "A single extension matched by a search query." });
+export type PublishLintFinding = {
+  readonly kind: "advisory" | "autofixable";
+  readonly ruleId: string;
+  readonly severity: "error" | "warning" | "info";
+  readonly message: string;
+  readonly location?: PublishFindingLocation;
+  readonly path: string;
+  readonly suggestions: ReadonlyArray<string>;
+};
+export const PublishLintFinding = Schema.Struct({
+  kind: Schema.Literals(["advisory", "autofixable"]),
+  ruleId: Schema.String,
+  severity: Schema.Literals(["error", "warning", "info"]),
+  message: Schema.String,
+  location: Schema.optionalKey(PublishFindingLocation),
+  path: Schema.String,
+  suggestions: Schema.Array(Schema.String),
+}).annotate({
+  title: "Publish Lint Finding",
+  description: "One lint finding produced against the publish subject.",
+});
 export type AuthMeResponse = {
   readonly user: AuthMeUser;
   readonly orgs: ReadonlyArray<never>;
@@ -847,6 +1110,43 @@ export const TokenListResponse = Schema.Struct({
     Schema.Null,
   ]),
 }).annotate({ title: "Token List Response", description: "A page of your access tokens." });
+export type TeamList = { readonly items: ReadonlyArray<Team>; readonly nextCursor: string | null };
+export const TeamList = Schema.Struct({
+  items: Schema.Array(Team),
+  nextCursor: Schema.Union([Schema.String, Schema.Null]),
+}).annotate({ title: "Team List" });
+export type TeamMembershipList = {
+  readonly items: ReadonlyArray<TeamMembership>;
+  readonly nextCursor: string | null;
+};
+export const TeamMembershipList = Schema.Struct({
+  items: Schema.Array(TeamMembership),
+  nextCursor: Schema.Union([Schema.String, Schema.Null]),
+}).annotate({ title: "Team Membership List" });
+export type ExtensionIdentityMismatchError = {
+  readonly kind: "ExtensionIdentityMismatchError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly error: "extension_identity_mismatch";
+  readonly identity: PublishIdentity;
+  readonly mismatches: ReadonlyArray<PublishIdentityMismatchEntry>;
+};
+export const ExtensionIdentityMismatchError = Schema.Struct({
+  kind: Schema.Literal("ExtensionIdentityMismatchError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  error: Schema.Literal("extension_identity_mismatch"),
+  identity: PublishIdentity,
+  mismatches: Schema.Array(PublishIdentityMismatchEntry),
+});
 export type SearchResponse = {
   readonly extensions: ReadonlyArray<SearchHit>;
   readonly has_more: boolean;
@@ -866,6 +1166,32 @@ export const SearchResponse = Schema.Struct({
 }).annotate({
   title: "Search Response",
   description: "A page of extensions matching the search query.",
+});
+export type ExtensionLintFailedError = {
+  readonly kind: "ExtensionLintFailedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: string;
+  readonly error: "extension_lint_failed";
+  readonly identity: PublishIdentity;
+  readonly displayRoot: string;
+  readonly findings: ReadonlyArray<PublishLintFinding>;
+};
+export const ExtensionLintFailedError = Schema.Struct({
+  kind: Schema.Literal("ExtensionLintFailedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.String,
+  error: Schema.Literal("extension_lint_failed"),
+  identity: PublishIdentity,
+  displayRoot: Schema.String,
+  findings: Schema.Array(PublishLintFinding),
 });
 // schemas
 export type MetaGet200 = MetaResponse;
@@ -1012,6 +1338,112 @@ export type OwnersGetOwner400 = DecodeErrorResponse;
 export const OwnersGetOwner400 = DecodeErrorResponse;
 export type OwnersGetOwner404 = NotFoundError;
 export const OwnersGetOwner404 = NotFoundError;
+export type OrgsTeamsListTeamsParams = {
+  readonly cursor?: string | null;
+  readonly limit?: string | null;
+};
+export const OrgsTeamsListTeamsParams = Schema.Struct({
+  cursor: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
+export type OrgsTeamsListTeams200 = TeamList;
+export const OrgsTeamsListTeams200 = TeamList;
+export type OrgsTeamsListTeams400 = DecodeErrorResponse;
+export const OrgsTeamsListTeams400 = DecodeErrorResponse;
+export type OrgsTeamsListTeams401 = UnauthorizedError;
+export const OrgsTeamsListTeams401 = UnauthorizedError;
+export type OrgsTeamsListTeams404 = NotFoundError;
+export const OrgsTeamsListTeams404 = NotFoundError;
+export type OrgsTeamsCreateTeamRequestJson = CreateTeamBody;
+export const OrgsTeamsCreateTeamRequestJson = CreateTeamBody;
+export type OrgsTeamsCreateTeam200 = Team;
+export const OrgsTeamsCreateTeam200 = Team;
+export type OrgsTeamsCreateTeam400 = InvalidRequestError | DecodeErrorResponse;
+export const OrgsTeamsCreateTeam400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
+export type OrgsTeamsCreateTeam401 = UnauthorizedError;
+export const OrgsTeamsCreateTeam401 = UnauthorizedError;
+export type OrgsTeamsCreateTeam403 = ForbiddenError;
+export const OrgsTeamsCreateTeam403 = ForbiddenError;
+export type OrgsTeamsCreateTeam404 = NotFoundError;
+export const OrgsTeamsCreateTeam404 = NotFoundError;
+export type OrgsTeamsGetTeam200 = Team;
+export const OrgsTeamsGetTeam200 = Team;
+export type OrgsTeamsGetTeam400 = DecodeErrorResponse;
+export const OrgsTeamsGetTeam400 = DecodeErrorResponse;
+export type OrgsTeamsGetTeam401 = UnauthorizedError;
+export const OrgsTeamsGetTeam401 = UnauthorizedError;
+export type OrgsTeamsGetTeam404 = NotFoundError;
+export const OrgsTeamsGetTeam404 = NotFoundError;
+export type OrgsTeamsDeleteTeam400 = DecodeErrorResponse;
+export const OrgsTeamsDeleteTeam400 = DecodeErrorResponse;
+export type OrgsTeamsDeleteTeam401 = UnauthorizedError;
+export const OrgsTeamsDeleteTeam401 = UnauthorizedError;
+export type OrgsTeamsDeleteTeam403 = ForbiddenError;
+export const OrgsTeamsDeleteTeam403 = ForbiddenError;
+export type OrgsTeamsDeleteTeam404 = NotFoundError;
+export const OrgsTeamsDeleteTeam404 = NotFoundError;
+export type OrgsTeamsUpdateTeamRequestJson = UpdateTeamBody;
+export const OrgsTeamsUpdateTeamRequestJson = UpdateTeamBody;
+export type OrgsTeamsUpdateTeam200 = Team;
+export const OrgsTeamsUpdateTeam200 = Team;
+export type OrgsTeamsUpdateTeam400 = InvalidRequestError | DecodeErrorResponse;
+export const OrgsTeamsUpdateTeam400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
+export type OrgsTeamsUpdateTeam401 = UnauthorizedError;
+export const OrgsTeamsUpdateTeam401 = UnauthorizedError;
+export type OrgsTeamsUpdateTeam403 = ForbiddenError;
+export const OrgsTeamsUpdateTeam403 = ForbiddenError;
+export type OrgsTeamsUpdateTeam404 = NotFoundError;
+export const OrgsTeamsUpdateTeam404 = NotFoundError;
+export type OrgsTeamsListTeamMembersParams = {
+  readonly cursor?: string | null;
+  readonly limit?: string | null;
+};
+export const OrgsTeamsListTeamMembersParams = Schema.Struct({
+  cursor: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
+export type OrgsTeamsListTeamMembers200 = TeamMembershipList;
+export const OrgsTeamsListTeamMembers200 = TeamMembershipList;
+export type OrgsTeamsListTeamMembers400 = DecodeErrorResponse;
+export const OrgsTeamsListTeamMembers400 = DecodeErrorResponse;
+export type OrgsTeamsListTeamMembers401 = UnauthorizedError;
+export const OrgsTeamsListTeamMembers401 = UnauthorizedError;
+export type OrgsTeamsListTeamMembers404 = NotFoundError;
+export const OrgsTeamsListTeamMembers404 = NotFoundError;
+export type OrgsTeamsAddTeamMemberRequestJson = AddTeamMemberBody;
+export const OrgsTeamsAddTeamMemberRequestJson = AddTeamMemberBody;
+export type OrgsTeamsAddTeamMember200 = TeamMembership;
+export const OrgsTeamsAddTeamMember200 = TeamMembership;
+export type OrgsTeamsAddTeamMember400 = DecodeErrorResponse;
+export const OrgsTeamsAddTeamMember400 = DecodeErrorResponse;
+export type OrgsTeamsAddTeamMember401 = UnauthorizedError;
+export const OrgsTeamsAddTeamMember401 = UnauthorizedError;
+export type OrgsTeamsAddTeamMember403 = ForbiddenError;
+export const OrgsTeamsAddTeamMember403 = ForbiddenError;
+export type OrgsTeamsAddTeamMember404 = NotFoundError;
+export const OrgsTeamsAddTeamMember404 = NotFoundError;
+export type OrgsTeamsAddTeamMember422 = UnprocessableEntityError;
+export const OrgsTeamsAddTeamMember422 = UnprocessableEntityError;
+export type OrgsTeamsRemoveTeamMember400 = DecodeErrorResponse;
+export const OrgsTeamsRemoveTeamMember400 = DecodeErrorResponse;
+export type OrgsTeamsRemoveTeamMember401 = UnauthorizedError;
+export const OrgsTeamsRemoveTeamMember401 = UnauthorizedError;
+export type OrgsTeamsRemoveTeamMember403 = ForbiddenError;
+export const OrgsTeamsRemoveTeamMember403 = ForbiddenError;
+export type OrgsTeamsRemoveTeamMember404 = NotFoundError;
+export const OrgsTeamsRemoveTeamMember404 = NotFoundError;
+export type OrgsTeamsChangeTeamMemberRoleRequestJson = ChangeTeamMemberRoleBody;
+export const OrgsTeamsChangeTeamMemberRoleRequestJson = ChangeTeamMemberRoleBody;
+export type OrgsTeamsChangeTeamMemberRole200 = TeamMembership;
+export const OrgsTeamsChangeTeamMemberRole200 = TeamMembership;
+export type OrgsTeamsChangeTeamMemberRole400 = DecodeErrorResponse;
+export const OrgsTeamsChangeTeamMemberRole400 = DecodeErrorResponse;
+export type OrgsTeamsChangeTeamMemberRole401 = UnauthorizedError;
+export const OrgsTeamsChangeTeamMemberRole401 = UnauthorizedError;
+export type OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
+export const OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
+export type OrgsTeamsChangeTeamMemberRole404 = NotFoundError;
+export const OrgsTeamsChangeTeamMemberRole404 = NotFoundError;
 export type ExtensionsListByOwner200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: ExtensionName;
@@ -1104,7 +1536,7 @@ export type ExtensionsGet200 = {
     readonly compatiblePackages?: ReadonlyArray<string> | null;
     readonly yanked_at?: IsoDateTimeString | null;
   }>;
-  readonly visibility?: "public" | "unlisted" | "private" | null;
+  readonly visibility?: "public" | "internal" | "private" | null;
   readonly deprecated_at?: IsoDateTimeString | null;
   readonly deprecation_notice?: string | null;
 };
@@ -1132,7 +1564,7 @@ export const ExtensionsGet200 = Schema.Struct({
   ),
   visibility: Schema.optionalKey(
     Schema.Union([
-      Schema.Literals(["public", "unlisted", "private"]).annotate({ readOnly: true }),
+      Schema.Literals(["public", "internal", "private"]).annotate({ readOnly: true }),
       Schema.Null,
     ]),
   ),
@@ -1153,6 +1585,7 @@ export type ExtensionsUpdateVisibility200 = {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly visibility: string;
+  readonly listed: boolean;
   readonly updatedAt: string;
 };
 export const ExtensionsUpdateVisibility200 = Schema.Struct({
@@ -1161,6 +1594,7 @@ export const ExtensionsUpdateVisibility200 = Schema.Struct({
   type: ExtensionType,
   name: ExtensionName,
   visibility: Schema.String,
+  listed: Schema.Boolean,
   updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
 export type ExtensionsUpdateVisibility400 = InvalidRequestError | DecodeErrorResponse;
@@ -1174,6 +1608,8 @@ export type ExtensionsUpdateVisibility403 = ForbiddenError;
 export const ExtensionsUpdateVisibility403 = ForbiddenError;
 export type ExtensionsUpdateVisibility404 = NotFoundError;
 export const ExtensionsUpdateVisibility404 = NotFoundError;
+export type ExtensionsUpdateVisibility422 = UnprocessableEntityError;
+export const ExtensionsUpdateVisibility422 = UnprocessableEntityError;
 export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -1276,8 +1712,15 @@ export type ExtensionsPublishVersion413 = PayloadTooLargeError;
 export const ExtensionsPublishVersion413 = PayloadTooLargeError;
 export type ExtensionsPublishVersion415 = UnsupportedMediaTypeError;
 export const ExtensionsPublishVersion415 = UnsupportedMediaTypeError;
-export type ExtensionsPublishVersion422 = UnprocessableEntityError;
-export const ExtensionsPublishVersion422 = UnprocessableEntityError;
+export type ExtensionsPublishVersion422 =
+  | UnprocessableEntityError
+  | ExtensionLintFailedError
+  | ExtensionIdentityMismatchError;
+export const ExtensionsPublishVersion422 = Schema.Union([
+  UnprocessableEntityError,
+  ExtensionLintFailedError,
+  ExtensionIdentityMismatchError,
+]);
 export type ExtensionsPublishVersion429 = TooManyRequestsError;
 export const ExtensionsPublishVersion429 = TooManyRequestsError;
 export type ExtensionsPublishVersion500 = InternalError;
@@ -1393,18 +1836,18 @@ export type ExtensionsUnyankVersion404 = NotFoundError;
 export const ExtensionsUnyankVersion404 = NotFoundError;
 export type CollaboratorsListCollaborators200 = {
   readonly collaborators: ReadonlyArray<{
-    readonly userId: UserId1;
+    readonly userId: UserId;
     readonly role: string;
-    readonly grantedBy: UserId1 | null;
+    readonly grantedBy: UserId | null;
     readonly createdAt: string;
   }>;
 };
 export const CollaboratorsListCollaborators200 = Schema.Struct({
   collaborators: Schema.Array(
     Schema.Struct({
-      userId: UserId1,
+      userId: UserId,
       role: Schema.String,
-      grantedBy: Schema.Union([UserId1, Schema.Null]).annotate({ readOnly: true }),
+      grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
       createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
     }),
   ),
@@ -1420,15 +1863,15 @@ export const CollaboratorsListCollaborators404 = NotFoundError;
 export type CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
 export const CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
 export type CollaboratorsUpsertCollaborator200 = {
-  readonly userId: UserId1;
+  readonly userId: UserId;
   readonly role: string;
-  readonly grantedBy: UserId1 | null;
+  readonly grantedBy: UserId | null;
   readonly createdAt: string;
 };
 export const CollaboratorsUpsertCollaborator200 = Schema.Struct({
-  userId: UserId1,
+  userId: UserId,
   role: Schema.String,
-  grantedBy: Schema.Union([UserId1, Schema.Null]).annotate({ readOnly: true }),
+  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
   createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
 export type CollaboratorsUpsertCollaborator400 = InvalidRequestError | DecodeErrorResponse;
@@ -1452,6 +1895,28 @@ export type CollaboratorsDeleteCollaborator404 = NotFoundError;
 export const CollaboratorsDeleteCollaborator404 = NotFoundError;
 export type CollaboratorsDeleteCollaborator409 = ConflictError;
 export const CollaboratorsDeleteCollaborator409 = ConflictError;
+export type TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
+export const TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
+export type TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
+export const TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
+export type TeamGrantsUpsertTeamExtensionGrant400 = DecodeErrorResponse;
+export const TeamGrantsUpsertTeamExtensionGrant400 = DecodeErrorResponse;
+export type TeamGrantsUpsertTeamExtensionGrant401 = UnauthorizedError;
+export const TeamGrantsUpsertTeamExtensionGrant401 = UnauthorizedError;
+export type TeamGrantsUpsertTeamExtensionGrant403 = ForbiddenError | ForbiddenError;
+export const TeamGrantsUpsertTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type TeamGrantsUpsertTeamExtensionGrant404 = NotFoundError;
+export const TeamGrantsUpsertTeamExtensionGrant404 = NotFoundError;
+export type TeamGrantsUpsertTeamExtensionGrant422 = UnprocessableEntityError;
+export const TeamGrantsUpsertTeamExtensionGrant422 = UnprocessableEntityError;
+export type TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
+export const TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
+export type TeamGrantsDeleteTeamExtensionGrant401 = UnauthorizedError;
+export const TeamGrantsDeleteTeamExtensionGrant401 = UnauthorizedError;
+export type TeamGrantsDeleteTeamExtensionGrant403 = ForbiddenError | ForbiddenError;
+export const TeamGrantsDeleteTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type TeamGrantsDeleteTeamExtensionGrant404 = NotFoundError;
+export const TeamGrantsDeleteTeamExtensionGrant404 = NotFoundError;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
@@ -1531,16 +1996,25 @@ export const HealthGetObservabilityVerificationParams = Schema.Struct({
   scenarioId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type HealthGetObservabilityVerification200 = {
-  readonly status: "ok" | "error";
+  readonly status: "ok" | "warn" | "error";
   readonly timestamp: string;
   readonly serviceId: string;
   readonly level: "basic" | "standard" | "full";
   readonly checks: {
-    readonly logging?: { readonly status: "ok" | "error"; readonly correlationId: string } | null;
-    readonly tracing?: { readonly status: "ok" | "error"; readonly traceId?: string | null } | null;
-    readonly metrics?: { readonly status: "ok" | "error"; readonly counter: string } | null;
+    readonly logging?: {
+      readonly status: "ok" | "warn" | "error";
+      readonly correlationId: string;
+    } | null;
+    readonly tracing?: {
+      readonly status: "ok" | "warn" | "error";
+      readonly traceId?: string | null;
+    } | null;
+    readonly metrics?: {
+      readonly status: "ok" | "warn" | "error";
+      readonly counter: string;
+    } | null;
     readonly errors?: {
-      readonly status: "ok" | "error";
+      readonly status: "ok" | "warn" | "error";
       readonly sentryEventId?: string | null;
       readonly reason?: "sentry-issue-reporter-disabled" | null;
       readonly message?: string | null;
@@ -1548,21 +2022,24 @@ export type HealthGetObservabilityVerification200 = {
   };
 };
 export const HealthGetObservabilityVerification200 = Schema.Struct({
-  status: Schema.Literals(["ok", "error"]),
+  status: Schema.Literals(["ok", "warn", "error"]),
   timestamp: Schema.String,
   serviceId: Schema.String,
   level: Schema.Literals(["basic", "standard", "full"]),
   checks: Schema.Struct({
     logging: Schema.optionalKey(
       Schema.Union([
-        Schema.Struct({ status: Schema.Literals(["ok", "error"]), correlationId: Schema.String }),
+        Schema.Struct({
+          status: Schema.Literals(["ok", "warn", "error"]),
+          correlationId: Schema.String,
+        }),
         Schema.Null,
       ]),
     ),
     tracing: Schema.optionalKey(
       Schema.Union([
         Schema.Struct({
-          status: Schema.Literals(["ok", "error"]),
+          status: Schema.Literals(["ok", "warn", "error"]),
           traceId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
         }),
         Schema.Null,
@@ -1570,14 +2047,14 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
     ),
     metrics: Schema.optionalKey(
       Schema.Union([
-        Schema.Struct({ status: Schema.Literals(["ok", "error"]), counter: Schema.String }),
+        Schema.Struct({ status: Schema.Literals(["ok", "warn", "error"]), counter: Schema.String }),
         Schema.Null,
       ]),
     ),
     errors: Schema.optionalKey(
       Schema.Union([
         Schema.Struct({
-          status: Schema.Literals(["ok", "error"]),
+          status: Schema.Literals(["ok", "warn", "error"]),
           sentryEventId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
           reason: Schema.optionalKey(
             Schema.Union([Schema.Literal("sentry-issue-reporter-disabled"), Schema.Null]),
@@ -1849,6 +2326,145 @@ export const make = (
           }),
         ),
       ),
+    OrgsTeamsListTeams: (handle, options) =>
+      HttpClientRequest.get(`/v1/orgs/${handle}/teams`).pipe(
+        HttpClientRequest.setUrlParams({
+          cursor: options?.params?.["cursor"] as any,
+          limit: options?.params?.["limit"] as any,
+        }),
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OrgsTeamsListTeams200),
+            "400": decodeError("OrgsTeamsListTeams400", OrgsTeamsListTeams400),
+            "401": decodeError("OrgsTeamsListTeams401", OrgsTeamsListTeams401),
+            "404": decodeError("OrgsTeamsListTeams404", OrgsTeamsListTeams404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsCreateTeam: (handle, options) =>
+      HttpClientRequest.post(`/v1/orgs/${handle}/teams`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OrgsTeamsCreateTeam200),
+            "400": decodeError("OrgsTeamsCreateTeam400", OrgsTeamsCreateTeam400),
+            "401": decodeError("OrgsTeamsCreateTeam401", OrgsTeamsCreateTeam401),
+            "403": decodeError("OrgsTeamsCreateTeam403", OrgsTeamsCreateTeam403),
+            "404": decodeError("OrgsTeamsCreateTeam404", OrgsTeamsCreateTeam404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsGetTeam: (handle, teamId, options) =>
+      HttpClientRequest.get(`/v1/orgs/${handle}/teams/${teamId}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OrgsTeamsGetTeam200),
+            "400": decodeError("OrgsTeamsGetTeam400", OrgsTeamsGetTeam400),
+            "401": decodeError("OrgsTeamsGetTeam401", OrgsTeamsGetTeam401),
+            "404": decodeError("OrgsTeamsGetTeam404", OrgsTeamsGetTeam404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsDeleteTeam: (handle, teamId, options) =>
+      HttpClientRequest.delete(`/v1/orgs/${handle}/teams/${teamId}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError("OrgsTeamsDeleteTeam400", OrgsTeamsDeleteTeam400),
+            "401": decodeError("OrgsTeamsDeleteTeam401", OrgsTeamsDeleteTeam401),
+            "403": decodeError("OrgsTeamsDeleteTeam403", OrgsTeamsDeleteTeam403),
+            "404": decodeError("OrgsTeamsDeleteTeam404", OrgsTeamsDeleteTeam404),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsUpdateTeam: (handle, teamId, options) =>
+      HttpClientRequest.patch(`/v1/orgs/${handle}/teams/${teamId}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OrgsTeamsUpdateTeam200),
+            "400": decodeError("OrgsTeamsUpdateTeam400", OrgsTeamsUpdateTeam400),
+            "401": decodeError("OrgsTeamsUpdateTeam401", OrgsTeamsUpdateTeam401),
+            "403": decodeError("OrgsTeamsUpdateTeam403", OrgsTeamsUpdateTeam403),
+            "404": decodeError("OrgsTeamsUpdateTeam404", OrgsTeamsUpdateTeam404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsListTeamMembers: (handle, teamId, options) =>
+      HttpClientRequest.get(`/v1/orgs/${handle}/teams/${teamId}/members`).pipe(
+        HttpClientRequest.setUrlParams({
+          cursor: options?.params?.["cursor"] as any,
+          limit: options?.params?.["limit"] as any,
+        }),
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OrgsTeamsListTeamMembers200),
+            "400": decodeError("OrgsTeamsListTeamMembers400", OrgsTeamsListTeamMembers400),
+            "401": decodeError("OrgsTeamsListTeamMembers401", OrgsTeamsListTeamMembers401),
+            "404": decodeError("OrgsTeamsListTeamMembers404", OrgsTeamsListTeamMembers404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsAddTeamMember: (handle, teamId, options) =>
+      HttpClientRequest.post(`/v1/orgs/${handle}/teams/${teamId}/members`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OrgsTeamsAddTeamMember200),
+            "400": decodeError("OrgsTeamsAddTeamMember400", OrgsTeamsAddTeamMember400),
+            "401": decodeError("OrgsTeamsAddTeamMember401", OrgsTeamsAddTeamMember401),
+            "403": decodeError("OrgsTeamsAddTeamMember403", OrgsTeamsAddTeamMember403),
+            "404": decodeError("OrgsTeamsAddTeamMember404", OrgsTeamsAddTeamMember404),
+            "422": decodeError("OrgsTeamsAddTeamMember422", OrgsTeamsAddTeamMember422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsRemoveTeamMember: (handle, teamId, userId, options) =>
+      HttpClientRequest.delete(`/v1/orgs/${handle}/teams/${teamId}/members/${userId}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError("OrgsTeamsRemoveTeamMember400", OrgsTeamsRemoveTeamMember400),
+            "401": decodeError("OrgsTeamsRemoveTeamMember401", OrgsTeamsRemoveTeamMember401),
+            "403": decodeError("OrgsTeamsRemoveTeamMember403", OrgsTeamsRemoveTeamMember403),
+            "404": decodeError("OrgsTeamsRemoveTeamMember404", OrgsTeamsRemoveTeamMember404),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    OrgsTeamsChangeTeamMemberRole: (handle, teamId, userId, options) =>
+      HttpClientRequest.patch(`/v1/orgs/${handle}/teams/${teamId}/members/${userId}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(OrgsTeamsChangeTeamMemberRole200),
+            "400": decodeError(
+              "OrgsTeamsChangeTeamMemberRole400",
+              OrgsTeamsChangeTeamMemberRole400,
+            ),
+            "401": decodeError(
+              "OrgsTeamsChangeTeamMemberRole401",
+              OrgsTeamsChangeTeamMemberRole401,
+            ),
+            "403": decodeError(
+              "OrgsTeamsChangeTeamMemberRole403",
+              OrgsTeamsChangeTeamMemberRole403,
+            ),
+            "404": decodeError(
+              "OrgsTeamsChangeTeamMemberRole404",
+              OrgsTeamsChangeTeamMemberRole404,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     ExtensionsListByOwner: (owner, options) =>
       HttpClientRequest.get(`/v1/extensions/${owner}`).pipe(
         withResponse(options?.config)(
@@ -1903,6 +2519,7 @@ export const make = (
             "401": decodeError("ExtensionsUpdateVisibility401", ExtensionsUpdateVisibility401),
             "403": decodeError("ExtensionsUpdateVisibility403", ExtensionsUpdateVisibility403),
             "404": decodeError("ExtensionsUpdateVisibility404", ExtensionsUpdateVisibility404),
+            "422": decodeError("ExtensionsUpdateVisibility422", ExtensionsUpdateVisibility422),
             orElse: unexpectedStatus,
           }),
         ),
@@ -2104,6 +2721,61 @@ export const make = (
           }),
         ),
       ),
+    TeamGrantsUpsertTeamExtensionGrant: (owner, type, name, options) =>
+      HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/grants`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(TeamGrantsUpsertTeamExtensionGrant200),
+            "400": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrant400",
+              TeamGrantsUpsertTeamExtensionGrant400,
+            ),
+            "401": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrant401",
+              TeamGrantsUpsertTeamExtensionGrant401,
+            ),
+            "403": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrant403",
+              TeamGrantsUpsertTeamExtensionGrant403,
+            ),
+            "404": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrant404",
+              TeamGrantsUpsertTeamExtensionGrant404,
+            ),
+            "422": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrant422",
+              TeamGrantsUpsertTeamExtensionGrant422,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    TeamGrantsDeleteTeamExtensionGrant: (owner, type, name, teamId, options) =>
+      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/grants/${teamId}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrant400",
+              TeamGrantsDeleteTeamExtensionGrant400,
+            ),
+            "401": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrant401",
+              TeamGrantsDeleteTeamExtensionGrant401,
+            ),
+            "403": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrant403",
+              TeamGrantsDeleteTeamExtensionGrant403,
+            ),
+            "404": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrant404",
+              TeamGrantsDeleteTeamExtensionGrant404,
+            ),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     HealthGetShallowHealth: (options) =>
       HttpClientRequest.get(`/v1/health`).pipe(
         withResponse(options?.config)(
@@ -2287,7 +2959,7 @@ export interface RegistryClient {
     | RegistryClientError<"TokensCreate422", typeof TokensCreate422.Type>
   >;
   /**
-   * Revoke access token
+   * Revokes the access token identified by tokenId.
    */
   readonly TokensDelete: <Config extends OperationConfig>(
     tokenId: string,
@@ -2312,6 +2984,182 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"OwnersGetOwner400", typeof OwnersGetOwner400.Type>
     | RegistryClientError<"OwnersGetOwner404", typeof OwnersGetOwner404.Type>
+  >;
+  /**
+   * Paginated list of teams. Non-members of the organization receive 404 (hidden existence).
+   */
+  readonly OrgsTeamsListTeams: <Config extends OperationConfig>(
+    handle: string,
+    options:
+      | {
+          readonly params?: typeof OrgsTeamsListTeamsParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OrgsTeamsListTeams200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsListTeams400", typeof OrgsTeamsListTeams400.Type>
+    | RegistryClientError<"OrgsTeamsListTeams401", typeof OrgsTeamsListTeams401.Type>
+    | RegistryClientError<"OrgsTeamsListTeams404", typeof OrgsTeamsListTeams404.Type>
+  >;
+  /**
+   * Creates a new team in the organization. Only organization owners and admins may create teams.
+   */
+  readonly OrgsTeamsCreateTeam: <Config extends OperationConfig>(
+    handle: string,
+    options: {
+      readonly payload: typeof OrgsTeamsCreateTeamRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OrgsTeamsCreateTeam200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsCreateTeam400", typeof OrgsTeamsCreateTeam400.Type>
+    | RegistryClientError<"OrgsTeamsCreateTeam401", typeof OrgsTeamsCreateTeam401.Type>
+    | RegistryClientError<"OrgsTeamsCreateTeam403", typeof OrgsTeamsCreateTeam403.Type>
+    | RegistryClientError<"OrgsTeamsCreateTeam404", typeof OrgsTeamsCreateTeam404.Type>
+  >;
+  /**
+   * Returns the team when the caller is an organization member or a team member. Non-visible teams surface as 404 (hidden existence).
+   */
+  readonly OrgsTeamsGetTeam: <Config extends OperationConfig>(
+    handle: string,
+    teamId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OrgsTeamsGetTeam200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsGetTeam400", typeof OrgsTeamsGetTeam400.Type>
+    | RegistryClientError<"OrgsTeamsGetTeam401", typeof OrgsTeamsGetTeam401.Type>
+    | RegistryClientError<"OrgsTeamsGetTeam404", typeof OrgsTeamsGetTeam404.Type>
+  >;
+  /**
+   * Deletes a team. Memberships and team extension grants cascade. Only organization owners and admins may delete teams.
+   */
+  readonly OrgsTeamsDeleteTeam: <Config extends OperationConfig>(
+    handle: string,
+    teamId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsDeleteTeam400", typeof OrgsTeamsDeleteTeam400.Type>
+    | RegistryClientError<"OrgsTeamsDeleteTeam401", typeof OrgsTeamsDeleteTeam401.Type>
+    | RegistryClientError<"OrgsTeamsDeleteTeam403", typeof OrgsTeamsDeleteTeam403.Type>
+    | RegistryClientError<"OrgsTeamsDeleteTeam404", typeof OrgsTeamsDeleteTeam404.Type>
+  >;
+  /**
+   * Partial update to a team's displayName and/or description. Only organization owners and admins may update teams.
+   */
+  readonly OrgsTeamsUpdateTeam: <Config extends OperationConfig>(
+    handle: string,
+    teamId: string,
+    options: {
+      readonly payload: typeof OrgsTeamsUpdateTeamRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OrgsTeamsUpdateTeam200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsUpdateTeam400", typeof OrgsTeamsUpdateTeam400.Type>
+    | RegistryClientError<"OrgsTeamsUpdateTeam401", typeof OrgsTeamsUpdateTeam401.Type>
+    | RegistryClientError<"OrgsTeamsUpdateTeam403", typeof OrgsTeamsUpdateTeam403.Type>
+    | RegistryClientError<"OrgsTeamsUpdateTeam404", typeof OrgsTeamsUpdateTeam404.Type>
+  >;
+  /**
+   * Paginated list of team members. Non-visible teams surface as 404 (hidden existence).
+   */
+  readonly OrgsTeamsListTeamMembers: <Config extends OperationConfig>(
+    handle: string,
+    teamId: string,
+    options:
+      | {
+          readonly params?: typeof OrgsTeamsListTeamMembersParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OrgsTeamsListTeamMembers200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsListTeamMembers400", typeof OrgsTeamsListTeamMembers400.Type>
+    | RegistryClientError<"OrgsTeamsListTeamMembers401", typeof OrgsTeamsListTeamMembers401.Type>
+    | RegistryClientError<"OrgsTeamsListTeamMembers404", typeof OrgsTeamsListTeamMembers404.Type>
+  >;
+  /**
+   * Adds a user to a team. Target user must already belong to the team's organization; otherwise returns 422. Only team admins or organization owners/admins may add members.
+   */
+  readonly OrgsTeamsAddTeamMember: <Config extends OperationConfig>(
+    handle: string,
+    teamId: string,
+    options: {
+      readonly payload: typeof OrgsTeamsAddTeamMemberRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OrgsTeamsAddTeamMember200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsAddTeamMember400", typeof OrgsTeamsAddTeamMember400.Type>
+    | RegistryClientError<"OrgsTeamsAddTeamMember401", typeof OrgsTeamsAddTeamMember401.Type>
+    | RegistryClientError<"OrgsTeamsAddTeamMember403", typeof OrgsTeamsAddTeamMember403.Type>
+    | RegistryClientError<"OrgsTeamsAddTeamMember404", typeof OrgsTeamsAddTeamMember404.Type>
+    | RegistryClientError<"OrgsTeamsAddTeamMember422", typeof OrgsTeamsAddTeamMember422.Type>
+  >;
+  /**
+   * Removes a user from a team. Only team admins or organization owners/admins may remove members.
+   */
+  readonly OrgsTeamsRemoveTeamMember: <Config extends OperationConfig>(
+    handle: string,
+    teamId: string,
+    userId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"OrgsTeamsRemoveTeamMember400", typeof OrgsTeamsRemoveTeamMember400.Type>
+    | RegistryClientError<"OrgsTeamsRemoveTeamMember401", typeof OrgsTeamsRemoveTeamMember401.Type>
+    | RegistryClientError<"OrgsTeamsRemoveTeamMember403", typeof OrgsTeamsRemoveTeamMember403.Type>
+    | RegistryClientError<"OrgsTeamsRemoveTeamMember404", typeof OrgsTeamsRemoveTeamMember404.Type>
+  >;
+  /**
+   * Updates a team member's role. Only team admins or organization owners/admins may change roles.
+   */
+  readonly OrgsTeamsChangeTeamMemberRole: <Config extends OperationConfig>(
+    handle: string,
+    teamId: string,
+    userId: string,
+    options: {
+      readonly payload: typeof OrgsTeamsChangeTeamMemberRoleRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof OrgsTeamsChangeTeamMemberRole200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "OrgsTeamsChangeTeamMemberRole400",
+        typeof OrgsTeamsChangeTeamMemberRole400.Type
+      >
+    | RegistryClientError<
+        "OrgsTeamsChangeTeamMemberRole401",
+        typeof OrgsTeamsChangeTeamMemberRole401.Type
+      >
+    | RegistryClientError<
+        "OrgsTeamsChangeTeamMemberRole403",
+        typeof OrgsTeamsChangeTeamMemberRole403.Type
+      >
+    | RegistryClientError<
+        "OrgsTeamsChangeTeamMemberRole404",
+        typeof OrgsTeamsChangeTeamMemberRole404.Type
+      >
   >;
   /**
    * List owner extensions
@@ -2370,7 +3218,7 @@ export interface RegistryClient {
     | RegistryClientError<"500", undefined>
   >;
   /**
-   * Update extension visibility
+   * Update extension visibility and/or listed flag
    */
   readonly ExtensionsUpdateVisibility: <Config extends OperationConfig>(
     owner: string,
@@ -2399,6 +3247,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsUpdateVisibility404",
         typeof ExtensionsUpdateVisibility404.Type
+      >
+    | RegistryClientError<
+        "ExtensionsUpdateVisibility422",
+        typeof ExtensionsUpdateVisibility422.Type
       >
   >;
   /**
@@ -2595,7 +3447,7 @@ export interface RegistryClient {
       >
   >;
   /**
-   * Add or update collaborator
+   * Adds or updates the collaborator identified by userId on the extension.
    */
   readonly CollaboratorsUpsertCollaborator: <Config extends OperationConfig>(
     owner: string,
@@ -2628,7 +3480,7 @@ export interface RegistryClient {
       >
   >;
   /**
-   * Remove collaborator
+   * Removes the collaborator identified by userId from the extension.
    */
   readonly CollaboratorsDeleteCollaborator: <Config extends OperationConfig>(
     owner: string,
@@ -2659,6 +3511,72 @@ export interface RegistryClient {
     | RegistryClientError<
         "CollaboratorsDeleteCollaborator409",
         typeof CollaboratorsDeleteCollaborator409.Type
+      >
+  >;
+  /**
+   * Creates or updates a grant of a team's access to this extension. The team must belong to the same organization that owns the extension (otherwise 422). Only team admins or organization owners/admins may grant.
+   */
+  readonly TeamGrantsUpsertTeamExtensionGrant: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: {
+      readonly payload: typeof TeamGrantsUpsertTeamExtensionGrantRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof TeamGrantsUpsertTeamExtensionGrant200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrant400",
+        typeof TeamGrantsUpsertTeamExtensionGrant400.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrant401",
+        typeof TeamGrantsUpsertTeamExtensionGrant401.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrant403",
+        typeof TeamGrantsUpsertTeamExtensionGrant403.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrant404",
+        typeof TeamGrantsUpsertTeamExtensionGrant404.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrant422",
+        typeof TeamGrantsUpsertTeamExtensionGrant422.Type
+      >
+  >;
+  /**
+   * Removes a team's grant on this extension. Idempotent — deleting a non-existent grant still returns 204.
+   */
+  readonly TeamGrantsDeleteTeamExtensionGrant: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    teamId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrant400",
+        typeof TeamGrantsDeleteTeamExtensionGrant400.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrant401",
+        typeof TeamGrantsDeleteTeamExtensionGrant401.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrant403",
+        typeof TeamGrantsDeleteTeamExtensionGrant403.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrant404",
+        typeof TeamGrantsDeleteTeamExtensionGrant404.Type
       >
   >;
   /**

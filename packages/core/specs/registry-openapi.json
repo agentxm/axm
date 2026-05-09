@@ -20,7 +20,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -48,7 +48,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -103,7 +103,7 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DeviceTokenOAuthError | DecodeErrorResponse | BadRequest",
+            "description": "InvalidRequestError | DeviceTokenOAuthError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -173,7 +173,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -235,7 +235,7 @@
         "responses": {
           "200": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -283,7 +283,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -311,7 +311,7 @@
         "responses": {
           "204": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -373,7 +373,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -414,7 +414,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -463,7 +463,7 @@
           {
             "name": "tokenId",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/TokenId3" },
+            "schema": { "$ref": "#/components/schemas/TokenId" },
             "required": true
           }
         ],
@@ -471,7 +471,7 @@
         "responses": {
           "204": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -495,6 +495,7 @@
             }
           }
         },
+        "description": "Revokes the access token identified by tokenId.",
         "summary": "Revoke access token"
       }
     },
@@ -519,7 +520,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -537,6 +538,607 @@
         },
         "description": "Returns the minimal public owner summary for the provided handle.",
         "summary": "Get owner"
+      }
+    },
+    "/v1/orgs/{handle}/teams": {
+      "post": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.createTeam",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Team",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/InvalidRequestError" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "InvalidRequestError": "#/components/schemas/InvalidRequestError",
+                      "DecodeErrorResponse": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Creates a new team in the organization. Only organization owners and admins may create teams.",
+        "summary": "Create a team",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateTeamBody" } }
+          },
+          "required": true
+        }
+      },
+      "get": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.listTeams",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "TeamList",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TeamList" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Paginated list of teams. Non-members of the organization receive 404 (hidden existence).",
+        "summary": "List teams in an organization"
+      }
+    },
+    "/v1/orgs/{handle}/teams/{teamId}": {
+      "get": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.getTeam",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Team",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Returns the team when the caller is an organization member or a team member. Non-visible teams surface as 404 (hidden existence).",
+        "summary": "Get a team by id"
+      },
+      "patch": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.updateTeam",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Team",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/InvalidRequestError" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "InvalidRequestError": "#/components/schemas/InvalidRequestError",
+                      "DecodeErrorResponse": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Partial update to a team's displayName and/or description. Only organization owners and admins may update teams.",
+        "summary": "Update a team",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateTeamBody" } }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.deleteTeam",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Deletes a team. Memberships and team extension grants cascade. Only organization owners and admins may delete teams.",
+        "summary": "Delete a team"
+      }
+    },
+    "/v1/orgs/{handle}/teams/{teamId}/members": {
+      "post": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.addTeamMember",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "TeamMembership",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TeamMembership" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnprocessableEntityError" }
+              }
+            }
+          }
+        },
+        "description": "Adds a user to a team. Target user must already belong to the team's organization; otherwise returns 422. Only team admins or organization owners/admins may add members.",
+        "summary": "Add a member to a team",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AddTeamMemberBody" } }
+          },
+          "required": true
+        }
+      },
+      "get": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.listTeamMembers",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "TeamMembershipList",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TeamMembershipList" }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Paginated list of team members. Non-visible teams surface as 404 (hidden existence).",
+        "summary": "List members of a team"
+      }
+    },
+    "/v1/orgs/{handle}/teams/{teamId}/members/{userId}": {
+      "patch": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.changeTeamMemberRole",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/UserId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "TeamMembership",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TeamMembership" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Updates a team member's role. Only team admins or organization owners/admins may change roles.",
+        "summary": "Change a team member's role",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangeTeamMemberRoleBody" }
+            }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["OrgsTeams"],
+        "operationId": "OrgsTeams.removeTeamMember",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/UserId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Removes a user from a team. Only team admins or organization owners/admins may remove members.",
+        "summary": "Remove a member from a team"
       }
     },
     "/v1/extensions/{owner}": {
@@ -606,7 +1208,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -690,7 +1292,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -728,7 +1330,7 @@
         "security": [],
         "responses": {
           "200": { "description": "<No Content>" },
-          "400": { "description": "DecodeErrorResponse | BadRequest" },
+          "400": { "description": "DecodeErrorResponse" },
           "404": { "description": "NotFoundError" },
           "500": { "description": "InternalError" }
         },
@@ -818,7 +1420,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["public", "unlisted", "private"],
+                          "enum": ["public", "internal", "private"],
                           "readOnly": true
                         },
                         { "type": "null" }
@@ -842,7 +1444,7 @@
           },
           "304": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -897,16 +1499,17 @@
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "visibility": { "type": "string" },
+                    "listed": { "type": "boolean" },
                     "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
                   },
-                  "required": ["id", "owner", "type", "name", "visibility", "updatedAt"],
+                  "required": ["id", "owner", "type", "name", "visibility", "listed", "updatedAt"],
                   "additionalProperties": false
                 }
               }
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse | BadRequest",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -948,9 +1551,17 @@
                 "schema": { "$ref": "#/components/schemas/NotFoundError" }
               }
             }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnprocessableEntityError" }
+              }
+            }
           }
         },
-        "summary": "Update extension visibility",
+        "summary": "Update extension visibility and/or listed flag",
         "requestBody": {
           "content": {
             "application/json": { "schema": { "$ref": "#/components/schemas/PatchVisibilityBody" } }
@@ -1063,7 +1674,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1114,7 +1725,7 @@
         "responses": {
           "204": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1250,7 +1861,7 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse | BadRequest",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1318,10 +1929,24 @@
             }
           },
           "422": {
-            "description": "UnprocessableEntityError",
+            "description": "UnprocessableEntityError | ExtensionLintFailedError | ExtensionIdentityMismatchError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/UnprocessableEntityError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/UnprocessableEntityError" },
+                    { "$ref": "#/components/schemas/ExtensionLintFailedError" },
+                    { "$ref": "#/components/schemas/ExtensionIdentityMismatchError" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "UnprocessableEntityError": "#/components/schemas/UnprocessableEntityError",
+                      "ExtensionLintFailedError": "#/components/schemas/ExtensionLintFailedError",
+                      "ExtensionIdentityMismatchError": "#/components/schemas/ExtensionIdentityMismatchError"
+                    }
+                  }
+                }
               }
             }
           },
@@ -1409,7 +2034,7 @@
             "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1489,7 +2114,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1574,7 +2199,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1666,7 +2291,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1751,7 +2376,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1824,11 +2449,11 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "userId": { "$ref": "#/components/schemas/UserId1" },
+                          "userId": { "$ref": "#/components/schemas/UserId" },
                           "role": { "type": "string" },
                           "grantedBy": {
                             "anyOf": [
-                              { "$ref": "#/components/schemas/UserId1" },
+                              { "$ref": "#/components/schemas/UserId" },
                               { "type": "null" }
                             ],
                             "readOnly": true
@@ -1847,7 +2472,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -1890,13 +2515,13 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle1" },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural1" },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
@@ -1908,7 +2533,7 @@
           {
             "name": "userId",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId2" },
+            "schema": { "$ref": "#/components/schemas/UserId" },
             "required": true
           }
         ],
@@ -1921,10 +2546,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "userId": { "$ref": "#/components/schemas/UserId1" },
+                    "userId": { "$ref": "#/components/schemas/UserId" },
                     "role": { "type": "string" },
                     "grantedBy": {
-                      "anyOf": [{ "$ref": "#/components/schemas/UserId1" }, { "type": "null" }],
+                      "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
                       "readOnly": true
                     },
                     "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
@@ -1936,7 +2561,7 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse | BadRequest",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1980,6 +2605,7 @@
             }
           }
         },
+        "description": "Adds or updates the collaborator identified by userId on the extension.",
         "summary": "Add or update collaborator",
         "requestBody": {
           "content": {
@@ -1995,13 +2621,13 @@
           {
             "name": "owner",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle1" },
+            "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
           },
           {
             "name": "type",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural1" },
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
           },
           {
@@ -2013,7 +2639,7 @@
           {
             "name": "userId",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId2" },
+            "schema": { "$ref": "#/components/schemas/UserId" },
             "required": true
           }
         ],
@@ -2021,7 +2647,7 @@
         "responses": {
           "204": { "description": "<No Content>" },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -2061,7 +2687,179 @@
             }
           }
         },
+        "description": "Removes the collaborator identified by userId from the extension.",
         "summary": "Remove collaborator"
+      }
+    },
+    "/v1/extensions/{owner}/{type}/{name}/grants": {
+      "post": {
+        "tags": ["TeamGrants"],
+        "operationId": "TeamGrants.upsertTeamExtensionGrant",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "TeamGrant",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TeamGrant" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": { "ForbiddenError": "#/components/schemas/ForbiddenError" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnprocessableEntityError" }
+              }
+            }
+          }
+        },
+        "description": "Creates or updates a grant of a team's access to this extension. The team must belong to the same organization that owns the extension (otherwise 422). Only team admins or organization owners/admins may grant.",
+        "summary": "Upsert a team extension grant",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpsertTeamGrantBody" } }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/extensions/{owner}/{type}/{name}/grants/{teamId}": {
+      "delete": {
+        "tags": ["TeamGrants"],
+        "operationId": "TeamGrants.deleteTeamExtensionGrant",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": { "ForbiddenError": "#/components/schemas/ForbiddenError" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/NotFoundError" }
+              }
+            }
+          }
+        },
+        "description": "Removes a team's grant on this extension. Idempotent — deleting a non-existent grant still returns 204.",
+        "summary": "Delete a team extension grant"
       }
     },
     "/v1/health": {
@@ -2087,7 +2885,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -2173,7 +2971,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -2229,7 +3027,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "enum": ["ok", "error"] },
+                    "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                     "timestamp": { "type": "string" },
                     "serviceId": { "type": "string" },
                     "level": { "type": "string", "enum": ["basic", "standard", "full"] },
@@ -2241,7 +3039,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "correlationId": { "type": "string" }
                               },
                               "required": ["status", "correlationId"],
@@ -2255,7 +3053,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "traceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                               },
                               "required": ["status"],
@@ -2269,7 +3067,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "counter": { "type": "string" }
                               },
                               "required": ["status", "counter"],
@@ -2283,7 +3081,7 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
                                 "sentryEventId": {
                                   "anyOf": [{ "type": "string" }, { "type": "null" }]
                                 },
@@ -2319,7 +3117,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -2384,7 +3182,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse | BadRequest",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
@@ -2652,7 +3450,7 @@
           {
             "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "User ID",
-            "description": "Unique user identifier.",
+            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
             "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
@@ -2682,17 +3480,6 @@
         "title": "Authenticated User",
         "description": "Your profile information."
       },
-      "TokenId": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Token ID",
-            "description": "Unique identifier of the token used for this request.",
-            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
-      },
       "ResourceRestrictions": {
         "type": "object",
         "properties": {
@@ -2709,7 +3496,10 @@
       "AuthMeToken": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/TokenId" },
+          "id": {
+            "type": "string",
+            "description": "Opaque identifier of the credential used for this request."
+          },
           "type": {
             "type": "string",
             "enum": ["session", "pat", "oidc"],
@@ -2784,13 +3574,13 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "TokenId1": {
+      "TokenId": {
         "type": "string",
         "allOf": [
           {
             "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "Token ID",
-            "description": "Unique token identifier.",
+            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
             "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
@@ -2799,7 +3589,7 @@
       "TokenListItem": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/TokenId1" },
+          "id": { "$ref": "#/components/schemas/TokenId" },
           "name": {
             "anyOf": [
               { "type": "string", "description": "Human-readable name of the token, if assigned." },
@@ -2951,21 +3741,10 @@
         "title": "Create Token Request",
         "description": "Request body for creating a new personal access token."
       },
-      "TokenId2": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Token ID",
-            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
-      },
       "CreateTokenResponse": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/TokenId2" },
+          "id": { "$ref": "#/components/schemas/TokenId" },
           "token": {
             "type": "string",
             "description": "The token value — save this, it won't be shown again.",
@@ -2995,17 +3774,6 @@
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
-      },
-      "TokenId3": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Token ID",
-            "description": "TypeID of the token to revoke.",
-            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
       },
       "Handle": {
         "type": "string",
@@ -3042,6 +3810,173 @@
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "CreateTeamBody": {
+        "type": "object",
+        "properties": {
+          "displayName": { "type": "string", "description": "Display name for the team." },
+          "description": {
+            "anyOf": [
+              {
+                "anyOf": [{ "type": "string" }, { "type": "null" }],
+                "description": "Optional description for the team."
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["displayName"],
+        "additionalProperties": false,
+        "title": "Create Team Body",
+        "description": "Request body for creating a new team under an organization."
+      },
+      "TeamId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^team_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Team ID",
+            "description": "Identifies a team within an organization. Teams group members and receive extension grants that widen access beyond a private extension's owning org.",
+            "examples": ["team_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "OrgId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^org_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Organization ID",
+            "description": "Identifies an organization. Organizations own handles and govern team membership and extension publishing permissions.",
+            "examples": ["org_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "UserIdRef": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "User ID",
+            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"],
+            "readOnly": true
+          }
+        ]
+      },
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TeamId" },
+          "organizationId": { "$ref": "#/components/schemas/OrgId" },
+          "displayName": { "type": "string" },
+          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
+          "createdBy": { "$ref": "#/components/schemas/UserIdRef" },
+          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "displayName",
+          "description",
+          "createdAt",
+          "createdBy",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "title": "Team"
+      },
+      "TeamList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } },
+          "nextCursor": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false,
+        "title": "Team List"
+      },
+      "UpdateTeamBody": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "anyOf": [
+              { "type": "string", "description": "New display name for the team." },
+              { "type": "null" }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "anyOf": [{ "type": "string" }, { "type": "null" }],
+                "description": "New description for the team (null to clear)."
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "title": "Update Team Body",
+        "description": "Partial update body for a team. At least one of displayName or description must be provided."
+      },
+      "AddTeamMemberBody": {
+        "type": "object",
+        "properties": {
+          "userId": { "$ref": "#/components/schemas/UserId" },
+          "role": {
+            "type": "string",
+            "enum": ["admin", "member"],
+            "title": "Team Role",
+            "description": "Role within a team — 'admin' manages membership and grants; 'member' inherits grants."
+          }
+        },
+        "required": ["userId", "role"],
+        "additionalProperties": false,
+        "title": "Add Team Member Body",
+        "description": "Request body identifying the user to add to the team and the role to grant."
+      },
+      "TeamMembership": {
+        "type": "object",
+        "properties": {
+          "teamId": { "$ref": "#/components/schemas/TeamId" },
+          "userId": { "$ref": "#/components/schemas/UserId" },
+          "role": {
+            "type": "string",
+            "enum": ["admin", "member"],
+            "title": "Team Role",
+            "description": "Role within a team — 'admin' manages membership and grants; 'member' inherits grants."
+          },
+          "addedAt": { "type": "string", "readOnly": true, "format": "date-time" },
+          "addedBy": { "$ref": "#/components/schemas/UserIdRef" }
+        },
+        "required": ["teamId", "userId", "role", "addedAt", "addedBy"],
+        "additionalProperties": false,
+        "title": "Team Membership"
+      },
+      "TeamMembershipList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/TeamMembership" } },
+          "nextCursor": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false,
+        "title": "Team Membership List"
+      },
+      "ChangeTeamMemberRoleBody": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["admin", "member"],
+            "title": "Team Role",
+            "description": "Role within a team — 'admin' manages membership and grants; 'member' inherits grants."
+          }
+        },
+        "required": ["role"],
+        "additionalProperties": false,
+        "title": "Change Team Member Role Body"
       },
       "ExtensionName": { "type": "string" },
       "ExtensionType": {
@@ -3096,16 +4031,30 @@
         "type": "object",
         "properties": {
           "visibility": {
-            "type": "string",
-            "enum": ["public", "unlisted", "private"],
-            "title": "Visibility",
-            "description": "Target visibility level for the extension."
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["public", "internal", "private"],
+                "title": "Visibility",
+                "description": "Target visibility tier for the extension."
+              },
+              { "type": "null" }
+            ]
+          },
+          "listed": {
+            "anyOf": [
+              {
+                "type": "boolean",
+                "title": "Listed",
+                "description": "Whether the extension appears on discovery surfaces (search, browse). Independent of visibility."
+              },
+              { "type": "null" }
+            ]
           }
         },
-        "required": ["visibility"],
         "additionalProperties": false,
         "title": "Patch Visibility Body",
-        "description": "Request body for updating an extension's visibility."
+        "description": "Request body for updating an extension's visibility and/or listed flag. At least one field is required."
       },
       "ExtensionId": {
         "type": "string",
@@ -3196,6 +4145,171 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
+      "PublishIdentity": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "version": { "$ref": "#/components/schemas/ExactSemverVersion" }
+        },
+        "required": ["owner", "type", "name", "version"],
+        "additionalProperties": false,
+        "title": "Publish Identity",
+        "description": "URL-path identity of the extension version under publish."
+      },
+      "PublishFindingLocation": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string" },
+          "line": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  { "type": "number" },
+                  { "type": "string", "enum": ["NaN"] },
+                  { "type": "string", "enum": ["Infinity"] },
+                  { "type": "string", "enum": ["-Infinity"] }
+                ]
+              },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          },
+          "column": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  { "type": "number" },
+                  { "type": "string", "enum": ["NaN"] },
+                  { "type": "string", "enum": ["Infinity"] },
+                  { "type": "string", "enum": ["-Infinity"] }
+                ]
+              },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          },
+          "byteOffset": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  { "type": "number" },
+                  { "type": "string", "enum": ["NaN"] },
+                  { "type": "string", "enum": ["Infinity"] },
+                  { "type": "string", "enum": ["-Infinity"] }
+                ]
+              },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          },
+          "byteLength": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  { "type": "number" },
+                  { "type": "string", "enum": ["NaN"] },
+                  { "type": "string", "enum": ["Infinity"] },
+                  { "type": "string", "enum": ["-Infinity"] }
+                ]
+              },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          }
+        },
+        "required": ["file"],
+        "additionalProperties": false,
+        "title": "Finding Location",
+        "description": "Accessor-relative location of a lint finding."
+      },
+      "PublishLintFinding": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["advisory", "autofixable"] },
+          "ruleId": { "type": "string" },
+          "severity": { "type": "string", "enum": ["error", "warning", "info"] },
+          "message": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/PublishFindingLocation" },
+          "path": { "type": "string" },
+          "suggestions": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["kind", "ruleId", "severity", "message", "path", "suggestions"],
+        "additionalProperties": false,
+        "title": "Publish Lint Finding",
+        "description": "One lint finding produced against the publish subject."
+      },
+      "ExtensionLintFailedError": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["ExtensionLintFailedError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string" },
+          "error": { "anyOf": [{ "type": "string", "enum": ["extension_lint_failed"] }] },
+          "identity": { "$ref": "#/components/schemas/PublishIdentity" },
+          "displayRoot": { "type": "string" },
+          "findings": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublishLintFinding" }
+          }
+        },
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "error",
+          "identity",
+          "displayRoot",
+          "findings"
+        ],
+        "additionalProperties": false
+      },
+      "PublishIdentityMismatchEntry": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string", "enum": ["owner", "type", "name", "version"] },
+          "urlPath": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "content": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        },
+        "required": ["field", "urlPath", "content"],
+        "additionalProperties": false,
+        "title": "Identity Mismatch Entry",
+        "description": "Single divergent identity field between URL-path and archive."
+      },
+      "ExtensionIdentityMismatchError": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["ExtensionIdentityMismatchError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string" },
+          "error": { "anyOf": [{ "type": "string", "enum": ["extension_identity_mismatch"] }] },
+          "identity": { "$ref": "#/components/schemas/PublishIdentity" },
+          "mismatches": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublishIdentityMismatchEntry" }
+          }
+        },
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "error",
+          "identity",
+          "mismatches"
+        ],
+        "additionalProperties": false
+      },
       "ServiceUnavailableError": {
         "type": "object",
         "properties": {
@@ -3210,17 +4324,6 @@
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
-      },
-      "UserId1": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "User ID",
-            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
-            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
       },
       "PutCollaboratorBody": {
         "type": "object",
@@ -3237,33 +4340,27 @@
         "title": "Put Collaborator Body",
         "description": "Request body for assigning a collaborator role on an extension."
       },
-      "Handle1": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-            "title": "Handle",
-            "description": "Owner handle, e.g. '@example'.",
-            "examples": ["@my-org", "@username"]
-          }
-        ]
+      "UpsertTeamGrantBody": {
+        "type": "object",
+        "properties": {
+          "teamId": { "$ref": "#/components/schemas/TeamId" },
+          "role": { "type": "string", "enum": ["read", "write", "admin"] }
+        },
+        "required": ["teamId", "role"],
+        "additionalProperties": false,
+        "title": "Upsert Team Grant Body"
       },
-      "ExtensionTypePlural1": {
-        "type": "string",
-        "enum": ["skills", "commands", "mcp-servers", "subagents", "files", "rules", "packs"],
-        "title": "Extension Type (Plural)",
-        "description": "Extension type (e.g. skills, commands, extension packs)."
-      },
-      "UserId2": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "User ID",
-            "description": "ID of the collaborator.",
-            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+      "TeamGrant": {
+        "type": "object",
+        "properties": {
+          "teamId": { "$ref": "#/components/schemas/TeamId" },
+          "role": { "type": "string", "enum": ["read", "write", "admin"] },
+          "grantedBy": { "type": "string" },
+          "grantedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+        },
+        "required": ["teamId", "role", "grantedBy", "grantedAt"],
+        "additionalProperties": false,
+        "title": "Team Grant"
       },
       "SearchHit": {
         "type": "object",
@@ -3329,8 +4426,10 @@
     { "name": "Auth" },
     { "name": "Tokens" },
     { "name": "Owners" },
+    { "name": "OrgsTeams" },
     { "name": "Extensions" },
     { "name": "Collaborators" },
+    { "name": "TeamGrants" },
     { "name": "Health" },
     { "name": "Search" }
   ],

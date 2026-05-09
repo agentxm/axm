@@ -133,15 +133,8 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     ),
   );
 
-  // Step 3: Collect all extension names from the manifest (across all sections)
-  const allEntries: Array<{ section: "skills" | "commands" | "mcp-servers"; name: string }> = [];
-  for (const section of ["skills", "commands", "mcp-servers"] as const) {
-    const entries = manifest[section] ?? {};
-    for (const name of Object.keys(entries)) {
-      allEntries.push({ section, name });
-    }
-  }
-  const allNames = allEntries.map((e) => e.name);
+  // Step 3: Collect all extension FQNs from the manifest.
+  const allNames = Object.keys(manifest.dependencies);
 
   // Step 4: Match extensions by name or glob
   const isGlob = isGlobPattern(args.extension);

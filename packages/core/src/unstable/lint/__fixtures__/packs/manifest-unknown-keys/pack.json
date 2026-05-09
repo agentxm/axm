@@ -3,6 +3,7 @@
   "type": "pack",
   "name": "utility-belt",
   "version": "1.0.0",
+  "dependencies": {},
   "made_up_key": "x",
   "another_unknown": 1
 }

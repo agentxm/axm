@@ -293,12 +293,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       ),
     );
 
-    // Collect all dependency FQNs from skills, commands, mcp-servers
-    const allDeps: ReadonlyArray<string> = [
-      ...Object.keys(manifest.skills ?? {}),
-      ...Object.keys(manifest.commands ?? {}),
-      ...Object.keys(manifest["mcp-servers"] ?? {}),
-    ];
+    const allDeps = Object.keys(manifest.dependencies);
 
     // Check which dependencies exist locally
     yield* Effect.forEach(

@@ -11,7 +11,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import type { SkillLockEntry, CommandLockEntry, McpServerLockEntry } from "../../lockfile/index.js";
+import type {
+  SkillLockEntry,
+  CommandLockEntry,
+  McpServerLockEntry,
+  SubagentLockEntry,
+} from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
@@ -84,6 +89,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     const currentSkills = yield* ws.records.getConfiguredSkills();
     const currentCommands = yield* ws.records.getConfiguredCommands();
     const currentMcpServers = yield* ws.records.getConfiguredMcpServers();
+    const currentSubagents = yield* ws.records.getConfiguredSubagents();
 
     // Add resolved skills as direct entries (only if not already present)
     // Use the short name from the FQN as the settings key since SkillsMapSchema
@@ -165,13 +171,39 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
       { concurrency: 1 },
     );
 
+    // Add resolved subagents as direct entries
+    yield* Effect.forEach(
+      Object.entries(entry.resolvedSubagents),
+      ([subagentFqn, version]) =>
+        Effect.gen(function* () {
+          const parsed = yield* parseFqn(subagentFqn);
+          if (parsed.name in currentSubagents) return;
+          yield* ws.setSubagent({
+            name: parsed.name,
+            lockEntry: {
+              type: "registry",
+              owner: parsed.owner,
+              name: parsed.name,
+              resolvedVersion: version,
+              integrity: "",
+              sourceName: entry.sourceName,
+              agents: [],
+              installedAt: now,
+              updatedAt: now,
+            } satisfies SubagentLockEntry,
+          });
+        }),
+      { concurrency: 1 },
+    );
+
     // Remove the pack entry from settings and lockfile
     yield* ws.removePack(op.args.name);
 
     const skillCount = Object.keys(entry.resolvedSkills).length;
     const commandCount = Object.keys(entry.resolvedCommands).length;
     const mcpServerCount = Object.keys(entry.resolvedMcpServers).length;
-    const totalCount = skillCount + commandCount + mcpServerCount;
+    const subagentCount = Object.keys(entry.resolvedSubagents).length;
+    const totalCount = skillCount + commandCount + mcpServerCount + subagentCount;
     return {
       result: "success",
       message: `Unpacked ${op.args.name}: ${totalCount} extension(s) promoted to direct entries`,

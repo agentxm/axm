@@ -98,9 +98,10 @@ describe("packs-new.handler", () => {
           expect(manifest.type).toBe("pack");
           expect(manifest.name).toBe("frontend-tools");
           expect(manifest.version).toBe("0.0.1");
-          expect(manifest.skills).toEqual({});
-          expect(manifest.commands).toEqual({});
-          expect(manifest["mcp-servers"]).toEqual({});
+          expect(manifest.dependencies).toEqual({});
+          expect(manifest.skills).toBeUndefined();
+          expect(manifest.commands).toBeUndefined();
+          expect(manifest["mcp-servers"]).toBeUndefined();
 
           // Verify registered in settings
           const settingsPath = path.join(tempDir, ".axm", "settings.json");

@@ -7,8 +7,8 @@
 import * as Schema from "effect/Schema";
 import {
   CommonManifestBaseFields,
-  ExtensionDependencyConstraintMapSchema,
   ExtensionNameSchema,
+  NonPackExtensionDependencyConstraintMapSchema,
 } from "../extensions/common.js";
 
 export const PACK_MANIFEST_FILENAME = "pack.json";
@@ -31,10 +31,9 @@ export const PackManifestSchema = Schema.Struct({
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "pack name is required" }),
   ),
-  skills: Schema.optional(ExtensionDependencyConstraintMapSchema),
-  commands: Schema.optional(ExtensionDependencyConstraintMapSchema),
-  "mcp-servers": Schema.optional(ExtensionDependencyConstraintMapSchema),
-  subagents: Schema.optional(ExtensionDependencyConstraintMapSchema),
+  dependencies: NonPackExtensionDependencyConstraintMapSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "pack dependencies are required" }),
+  ),
 }).annotate({
   identifier: "PackManifest",
   title: "Pack Manifest",

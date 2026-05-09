@@ -50,12 +50,12 @@ When a pack is installed and its subagents are resolved, each resolved subagent 
 - **AND** `@acme/subagents/code-reviewer` is orphaned (not in any other pack or direct settings)
 - **THEN** the rendered subagent files SHALL be removed from all agent directories
 
-### Requirement: Pack manifest includes subagents field
+### Requirement: Pack manifest declares dependencies
 
-The pack manifest schema SHALL include an optional `subagents` field alongside `skills`, `commands`, and `mcp-servers`.
+The pack manifest schema SHALL include a required `dependencies` map keyed by extension FQN. Empty `{}` SHALL be valid for authored drafts.
 
-#### Scenario: Pack with subagents field
+#### Scenario: Pack with subagent dependency
 
-- **WHEN** `pack.json` contains `subagents: { "@acme/subagents/code-reviewer": "^1.0.0" }`
+- **WHEN** `pack.json` contains `dependencies: { "@acme/subagents/code-reviewer": "^1.0.0" }`
 - **THEN** pack validation SHALL succeed
 - **AND** pack resolution SHALL include the subagent in the resolved set

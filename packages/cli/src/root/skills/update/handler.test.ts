@@ -165,12 +165,12 @@ const writeInstalledPackManifest = ({
   workspaceRoot,
   owner,
   name,
-  skills,
+  dependencies,
 }: {
   readonly workspaceRoot: string;
   readonly owner: string;
   readonly name: string;
-  readonly skills: Record<string, string>;
+  readonly dependencies: Record<string, string>;
 }) => {
   const dir = path.join(workspaceRoot, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);
   fs.mkdirSync(dir, { recursive: true });
@@ -182,7 +182,7 @@ const writeInstalledPackManifest = ({
         type: "pack",
         name,
         version: "1.0.0",
-        skills,
+        dependencies,
       },
       null,
       2,
@@ -356,7 +356,7 @@ describe("update.handler — error recovery", () => {
       workspaceRoot: tempDir,
       owner: "@acme",
       name: "frontend-pack",
-      skills: {
+      dependencies: {
         "@acme/skills/code-review": "^1.0.0",
       },
     });

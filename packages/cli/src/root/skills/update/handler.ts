@@ -517,12 +517,9 @@ const collectPackConstraints = () =>
         );
         if (Option.isNone(manifest)) return;
 
-        // Collect skill constraints from manifest
-        const skills = manifest.value.skills;
-        if (skills === null || skills === undefined || typeof skills !== "object") {
-          return;
-        }
-        for (const [fqn, constraint] of Object.entries(skills)) {
+        // Collect skill constraints from pack dependencies.
+        for (const [fqn, constraint] of Object.entries(manifest.value.dependencies)) {
+          if (!fqn.includes("/skills/")) continue;
           if (typeof constraint !== "string" || constraint === "*" || constraint === "") continue;
           const existing = constraintMap.get(fqn) ?? [];
           existing.push({ packName, constraint });

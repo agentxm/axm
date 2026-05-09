@@ -453,10 +453,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(ref.refType).toBe("registry");
         const packRef = expectRegistryPackRef(ref);
         expect(packRef.pack.name).toBe("my-pack");
-        expect(packRef.pack.skills).toEqual({});
-        expect(packRef.pack.commands).toEqual({});
-        expect(packRef.pack.mcpServers).toEqual({});
-        expect(packRef.pack.subagents).toEqual({});
+        expect(packRef.pack.dependencies).toEqual({});
         expect(packRef.owner).toBe("@test");
         expect(packRef.name).toBe("my-pack");
         expect(packRef.version).toBe("3.0.0");
@@ -495,22 +492,17 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
         expect(refs).toHaveLength(1);
         const packRef = expectRegistryPackRef(at(refs, 0));
-        expect(packRef.pack.skills).toEqual({
+        expect(packRef.pack.dependencies).toEqual({
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
-        });
-        expect(packRef.pack.commands).toEqual({
           "@acme/commands/formatter": "^1.5.0",
-        });
-        expect(packRef.pack.mcpServers).toEqual({
           "@acme/mcp-servers/db": "^3.0.0",
         });
-        expect(packRef.pack.subagents).toEqual({});
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
 
-  it.effect("ignores malformed dependency keys in pack entries", () => {
+  it.effect("preserves dependency metadata in pack entries", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
@@ -519,8 +511,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
           name: "my-pack",
           integrity: "sha512-malformed",
         }),
-        // Assertion needed: this test intentionally passes malformed dependency keys so
-        // the provider can ignore them at runtime instead of rejecting the fixture up front.
+        // Assertion needed: this test intentionally bypasses schema validation to
+        // verify the provider preserves registry dependency metadata as received.
         dependencies: {
           "@acme/skills/valid": "^1.0.0",
           "no-owner": "^1.0.0",
@@ -545,10 +537,12 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
         expect(refs).toHaveLength(1);
         const packRef = expectRegistryPackRef(at(refs, 0));
-        expect(packRef.pack.skills).toEqual({ "@acme/skills/valid": "^1.0.0" });
-        expect(packRef.pack.commands).toEqual({});
-        expect(packRef.pack.mcpServers).toEqual({});
-        expect(packRef.pack.subagents).toEqual({});
+        expect(packRef.pack.dependencies).toEqual({
+          "@acme/skills/valid": "^1.0.0",
+          "no-owner": "^1.0.0",
+          "@acme/unknown-type/foo": "^1.0.0",
+          "@acme/packs/nested": "^1.0.0",
+        });
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });

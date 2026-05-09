@@ -105,9 +105,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       type: "pack",
       name: "managed-pack",
       version: "1.0.0",
-      skills: {},
-      commands: {},
-      "mcp-servers": {},
+      dependencies: {},
     },
   );
 };

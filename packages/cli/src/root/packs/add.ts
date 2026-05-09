@@ -189,7 +189,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   }
 
   // Step 4: Compute manifest delta (additions)
-  const currentSkills = manifest.skills ?? {};
+  const currentDependencies = manifest.dependencies;
   const additions: Record<string, string> = {};
 
   for (const name of matchedNames) {
@@ -209,7 +209,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     const version = toVersionRange(lockEntry.resolvedVersion);
 
     // Check if already in pack (by FQN)
-    if (fqn in currentSkills) {
+    if (fqn in currentDependencies) {
       yield* renderer.info(`Extension '${fqn}' already in pack`);
       continue;
     }

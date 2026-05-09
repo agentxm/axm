@@ -16,6 +16,7 @@ import {
   configuredSkillsToDiskRefs,
   configuredSubagentsToDiskRefs,
   parseRegistrySourceRef,
+  type ExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
@@ -42,22 +43,28 @@ export interface HandleSyncArgs {
 const PLAN_NAME = "Sync workspace";
 const PLAN_DESCRIPTION = "Materialize extensions from settings and on-disk extension content";
 
-const dependencyEntries = (dependencies: Readonly<Record<string, unknown>>) => {
+const dependencyEntries = (
+  dependencies: Readonly<Record<string, unknown>>,
+  type: ExtensionTypePlural,
+) => {
   const entries: Record<string, { source: string; packagingKind: "native" }> = {};
   for (const fqn of Object.keys(dependencies)) {
     const parsed = parseRegistrySourceRef(fqn);
-    if (parsed !== undefined) {
+    if (parsed !== undefined && parsed.type === type) {
       entries[parsed.name] = { source: fqn, packagingKind: "native" };
     }
   }
   return entries;
 };
 
-const enabledDependencyEntries = (dependencies: Readonly<Record<string, unknown>>) => {
+const enabledDependencyEntries = (
+  dependencies: Readonly<Record<string, unknown>>,
+  type: ExtensionTypePlural,
+) => {
   const entries: Record<string, { source: string; enabled: boolean; packagingKind: "native" }> = {};
   for (const fqn of Object.keys(dependencies)) {
     const parsed = parseRegistrySourceRef(fqn);
-    if (parsed !== undefined) {
+    if (parsed !== undefined && parsed.type === type) {
       entries[parsed.name] = { source: fqn, enabled: true, packagingKind: "native" };
     }
   }
@@ -90,19 +97,31 @@ const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(functi
     [
       configuredSkillsToDiskRefs(
         env,
-        Object.assign({}, ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.skills))),
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "skills")),
+        ),
       ),
       configuredCommandsToDiskRefs(
         env,
-        Object.assign({}, ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.commands))),
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "commands")),
+        ),
       ),
       configuredMcpServersToDiskRefs(
         env,
-        Object.assign({}, ...packRefs.map((ref) => dependencyEntries(ref.pack.mcpServers))),
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "mcp-servers")),
+        ),
       ),
       configuredSubagentsToDiskRefs(
         env,
-        Object.assign({}, ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.subagents))),
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "subagents")),
+        ),
       ),
     ],
     { concurrency: "unbounded" },

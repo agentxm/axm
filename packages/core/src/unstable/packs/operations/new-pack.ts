@@ -115,9 +115,7 @@ export const newPack: OperationHandler<
       type: "pack",
       name: extensionName,
       version: initialVersion,
-      skills: {},
-      commands: {},
-      "mcp-servers": {},
+      dependencies: {},
     };
 
     yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(

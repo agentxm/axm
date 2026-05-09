@@ -22,10 +22,7 @@ interface InstallCase {
 }
 
 interface PackPublishOptions {
-  readonly skills?: Record<string, string>;
-  readonly commands?: Record<string, string>;
-  readonly "mcp-servers"?: Record<string, string>;
-  readonly subagents?: Record<string, string>;
+  readonly dependencies?: Record<string, string>;
 }
 
 interface JsonCommandResult {
@@ -207,11 +204,19 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
 const publishPackToRegistry = async (
   registryPath: string,
   name: string,
-  options: PackPublishOptions = {},
+  options: PackPublishOptions = {
+    dependencies: {
+      [registryFqn("skills", `${name}-skill`)]: "*",
+    },
+  },
 ) => {
   const workspace = createTempDir();
 
   try {
+    if (options.dependencies?.[registryFqn("skills", `${name}-skill`)] !== undefined) {
+      await publishSkillToRegistry(registryPath, `${name}-skill`);
+    }
+
     await initWorkspace(workspace.path, registryPath);
 
     const createResult = await runCli(["packs", "new", name, "--profile", OWNER, "--yes"], {
@@ -433,7 +438,7 @@ describe("axm install", () => {
         const result = await runJsonCommand(workspace.path, [surface, "install"]);
 
         expect(result.stdout.result.outcome).toBe("applied");
-        expect(result.stdout.result.appliedCount).toBe(2);
+        expect(result.stdout.result.appliedCount).toBe(surface === "packs" ? 4 : 2);
         expectConfiguredEntriesInstalled(workspace.path, surface, names);
       } finally {
         registryDir.cleanup();
@@ -453,10 +458,8 @@ describe("axm install", () => {
       await publishMcpServerToRegistry(registryDir.path, "workspace-mcp");
       await publishMcpServerToRegistry(registryDir.path, "pack-mcp");
       await publishPackToRegistry(registryDir.path, "workspace-pack", {
-        skills: {
+        dependencies: {
           [registryFqn("skills", "workspace-skill")]: "*",
-        },
-        "mcp-servers": {
           [registryFqn("mcp-servers", "pack-mcp")]: "*",
         },
       });

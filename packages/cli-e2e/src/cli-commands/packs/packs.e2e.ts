@@ -105,12 +105,36 @@ function writeSubagentPackage(workspaceRoot: string, name: string, version = "1.
   );
 }
 
+async function publishRegistrySkill(registryPath: string, name: string) {
+  const workspace = createTempDir();
+  const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+
+  try {
+    await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: workspace.path });
+    configureRegistrySource(settingsPath, `file://${registryPath}`);
+
+    const createResult = await runCli(
+      ["skills", "new", name, "--profile", "@test", "--agent", "claude-code", "--yes"],
+      { cwd: workspace.path },
+    );
+    expect(createResult.exitCode).toBe(0);
+
+    const publishResult = await runCli(["skills", "publish", `@test/skills/${name}`, "--yes"], {
+      cwd: workspace.path,
+      env: { AXM_TOKEN: "e2e-test-token" },
+    });
+    expect(publishResult.exitCode).toBe(0);
+  } finally {
+    workspace.cleanup();
+  }
+}
+
 function updatePackManifest(
   workspaceRoot: string,
   packName: string,
   args: {
     version: string;
-    skills: Record<string, string>;
+    dependencies: Record<string, string>;
   },
 ) {
   const manifestPath = path.join(
@@ -124,7 +148,7 @@ function updatePackManifest(
   );
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
   manifest.version = args.version;
-  manifest.skills = args.skills;
+  manifest.dependencies = args.dependencies;
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
@@ -162,7 +186,7 @@ describe("axm packs new", () => {
       expect(manifest.type).toBe("pack");
       expect(manifest.name).toBe("frontend-tools");
       expect(manifest.version).toBe("0.0.1");
-      expect(manifest.skills).toEqual({});
+      expect(manifest.dependencies).toEqual({});
 
       // Verify settings entry
       const settings = readSettings();
@@ -258,6 +282,13 @@ describe("axm packs publish", () => {
 
       // Create a pack
       await runCli(["packs", "new", "pub-pack", "--yes"], { cwd: temp.path });
+      await publishRegistrySkill(registryDir.path, "pub-pack-skill");
+      updatePackManifest(temp.path, "pub-pack", {
+        version: "0.0.1",
+        dependencies: {
+          "@test/skills/pub-pack-skill": "*",
+        },
+      });
 
       // Publish the pack
       const publishResult = await runCli(["packs", "publish", "pub-pack", "--yes"], {
@@ -340,6 +371,13 @@ describe("axm packs install", () => {
 
       // Create and publish a pack first
       await runCli(["packs", "new", "installable-pack", "--yes"], { cwd: temp.path });
+      await publishRegistrySkill(registryDir.path, "installable-pack-skill");
+      updatePackManifest(temp.path, "installable-pack", {
+        version: "0.0.1",
+        dependencies: {
+          "@test/skills/installable-pack-skill": "*",
+        },
+      });
       const publishResult = await runCli(["packs", "publish", "installable-pack", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
@@ -412,10 +450,18 @@ describe("axm packs install", () => {
 
       // Create and publish
       await runCli(["packs", "new", "already-pack", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "already-pack", "--yes"], {
+      await publishRegistrySkill(registryDir.path, "already-pack-skill");
+      updatePackManifest(temp.path, "already-pack", {
+        version: "0.0.1",
+        dependencies: {
+          "@test/skills/already-pack-skill": "*",
+        },
+      });
+      const publishResult = await runCli(["packs", "publish", "already-pack", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
+      expect(publishResult.exitCode).toBe(0);
 
       // Pack is already registered from `packs new`; install performs idempotent upsert
       const installResult = await runCli(
@@ -492,7 +538,7 @@ describe("axm packs install", () => {
         "pack.json",
       );
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
-      packManifest.skills = { "@test/skills/dep-skill": "1.0.0" };
+      packManifest.dependencies = { "@test/skills/dep-skill": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
 
       // Publish the pack (with the skill dependency)
@@ -588,7 +634,7 @@ describe("axm packs install", () => {
         "pack.json",
       );
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
-      packManifest.subagents = { "@test/subagents/dep-subagent": "1.0.0" };
+      packManifest.dependencies = { "@test/subagents/dep-subagent": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
 
       const packPublishResult = await runCli(["packs", "publish", "subagent-pack", "--yes"], {
@@ -682,7 +728,7 @@ describe("axm packs install", () => {
       await runCli(["packs", "new", "prune-pack", "--yes"], { cwd: author.path });
       updatePackManifest(author.path, "prune-pack", {
         version: "0.0.1",
-        skills: {
+        dependencies: {
           "@test/skills/kept-skill": "1.0.0",
           "@test/skills/dropped-skill": "1.0.0",
         },
@@ -723,7 +769,7 @@ describe("axm packs install", () => {
 
       updatePackManifest(author.path, "prune-pack", {
         version: "0.0.2",
-        skills: {
+        dependencies: {
           "@test/skills/kept-skill": "1.0.0",
         },
       });
@@ -769,6 +815,13 @@ describe("axm packs install", () => {
 
       // Create and publish a pack
       await runCli(["packs", "new", "preview-pack", "--yes"], { cwd: temp.path });
+      await publishRegistrySkill(registryDir.path, "preview-pack-skill");
+      updatePackManifest(temp.path, "preview-pack", {
+        version: "0.0.1",
+        dependencies: {
+          "@test/skills/preview-pack-skill": "*",
+        },
+      });
       const publishResult = await runCli(["packs", "publish", "preview-pack", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },

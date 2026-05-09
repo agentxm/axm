@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { parseFqn, type ExtensionDependencyConstraintMap } from "../../extensions/index.js";
+import { parseFqn } from "../../extensions/index.js";
 import {
   PackManifestSchema,
   type PackManifest,
@@ -147,31 +147,19 @@ export const publishPack: OperationHandler<
 
     const client = yield* createRegistryClient(registrySource.value.location.href);
 
-    // Collect manifest dependencies (keys are already 3-segment FQNs)
-    const dependencies: Record<string, ExtensionDependencyConstraintMap[string]> = {};
-    const addDependencies = (candidates: ExtensionDependencyConstraintMap | undefined) => {
-      if (candidates === undefined) {
-        return;
-      }
-      for (const fqn of Object.keys(candidates)) {
-        const constraint = candidates[fqn];
-        if (constraint !== undefined) {
-          dependencies[fqn] = constraint;
-        }
-      }
-    };
-
-    addDependencies(manifest.skills);
-    addDependencies(manifest.commands);
-    addDependencies(manifest["mcp-servers"]);
-    addDependencies(manifest.subagents);
+    if (Object.keys(manifest.dependencies).length === 0) {
+      return yield* makeAppError({
+        code: "validation",
+        message: `Pack manifest must declare at least one dependency before publishing`,
+      });
+    }
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {
       version: manifest.version,
       published: new Date().toISOString(),
       integrity,
-      ...(Object.keys(dependencies).length > 0 && { dependencies }),
+      dependencies: manifest.dependencies,
     };
 
     // Publish to registry (idempotent)

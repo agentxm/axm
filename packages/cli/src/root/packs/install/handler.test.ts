@@ -427,10 +427,7 @@ describe("packs install handler", () => {
         refType: "registry",
         pack: {
           name: extensionName("my-pack"),
-          skills: {},
-          commands: {},
-          mcpServers: {},
-          subagents: {},
+          dependencies: {},
         },
         source: {
           type: "registry",
@@ -533,10 +530,7 @@ describe("packs install handler", () => {
         refType: "registry",
         pack: {
           name: extensionName("frontend"),
-          skills: constraints({ "@acme/skills/react-testing": "^1.0.0" }),
-          commands: {},
-          mcpServers: {},
-          subagents: {},
+          dependencies: constraints({ "@acme/skills/react-testing": "^1.0.0" }),
         },
         source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
         owner: ACME,
@@ -605,10 +599,7 @@ describe("packs install handler", () => {
         refType: "registry",
         pack: {
           name: extensionName("basic-pack"),
-          skills: constraints({ "@acme/skills/plain-skill": "^1.0.0" }),
-          commands: {},
-          mcpServers: {},
-          subagents: {},
+          dependencies: constraints({ "@acme/skills/plain-skill": "^1.0.0" }),
         },
         source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
         owner: ACME,
@@ -691,10 +682,11 @@ describe("packs install handler", () => {
       refType: "registry",
       pack: {
         name: extensionName(name),
-        skills: opts?.skills ?? {},
-        commands: opts?.commands ?? {},
-        mcpServers: opts?.mcpServers ?? {},
-        subagents: {},
+        dependencies: {
+          ...(opts?.skills ?? {}),
+          ...(opts?.commands ?? {}),
+          ...(opts?.mcpServers ?? {}),
+        },
       },
       source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
       owner: ACME,

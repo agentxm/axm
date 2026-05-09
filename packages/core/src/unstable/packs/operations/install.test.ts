@@ -25,10 +25,7 @@ const makePackRef = () => ({
   refType: "registry" as const,
   pack: {
     name: extensionName("frontend-pack"),
-    skills: {},
-    commands: {},
-    mcpServers: {},
-    subagents: {},
+    dependencies: {},
   },
   source: {
     type: "registry" as const,
@@ -113,7 +110,7 @@ describe("installPack", () => {
             type: "pack",
             name: "frontend-pack",
             version: "1.0.0",
-            skills: {
+            dependencies: {
               "@acme/skills/code-review": "^1.0.0",
             },
           },
@@ -149,7 +146,7 @@ describe("installPack", () => {
           type: "pack",
           name: "frontend-pack",
           version: "1.0.0",
-          skills: {
+          dependencies: {
             "@acme/skills/code-review": "^1.0.0",
           },
         },
@@ -191,6 +188,7 @@ describe("installPack", () => {
           type: "pack",
           name: "frontend-pack",
           version: "1.0.0",
+          dependencies: {},
         },
         null,
         2,

@@ -43,6 +43,7 @@ const validManifest = {
   name: "utility-belt",
   version: "1.0.0",
   description: "a sample pack",
+  dependencies: {},
 };
 
 describe("pack/manifest-schema-valid", () => {
@@ -108,7 +109,7 @@ describe("pack/manifest-schema-valid", () => {
           packJson: {
             ...validManifest,
             // FQN must be `@owner/<plural>/<name>`; "bare-name" violates grammar.
-            skills: { "bare-name": "^1.0.0" },
+            dependencies: { "bare-name": "^1.0.0" },
           },
         }),
       );
@@ -123,7 +124,7 @@ describe("pack/manifest-schema-valid", () => {
         makeContext({
           packJson: {
             ...validManifest,
-            skills: { "@acme/skills/example": "not-a-semver-range" },
+            dependencies: { "@acme/skills/example": "not-a-semver-range" },
           },
         }),
       );

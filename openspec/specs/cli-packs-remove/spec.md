@@ -15,8 +15,8 @@ This is a manifest edit only — it SHALL NOT uninstall any extensions from the 
 #### Scenario: Remove specific extension
 
 - **WHEN** user runs `axm packs remove frontend-tools @acme/code-review`
-- **AND** `@acme/code-review` is in the pack's `skills` section
-- **THEN** `@acme/code-review` is removed from the pack manifest's `skills` section
+- **AND** `@acme/skills/code-review` is in the pack's `dependencies` map
+- **THEN** `@acme/skills/code-review` is removed from the pack manifest's `dependencies` map
 
 #### Scenario: Extension not in pack
 
@@ -31,7 +31,7 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 #### Scenario: Glob matches multiple extensions in pack
 
 - **WHEN** user runs `axm packs remove my-pack "effect-*"`
-- **AND** the pack manifest contains `@acme/effect-basics` and `@acme/effect-streams` in `skills`
+- **AND** the pack manifest contains `@acme/skills/effect-basics` and `@acme/skills/effect-streams` in `dependencies`
 - **THEN** both are removed from the manifest
 
 #### Scenario: Glob matches no extensions in pack

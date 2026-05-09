@@ -184,7 +184,7 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "frontend-tools", {
         name: "@test/packs/frontend-tools",
         version: "1.0.0",
-        skills: { "@test/skills/code-review": "^1.0.0" },
+        dependencies: { "@test/skills/code-review": "^1.0.0" },
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -228,6 +228,7 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "offline-pack", {
         name: "@test/packs/offline-pack",
         version: "1.0.0",
+        dependencies: { "@test/skills/example": "^1.0.0" },
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -257,6 +258,7 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "my-pack", {
         name: "@test/packs/my-pack",
         version: "0.1.0",
+        dependencies: { "@test/skills/example": "^1.0.0" },
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -311,6 +313,7 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "idempotent-pack", {
         name: "@test/packs/idempotent-pack",
         version: "1.0.0",
+        dependencies: { "@test/skills/example": "^1.0.0" },
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -341,7 +344,7 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "skills-pack", {
         name: "@test/packs/skills-pack",
         version: "1.0.0",
-        skills: {
+        dependencies: {
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "~2.0.0",
         },
@@ -379,9 +382,11 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "mixed-pack", {
         name: "@test/packs/mixed-pack",
         version: "2.0.0",
-        skills: { "@acme/skills/code-review": "^1.0.0" },
-        commands: { "@acme/commands/formatter": "^1.5.0" },
-        "mcp-servers": { "@acme/mcp-servers/db": "*" },
+        dependencies: {
+          "@acme/skills/code-review": "^1.0.0",
+          "@acme/commands/formatter": "^1.5.0",
+          "@acme/mcp-servers/db": "*",
+        },
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -410,35 +415,25 @@ describe("packs publish.handler", () => {
       );
     });
 
-    it.effect("publishes with no dependencies when manifest has none", () => {
+    it.effect("rejects publishing with no dependencies when manifest has none", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "empty-pack", {
         name: "@test/packs/empty-pack",
         version: "1.0.0",
+        dependencies: {},
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePublishPack(
+          const error = yield* handlePublishPack(
             defaultArgs("@test/packs/empty-pack", { registry: Option.some("local") }),
-          );
+          ).pipe(Effect.flip);
 
-          const registryIndexPath = path.join(
-            registryRoot,
-            "extensions",
-            "@test",
-            "packs",
-            "empty-pack",
-            "index.json",
-          );
-          const indexContent = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
-          // No dependencies field or empty
-          const deps = indexContent.versions[0].dependencies;
-          expect(deps === undefined || Object.keys(deps).length === 0).toBe(true);
+          expect(error.message).toContain("Failed to publish");
         }),
       );
     });
@@ -484,7 +479,7 @@ describe("packs publish.handler", () => {
         createManagedPack(tempDir, "@test", "dep-pack", {
           name: "@test/packs/dep-pack",
           version: "1.0.0",
-          skills: { "@test/skills/code-review": "^1.0.0" },
+          dependencies: { "@test/skills/code-review": "^1.0.0" },
         });
 
         // Create the dependency extension locally
@@ -528,8 +523,10 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "full-pack", {
         name: "@test/packs/full-pack",
         version: "1.0.0",
-        skills: { "@test/skills/linter": "^1.0.0" },
-        commands: { "@test/commands/formatter": "^2.0.0" },
+        dependencies: {
+          "@test/skills/linter": "^1.0.0",
+          "@test/commands/formatter": "^2.0.0",
+        },
       });
 
       // Create local extensions
@@ -596,7 +593,7 @@ describe("packs publish.handler", () => {
       createManagedPack(tempDir, "@test", "mixed-deps-pack", {
         name: "@test/packs/mixed-deps-pack",
         version: "1.0.0",
-        skills: {
+        dependencies: {
           "@test/skills/local-skill": "^1.0.0",
           "@external/skills/remote-skill": "^1.0.0",
         },
@@ -649,43 +646,31 @@ describe("packs publish.handler", () => {
       );
     });
 
-    it.effect(
-      "produces single-step plan when pack has no dependencies and includeDependencies is true",
-      () => {
-        const { provide, logs } = makeLayers();
-        const registryRoot = path.join(tempDir, "registry");
+    it.effect("fails when pack has no dependencies and includeDependencies is true", () => {
+      const { provide, logs } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
 
-        createManagedPack(tempDir, "@test", "no-deps-pack", {
-          name: "@test/packs/no-deps-pack",
-          version: "1.0.0",
-        });
+      createManagedPack(tempDir, "@test", "no-deps-pack", {
+        name: "@test/packs/no-deps-pack",
+        version: "1.0.0",
+        dependencies: {},
+      });
 
-        initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
-        return provide(
-          Effect.gen(function* () {
-            yield* handlePublishPack(
-              defaultArgs("@test/packs/no-deps-pack", {
-                registry: Option.some("local"),
-                includeDependencies: true,
-              }),
-            );
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handlePublishPack(
+            defaultArgs("@test/packs/no-deps-pack", {
+              registry: Option.some("local"),
+              includeDependencies: true,
+            }),
+          ).pipe(Effect.flip);
 
-            expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
-
-            // Pack should be published
-            const packIndex = path.join(
-              registryRoot,
-              "extensions",
-              "@test",
-              "packs",
-              "no-deps-pack",
-              "index.json",
-            );
-            expect(fs.existsSync(packIndex)).toBe(true);
-          }),
-        );
-      },
-    );
+          expect(error.message).toContain("Failed to publish");
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
+        }),
+      );
+    });
   });
 });

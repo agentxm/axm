@@ -10,10 +10,7 @@ const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
 type UninstallSurface = "skills" | "commands" | "subagents" | "packs";
 
 interface PackPublishOptions {
-  readonly skills?: Record<string, string>;
-  readonly commands?: Record<string, string>;
-  readonly "mcp-servers"?: Record<string, string>;
-  readonly subagents?: Record<string, string>;
+  readonly dependencies?: Record<string, string>;
 }
 
 interface JsonCommandResult {
@@ -306,7 +303,7 @@ const uninstallCases: ReadonlyArray<UninstallCase> = [
     publishToRegistry: async (registryPath: string) => {
       await publishSkillToRegistry(registryPath, "root-uninstall-pack-skill");
       await publishPackToRegistry(registryPath, "root-uninstall-pack", {
-        skills: {
+        dependencies: {
           [registryFqn("skills", "root-uninstall-pack-skill")]: "*",
         },
       });

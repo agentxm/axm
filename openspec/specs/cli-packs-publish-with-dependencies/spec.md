@@ -2,7 +2,7 @@
 
 ### Requirement: Publish locally managed dependencies with pack
 
-When `--include-dependencies` is provided, `axm packs publish` SHALL read the pack manifest, identify all dependency extensions (skills, commands, MCP servers), and publish those that are locally managed before publishing the pack itself.
+When `--include-dependencies` is provided, `axm packs publish` SHALL read the pack manifest `dependencies` map, identify all dependency extensions (skills, commands, MCP servers, subagents), and publish those that are locally managed before publishing the pack itself.
 
 #### Scenario: Publish pack with locally managed skill dependencies
 
@@ -15,7 +15,7 @@ When `--include-dependencies` is provided, `axm packs publish` SHALL read the pa
 #### Scenario: Publish pack with mixed extension type dependencies
 
 - **WHEN** user runs `axm packs publish my-pack --include-dependencies --yes`
-- **AND** the pack manifest lists skills, commands, and MCP server dependencies
+- **AND** the pack manifest lists skills, commands, MCP server, and subagent dependencies
 - **AND** all are locally managed
 - **THEN** all dependency extensions are published to the target registry
 - **AND** the pack is published after the dependencies
@@ -58,13 +58,13 @@ Dependency publishing SHALL follow the same idempotency rules as regular extensi
 
 ### Requirement: Pack with no dependencies
 
-When the pack manifest has no dependency entries, `--include-dependencies` SHALL have no effect — the pack is published normally.
+When the pack manifest has no dependency entries, publish SHALL fail validation.
 
 #### Scenario: Empty dependencies with flag
 
 - **WHEN** user runs `axm packs publish my-pack --include-dependencies --yes`
-- **AND** the pack manifest has no skills, commands, or MCP server entries
-- **THEN** the pack is published normally with no additional operations
+- **AND** the pack manifest has an empty `dependencies` map
+- **THEN** publish fails validation
 
 ### Requirement: Plan displays dependency publish steps
 

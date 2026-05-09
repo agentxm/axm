@@ -387,10 +387,7 @@ export const configuredPacksToDiskRefs = (
           compatiblePackages: [],
           pack: {
             name: manifest.name,
-            skills: manifest.skills ?? {},
-            commands: manifest.commands ?? {},
-            mcpServers: manifest["mcp-servers"] ?? {},
-            subagents: manifest.subagents ?? {},
+            dependencies: manifest.dependencies,
           },
         } satisfies PackRef);
       }),

@@ -18,29 +18,29 @@ The default version specifier SHALL be `*` (stay current). Authors SHALL specify
 
 - **WHEN** user runs `axm packs add frontend-tools @acme/code-review`
 - **AND** `@acme/code-review` is a managed, registry-sourced skill installed in the workspace
-- **THEN** `pack.json` gains entry `skills: { "@acme/code-review": "*" }`
+- **THEN** `pack.json` gains dependency entry `"@acme/skills/code-review": "*"`
 
 #### Scenario: Add extension with explicit version constraint
 
 - **WHEN** user runs `axm packs add frontend-tools @acme/code-review@^1.0.0`
-- **THEN** `pack.json` gains entry `skills: { "@acme/code-review": "^1.0.0" }`
+- **THEN** `pack.json` gains dependency entry `"@acme/skills/code-review": "^1.0.0"`
 
 #### Scenario: Add extension with exact pin
 
 - **WHEN** user runs `axm packs add frontend-tools @acme/code-review@1.2.3`
-- **THEN** `pack.json` gains entry `skills: { "@acme/code-review": "1.2.3" }`
+- **THEN** `pack.json` gains dependency entry `"@acme/skills/code-review": "1.2.3"`
 
 #### Scenario: Add command extension
 
 - **WHEN** user runs `axm packs add frontend-tools @acme/formatter`
 - **AND** `@acme/formatter` is a managed, registry-sourced command
-- **THEN** `pack.json` gains entry `commands: { "@acme/formatter": "*" }`
+- **THEN** `pack.json` gains dependency entry `"@acme/commands/formatter": "*"`
 
 #### Scenario: Add MCP server extension
 
 - **WHEN** user runs `axm packs add frontend-tools @acme/db-browser`
 - **AND** `@acme/db-browser` is a managed, registry-sourced MCP server
-- **THEN** `pack.json` gains entry `mcp-servers: { "@acme/db-browser": "*" }`
+- **THEN** `pack.json` gains dependency entry `"@acme/mcp-servers/db-browser": "*"`
 
 #### Scenario: Extension already in pack
 
@@ -73,13 +73,13 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 ### Requirement: Extension type inference
 
-The system SHALL infer the extension type (skill, command, mcp-server) from the lockfile or settings — no `--type` flag is needed.
+The system SHALL infer the extension type (skill, command, mcp-server) from the lockfile or settings and write a typed FQN key into `dependencies` — no `--type` flag is needed.
 
 #### Scenario: Type inferred from lockfile
 
 - **WHEN** user runs `axm packs add my-pack @acme/code-review`
 - **AND** the lockfile contains `@acme/code-review` as a skill
-- **THEN** the extension is added to the `skills` section of the pack manifest
+- **THEN** the extension is added to the `dependencies` map of the pack manifest
 
 ### Requirement: Non-registry extension rejected
 

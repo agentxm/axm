@@ -66,9 +66,7 @@ const createPackManifest = (base: string, owner: string, packName: string) => {
     type: "pack",
     name: packName,
     version: "0.0.1",
-    skills: {},
-    commands: {},
-    "mcp-servers": {},
+    dependencies: {},
   };
   const content = JSON.stringify(manifest, null, 2) + "\n";
   fs.writeFileSync(path.join(packDir, "pack.json"), content);
@@ -136,7 +134,7 @@ describe("addToPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.skills["@acme/skills/my-skill"]).toBe("^1.0.0");
+        expect(manifest.dependencies["@acme/skills/my-skill"]).toBe("^1.0.0");
       }),
     );
 
@@ -167,8 +165,8 @@ describe("addToPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.skills["@acme/skills/skill-a"]).toBe("^1.0.0");
-        expect(manifest.skills["@acme/skills/skill-b"]).toBe("^2.0.0");
+        expect(manifest.dependencies["@acme/skills/skill-a"]).toBe("^1.0.0");
+        expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
       }),
     );
 
@@ -239,8 +237,8 @@ describe("addToPack", () => {
     );
   });
 
-  describe("FQN routing", () => {
-    it.effect("routes command FQNs to manifest.commands section", () =>
+  describe("FQN storage", () => {
+    it.effect("writes command FQNs to manifest dependencies", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
@@ -264,12 +262,12 @@ describe("addToPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.commands["@acme/commands/my-cmd"]).toBe("^1.0.0");
-        expect(manifest.skills["@acme/commands/my-cmd"]).toBeUndefined();
+        expect(manifest.dependencies["@acme/commands/my-cmd"]).toBe("^1.0.0");
+        expect(manifest.commands).toBeUndefined();
       }),
     );
 
-    it.effect("routes mcp-server FQNs to manifest.mcp-servers section", () =>
+    it.effect("writes mcp-server FQNs to manifest dependencies", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
@@ -293,12 +291,12 @@ describe("addToPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest["mcp-servers"]["@acme/mcp-servers/my-server"]).toBe("^2.0.0");
-        expect(manifest.skills["@acme/mcp-servers/my-server"]).toBeUndefined();
+        expect(manifest.dependencies["@acme/mcp-servers/my-server"]).toBe("^2.0.0");
+        expect(manifest["mcp-servers"]).toBeUndefined();
       }),
     );
 
-    it.effect("routes mixed FQN types to correct sections", () =>
+    it.effect("writes mixed FQN types to manifest dependencies", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
@@ -326,9 +324,9 @@ describe("addToPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.skills["@acme/skills/my-skill"]).toBe("^1.0.0");
-        expect(manifest.commands["@acme/commands/my-cmd"]).toBe("^2.0.0");
-        expect(manifest["mcp-servers"]["@acme/mcp-servers/my-server"]).toBe("^3.0.0");
+        expect(manifest.dependencies["@acme/skills/my-skill"]).toBe("^1.0.0");
+        expect(manifest.dependencies["@acme/commands/my-cmd"]).toBe("^2.0.0");
+        expect(manifest.dependencies["@acme/mcp-servers/my-server"]).toBe("^3.0.0");
       }),
     );
   });

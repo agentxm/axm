@@ -53,9 +53,7 @@ const createManagedPack = (
   name: string,
   manifest: {
     version: string;
-    skills?: Record<string, string>;
-    commands?: Record<string, string>;
-    "mcp-servers"?: Record<string, string>;
+    dependencies: Record<string, string>;
   },
 ) => {
   const packDir = path.join(tempPath, ".axm", "extensions", owner, "packs", name);
@@ -92,7 +90,7 @@ describe("axm packs publish", () => {
         // Create the pack with dependencies referencing those skills
         createManagedPack(temp.path, owner, "my-pack", {
           version: "1.0.0",
-          skills: {
+          dependencies: {
             [`${owner}/skills/dep-skill-a`]: "^1.0.0",
             [`${owner}/skills/dep-skill-b`]: "^2.0.0",
           },
@@ -164,7 +162,7 @@ describe("axm packs publish", () => {
         // Create the pack referencing the dependency
         createManagedPack(temp.path, owner, "preview-pack", {
           version: "1.0.0",
-          skills: {
+          dependencies: {
             [`${owner}/skills/preview-dep`]: "^1.0.0",
           },
         });
@@ -229,7 +227,7 @@ describe("axm packs publish", () => {
         // Create the pack referencing the dependency
         createManagedPack(temp.path, owner, "solo-pack", {
           version: "1.0.0",
-          skills: {
+          dependencies: {
             [`${owner}/skills/ignored-dep`]: "^1.0.0",
           },
         });

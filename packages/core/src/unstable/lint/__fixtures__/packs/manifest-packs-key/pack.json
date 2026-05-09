@@ -3,5 +3,6 @@
   "type": "pack",
   "name": "utility-belt",
   "version": "1.0.0",
+  "dependencies": {},
   "packs": { "@acme/packs/other": "^1.0.0" }
 }

@@ -115,7 +115,7 @@ describe("normalizePublishInput", () => {
               type: "pack",
               name: "my-pack",
               version: "1.0.0",
-              skills: { "@acme/skills/code-review": "^1.0.0" },
+              dependencies: { "@acme/skills/code-review": "^1.0.0" },
             }),
           ),
         },

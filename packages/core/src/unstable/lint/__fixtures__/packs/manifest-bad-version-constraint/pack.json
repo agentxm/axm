@@ -3,5 +3,5 @@
   "type": "pack",
   "name": "utility-belt",
   "version": "1.0.0",
-  "skills": { "@acme/skills/example": "not-a-semver-range" }
+  "dependencies": { "@acme/skills/example": "not-a-semver-range" }
 }

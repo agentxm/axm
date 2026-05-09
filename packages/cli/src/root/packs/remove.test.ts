@@ -46,9 +46,7 @@ const createPackManifest = (
     type: "pack",
     name,
     version: manifest["version"] ?? "0.0.1",
-    skills: manifest["skills"] ?? {},
-    commands: manifest["commands"] ?? {},
-    "mcp-servers": manifest["mcp-servers"] ?? {},
+    dependencies: manifest["dependencies"] ?? {},
   };
   fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(normalizedManifest, null, 2));
   return packDir;
@@ -102,9 +100,10 @@ describe("packs-remove.handler", () => {
       createPackManifest(tempDir, "@acme", "frontend-tools", {
         name: "@acme/packs/frontend-tools",
         version: "0.0.1",
-        skills: { "@acme/skills/code-review": "^1.2.0", "@acme/skills/linting": "^2.0.0" },
-        commands: {},
-        "mcp-servers": {},
+        dependencies: {
+          "@acme/skills/code-review": "^1.2.0",
+          "@acme/skills/linting": "^2.0.0",
+        },
       });
 
       return provide(
@@ -121,8 +120,8 @@ describe("packs-remove.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
-          expect(manifest.skills["@acme/skills/linting"]).toBe("^2.0.0");
+          expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
+          expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
           expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
@@ -139,9 +138,10 @@ describe("packs-remove.handler", () => {
       createPackManifest(tempDir, "@acme", "frontend-tools", {
         name: "@acme/packs/frontend-tools",
         version: "0.0.1",
-        skills: { "@acme/skills/code-review": "^1.2.0", "@acme/skills/linting": "^2.0.0" },
-        commands: {},
-        "mcp-servers": {},
+        dependencies: {
+          "@acme/skills/code-review": "^1.2.0",
+          "@acme/skills/linting": "^2.0.0",
+        },
       });
 
       return provide(
@@ -161,8 +161,8 @@ describe("packs-remove.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
-          expect(manifest.skills["@acme/skills/linting"]).toBe("^2.0.0");
+          expect(manifest.dependencies["@acme/skills/code-review"]).toBe("^1.2.0");
+          expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
 
           // Preview log message should appear
           expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
@@ -181,13 +181,11 @@ describe("packs-remove.handler", () => {
       createPackManifest(tempDir, "@acme", "my-pack", {
         name: "@acme/packs/my-pack",
         version: "0.0.1",
-        skills: {
+        dependencies: {
           "@acme/skills/effect-basics": "^1.0.0",
           "@acme/skills/effect-streams": "^2.0.0",
           "@acme/skills/other-skill": "^3.0.0",
         },
-        commands: {},
-        "mcp-servers": {},
       });
 
       return provide(
@@ -204,9 +202,9 @@ describe("packs-remove.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/effect-basics"]).toBeUndefined();
-          expect(manifest.skills["@acme/skills/effect-streams"]).toBeUndefined();
-          expect(manifest.skills["@acme/skills/other-skill"]).toBe("^3.0.0");
+          expect(manifest.dependencies["@acme/skills/effect-basics"]).toBeUndefined();
+          expect(manifest.dependencies["@acme/skills/effect-streams"]).toBeUndefined();
+          expect(manifest.dependencies["@acme/skills/other-skill"]).toBe("^3.0.0");
         }),
       );
     });
@@ -220,9 +218,7 @@ describe("packs-remove.handler", () => {
       createPackManifest(tempDir, "@acme", "my-pack", {
         name: "@acme/packs/my-pack",
         version: "0.0.1",
-        skills: { "@acme/skills/some-skill": "^1.0.0" },
-        commands: {},
-        "mcp-servers": {},
+        dependencies: { "@acme/skills/some-skill": "^1.0.0" },
       });
 
       return provide(
@@ -246,13 +242,11 @@ describe("packs-remove.handler", () => {
       createPackManifest(tempDir, "@acme", "frontend-tools", {
         name: "@acme/packs/frontend-tools",
         version: "0.0.1",
-        skills: {
+        dependencies: {
           "@acme/skills/code-review": "^1.2.0",
           "@acme/skills/linting": "^2.0.0",
           "@acme/skills/testing": "^3.0.0",
         },
-        commands: {},
-        "mcp-servers": {},
       });
 
       return provide(
@@ -273,9 +267,9 @@ describe("packs-remove.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
-          expect(manifest.skills["@acme/skills/linting"]).toBeUndefined();
-          expect(manifest.skills["@acme/skills/testing"]).toBe("^3.0.0");
+          expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
+          expect(manifest.dependencies["@acme/skills/linting"]).toBeUndefined();
+          expect(manifest.dependencies["@acme/skills/testing"]).toBe("^3.0.0");
         }),
       );
     });
@@ -291,9 +285,7 @@ describe("packs-remove.handler", () => {
       createPackManifest(tempDir, "@acme", "my-pack", {
         name: "@acme/packs/my-pack",
         version: "0.0.1",
-        skills: {},
-        commands: {},
-        "mcp-servers": {},
+        dependencies: {},
       });
 
       return provide(

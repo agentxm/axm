@@ -400,10 +400,7 @@ export const packLockEntryToRef = (
       compatiblePackages: [],
       pack: {
         name: extensionName,
-        skills: {},
-        commands: {},
-        mcpServers: {},
-        subagents: {},
+        dependencies: {},
       },
     })),
   );

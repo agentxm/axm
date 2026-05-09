@@ -121,9 +121,6 @@ export type PackRefBase<TRefType extends RefType, TSource extends Source> = Exte
   readonly owner: Handle;
   readonly pack: {
     readonly name: ExtensionName;
-    readonly skills: ExtensionDependencyConstraintMap;
-    readonly commands: ExtensionDependencyConstraintMap;
-    readonly mcpServers: ExtensionDependencyConstraintMap;
-    readonly subagents: ExtensionDependencyConstraintMap;
+    readonly dependencies: ExtensionDependencyConstraintMap;
   };
 };

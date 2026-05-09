@@ -127,22 +127,16 @@ export const removeFromPack: OperationHandler<
     );
 
     const removalSet = new Set(removals);
-    const filterSection = (
-      section: Readonly<Record<string, string>> | undefined,
-    ): Record<string, string> =>
-      Object.fromEntries(Object.entries(section ?? {}).filter(([name]) => !removalSet.has(name)));
-    const updatedSkills = filterSection(manifest["skills"]);
-    const updatedCommands = filterSection(manifest["commands"]);
-    const updatedMcpServers = filterSection(manifest["mcp-servers"]);
+    const dependencies = Object.fromEntries(
+      Object.entries(manifest.dependencies).filter(([name]) => !removalSet.has(name)),
+    );
     const updatedManifest = {
       ...manifest,
       owner: manifest.owner,
       type: manifest.type,
       name: manifest.name,
       version: manifest.version,
-      skills: updatedSkills,
-      commands: updatedCommands,
-      "mcp-servers": updatedMcpServers,
+      dependencies,
     };
 
     // 5. Write updated manifest

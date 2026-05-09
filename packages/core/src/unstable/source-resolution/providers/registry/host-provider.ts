@@ -30,7 +30,6 @@ import {
   isInstallableExtensionType,
   toAuthor,
   type Author,
-  type ExtensionDependencyConstraintMap,
   type ExtensionName,
   type ExtensionType,
 } from "../../../extensions/index.js";
@@ -266,25 +265,14 @@ const toExtensionRef = (
         source,
         ...details,
       });
-    case "pack": {
-      const skills: Record<string, ExtensionDependencyConstraintMap[string]> = {};
-      const commands: Record<string, ExtensionDependencyConstraintMap[string]> = {};
-      const mcpServers: Record<string, ExtensionDependencyConstraintMap[string]> = {};
-      const subagents: Record<string, ExtensionDependencyConstraintMap[string]> = {};
-      for (const [key, version] of Object.entries(dependencies)) {
-        if (key.includes("/skills/")) skills[key] = version;
-        else if (key.includes("/commands/")) commands[key] = version;
-        else if (key.includes("/mcp-servers/")) mcpServers[key] = version;
-        else if (key.includes("/subagents/")) subagents[key] = version;
-      }
+    case "pack":
       return Option.some({
         type: "pack",
         refType: "registry" as const,
-        pack: { name: entry.name, skills, commands, mcpServers, subagents },
+        pack: { name: entry.name, dependencies },
         source,
         ...details,
       });
-    }
   }
 };
 

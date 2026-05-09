@@ -146,6 +146,25 @@ export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, stri
 };
 
 const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|");
+
+/**
+ * Plural extension-type segments that may appear as dependency keys —
+ * everything except `packs`. Packs cannot depend on other packs.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const nonPackExtensionTypePluralSegments = [
+  "skills",
+  "commands",
+  "mcp-servers",
+  "subagents",
+  "files",
+  "rules",
+] as const satisfies ReadonlyArray<Exclude<ExtensionTypePlural, "packs">>;
+
+export type NonPackExtensionTypePlural = (typeof nonPackExtensionTypePluralSegments)[number];
+
+const NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = nonPackExtensionTypePluralSegments.join("|");
 const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;
@@ -176,6 +195,17 @@ const makeExtensionNameSchema = () =>
  */
 export const FQN_PATTERN = new RegExp(
   `^(${HANDLE_PATTERN_SOURCE})\\/(${EXTENSION_TYPE_PLURAL_PATTERN_SOURCE})\\/(${EXTENSION_NAME_PATTERN_SOURCE})$`,
+);
+
+/**
+ * Fully qualified name regex restricted to non-pack extension types. Matches
+ * `@<handle>/<type>/<name>` where `<type>` is any plural extension type other
+ * than `packs`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const NON_PACK_FQN_PATTERN = new RegExp(
+  `^(${HANDLE_PATTERN_SOURCE})\\/(${NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE})\\/(${EXTENSION_NAME_PATTERN_SOURCE})$`,
 );
 
 /**
@@ -278,19 +308,27 @@ export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | unde
   return parseExtensionFqnParts(fqnPart);
 };
 
+const INVALID_EXTENSION_FQN_MESSAGE =
+  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name form";
+
 /**
- * Fully qualified name string schema validated through the composed parts schema.
+ * Fully qualified name string schema validated against the composed handle,
+ * type, and name patterns. Annotated so JSON Schema generation surfaces a
+ * `pattern` and a top-level `ExtensionFqn` definition that `Schema.Record`
+ * keys can reference via `propertyNames`.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const ExtensionFqnSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.makeFilter((value: string) => {
-      return parseExtensionFqnParts(value) === undefined
-        ? `Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name form, got: ${value}`
-        : undefined;
-    }),
-  ),
+  Schema.check(Schema.isPattern(FQN_PATTERN, { message: INVALID_EXTENSION_FQN_MESSAGE })),
+  Schema.annotate({
+    identifier: "ExtensionFqn",
+    title: "Extension FQN",
+    description:
+      "Fully qualified extension name in @handle/type/name form, like @acme/skills/code-review.",
+    examples: ["@acme/skills/code-review", "@my-org/commands/format"],
+    message: INVALID_EXTENSION_FQN_MESSAGE,
+  }),
 );
 
 /**
@@ -299,6 +337,37 @@ export const ExtensionFqnSchema = Schema.String.pipe(
  * @experimental This API is unstable and may change without notice.
  */
 export type ExtensionFqn = Schema.Schema.Type<typeof ExtensionFqnSchema>;
+
+const INVALID_NON_PACK_EXTENSION_FQN_MESSAGE =
+  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|files|rules)/name form (packs are not allowed)";
+
+/**
+ * Fully qualified name string schema restricted to non-pack extension types.
+ * Used wherever pack-typed FQNs are not permitted, like the keys of a pack
+ * manifest's `dependencies` map.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const NonPackExtensionFqnSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(NON_PACK_FQN_PATTERN, { message: INVALID_NON_PACK_EXTENSION_FQN_MESSAGE }),
+  ),
+  Schema.annotate({
+    identifier: "NonPackExtensionFqn",
+    title: "Non-Pack Extension FQN",
+    description:
+      "Fully qualified extension name in @handle/type/name form, restricted to non-pack types like skills, commands, mcp-servers, subagents, files, and rules.",
+    examples: ["@acme/skills/code-review", "@my-org/commands/format"],
+    message: INVALID_NON_PACK_EXTENSION_FQN_MESSAGE,
+  }),
+);
+
+/**
+ * Inferred type for NonPackExtensionFqn schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type NonPackExtensionFqn = Schema.Schema.Type<typeof NonPackExtensionFqnSchema>;
 
 /**
  * Extension spec — fully qualified extension name with an optional version
@@ -368,6 +437,26 @@ export const ExtensionDependencyConstraintMapSchema = Schema.Record(
  */
 export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
   typeof ExtensionDependencyConstraintMapSchema
+>;
+
+/**
+ * Map of non-pack fully-qualified extension names to semver constraints.
+ * Used for pack manifest `dependencies`, which cannot include other packs.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const NonPackExtensionDependencyConstraintMapSchema = Schema.Record(
+  NonPackExtensionFqnSchema,
+  VersionRangeSchema,
+);
+
+/**
+ * Inferred type for non-pack extension dependency constraint maps.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
+  typeof NonPackExtensionDependencyConstraintMapSchema
 >;
 
 /**

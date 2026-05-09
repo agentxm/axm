@@ -77,7 +77,7 @@ describe("publishPack", () => {
       type: "pack",
       name,
       version: "0.1.0",
-      skills: { "@community/skills/example": "^1.0.0" },
+      dependencies: { "@community/skills/example": "^1.0.0" },
       ...manifest,
     };
     fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(defaultManifest, null, 2));
@@ -113,10 +113,12 @@ describe("publishPack", () => {
   it.effect("records every dependency type in published metadata", () =>
     Effect.gen(function* () {
       const { axmDir, registryRoot } = setup("@community", "full-pack", {
-        skills: { "@community/skills/example": "^1.0.0" },
-        commands: { "@community/commands/release": "~2.0.0" },
-        "mcp-servers": { "@community/mcp-servers/docs": "3.1.0" },
-        subagents: { "@community/subagents/researcher": "1.4.0" },
+        dependencies: {
+          "@community/skills/example": "^1.0.0",
+          "@community/commands/release": "~2.0.0",
+          "@community/mcp-servers/docs": "3.1.0",
+          "@community/subagents/researcher": "1.4.0",
+        },
       });
 
       yield* publishPack(
@@ -138,6 +140,23 @@ describe("publishPack", () => {
         "@community/mcp-servers/docs": "3.1.0",
         "@community/subagents/researcher": "1.4.0",
       });
+    }),
+  );
+
+  it.effect("rejects publishing an empty pack", () =>
+    Effect.gen(function* () {
+      const { axmDir, registryRoot } = setup("@community", "empty-pack", {
+        dependencies: {},
+      });
+
+      const result = yield* publishPack(
+        makeOp({ name: "@community/packs/empty-pack", registryName: "local" }),
+      ).pipe(
+        Effect.provide(withServices(axmDir, registryRoot)),
+        Effect.catch((error) => Effect.succeed(error)),
+      );
+
+      expect(result).toMatchObject({ code: "validation" });
     }),
   );
 });

@@ -16,7 +16,6 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { parseFqnOrThrow } from "../../extensions/index.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
@@ -127,26 +126,9 @@ export const addToPack: OperationHandler<
       ),
     );
 
-    const currentSkills: Record<string, string> = { ...(manifest["skills"] ?? {}) };
-    const currentCommands: Record<string, string> = { ...(manifest["commands"] ?? {}) };
-    const currentMcpServers: Record<string, string> = { ...(manifest["mcp-servers"] ?? {}) };
-
+    const dependencies: Record<string, string> = { ...manifest.dependencies };
     for (const [fqn, version] of Object.entries(additions)) {
-      const parsed = parseFqnOrThrow(fqn);
-      switch (parsed.type) {
-        case "skill":
-          currentSkills[fqn] = version;
-          break;
-        case "command":
-          currentCommands[fqn] = version;
-          break;
-        case "mcp-server":
-          currentMcpServers[fqn] = version;
-          break;
-        case "pack":
-          currentSkills[fqn] = version;
-          break;
-      }
+      dependencies[fqn] = version;
     }
 
     const updatedManifest = {
@@ -155,9 +137,7 @@ export const addToPack: OperationHandler<
       type: manifest.type,
       name: manifest.name,
       version: manifest.version,
-      skills: currentSkills,
-      commands: currentCommands,
-      "mcp-servers": currentMcpServers,
+      dependencies,
     };
 
     // 5. Write updated manifest

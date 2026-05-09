@@ -92,7 +92,7 @@ describe("newPack", () => {
       }),
     );
 
-    it.effect("writes correct manifest identity fields and empty extension maps", () =>
+    it.effect("writes correct manifest identity fields and empty dependencies map", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
@@ -115,9 +115,10 @@ describe("newPack", () => {
         expect(manifest.type).toBe("pack");
         expect(manifest.name).toBe("my-pack");
         expect(manifest.version).toBe("0.0.1");
-        expect(manifest.skills).toEqual({});
-        expect(manifest.commands).toEqual({});
-        expect(manifest["mcp-servers"]).toEqual({});
+        expect(manifest.dependencies).toEqual({});
+        expect(manifest.skills).toBeUndefined();
+        expect(manifest.commands).toBeUndefined();
+        expect(manifest["mcp-servers"]).toBeUndefined();
       }),
     );
 

@@ -125,7 +125,7 @@ describe("resolveManifest", () => {
         type: "pack",
         name: "my-pack",
         version: "2.0.0",
-        skills: { "@acme/skills/code-review": "^1.0.0" },
+        dependencies: { "@acme/skills/code-review": "^1.0.0" },
       });
 
       const resolved = yield* resolveManifest({

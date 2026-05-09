@@ -17,7 +17,7 @@ The pack name SHALL resolve its owner from the workspace's configured profile (f
 - **WHEN** user runs `axm packs new frontend-tools`
 - **AND** workspace profile is `@acme`
 - **THEN** `pack.json` is created at `.axm/extensions/@acme/packs/frontend-tools/pack.json`
-- **AND** manifest contains `owner: "@acme"`, `name: "frontend-tools"`, `version: "0.0.1"`, and empty `skills`, `commands`, `mcp-servers`
+- **AND** manifest contains `owner: "@acme"`, `name: "frontend-tools"`, `version: "0.0.1"`, and empty `dependencies`
 
 #### Scenario: Create pack with profile override
 

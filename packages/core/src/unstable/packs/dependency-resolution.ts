@@ -19,7 +19,7 @@ import {
 
 type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
   readonly owner: Handle;
-  readonly type: ExtensionType;
+  readonly type: T;
   readonly name: ExtensionName;
   readonly ref: Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }>;
   readonly source: RegistrySource;
@@ -33,21 +33,7 @@ export interface ResolvedPackDependencies {
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
 
-const resolveDependencyType = (
-  expectedType: ExtensionType,
-  parsedType: ExtensionType,
-): Effect.Effect<void, AppError> => {
-  if (parsedType === expectedType) {
-    return Effect.void;
-  }
-
-  return Effect.fail(
-    makeAppError({
-      code: "usage",
-      message: `Pack dependency type mismatch for expected ${expectedType}`,
-    }),
-  );
-};
+type SupportedPackDependencyType = "skill" | "command" | "mcp-server" | "subagent";
 
 const registrySourceForDependency = (
   pack: PackRef,
@@ -77,7 +63,12 @@ const resolveDependencyRef = <T extends ExtensionType>(
 ): Effect.Effect<ResolvedDependency<T>, AppError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
-    yield* resolveDependencyType(expectedType, parsed.type);
+    if (parsed.type !== expectedType) {
+      return yield* makeAppError({
+        code: "usage",
+        message: `Pack dependency type mismatch for expected ${expectedType}`,
+      });
+    }
 
     const source = yield* registrySourceForDependency(pack, parsed.owner);
     const matches = yield* Effect.scoped(
@@ -106,7 +97,13 @@ const resolveDependencyRef = <T extends ExtensionType>(
       });
     }
 
-    return { ...parsed, ref: matchingRef, source };
+    return {
+      owner: parsed.owner,
+      type: expectedType,
+      name: parsed.name,
+      ref: matchingRef,
+      source,
+    };
   });
 
 const toResolvedMap = <T extends ExtensionType>(
@@ -119,39 +116,85 @@ const toResolvedMap = <T extends ExtensionType>(
     ]),
   );
 
-const resolveDependencyGroup = <T extends ExtensionType>(
+const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
   pack: PackRef,
-  dependencies: ExtensionDependencyConstraintMap,
+  dependencies: ReadonlyArray<readonly [string, VersionRange]>,
   expectedType: T,
   sources: SourceHostProvidersService,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>
   Effect.forEach(
-    Object.entries(dependencies),
+    dependencies,
     ([fqn, constraint]) => resolveDependencyRef(pack, expectedType, fqn, constraint, sources),
     { concurrency: "unbounded" },
   );
+
+const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) => {
+  const skills: Array<readonly [string, VersionRange]> = [];
+  const commands: Array<readonly [string, VersionRange]> = [];
+  const mcpServers: Array<readonly [string, VersionRange]> = [];
+  const subagents: Array<readonly [string, VersionRange]> = [];
+  const unsupported: string[] = [];
+
+  for (const [fqn, constraint] of Object.entries(dependencies)) {
+    const parsed = parseFqnOrThrow(fqn);
+    switch (parsed.type) {
+      case "skill":
+        skills.push([fqn, constraint]);
+        break;
+      case "command":
+        commands.push([fqn, constraint]);
+        break;
+      case "mcp-server":
+        mcpServers.push([fqn, constraint]);
+        break;
+      case "subagent":
+        subagents.push([fqn, constraint]);
+        break;
+      case "file":
+      case "rule":
+      case "pack":
+        unsupported.push(fqn);
+        break;
+    }
+  }
+
+  return { skills, commands, mcpServers, subagents, unsupported };
+};
 
 export const resolvePackDependencies = (
   pack: PackRef,
   sources: SourceHostProvidersService,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
-    const resolvedSkills = yield* resolveDependencyGroup(pack, pack.pack.skills, "skill", sources);
+    const dependencies = partitionDependencies(pack.pack.dependencies);
+    if (dependencies.unsupported.length > 0) {
+      return yield* makeAppError({
+        code: "usage",
+        message: `Pack declares unsupported dependency type(s): ${dependencies.unsupported.join(", ")}`,
+      });
+    }
+
+    const resolvedSkills = yield* resolveDependencyGroup(
+      pack,
+      dependencies.skills,
+      "skill",
+      sources,
+    );
     const resolvedCommands = yield* resolveDependencyGroup(
       pack,
-      pack.pack.commands,
+      dependencies.commands,
       "command",
       sources,
     );
     const resolvedMcpServers = yield* resolveDependencyGroup(
       pack,
-      pack.pack.mcpServers,
+      dependencies.mcpServers,
       "mcp-server",
       sources,
     );
     const resolvedSubagents = yield* resolveDependencyGroup(
       pack,
-      pack.pack.subagents,
+      dependencies.subagents,
       "subagent",
       sources,
     );

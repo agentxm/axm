@@ -58,6 +58,17 @@
         }
       ]
     },
+    "NonPackExtensionFqn": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "title": "Non-Pack Extension FQN",
+          "description": "Fully qualified extension name in @handle/type/name form, restricted to non-pack types like skills, commands, mcp-servers, subagents, files, and rules.",
+          "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
+        }
+      ]
+    },
     "VersionRange": { "type": "string" },
     "PackManifest": {
       "type": "object",
@@ -91,32 +102,16 @@
         },
         "type": { "type": "string", "enum": ["pack"] },
         "name": { "$ref": "#/definitions/ExtensionName" },
-        "skills": {
-          "anyOf": [
-            { "type": "object", "additionalProperties": { "$ref": "#/definitions/VersionRange" } },
-            { "type": "null" }
-          ]
-        },
-        "commands": {
-          "anyOf": [
-            { "type": "object", "additionalProperties": { "$ref": "#/definitions/VersionRange" } },
-            { "type": "null" }
-          ]
-        },
-        "mcp-servers": {
-          "anyOf": [
-            { "type": "object", "additionalProperties": { "$ref": "#/definitions/VersionRange" } },
-            { "type": "null" }
-          ]
-        },
-        "subagents": {
-          "anyOf": [
-            { "type": "object", "additionalProperties": { "$ref": "#/definitions/VersionRange" } },
-            { "type": "null" }
-          ]
+        "dependencies": {
+          "type": "object",
+          "patternProperties": {
+            "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$": {
+              "$ref": "#/definitions/VersionRange"
+            }
+          }
         }
       },
-      "required": ["owner", "version", "type", "name"],
+      "required": ["owner", "version", "type", "name", "dependencies"],
       "additionalProperties": false,
       "title": "Pack Manifest",
       "description": "Configuration file (pack.json) that bundles multiple extensions into a single installable pack."

@@ -53,12 +53,12 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
   return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs), outputLayer);
 };
 
-/** Creates a pack manifest with some skills on disk and returns its content hash. */
-const createPackManifestWithSkills = (
+/** Creates a pack manifest with dependencies on disk and returns its content hash. */
+const createPackManifestWithDependencies = (
   base: string,
   owner: string,
   packName: string,
-  skills: Record<string, string> = {},
+  dependencies: Record<string, string> = {},
 ) => {
   const packDir = path.join(base, ".axm", "extensions", owner, "packs", packName);
   fs.mkdirSync(packDir, { recursive: true });
@@ -67,9 +67,7 @@ const createPackManifestWithSkills = (
     type: "pack",
     name: packName,
     version: "0.0.1",
-    skills,
-    commands: {},
-    "mcp-servers": {},
+    dependencies,
   };
   const content = JSON.stringify(manifest, null, 2) + "\n";
   fs.writeFileSync(path.join(packDir, "pack.json"), content);
@@ -115,7 +113,7 @@ describe("removeFromPack", () => {
     it.effect("removes extensions from pack manifest", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        const { manifestHash } = createPackManifestWithSkills(base, "@myorg", "my-pack", {
+        const { manifestHash } = createPackManifestWithDependencies(base, "@myorg", "my-pack", {
           "@acme/skills/my-skill": "^1.0.0",
           "@acme/skills/other-skill": "^2.0.0",
         });
@@ -140,15 +138,15 @@ describe("removeFromPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.skills["@acme/skills/my-skill"]).toBeUndefined();
-        expect(manifest.skills["@acme/skills/other-skill"]).toBe("^2.0.0");
+        expect(manifest.dependencies["@acme/skills/my-skill"]).toBeUndefined();
+        expect(manifest.dependencies["@acme/skills/other-skill"]).toBe("^2.0.0");
       }),
     );
 
     it.effect("removes multiple extensions at once", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        const { manifestHash } = createPackManifestWithSkills(base, "@myorg", "my-pack", {
+        const { manifestHash } = createPackManifestWithDependencies(base, "@myorg", "my-pack", {
           "@acme/skills/skill-a": "^1.0.0",
           "@acme/skills/skill-b": "^2.0.0",
           "@acme/skills/skill-c": "^3.0.0",
@@ -173,16 +171,16 @@ describe("removeFromPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.skills["@acme/skills/skill-a"]).toBeUndefined();
-        expect(manifest.skills["@acme/skills/skill-b"]).toBe("^2.0.0");
-        expect(manifest.skills["@acme/skills/skill-c"]).toBeUndefined();
+        expect(manifest.dependencies["@acme/skills/skill-a"]).toBeUndefined();
+        expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
+        expect(manifest.dependencies["@acme/skills/skill-c"]).toBeUndefined();
       }),
     );
 
     it.effect("returns success when removals list is empty", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        const { manifestHash } = createPackManifestWithSkills(base, "@myorg", "my-pack", {
+        const { manifestHash } = createPackManifestWithDependencies(base, "@myorg", "my-pack", {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
@@ -199,7 +197,7 @@ describe("removeFromPack", () => {
     it.effect("fails when manifest changed since plan time", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        createPackManifestWithSkills(base, "@myorg", "my-pack", {
+        createPackManifestWithDependencies(base, "@myorg", "my-pack", {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
@@ -221,7 +219,7 @@ describe("removeFromPack", () => {
     it.effect("does not write partial manifest on stale conflict", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        const { content } = createPackManifestWithSkills(base, "@myorg", "my-pack", {
+        const { content } = createPackManifestWithDependencies(base, "@myorg", "my-pack", {
           "@acme/skills/my-skill": "^1.0.0",
         });
 

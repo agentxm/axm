@@ -83,6 +83,6 @@ describe("example files", () => {
     expect(result.owner).toBe("@acme");
     expect(result.type).toBe("pack");
     expect(result.name).toBe("fullstack-pack");
-    expect(result.skills?.["@acme/skills/code-review"]).toBe("^1.0.0");
+    expect(result.dependencies["@acme/skills/code-review"]).toBe("^1.0.0");
   });
 });

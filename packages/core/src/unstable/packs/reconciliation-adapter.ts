@@ -71,8 +71,6 @@ const parseRegistryPackSource = (
 };
 
 const parsePackDependency = (
-  type: "skills" | "commands" | "mcp-servers",
-  singularType: "skill" | "command" | "mcp-server",
   fqn: string,
   constraint: VersionRange,
   order: number,
@@ -84,24 +82,55 @@ const parsePackDependency = (
     return Option.none();
   }
 
-  if (parsed.type !== singularType) {
-    return Option.none();
+  switch (parsed.type) {
+    case "skill":
+      return Option.some({
+        type: "skills",
+        owner: parsed.owner,
+        name: parsed.name,
+        source: fqn,
+        declarationSourceOrConstraint: constraint,
+        order,
+        origin: "pack",
+      });
+    case "command":
+      return Option.some({
+        type: "commands",
+        owner: parsed.owner,
+        name: parsed.name,
+        source: fqn,
+        declarationSourceOrConstraint: constraint,
+        order,
+        origin: "pack",
+      });
+    case "mcp-server":
+      return Option.some({
+        type: "mcp-servers",
+        owner: parsed.owner,
+        name: parsed.name,
+        source: fqn,
+        declarationSourceOrConstraint: constraint,
+        order,
+        origin: "pack",
+      });
+    case "subagent":
+      return Option.some({
+        type: "subagents",
+        owner: parsed.owner,
+        name: parsed.name,
+        source: fqn,
+        declarationSourceOrConstraint: constraint,
+        order,
+        origin: "pack",
+      });
+    case "file":
+    case "rule":
+    case "pack":
+      return Option.none();
   }
-
-  return Option.some({
-    type,
-    owner: parsed.owner,
-    name: parsed.name,
-    source: fqn,
-    declarationSourceOrConstraint: constraint,
-    order,
-    origin: "pack",
-  });
 };
 
 const collectPackDependencyDeclarations = (
-  type: "skills" | "commands" | "mcp-servers",
-  singularType: "skill" | "command" | "mcp-server",
   candidates: unknown,
   declarations: Array<ReconciliationDeclaration>,
 ) => {
@@ -119,13 +148,7 @@ const collectPackDependencyDeclarations = (
     } catch {
       continue;
     }
-    const parsedDep = parsePackDependency(
-      type,
-      singularType,
-      fqn,
-      versionRange,
-      declarations.length,
-    );
+    const parsedDep = parsePackDependency(fqn, versionRange, declarations.length);
     if (Option.isSome(parsedDep)) {
       declarations.push(parsedDep.value);
     }
@@ -309,6 +332,93 @@ const resolveInstalledDependencyMap = (
     } as const;
   });
 
+const filterDependenciesByType = (
+  dependencies: ExtensionDependencyConstraintMap,
+  type: "skills" | "commands" | "mcp-servers" | "subagents",
+): ExtensionDependencyConstraintMap =>
+  Object.fromEntries(
+    Object.entries(dependencies).filter(([fqn]) => {
+      try {
+        return parseFqnOrThrow(fqn).type === extensionTypeFromPlural[type];
+      } catch {
+        return false;
+      }
+    }),
+  );
+
+const resolveInstalledDependencyMaps = (
+  dependencies: ExtensionDependencyConstraintMap,
+  context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
+  env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
+) =>
+  Effect.gen(function* () {
+    for (const fqn of Object.keys(dependencies)) {
+      const parsed = parseFqnOrThrow(fqn);
+      switch (parsed.type) {
+        case "skill":
+        case "command":
+        case "mcp-server":
+        case "subagent":
+          break;
+        case "file":
+        case "rule":
+        case "pack":
+          return {
+            _tag: "Unresolved",
+            reason: "declaration-mismatch",
+          } as const;
+      }
+    }
+
+    const resolvedSkills = yield* resolveInstalledDependencyMap(
+      "skills",
+      filterDependenciesByType(dependencies, "skills"),
+      context,
+      env,
+    );
+    if (resolvedSkills._tag === "Unresolved") {
+      return resolvedSkills;
+    }
+
+    const resolvedCommands = yield* resolveInstalledDependencyMap(
+      "commands",
+      filterDependenciesByType(dependencies, "commands"),
+      context,
+      env,
+    );
+    if (resolvedCommands._tag === "Unresolved") {
+      return resolvedCommands;
+    }
+
+    const resolvedMcpServers = yield* resolveInstalledDependencyMap(
+      "mcp-servers",
+      filterDependenciesByType(dependencies, "mcp-servers"),
+      context,
+      env,
+    );
+    if (resolvedMcpServers._tag === "Unresolved") {
+      return resolvedMcpServers;
+    }
+
+    const resolvedSubagents = yield* resolveInstalledDependencyMap(
+      "subagents",
+      filterDependenciesByType(dependencies, "subagents"),
+      context,
+      env,
+    );
+    if (resolvedSubagents._tag === "Unresolved") {
+      return resolvedSubagents;
+    }
+
+    return {
+      _tag: "Resolved",
+      resolvedSkills: resolvedSkills.resolved,
+      resolvedCommands: resolvedCommands.resolved,
+      resolvedMcpServers: resolvedMcpServers.resolved,
+      resolvedSubagents: resolvedSubagents.resolved,
+    } as const;
+  });
+
 export const packReconciliationAdapter: ReconciliationAdapter = {
   type: "packs",
   scanDeclarations: (context, env) =>
@@ -382,14 +492,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
           continue;
         }
 
-        collectPackDependencyDeclarations("skills", "skill", manifest.skills, declarations);
-        collectPackDependencyDeclarations("commands", "command", manifest.commands, declarations);
-        collectPackDependencyDeclarations(
-          "mcp-servers",
-          "mcp-server",
-          manifest["mcp-servers"],
-          declarations,
-        );
+        collectPackDependencyDeclarations(manifest.dependencies, declarations);
       }
 
       return { declarations, warnings };
@@ -450,59 +553,16 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const resolvedSkills = yield* resolveInstalledDependencyMap(
-        "skills",
-        manifest.skills,
+      const resolvedDependencies = yield* resolveInstalledDependencyMaps(
+        manifest.dependencies,
         context,
         env,
       );
-      if (resolvedSkills._tag === "Unresolved") {
+      if (resolvedDependencies._tag === "Unresolved") {
         return {
           _tag: "Unresolved",
           declaration,
-          reason: resolvedSkills.reason,
-        } satisfies DeclarationResolution;
-      }
-
-      const resolvedCommands = yield* resolveInstalledDependencyMap(
-        "commands",
-        manifest.commands,
-        context,
-        env,
-      );
-      if (resolvedCommands._tag === "Unresolved") {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: resolvedCommands.reason,
-        } satisfies DeclarationResolution;
-      }
-
-      const resolvedMcpServers = yield* resolveInstalledDependencyMap(
-        "mcp-servers",
-        manifest["mcp-servers"],
-        context,
-        env,
-      );
-      if (resolvedMcpServers._tag === "Unresolved") {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: resolvedMcpServers.reason,
-        } satisfies DeclarationResolution;
-      }
-
-      const resolvedSubagents = yield* resolveInstalledDependencyMap(
-        "subagents",
-        manifest.subagents,
-        context,
-        env,
-      );
-      if (resolvedSubagents._tag === "Unresolved") {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: resolvedSubagents.reason,
+          reason: resolvedDependencies.reason,
         } satisfies DeclarationResolution;
       }
 
@@ -519,10 +579,10 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
             sourceName: "default",
             installedAt: context.now,
             updatedAt: context.now,
-            resolvedSkills: resolvedSkills.resolved,
-            resolvedCommands: resolvedCommands.resolved,
-            resolvedMcpServers: resolvedMcpServers.resolved,
-            resolvedSubagents: resolvedSubagents.resolved,
+            resolvedSkills: resolvedDependencies.resolvedSkills,
+            resolvedCommands: resolvedDependencies.resolvedCommands,
+            resolvedMcpServers: resolvedDependencies.resolvedMcpServers,
+            resolvedSubagents: resolvedDependencies.resolvedSubagents,
           }),
         },
       } satisfies DeclarationResolution;

@@ -33,6 +33,7 @@ const validManifest = {
   type: "pack",
   name: "utility-belt",
   version: "1.0.0",
+  dependencies: {},
 };
 
 describe("pack/manifest-keys-recognized", () => {

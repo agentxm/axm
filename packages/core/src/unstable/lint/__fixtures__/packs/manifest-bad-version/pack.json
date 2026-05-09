@@ -2,5 +2,6 @@
   "owner": "@acme",
   "type": "pack",
   "name": "utility-belt",
-  "version": "not-semver"
+  "version": "not-semver",
+  "dependencies": {}
 }

@@ -11,25 +11,30 @@ describe("PackManifestSchema", () => {
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
+      dependencies: {},
     };
     const result = decode(input);
     expect(result.name).toBe("utility-belt");
     expect(result.version).toBe("1.0.0");
   });
 
-  it("accepts valid manifest with extension version maps", () => {
+  it("accepts valid manifest with dependencies map", () => {
     const input = {
       owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      skills: { "@wayne/skills/grappling-hook": "^1.0.0" },
-      "mcp-servers": { "@wayne/mcp-servers/batcomputer": "^3.0.0" },
+      dependencies: {
+        "@wayne/skills/grappling-hook": "^1.0.0",
+        "@wayne/mcp-servers/batcomputer": "^3.0.0",
+      },
     };
     const result = decode(input);
     expect(result.name).toBe("utility-belt");
-    expect(result.skills).toEqual({ "@wayne/skills/grappling-hook": "^1.0.0" });
-    expect(result["mcp-servers"]).toEqual({ "@wayne/mcp-servers/batcomputer": "^3.0.0" });
+    expect(result.dependencies).toEqual({
+      "@wayne/skills/grappling-hook": "^1.0.0",
+      "@wayne/mcp-servers/batcomputer": "^3.0.0",
+    });
   });
 
   it("accepts valid manifest with all extension types", () => {
@@ -38,29 +43,32 @@ describe("PackManifestSchema", () => {
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      skills: { "@wayne/skills/grappling-hook": "^1.0.0", "@wayne/skills/batarang": "~2.0.0" },
-      commands: { "@wayne/commands/batcomputer-sync": "^1.0.0" },
-      "mcp-servers": { "@wayne/mcp-servers/batcomputer": "^3.0.0" },
-      subagents: { "@wayne/subagents/robin": "^1.0.0" },
+      dependencies: {
+        "@wayne/skills/grappling-hook": "^1.0.0",
+        "@wayne/skills/batarang": "~2.0.0",
+        "@wayne/commands/batcomputer-sync": "^1.0.0",
+        "@wayne/mcp-servers/batcomputer": "^3.0.0",
+        "@wayne/subagents/robin": "^1.0.0",
+      },
     };
     const result = decode(input);
-    expect(result.commands).toEqual({ "@wayne/commands/batcomputer-sync": "^1.0.0" });
-    expect(result.subagents).toEqual({ "@wayne/subagents/robin": "^1.0.0" });
+    expect(result.dependencies["@wayne/commands/batcomputer-sync"]).toBe("^1.0.0");
+    expect(result.dependencies["@wayne/subagents/robin"]).toBe("^1.0.0");
   });
 
-  it("accepts manifest with subagents field", () => {
+  it("accepts manifest with subagent dependencies", () => {
     const input = {
       owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      subagents: {
+      dependencies: {
         "@wayne/subagents/robin": "^1.0.0",
         "@wayne/subagents/alfred": "~2.0.0",
       },
     };
     const result = decode(input);
-    expect(result.subagents).toEqual({
+    expect(result.dependencies).toEqual({
       "@wayne/subagents/robin": "^1.0.0",
       "@wayne/subagents/alfred": "~2.0.0",
     });
@@ -72,12 +80,14 @@ describe("PackManifestSchema", () => {
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      skills: { "@wayne/skills/grappling-hook": "^1.0.0" },
-      subagents: { "@wayne/subagents/robin": "^1.0.0" },
+      dependencies: {
+        "@wayne/skills/grappling-hook": "^1.0.0",
+        "@wayne/subagents/robin": "^1.0.0",
+      },
     };
     const result = decode(input);
-    expect(result.skills).toEqual({ "@wayne/skills/grappling-hook": "^1.0.0" });
-    expect(result.subagents).toEqual({ "@wayne/subagents/robin": "^1.0.0" });
+    expect(result.dependencies["@wayne/skills/grappling-hook"]).toBe("^1.0.0");
+    expect(result.dependencies["@wayne/subagents/robin"]).toBe("^1.0.0");
   });
 
   it("accepts manifest with common optional fields", () => {
@@ -89,7 +99,7 @@ describe("PackManifestSchema", () => {
       description: "Standard frontend agent tooling",
       keywords: ["frontend", "tooling"],
       license: "MIT",
-      skills: { "@wayne/skills/grappling-hook": "^1.0.0" },
+      dependencies: { "@wayne/skills/grappling-hook": "^1.0.0" },
     };
     const result = decode(input);
     expect(result.description).toBe("Standard frontend agent tooling");
@@ -103,7 +113,7 @@ describe("PackManifestSchema", () => {
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      skills: { "grappling-hook": "^1.0.0" },
+      dependencies: { "grappling-hook": "^1.0.0" },
     };
     expect(() => decode(input)).toThrow();
   });
@@ -114,9 +124,20 @@ describe("PackManifestSchema", () => {
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      skills: { "@wayne/skills/grappling-hook": "latest" },
+      dependencies: { "@wayne/skills/grappling-hook": "latest" },
     };
     expect(() => decode(input)).toThrow();
+  });
+
+  it("rejects pack-typed FQN keys (packs cannot depend on packs)", () => {
+    const input = {
+      owner: "@wayne",
+      type: "pack",
+      name: "utility-belt",
+      version: "1.0.0",
+      dependencies: { "@wayne/packs/other": "^1.0.0" },
+    };
+    expect(() => decode(input)).toThrow(/packs are not allowed/);
   });
 
   it("rejects 2-segment FQN keys", () => {
@@ -125,31 +146,25 @@ describe("PackManifestSchema", () => {
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      skills: { "@wayne/grappling-hook": "^1.0.0" },
+      dependencies: { "@wayne/grappling-hook": "^1.0.0" },
     };
     expect(() => decode(input)).toThrow(/Expected fully qualified name/);
   });
 
   it("rejects manifest missing required fields", () => {
-    const input = { skills: { "@wayne/skills/grappling-hook": "^1.0.0" } };
+    const input = { dependencies: { "@wayne/skills/grappling-hook": "^1.0.0" } };
     expect(() => decode(input)).toThrow();
   });
 
-  it("accepts empty extension maps", () => {
+  it("accepts empty dependencies map", () => {
     const input = {
       owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
-      skills: {},
-      commands: {},
-      "mcp-servers": {},
-      subagents: {},
+      dependencies: {},
     };
     const result = decode(input);
-    expect(result.skills).toEqual({});
-    expect(result.commands).toEqual({});
-    expect(result["mcp-servers"]).toEqual({});
-    expect(result.subagents).toEqual({});
+    expect(result.dependencies).toEqual({});
   });
 });

@@ -58,10 +58,12 @@ const makePackRef = (
   source: { type: "registry", location: new URL("file:///tmp/registry"), owner: Option.none() },
   pack: {
     name: extensionName(name),
-    skills: opts?.skills ?? {},
-    commands: opts?.commands ?? {},
-    mcpServers: opts?.mcpServers ?? {},
-    subagents: opts?.subagents ?? {},
+    dependencies: {
+      ...(opts?.skills ?? {}),
+      ...(opts?.commands ?? {}),
+      ...(opts?.mcpServers ?? {}),
+      ...(opts?.subagents ?? {}),
+    },
   },
   owner: ACME,
   name: extensionName(name),

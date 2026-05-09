@@ -489,10 +489,7 @@ describe("PackRef", () => {
       refType: "registry",
       pack: {
         name: extensionName("my-pack"),
-        skills: {},
-        commands: {},
-        mcpServers: {},
-        subagents: {},
+        dependencies: {},
       },
       source: {
         type: "registry",
@@ -552,7 +549,7 @@ describe("ExtensionRef", () => {
       type: "pack",
       refType: "registry",
       owner: handle("@axm"),
-      pack: { name: extensionName("p"), skills: {}, commands: {}, mcpServers: {}, subagents: {} },
+      pack: { name: extensionName("p"), dependencies: {} },
       source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
       name: extensionName("p"),
       version: exactVersion("1.0.0"),

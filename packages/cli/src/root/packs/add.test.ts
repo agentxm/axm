@@ -60,9 +60,7 @@ const createPackManifest = (
         type: "pack",
         name,
         version: manifest?.["version"] ?? "0.0.1",
-        skills: manifest?.["skills"] ?? {},
-        commands: manifest?.["commands"] ?? {},
-        "mcp-servers": manifest?.["mcp-servers"] ?? {},
+        dependencies: manifest?.["dependencies"] ?? {},
       },
       null,
       2,
@@ -141,7 +139,7 @@ describe("packs-add.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
+          expect(manifest.dependencies["@acme/skills/code-review"]).toBe("^1.2.0");
           expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
@@ -181,7 +179,7 @@ describe("packs-add.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
+          expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
 
           // Preview log message should appear
           expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
@@ -233,9 +231,9 @@ describe("packs-add.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/effect-basics"]).toBe("^1.0.0");
-          expect(manifest.skills["@acme/skills/effect-streams"]).toBe("^2.0.0");
-          expect(manifest.skills["@acme/skills/other-skill"]).toBeUndefined();
+          expect(manifest.dependencies["@acme/skills/effect-basics"]).toBe("^1.0.0");
+          expect(manifest.dependencies["@acme/skills/effect-streams"]).toBe("^2.0.0");
+          expect(manifest.dependencies["@acme/skills/other-skill"]).toBeUndefined();
         }),
       );
     });
@@ -356,8 +354,8 @@ describe("packs-add.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/skills/skill-a"]).toBe("^1.0.0");
-          expect(manifest.skills["@acme/skills/skill-b"]).toBe("^2.0.0");
+          expect(manifest.dependencies["@acme/skills/skill-a"]).toBe("^1.0.0");
+          expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
         }),
       );
     });
@@ -383,9 +381,7 @@ describe("packs-add.handler", () => {
         type: "pack",
         name: "my-pack",
         version: "0.0.1",
-        skills: { "@acme/skills/code-review": "^1.2.0" },
-        commands: {},
-        "mcp-servers": {},
+        dependencies: { "@acme/skills/code-review": "^1.2.0" },
       });
 
       return provide(

@@ -75,22 +75,23 @@ export interface InstallPackOperationArgs {
  */
 export type InstallPackOperation = Operation<"install-pack", InstallPackOperationArgs>;
 
-const PACK_DEPENDENCY_SECTIONS = [
-  ["skills", "resolvedSkills"],
-  ["commands", "resolvedCommands"],
-  ["mcp-servers", "resolvedMcpServers"],
-  ["subagents", "resolvedSubagents"],
-] as const;
-
 const collectMissingResolvedDependencies = (
   manifest: PackManifest,
   op: InstallPackOperation,
-): ReadonlyArray<string> =>
-  PACK_DEPENDENCY_SECTIONS.flatMap(([manifestKey, resolvedKey]) =>
-    Object.keys(manifest[manifestKey] ?? {}).filter(
-      (fqn) => !Object.hasOwn(op.args[resolvedKey], fqn),
-    ),
-  );
+): ReadonlyArray<string> => {
+  const missing: string[] = [];
+  for (const fqn of Object.keys(manifest.dependencies)) {
+    if (
+      !Object.hasOwn(op.args.resolvedSkills, fqn) &&
+      !Object.hasOwn(op.args.resolvedCommands, fqn) &&
+      !Object.hasOwn(op.args.resolvedMcpServers, fqn) &&
+      !Object.hasOwn(op.args.resolvedSubagents, fqn)
+    ) {
+      missing.push(fqn);
+    }
+  }
+  return missing;
+};
 
 /**
  * Install pack operation handler.

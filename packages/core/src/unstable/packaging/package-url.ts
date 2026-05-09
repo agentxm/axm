@@ -48,12 +48,29 @@ export const formatPackageDisplay = (parts: PackageUrlParts): string =>
 const decodePackageTypeSync = Schema.decodeUnknownSync(PackageTypeSchema);
 
 /**
+ * Loose Package URL shape pattern: `pkg:<type>/<rest>`. The scheme is
+ * case-insensitive per the purl spec, so the prefix accepts both cases.
+ * The full purl structure is validated by `PackageURL.fromString` during
+ * decoding; this pattern exists to expose a useful shape hint in JSON Schema.
+ */
+const PACKAGE_URL_PATTERN = /^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\/.+$/;
+
+/**
  * Schema that decodes purl strings into structured PackageUrlParts and
  * encodes parts back to canonical purl strings.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const PackageUrlSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(PACKAGE_URL_PATTERN, {
+      title: "Package URL",
+      description:
+        "A Package URL (purl) string identifying a package across ecosystems (e.g. pkg:npm/react@18.2.0).",
+      examples: ["pkg:npm/react@18.2.0", "pkg:pypi/requests@2.31.0", "pkg:cargo/serde@1.0"],
+      message: "Expected a Package URL like pkg:npm/react@18.2.0",
+    }),
+  ),
   Schema.decodeTo(
     Schema.toType(PackageUrlPartsSchema),
     SchemaTransformation.transformOrFail({
@@ -88,4 +105,5 @@ export const PackageUrlSchema = Schema.String.pipe(
         ),
     }),
   ),
+  Schema.annotate({ identifier: "PackageUrl" }),
 );

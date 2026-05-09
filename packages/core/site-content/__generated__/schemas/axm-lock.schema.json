@@ -15,8 +15,28 @@
         }
       ]
     },
-    "ExtensionName": { "type": "string" },
-    "ExactSemverVersion": { "type": "string" },
+    "ExtensionName": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+          "title": "Extension Name",
+          "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+          "examples": ["my-skill", "code-review", "prettier"]
+        }
+      ]
+    },
+    "ExactSemverVersion": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+          "title": "Exact Semver Version",
+          "description": "An exact version number like 1.0.0 (no ranges allowed).",
+          "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
+        }
+      ]
+    },
     "ExtensionPackLockEntry": {
       "type": "object",
       "properties": {

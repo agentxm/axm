@@ -153,15 +153,12 @@ const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;
 
-const invalidExtensionName = (value: string) =>
-  `Expected extension name to be max ${EXTENSION_NAME_MAX_LENGTH} characters, use lowercase letters, numbers, and hyphens only, and not start or end with a hyphen, got: ${value}`;
+const INVALID_EXTENSION_NAME_MESSAGE = `Expected a valid extension name: max ${EXTENSION_NAME_MAX_LENGTH} characters, lowercase letters, numbers, and hyphens only, and not starting or ending with a hyphen (e.g., my-skill)`;
 
 const makeExtensionNameSchema = () =>
   Schema.String.pipe(
     Schema.check(
-      Schema.makeFilter((value: string) =>
-        EXTENSION_NAME_PATTERN.test(value) ? undefined : invalidExtensionName(value),
-      ),
+      Schema.isPattern(EXTENSION_NAME_PATTERN, { message: INVALID_EXTENSION_NAME_MESSAGE }),
     ),
     Schema.annotate({
       identifier: "ExtensionName",
@@ -169,8 +166,7 @@ const makeExtensionNameSchema = () =>
       description:
         "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
       examples: ["my-skill", "code-review", "prettier"],
-      message:
-        "Expected a valid extension name (lowercase letters, numbers, and hyphens, e.g., my-skill)",
+      message: INVALID_EXTENSION_NAME_MESSAGE,
     }),
     Schema.brand(EXTENSION_NAME_BRAND),
   );

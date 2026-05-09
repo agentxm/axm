@@ -11,13 +11,21 @@ export interface VersionEntryLike {
 }
 
 /**
+ * Canonical strict semver pattern from semver.org.
+ *
+ * Equivalent to `semver.valid(value) === value`: rejects leading `v`,
+ * whitespace, partial versions, and leading-zero numeric identifiers.
+ */
+export const SEMVER_PATTERN =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+
+/**
  * Schema for exact semver versions (no ranges).
  */
 export const ExactSemverVersionSchema = Schema.String.pipe(
   Schema.check(
-    Schema.makeFilter((value: string) => {
-      const normalized = semver.valid(value);
-      return normalized === value ? undefined : `Expected exact semver version, got: ${value}`;
+    Schema.isPattern(SEMVER_PATTERN, {
+      message: "Expected an exact semver version (e.g., 1.0.0)",
     }),
   ),
   Schema.annotate({

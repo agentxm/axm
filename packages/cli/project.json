@@ -57,7 +57,12 @@
     },
     "generate-help-topics": {
       "cache": true,
-      "inputs": ["{projectRoot}/help/topics/*.md", "{projectRoot}/scripts/generate-help-topics.ts"],
+      "dependsOn": [{ "projects": ["core"], "target": "generate-schemas" }],
+      "inputs": [
+        "{projectRoot}/help/topics/*.md",
+        "{projectRoot}/scripts/generate-help-topics.ts",
+        "{workspaceRoot}/packages/core/site-content/__generated__/schemas/*.schema.json"
+      ],
       "outputs": ["{projectRoot}/src/__generated__/help-topics.ts"],
       "executor": "nx:run-commands",
       "options": {

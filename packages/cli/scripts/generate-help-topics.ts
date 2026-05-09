@@ -10,6 +10,19 @@ import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const TOPICS_DIR = path.join(CLI_ROOT, "help/topics");
 const OUTPUT_PATH = path.join(CLI_ROOT, "src/__generated__/help-topics.ts");
+const SCHEMAS_DIR = path.join(CLI_ROOT, "../core/site-content/__generated__/schemas");
+
+const EMBED_RE = /^<!-- axm:embed-schema ([\w.-]+\.schema\.json) -->$/gm;
+
+const expandSchemaEmbeds = (content: string, topicName: string): string =>
+  content.replace(EMBED_RE, (_match, file: string) => {
+    const schemaPath = path.join(SCHEMAS_DIR, file);
+    if (!fs.existsSync(schemaPath)) {
+      throw new Error(`help topic "${topicName}" references missing schema ${file}`);
+    }
+    const json = fs.readFileSync(schemaPath, "utf-8").trimEnd();
+    return ["### Schema", "", "```json", json, "```"].join("\n");
+  });
 
 const topicFiles = fs
   .readdirSync(TOPICS_DIR)
@@ -18,8 +31,8 @@ const topicFiles = fs
 
 const topics = topicFiles.map((file) => {
   const name = path.basename(file, ".md");
-  const content = fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8");
-  return { name, content };
+  const raw = fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8");
+  return { name, content: expandSchemaEmbeds(raw, name) };
 });
 
 const topicNames = topics.map(({ name }) => name);

@@ -60,5 +60,6 @@ It's possible to ignore pre-existing skills and other extensions in your workspa
 - `axm help skills` — working with skills
 - `axm help subagents` — working with subagents
 - `axm help commands` — working with slash commands
+- `axm help packs` — working with packs
 - `axm help exit-codes` — process exit codes and their meaning.
 - `axm <command> --help` — flags and examples for any command.

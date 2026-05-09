@@ -6,9 +6,11 @@ A subagent is two coordinated files: a portable manifest plus a content file tha
 
 ## subagent.json
 
-[`subagent.json`](https://axm.sh/schemas/subagent.schema.json) is the subagent package manifest for the agentxm.ai registry. It carries identity (`owner`, `type`, `name`, `version`) and registry metadata (`description`, `keywords`, `repository`, `license`, `authors`, `compatiblePackages`). Targeting is workspace-owned through `.axm/settings.json` `agents`; publish rejects manifest `agents`. The manifest does not carry per-agent behavior — that lives in the content file.
+[`subagent.json`](https://axm.sh/schemas/subagent.schema.json)
 
-The manifest's `description` is the registry-facing summary. It has no relationship to anything in the frontmatter; you can have a different description in either place.
+Targeting is workspace-owned through `.axm/settings.json` `agents`; publish rejects manifest `agents`. The manifest does not carry per-agent behavior — that lives in the content file.
+
+<!-- axm:embed-schema subagent.schema.json -->
 
 ## `src/`
 
@@ -67,7 +69,7 @@ Overrides for agents not in your configured `agents` set are ignored, with a war
 
 ## Updating subagents
 
-Edit the content file under `src/` and update `subagent.json` if you change identity or registry metadata. `axm sync` re-renders the agent-native files from the content file's frontmatter and body; it does not write to `subagent.json`.
+Edit the content file under `src/`. `axm sync` re-renders the agent-native files from the content file's frontmatter and body; it does not write to `subagent.json`.
 
 Run `axm subagents publish` to release a new version. Publish validates the manifest, checks that `src/<subagent-name>.md` exists and that its frontmatter `name` matches the manifest, then zips the extension directory, computes its SRI integrity hash, and uploads the version to the target registry. Publish never edits `subagent.json` — whatever is on disk is what gets shipped.
 

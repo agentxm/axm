@@ -7,30 +7,9 @@ holds agent-facing frontmatter and the slash-command prompt body.
 
 ## command.json
 
-[`command.json`](https://axm.sh/schemas/command.schema.json) is the command
-package manifest. It carries identity and registry metadata.
+[`command.json`](https://axm.sh/schemas/command.schema.json)
 
-Use `agentOverrides` in the manifest for per-agent frontmatter differences.
-Each `agentOverrides.<agent-id>` entry is applied as an RFC 7396 JSON Merge
-Patch on top of the content file's frontmatter for that agent: objects merge
-recursively, `null` deletes a key, arrays replace wholesale, and primitive
-values replace.
-
-```json
-{
-  "type": "command",
-  "name": "review",
-  "version": "0.1.0",
-  "agentOverrides": {
-    "claude-code": {
-      "allowed-tools": ["Read", "Grep"]
-    },
-    "github-copilot": {
-      "tools": ["codebase"]
-    }
-  }
-}
-```
+<!-- axm:embed-schema command.schema.json -->
 
 ## Content File
 
@@ -52,6 +31,12 @@ Review {{arguments}}.
 ```
 
 Supported body placeholders: `{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}`.
+
+Use `agentOverrides` in the content file frontmatter for per-agent differences.
+Each `agentOverrides.<agent-id>` entry is applied as an RFC 7396 JSON Merge
+Patch on top of the content file's frontmatter for that agent: objects merge
+recursively, `null` deletes a key, arrays replace wholesale, and primitive
+values replace.
 
 ## Rendering
 

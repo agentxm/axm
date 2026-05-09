@@ -23,6 +23,27 @@ const helpConfig = {
 const isHelpTopicName = (topic: string): topic is HelpTopicName =>
   HELP_TOPIC_NAMES.some((knownTopic) => knownTopic === topic);
 
+// Curated reading order for the help index. Topics not listed here fall through
+// to the end in alphabetical order, so adding a new topic file won't break the build.
+const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
+  "getting-started",
+  "basic-usage",
+  "skills",
+  "subagents",
+  "commands",
+  "packs",
+  "exit-codes",
+];
+
+const ORDERED_TOPIC_NAMES: ReadonlyArray<HelpTopicName> = (() => {
+  const rank = new Map(TOPIC_ORDER.map((name, index) => [name, index]));
+  return [...HELP_TOPIC_NAMES].sort((a, b) => {
+    const ra = rank.get(a) ?? Number.MAX_SAFE_INTEGER;
+    const rb = rank.get(b) ?? Number.MAX_SAFE_INTEGER;
+    return ra === rb ? a.localeCompare(b) : ra - rb;
+  });
+})();
+
 const HelpIndexResultSchema = Schema.Struct({
   content: Schema.String,
   topics: Schema.Array(Schema.String),
@@ -39,7 +60,7 @@ const buildHelpIndexText = (): string =>
     "  axm help <topic>",
     "",
     "TOPICS",
-    ...HELP_TOPIC_NAMES.map((name) => `  ${name}`),
+    ...ORDERED_TOPIC_NAMES.map((name) => `  ${name}`),
     "",
     "Use 'axm <command> --help' for command help.",
     "",
@@ -50,7 +71,7 @@ const writeHelpTopicIndex = () =>
     const renderer = yield* CliRenderer;
     const content = buildHelpIndexText();
     const emitted = yield* renderer.result(
-      { content, topics: HELP_TOPIC_NAMES },
+      { content, topics: ORDERED_TOPIC_NAMES },
       HelpIndexResultSchema,
     );
     if (emitted) return;

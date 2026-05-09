@@ -4,7 +4,7 @@ Skill packages live in `./.axm/extensions/<@owner>/skills/<skill-name>`.
 
 ## skill.json
 
-[`skill.json`](https://axm.sh/schemas/skill.schema.json) is the skill package manifest for the agentxm.ai registry.
+[`skill.json`](https://axm.sh/schemas/skill.schema.json)
 
 <!-- axm:embed-schema skill.schema.json -->
 

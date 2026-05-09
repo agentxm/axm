@@ -2,7 +2,8 @@ import {
   decodeExtensionNameSync,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
-  parseFqnOrThrow,
+  parseExtensionFqnParts,
+  parseFqn,
   readAndDecodeManifest,
   extensionTypeFromPlural,
 } from "../extensions/index.js";
@@ -75,10 +76,8 @@ const parsePackDependency = (
   constraint: VersionRange,
   order: number,
 ): Option.Option<ReconciliationDeclaration> => {
-  let parsed;
-  try {
-    parsed = parseFqnOrThrow(fqn);
-  } catch {
+  const parsed = parseExtensionFqnParts(fqn);
+  if (parsed === undefined) {
     return Option.none();
   }
 
@@ -197,13 +196,7 @@ const readInstalledDependencyVersion = (
   env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
 ): Effect.Effect<DependencyResolution, AppError> =>
   Effect.gen(function* () {
-    const parsed = (() => {
-      try {
-        return parseFqnOrThrow(fqn);
-      } catch {
-        return undefined;
-      }
-    })();
+    const parsed = parseExtensionFqnParts(fqn);
 
     if (parsed === undefined || parsed.type !== extensionTypeFromPlural[type]) {
       return {
@@ -337,13 +330,9 @@ const filterDependenciesByType = (
   type: "skills" | "commands" | "mcp-servers" | "subagents",
 ): ExtensionDependencyConstraintMap =>
   Object.fromEntries(
-    Object.entries(dependencies).filter(([fqn]) => {
-      try {
-        return parseFqnOrThrow(fqn).type === extensionTypeFromPlural[type];
-      } catch {
-        return false;
-      }
-    }),
+    Object.entries(dependencies).filter(
+      ([fqn]) => parseExtensionFqnParts(fqn)?.type === extensionTypeFromPlural[type],
+    ),
   );
 
 const resolveInstalledDependencyMaps = (
@@ -353,7 +342,7 @@ const resolveInstalledDependencyMaps = (
 ) =>
   Effect.gen(function* () {
     for (const fqn of Object.keys(dependencies)) {
-      const parsed = parseFqnOrThrow(fqn);
+      const parsed = yield* parseFqn(fqn);
       switch (parsed.type) {
         case "skill":
         case "command":

@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import { describe, expect, it } from "@effect/vitest";
 import { extensionName, handle } from "../test-helpers.js";
-import { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
+import { formatFqn, parseFqn } from "./fqn.js";
 
 describe("parseFqn", () => {
   [
@@ -76,22 +76,6 @@ describe("parseFqn", () => {
   });
 });
 
-describe("parseFqnOrThrow", () => {
-  it("returns parsed Fqn for valid input", () => {
-    const result = parseFqnOrThrow("@acme/skills/code-review");
-
-    expect(result).toEqual({ owner: "@acme", type: "skill", name: "code-review" });
-  });
-
-  it("throws for invalid input", () => {
-    expect(() => parseFqnOrThrow("@acme/code-review")).toThrow("Invalid fully qualified name");
-  });
-
-  it("throws for bare name", () => {
-    expect(() => parseFqnOrThrow("code-review")).toThrow("Invalid fully qualified name");
-  });
-});
-
 describe("formatFqn", () => {
   it("formats Fqn to string", () => {
     const result = formatFqn({
@@ -126,7 +110,7 @@ describe("formatFqn", () => {
 });
 
 describe("round-trip", () => {
-  it.each([
+  [
     "@acme/skills/code-review",
     "@acme/packs/fullstack",
     "@acme/commands/deploy",
@@ -134,7 +118,12 @@ describe("round-trip", () => {
     "@acme/subagents/reviewer",
     "@acme/files/project-rules",
     "@acme/rules/review-checklist",
-  ])("formatFqn(parseFqnOrThrow(%s)) === %s", (input) => {
-    expect(formatFqn(parseFqnOrThrow(input))).toBe(input);
+  ].forEach((input) => {
+    it.effect(`formatFqn(parseFqn(${input})) === ${input}`, () =>
+      Effect.gen(function* () {
+        const parsed = yield* parseFqn(input);
+        expect(formatFqn(parsed)).toBe(input);
+      }),
+    );
   });
 });

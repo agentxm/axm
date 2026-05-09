@@ -102,7 +102,7 @@ export {
 } from "./handle.js";
 
 // FQN parsing
-export { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
+export { formatFqn, parseFqn } from "./fqn.js";
 
 // Constants
 export { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";

@@ -12,7 +12,6 @@ import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-c
 import {
   formatFqn,
   parseFqn,
-  parseFqnOrThrow,
   toExtensionTypePlural,
   type ExtensionFqnParts,
   REGISTRY_EXTENSIONS_DIR,
@@ -300,7 +299,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       allDeps,
       (depFqn) =>
         Effect.gen(function* () {
-          const parsed = parseFqnOrThrow(depFqn);
+          const parsed = yield* parseFqn(depFqn);
           const depDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,

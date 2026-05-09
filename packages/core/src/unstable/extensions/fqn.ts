@@ -35,21 +35,6 @@ export const parseFqn = (input: string) =>
   });
 
 /**
- * Parse a 3-segment FQN string into its parts. Throws on invalid input.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const parseFqnOrThrow = (input: string): ExtensionFqnParts => {
-  const parsed = parseExtensionFqnParts(input);
-  if (parsed === undefined) {
-    throw new Error(
-      `Invalid fully qualified name: ${input}. Expected format: @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name`,
-    );
-  }
-  return parsed;
-};
-
-/**
  * Format a parsed FQN back into a string.
  *
  * @experimental This API is unstable and may change without notice.

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionRef, Handle, ExtensionName, ExtensionType } from "../extensions/index.js";
-import { parseFqnOrThrow, formatFqn } from "../extensions/index.js";
+import { formatFqn, parseFqn } from "../extensions/index.js";
 import type { ResolvedExtensionMap } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
@@ -62,7 +62,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
   sources: SourceHostProvidersService,
 ): Effect.Effect<ResolvedDependency<T>, AppError> =>
   Effect.gen(function* () {
-    const parsed = parseFqnOrThrow(fqn);
+    const parsed = yield* parseFqn(fqn);
     if (parsed.type !== expectedType) {
       return yield* makeAppError({
         code: "usage",
@@ -128,45 +128,46 @@ const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
     { concurrency: "unbounded" },
   );
 
-const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) => {
-  const skills: Array<readonly [string, VersionRange]> = [];
-  const commands: Array<readonly [string, VersionRange]> = [];
-  const mcpServers: Array<readonly [string, VersionRange]> = [];
-  const subagents: Array<readonly [string, VersionRange]> = [];
-  const unsupported: string[] = [];
+const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =>
+  Effect.gen(function* () {
+    const skills: Array<readonly [string, VersionRange]> = [];
+    const commands: Array<readonly [string, VersionRange]> = [];
+    const mcpServers: Array<readonly [string, VersionRange]> = [];
+    const subagents: Array<readonly [string, VersionRange]> = [];
+    const unsupported: string[] = [];
 
-  for (const [fqn, constraint] of Object.entries(dependencies)) {
-    const parsed = parseFqnOrThrow(fqn);
-    switch (parsed.type) {
-      case "skill":
-        skills.push([fqn, constraint]);
-        break;
-      case "command":
-        commands.push([fqn, constraint]);
-        break;
-      case "mcp-server":
-        mcpServers.push([fqn, constraint]);
-        break;
-      case "subagent":
-        subagents.push([fqn, constraint]);
-        break;
-      case "file":
-      case "rule":
-      case "pack":
-        unsupported.push(fqn);
-        break;
+    for (const [fqn, constraint] of Object.entries(dependencies)) {
+      const parsed = yield* parseFqn(fqn);
+      switch (parsed.type) {
+        case "skill":
+          skills.push([fqn, constraint]);
+          break;
+        case "command":
+          commands.push([fqn, constraint]);
+          break;
+        case "mcp-server":
+          mcpServers.push([fqn, constraint]);
+          break;
+        case "subagent":
+          subagents.push([fqn, constraint]);
+          break;
+        case "file":
+        case "rule":
+        case "pack":
+          unsupported.push(fqn);
+          break;
+      }
     }
-  }
 
-  return { skills, commands, mcpServers, subagents, unsupported };
-};
+    return { skills, commands, mcpServers, subagents, unsupported };
+  });
 
 export const resolvePackDependencies = (
   pack: PackRef,
   sources: SourceHostProvidersService,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
-    const dependencies = partitionDependencies(pack.pack.dependencies);
+    const dependencies = yield* partitionDependencies(pack.pack.dependencies);
     if (dependencies.unsupported.length > 0) {
       return yield* makeAppError({
         code: "usage",

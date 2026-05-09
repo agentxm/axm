@@ -92,7 +92,6 @@ export const parseCommandMd = (content: string): Effect.Effect<CommandContentRes
         message: "Command frontmatter must be a YAML mapping",
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Use key-value YAML frontmatter in your command content file.",
           },
         ],

@@ -15,7 +15,6 @@ const makeOwnerRequiredError = (action: string): AppError =>
     message: `No owner configured for ${action}`,
     breadcrumbs: [
       {
-        task: "Recover",
         description:
           "Set `owner` in `.axm/settings.json` (run `axm setup`), pass an explicit owner flag, or run `axm login`.",
       },

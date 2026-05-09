@@ -380,7 +380,6 @@ export const CommandManagerLive = Layer.effect(
                           message: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
                           breadcrumbs: [
                             {
-                              task: "Recover",
                               description:
                                 "Set `owner` in `.axm/settings.json` (project or global) before syncing non-registry commands.",
                             },

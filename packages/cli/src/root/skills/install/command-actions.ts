@@ -92,24 +92,24 @@ const isRemoteReadNotImplemented = (error: unknown): boolean =>
 const discoverHowToFix = (source: Source, error: unknown): string => {
   if (source.type === "registry") {
     if (isRemoteReadNotImplemented(error)) {
-      return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or install from github:owner/repo.";
+      return "Remote registry discovery is not yet supported for HTTP(S) sources; use a file:// registry source or install from github:owner/repo";
     }
-    return "Verify the configured registry is reachable and contains the requested owner/skill.";
+    return "Verify the configured registry is reachable and contains the requested owner/skill";
   }
   if (source.type === "local") {
-    return "Verify the source path contains directories with SKILL.md files.";
+    return "Verify the source path contains directories with SKILL.md files";
   }
-  return "Verify the source is reachable and contains valid skill directories.";
+  return "Verify the source is reachable and contains valid skill directories";
 };
 
 const noSkillsFoundHowToFix = (source: Source): string => {
   if (source.type === "registry") {
-    return "Verify the owner and skill name exist in the configured registry.";
+    return "Verify the owner and skill name exist in the configured registry";
   }
   if (source.type === "local") {
-    return "Verify the source path contains directories with SKILL.md files.";
+    return "Verify the source path contains directories with SKILL.md files";
   }
-  return "Verify the source contains skill directories with SKILL.md files.";
+  return "Verify the source contains skill directories with SKILL.md files";
 };
 
 const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
@@ -275,13 +275,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                   return yield* makeAppError({
                     code: "validation",
                     message: "Invalid source: Unable to parse source",
-                    breadcrumbs: [
-                      {
-                        task: "Recover",
-                        description:
-                          "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-                      },
-                    ],
+                    recover:
+                      "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
                   });
                 }
 
@@ -373,9 +368,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                       return makeAppError({
                         code: "usage",
                         message: "Failed to discover skills from source",
-                        breadcrumbs: [
-                          { task: "Recover", description: discoverHowToFix(req.source, error) },
-                        ],
+                        recover: discoverHowToFix(req.source, error),
                         cause: error,
                       });
                     }),
@@ -386,9 +379,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                             makeAppError({
                               code: "not_found",
                               message: "No skills found in source",
-                              breadcrumbs: [
-                                { task: "Recover", description: noSkillsFoundHowToFix(req.source) },
-                              ],
+                              recover: noSkillsFoundHowToFix(req.source),
                             }),
                           ),
                     ),

@@ -294,7 +294,6 @@ export const installCommand: (
                       message: `Cannot install non-registry command "${ref.command.name}" without a configured owner`,
                       breadcrumbs: [
                         {
-                          task: "Recover",
                           description:
                             "Set `owner` in `.axm/settings.json` (project or global) before installing non-registry commands.",
                         },
@@ -387,7 +386,7 @@ export const installCommand: (
         error: makeAppError({
           code: "internal",
           message: `Installed ${ref.command.name} but failed to persist lockfile/settings`,
-          breadcrumbs: [{ task: "Recover", description: "Try running the install again" }],
+          breadcrumbs: [{ description: "Try running the install again" }],
         }),
       } satisfies JobStepResult;
     }

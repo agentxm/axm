@@ -3,11 +3,10 @@ import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 
 export const BC = {
   run: (cmd: string, description: string): Breadcrumb => ({
-    task: `Run \`${cmd}\``,
     description,
+    cmd,
   }),
   do: (description: string): Breadcrumb => ({
-    task: "Recover",
     description,
   }),
 } as const;

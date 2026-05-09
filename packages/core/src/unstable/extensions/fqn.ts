@@ -24,7 +24,6 @@ export const parseFqn = (input: string) =>
         message: `Invalid fully qualified name: ${input}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Use the 3-segment format: @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name",
           },

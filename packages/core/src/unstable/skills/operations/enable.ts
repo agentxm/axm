@@ -90,7 +90,10 @@ export const enableSkill: OperationHandler<
         code: "not_found",
         message: `Skill files for "${op.args.skillName}" not found at ${skillSrcPath}`,
         breadcrumbs: [
-          { task: "Recover", description: "Try reinstalling the skill with `axm skills install`" },
+          {
+            description: "Try reinstalling the skill with `axm skills install`",
+            cmd: "axm skills install <source>",
+          },
         ],
       });
     }

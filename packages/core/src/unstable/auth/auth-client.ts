@@ -136,8 +136,8 @@ const makeTransientDevicePollAppError = (cause: unknown) =>
     message: "Lost connection to the registry during login",
     breadcrumbs: [
       {
-        task: "Recover",
         description: "Verify the registry is running and reachable, then try `axm login` again.",
+        cmd: "axm login",
       },
     ],
     cause,
@@ -212,7 +212,9 @@ const pollOnceInternal = (
                 makeAppError({
                   code: "auth",
                   message: "Device token exchange failed with an unexpected error",
-                  breadcrumbs: [{ task: "Recover", description: "Try running `axm login` again." }],
+                  breadcrumbs: [
+                    { description: "Try running `axm login` again.", cmd: "axm login" },
+                  ],
                   cause: error,
                 }),
               );
@@ -227,7 +229,7 @@ const pollOnceInternal = (
           makeAppError({
             code: "auth",
             message: "Device token exchange failed with an unexpected error",
-            breadcrumbs: [{ task: "Recover", description: "Try running `axm login` again." }],
+            breadcrumbs: [{ description: "Try running `axm login` again.", cmd: "axm login" }],
             cause: error,
           }),
         );
@@ -277,7 +279,6 @@ export const AuthClientLive = Layer.effect(
               message: "Could not connect to the registry",
               breadcrumbs: [
                 {
-                  task: "Recover",
                   description: "Verify the registry is running and reachable, then try again.",
                 },
               ],
@@ -317,13 +318,13 @@ export const AuthClientLive = Layer.effect(
             return yield* makeAppError({
               code: "auth",
               message: "Login was denied or cancelled",
-              breadcrumbs: [{ task: "Recover", description: "Run `axm login` to try again." }],
+              breadcrumbs: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
             });
           case "ExpiredToken":
             return yield* makeAppError({
               code: "auth",
               message: "Login code expired",
-              breadcrumbs: [{ task: "Recover", description: "Run `axm login` to try again." }],
+              breadcrumbs: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
             });
         }
       }
@@ -345,7 +346,7 @@ export const AuthClientLive = Layer.effect(
                 code: "auth",
                 message: "Token refresh request failed",
                 breadcrumbs: [
-                  { task: "Recover", description: "Run `axm login` to re-authenticate." },
+                  { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
                 ],
                 cause: error,
               }),
@@ -391,7 +392,7 @@ export const AuthClientLive = Layer.effect(
                 code: "auth",
                 message: "Not authenticated or token is invalid",
                 breadcrumbs: [
-                  { task: "Recover", description: "Run `axm login` to re-authenticate." },
+                  { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
                 ],
                 cause: error,
               });
@@ -401,7 +402,7 @@ export const AuthClientLive = Layer.effect(
                 code: "auth",
                 message: "Not authenticated or token is invalid",
                 breadcrumbs: [
-                  { task: "Recover", description: "Run `axm login` to re-authenticate." },
+                  { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
                 ],
                 cause: error,
               });
@@ -415,7 +416,6 @@ export const AuthClientLive = Layer.effect(
                 message: "Registry returned server error",
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: "The registry may be temporarily unavailable. Try again later.",
                   },
                 ],
@@ -427,7 +427,6 @@ export const AuthClientLive = Layer.effect(
               message: "Could not connect to the registry",
               breadcrumbs: [
                 {
-                  task: "Recover",
                   description: "Verify the registry is running and reachable, then try again.",
                 },
               ],

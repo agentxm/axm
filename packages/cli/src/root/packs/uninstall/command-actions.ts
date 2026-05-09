@@ -159,8 +159,8 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
                 message: `Pack "${name}" is not installed`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: `Use the fully-qualified \`@owner/packs/${name}\` form, or check \`axm packs list\`.`,
+                    cmd: "axm packs list",
                   },
                 ],
               }),

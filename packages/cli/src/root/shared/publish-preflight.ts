@@ -38,8 +38,8 @@ export const checkPublishVersionPreflight = (args: {
       message: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: `Bump the version first:\n  axm ${plural} version ${local.fqn} patch\n\nOverride with --force.`,
+          cmd: `axm ${plural} version ${local.fqn} patch`,
         },
       ],
     });

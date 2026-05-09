@@ -153,7 +153,6 @@ export const publishSubagent: OperationHandler<
         message: `Missing subagent content file: expected ${expectedFilename}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Rename the subagent content file to ${expectedFilename} and ensure its frontmatter name is ${manifest.name}.`,
           },
         ],

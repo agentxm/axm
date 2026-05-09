@@ -289,14 +289,7 @@ const taskCompletionMessage = (title: string, result: string | void): string => 
   return `${title}: ${result}`;
 };
 
-const formatCommand = (command: ReadonlyArray<string>): string => command.join(" ");
-
-const formatBreadcrumbCommand = (crumb: Breadcrumb): string => {
-  if (crumb.command !== undefined) {
-    return formatCommand(crumb.command);
-  }
-  return crumb.cmd ?? "";
-};
+const formatBreadcrumbCommand = (crumb: Breadcrumb): string => crumb.cmd ?? "";
 
 const normalizeBreadcrumbs = (
   crumbs: ReadonlyArray<Breadcrumb> | undefined,

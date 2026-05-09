@@ -84,9 +84,7 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
           makeAppError({
             code: "network",
             message: "GitHub API is unreachable",
-            breadcrumbs: [
-              { task: "Recover", description: "Check your network connection and try again." },
-            ],
+            breadcrumbs: [{ description: "Check your network connection and try again." }],
             cause,
           }),
         ),
@@ -98,7 +96,6 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
         message: `GitHub API returned status ${String(response.status)}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Check your network connection and try again. If the problem persists, GitHub may be experiencing issues.",
           },
@@ -113,7 +110,6 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
           message: "GitHub API response was not valid JSON",
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "This may indicate a GitHub API change. Please try again or report the issue.",
             },
@@ -134,7 +130,6 @@ const mapDecodeError = (_url: string) =>
       message: "GitHub API returned an unexpected response shape",
       breadcrumbs: [
         {
-          task: "Recover",
           description:
             "This may indicate a GitHub API change. Please try again or report the issue.",
         },
@@ -190,7 +185,6 @@ const resolveRemoteVersion = (httpClient: HttpClient.HttpClient, repo: string) =
       message: "No CLI release found on GitHub",
       breadcrumbs: [
         {
-          task: "Recover",
           description:
             "Ensure the repository has at least one release tagged with the 'cli-v' prefix.",
         },

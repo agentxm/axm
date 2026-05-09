@@ -13,7 +13,6 @@ const handleHandledTelemetry = Effect.fail(
     message: "Simulated handled telemetry failure",
     breadcrumbs: [
       {
-        task: "Recover",
         description: "Run `axm-spike telemetry defect` to exercise defect telemetry.",
       },
     ],

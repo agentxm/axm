@@ -21,6 +21,7 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { SKILL_NAME_RULES } from "../breadcrumbs.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -58,12 +59,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     return yield* makeAppError({
       code: "validation",
       message: `Invalid skill name: "${args.name}"`,
-      breadcrumbs: [
-        {
-          task: "Recover",
-          description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
-        },
-      ],
+      recover: SKILL_NAME_RULES,
     });
   }
 
@@ -73,12 +69,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     return yield* makeAppError({
       code: "conflict",
       message: `Skill '${args.name}' already exists in settings`,
-      breadcrumbs: [
-        {
-          task: "Recover",
-          description: "Choose a different name or remove the existing skill first",
-        },
-      ],
+      recover: "Choose a different name or remove the existing skill first",
     });
   }
 
@@ -133,13 +124,11 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   const breadcrumbs = [
     {
-      task: "edit",
       description: `Edit \`.axm/extensions/${owner}/skills/${args.name}/src/SKILL.md\` to fill in instructions`,
     },
     {
-      task: "sync",
       description: "Apply changes to your workspace",
-      command: ["axm", "sync"],
+      cmd: "axm sync",
     },
   ];
 

@@ -30,9 +30,7 @@ const promptRequired = (message: string) =>
   makeAppError({
     code: "usage",
     message: `Interactive prompt required: ${message}`,
-    breadcrumbs: [
-      { task: "Recover", description: "Pass the value via a flag or remove --non-interactive." },
-    ],
+    breadcrumbs: [{ description: "Pass the value via a flag or remove --non-interactive." }],
   });
 
 const providedOrPrompt = <A>(

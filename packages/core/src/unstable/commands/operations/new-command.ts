@@ -119,7 +119,6 @@ export const newCommand: OperationHandler<
         message: `Directory "${name}" already exists`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Choose a different name or remove the existing directory first",
           },
         ],

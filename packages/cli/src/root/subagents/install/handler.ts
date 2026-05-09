@@ -27,7 +27,6 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
         message: "The --all flag requires a source for subagents install",
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Run `axm subagents install <source> --all` or omit --all to install all configured subagents.",
           },
@@ -41,7 +40,6 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
         message: "The --subagent flag requires a source for subagents install",
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Run `axm subagents install <source> --subagent <name>` or omit --subagent to install all configured subagents.",
           },

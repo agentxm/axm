@@ -26,7 +26,6 @@ const requireBinary = (name: string, _errorCode: string) =>
         message: `Required system command "${name}" not found`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Install "${name}" and ensure it is available on your PATH.`,
           },
         ],

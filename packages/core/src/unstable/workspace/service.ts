@@ -163,7 +163,7 @@ const requireInitializedWorkspace = (
               code: "internal",
               message: `Workspace settings not found: ${settingsPath}`,
               breadcrumbs: [
-                { task: "Recover", description: "Run `axm setup` to create the workspace." },
+                { description: "Run `axm setup` to create the workspace.", cmd: "axm setup" },
               ],
             }),
           ),
@@ -476,8 +476,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               message: `Skill "${name}" not found in lockfile`,
               breadcrumbs: [
                 {
-                  task: "Recover",
                   description: "Install the skill first with `axm skills install`",
+                  cmd: "axm skills install <source>",
                 },
               ],
             });

@@ -31,11 +31,7 @@ const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
 };
 
-const formatBreadcrumbCommand = (command: ReadonlyArray<string>): string => command.join(" ");
 const formatBreadcrumbAction = (crumb: Breadcrumb): string => {
-  if (crumb.command !== undefined) {
-    return ` · ${formatBreadcrumbCommand(crumb.command)}`;
-  }
   if (crumb.cmd !== undefined) {
     return ` · ${crumb.cmd}`;
   }
@@ -62,9 +58,7 @@ const writeMachineBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void =
     writeStderr(
       JSON.stringify({
         type: "breadcrumb",
-        task: crumb.task,
         description: crumb.description,
-        ...(crumb.command !== undefined ? { command: [...crumb.command] } : {}),
         ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
       }),
     );

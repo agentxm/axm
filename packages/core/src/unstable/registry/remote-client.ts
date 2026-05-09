@@ -740,7 +740,7 @@ export const createRemoteRegistryClient = (
         return makeAppError({
           code: "conflict",
           message: "Storage quota exceeded",
-          breadcrumbs: [{ task: "Recover", description: "Free storage or remove old versions." }],
+          breadcrumbs: [{ description: "Free storage or remove old versions." }],
           cause: e,
         });
       }
@@ -761,9 +761,7 @@ export const createRemoteRegistryClient = (
       ) {
         return errRegistryPublishRejected({
           message: "Invalid extension archive",
-          breadcrumbs: [
-            { task: "Recover", description: "Check the extension directory and rebuild." },
-          ],
+          breadcrumbs: [{ description: "Check the extension directory and rebuild." }],
           cause: e,
         });
       }
@@ -777,9 +775,7 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsPublishVersion413")(e)) {
       return errRegistryPublishRejected({
         message: "Extension archive exceeds size limit",
-        breadcrumbs: [
-          { task: "Recover", description: "Reduce archive size or remove unnecessary files" },
-        ],
+        breadcrumbs: [{ description: "Reduce archive size or remove unnecessary files" }],
         cause: e,
       });
     }
@@ -788,7 +784,7 @@ export const createRemoteRegistryClient = (
     if (isRegistryClientError("ExtensionsPublishVersion415")(e)) {
       return errRegistryPublishRejected({
         message: "Unsupported archive content type",
-        breadcrumbs: [{ task: "Recover", description: "Rebuild the extension archive." }],
+        breadcrumbs: [{ description: "Rebuild the extension archive." }],
         cause: e,
       });
     }
@@ -799,14 +795,14 @@ export const createRemoteRegistryClient = (
       if (Option.isSome(code) && code.value === "integrity_mismatch") {
         return errRegistryPublishRejected({
           message: "Archive integrity does not match",
-          breadcrumbs: [{ task: "Recover", description: "Rebuild the archive and retry." }],
+          breadcrumbs: [{ description: "Rebuild the archive and retry." }],
           cause: e,
         });
       }
       if (Option.isSome(code) && code.value.startsWith("manifest_")) {
         return errRegistryPublishRejected({
           message: "Extension manifest validation failed",
-          breadcrumbs: [{ task: "Recover", description: "Check your extension manifest" }],
+          breadcrumbs: [{ description: "Check your extension manifest" }],
           cause: e,
         });
       }
@@ -826,7 +822,7 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "rate_limit",
         message: "Publish request was rate limited",
-        breadcrumbs: [{ task: "Recover", description: retryMsg }],
+        breadcrumbs: [{ description: retryMsg }],
         cause: e,
       });
     }
@@ -836,9 +832,7 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "network",
         message: "Publishing is temporarily disabled",
-        breadcrumbs: [
-          { task: "Recover", description: "Publishing is temporarily disabled. Try again later." },
-        ],
+        breadcrumbs: [{ description: "Publishing is temporarily disabled. Try again later." }],
         cause: e,
       });
     }

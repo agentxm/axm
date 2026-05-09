@@ -60,14 +60,12 @@ export type ErrorEvent = typeof ErrorEventSchema.Type;
 
 export const BreadcrumbEventSchema = Schema.Struct({
   type: Schema.Literal("breadcrumb"),
-  task: Schema.String,
   description: Schema.String,
-  command: Schema.optional(Schema.Array(Schema.String)),
   cmd: Schema.optional(Schema.String),
 }).annotate({
   identifier: "BreadcrumbEvent",
   title: "Breadcrumb Event",
-  description: "NDJSON breadcrumb event with a suggested follow-up task.",
+  description: "NDJSON breadcrumb event with a suggested follow-up.",
 });
 export type BreadcrumbEvent = typeof BreadcrumbEventSchema.Type;
 

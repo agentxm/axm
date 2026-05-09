@@ -347,7 +347,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                         message: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
                         breadcrumbs: [
                           {
-                            task: "Recover",
                             description:
                               "Use the fully-qualified `@owner/packs/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
                           },
@@ -385,7 +384,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 message: "Pack source must include /packs/ segment",
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description:
                       "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
                   },
@@ -395,9 +393,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "not_found",
                 message: "Pack source must include a pack name",
-                breadcrumbs: [
-                  { task: "Recover", description: "Use @owner/packs/pack-name format." },
-                ],
+                breadcrumbs: [{ description: "Use @owner/packs/pack-name format." }],
               });
             default:
               return yield* makeAppError({
@@ -405,7 +401,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 message: "Packs can only be installed from a registry",
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description:
                       "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
                   },
@@ -428,7 +423,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     message: `Invalid source: ${error.message}`,
                     breadcrumbs: [
                       {
-                        task: "Recover",
                         description: "Use @owner/packs/pack-name or just pack-name.",
                       },
                     ],
@@ -443,9 +437,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "usage",
               message: "Packs can only be installed from a registry",
-              breadcrumbs: [
-                { task: "Recover", description: "Use a registry source: @owner/packs/pack-name" },
-              ],
+              breadcrumbs: [{ description: "Use a registry source: @owner/packs/pack-name" }],
             });
           }
 
@@ -559,7 +551,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                         message: "Pack could not be fetched from registry",
                         breadcrumbs: [
                           {
-                            task: "Recover",
                             description:
                               "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
                           },
@@ -572,7 +563,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       message: "Pack could not be fetched from registry",
                       breadcrumbs: [
                         {
-                          task: "Recover",
                           description: "Verify the pack name and registry configuration.",
                         },
                       ],
@@ -598,7 +588,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       message: `Pack "${req.packName}" not found in registry`,
                       breadcrumbs: [
                         {
-                          task: "Recover",
                           description: "Verify the pack name and check available packs.",
                         },
                       ],

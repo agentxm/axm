@@ -143,11 +143,10 @@ describe("InteractiveRenderer", () => {
             const renderer = yield* CliRenderer;
             yield* renderer.success("Created", {
               breadcrumbs: [
-                { task: "edit", description: "Edit `.axm/extensions/example.md`" },
+                { description: "Edit `.axm/extensions/example.md`" },
                 {
-                  task: "sync",
                   description: "Apply changes to your workspace",
-                  command: ["axm", "sync"],
+                  cmd: "axm sync",
                 },
               ],
             });

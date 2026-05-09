@@ -83,7 +83,6 @@ const getPetByName = (name: string) =>
         message: `No sample pet named '${name}' exists`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Use `axm-spike pets list` to inspect the available sample pets.",
           },
         ],
@@ -149,7 +148,6 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
                   message: `No ${request.habitat} sample pet named '${petName}' exists`,
                   breadcrumbs: [
                     {
-                      task: "Recover",
                       description: "Choose one of the pets returned by `axm-spike pets list`.",
                     },
                   ],
@@ -180,7 +178,6 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
           message: plan.blocker.value,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Pass `--force` to override the blocker in this demo, or choose an adoptable pet.",
             },

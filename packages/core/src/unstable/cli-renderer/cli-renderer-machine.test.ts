@@ -102,20 +102,19 @@ describe("MachineRenderer", () => {
             const r = yield* CliRenderer;
             yield* r.success("Done", {
               breadcrumbs: [
-                { task: "edit", description: "Edit the file" },
-                { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+                { description: "Edit the file" },
+                { description: "Apply changes", cmd: "axm sync" },
               ],
             });
           }),
         );
         const events = parseStderrEvents();
         expect(events).toEqual([
-          { type: "breadcrumb", task: "edit", description: "Edit the file" },
+          { type: "breadcrumb", description: "Edit the file" },
           {
             type: "breadcrumb",
-            task: "sync",
             description: "Apply changes",
-            command: ["axm", "sync"],
+            cmd: "axm sync",
           },
         ]);
         expect(stdoutWrites).toHaveLength(0);
@@ -424,20 +423,19 @@ describe("MachineRenderer", () => {
               count: 1,
               summary: "Created command @acme/commands/my-command",
               breadcrumbs: [
-                { task: "edit", description: "Edit the file", cmd: "axm edit" },
-                { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+                { description: "Edit the file", cmd: "axm edit" },
+                { description: "Apply changes", cmd: "axm sync" },
               ],
             });
           }),
         );
 
         expect(parseStderrEvents()).toEqual([
-          { type: "breadcrumb", task: "edit", description: "Edit the file", cmd: "axm edit" },
+          { type: "breadcrumb", description: "Edit the file", cmd: "axm edit" },
           {
             type: "breadcrumb",
-            task: "sync",
             description: "Apply changes",
-            command: ["axm", "sync"],
+            cmd: "axm sync",
           },
         ]);
         expect(parseStdout()[0]).toEqual({
@@ -446,8 +444,8 @@ describe("MachineRenderer", () => {
           count: 1,
           summary: "Created command @acme/commands/my-command",
           breadcrumbs: [
-            { task: "edit", description: "Edit the file", cmd: "axm edit" },
-            { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+            { description: "Edit the file", cmd: "axm edit" },
+            { description: "Apply changes", cmd: "axm sync" },
           ],
         });
       }),

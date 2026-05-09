@@ -400,13 +400,16 @@ describe("publish.handler", () => {
                 error: true,
                 message: e.message,
                 guidance: (e.breadcrumbs ?? [])
-                  .map((breadcrumb) => breadcrumb.description)
+                  .map((breadcrumb) =>
+                    [breadcrumb.description, breadcrumb.cmd].filter(Boolean).join(" · "),
+                  )
                   .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.message).toContain("Managed extension not found");
+          expect(errorResult.guidance).toContain("Scaffold a managed skill");
           expect(errorResult.guidance).toContain("axm skills new");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");

@@ -64,7 +64,6 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
       message: `Invalid command name: "${args.name}"`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
         },
       ],
@@ -91,7 +90,6 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
       message: `Managed command directory already exists: ${targetDir}`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: "Choose a different name or remove the existing directory first",
         },
       ],
@@ -134,13 +132,11 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
 
   const breadcrumbs = [
     {
-      task: "edit",
       description: `Edit \`.axm/extensions/${owner}/commands/${args.name}/src/${args.name}.md\` to fill in instructions`,
     },
     {
-      task: "sync",
       description: "Apply changes to your workspace",
-      command: ["axm", "sync"],
+      cmd: "axm sync",
     },
   ];
 

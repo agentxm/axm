@@ -16,6 +16,7 @@ import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-r
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { expandGlobs } from "@agentxm/client-core/unstable/utils";
+import { LIST_INSTALLED_SKILLS } from "../../breadcrumbs.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -101,7 +102,7 @@ export const removeArtifacts = Effect.fn("SkillsPrune.remove")(function* (
         makeAppError({
           code: "internal",
           message: `Failed to remove artifact at ${artifact.location}`,
-          breadcrumbs: [{ task: "Recover", description: "Check file permissions and try again." }],
+          recover: `Check file permissions for \`${artifact.location}\` and try again`,
           cause: platformError,
         }),
       ),
@@ -131,7 +132,7 @@ export const handlePrune = Effect.fn("SkillsPrune.handle")(function* (
     ) {
       return;
     }
-    yield* renderer.success("Nothing to prune");
+    yield* renderer.success("Nothing to prune", { breadcrumbs: [LIST_INSTALLED_SKILLS] });
     return;
   }
 

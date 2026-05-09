@@ -83,9 +83,7 @@ export const parseSubagentMd = (
       return yield* makeAppError({
         code: "not_found",
         message: `Missing subagent frontmatter for "${expectedName}"`,
-        breadcrumbs: [
-          { task: "Recover", description: `Add YAML frontmatter with name: ${expectedName}.` },
-        ],
+        breadcrumbs: [{ description: `Add YAML frontmatter with name: ${expectedName}.` }],
       });
     }
 
@@ -95,9 +93,7 @@ export const parseSubagentMd = (
         makeAppError({
           code: "validation",
           message: "Invalid subagent frontmatter",
-          breadcrumbs: [
-            { task: "Recover", description: "Frontmatter must include a string `name` field." },
-          ],
+          breadcrumbs: [{ description: "Frontmatter must include a string `name` field." }],
           cause: error,
         }),
     });
@@ -106,9 +102,7 @@ export const parseSubagentMd = (
       return yield* makeAppError({
         code: "validation",
         message: "Subagent frontmatter must be a YAML mapping",
-        breadcrumbs: [
-          { task: "Recover", description: `Add YAML frontmatter with name: ${expectedName}.` },
-        ],
+        breadcrumbs: [{ description: `Add YAML frontmatter with name: ${expectedName}.` }],
       });
     }
 
@@ -121,7 +115,6 @@ export const parseSubagentMd = (
         message: `Subagent frontmatter name "${String(name)}" does not match expected name "${expectedName}"`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Set subagent.json name, frontmatter name, and filename to ${expectedName}.`,
           },
         ],

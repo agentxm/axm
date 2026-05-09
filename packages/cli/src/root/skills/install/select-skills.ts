@@ -73,9 +73,7 @@ export const determineSkillsToInstall = (
         return yield* makeAppError({
           code: "not_found",
           message: `No skills matched: ${args.requestedSkills.join(", ")}`,
-          breadcrumbs: [
-            { task: "Recover", description: "Check the skill names or patterns and try again." },
-          ],
+          recover: "Check the skill names or patterns and try again",
         });
       }
 

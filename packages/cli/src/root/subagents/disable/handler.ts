@@ -46,7 +46,10 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
       code: "not_found",
       message: `Subagent '${args.name}' is not installed`,
       breadcrumbs: [
-        { task: "Recover", description: "Run `axm subagents list` to see available subagents" },
+        {
+          description: "Run `axm subagents list` to see available subagents",
+          cmd: "axm subagents list",
+        },
       ],
     });
   }

@@ -78,9 +78,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
         makeAppError({
           code: "network",
           message: "Update download did not complete",
-          breadcrumbs: [
-            { task: "Recover", description: "Check your network connection and try again." },
-          ],
+          breadcrumbs: [{ description: "Check your network connection and try again." }],
           cause,
         }),
       ),
@@ -91,9 +89,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
             makeAppError({
               code: "network",
               message: "Download timed out",
-              breadcrumbs: [
-                { task: "Recover", description: "Check your network connection and try again." },
-              ],
+              breadcrumbs: [{ description: "Check your network connection and try again." }],
             }),
           ),
       }),
@@ -109,9 +105,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       return yield* makeAppError({
         code: "network",
         message: `Download failed with status ${String(response.status)}`,
-        breadcrumbs: [
-          { task: "Recover", description: "Check your network connection and try again." },
-        ],
+        breadcrumbs: [{ description: "Check your network connection and try again." }],
       });
     }
 
@@ -120,9 +114,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
         makeAppError({
           code: "network",
           message: "Failed to read downloaded data",
-          breadcrumbs: [
-            { task: "Recover", description: "Check your network connection and try again." },
-          ],
+          breadcrumbs: [{ description: "Check your network connection and try again." }],
           cause,
         }),
       ),
@@ -135,7 +127,6 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
         message: "Downloaded file is empty",
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Try again. If the problem persists, download manually.",
           },
         ],
@@ -149,7 +140,6 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
           message: `Permission denied writing to ${destPath}`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Re-run the install script to fix permissions, or run with appropriate privileges.",
             },
@@ -182,7 +172,6 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
             message: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description:
                   "Re-run the install script to fix permissions, or run with appropriate privileges.",
               },
@@ -200,7 +189,6 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
             message: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description:
                   "Re-run the install script to fix permissions, or run with appropriate privileges.",
               },
@@ -234,8 +222,8 @@ const verifyBinary = (binaryPath: string) =>
         message: "Downloaded binary could not be verified",
         breadcrumbs: [
           {
-            task: "Recover",
             description: "The upgrade may have succeeded. Try running `axm --version` to check.",
+            cmd: "axm --version",
           },
         ],
       }),
@@ -338,9 +326,7 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
       return yield* makeAppError({
         code: "internal",
         message: `Unsupported platform: ${platform}-${arch}`,
-        breadcrumbs: [
-          { task: "Recover", description: "Build from source or use a supported platform." },
-        ],
+        breadcrumbs: [{ description: "Build from source or use a supported platform." }],
       });
     }
 

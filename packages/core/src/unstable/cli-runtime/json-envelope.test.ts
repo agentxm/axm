@@ -13,24 +13,20 @@ describe("BreadcrumbSchema", () => {
   it("decodes template and runnable breadcrumbs", () => {
     const decode = Schema.decodeUnknownSync(BreadcrumbSchema);
 
-    expect(decode({ task: "edit", description: "Edit the file", cmd: "axm edit" })).toEqual({
-      task: "edit",
+    expect(decode({ description: "Edit the file", cmd: "axm edit" })).toEqual({
       description: "Edit the file",
       cmd: "axm edit",
     });
-    expect(
-      decode({ task: "sync", description: "Apply changes", command: ["axm", "sync"] }),
-    ).toEqual({
-      task: "sync",
+    expect(decode({ description: "Apply changes", cmd: "axm sync" })).toEqual({
       description: "Apply changes",
-      command: ["axm", "sync"],
+      cmd: "axm sync",
     });
   });
 
   it("decodes guidance-only breadcrumbs", () => {
-    expect(
-      Schema.decodeUnknownSync(BreadcrumbSchema)({ task: "edit", description: "Edit the file" }),
-    ).toEqual({ task: "edit", description: "Edit the file" });
+    expect(Schema.decodeUnknownSync(BreadcrumbSchema)({ description: "Edit the file" })).toEqual({
+      description: "Edit the file",
+    });
   });
 });
 
@@ -40,8 +36,8 @@ describe("JsonEnvelopeSchema", () => {
       payload: { name: "code-reviewer" },
       summary: "Created subagent code-reviewer",
       breadcrumbs: [
-        { task: "edit", description: "Edit the file", cmd: "axm edit" },
-        { task: "sync", description: "Apply changes", command: ["axm", "sync"] },
+        { description: "Edit the file", cmd: "axm edit" },
+        { description: "Apply changes", cmd: "axm sync" },
       ],
     });
 
@@ -55,7 +51,6 @@ describe("JsonEnvelopeSchema", () => {
         message: "Authentication required",
         breadcrumbs: [
           {
-            task: "Run `axm auth login`",
             description: "Sign in, then retry.",
           },
         ],
@@ -68,7 +63,6 @@ describe("JsonEnvelopeSchema", () => {
       message: "Authentication required",
       breadcrumbs: [
         {
-          task: "Run `axm auth login`",
           description: "Sign in, then retry.",
         },
       ],

@@ -90,7 +90,6 @@ export const newPack: OperationHandler<
         message: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Choose a different name or remove the existing pack first",
           },
         ],

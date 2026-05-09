@@ -61,7 +61,7 @@ export const resolveRootUpdateIntent = (input: string) =>
       return yield* makeAppError({
         code: "usage",
         message: "Root update only accepts registry FQNs",
-        breadcrumbs: [{ task: "Recover", description: rootUpdateRegistryOnlyHowToFix(source) }],
+        breadcrumbs: [{ description: rootUpdateRegistryOnlyHowToFix(source) }],
       });
     }
 
@@ -73,7 +73,6 @@ export const resolveRootUpdateIntent = (input: string) =>
             message: "Update source uses an unsupported plural type",
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
               },
             ],
@@ -86,7 +85,6 @@ export const resolveRootUpdateIntent = (input: string) =>
           message: "Update source must be a registry FQN",
           breadcrumbs: [
             {
-              task: "Recover",
               description: `Use ${rootUpdateFqnGrammar} with one of: ${supportedRootUpdateTypes}.`,
             },
           ],
@@ -101,7 +99,6 @@ export const resolveRootUpdateIntent = (input: string) =>
         message: "Root update does not support that extension type",
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
           },
         ],

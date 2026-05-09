@@ -138,8 +138,8 @@ export const resolveManifestVersionInfo = (
         message: `Manifest not found: ${manifestPath}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Create the managed extension with \`axm ${extensionTypeToPlural[expectedType]} new\` before running \`axm ${extensionTypeToPlural[expectedType]} version\`.`,
+            cmd: `axm ${extensionTypeToPlural[expectedType]} new`,
           },
         ],
       });

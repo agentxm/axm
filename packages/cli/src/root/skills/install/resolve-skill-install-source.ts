@@ -15,6 +15,7 @@ import {
   routeUrlInput,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY } from "../../breadcrumbs.js";
 
 export type RegistryLookupProbe = {
   readonly location: string;
@@ -105,12 +106,7 @@ const resolveRegistrySource = (
         makeAppError({
           code: "internal",
           message: `Failed to read configured registry sources for owner "${owner}"`,
-          breadcrumbs: [
-            {
-              task: "Recover",
-              description: "Check that your workspace settings file is valid and accessible",
-            },
-          ],
+          recover: "Check that your workspace settings file is valid and accessible",
           cause: e,
         }),
       ),
@@ -120,12 +116,8 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "internal",
         message: `No registry source is configured for owner "${owner}"`,
-        breadcrumbs: [
-          {
-            task: "Recover",
-            description: `Add a registry source for owner "${owner}" using "axm sources add"`,
-          },
-        ],
+        recover: `Add a registry source for owner "${owner}"`,
+        cmd: ADD_REGISTRY_SOURCE.cmd,
       });
     }
 
@@ -183,31 +175,22 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "not_found",
         message: `Skill "${owner}/${skillName}" was not found in configured registries`,
-        breadcrumbs: [
-          {
-            task: "Recover",
-            description: registryLookupHowToFix({
-              issues,
-              fallback:
-                "Verify the owner/skill name, or install with an explicit source like github:owner/repo",
-            }),
-          },
-        ],
+        recover: registryLookupHowToFix({
+          issues,
+          fallback:
+            "Verify the owner/skill name, or install with an explicit source like github:owner/repo",
+        }),
+        cmd: "axm skills install <source>",
       });
     }
 
     return yield* makeAppError({
       code: "not_found",
       message: `None of the configured registry sources contain owner "${owner}"`,
-      breadcrumbs: [
-        {
-          task: "Recover",
-          description: registryLookupHowToFix({
-            issues,
-            fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
-          }),
-        },
-      ],
+      recover: registryLookupHowToFix({
+        issues,
+        fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
+      }),
     });
   });
 
@@ -224,13 +207,7 @@ const resolveSkillRegistrySourceByName = (
       return yield* makeAppError({
         code: "not_found",
         message: `Skill "${name}" could not be looked up (no registry sources)`,
-        breadcrumbs: [
-          {
-            task: "Recover",
-            description:
-              "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
-          },
-        ],
+        breadcrumbs: [ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY],
       });
     }
     const maybeProfile = yield* ws.getConfiguredOwner();
@@ -255,10 +232,9 @@ const resolveSkillRegistrySourceByName = (
             : `Skill "${label}" was not found in configured registries`,
           breadcrumbs: [
             {
-              task: "Recover",
-              description:
-                "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
+              description: "Verify the skill name",
             },
+            INSTALL_SKILL_FROM_REGISTRY,
           ],
           cause: error,
         });
@@ -269,13 +245,7 @@ const resolveSkillRegistrySourceByName = (
       return yield* makeAppError({
         code: "not_found",
         message: `Skill "${name}" was not found in configured registries`,
-        breadcrumbs: [
-          {
-            task: "Recover",
-            description:
-              "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
-          },
-        ],
+        breadcrumbs: [{ description: "Verify the skill name" }, INSTALL_SKILL_FROM_REGISTRY],
       });
     }
     const defaultRegistry = registryHosts[0];
@@ -314,12 +284,7 @@ const resolveSkillRegistrySource = (
       return yield* makeAppError({
         code: "internal",
         message: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
-        breadcrumbs: [
-          {
-            task: "Recover",
-            description: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
-          },
-        ],
+        recover: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
     }
 
@@ -368,13 +333,8 @@ export const resolveSkillInstallSource = (
         return yield* makeAppError({
           code: "internal",
           message: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
-          breadcrumbs: [
-            {
-              task: "Recover",
-              description:
-                "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",
-            },
-          ],
+          recover:
+            "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",
         });
     }
   });

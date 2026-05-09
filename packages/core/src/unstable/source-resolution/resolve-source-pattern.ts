@@ -151,8 +151,8 @@ export const resolveSourcePattern = (
             message: "No skills matched the given pattern",
             breadcrumbs: [
               {
-                task: "Recover",
                 description: "Check installed skill names with `axm skills list`.",
+                cmd: "axm skills list",
               },
             ],
           });

@@ -23,9 +23,7 @@ export const normalizeIgnoredPatterns = (patterns: ReadonlyArray<string>) =>
       return yield* makeAppError({
         code: "validation",
         message: "Ignored pattern is empty after trimming whitespace",
-        breadcrumbs: [
-          { task: "Recover", description: "Remove empty ignored patterns from settings" },
-        ],
+        breadcrumbs: [{ description: "Remove empty ignored patterns from settings" }],
       });
     }
     return Array.dedupe(trimmed);
@@ -51,7 +49,6 @@ export const validateIgnoredConfigConflicts = (
         message: `Configured extensions conflict with ignored patterns: ${conflicts.join(", ")}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Remove conflicting entries from either the configured extensions or the ignored patterns in settings",
           },

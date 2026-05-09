@@ -146,14 +146,12 @@ describe("skills-new.handler", () => {
           expect(logs.success.some((m) => m.includes("@acme/skills/my-skill"))).toBe(true);
           expect(rendererState.breadcrumbs).toEqual([
             {
-              task: "edit",
               description:
                 "Edit `.axm/extensions/@acme/skills/my-skill/src/SKILL.md` to fill in instructions",
             },
             {
-              task: "sync",
               description: "Apply changes to your workspace",
-              command: ["axm", "sync"],
+              cmd: "axm sync",
             },
           ]);
         }),

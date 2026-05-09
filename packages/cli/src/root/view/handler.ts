@@ -84,7 +84,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         message: "No registry sources configured",
-        breadcrumbs: [{ task: "Recover", description: "Run `axm setup` first." }],
+        breadcrumbs: [{ description: "Run `axm setup` first.", cmd: "axm setup" }],
       });
     }
 
@@ -140,7 +140,6 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
           message: `Extension "${handle}" does not have a registry owner`,
           breadcrumbs: [
             {
-              task: "Recover",
               description: "Use a fully-qualified registry handle like @owner/skills/name.",
             },
           ],
@@ -161,7 +160,6 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
         message: `Invalid extension handle: ${handle}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Use a fully-qualified handle like @owner/skills/name, or pass --type for a bare name.",
           },
@@ -199,9 +197,7 @@ const resolveBareViewHandle = (handle: string) =>
       return yield* makeAppError({
         code: "internal",
         message: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
-        breadcrumbs: [
-          { task: "Recover", description: "Re-run with --type or the fully-qualified name." },
-        ],
+        breadcrumbs: [{ description: "Re-run with --type or the fully-qualified name." }],
       });
     }
 
@@ -210,7 +206,6 @@ const resolveBareViewHandle = (handle: string) =>
       message: `No extension named "${handle}" was found`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: "Check the name, pass --type, or use a fully-qualified name.",
         },
       ],
@@ -281,8 +276,8 @@ export const handleView = (args: ViewHandlerArgs) =>
         message: `Extension ${args.handle} not found on registry "${targetRegistry.registryName}".`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `If this extension is private, run "axm login" and try again.`,
+            cmd: "axm login",
           },
         ],
       });

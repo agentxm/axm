@@ -57,9 +57,7 @@ const emitBreadcrumbs = (
     (crumb) =>
       emitStderrEvent({
         type: "breadcrumb",
-        task: crumb.task,
         description: crumb.description,
-        ...(crumb.command !== undefined ? { command: [...crumb.command] } : {}),
         ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
       }),
     { concurrency: 1 },

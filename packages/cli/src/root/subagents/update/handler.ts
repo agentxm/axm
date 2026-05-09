@@ -220,9 +220,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     return yield* makeAppError({
       code: "network",
       message: "All source re-resolutions failed. Nothing to update.",
-      breadcrumbs: [
-        { task: "Recover", description: "Verify the original source paths are still accessible." },
-      ],
+      breadcrumbs: [{ description: "Verify the original source paths are still accessible." }],
     });
   }
 

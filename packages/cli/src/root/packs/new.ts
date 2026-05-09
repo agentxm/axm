@@ -70,7 +70,6 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
       message: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: "Choose a different name or remove the existing pack first",
         },
       ],
@@ -121,13 +120,11 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   const breadcrumbs = [
     {
-      task: "edit",
       description: `Edit \`.axm/extensions/${owner}/packs/${args.name}/pack.json\` to fill in pack contents`,
     },
     {
-      task: "sync",
       description: "Apply changes to your workspace",
-      command: ["axm", "sync"],
+      cmd: "axm sync",
     },
   ];
 

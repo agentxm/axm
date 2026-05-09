@@ -33,6 +33,7 @@ import {
 } from "../../json-output.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { ADD_REGISTRY_SOURCE, SCAFFOLD_MANAGED_SKILL } from "../breadcrumbs.js";
 
 export interface PublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
@@ -96,7 +97,8 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         message: "No registry sources configured",
-        breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
+        recover: "Add a registry source: `axm sources add <name> <url>`",
+        cmd: ADD_REGISTRY_SOURCE.cmd,
       });
     }
 
@@ -182,10 +184,9 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
           message: `Skill "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
-              task: "Recover",
-              description:
-                "Use the fully-qualified name `@owner/skills/name`, or scaffold a managed skill with `axm skills new` first.",
+              description: "Use the fully-qualified name `@owner/skills/name`",
             },
+            SCAFFOLD_MANAGED_SKILL,
           ],
         }),
       );
@@ -197,13 +198,8 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
         makeAppError({
           code: "not_found",
           message: `Skill "${name}" cannot be published from a non-registry source`,
-          breadcrumbs: [
-            {
-              task: "Recover",
-              description:
-                "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published.",
-            },
-          ],
+          recover:
+            "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published",
         }),
       );
     }
@@ -247,10 +243,9 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
                 message: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
-                    description:
-                      "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed skill with `axm skills new` first.",
+                    description: "Only managed extensions in `.axm/extensions/` can be published",
                   },
+                  SCAFFOLD_MANAGED_SKILL,
                 ],
               });
             }
@@ -264,12 +259,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "not_found",
                 message: `Missing manifest: ${MANIFEST_FILENAME}`,
-                breadcrumbs: [
-                  {
-                    task: "Recover",
-                    description: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
-                  },
-                ],
+                recover: `Ensure the extension has a valid \`${MANIFEST_FILENAME}\` manifest`,
               });
             }
           });

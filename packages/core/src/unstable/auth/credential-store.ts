@@ -95,9 +95,7 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
           makeAppError({
             code: "auth",
             message: `Failed to create credentials directory: ${dir}`,
-            breadcrumbs: [
-              { task: "Recover", description: `Ensure you have write access to ~/.config/` },
-            ],
+            breadcrumbs: [{ description: `Ensure you have write access to ~/.config/` }],
             cause: error,
           }),
         ),
@@ -148,7 +146,6 @@ const readCredentialFile = (
           message: "Failed to parse credential file",
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "The credential file may be corrupt. Delete it and re-authenticate with `axm login`.",
             },

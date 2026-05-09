@@ -101,7 +101,6 @@ export const SubagentManagerLive = Layer.effect(
               message: `Failed to read ${expectedFilename} from ${subagentSrcPath}`,
               breadcrumbs: [
                 {
-                  task: "Recover",
                   description: `Ensure the subagent content file exists at ${contentPath}.`,
                 },
               ],

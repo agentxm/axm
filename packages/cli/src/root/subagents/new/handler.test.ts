@@ -157,14 +157,12 @@ describe("subagents-new.handler", () => {
           expect(logs.success.some((m) => m.includes("@acme/subagents/my-subagent"))).toBe(true);
           expect(rendererState.breadcrumbs).toEqual([
             {
-              task: "edit",
               description:
                 "Edit `.axm/extensions/@acme/subagents/my-subagent/src/my-subagent.md` to fill in instructions",
             },
             {
-              task: "sync",
               description: "Apply changes to your workspace",
-              command: ["axm", "sync"],
+              cmd: "axm sync",
             },
           ]);
         }),

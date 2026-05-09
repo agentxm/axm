@@ -85,7 +85,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         message: "No registry sources configured",
-        breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
+        breadcrumbs: [{ description: "Run the registry guard first." }],
       });
     }
 
@@ -177,7 +177,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           message: `Pack "${args.pack}" is not installed in this workspace`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Use the fully-qualified name `@owner/packs/name`, or run `axm packs new ${args.pack}` to create it first.",
             },
@@ -191,7 +190,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           message: `Pack "${args.pack}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Only packs sourced from a registry namespace (`@owner/packs/name`) can be published.",
             },
@@ -223,7 +221,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
             message: `Managed pack not found: ${packName}`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description:
                   "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
               },
@@ -243,7 +240,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
             message: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Ensure the pack has a valid ${PACK_MANIFEST_FILENAME} manifest.`,
               },
             ],

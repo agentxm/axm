@@ -122,7 +122,6 @@ export const buildNetworkBreadcrumbs = (baseUrl: string): ReadonlyArray<Breadcru
     if (isLocalAddr && parsed.protocol === "https:") {
       return [
         {
-          task: "Recover",
           description:
             "Ensure local registry is running with TLS, or switch the source URL to http://localhost:<port>.",
         },
@@ -132,16 +131,15 @@ export const buildNetworkBreadcrumbs = (baseUrl: string): ReadonlyArray<Breadcru
     if (isLocalAddr) {
       return [
         {
-          task: "Recover",
           description:
             "Ensure local registry is running and reachable at the configured host/port.",
         },
       ];
     }
 
-    return [{ task: "Recover", description: fallback }];
+    return [{ description: fallback }];
   } catch {
-    return [{ task: "Recover", description: fallback }];
+    return [{ description: fallback }];
   }
 };
 
@@ -214,7 +212,6 @@ export const mapAuthUnauthenticated = (
     message: "Authentication required",
     breadcrumbs: [
       {
-        task: "Sign in",
         description: guidance ?? "Run axm login",
         ...(guidance === undefined ? { cmd: "axm login" } : {}),
       },
@@ -259,7 +256,6 @@ export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>)
     message: "Insufficient permissions",
     breadcrumbs: [
       {
-        task: "Check permissions",
         description:
           "You do not have permission for this operation. Check your account permissions.",
       },

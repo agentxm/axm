@@ -107,7 +107,6 @@ const resolveRegistrySource = (
           message: `Failed to read configured registry sources for owner "${owner}"`,
           breadcrumbs: [
             {
-              task: "Recover",
               description: "Check that your workspace settings file is valid and accessible",
             },
           ],
@@ -122,8 +121,8 @@ const resolveRegistrySource = (
         message: `No registry source is configured for owner "${owner}"`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Add a registry source for owner "${owner}" using "axm sources add"`,
+            cmd: "axm sources add",
           },
         ],
       });
@@ -183,7 +182,6 @@ const resolveRegistrySource = (
         message: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: registryLookupHowToFix({
               issues,
               fallback:
@@ -199,7 +197,6 @@ const resolveRegistrySource = (
       message: `None of the configured registry sources contain owner "${owner}"`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: registryLookupHowToFix({
             issues,
             fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
@@ -224,7 +221,6 @@ const resolveSubagentRegistrySourceByName = (
         message: `Subagent "${name}" could not be looked up (no registry sources)`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
           },
@@ -253,7 +249,6 @@ const resolveSubagentRegistrySourceByName = (
             : `Subagent "${label}" was not found in configured registries`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
             },
@@ -269,7 +264,6 @@ const resolveSubagentRegistrySourceByName = (
         message: `Subagent "${name}" was not found in configured registries`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
           },
@@ -315,7 +309,6 @@ const resolveSubagentRegistrySource = (
         message: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a subagent`,
           },
         ],
@@ -369,7 +362,6 @@ export const resolveSubagentInstallSource = (
           message: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Use a registry reference (e.g., @owner/subagents/name), a URL, or a shorthand (owner/repo) instead",
             },

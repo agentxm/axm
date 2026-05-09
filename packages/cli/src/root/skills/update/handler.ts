@@ -37,6 +37,7 @@ import {
   type SkillConstraints,
 } from "./constraint-resolution.js";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
+import { LIST_INSTALLED_SKILLS, SKILL_NAME_RULES } from "../../breadcrumbs.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -83,12 +84,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         planName: "Update skill(s)",
         planDescription: "Update installed skills",
         message: "No skills installed. Nothing to update.",
+        breadcrumbs: [LIST_INSTALLED_SKILLS],
       })
     ) {
       return;
     }
 
     yield* renderer.info("No skills installed. Nothing to update.");
+    yield* renderer.success("Nothing to update", { breadcrumbs: [LIST_INSTALLED_SKILLS] });
     return;
   }
 
@@ -147,12 +150,22 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           planName: "Update skill(s)",
           planDescription: "Update installed skills",
           message: "No installed skills match the --skill filter. Nothing to update.",
+          breadcrumbs: [
+            LIST_INSTALLED_SKILLS,
+            { description: "Relax the `--skill` filter and try again" },
+          ],
         })
       ) {
         return;
       }
 
       yield* renderer.warn("No installed skills match the --skill filter. Nothing to update.");
+      yield* renderer.success("Nothing to update", {
+        breadcrumbs: [
+          LIST_INSTALLED_SKILLS,
+          { description: "Relax the `--skill` filter and try again" },
+        ],
+      });
       return;
     }
   }
@@ -227,12 +240,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "internal",
           message: `Registry skill "${skillFqn}" has no published versions`,
-          breadcrumbs: [
-            {
-              task: "Recover",
-              description: "Publish a version before running `axm skills update`.",
-            },
-          ],
+          recover: "Publish a version before running `axm skills update`",
+          cmd: "axm skills publish",
         });
       }
 
@@ -245,12 +254,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "internal",
           message: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
-          breadcrumbs: [
-            {
-              task: "Recover",
-              description: "Relax the version constraint or update the dependent pack constraints.",
-            },
-          ],
+          recover: "Relax the version constraint or update the dependent pack constraints",
         });
       }
 
@@ -269,12 +273,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "internal",
           message: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
-          breadcrumbs: [
-            {
-              task: "Recover",
-              description: "Verify the registry index and package metadata are consistent.",
-            },
-          ],
+          recover: "Re-fetch with `axm skills install --force <source>`",
+          cmd: "axm skills install --force <source>",
         });
       }
 
@@ -300,13 +300,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         makeAppError({
           code: "validation",
           message: `Configured skill name "${name}" is invalid`,
-          breadcrumbs: [
-            {
-              task: "Recover",
-              description:
-                "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
-            },
-          ],
+          recover: SKILL_NAME_RULES,
         }),
     });
 
@@ -386,9 +380,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     return yield* makeAppError({
       code: "network",
       message: "All source re-resolutions failed. Nothing to update.",
-      breadcrumbs: [
-        { task: "Recover", description: "Verify the original source paths are still accessible." },
-      ],
+      recover: "List configured sources",
+      cmd: "axm sources list",
     });
   }
 

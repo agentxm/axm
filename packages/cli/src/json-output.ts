@@ -206,9 +206,18 @@ export const emitNoOpResult = <TCommand extends string>(
     readonly planName: string;
     readonly planDescription?: string;
     readonly message: string;
+    readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+    readonly withoutBreadcrumbs?: boolean;
   },
-) =>
-  Effect.gen(function* () {
+) => {
+  const options = {
+    ...(args.breadcrumbs !== undefined ? { breadcrumbs: args.breadcrumbs } : {}),
+    ...(args.withoutBreadcrumbs !== undefined
+      ? { withoutBreadcrumbs: args.withoutBreadcrumbs }
+      : {}),
+  };
+
+  return Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     return yield* renderer.result(
       {
@@ -228,5 +237,7 @@ export const emitNoOpResult = <TCommand extends string>(
         },
       },
       Schema.Struct(PlanResolutionDocumentFields),
+      options,
     );
   });
+};

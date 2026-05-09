@@ -79,7 +79,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       message: `Invalid subagent name: "${args.name}"`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
         },
       ],
@@ -94,7 +93,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       message: `Subagent '${args.name}' already exists`,
       breadcrumbs: [
         {
-          task: "Recover",
           description:
             "Choose a different name, remove the existing subagent first, or use --force",
         },
@@ -264,13 +262,11 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   const breadcrumbs = [
     {
-      task: "edit",
       description: `Edit \`.axm/extensions/${owner}/subagents/${args.name}/src/${args.name}.md\` to fill in instructions`,
     },
     {
-      task: "sync",
       description: "Apply changes to your workspace",
-      command: ["axm", "sync"],
+      cmd: "axm sync",
     },
   ];
 

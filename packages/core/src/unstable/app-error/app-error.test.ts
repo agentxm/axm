@@ -32,7 +32,7 @@ describe("AppError", () => {
     const error = new AppError({
       code: "internal",
       message: "WorkspaceMutations not initialized",
-      breadcrumbs: [{ task: "Recover", description: "Run 'axm setup' to create one." }],
+      breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
 
@@ -59,7 +59,7 @@ describe("makeAppError", () => {
     const error = makeAppError({
       code: "internal",
       message: "WorkspaceMutations not initialized",
-      breadcrumbs: [{ task: "Recover", description: "Run 'axm setup' to create one." }],
+      breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
 
@@ -85,5 +85,20 @@ describe("makeAppError", () => {
     });
 
     expect(error.breadcrumbs).toBeUndefined();
+  });
+
+  it("prepends recover breadcrumb", () => {
+    const error = makeAppError({
+      code: "not_found",
+      message: "Skill is not installed",
+      recover: "List installed skills",
+      cmd: "axm skills list",
+      breadcrumbs: [{ description: "Install from a source", cmd: "axm skills install <source>" }],
+    });
+
+    expect(error.breadcrumbs).toEqual([
+      { description: "List installed skills", cmd: "axm skills list" },
+      { description: "Install from a source", cmd: "axm skills install <source>" },
+    ]);
   });
 });

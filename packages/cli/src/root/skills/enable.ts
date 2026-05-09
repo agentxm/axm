@@ -16,6 +16,7 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../breadcrumbs.js";
 
 export interface EnableHandlerArgs {
   readonly name: string;
@@ -46,9 +47,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     return yield* makeAppError({
       code: "not_found",
       message: `Skill '${args.name}' is not installed`,
-      breadcrumbs: [
-        { task: "Recover", description: "Run `axm skills list` to see available skills" },
-      ],
+      breadcrumbs: [LIST_INSTALLED_SKILLS, INSTALL_SKILL_FROM_REGISTRY],
     });
   }
 

@@ -94,7 +94,6 @@ export const parseFrontmatterEffect = (
         message: "YAML frontmatter could not be parsed",
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Ensure the frontmatter block contains valid YAML between --- delimiters.",
           },
         ],

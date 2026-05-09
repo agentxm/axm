@@ -84,7 +84,7 @@ export const addToPack: OperationHandler<
         makeAppError({
           code: "not_found",
           message: `Pack manifest not found at ${manifestPath}`,
-          breadcrumbs: [{ task: "Recover", description: "Ensure the pack exists on disk" }],
+          breadcrumbs: [{ description: "Ensure the pack exists on disk" }],
           cause: e,
         }),
       ),
@@ -96,9 +96,7 @@ export const addToPack: OperationHandler<
       return yield* makeAppError({
         code: "conflict",
         message: `Pack manifest is stale — it was modified since the plan was created`,
-        breadcrumbs: [
-          { task: "Recover", description: "Re-run the command to create a fresh plan" },
-        ],
+        breadcrumbs: [{ description: "Re-run the command to create a fresh plan" }],
       });
     }
 

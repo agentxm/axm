@@ -7,7 +7,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "internal",
       message: "WorkspaceMutations not initialized",
-      breadcrumbs: [{ task: "Recover", description: "Run 'axm setup' to create one." }],
+      breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
       cause: undefined,
     });
 
@@ -44,7 +44,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "validation",
       message: "Could not resolve source",
-      breadcrumbs: [{ task: "Recover", description: "Try a local path or GitHub shorthand." }],
+      breadcrumbs: [{ description: "Try a local path or GitHub shorthand." }],
       cause: undefined,
     });
 

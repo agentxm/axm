@@ -12,7 +12,6 @@ const makeResolvedVersionError = (field: string, value: string, cause: unknown):
     message: "Lockfile resolved versions must be exact semver values",
     breadcrumbs: [
       {
-        task: "Recover",
         description:
           "Resolve the constraint first, then persist the exact resolved version (for example, 1.2.3 instead of ^1.2.3).",
       },

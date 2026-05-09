@@ -271,11 +271,16 @@ them to the same flat envelope:
   "result": {},
   "summary": "Created command @acme/commands/review",
   "breadcrumbs": [
-    { "task": "edit", "description": "Edit `.axm/extensions/.../review.md`" },
-    { "task": "sync", "description": "Apply changes", "command": ["axm", "sync"] }
+    { "description": "Edit `.axm/extensions/.../review.md`" },
+    { "description": "Apply changes", "cmd": "axm sync" }
   ]
 }
 ```
+
+Breadcrumbs use `{ description, cmd? }`. Use imperative voice, no trailing
+period, backtick literal commands and paths, and one task per breadcrumb. Set
+`cmd` whenever `description` suggests a runnable `axm` command. `cmd` replaces
+the older `command: string[]` form; do not emit both.
 
 ---
 
@@ -305,9 +310,7 @@ JSON errors use a fixed envelope:
   "ok": false,
   "code": "auth",
   "message": "No authentication token is available",
-  "breadcrumbs": [
-    { "task": "login", "description": "Authenticate", "command": ["axm", "auth", "login"] }
-  ]
+  "breadcrumbs": [{ "description": "Authenticate", "cmd": "axm auth login" }]
 }
 ```
 

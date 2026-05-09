@@ -125,14 +125,26 @@ export class AppError extends Data.TaggedError("AppError")<{
 export const makeAppError = (args: {
   readonly code: AppErrorCode;
   readonly message: string;
+  readonly recover?: string;
+  readonly cmd?: string;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause?: unknown;
-}): AppError =>
-  new AppError({
+}): AppError => {
+  const recover =
+    args.recover === undefined
+      ? []
+      : [
+          {
+            description: args.recover,
+            ...(args.cmd !== undefined ? { cmd: args.cmd } : {}),
+          },
+        ];
+  const breadcrumbs = [...recover, ...(args.breadcrumbs ?? [])];
+
+  return new AppError({
     code: args.code,
     message: args.message,
-    ...(args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
-      ? { breadcrumbs: args.breadcrumbs }
-      : {}),
+    ...(breadcrumbs.length > 0 ? { breadcrumbs } : {}),
     cause: args.cause,
   });
+};

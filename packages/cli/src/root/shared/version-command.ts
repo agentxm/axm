@@ -80,8 +80,8 @@ export const handleVersion = (args: VersionHandlerArgs) =>
         message: "`set` requires an exact semver version",
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Run \`axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3\`.`,
+            cmd: `axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3`,
           },
         ],
       });
@@ -184,9 +184,7 @@ const inferVersionableType = (handle: string) =>
       return yield* makeAppError({
         code: "validation",
         message: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
-        breadcrumbs: [
-          { task: "Recover", description: `Use a handle like ${supportedHandleHints}.` },
-        ],
+        breadcrumbs: [{ description: `Use a handle like ${supportedHandleHints}.` }],
       });
     }
     return fqn.type;

@@ -61,7 +61,7 @@ export const resolveRootInstallIntent = (input: string) =>
       return yield* makeAppError({
         code: "usage",
         message: "Root install only accepts registry FQNs",
-        breadcrumbs: [{ task: "Recover", description: rootInstallRegistryOnlyHowToFix(source) }],
+        breadcrumbs: [{ description: rootInstallRegistryOnlyHowToFix(source) }],
       });
     }
 
@@ -73,7 +73,6 @@ export const resolveRootInstallIntent = (input: string) =>
             message: "Install source uses an unsupported plural type",
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
               },
             ],
@@ -86,7 +85,6 @@ export const resolveRootInstallIntent = (input: string) =>
           message: "Install source must be a registry FQN",
           breadcrumbs: [
             {
-              task: "Recover",
               description: `Use ${rootInstallFqnGrammar} with one of: ${supportedRootInstallTypes}.`,
             },
           ],
@@ -101,7 +99,6 @@ export const resolveRootInstallIntent = (input: string) =>
         message: "Root install does not support that extension type",
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
           },
         ],

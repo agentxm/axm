@@ -100,7 +100,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         message: "No registry sources configured",
-        breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
+        breadcrumbs: [{ description: "Run the registry guard first." }],
       });
     }
 
@@ -188,7 +188,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
           message: `Command "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Use the fully-qualified name `@owner/commands/name`, or run `axm commands new ${name}` to create it first.",
             },
@@ -204,7 +203,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
           message: `Command "${name}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Only commands sourced from a registry namespace (`@owner/commands/name`) can be published.",
             },
@@ -252,7 +250,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
                 message: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description:
                       "Only managed extensions (in .axm/extensions/) can be published. Create with `axm commands new` first.",
                   },
@@ -271,7 +268,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
                 message: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
                   },
                 ],
@@ -290,7 +286,6 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
                 message: `Missing ${contentFilename}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
                   },
                 ],

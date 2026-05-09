@@ -69,7 +69,6 @@ const decodeName = (input: string) =>
         message: `No ${input} identifier could be resolved`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
           },
@@ -326,9 +325,7 @@ const notFound = (
   makeAppError({
     code: "not_found",
     message: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
-    breadcrumbs: [
-      { task: "Recover", description: "Check the name, or re-run with a fully-qualified name." },
-    ],
+    breadcrumbs: [{ description: "Check the name, or re-run with a fully-qualified name." }],
   });
 
 const ambiguous = (
@@ -340,7 +337,7 @@ const ambiguous = (
   makeAppError({
     code: "internal",
     message: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
-    breadcrumbs: [{ task: "Recover", description: "Re-run with the fully-qualified name." }],
+    breadcrumbs: [{ description: "Re-run with the fully-qualified name." }],
   });
 
 const resolveFromCandidates = (
@@ -383,7 +380,6 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
           message: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
-              task: "Recover",
               description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
             },
           ],
@@ -446,7 +442,6 @@ export const resolveInstalledIdentifier = (args: {
           message: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
-              task: "Recover",
               description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
             },
           ],

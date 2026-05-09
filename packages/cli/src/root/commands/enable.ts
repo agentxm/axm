@@ -53,7 +53,10 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
       code: "not_found",
       message: `Command '${args.name}' is not installed`,
       breadcrumbs: [
-        { task: "Recover", description: "Run `axm commands list` to see available commands" },
+        {
+          description: "Run `axm commands list` to see available commands",
+          cmd: "axm commands list",
+        },
       ],
     });
   }

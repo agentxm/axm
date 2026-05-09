@@ -53,7 +53,6 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
             message: `Failed to resolve configured skill "${name}"`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Verify the configured source is reachable and still contains the skill.`,
               },
             ],
@@ -69,7 +68,6 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
         message: `Configured skill "${name}" could not be found in its source`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Verify the configured source still contains the skill or update settings.json.`,
           },
         ],
@@ -124,7 +122,6 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
             message: `Failed to resolve configured subagent "${name}"`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Verify the configured source is reachable and still contains the subagent.`,
               },
             ],
@@ -140,7 +137,6 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
         message: `Configured subagent "${name}" could not be found in its source`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Verify the configured source still contains the subagent or update settings.json.`,
           },
         ],
@@ -161,7 +157,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
       return yield* makeAppError({
         code: "validation",
         message: `The configured command entry "${name}" is invalid.`,
-        breadcrumbs: [{ task: "Recover", description: `Use a name like "@owner/commands/name".` }],
+        breadcrumbs: [{ description: `Use a name like "@owner/commands/name".` }],
       });
     }
 
@@ -194,7 +190,6 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
             message: `Failed to resolve configured command "${name}"`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Verify the configured registry source is reachable and still contains the command.`,
               },
             ],
@@ -210,7 +205,6 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
         message: `Configured command "${name}" could not be found in its source`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Verify the configured source still contains the command or update settings.json.`,
           },
         ],
@@ -231,9 +225,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
       return yield* makeAppError({
         code: "validation",
         message: `The configured MCP server entry "${name}" is invalid.`,
-        breadcrumbs: [
-          { task: "Recover", description: `Use a name like "@owner/mcp-servers/name".` },
-        ],
+        breadcrumbs: [{ description: `Use a name like "@owner/mcp-servers/name".` }],
       });
     }
 
@@ -266,7 +258,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
             message: `Failed to resolve configured MCP server "${name}"`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Verify the configured registry source is reachable and still contains the MCP server.`,
               },
             ],
@@ -282,7 +273,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
         message: `Configured MCP server "${name}" could not be found in its source`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Verify the configured source still contains the MCP server or update settings.json.`,
           },
         ],
@@ -303,7 +293,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       return yield* makeAppError({
         code: "validation",
         message: `The configured pack entry "${name}" is invalid.`,
-        breadcrumbs: [{ task: "Recover", description: `Use a name like "@owner/packs/name".` }],
+        breadcrumbs: [{ description: `Use a name like "@owner/packs/name".` }],
       });
     }
 
@@ -365,7 +355,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
           message: `Failed to resolve configured pack "${name}"`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Verify the configured registry source is reachable and still contains the pack.",
             },
@@ -382,7 +371,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
         message: `Configured pack "${name}" could not be found in its source`,
         breadcrumbs: [
           {
-            task: "Recover",
             description:
               "Verify the configured source still contains the pack or update settings.json.",
           },

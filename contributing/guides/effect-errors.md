@@ -100,8 +100,20 @@ Use `makeAppError` for convenience construction:
 const error = makeAppError({
   code: "not_found",
   message: "Installation failed",
-  breadcrumbs: [{ task: "Check package", description: "Check the package name and try again" }],
+  recover: "Check the package name and try again",
   cause: originalError,
+});
+```
+
+For one recovery step, prefer `recover` plus optional `cmd`; it prepends a
+breadcrumb and can be combined with explicit `breadcrumbs`:
+
+```ts
+const error = makeAppError({
+  code: "not_found",
+  message: "Skill is not installed",
+  recover: "List installed skills",
+  cmd: "axm skills list",
 });
 ```
 
@@ -179,7 +191,7 @@ const program = manifestService.load(path).pipe(
       makeAppError({
         code: "validation",
         message: `Could not load manifest: ${e.reason}`,
-        breadcrumbs: [{ task: "Inspect manifest", description: `Check ${e.path}` }],
+        breadcrumbs: [{ description: `Check ${e.path}` }],
         cause: e,
       })
     )

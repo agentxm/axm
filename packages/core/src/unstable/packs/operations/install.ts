@@ -192,7 +192,6 @@ export const installPack: OperationHandler<
             message: `Pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description:
                   "Republish the pack or repair the registry metadata before installing this pack.",
               },

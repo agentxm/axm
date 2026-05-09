@@ -100,7 +100,6 @@ export const newSkill: OperationHandler<
         message: `Skill '${name}' already exists in settings`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Choose a different name or remove the existing skill first",
           },
         ],

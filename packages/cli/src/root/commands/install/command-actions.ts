@@ -178,7 +178,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 message: `Command "${parsed.success.name}" not found in registry`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: "Verify the command name, or use @owner/commands/command-name.",
                   },
                 ],
@@ -198,17 +197,13 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "validation",
                 message: "Command source must include /commands/ segment",
-                breadcrumbs: [
-                  { task: "Recover", description: "Use @owner/commands/command-name format." },
-                ],
+                breadcrumbs: [{ description: "Use @owner/commands/command-name format." }],
               });
             case "missing-name":
               return yield* makeAppError({
                 code: "not_found",
                 message: "Command source must include a command name",
-                breadcrumbs: [
-                  { task: "Recover", description: "Use @owner/commands/command-name format." },
-                ],
+                breadcrumbs: [{ description: "Use @owner/commands/command-name format." }],
               });
             default:
               return yield* makeAppError({
@@ -216,7 +211,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 message: "Commands can only be installed from a registry",
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: "Use @owner/commands/command-name or just command-name.",
                   },
                 ],
@@ -237,7 +231,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 message: `Invalid source: ${error.message}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: "Use @owner/commands/command-name or just command-name.",
                   },
                 ],
@@ -252,7 +245,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               message: "Commands can only be installed from a registry",
               breadcrumbs: [
                 {
-                  task: "Recover",
                   description: "Use a registry source: @owner/commands/command-name",
                 },
               ],
@@ -292,7 +284,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                       message: "Command could not be fetched from registry",
                       breadcrumbs: [
                         {
-                          task: "Recover",
                           description: "Verify the command name and registry configuration.",
                         },
                       ],
@@ -317,7 +308,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             message: `Command "${parsed.commandName}" not found in registry`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: "Verify the command name and check available commands.",
               },
             ],
@@ -330,7 +320,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             message: `Command "${parsed.commandName}" not found in registry`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: "Verify the command name and check available commands.",
               },
             ],

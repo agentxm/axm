@@ -49,8 +49,8 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
             message: `Pack "${args.name}" is not installed`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: "Install the pack first with `axm packs install`.",
+                cmd: "axm packs install <source>",
               },
             ],
           });

@@ -36,9 +36,7 @@ import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "usage",
   message: "Interactive prompt required: Select agents to configure",
-  breadcrumbs: [
-    { task: "Recover", description: "Provide WorkspaceInitializationInteraction in the runtime." },
-  ],
+  breadcrumbs: [{ description: "Provide WorkspaceInitializationInteraction in the runtime." }],
 });
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);

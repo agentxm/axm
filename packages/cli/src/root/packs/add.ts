@@ -61,8 +61,8 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       message: `Pack '${args.pack}' not found`,
       breadcrumbs: [
         {
-          task: "Recover",
           description: "Run `axm packs new <name>` to create a pack first",
+          cmd: "axm packs new <name>",
         },
       ],
     });
@@ -86,7 +86,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
                     message: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
                     breadcrumbs: [
                       {
-                        task: "Recover",
                         description:
                           "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
                       },
@@ -108,7 +107,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       makeAppError({
         code: "not_found",
         message: `Pack manifest not found at ${manifestPath}`,
-        breadcrumbs: [{ task: "Recover", description: "Ensure the pack exists on disk" }],
+        breadcrumbs: [{ description: "Ensure the pack exists on disk" }],
         cause: e,
       }),
     ),
@@ -160,7 +159,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
         code: "internal",
         message: `No managed, registry-sourced extensions match '${args.extension}'`,
         breadcrumbs: [
-          { task: "Recover", description: "Check installed extensions with `axm skills list`" },
+          {
+            description: "Check installed extensions with `axm skills list`",
+            cmd: "axm skills list",
+          },
         ],
       });
     }
@@ -172,7 +174,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
         message: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Only managed, registry-sourced extensions can be added to packs",
           },
         ],
@@ -183,7 +184,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       code: "not_found",
       message: `Extension '${args.extension}' not found in workspace`,
       breadcrumbs: [
-        { task: "Recover", description: "Install the extension first with `axm skills install`" },
+        {
+          description: "Install the extension first with `axm skills install`",
+          cmd: "axm skills install <source>",
+        },
       ],
     });
   }

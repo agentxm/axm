@@ -39,7 +39,7 @@ const isRemoteRegistryUrl = (registryUrl: string) =>
       makeAppError({
         code: "validation",
         message: `Invalid registry URL: ${registryUrl}`,
-        breadcrumbs: [{ task: "Recover", description: "Check the registry URL in your settings." }],
+        breadcrumbs: [{ description: "Check the registry URL in your settings." }],
         cause: error,
       }),
   });

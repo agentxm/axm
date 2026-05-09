@@ -9,6 +9,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { INSTALL_SKILL_FROM_REGISTRY } from "../breadcrumbs.js";
 
 export interface ListHandlerArgs {
   readonly agents: readonly string[];
@@ -56,7 +57,13 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     agents: entry.agents,
   }));
 
-  if (yield* renderer.list("skill", { items, count: items.length })) {
+  if (
+    yield* renderer.list("skill", {
+      items,
+      count: items.length,
+      breadcrumbs: items.length === 0 ? [INSTALL_SKILL_FROM_REGISTRY] : [],
+    })
+  ) {
     return;
   }
 
@@ -66,6 +73,9 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
         ? "No skills installed"
         : "No skills matched the selected agent filter.",
     );
+    yield* renderer.success("Nothing to show", {
+      breadcrumbs: [INSTALL_SKILL_FROM_REGISTRY],
+    });
     return;
   }
 

@@ -117,8 +117,8 @@ export const enableCommand: OperationHandler<
         message: `Command files for "${op.args.commandName}" not found at ${canonicalPath}`,
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Try reinstalling the command with `axm commands install`",
+            cmd: "axm commands install <source>",
           },
         ],
       });
@@ -145,7 +145,6 @@ export const enableCommand: OperationHandler<
                       message: `Cannot re-render non-registry command "${op.args.commandName}" without a configured owner`,
                       breadcrumbs: [
                         {
-                          task: "Recover",
                           description:
                             "Set `owner` in `.axm/settings.json` (project or global) to enable non-registry commands.",
                         },

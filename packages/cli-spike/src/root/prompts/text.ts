@@ -59,7 +59,6 @@ const handleText = (args: {
         message: "Pet name must be at least 1 character",
         breadcrumbs: [
           {
-            task: "Recover",
             description: "Pass a non-empty `--value` or provide a non-empty prompt response.",
           },
         ],

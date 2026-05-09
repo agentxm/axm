@@ -140,7 +140,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                       message: `Cannot resolve bare MCP server name "${parsed.success.name}" without a configured owner`,
                       breadcrumbs: [
                         {
-                          task: "Recover",
                           description:
                             "Use the fully-qualified `@owner/mcp-servers/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
                         },
@@ -165,17 +164,13 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "validation",
               message: "MCP server source must include /mcp-servers/ segment",
-              breadcrumbs: [
-                { task: "Recover", description: "Use @owner/mcp-servers/server-name format." },
-              ],
+              breadcrumbs: [{ description: "Use @owner/mcp-servers/server-name format." }],
             });
           case "missing-name":
             return yield* makeAppError({
               code: "not_found",
               message: "MCP server source must include a server name",
-              breadcrumbs: [
-                { task: "Recover", description: "Use @owner/mcp-servers/server-name format." },
-              ],
+              breadcrumbs: [{ description: "Use @owner/mcp-servers/server-name format." }],
             });
           default:
             return yield* makeAppError({
@@ -183,7 +178,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               message: "MCP servers can only be installed from a registry",
               breadcrumbs: [
                 {
-                  task: "Recover",
                   description: "Use @owner/mcp-servers/server-name or just server-name.",
                 },
               ],
@@ -203,7 +197,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 message: `Invalid source: ${error.message}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: "Use @owner/mcp-servers/server-name or just server-name.",
                   },
                 ],
@@ -218,7 +211,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               message: "MCP servers can only be installed from a registry",
               breadcrumbs: [
                 {
-                  task: "Recover",
                   description: "Use a registry source: @owner/mcp-servers/server-name",
                 },
               ],
@@ -258,7 +250,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                       message: "MCP server could not be fetched from registry",
                       breadcrumbs: [
                         {
-                          task: "Recover",
                           description: "Verify the server name and registry configuration.",
                         },
                       ],
@@ -285,7 +276,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             message: `MCP server "${parsed.serverName}" not found in registry`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: "Verify the server name and check available MCP servers.",
               },
             ],
@@ -298,7 +288,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             message: `MCP server "${parsed.serverName}" not found in registry`,
             breadcrumbs: [
               {
-                task: "Recover",
                 description: "Verify the server name and check available MCP servers.",
               },
             ],

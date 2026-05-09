@@ -102,8 +102,8 @@ const handleHelpTopic = (topic: Option.Option<string>) =>
           message: `Unknown help topic '${name}'`,
           breadcrumbs: [
             {
-              task: "Recover",
               description: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",
+              cmd: "axm help",
             },
           ],
         }),

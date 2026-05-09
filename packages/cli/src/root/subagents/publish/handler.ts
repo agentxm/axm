@@ -89,7 +89,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         message: "No registry sources configured",
-        breadcrumbs: [{ task: "Recover", description: "Run the registry guard first." }],
+        breadcrumbs: [{ description: "Run the registry guard first." }],
       });
     }
 
@@ -177,7 +177,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
           message: `Subagent "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Use the fully-qualified name `@owner/subagents/name`, or run `axm subagents new ${name}` to create it first.",
             },
@@ -193,7 +192,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
           message: `Subagent "${name}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
-              task: "Recover",
               description:
                 "Only subagents sourced from a registry namespace (`@owner/subagents/name`) can be published.",
             },
@@ -240,7 +238,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
                 message: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description:
                       "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed subagent with `axm subagents new` first.",
                   },
@@ -259,7 +256,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
                 message: `Missing manifest: ${MANIFEST_FILENAME}`,
                 breadcrumbs: [
                   {
-                    task: "Recover",
                     description: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
                   },
                 ],

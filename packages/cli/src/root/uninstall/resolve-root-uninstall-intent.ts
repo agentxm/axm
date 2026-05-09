@@ -61,7 +61,7 @@ export const resolveRootUninstallIntent = (input: string) =>
       return yield* makeAppError({
         code: "usage",
         message: "Root uninstall only accepts registry FQNs",
-        breadcrumbs: [{ task: "Recover", description: rootUninstallRegistryOnlyHowToFix(source) }],
+        breadcrumbs: [{ description: rootUninstallRegistryOnlyHowToFix(source) }],
       });
     }
 
@@ -73,7 +73,6 @@ export const resolveRootUninstallIntent = (input: string) =>
             message: "Uninstall source uses an unsupported plural type",
             breadcrumbs: [
               {
-                task: "Recover",
                 description: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
               },
             ],
@@ -86,7 +85,6 @@ export const resolveRootUninstallIntent = (input: string) =>
           message: "Uninstall source must be a registry FQN",
           breadcrumbs: [
             {
-              task: "Recover",
               description: `Use ${rootUninstallFqnGrammar} with one of: ${supportedRootUninstallTypes}.`,
             },
           ],
@@ -101,7 +99,6 @@ export const resolveRootUninstallIntent = (input: string) =>
         message: "Root uninstall does not support that extension type",
         breadcrumbs: [
           {
-            task: "Recover",
             description: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
           },
         ],

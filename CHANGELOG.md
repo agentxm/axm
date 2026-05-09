@@ -1,3 +1,13 @@
+## 0.5.2 (2026-05-09)
+
+### 🩹 Fixes
+
+- Publish shared kernel updates for AgentXM consumers ([6257ec7f](https://github.com/agentxm/axm/commit/6257ec7f))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.5.1 (2026-05-09)
 
 ### 🩹 Fixes

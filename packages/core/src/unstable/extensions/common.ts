@@ -24,7 +24,7 @@ export const AuthorSchema = Schema.Struct({
 }).annotate({
   identifier: "Author",
   title: "Author",
-  description: "Author details: name, email, and URL.",
+  description: "A person credited as a creator or maintainer of this extension.",
 });
 
 /**
@@ -172,7 +172,7 @@ const EXTENSION_NAME_BRAND = "ExtensionName" as const;
 const INVALID_EXTENSION_NAME_MESSAGE = `Expected a valid extension name: max ${EXTENSION_NAME_MAX_LENGTH} characters, lowercase letters, numbers, and hyphens only, and not starting or ending with a hyphen (e.g., my-skill)`;
 
 const makeExtensionNameSchema = () =>
-  Schema.String.pipe(
+  Schema.NonEmptyString.pipe(
     Schema.check(
       Schema.isPattern(EXTENSION_NAME_PATTERN, { message: INVALID_EXTENSION_NAME_MESSAGE }),
     ),
@@ -206,6 +206,24 @@ export const FQN_PATTERN = new RegExp(
  */
 export const NON_PACK_FQN_PATTERN = new RegExp(
   `^(${HANDLE_PATTERN_SOURCE})\\/(${NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE})\\/(${EXTENSION_NAME_PATTERN_SOURCE})$`,
+);
+
+/**
+ * Fully qualified name regex restricted to the pack extension type. Matches
+ * `@<handle>/packs/<name>`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PACK_FQN_PATTERN = new RegExp(
+  `^(${HANDLE_PATTERN_SOURCE})\\/packs\\/(${EXTENSION_NAME_PATTERN_SOURCE})$`,
+);
+
+const EXTENSION_SPEC_PATTERN = new RegExp(
+  `^(${HANDLE_PATTERN_SOURCE})\\/(${EXTENSION_TYPE_PLURAL_PATTERN_SOURCE})\\/(${EXTENSION_NAME_PATTERN_SOURCE})(?:@.+)?$`,
+);
+
+const PACK_SPEC_PATTERN = new RegExp(
+  `^(${HANDLE_PATTERN_SOURCE})\\/packs\\/(${EXTENSION_NAME_PATTERN_SOURCE})(?:@.+)?$`,
 );
 
 /**
@@ -325,7 +343,7 @@ export const ExtensionFqnSchema = Schema.String.pipe(
     identifier: "ExtensionFqn",
     title: "Extension FQN",
     description:
-      "Fully qualified extension name in @handle/type/name form, like @acme/skills/code-review.",
+      "Canonical extension identifier in @owner/<type>s/<name> form. Used as keys in lockfile entries and any place that addresses any extension regardless of type.",
     examples: ["@acme/skills/code-review", "@my-org/commands/format"],
     message: INVALID_EXTENSION_FQN_MESSAGE,
   }),
@@ -356,7 +374,7 @@ export const NonPackExtensionFqnSchema = Schema.String.pipe(
     identifier: "NonPackExtensionFqn",
     title: "Non-Pack Extension FQN",
     description:
-      "Fully qualified extension name in @handle/type/name form, restricted to non-pack types like skills, commands, mcp-servers, subagents, files, and rules.",
+      "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, files, rules). Used where pack FQNs aren't permitted, such as the keys of a pack manifest's dependencies map.",
     examples: ["@acme/skills/code-review", "@my-org/commands/format"],
     message: INVALID_NON_PACK_EXTENSION_FQN_MESSAGE,
   }),
@@ -369,6 +387,34 @@ export const NonPackExtensionFqnSchema = Schema.String.pipe(
  */
 export type NonPackExtensionFqn = Schema.Schema.Type<typeof NonPackExtensionFqnSchema>;
 
+const INVALID_PACK_FQN_MESSAGE = "Expected fully qualified pack name in @handle/packs/name form";
+
+/**
+ * Fully qualified name string schema restricted to the pack extension type.
+ * Used wherever only pack-typed FQNs are permitted, like the items of a
+ * non-pack manifest's `recommendedPacks` list.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackFqnSchema = Schema.String.pipe(
+  Schema.check(Schema.isPattern(PACK_FQN_PATTERN, { message: INVALID_PACK_FQN_MESSAGE })),
+  Schema.annotate({
+    identifier: "PackFqn",
+    title: "Pack FQN",
+    description:
+      "Pack identifier in @owner/packs/<name> form. Used wherever only packs are permitted, such as references to a pack from another manifest.",
+    examples: ["@acme/packs/typescript", "@my-org/packs/web"],
+    message: INVALID_PACK_FQN_MESSAGE,
+  }),
+);
+
+/**
+ * Inferred type for PackFqn schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PackFqn = Schema.Schema.Type<typeof PackFqnSchema>;
+
 /**
  * Extension spec — fully qualified extension name with an optional version
  * constraint suffix. Accepts `@owner/type/name` or `@owner/type/name@constraint`
@@ -377,7 +423,7 @@ export type NonPackExtensionFqn = Schema.Schema.Type<typeof NonPackExtensionFqnS
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionSpecSchema = Schema.String.pipe(
+export const ExtensionSpecSchema = Schema.NonEmptyString.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => {
       // Find the constraint separator: the @ after the last slash
@@ -403,11 +449,16 @@ export const ExtensionSpecSchema = Schema.String.pipe(
       return undefined;
     }),
   ),
+  Schema.check(
+    Schema.isPattern(EXTENSION_SPEC_PATTERN, {
+      message: "Expected extension spec in @handle/type/name[@constraint] form",
+    }),
+  ),
   Schema.annotate({
     identifier: "ExtensionSpec",
     title: "Extension Spec",
     description:
-      "Fully qualified extension name with an optional version constraint, like @owner/skills/name or @owner/skills/name@^1.0.0.",
+      "Extension reference with an optional version constraint suffix. Accepted by install-time inputs that need to specify a version range alongside the FQN.",
     examples: ["@acme/skills/code-review", "@acme/skills/code-review@^1.0.0"],
   }),
   Schema.brand("ExtensionSpec"),
@@ -419,6 +470,59 @@ export const ExtensionSpecSchema = Schema.String.pipe(
  * @experimental This API is unstable and may change without notice.
  */
 export type ExtensionSpec = Schema.Schema.Type<typeof ExtensionSpecSchema>;
+
+/**
+ * Pack spec — fully qualified pack name with an optional version constraint
+ * suffix. Accepts `@owner/packs/name` or `@owner/packs/name@constraint` where
+ * the FQN portion validates through PackFqnSchema and the optional constraint
+ * validates as a semver VersionRange.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackSpecSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) => {
+      const lastSlash = value.lastIndexOf("/");
+      const constraintAt = lastSlash > 0 ? value.indexOf("@", lastSlash + 1) : -1;
+
+      const fqnPart = constraintAt > 0 ? value.slice(0, constraintAt) : value;
+      const constraintPart = constraintAt > 0 ? value.slice(constraintAt + 1) : undefined;
+
+      if (!PACK_FQN_PATTERN.test(fqnPart)) {
+        return `Expected pack spec in @handle/packs/name[@constraint] form, got: ${value}`;
+      }
+
+      if (constraintPart !== undefined) {
+        const constraintResult = Schema.decodeUnknownResult(VersionRangeSchema)(constraintPart);
+        if (Result.isFailure(constraintResult)) {
+          return `Expected valid version constraint after @, got: ${constraintPart}`;
+        }
+      }
+
+      return undefined;
+    }),
+  ),
+  Schema.check(
+    Schema.isPattern(PACK_SPEC_PATTERN, {
+      message: "Expected pack spec in @handle/packs/name[@constraint] form",
+    }),
+  ),
+  Schema.annotate({
+    identifier: "PackSpec",
+    title: "Pack Spec",
+    description:
+      "Pack reference with an optional version constraint suffix. Used in places like an extension's recommendedPacks list, where a pack can be pinned to a version range.",
+    examples: ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"],
+  }),
+  Schema.brand("PackSpec"),
+);
+
+/**
+ * Inferred type for PackSpec schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PackSpec = Schema.Schema.Type<typeof PackSpecSchema>;
 
 /**
  * Map of fully-qualified extension names to semver constraints.
@@ -448,7 +552,10 @@ export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
 export const NonPackExtensionDependencyConstraintMapSchema = Schema.Record(
   NonPackExtensionFqnSchema,
   VersionRangeSchema,
-);
+).annotate({
+  description:
+    "Map of fully-qualified non-pack extension names to version ranges. Installing the pack installs each entry at a version satisfying its range. Packs cannot depend on other packs.",
+});
 
 /**
  * Inferred type for non-pack extension dependency constraint maps.
@@ -468,17 +575,56 @@ export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
 export const CommonManifestBaseFields = {
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
   version: VersionSchema.pipe(Schema.annotateKey({ messageMissingKey: "version is required" })),
-  description: Schema.optional(Schema.String),
-  keywords: Schema.optional(Schema.Array(Schema.String)),
-  repository: Schema.optional(Schema.String),
-  homepage: Schema.optional(Schema.String),
-  license: Schema.optional(Schema.String),
-  bugs: Schema.optional(Schema.String),
-  authors: Schema.optional(Schema.Array(AuthorSchema)),
+  description: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "Short, registry-facing summary of this extension shown in listings and search results.",
+    }),
+  ),
+  keywords: Schema.optional(
+    Schema.Array(Schema.NonEmptyString).annotate({
+      description:
+        "Search terms surfaced by registry listings and 'axm search' to help users discover this extension.",
+      examples: [["lint", "typescript", "review"]],
+    }),
+  ),
+  repository: Schema.optional(
+    Schema.String.annotate({
+      description: "Source repository URL where this extension is developed.",
+      examples: ["https://github.com/acme/code-review"],
+      format: "uri",
+    }),
+  ),
+  homepage: Schema.optional(
+    Schema.String.annotate({
+      description: "Project homepage or documentation site for this extension.",
+      examples: ["https://acme.dev/code-review"],
+      format: "uri",
+    }),
+  ),
+  license: Schema.optional(
+    Schema.NonEmptyString.annotate({
+      description: "SPDX license expression covering this extension's content.",
+      examples: ["MIT", "Apache-2.0"],
+    }),
+  ),
+  bugs: Schema.optional(
+    Schema.String.annotate({
+      description: "Issue tracker URL where users can report bugs for this extension.",
+      examples: ["https://github.com/acme/code-review/issues"],
+      format: "uri",
+    }),
+  ),
+  authors: Schema.optional(
+    Schema.Array(AuthorSchema).annotate({
+      description: "People who created or maintain this extension.",
+    }),
+  ),
   compatiblePackages: Schema.optional(
     Schema.Array(PackageUrlSchema).pipe(
       Schema.annotate({
-        description: "Packages this extension is designed to work with, as Package URLs (purls).",
+        description:
+          "External ecosystem packages this extension targets (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
       }),
     ),
   ),
@@ -493,10 +639,10 @@ export const CommonManifestBaseFields = {
  */
 export const NonPackManifestFields = {
   recommendedPacks: Schema.optional(
-    Schema.Array(ExtensionSpecSchema).pipe(
+    Schema.Array(PackSpecSchema).pipe(
       Schema.annotate({
         description:
-          "Packs this extension is intended to work with, as extension specs (e.g. @owner/packs/name or @owner/packs/name@^1.0.0).",
+          "Packs this extension is designed to work alongside. Each entry is a pack spec, optionally pinned to a version range.",
       }),
     ),
   ),
@@ -504,7 +650,8 @@ export const NonPackManifestFields = {
     Schema.Boolean.pipe(
       Schema.annotate({
         description:
-          "Whether this extension is designed to work without a pack. Defaults to true when omitted.",
+          "Set to false to indicate this extension only makes sense when installed alongside one of its recommendedPacks.",
+        default: true,
       }),
     ),
   ),

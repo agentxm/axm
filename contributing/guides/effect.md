@@ -47,6 +47,23 @@ newer migration notes call the same API surface `Context.Service`.
 
 ---
 
+## Schema Annotations
+
+Only these annotations are emitted to generated JSON Schema: `identifier`,
+`title`, `description`, `default`, `examples`, `readOnly`, `writeOnly`,
+`format`, `contentEncoding`, and `contentMediaType`.
+
+Decode-time annotations such as `message`, `messageMissingKey`,
+`messageUnexpectedKey`, and `meta` are not published as JSON Schema metadata.
+
+Annotations attached to custom `Schema.makeFilter` filters are dropped unless
+the filter has JSON Schema-aware `meta`. Prefer recognized checks such as
+`Schema.isPattern`, then attach JSON-visible `.annotate()` to that recognized
+check level instead of the custom filter. For branded strings, keep examples as
+plain encoded values by annotating before `.brand()`.
+
+---
+
 ## Type Inference
 
 **Prefer inference over explicit return type annotations.** Effect's architecture

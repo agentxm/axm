@@ -117,50 +117,72 @@ describe("PackageUrlSchema", () => {
     });
   });
 
-  describe("qualifiers and subpath are dropped in roundtrip", () => {
-    it("drops qualifiers and subpath when decoding and re-encoding", () => {
-      // Design decision: PackageUrlSchema only preserves type, namespace, name,
-      // and version. Qualifiers and subpath are intentionally discarded during
-      // decode, so a roundtrip produces a purl without them.
-      const input = "pkg:npm/react@18.2.0?extra=data#subpath";
+  describe("qualifiers and subpath round-trip", () => {
+    it("preserves qualifiers and subpath through decode and re-encode", () => {
+      const input = "pkg:npm/react@18.2.0?extra=data#sub/path";
       const decoded = decode(input);
 
       expect(Result.isSuccess(decoded)).toBe(true);
       if (Result.isSuccess(decoded)) {
-        // Decoded parts have no qualifier or subpath fields
         expect(decoded.success).toEqual({
           type: "npm",
           name: "react",
           version: "18.2.0",
+          qualifiers: { extra: "data" },
+          subpath: "sub/path",
         });
 
         const encoded = encode(decoded.success);
         expect(Result.isSuccess(encoded)).toBe(true);
         if (Result.isSuccess(encoded)) {
-          // Re-encoded string omits qualifiers and subpath
-          expect(encoded.success).toBe("pkg:npm/react@18.2.0");
+          expect(encoded.success).toBe("pkg:npm/react@18.2.0?extra=data#sub/path");
         }
       }
     });
 
-    it("drops qualifiers on a scoped package", () => {
-      const input = "pkg:npm/%40scope/package@1.0.0?repository_url=https://example.com";
+    it("preserves multi-key qualifiers on a scoped package", () => {
+      const input = "pkg:maven/org.apache/commons-lang3@3.14.0?classifier=sources&type=jar";
       const decoded = decode(input);
 
       expect(Result.isSuccess(decoded)).toBe(true);
       if (Result.isSuccess(decoded)) {
         expect(decoded.success).toEqual({
-          type: "npm",
-          namespace: "@scope",
-          name: "package",
-          version: "1.0.0",
+          type: "maven",
+          namespace: "org.apache",
+          name: "commons-lang3",
+          version: "3.14.0",
+          qualifiers: { classifier: "sources", type: "jar" },
         });
 
         const encoded = encode(decoded.success);
         expect(Result.isSuccess(encoded)).toBe(true);
         if (Result.isSuccess(encoded)) {
-          expect(encoded.success).toBe("pkg:npm/%40scope/package@1.0.0");
+          // Qualifier keys are sorted alphabetically in the canonical form.
+          expect(encoded.success).toBe(
+            "pkg:maven/org.apache/commons-lang3@3.14.0?classifier=sources&type=jar",
+          );
         }
+      }
+    });
+
+    it("normalises qualifier keys to lowercase", () => {
+      const decoded = decode("pkg:npm/react@18.2.0?Repository_URL=https://example.com");
+
+      expect(Result.isSuccess(decoded)).toBe(true);
+      if (Result.isSuccess(decoded)) {
+        expect(decoded.success.qualifiers).toEqual({
+          repository_url: "https://example.com",
+        });
+      }
+    });
+
+    it("omits qualifiers field when no qualifiers are present", () => {
+      const decoded = decode("pkg:npm/react@18.2.0");
+
+      expect(Result.isSuccess(decoded)).toBe(true);
+      if (Result.isSuccess(decoded)) {
+        expect(decoded.success).not.toHaveProperty("qualifiers");
+        expect(decoded.success).not.toHaveProperty("subpath");
       }
     });
   });

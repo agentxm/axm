@@ -18,6 +18,7 @@
     "ExtensionName": {
       "type": "string",
       "allOf": [
+        { "minLength": 1 },
         {
           "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
           "title": "Extension Name",
@@ -43,7 +44,7 @@
         {
           "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Extension FQN",
-          "description": "Fully qualified extension name in @handle/type/name form, like @acme/skills/code-review.",
+          "description": "Canonical extension identifier in @owner/<type>s/<name> form. Used as keys in lockfile entries and any place that addresses any extension regardless of type.",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
         }
       ]
@@ -61,35 +62,23 @@
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "resolvedSkills": {
           "type": "object",
-          "patternProperties": {
-            "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$": {
-              "$ref": "#/definitions/Version"
-            }
-          }
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         },
         "resolvedCommands": {
           "type": "object",
-          "patternProperties": {
-            "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$": {
-              "$ref": "#/definitions/Version"
-            }
-          }
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         },
         "resolvedMcpServers": {
           "type": "object",
-          "patternProperties": {
-            "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$": {
-              "$ref": "#/definitions/Version"
-            }
-          }
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         },
         "resolvedSubagents": {
           "type": "object",
-          "patternProperties": {
-            "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$": {
-              "$ref": "#/definitions/Version"
-            }
-          }
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         }
       },
       "required": [
@@ -114,11 +103,9 @@
       "type": "object",
       "properties": {
         "lockfileVersion": {
-          "anyOf": [
-            { "type": "number" },
-            { "type": "string", "enum": ["NaN"] },
-            { "type": "string", "enum": ["Infinity"] },
-            { "type": "string", "enum": ["-Infinity"] }
+          "type": "integer",
+          "allOf": [
+            { "minimum": 1, "description": "Lockfile schema version (currently 1).", "default": 1 }
           ]
         },
         "skills": {

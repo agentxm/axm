@@ -20,6 +20,8 @@ import {
   extensionTypeSentenceLabels,
   ExtensionFqnSchema,
   ExtensionSpecSchema,
+  PackFqnSchema,
+  PackSpecSchema,
 } from "./common.js";
 import { HandleSchema } from "./handle.js";
 
@@ -256,6 +258,80 @@ describe("common schemas", () => {
 
     it("rejects two-segment name", () => {
       const result = decode("@wayne/grappling-hook");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+  });
+
+  describe("PackFqn", () => {
+    const decode = Schema.decodeUnknownResult(PackFqnSchema);
+
+    it("accepts pack FQN", () => {
+      const result = decode("@wayne/packs/bat-utility");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("rejects non-pack FQN", () => {
+      const result = decode("@wayne/skills/grappling-hook");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects FQN with version constraint", () => {
+      const result = decode("@wayne/packs/bat-utility@^1.0.0");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+  });
+
+  describe("PackSpec", () => {
+    const decode = Schema.decodeUnknownResult(PackSpecSchema);
+
+    it("accepts pack spec without constraint", () => {
+      const result = decode("@wayne/packs/bat-utility");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts pack spec with caret constraint", () => {
+      const result = decode("@wayne/packs/bat-utility@^1.0.0");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts pack spec with range constraint", () => {
+      const result = decode("@wayne/packs/bat-utility@>=1.0.0 <3.0.0");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("rejects skill spec", () => {
+      const result = decode("@wayne/skills/grappling-hook");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects skill spec with constraint", () => {
+      const result = decode("@wayne/skills/grappling-hook@^1.0.0");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects mcp-server spec", () => {
+      const result = decode("@wayne/mcp-servers/bat-signal@^1.0.0");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects pack spec with invalid constraint", () => {
+      const result = decode("@wayne/packs/bat-utility@not-a-version");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects empty string", () => {
+      const result = decode("");
 
       expect(Result.isFailure(result)).toBe(true);
     });

@@ -2,7 +2,18 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/AxmPackageMeta",
   "definitions": {
-    "ExtensionSpec": { "type": "string" },
+    "ExtensionSpec": {
+      "type": "string",
+      "allOf": [
+        { "minLength": 1 },
+        {
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
+          "title": "Extension Spec",
+          "description": "Extension reference with an optional version constraint suffix. Accepted by install-time inputs that need to specify a version range alongside the FQN.",
+          "examples": ["@acme/skills/code-review", "@acme/skills/code-review@^1.0.0"]
+        }
+      ]
+    },
     "AxmPackageMeta": {
       "type": "object",
       "properties": {

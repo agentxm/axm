@@ -34,7 +34,7 @@
       "required": ["name"],
       "additionalProperties": false,
       "title": "Author",
-      "description": "Author details: name, email, and URL."
+      "description": "A person credited as a creator or maintainer of this extension."
     },
     "PackageUrl": {
       "type": "string",
@@ -50,10 +50,11 @@
     "ExtensionName": {
       "type": "string",
       "allOf": [
+        { "minLength": 1 },
         {
           "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
           "title": "Extension Name",
-          "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+          "description": "Short name for this pack within its owner namespace. Combined with owner, forms the FQN @owner/packs/<name>.",
           "examples": ["my-skill", "code-review", "prettier"]
         }
       ]
@@ -64,29 +65,112 @@
         {
           "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Non-Pack Extension FQN",
-          "description": "Fully qualified extension name in @handle/type/name form, restricted to non-pack types like skills, commands, mcp-servers, subagents, files, and rules.",
+          "description": "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, files, rules). Used where pack FQNs aren't permitted, such as the keys of a pack manifest's dependencies map.",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
         }
       ]
     },
-    "VersionRange": { "type": "string" },
+    "VersionRange": {
+      "type": "string",
+      "allOf": [
+        { "minLength": 1 },
+        {
+          "pattern": "^[~^<>=*xXvV0-9A-Za-z| .-]+$",
+          "title": "Version Range",
+          "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3.",
+          "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3"]
+        }
+      ]
+    },
     "PackManifest": {
       "type": "object",
       "properties": {
-        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "$schema": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "JSON Schema URL used by editors for validation and completions. Typically set automatically by axm."
+            },
+            { "type": "null" }
+          ]
+        },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },
-        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "keywords": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        "description": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Short, registry-facing summary of this extension shown in listings and search results."
+            },
+            { "type": "null" }
+          ]
         },
-        "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "homepage": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "bugs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "keywords": {
+          "anyOf": [
+            {
+              "type": "array",
+              "description": "Search terms surfaced by registry listings and 'axm search' to help users discover this extension.",
+              "examples": [["lint", "typescript", "review"]],
+              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+            },
+            { "type": "null" }
+          ]
+        },
+        "repository": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Source repository URL where this extension is developed.",
+              "examples": ["https://github.com/acme/code-review"],
+              "format": "uri"
+            },
+            { "type": "null" }
+          ]
+        },
+        "homepage": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Project homepage or documentation site for this extension.",
+              "examples": ["https://acme.dev/code-review"],
+              "format": "uri"
+            },
+            { "type": "null" }
+          ]
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "SPDX license expression covering this extension's content.",
+                  "examples": ["MIT", "Apache-2.0"]
+                }
+              ]
+            },
+            { "type": "null" }
+          ]
+        },
+        "bugs": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Issue tracker URL where users can report bugs for this extension.",
+              "examples": ["https://github.com/acme/code-review/issues"],
+              "format": "uri"
+            },
+            { "type": "null" }
+          ]
+        },
         "authors": {
           "anyOf": [
-            { "type": "array", "items": { "$ref": "#/definitions/Author" } },
+            {
+              "type": "array",
+              "description": "People who created or maintain this extension.",
+              "items": { "$ref": "#/definitions/Author" }
+            },
             { "type": "null" }
           ]
         },
@@ -94,27 +178,29 @@
           "anyOf": [
             {
               "type": "array",
-              "description": "Packages this extension is designed to work with, as Package URLs (purls).",
+              "description": "External ecosystem packages this extension targets (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
               "items": { "$ref": "#/definitions/PackageUrl" }
             },
             { "type": "null" }
           ]
         },
-        "type": { "type": "string", "enum": ["pack"] },
+        "type": {
+          "type": "string",
+          "enum": ["pack"],
+          "description": "Discriminator for the manifest kind. Always 'pack' for pack.json."
+        },
         "name": { "$ref": "#/definitions/ExtensionName" },
         "dependencies": {
           "type": "object",
-          "patternProperties": {
-            "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$": {
-              "$ref": "#/definitions/VersionRange"
-            }
-          }
+          "description": "Map of fully-qualified non-pack extension names to version ranges. Installing the pack installs each entry at a version satisfying its range. Packs cannot depend on other packs.",
+          "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/VersionRange" }
         }
       },
       "required": ["owner", "version", "type", "name", "dependencies"],
       "additionalProperties": false,
       "title": "Pack Manifest",
-      "description": "Configuration file (pack.json) that bundles multiple extensions into a single installable pack."
+      "description": "Pack extension manifest (pack.json). Bundles a curated set of skills, commands, MCP servers, subagents, files, and rules into a single installable unit. Installing the pack installs each entry in its dependencies map at a version satisfying the listed range."
     }
   }
 }

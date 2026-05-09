@@ -36,18 +36,29 @@ export const MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/subagent.schema.json"
  * @experimental This API is unstable and may change without notice.
  */
 export const SubagentManifestSchema = Schema.Struct({
-  $schema: Schema.optional(Schema.String),
+  $schema: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "JSON Schema URL used by editors for validation and completions. Typically set automatically by axm.",
+    }),
+  ),
   ...CommonManifestBaseFields,
   ...NonPackManifestFields,
-  type: Schema.Literal("subagent"),
+  type: Schema.Literal("subagent").annotate({
+    description: "Discriminator for the manifest kind. Always 'subagent' for subagent.json.",
+  }),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "subagent name is required" }),
+    Schema.annotate({
+      description:
+        "Short name for this subagent within its owner namespace. Combined with owner, forms the FQN @owner/subagents/<name>.",
+    }),
   ),
 }).annotate({
   identifier: "SubagentManifest",
   title: "Subagent Manifest",
   description:
-    "Configuration file (subagent.json) that defines a subagent — registry identity and metadata only.",
+    "Subagent extension manifest (subagent.json). The agent prompt, tool list, and other behavior fields live in subagent.md frontmatter alongside this file; this manifest carries only the registry-facing identity, version, and metadata.",
 });
 
 /**

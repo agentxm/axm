@@ -5,6 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import { AGENT_IDS } from "../agents/types.js";
 import {
   CommonManifestBaseFields,
   ExtensionNameSchema,
@@ -25,6 +26,16 @@ export const COMMAND_MANIFEST_FILENAME = "command.json";
  */
 export const COMMAND_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/command.schema.json";
 
+const AGENT_OVERRIDE_KEY_PATTERN = new RegExp(`^(?:${AGENT_IDS.join("|")})$`);
+
+const AgentOverrideKeySchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(AGENT_OVERRIDE_KEY_PATTERN, {
+      message: "Expected a supported agent id.",
+    }),
+  ),
+);
+
 /**
  * Schema for command manifest files (command.json).
  *
@@ -34,20 +45,41 @@ export const COMMAND_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/command.schem
  * @experimental This API is unstable and may change without notice.
  */
 export const CommandManifestSchema = Schema.Struct({
-  $schema: Schema.optional(Schema.String),
+  $schema: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "JSON Schema URL used by editors for validation and completions. Typically set automatically by axm.",
+    }),
+  ),
   ...CommonManifestBaseFields,
   ...NonPackManifestFields,
-  type: Schema.Literal("command"),
+  type: Schema.Literal("command").annotate({
+    description: "Discriminator for the manifest kind. Always 'command' for command.json.",
+  }),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "command name is required" }),
+    Schema.annotate({
+      description:
+        "Short name for this command within its owner namespace. Combined with owner, forms the FQN @owner/commands/<name>.",
+    }),
   ),
   agentOverrides: Schema.optional(
-    Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
+    Schema.Record(
+      AgentOverrideKeySchema,
+      Schema.Record(Schema.String, Schema.Unknown).annotate({
+        description:
+          "Frontmatter field overrides applied when materializing the command for this agent. Keys are frontmatter field names; values replace the matching fields in command.md.",
+      }),
+    ).annotate({
+      description:
+        "Per-agent frontmatter overrides applied when this command is materialized for a specific coding agent. Keys are agent ids (e.g. claude-code, cursor); values are the field overrides for that agent.",
+    }),
   ),
 }).annotate({
   identifier: "CommandManifest",
   title: "Command Manifest",
-  description: "Configuration file (command.json) that defines a CLI command extension.",
+  description:
+    "Slash-command extension manifest (command.json). The prompt body lives in command.md alongside this file and is materialized into each supported coding agent's commands directory.",
 });
 
 /**

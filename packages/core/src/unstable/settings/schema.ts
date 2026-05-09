@@ -8,7 +8,7 @@
 
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { AgentIdSchema, ExtensionNameSchema } from "../extensions/common.js";
+import { AgentIdSchema, EXTENSION_NAME_PATTERN } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LintConfigSchema } from "../lint/config.js";
 
@@ -161,24 +161,65 @@ export type AzureReposSourceHostConfig = Schema.Schema.Type<
 >;
 /** @experimental */
 export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
-const decodeExtensionNameSync = Schema.decodeUnknownSync(ExtensionNameSchema);
 
-const validateNamedRecordKeys =
-  (entryLabel: string, decodeName: (input: string) => unknown) =>
-  (record: { readonly [x: string]: unknown }) => {
-    const invalidKeys = Object.keys(record).filter((key) => {
-      try {
-        decodeName(key);
-        return false;
-      } catch {
-        return true;
-      }
-    });
+type AuthoredEntryObject = {
+  readonly source: string;
+  readonly authored?: boolean | undefined;
+};
 
-    return invalidKeys.length > 0
-      ? `Invalid ${entryLabel} name(s): ${invalidKeys.join(", ")}. Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.`
-      : undefined;
-  };
+type AuthoredEntry = {
+  readonly source: string;
+  readonly authored: boolean;
+};
+
+type EnabledEntryObject = AuthoredEntryObject & {
+  readonly enabled?: boolean | undefined;
+};
+
+type EnabledEntry = AuthoredEntry & {
+  readonly enabled: boolean;
+};
+
+const ExtensionMapKeySchema = Schema.String.check(
+  Schema.isPattern(EXTENSION_NAME_PATTERN, {
+    message:
+      "Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.",
+  }),
+);
+
+const authoredFieldSchema = Schema.optional(
+  Schema.Boolean.annotate({
+    description: "Whether this entry was authored locally. Defaults to false when omitted.",
+    default: false,
+  }),
+);
+
+const enabledFieldSchema = Schema.optional(
+  Schema.Boolean.annotate({
+    description: "Whether this entry is enabled. Defaults to true when omitted.",
+    default: true,
+  }),
+);
+
+const compactOrVerboseEntry = <
+  ObjectEntry extends AuthoredEntryObject,
+  CanonicalEntry extends AuthoredEntry,
+  ObjectSchema extends Schema.Codec<ObjectEntry, ObjectEntry>,
+  CanonicalSchema extends Schema.Codec<CanonicalEntry, CanonicalEntry>,
+>(
+  objectSchema: ObjectSchema,
+  canonicalSchema: CanonicalSchema,
+  transformation: {
+    readonly decode: (entry: string | ObjectEntry) => CanonicalEntry;
+    readonly encode: (entry: CanonicalEntry) => string | ObjectEntry;
+  },
+) =>
+  Schema.Union([Schema.String, objectSchema]).pipe(
+    Schema.decodeTo(
+      canonicalSchema,
+      SchemaTransformation.transform<CanonicalEntry, string | ObjectEntry>(transformation),
+    ),
+  );
 
 /**
  * Managed skill with source and optional config flags.
@@ -186,9 +227,11 @@ const validateNamedRecordKeys =
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillEntryObjectSchema = Schema.Struct({
-  source: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "skill source is required" })),
-  enabled: Schema.optional(Schema.Boolean),
-  authored: Schema.optional(Schema.Boolean),
+  source: Schema.NonEmptyString.pipe(
+    Schema.annotateKey({ messageMissingKey: "skill source is required" }),
+  ),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
 }).annotate({
   identifier: "SkillEntryObject",
   title: "Skill Entry Object",
@@ -206,46 +249,37 @@ export const SkillEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSchema]).pipe(
-  Schema.decodeTo(
-    Schema.Struct({
-      source: Schema.String,
-      enabled: Schema.Boolean,
-      authored: Schema.Boolean,
-    }).annotate({
-      identifier: "SkillEntry",
-      title: "Skill Entry",
-      description:
-        "A skill reference — either a source string like @owner/skills/name or an object with source, enabled, and authored.",
-    }),
-    SchemaTransformation.transform({
-      decode: (entry) =>
-        typeof entry === "string"
-          ? { source: entry, enabled: true, authored: false }
-          : {
-              source: entry.source,
-              enabled: entry.enabled ?? true,
-              authored: entry.authored ?? false,
-            },
-      encode: (
-        entry,
-      ):
-        | string
-        | {
-            readonly source: string;
-            readonly enabled?: boolean | undefined;
-            readonly authored?: boolean | undefined;
-          } => {
-        if (entry.enabled && !entry.authored) return entry.source;
-        const obj: { source: string; enabled?: boolean; authored?: boolean } = {
-          source: entry.source,
-        };
-        if (!entry.enabled) obj.enabled = false;
-        if (entry.authored) obj.authored = true;
-        return obj;
-      },
-    }),
-  ),
+export const SkillEntrySchema = compactOrVerboseEntry(
+  SkillEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    authored: Schema.Boolean,
+  }).annotate({
+    identifier: "SkillEntry",
+    title: "Skill Entry",
+    description:
+      "A skill reference — either a source string like @owner/skills/name or an object with source, enabled, and authored.",
+  }),
+  {
+    decode: (entry: string | EnabledEntryObject): EnabledEntry =>
+      typeof entry === "string"
+        ? { source: entry, enabled: true, authored: false }
+        : {
+            source: entry.source,
+            enabled: entry.enabled ?? true,
+            authored: entry.authored ?? false,
+          },
+    encode: (entry: EnabledEntry): string | EnabledEntryObject => {
+      if (entry.enabled && !entry.authored) return entry.source;
+      const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+        source: entry.source,
+      };
+      if (!entry.enabled) obj.enabled = false;
+      if (entry.authored) obj.authored = true;
+      return obj;
+    },
+  },
 );
 
 /**
@@ -267,13 +301,11 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
-  .check(Schema.makeFilter(validateNamedRecordKeys("skill", decodeExtensionNameSync)))
-  .annotate({
-    identifier: "SkillsMap",
-    title: "Skills Map",
-    description: "Your installed skills, keyed by name.",
-  });
+export const SkillsMapSchema = Schema.Record(ExtensionMapKeySchema, SkillEntrySchema).annotate({
+  identifier: "SkillsMap",
+  title: "Skills Map",
+  description: "Your installed skills, keyed by name.",
+});
 
 /**
  * Inferred type for SkillsMap schema.
@@ -288,11 +320,11 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const CommandEntryObjectSchema = Schema.Struct({
-  source: Schema.String.pipe(
+  source: Schema.NonEmptyString.pipe(
     Schema.annotateKey({ messageMissingKey: "command source is required" }),
   ),
-  enabled: Schema.optional(Schema.Boolean),
-  authored: Schema.optional(Schema.Boolean),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
 }).annotate({
   identifier: "CommandEntryObject",
   title: "Command Entry Object",
@@ -308,46 +340,37 @@ export const CommandEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandEntrySchema = Schema.Union([Schema.String, CommandEntryObjectSchema]).pipe(
-  Schema.decodeTo(
-    Schema.Struct({
-      source: Schema.String,
-      enabled: Schema.Boolean,
-      authored: Schema.Boolean,
-    }).annotate({
-      identifier: "CommandEntry",
-      title: "Command Entry",
-      description:
-        "A command reference — either a source string like @owner/commands/name or an object with source, enabled, and authored.",
-    }),
-    SchemaTransformation.transform({
-      decode: (entry) =>
-        typeof entry === "string"
-          ? { source: entry, enabled: true, authored: false }
-          : {
-              source: entry.source,
-              enabled: entry.enabled ?? true,
-              authored: entry.authored ?? false,
-            },
-      encode: (
-        entry,
-      ):
-        | string
-        | {
-            readonly source: string;
-            readonly enabled?: boolean | undefined;
-            readonly authored?: boolean | undefined;
-          } => {
-        if (entry.enabled && !entry.authored) return entry.source;
-        const obj: { source: string; enabled?: boolean; authored?: boolean } = {
-          source: entry.source,
-        };
-        if (!entry.enabled) obj.enabled = false;
-        if (entry.authored) obj.authored = true;
-        return obj;
-      },
-    }),
-  ),
+export const CommandEntrySchema = compactOrVerboseEntry(
+  CommandEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    authored: Schema.Boolean,
+  }).annotate({
+    identifier: "CommandEntry",
+    title: "Command Entry",
+    description:
+      "A command reference — either a source string like @owner/commands/name or an object with source, enabled, and authored.",
+  }),
+  {
+    decode: (entry: string | EnabledEntryObject): EnabledEntry =>
+      typeof entry === "string"
+        ? { source: entry, enabled: true, authored: false }
+        : {
+            source: entry.source,
+            enabled: entry.enabled ?? true,
+            authored: entry.authored ?? false,
+          },
+    encode: (entry: EnabledEntry): string | EnabledEntryObject => {
+      if (entry.enabled && !entry.authored) return entry.source;
+      const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+        source: entry.source,
+      };
+      if (!entry.enabled) obj.enabled = false;
+      if (entry.authored) obj.authored = true;
+      return obj;
+    },
+  },
 );
 
 /**
@@ -369,13 +392,11 @@ export type CommandEntry = Schema.Schema.Type<typeof CommandEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandsMapSchema = Schema.Record(Schema.String, CommandEntrySchema)
-  .check(Schema.makeFilter(validateNamedRecordKeys("command", decodeExtensionNameSync)))
-  .annotate({
-    identifier: "CommandsMap",
-    title: "Commands Map",
-    description: "Your installed commands, keyed by name.",
-  });
+export const CommandsMapSchema = Schema.Record(ExtensionMapKeySchema, CommandEntrySchema).annotate({
+  identifier: "CommandsMap",
+  title: "Commands Map",
+  description: "Your installed commands, keyed by name.",
+});
 
 /**
  * Inferred type for CommandsMap schema.
@@ -390,10 +411,10 @@ export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerEntryObjectSchema = Schema.Struct({
-  source: Schema.String.pipe(
+  source: Schema.NonEmptyString.pipe(
     Schema.annotateKey({ messageMissingKey: "MCP server source is required" }),
   ),
-  authored: Schema.optional(Schema.Boolean),
+  authored: authoredFieldSchema,
 }).annotate({
   identifier: "McpServerEntryObject",
   title: "MCP Server Entry Object",
@@ -408,28 +429,25 @@ export const McpServerEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerEntrySchema = Schema.Union([Schema.String, McpServerEntryObjectSchema]).pipe(
-  Schema.decodeTo(
-    Schema.Struct({
-      source: Schema.String,
-      authored: Schema.Boolean,
-    }).annotate({
-      identifier: "McpServerEntry",
-      title: "MCP Server Entry",
-      description:
-        "An MCP server reference — either a source string or an object with source and authored.",
-    }),
-    SchemaTransformation.transform({
-      decode: (entry): { readonly source: string; readonly authored: boolean } =>
-        typeof entry === "string"
-          ? { source: entry, authored: false }
-          : { source: entry.source, authored: entry.authored ?? false },
-      encode: (
-        entry,
-      ): string | { readonly source: string; readonly authored?: boolean | undefined } =>
-        entry.authored ? { source: entry.source, authored: true } : entry.source,
-    }),
-  ),
+export const McpServerEntrySchema = compactOrVerboseEntry(
+  McpServerEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    authored: Schema.Boolean,
+  }).annotate({
+    identifier: "McpServerEntry",
+    title: "MCP Server Entry",
+    description:
+      "An MCP server reference — either a source string or an object with source and authored.",
+  }),
+  {
+    decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
+      typeof entry === "string"
+        ? { source: entry, authored: false }
+        : { source: entry.source, authored: entry.authored ?? false },
+    encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
+      entry.authored ? { source: entry.source, authored: true } : entry.source,
+  },
 );
 
 /**
@@ -446,13 +464,14 @@ export type McpServerEntry = Schema.Schema.Type<typeof McpServerEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServersMapSchema = Schema.Record(Schema.String, McpServerEntrySchema)
-  .check(Schema.makeFilter(validateNamedRecordKeys("MCP server", decodeExtensionNameSync)))
-  .annotate({
-    identifier: "McpServersMap",
-    title: "MCP Servers Map",
-    description: "Your installed MCP servers, keyed by name.",
-  });
+export const McpServersMapSchema = Schema.Record(
+  ExtensionMapKeySchema,
+  McpServerEntrySchema,
+).annotate({
+  identifier: "McpServersMap",
+  title: "MCP Servers Map",
+  description: "Your installed MCP servers, keyed by name.",
+});
 
 /**
  * Inferred type for McpServersMap schema.
@@ -471,11 +490,11 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const SubagentEntryObjectSchema = Schema.Struct({
-  source: Schema.String.pipe(
+  source: Schema.NonEmptyString.pipe(
     Schema.annotateKey({ messageMissingKey: "subagent source is required" }),
   ),
-  enabled: Schema.optional(Schema.Boolean),
-  authored: Schema.optional(Schema.Boolean),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
 }).annotate({
   identifier: "SubagentEntryObject",
   title: "Subagent Entry Object",
@@ -491,46 +510,37 @@ export const SubagentEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentEntrySchema = Schema.Union([Schema.String, SubagentEntryObjectSchema]).pipe(
-  Schema.decodeTo(
-    Schema.Struct({
-      source: Schema.String,
-      enabled: Schema.Boolean,
-      authored: Schema.Boolean,
-    }).annotate({
-      identifier: "SubagentEntry",
-      title: "Subagent Entry",
-      description:
-        "A subagent reference — either a source string like @owner/subagents/name or an object with source, enabled, and authored.",
-    }),
-    SchemaTransformation.transform({
-      decode: (entry) =>
-        typeof entry === "string"
-          ? { source: entry, enabled: true, authored: false }
-          : {
-              source: entry.source,
-              enabled: entry.enabled ?? true,
-              authored: entry.authored ?? false,
-            },
-      encode: (
-        entry,
-      ):
-        | string
-        | {
-            readonly source: string;
-            readonly enabled?: boolean | undefined;
-            readonly authored?: boolean | undefined;
-          } => {
-        if (entry.enabled && !entry.authored) return entry.source;
-        const obj: { source: string; enabled?: boolean; authored?: boolean } = {
-          source: entry.source,
-        };
-        if (!entry.enabled) obj.enabled = false;
-        if (entry.authored) obj.authored = true;
-        return obj;
-      },
-    }),
-  ),
+export const SubagentEntrySchema = compactOrVerboseEntry(
+  SubagentEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    authored: Schema.Boolean,
+  }).annotate({
+    identifier: "SubagentEntry",
+    title: "Subagent Entry",
+    description:
+      "A subagent reference — either a source string like @owner/subagents/name or an object with source, enabled, and authored.",
+  }),
+  {
+    decode: (entry: string | EnabledEntryObject): EnabledEntry =>
+      typeof entry === "string"
+        ? { source: entry, enabled: true, authored: false }
+        : {
+            source: entry.source,
+            enabled: entry.enabled ?? true,
+            authored: entry.authored ?? false,
+          },
+    encode: (entry: EnabledEntry): string | EnabledEntryObject => {
+      if (entry.enabled && !entry.authored) return entry.source;
+      const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+        source: entry.source,
+      };
+      if (!entry.enabled) obj.enabled = false;
+      if (entry.authored) obj.authored = true;
+      return obj;
+    },
+  },
 );
 
 /**
@@ -552,13 +562,14 @@ export type SubagentEntry = Schema.Schema.Type<typeof SubagentEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentsMapSchema = Schema.Record(Schema.String, SubagentEntrySchema)
-  .check(Schema.makeFilter(validateNamedRecordKeys("subagent", decodeExtensionNameSync)))
-  .annotate({
-    identifier: "SubagentsMap",
-    title: "Subagents Map",
-    description: "Your installed subagents, keyed by name.",
-  });
+export const SubagentsMapSchema = Schema.Record(
+  ExtensionMapKeySchema,
+  SubagentEntrySchema,
+).annotate({
+  identifier: "SubagentsMap",
+  title: "Subagents Map",
+  description: "Your installed subagents, keyed by name.",
+});
 
 /**
  * Inferred type for SubagentsMap schema.
@@ -577,8 +588,10 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const PackEntryObjectSchema = Schema.Struct({
-  source: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "pack source is required" })),
-  authored: Schema.optional(Schema.Boolean),
+  source: Schema.NonEmptyString.pipe(
+    Schema.annotateKey({ messageMissingKey: "pack source is required" }),
+  ),
+  authored: authoredFieldSchema,
 }).annotate({
   identifier: "PackEntryObject",
   title: "Pack Entry Object",
@@ -593,28 +606,24 @@ export const PackEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackEntrySchema = Schema.Union([Schema.String, PackEntryObjectSchema]).pipe(
-  Schema.decodeTo(
-    Schema.Struct({
-      source: Schema.String,
-      authored: Schema.Boolean,
-    }).annotate({
-      identifier: "PackEntry",
-      title: "Pack Entry",
-      description:
-        "A pack reference — either a source string or an object with source and authored.",
-    }),
-    SchemaTransformation.transform({
-      decode: (entry): { readonly source: string; readonly authored: boolean } =>
-        typeof entry === "string"
-          ? { source: entry, authored: false }
-          : { source: entry.source, authored: entry.authored ?? false },
-      encode: (
-        entry,
-      ): string | { readonly source: string; readonly authored?: boolean | undefined } =>
-        entry.authored ? { source: entry.source, authored: true } : entry.source,
-    }),
-  ),
+export const PackEntrySchema = compactOrVerboseEntry(
+  PackEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    authored: Schema.Boolean,
+  }).annotate({
+    identifier: "PackEntry",
+    title: "Pack Entry",
+    description: "A pack reference — either a source string or an object with source and authored.",
+  }),
+  {
+    decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
+      typeof entry === "string"
+        ? { source: entry, authored: false }
+        : { source: entry.source, authored: entry.authored ?? false },
+    encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
+      entry.authored ? { source: entry.source, authored: true } : entry.source,
+  },
 );
 
 /**
@@ -636,13 +645,11 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
-  .check(Schema.makeFilter(validateNamedRecordKeys("pack", decodeExtensionNameSync)))
-  .annotate({
-    identifier: "PacksMap",
-    title: "Packs Map",
-    description: "Your installed packs, keyed by name.",
-  });
+export const PacksMapSchema = Schema.Record(ExtensionMapKeySchema, PackEntrySchema).annotate({
+  identifier: "PacksMap",
+  title: "Packs Map",
+  description: "Your installed packs, keyed by name.",
+});
 
 /**
  * Inferred type for PacksMap schema.

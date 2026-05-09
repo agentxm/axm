@@ -423,7 +423,12 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const LockfileSchema = Schema.Struct({
-  lockfileVersion: Schema.Number.pipe(
+  lockfileVersion: Schema.Int.pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+    Schema.annotate({
+      description: "Lockfile schema version (currently 1).",
+      default: 1,
+    }),
     Schema.annotateKey({ messageMissingKey: "lockfileVersion is required" }),
   ),
   skills: SkillsLockMapSchema.pipe(

@@ -24,6 +24,9 @@ export {
   NonPackExtensionFqnSchema,
   NonPackManifestFields,
   nonPackExtensionTypePluralSegments,
+  PACK_FQN_PATTERN,
+  PackFqnSchema,
+  PackSpecSchema,
   parseExtensionSpecParts,
   decodeExtensionNameSync,
   extensionTypeFromPlural,
@@ -51,6 +54,8 @@ export {
   type NonPackExtensionDependencyConstraintMap,
   type NonPackExtensionFqn,
   type NonPackExtensionTypePlural,
+  type PackFqn,
+  type PackSpec,
 } from "./common.js";
 
 export {

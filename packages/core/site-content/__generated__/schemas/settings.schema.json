@@ -98,9 +98,27 @@
     "CommandEntryObject": {
       "type": "object",
       "properties": {
-        "source": { "type": "string" },
-        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry is enabled. Defaults to true when omitted.",
+              "default": true
+            },
+            { "type": "null" }
+          ]
+        },
+        "authored": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "default": false
+            },
+            { "type": "null" }
+          ]
+        }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -112,14 +130,35 @@
     },
     "CommandsMap": {
       "type": "object",
+      "title": "Commands Map",
+      "description": "Your installed commands, keyed by name.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/CommandEntry" }
     },
     "SubagentEntryObject": {
       "type": "object",
       "properties": {
-        "source": { "type": "string" },
-        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry is enabled. Defaults to true when omitted.",
+              "default": true
+            },
+            { "type": "null" }
+          ]
+        },
+        "authored": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "default": false
+            },
+            { "type": "null" }
+          ]
+        }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -131,13 +170,25 @@
     },
     "SubagentsMap": {
       "type": "object",
+      "title": "Subagents Map",
+      "description": "Your installed subagents, keyed by name.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/SubagentEntry" }
     },
     "McpServerEntryObject": {
       "type": "object",
       "properties": {
-        "source": { "type": "string" },
-        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "authored": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "default": false
+            },
+            { "type": "null" }
+          ]
+        }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -149,13 +200,25 @@
     },
     "McpServersMap": {
       "type": "object",
+      "title": "MCP Servers Map",
+      "description": "Your installed MCP servers, keyed by name.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/McpServerEntry" }
     },
     "PackEntryObject": {
       "type": "object",
       "properties": {
-        "source": { "type": "string" },
-        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "authored": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "default": false
+            },
+            { "type": "null" }
+          ]
+        }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -163,13 +226,37 @@
       "description": "A pack with its source location."
     },
     "PackEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/PackEntryObject" }] },
-    "PacksMap": { "type": "object", "additionalProperties": { "$ref": "#/definitions/PackEntry" } },
+    "PacksMap": {
+      "type": "object",
+      "title": "Packs Map",
+      "description": "Your installed packs, keyed by name.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
+      "additionalProperties": { "$ref": "#/definitions/PackEntry" }
+    },
     "SkillEntryObject": {
       "type": "object",
       "properties": {
-        "source": { "type": "string" },
-        "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "authored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry is enabled. Defaults to true when omitted.",
+              "default": true
+            },
+            { "type": "null" }
+          ]
+        },
+        "authored": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "default": false
+            },
+            { "type": "null" }
+          ]
+        }
       },
       "required": ["source"],
       "additionalProperties": false,
@@ -179,6 +266,9 @@
     "SkillEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SkillEntryObject" }] },
     "SkillsMap": {
       "type": "object",
+      "title": "Skills Map",
+      "description": "Your installed skills, keyed by name.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/SkillEntry" }
     },
     "IgnoredSettings": {

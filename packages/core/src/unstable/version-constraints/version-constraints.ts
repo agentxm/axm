@@ -19,6 +19,8 @@ export interface VersionEntryLike {
 export const SEMVER_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
 
+const SEMVER_RANGE_PATTERN = /^[~^<>=*xXvV0-9A-Za-z| .-]+$/;
+
 /**
  * Schema for an exact semver version (no ranges).
  */
@@ -46,11 +48,16 @@ export type Version = Schema.Schema.Type<typeof VersionSchema>;
 /**
  * Schema for a semver version range, including exact versions and range expressions.
  */
-export const VersionRangeSchema = Schema.String.pipe(
+export const VersionRangeSchema = Schema.NonEmptyString.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => {
       const normalized = semver.validRange(value);
       return normalized !== null ? undefined : `Expected a semver version range, got: ${value}`;
+    }),
+  ),
+  Schema.check(
+    Schema.isPattern(SEMVER_RANGE_PATTERN, {
+      message: "Expected a semver version range (e.g., ^1.0.0)",
     }),
   ),
   Schema.annotate({
@@ -58,7 +65,7 @@ export const VersionRangeSchema = Schema.String.pipe(
     title: "Version Range",
     description:
       "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3.",
-    examples: ["^1.0.0", "~2.3.0", ">=1.0.0 <3.0.0", "1.2.3"],
+    examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3"],
     message: "Expected a semver version range (e.g., ^1.0.0)",
   }),
   Schema.brand("VersionRange"),

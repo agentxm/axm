@@ -25,11 +25,22 @@ export const PACK_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/pack.schema.json
  * @experimental This API is unstable and may change without notice.
  */
 export const PackManifestSchema = Schema.Struct({
-  $schema: Schema.optional(Schema.String),
+  $schema: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "JSON Schema URL used by editors for validation and completions. Typically set automatically by axm.",
+    }),
+  ),
   ...CommonManifestBaseFields,
-  type: Schema.Literal("pack"),
+  type: Schema.Literal("pack").annotate({
+    description: "Discriminator for the manifest kind. Always 'pack' for pack.json.",
+  }),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "pack name is required" }),
+    Schema.annotate({
+      description:
+        "Short name for this pack within its owner namespace. Combined with owner, forms the FQN @owner/packs/<name>.",
+    }),
   ),
   dependencies: NonPackExtensionDependencyConstraintMapSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "pack dependencies are required" }),
@@ -38,7 +49,7 @@ export const PackManifestSchema = Schema.Struct({
   identifier: "PackManifest",
   title: "Pack Manifest",
   description:
-    "Configuration file (pack.json) that bundles multiple extensions into a single installable pack.",
+    "Pack extension manifest (pack.json). Bundles a curated set of skills, commands, MCP servers, subagents, files, and rules into a single installable unit. Installing the pack installs each entry in its dependencies map at a version satisfying the listed range.",
 });
 
 /**

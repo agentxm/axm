@@ -15,7 +15,31 @@ import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "./package-type.js";
 
 /**
- * Structured purl components schema: type, namespace, name, and version.
+ * Spec-conformant character set for a purl qualifier key: lowercase ASCII
+ * letters, digits, period, dash, and underscore; must start with a letter.
+ * The purl spec declares qualifier keys case-insensitive with a lowercase
+ * canonical form, so this schema accepts only the canonical form.
+ *
+ * @see https://github.com/package-url/purl-spec
+ */
+const PURL_QUALIFIER_KEY_PATTERN = /^[a-z][a-z0-9._-]*$/;
+
+const PurlQualifierKeySchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(PURL_QUALIFIER_KEY_PATTERN, {
+      title: "Purl Qualifier Key",
+      description:
+        "A purl qualifier key in canonical lowercase form. Allowed characters: ASCII letters, digits, '.', '-', '_'; must start with a letter.",
+      examples: ["repository_url", "classifier", "arch"],
+      message: "Expected a lowercase purl qualifier key like classifier or arch",
+    }),
+  ),
+);
+
+/**
+ * Structured purl components schema covering the seven spec components:
+ * type, namespace, name, version, qualifiers, and subpath. The `pkg` scheme
+ * is implicit.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -24,10 +48,13 @@ export const PackageUrlPartsSchema = Schema.Struct({
   namespace: Schema.optional(Schema.String),
   name: Schema.String,
   version: Schema.optional(Schema.String),
+  qualifiers: Schema.optional(Schema.Record(PurlQualifierKeySchema, Schema.NonEmptyString)),
+  subpath: Schema.optional(Schema.NonEmptyString),
 }).annotate({
   identifier: "PackageUrlParts",
   title: "Package URL Parts",
-  description: "Decomposed purl components: type, namespace, name, and version.",
+  description:
+    "Decomposed purl components: type, namespace, name, version, qualifiers, and subpath.",
 });
 
 /**
@@ -82,6 +109,8 @@ export const PackageUrlSchema = Schema.String.pipe(
             name: parsed.name,
             ...(parsed.namespace != null ? { namespace: parsed.namespace } : {}),
             ...(parsed.version != null ? { version: parsed.version } : {}),
+            ...(parsed.qualifiers != null ? { qualifiers: { ...parsed.qualifiers } } : {}),
+            ...(parsed.subpath != null ? { subpath: parsed.subpath } : {}),
           };
           return Effect.succeed(parts);
         } catch {
@@ -99,8 +128,8 @@ export const PackageUrlSchema = Schema.String.pipe(
             value.namespace ?? null,
             value.name,
             value.version ?? null,
-            null,
-            null,
+            value.qualifiers ?? null,
+            value.subpath ?? null,
           ).toString(),
         ),
     }),

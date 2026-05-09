@@ -41,4 +41,32 @@ describe("PackageTypeSchema", () => {
 
     expect(Result.isFailure(result)).toBe(true);
   });
+
+  it("rejects uppercase types (canonical form is lowercase)", () => {
+    expect(Result.isFailure(decode("NPM"))).toBe(true);
+    expect(Result.isFailure(decode("Pypi"))).toBe(true);
+  });
+
+  it("rejects types that do not start with a letter", () => {
+    expect(Result.isFailure(decode("123"))).toBe(true);
+    expect(Result.isFailure(decode("-npm"))).toBe(true);
+    expect(Result.isFailure(decode(".npm"))).toBe(true);
+  });
+
+  it("rejects empty strings", () => {
+    expect(Result.isFailure(decode(""))).toBe(true);
+  });
+
+  it("rejects illegal characters", () => {
+    expect(Result.isFailure(decode("npm pkg"))).toBe(true);
+    expect(Result.isFailure(decode("npm/foo"))).toBe(true);
+    expect(Result.isFailure(decode("npm@1"))).toBe(true);
+  });
+
+  it("accepts spec-permitted punctuation in the type", () => {
+    expect(Result.isSuccess(decode("a.b"))).toBe(true);
+    expect(Result.isSuccess(decode("a+b"))).toBe(true);
+    expect(Result.isSuccess(decode("a-b"))).toBe(true);
+    expect(Result.isSuccess(decode("a1"))).toBe(true);
+  });
 });

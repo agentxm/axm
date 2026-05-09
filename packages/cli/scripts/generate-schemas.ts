@@ -80,14 +80,83 @@ const schemas: SchemaConfig[] = [
 
 let count = 0;
 
+// effect-smol always emits `patternProperties` for `Schema.Record(KeyWithPattern, Value)`.
+// For the single-pattern shape that Record always produces, `propertyNames` + `additionalProperties`
+// is more idiomatic and also matches Record's strict runtime semantics — keys not matching the
+// pattern are rejected, whereas bare `patternProperties` (without `additionalProperties: false`)
+// silently allows them. When the key pattern matches a named definition, point `propertyNames`
+// at it via `$ref` so the schema reads as "keys are NonPackExtensionFqn" rather than repeating
+// the regex.
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const findDefinitionPattern = (definition: unknown): string | undefined => {
+  if (!isJsonObject(definition)) return undefined;
+  if (typeof definition["pattern"] === "string") return definition["pattern"];
+  const allOf = definition["allOf"];
+  if (Array.isArray(allOf)) {
+    for (const entry of allOf) {
+      const found = findDefinitionPattern(entry);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+};
+
+const buildPatternRefIndex = (definitions: Record<string, unknown>): Map<string, string> => {
+  const index = new Map<string, string>();
+  for (const [name, def] of Object.entries(definitions)) {
+    const pattern = findDefinitionPattern(def);
+    if (pattern !== undefined && !index.has(pattern)) {
+      index.set(pattern, `#/definitions/${name}`);
+    }
+  }
+  return index;
+};
+
+const rewritePatternProperties = (node: unknown, patternRefs: Map<string, string>): unknown => {
+  if (Array.isArray(node)) {
+    return node.map((item) => rewritePatternProperties(item, patternRefs));
+  }
+  if (!isJsonObject(node)) {
+    return node;
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    out[key] = rewritePatternProperties(value, patternRefs);
+  }
+  const pp = out["patternProperties"];
+  const collapsable =
+    isJsonObject(pp) &&
+    out["additionalProperties"] === undefined &&
+    out["propertyNames"] === undefined &&
+    out["properties"] === undefined;
+  if (collapsable) {
+    const entries = Object.entries(pp);
+    if (entries.length === 1) {
+      const entry = entries[0];
+      if (entry !== undefined) {
+        const [pattern, valueSchema] = entry;
+        const ref = patternRefs.get(pattern);
+        delete out["patternProperties"];
+        out["propertyNames"] = ref !== undefined ? { $ref: ref } : { pattern };
+        out["additionalProperties"] = valueSchema;
+      }
+    }
+  }
+  return out;
+};
+
 const toDraft07SchemaFile = (schema: Schema.Top) => {
   const document = JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema));
 
-  return {
+  const file = {
     $schema: "http://json-schema.org/draft-07/schema#",
     ...document.schema,
     ...(Object.keys(document.definitions).length > 0 ? { definitions: document.definitions } : {}),
   };
+
+  return rewritePatternProperties(file, buildPatternRefIndex(document.definitions));
 };
 
 for (const { name, schema, outputDir } of schemas) {

@@ -583,43 +583,33 @@ export const CommonManifestBaseFields = {
   ),
   keywords: Schema.optional(
     Schema.Array(Schema.NonEmptyString).annotate({
-      description:
-        "Search terms surfaced by registry listings and 'axm search' to help users discover this extension.",
       examples: [["lint", "typescript", "review"]],
     }),
   ),
   repository: Schema.optional(
     Schema.String.annotate({
-      description: "Source repository URL where this extension is developed.",
       examples: ["https://github.com/acme/code-review"],
       format: "uri",
     }),
   ),
   homepage: Schema.optional(
     Schema.String.annotate({
-      description: "Project homepage or documentation site for this extension.",
       examples: ["https://acme.dev/code-review"],
       format: "uri",
     }),
   ),
   license: Schema.optional(
     Schema.NonEmptyString.annotate({
-      description: "SPDX license expression covering this extension's content.",
       examples: ["MIT", "Apache-2.0"],
     }),
   ),
   bugs: Schema.optional(
     Schema.String.annotate({
-      description: "Issue tracker URL where users can report bugs for this extension.",
       examples: ["https://github.com/acme/code-review/issues"],
       format: "uri",
     }),
   ),
-  authors: Schema.optional(
-    Schema.Array(AuthorSchema).annotate({
-      description: "People who created or maintain this extension.",
-    }),
-  ),
+  authors: Schema.optional(Schema.Array(AuthorSchema)),
   compatiblePackages: Schema.optional(
     Schema.Array(PackageUrlSchema).pipe(
       Schema.annotate({

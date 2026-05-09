@@ -62,14 +62,21 @@ const getAnnotatedAllOfRecord = (schema: Record<string, unknown>): Record<string
   return annotated;
 };
 
-const getOptionalFieldAnnotationRecord = (
+const getOptionalFieldExamplesRecord = (
   schema: Record<string, unknown>,
 ): Record<string, unknown> => {
   const fieldSchema = getFirstAnyOfRecord(schema);
-  if (typeof fieldSchema["description"] === "string" && Array.isArray(fieldSchema["examples"])) {
+  if (Array.isArray(fieldSchema["examples"])) {
     return fieldSchema;
   }
-  return getAnnotatedAllOfRecord(fieldSchema);
+  const allOf = fieldSchema["allOf"];
+  if (Array.isArray(allOf)) {
+    const annotated = allOf.find((entry) => isRecord(entry) && Array.isArray(entry["examples"]));
+    if (isRecord(annotated)) {
+      return annotated;
+    }
+  }
+  throw new Error("Expected an examples annotation on the optional field.");
 };
 
 describe("generated schemas", () => {
@@ -134,8 +141,7 @@ describe("generated schemas", () => {
     const manifest = getDefinition(commandSchema, "CommandManifest");
 
     for (const field of ["license", "bugs", "repository", "homepage", "keywords"]) {
-      const fieldSchema = getOptionalFieldAnnotationRecord(getProperty(manifest, field));
-      expect(fieldSchema["description"]).toEqual(expect.any(String));
+      const fieldSchema = getOptionalFieldExamplesRecord(getProperty(manifest, field));
       expect(fieldSchema["examples"]).toEqual(expect.any(Array));
     }
 

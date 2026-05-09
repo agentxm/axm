@@ -24,12 +24,7 @@ export const MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/skill.schema.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillManifestSchema = Schema.Struct({
-  $schema: Schema.optional(
-    Schema.String.annotate({
-      description:
-        "JSON Schema URL used by editors for validation and completions. Typically set automatically by axm.",
-    }),
-  ),
+  $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
   ...NonPackManifestFields,
   description: Schema.optional(
@@ -40,9 +35,7 @@ export const SkillManifestSchema = Schema.Struct({
       }),
     ),
   ),
-  type: Schema.Literal("skill").annotate({
-    description: "Discriminator for the manifest kind. Always 'skill' for skill.json.",
-  }),
+  type: Schema.Literal("skill"),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "skill name is required" }),
     Schema.annotate({

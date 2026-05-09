@@ -74,15 +74,7 @@
     "McpServerManifest": {
       "type": "object",
       "properties": {
-        "$schema": {
-          "anyOf": [
-            {
-              "type": "string",
-              "description": "JSON Schema URL used by editors for validation and completions. Typically set automatically by axm."
-            },
-            { "type": "null" }
-          ]
-        },
+        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },
         "description": {
@@ -98,7 +90,6 @@
           "anyOf": [
             {
               "type": "array",
-              "description": "Search terms surfaced by registry listings and 'axm search' to help users discover this extension.",
               "examples": [["lint", "typescript", "review"]],
               "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
             },
@@ -109,7 +100,6 @@
           "anyOf": [
             {
               "type": "string",
-              "description": "Source repository URL where this extension is developed.",
               "examples": ["https://github.com/acme/code-review"],
               "format": "uri"
             },
@@ -118,27 +108,13 @@
         },
         "homepage": {
           "anyOf": [
-            {
-              "type": "string",
-              "description": "Project homepage or documentation site for this extension.",
-              "examples": ["https://acme.dev/code-review"],
-              "format": "uri"
-            },
+            { "type": "string", "examples": ["https://acme.dev/code-review"], "format": "uri" },
             { "type": "null" }
           ]
         },
         "license": {
           "anyOf": [
-            {
-              "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "SPDX license expression covering this extension's content.",
-                  "examples": ["MIT", "Apache-2.0"]
-                }
-              ]
-            },
+            { "type": "string", "allOf": [{ "minLength": 1, "examples": ["MIT", "Apache-2.0"] }] },
             { "type": "null" }
           ]
         },
@@ -146,7 +122,6 @@
           "anyOf": [
             {
               "type": "string",
-              "description": "Issue tracker URL where users can report bugs for this extension.",
               "examples": ["https://github.com/acme/code-review/issues"],
               "format": "uri"
             },
@@ -155,11 +130,7 @@
         },
         "authors": {
           "anyOf": [
-            {
-              "type": "array",
-              "description": "People who created or maintain this extension.",
-              "items": { "$ref": "#/definitions/Author" }
-            },
+            { "type": "array", "items": { "$ref": "#/definitions/Author" } },
             { "type": "null" }
           ]
         },
@@ -193,11 +164,7 @@
             { "type": "null" }
           ]
         },
-        "type": {
-          "type": "string",
-          "enum": ["mcp-server"],
-          "description": "Discriminator for the manifest kind. Always 'mcp-server' for mcp-server.json."
-        },
+        "type": { "type": "string", "enum": ["mcp-server"] },
         "name": { "$ref": "#/definitions/ExtensionName" }
       },
       "required": ["owner", "version", "type", "name"],

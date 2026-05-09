@@ -45,17 +45,10 @@ const AgentOverrideKeySchema = Schema.String.pipe(
  * @experimental This API is unstable and may change without notice.
  */
 export const CommandManifestSchema = Schema.Struct({
-  $schema: Schema.optional(
-    Schema.String.annotate({
-      description:
-        "JSON Schema URL used by editors for validation and completions. Typically set automatically by axm.",
-    }),
-  ),
+  $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
   ...NonPackManifestFields,
-  type: Schema.Literal("command").annotate({
-    description: "Discriminator for the manifest kind. Always 'command' for command.json.",
-  }),
+  type: Schema.Literal("command"),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "command name is required" }),
     Schema.annotate({
@@ -68,7 +61,7 @@ export const CommandManifestSchema = Schema.Struct({
       AgentOverrideKeySchema,
       Schema.Record(Schema.String, Schema.Unknown).annotate({
         description:
-          "Frontmatter field overrides applied when materializing the command for this agent. Keys are frontmatter field names; values replace the matching fields in command.md.",
+          "Frontmatter field overrides applied when materializing the command for this agent. Keys are frontmatter field names; values replace the matching fields in the command's `<name>.md` content file.",
       }),
     ).annotate({
       description:
@@ -79,7 +72,7 @@ export const CommandManifestSchema = Schema.Struct({
   identifier: "CommandManifest",
   title: "Command Manifest",
   description:
-    "Slash-command extension manifest (command.json). The prompt body lives in command.md alongside this file and is materialized into each supported coding agent's commands directory.",
+    "Slash-command extension manifest (command.json). The prompt body lives in `<name>.md` (e.g., `review-pr.md`) alongside this file and is materialized into each supported coding agent's commands directory.",
 });
 
 /**

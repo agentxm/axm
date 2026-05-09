@@ -8,7 +8,7 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const unpackConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Extension pack name to unpack")),
+  name: Argument.string("name").pipe(Argument.withDescription("Pack name to unpack")),
   strictAgentSync: Flag.boolean("strict-agent-sync").pipe(
     Flag.withDescription("Fail when MCP agent sync has strict-policy failures"),
   ),
@@ -34,11 +34,11 @@ export const unpackCommand = Command.make(
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs unpack")),
 ).pipe(
   withArgvTracking(unpackConfig),
-  Command.withDescription("Eject extension pack into individual entries"),
+  Command.withDescription("Eject pack into individual entries"),
   Command.withExamples([
     {
       command: "axm packs unpack @acme/frontend-tools",
-      description: "Stop using an extension pack and manage extensions individually",
+      description: "Stop using a pack and manage extensions individually",
     },
     {
       command: "axm packs unpack @acme/frontend-tools --preview",

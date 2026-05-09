@@ -15,8 +15,8 @@ import {
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
-import type { AddToExtensionPackOperation } from "./add-to-pack.js";
-import { addToExtensionPack } from "./add-to-pack.js";
+import type { AddToPackOperation } from "./add-to-pack.js";
+import { addToPack } from "./add-to-pack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -71,14 +71,14 @@ const createPackManifest = (base: string, owner: string, packName: string) => {
     "mcp-servers": {},
   };
   const content = JSON.stringify(manifest, null, 2) + "\n";
-  fs.writeFileSync(path.join(packDir, "extension-pack.json"), content);
+  fs.writeFileSync(path.join(packDir, "pack.json"), content);
   return { packDir, manifestHash: hashContent(content), content };
 };
 
-/** Creates a minimal AddToExtensionPackOperation for testing. */
+/** Creates a minimal AddToPackOperation for testing. */
 const makeOp = (
-  overrides: Partial<AddToExtensionPackOperation["args"]> & { manifestHash: string },
-): AddToExtensionPackOperation => ({
+  overrides: Partial<AddToPackOperation["args"]> & { manifestHash: string },
+): AddToPackOperation => ({
   name: "add-to-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
@@ -92,7 +92,7 @@ const makeOp = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("addToExtensionPack", () => {
+describe("addToPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -116,7 +116,7 @@ describe("addToExtensionPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToExtensionPack(
+        const result = yield* addToPack(
           makeOp({
             additions: { "@acme/skills/my-skill": "^1.0.0" },
             manifestHash,
@@ -133,7 +133,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/my-skill"]).toBe("^1.0.0");
@@ -145,7 +145,7 @@ describe("addToExtensionPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToExtensionPack(
+        const result = yield* addToPack(
           makeOp({
             additions: {
               "@acme/skills/skill-a": "^1.0.0",
@@ -164,7 +164,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/skill-a"]).toBe("^1.0.0");
@@ -177,7 +177,7 @@ describe("addToExtensionPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToExtensionPack(makeOp({ additions: {}, manifestHash })).pipe(
+        const result = yield* addToPack(makeOp({ additions: {}, manifestHash })).pipe(
           Effect.provide(withServices(axmDir)),
         );
 
@@ -193,7 +193,7 @@ describe("addToExtensionPack", () => {
         createPackManifest(base, "@myorg", "my-pack");
 
         // Use a stale hash that doesn't match current manifest
-        const result = yield* addToExtensionPack(
+        const result = yield* addToPack(
           makeOp({
             additions: { "@acme/skills/my-skill": "^1.0.0" },
             manifestHash: "stale-hash-that-does-not-match",
@@ -213,7 +213,7 @@ describe("addToExtensionPack", () => {
         const { axmDir, base } = setupBase();
         const { content } = createPackManifest(base, "@myorg", "my-pack");
 
-        yield* addToExtensionPack(
+        yield* addToPack(
           makeOp({
             additions: { "@acme/skills/my-skill": "^1.0.0" },
             manifestHash: "stale-hash-that-does-not-match",
@@ -231,7 +231,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);
@@ -245,7 +245,7 @@ describe("addToExtensionPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToExtensionPack(
+        const result = yield* addToPack(
           makeOp({
             additions: { "@acme/commands/my-cmd": "^1.0.0" },
             manifestHash,
@@ -261,7 +261,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.commands["@acme/commands/my-cmd"]).toBe("^1.0.0");
@@ -274,7 +274,7 @@ describe("addToExtensionPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToExtensionPack(
+        const result = yield* addToPack(
           makeOp({
             additions: { "@acme/mcp-servers/my-server": "^2.0.0" },
             manifestHash,
@@ -290,7 +290,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest["mcp-servers"]["@acme/mcp-servers/my-server"]).toBe("^2.0.0");
@@ -303,7 +303,7 @@ describe("addToExtensionPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToExtensionPack(
+        const result = yield* addToPack(
           makeOp({
             additions: {
               "@acme/skills/my-skill": "^1.0.0",
@@ -323,7 +323,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/my-skill"]).toBe("^1.0.0");
@@ -339,7 +339,7 @@ describe("addToExtensionPack", () => {
         const { axmDir } = setupBase();
         // Don't create the manifest on disk
 
-        const result = yield* addToExtensionPack(
+        const result = yield* addToPack(
           makeOp({
             manifestHash: "nonexistent",
           }),

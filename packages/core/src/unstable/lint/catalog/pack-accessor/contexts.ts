@@ -6,7 +6,7 @@
  * The minimal shape is **exactly** the set of fields the function reads per
  * installed pack:
  *
- * - `packJson` — pre-decoded `extension-pack.json` when present (caller
+ * - `packJson` — pre-decoded `pack.json` when present (caller
  *   decodes once per pack, so rules don't re-read + re-parse).
  * - `displayRoot` — posix-relative root used by the renderer; the caller
  *   picks per provenance (see the table below).

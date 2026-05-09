@@ -71,7 +71,7 @@ export interface SkillFileAccessor {
 /**
  * Narrow pack-rooted file accessor.
  *
- * Root is the directory containing `extension-pack.json`. Same traversal
+ * Root is the directory containing `pack.json`. Same traversal
  * constraints as `SkillFileAccessor`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -103,14 +103,14 @@ export interface SkillRuleContext<S = SkillContent> {
   /**
    * Content-root accessor. Rooted at the directory containing `SKILL.md`.
    * For native (registry-installed) skills this is the `src/` sub-directory
-   * of the extension package; for non-native skills it is the skill's own
+   * of the package; for non-native skills it is the skill's own
    * directory. Rules validating skill content (`skill-md-present`,
    * `frontmatter-parseable`, and any future rule evaluating files that
    * render into agent directories) read through this accessor.
    */
   readonly files: SkillFileAccessor;
   /**
-   * Package-root accessor. Rooted at the skill's extension package root —
+   * Package-root accessor. Rooted at the skill's package root —
    * the directory containing `skill.json` for native skills. For non-native
    * skills that have no package/content split, this MAY alias `files`.
    * Rules validating package-shape concerns (`manifest-present` and any
@@ -158,7 +158,7 @@ export interface SkillContent {
  * `subject` is the caller-decoded pack content — concrete `PackContent` shape
  * defined below. Packs are registry-only at v1 (no non-native arm), so the
  * subject carries only the already-decoded manifest and rules read
- * `extension-pack.json` bytes through `context.files` as needed.
+ * `pack.json` bytes through `context.files` as needed.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -171,14 +171,14 @@ export interface PackRuleContext<S = PackContent> {
 /**
  * Concrete subject shape passed to `pack/*` rules.
  *
- * Rules read `extension-pack.json` bytes through `context.files` (the
+ * Rules read `pack.json` bytes through `context.files` (the
  * authoritative source shared across publish and `axm lint`). The `subject`
  * carries only what rules can't efficiently re-derive from bytes:
  *
- * - `packJson` — the already-decoded `extension-pack.json` contents when
+ * - `packJson` — the already-decoded `pack.json` contents when
  *   present (caller decodes once, rules don't re-read + re-parse).
  *   `undefined` when the file is absent. Schema-valid rules pipe this into
- *   `Schema.decodeUnknownResult(ExtensionPackManifestSchema)`;
+ *   `Schema.decodeUnknownResult(PackManifestSchema)`;
  *   keys-recognized enumerates top-level keys after narrowing to
  *   `Record<string, unknown>`.
  *

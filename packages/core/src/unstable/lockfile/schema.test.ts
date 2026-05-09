@@ -4,8 +4,8 @@ import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
   CommandLockEntrySchema,
   LockfileSchema,
-  ExtensionPackLockEntrySchema,
-  ExtensionPacksLockMapSchema,
+  PackLockEntrySchema,
+  PacksLockMapSchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
@@ -789,7 +789,7 @@ describe("lockfile schema", () => {
     });
   });
 
-  describe("ExtensionPackLockEntry", () => {
+  describe("PackLockEntry", () => {
     it("accepts valid pack lock entry with all resolved maps", () => {
       const input = {
         type: "registry",
@@ -806,7 +806,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
 
       expect(result.type).toBe("registry");
       expect(result.owner).toBe("@acme");
@@ -840,7 +840,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
 
       expect(result.resolvedSkills).toEqual({});
       expect(result.resolvedCommands).toEqual({});
@@ -864,7 +864,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: { "@acme/subagents/reviewer": "2.0.0" },
       };
 
-      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
 
       expect(result.resolvedSubagents).toEqual({ "@acme/subagents/reviewer": "2.0.0" });
     });
@@ -885,7 +885,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry with range value in resolved maps", () => {
@@ -904,7 +904,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing owner", () => {
@@ -922,7 +922,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing resolvedSkills", () => {
@@ -940,7 +940,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing resolvedCommands", () => {
@@ -958,7 +958,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing resolvedMcpServers", () => {
@@ -976,7 +976,7 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing resolvedSubagents", () => {
@@ -994,7 +994,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry with non-registry type", () => {
@@ -1013,13 +1013,13 @@ describe("lockfile schema", () => {
         resolvedSubagents: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
   });
 
-  describe("ExtensionPacksLockMap", () => {
+  describe("PacksLockMap", () => {
     it("accepts empty packs map", () => {
-      const result = Schema.decodeUnknownSync(ExtensionPacksLockMapSchema)({});
+      const result = Schema.decodeUnknownSync(PacksLockMapSchema)({});
 
       expect(result).toEqual({});
     });
@@ -1042,7 +1042,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(ExtensionPacksLockMapSchema)(input);
+      const result = Schema.decodeUnknownSync(PacksLockMapSchema)(input);
 
       expect(result["@acme/packs/frontend-pack"]).toBeDefined();
       expect(result["@acme/packs/frontend-pack"]?.resolvedSkills).toEqual({

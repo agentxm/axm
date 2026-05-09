@@ -6,23 +6,23 @@ The `axm packs new` command scaffolds a new empty pack with a manifest and regis
 
 ## Requirements
 
-### Requirement: Scaffold new extension pack
+### Requirement: Scaffold new pack
 
-`axm packs new <name>` SHALL create a new empty pack with an `extension-pack.json` manifest in the managed extensions directory.
+`axm packs new <name>` SHALL create a new empty pack with a `pack.json` manifest in the managed extensions directory.
 
-The extension extension pack name SHALL resolve its owner from the workspace's configured profile (from settings.json) unless overridden with `--profile`.
+The pack name SHALL resolve its owner from the workspace's configured profile (from settings.json) unless overridden with `--profile`.
 
-#### Scenario: Create extension pack with workspace profile
+#### Scenario: Create pack with workspace profile
 
 - **WHEN** user runs `axm packs new frontend-tools`
 - **AND** workspace profile is `@acme`
-- **THEN** `extension-pack.json` is created at `.axm/extensions/@acme/packs/frontend-tools/extension-pack.json`
+- **THEN** `pack.json` is created at `.axm/extensions/@acme/packs/frontend-tools/pack.json`
 - **AND** manifest contains `owner: "@acme"`, `name: "frontend-tools"`, `version: "0.0.1"`, and empty `skills`, `commands`, `mcp-servers`
 
-#### Scenario: Create extension pack with profile override
+#### Scenario: Create pack with profile override
 
 - **WHEN** user runs `axm packs new frontend-tools --profile @corp`
-- **THEN** `extension-pack.json` is created at `.axm/extensions/@corp/packs/frontend-tools/extension-pack.json`
+- **THEN** `pack.json` is created at `.axm/extensions/@corp/packs/frontend-tools/pack.json`
 - **AND** manifest contains `owner: "@corp"` and `name: "frontend-tools"`
 
 #### Scenario: No workspace profile and no override
@@ -35,8 +35,8 @@ The extension extension pack name SHALL resolve its owner from the workspace's c
 #### Scenario: Pack already exists
 
 - **WHEN** user runs `axm packs new frontend-tools`
-- **AND** `.axm/extensions/@acme/packs/frontend-tools/extension-pack.json` already exists
-- **THEN** the command fails with a `AppError` indicating the extension extension pack already exists
+- **AND** `.axm/extensions/@acme/packs/frontend-tools/pack.json` already exists
+- **THEN** the command fails with a `AppError` indicating the pack already exists
 
 ### Requirement: New pack registered in settings
 
@@ -44,7 +44,7 @@ The extension extension pack name SHALL resolve its owner from the workspace's c
 
 #### Scenario: Settings updated after pack creation
 
-- **WHEN** an extension pack `@acme/frontend-tools` is successfully created
+- **WHEN** a pack `@acme/frontend-tools` is successfully created
 - **THEN** settings.json contains `"packs": { "frontend-tools": "@acme/frontend-tools" }`
 
 ### Requirement: Packs new handler uses plan execution
@@ -61,8 +61,8 @@ The `axm packs new` handler SHALL model pack scaffolding mutations as an operati
 #### Scenario: Apply mode executes operation side-effects
 
 - **WHEN** the user runs `axm packs new <name>` without preview and confirms apply (or passes `--yes`)
-- **THEN** the operation handler SHALL create the extension extension pack directory and manifest
-- **AND** the operation handler SHALL update workspace settings/lockfile metadata for the new extension pack
+- **THEN** the operation handler SHALL create the pack directory and manifest
+- **AND** the operation handler SHALL update workspace settings/lockfile metadata for the new pack
 
 ### Requirement: Packs new supports preview mode
 

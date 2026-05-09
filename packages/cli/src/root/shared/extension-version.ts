@@ -13,7 +13,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { COMMAND_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/commands";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcp-servers";
-import { EXTENSION_PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -53,7 +53,7 @@ const manifestFilenameByType: Record<VersionableExtensionType, string> = {
   skill: SKILL_MANIFEST_FILENAME,
   subagent: SUBAGENT_MANIFEST_FILENAME,
   "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
-  pack: EXTENSION_PACK_MANIFEST_FILENAME,
+  pack: PACK_MANIFEST_FILENAME,
 };
 
 const manifestFilename = (type: VersionableExtensionType): string => manifestFilenameByType[type];

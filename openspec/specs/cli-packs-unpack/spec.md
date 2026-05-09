@@ -2,24 +2,24 @@
 
 ### Requirement: Unpack flattens pack into settings
 
-`axm packs unpack <name>` SHALL promote all of an extension pack's referenced extensions to direct entries by emitting explicit install operations in the plan, then remove the extension pack.
+`axm packs unpack <name>` SHALL promote all of a pack's referenced extensions to direct entries by emitting explicit install operations in the plan, then remove the pack.
 
 The plan SHALL emit:
 
-1. `install-skill` steps for each skill in the extension extension pack's `resolvedSkills` (with `skipSettings: false` to create direct settings entries)
-2. `install-command` steps for each command in the extension extension pack's `resolvedCommands`
-3. `install-mcp-server` steps for each MCP server in the extension extension pack's `resolvedMcpServers`
-4. An `uninstall-pack` step to remove the extension extension pack entry from settings, lockfile, and disk
+1. `install-skill` steps for each skill in the pack's `resolvedSkills` (with `skipSettings: false` to create direct settings entries)
+2. `install-command` steps for each command in the pack's `resolvedCommands`
+3. `install-mcp-server` steps for each MCP server in the pack's `resolvedMcpServers`
+4. An `uninstall-pack` step to remove the pack entry from settings, lockfile, and disk
 
 Extensions already directly installed (with an existing settings entry) SHALL be marked as no-op steps in the plan.
 
-Install operations SHALL use empty integrity refs to trigger the idempotent path — the install handlers detect that the canonical directory already exists (from the original extension pack install) and skip fetching.
+Install operations SHALL use empty integrity refs to trigger the idempotent path — the install handlers detect that the canonical directory already exists (from the original pack install) and skip fetching.
 
 #### Scenario: Unpack pack with skills and commands
 
 - **WHEN** user runs `axm packs unpack @acme/frontend-pack`
-- **AND** the extension extension pack's `resolvedSkills` contains `@acme/skills/code-review` and `@acme/skills/linting`
-- **AND** the extension extension pack's `resolvedCommands` contains `@acme/commands/formatter`
+- **AND** the pack's `resolvedSkills` contains `@acme/skills/code-review` and `@acme/skills/linting`
+- **AND** the pack's `resolvedCommands` contains `@acme/commands/formatter`
 - **THEN** the plan includes `install-skill` steps for `code-review` and `linting`
 - **AND** the plan includes an `install-command` step for `formatter`
 - **AND** the plan includes an `uninstall-pack` step for `frontend-pack`
@@ -36,7 +36,7 @@ Install operations SHALL use empty integrity refs to trigger the idempotent path
 
 #### Scenario: Extensions remain installed on disk
 
-- **WHEN** an extension pack is unpacked
+- **WHEN** a pack is unpacked
 - **THEN** all referenced extensions remain on disk in their canonical locations
 - **AND** agent symlinks for skills remain intact
 
@@ -44,11 +44,11 @@ Install operations SHALL use empty integrity refs to trigger the idempotent path
 
 - **WHEN** the unpack plan is built
 - **THEN** `install-skill`, `install-command`, and `install-mcp-server` steps SHALL appear before the `uninstall-pack` step
-- **AND** extensions are promoted to direct entries before the extension pack is removed
+- **AND** extensions are promoted to direct entries before the pack is removed
 
 ### Requirement: Unpack removes pack lockfile entry
 
-After unpacking, the extension pack lock entry SHALL be removed from the lockfile `packs` section via the `uninstall-pack` operation. The individual extension lock entries SHALL remain.
+After unpacking, the pack lock entry SHALL be removed from the lockfile `packs` section via the `uninstall-pack` operation. The individual extension lock entries SHALL remain.
 
 #### Scenario: Lockfile updated after unpack
 
@@ -64,4 +64,4 @@ After unpacking, the extension pack lock entry SHALL be removed from the lockfil
 
 - **WHEN** user runs `axm packs unpack @acme/nonexistent`
 - **AND** no pack named `@acme/nonexistent` is installed
-- **THEN** the command fails with a `AppError` indicating the extension pack is not installed
+- **THEN** the command fails with a `AppError` indicating the pack is not installed

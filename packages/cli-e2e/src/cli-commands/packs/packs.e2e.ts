@@ -120,7 +120,7 @@ function updatePackManifest(
     "@test",
     "packs",
     packName,
-    "extension-pack.json",
+    "pack.json",
   );
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
   manifest.version = args.version;
@@ -153,7 +153,7 @@ describe("axm packs new", () => {
         "@test",
         "packs",
         "frontend-tools",
-        "extension-pack.json",
+        "pack.json",
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -192,7 +192,7 @@ describe("axm packs new", () => {
         "@custom",
         "packs",
         "my-pack",
-        "extension-pack.json",
+        "pack.json",
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -489,7 +489,7 @@ describe("axm packs install", () => {
         "@test",
         "packs",
         "deps-pack",
-        "extension-pack.json",
+        "pack.json",
       );
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.skills = { "@test/skills/dep-skill": "1.0.0" };
@@ -585,7 +585,7 @@ describe("axm packs install", () => {
         "@test",
         "packs",
         "subagent-pack",
-        "extension-pack.json",
+        "pack.json",
       );
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.subagents = { "@test/subagents/dep-subagent": "1.0.0" };

@@ -10,9 +10,9 @@
  *
  * Packs are registry-only at v1 — there is no non-native variant. The caller
  * (`buildPackRuleContexts` or the CLI entry point) picks the root from
- * `computeExtensionPackPaths` in `../../../packs/paths.ts`.
+ * `computePackPaths` in `../../../packs/paths.ts`.
  *
- * The `extension-pack.json` sits directly under `canonicalPath`; there is no
+ * The `pack.json` sits directly under `canonicalPath`; there is no
  * `src/` subdirectory like skills have — see
  * `../../../packs/operations/install.ts` for the authoritative layout.
  *
@@ -56,7 +56,7 @@ type ResolveResult =
  * Build a platform-backed `PackFileAccessor` rooted at `absoluteRoot`.
  *
  * `absoluteRoot` SHOULD be the absolute path to the pack root directory
- * (`canonicalPath` from `computeExtensionPackPaths` in
+ * (`canonicalPath` from `computePackPaths` in
  * `../../../packs/paths.ts`).
  *
  * @experimental This API is unstable and may change without notice.

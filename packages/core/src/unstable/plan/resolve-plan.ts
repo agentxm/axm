@@ -34,7 +34,7 @@ import {
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
-import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
+import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
@@ -50,7 +50,7 @@ const reconciliationAdapters = [
   commandReconciliationAdapter,
   subagentReconciliationAdapter,
   mcpServerReconciliationAdapter,
-  extensionPackReconciliationAdapter,
+  packReconciliationAdapter,
 ];
 
 /**

@@ -55,7 +55,7 @@ describe("pack/manifest-keys-recognized", () => {
       expect(findings).toHaveLength(2);
       expect(findings.every((f) => f.ruleId === "pack/manifest-keys-recognized")).toBe(true);
       expect(findings.every((f) => f.severity === "warning")).toBe(true);
-      expect(findings.every((f) => f.location?.file === "extension-pack.json")).toBe(true);
+      expect(findings.every((f) => f.location?.file === "pack.json")).toBe(true);
       const messages = findings.map((f) => f.message);
       expect(messages.some((m) => m.includes("made_up"))).toBe(true);
       expect(messages.some((m) => m.includes("another"))).toBe(true);
@@ -76,7 +76,7 @@ describe("pack/manifest-keys-recognized", () => {
     }),
   );
 
-  it.effect("early-returns zero findings when extension-pack.json is absent", () =>
+  it.effect("early-returns zero findings when pack.json is absent", () =>
     Effect.gen(function* () {
       const findings = yield* manifestKeysRecognizedRule.check(
         makeContext({ packJson: undefined }),

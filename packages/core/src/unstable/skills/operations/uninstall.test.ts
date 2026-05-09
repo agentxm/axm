@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import * as Schema from "effect/Schema";
-import type { ExtensionPackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
+import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
 import { RenderedFilePathSchema } from "../../extensions/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
 import {
@@ -19,7 +19,7 @@ import {
 } from "../../workspace/service-interface.js";
 import {
   makeBaseWorkspaceMock,
-  makeRegistryExtensionPackLockEntry,
+  makeRegistryPackLockEntry,
   makeRegistrySkillLockEntry,
 } from "../../workspace/test-stubs.js";
 import { exactVersion, getAppError, handle } from "../../test-helpers.js";
@@ -42,7 +42,7 @@ const makeWorkspaceMock = (
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    lockedPacks?: Record<string, ExtensionPackLockEntry>;
+    lockedPacks?: Record<string, PackLockEntry>;
   },
 ): WorkspaceMutationsService => {
   let skills: Record<string, SkillLockEntry> = { ...lockfileSkills };
@@ -51,7 +51,7 @@ const makeWorkspaceMock = (
   const removeSkillFn = overrides?.removeSkillFn;
   const removeSkillErrorOverride = overrides?.removeSkillErrorOverride;
   const removeSkillFromSettingsFn = overrides?.removeSkillFromSettingsFn;
-  const lockedPacks: Record<string, ExtensionPackLockEntry> = overrides?.lockedPacks ?? {};
+  const lockedPacks: Record<string, PackLockEntry> = overrides?.lockedPacks ?? {};
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; skills: Record<string, unknown> } = {
@@ -123,7 +123,7 @@ const makeWorkspaceMock = (
               // Settings-only removal: keep skill in lockfile/disk
               void name;
             }),
-    getLockedExtensionPacks: () => Effect.succeed(lockedPacks),
+    getLockedPacks: () => Effect.succeed(lockedPacks),
     getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
@@ -138,7 +138,7 @@ const withServices = (
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    lockedPacks?: Record<string, ExtensionPackLockEntry>;
+    lockedPacks?: Record<string, PackLockEntry>;
   },
 ) => {
   return Layer.mergeAll(
@@ -688,7 +688,7 @@ describe("uninstallSkill", () => {
   describe("ownership-aware uninstall — pack references", () => {
     /** Creates a pack lock entry with resolvedSkills. */
     const makePackLockEntry = (resolvedSkills: Record<string, string>) =>
-      makeRegistryExtensionPackLockEntry({
+      makeRegistryPackLockEntry({
         owner: handle("@acme"),
         name: "starter-pack",
         sourceName: "local",

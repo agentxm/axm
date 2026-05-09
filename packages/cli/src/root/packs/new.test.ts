@@ -89,7 +89,7 @@ describe("packs-new.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -116,7 +116,7 @@ describe("packs-new.handler", () => {
             {
               task: "edit",
               description:
-                "Edit `.axm/extensions/@acme/packs/frontend-tools/extension-pack.json` to fill in pack contents",
+                "Edit `.axm/extensions/@acme/packs/frontend-tools/pack.json` to fill in pack contents",
             },
             {
               task: "sync",
@@ -146,7 +146,7 @@ describe("packs-new.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(false);
 
@@ -180,7 +180,7 @@ describe("packs-new.handler", () => {
             "@corp",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -207,7 +207,7 @@ describe("packs-new.handler", () => {
             "@corp",
             "packs",
             "my-pack",
-            "extension-pack.json",
+            "pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -243,7 +243,7 @@ describe("packs-new.handler", () => {
       // Pre-create the manifest
       const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "frontend-tools");
       fs.mkdirSync(packDir, { recursive: true });
-      fs.writeFileSync(path.join(packDir, "extension-pack.json"), "{}");
+      fs.writeFileSync(path.join(packDir, "pack.json"), "{}");
 
       return provide(
         Effect.gen(function* () {

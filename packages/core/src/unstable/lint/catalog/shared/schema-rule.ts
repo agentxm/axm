@@ -122,7 +122,7 @@ const describeSchemaDocument = (file: string): string => {
   switch (file) {
     case "skill.json":
       return "Skill manifest";
-    case "extension-pack.json":
+    case "pack.json":
       return "Pack manifest";
     default:
       return "Document";

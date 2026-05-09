@@ -23,7 +23,7 @@ import {
   ResolvePlanInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import type { ExtensionPackRef } from "@agentxm/client-core/unstable/packs";
+import type { PackRef } from "@agentxm/client-core/unstable/packs";
 import type { ExtensionFiles } from "@agentxm/client-core/unstable/sources";
 import {
   SourceHostProvidersLive,
@@ -38,7 +38,7 @@ import {
 } from "./command-actions.js";
 import type { PackInstallHandlerArgs } from "./handler.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -159,7 +159,7 @@ describe("packs install handler", () => {
     );
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const ManagersLayer = Layer.mergeAll(
-      ExtensionPackManagerLive,
+      PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
@@ -207,7 +207,7 @@ describe("packs install handler", () => {
     );
     const SPLayer = Layer.succeed(SourceHostProviders, mockService);
     const ManagersLayer = Layer.mergeAll(
-      ExtensionPackManagerLive,
+      PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
@@ -422,7 +422,7 @@ describe("packs install handler", () => {
 
   describe("already installed", () => {
     it.effect("creates install plan for already-installed pack", () => {
-      const packRef: ExtensionPackRef = {
+      const packRef: PackRef = {
         type: "pack",
         refType: "registry",
         pack: {
@@ -528,7 +528,7 @@ describe("packs install handler", () => {
     });
 
     it.effect("shows per-extension compatiblePackages alongside extension names", () => {
-      const packRef: ExtensionPackRef = {
+      const packRef: PackRef = {
         type: "pack",
         refType: "registry",
         pack: {
@@ -600,7 +600,7 @@ describe("packs install handler", () => {
     });
 
     it.effect("shows no compatibility info when extensions have no compatiblePackages", () => {
-      const packRef: ExtensionPackRef = {
+      const packRef: PackRef = {
         type: "pack",
         refType: "registry",
         pack: {
@@ -686,7 +686,7 @@ describe("packs install handler", () => {
         commands?: ReturnType<typeof dependencyConstraintMap>;
         mcpServers?: ReturnType<typeof dependencyConstraintMap>;
       },
-    ): ExtensionPackRef => ({
+    ): PackRef => ({
       type: "pack",
       refType: "registry",
       pack: {

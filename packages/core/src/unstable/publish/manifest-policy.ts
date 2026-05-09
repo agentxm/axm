@@ -15,10 +15,7 @@ import {
   McpServerManifestSchema,
   MCP_SERVER_MANIFEST_FILENAME,
 } from "../mcp-servers/manifest-schema.js";
-import {
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  ExtensionPackManifestSchema,
-} from "../packs/manifest-schema.js";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
 import {
   SkillManifestSchema,
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
@@ -52,7 +49,7 @@ export const manifestFilenameForType = (type: string): string | undefined => {
     case "subagent":
       return SUBAGENT_MANIFEST_FILENAME;
     case "pack":
-      return EXTENSION_PACK_MANIFEST_FILENAME;
+      return PACK_MANIFEST_FILENAME;
     default:
       return undefined;
   }
@@ -83,7 +80,7 @@ export const manifestSchemaForType = (type: string) => {
     case "subagent":
       return SubagentManifestSchema;
     case "pack":
-      return ExtensionPackManifestSchema;
+      return PackManifestSchema;
     default:
       return undefined;
   }

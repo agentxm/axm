@@ -7,10 +7,10 @@
  */
 
 import type * as Option from "effect/Option";
-import type { ExtensionPackRef } from "@agentxm/client-core/unstable/packs";
+import type { PackRef } from "@agentxm/client-core/unstable/packs";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 
 export interface InstallPackCommandIntent {
-  readonly packToInstall: ExtensionPackRef;
+  readonly packToInstall: PackRef;
   readonly versionRange: Option.Option<VersionRange>;
 }

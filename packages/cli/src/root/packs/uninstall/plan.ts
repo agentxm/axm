@@ -1,7 +1,7 @@
 /**
  * Pack-specific uninstall plan builder.
  *
- * Diffs UninstallExtensionPackOperations against lockfile state to produce a Plan with
+ * Diffs UninstallPackOperations against lockfile state to produce a Plan with
  * inline run closures. Installed packs become ready steps; missing packs become
  * no-op success steps. Removable skills/commands/mcp-servers (orphaned by the
  * uninstall) become ready uninstall steps.
@@ -14,14 +14,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
-import type { Lockfile, ExtensionPackLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { Lockfile, PackLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { uninstallSkill, type UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import {
-  uninstallExtensionPack,
-  type UninstallExtensionPackOperation,
-} from "@agentxm/client-core/unstable/packs";
+import { uninstallPack, type UninstallPackOperation } from "@agentxm/client-core/unstable/packs";
 import {
   uninstallCommand,
   type UninstallCommandOperation,
@@ -37,7 +34,7 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
  * Union of operation types produced by the pack uninstall plan builder.
  */
 export type PackUninstallOp =
-  | UninstallExtensionPackOperation
+  | UninstallPackOperation
   | UninstallSkillOperation
   | UninstallCommandOperation
   | UninstallMcpServerOperation;
@@ -55,10 +52,10 @@ const simpleNameFromFqn = (fqn: string): string => {
  * minus those still referenced by remaining packs, minus directly configured ones.
  */
 const computeOrphanedFqns = (
-  lockedPacks: Record<string, ExtensionPackLockEntry>,
+  lockedPacks: Record<string, PackLockEntry>,
   removingNames: ReadonlySet<string>,
   configured: ReadonlyArray<string>,
-  getResolvedFqns: (entry: ExtensionPackLockEntry) => Record<string, string>,
+  getResolvedFqns: (entry: PackLockEntry) => Record<string, string>,
 ): {
   readonly removable: ReadonlyArray<string>;
   readonly preservedConfigured: ReadonlyArray<string>;
@@ -99,7 +96,7 @@ const computeOrphanedFqns = (
  */
 export interface BuildUninstallPlanArgs {
   /** Uninstall operations to plan */
-  readonly ops: ReadonlyArray<UninstallExtensionPackOperation>;
+  readonly ops: ReadonlyArray<UninstallPackOperation>;
   /** Current lockfile state for installed-pack detection */
   readonly lockfile: Lockfile;
   /** Directly configured skill names (protected from orphan removal) */
@@ -171,7 +168,7 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
       return {
         readiness: "ready",
         label: op.args.packName,
-        run: provideServices(uninstallExtensionPack(op)),
+        run: provideServices(uninstallPack(op)),
       };
     });
 

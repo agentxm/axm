@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { REGISTRY_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extensions";
-import { EXTENSION_PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
@@ -175,7 +175,7 @@ const writeInstalledPackManifest = ({
   const dir = path.join(workspaceRoot, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
-    path.join(dir, EXTENSION_PACK_MANIFEST_FILENAME),
+    path.join(dir, PACK_MANIFEST_FILENAME),
     JSON.stringify(
       {
         owner,

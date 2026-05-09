@@ -108,7 +108,7 @@ describe("normalizePublishInput", () => {
     Effect.gen(function* () {
       const zip = buildZip([
         {
-          fileName: "extension-pack.json",
+          fileName: "pack.json",
           content: textContent(
             JSON.stringify({
               owner: "@acme",

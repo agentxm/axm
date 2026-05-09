@@ -11,9 +11,9 @@ import {
   McpServersMapSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,
-  ExtensionPackEntryObjectSchema,
-  ExtensionPackEntrySchema,
-  ExtensionPacksMapSchema,
+  PackEntryObjectSchema,
+  PackEntrySchema,
+  PacksMapSchema,
   SettingsSchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
@@ -882,10 +882,10 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("ExtensionPackEntrySchema", () => {
+  describe("PackEntrySchema", () => {
     describe("decode", () => {
       it("decodes a plain string to normalized entry", () => {
-        const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)(
+        const result = Schema.decodeUnknownSync(PackEntrySchema)(
           "@wayne/packs/utility-belt@^1.0.0",
         );
 
@@ -896,7 +896,7 @@ describe("Settings schema", () => {
       });
 
       it("decodes an object with source", () => {
-        const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)({
+        const result = Schema.decodeUnknownSync(PackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
         });
 
@@ -907,7 +907,7 @@ describe("Settings schema", () => {
       });
 
       it("decodes an object with authored true", () => {
-        const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)({
+        const result = Schema.decodeUnknownSync(PackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
           authored: true,
         });
@@ -919,23 +919,21 @@ describe("Settings schema", () => {
       });
 
       it("rejects invalid object with managed field", () => {
-        expect(() =>
-          Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ managed: false }),
-        ).toThrow();
+        expect(() => Schema.decodeUnknownSync(PackEntrySchema)({ managed: false })).toThrow();
       });
 
       it("rejects a number", () => {
-        expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)(42)).toThrow();
+        expect(() => Schema.decodeUnknownSync(PackEntrySchema)(42)).toThrow();
       });
 
       it("rejects object without source", () => {
-        expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ foo: "bar" })).toThrow();
+        expect(() => Schema.decodeUnknownSync(PackEntrySchema)({ foo: "bar" })).toThrow();
       });
     });
 
     describe("encode", () => {
       it("encodes non-authored entry to string", () => {
-        const result = Schema.encodeSync(ExtensionPackEntrySchema)({
+        const result = Schema.encodeSync(PackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
           authored: false,
         });
@@ -943,7 +941,7 @@ describe("Settings schema", () => {
       });
 
       it("encodes authored entry to object", () => {
-        const result = Schema.encodeSync(ExtensionPackEntrySchema)({
+        const result = Schema.encodeSync(PackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
           authored: true,
         });
@@ -955,9 +953,9 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("ExtensionPackEntryObjectSchema", () => {
+  describe("PackEntryObjectSchema", () => {
     it("accepts an object with source", () => {
-      const result = Schema.decodeUnknownSync(ExtensionPackEntryObjectSchema)({
+      const result = Schema.decodeUnknownSync(PackEntryObjectSchema)({
         source: "@wayne/packs/utility-belt@^1.0.0",
       });
 
@@ -965,10 +963,10 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("ExtensionPacksMap schema (pack name validation)", () => {
+  describe("PacksMap schema (pack name validation)", () => {
     it("accepts valid pack name with string entry", () => {
       const input = { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" };
-      const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
+      const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
         "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
@@ -977,7 +975,7 @@ describe("Settings schema", () => {
 
     it("accepts valid pack name with object entry", () => {
       const input = { "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } };
-      const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
+      const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
         "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
@@ -985,7 +983,7 @@ describe("Settings schema", () => {
     });
 
     it("accepts empty packs map", () => {
-      const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)({});
+      const result = Schema.decodeUnknownSync(PacksMapSchema)({});
 
       expect(result).toEqual({});
     });
@@ -993,20 +991,20 @@ describe("Settings schema", () => {
     it("rejects pack name starting with hyphen", () => {
       const input = { "-invalid": "@wayne/packs/pack@^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
     });
 
     it("rejects pack name with uppercase letters", () => {
       const input = { MyPack: "@wayne/packs/pack@^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
     });
 
     it("rejects pack name over 64 characters", () => {
       const name = "a".repeat(65);
       const input = { [name]: "@wayne/packs/pack@^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
     });
   });
 

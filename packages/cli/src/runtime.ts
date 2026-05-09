@@ -25,7 +25,7 @@ import {
   quietFlag,
 } from "@agentxm/client-core/unstable/cli-flags";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -228,7 +228,7 @@ const makeWorkspaceProgramLayer = (
   );
   const packsLayer = Layer.provideMerge(
     Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
-    ExtensionPackManagerLive,
+    PackManagerLive,
   );
   const coreExtensions = Layer.mergeAll(
     commandsLayer,

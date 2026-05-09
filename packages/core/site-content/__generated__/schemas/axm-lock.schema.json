@@ -37,7 +37,7 @@
         }
       ]
     },
-    "ExtensionPackLockEntry": {
+    "PackLockEntry": {
       "type": "object",
       "properties": {
         "type": { "type": "string", "enum": ["registry"] },
@@ -80,8 +80,8 @@
         "resolvedSubagents"
       ],
       "additionalProperties": false,
-      "title": "Extension Pack Lock Entry",
-      "description": "Pinned version info for an installed extension pack from a registry."
+      "title": "Pack Lock Entry",
+      "description": "Pinned version info for an installed pack from a registry."
     },
     "Lockfile": {
       "type": "object",
@@ -1248,10 +1248,7 @@
         },
         "packs": {
           "anyOf": [
-            {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/definitions/ExtensionPackLockEntry" }
-            },
+            { "type": "object", "additionalProperties": { "$ref": "#/definitions/PackLockEntry" } },
             { "type": "null" }
           ]
         }

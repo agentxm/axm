@@ -115,7 +115,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const retentionPolicy = {
           isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
-            ws.isExtensionRequiredByInstalledExtensionPack(args.target),
+            ws.isExtensionRequiredByInstalledPack(args.target),
           markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
             ws.markDependencyRetainedInLockfile(args.target),
         };

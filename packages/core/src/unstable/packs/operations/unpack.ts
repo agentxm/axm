@@ -1,8 +1,8 @@
 /**
- * Unpack extension pack operation handler.
+ * Unpack pack operation handler.
  *
- * Flattens an extension pack's resolved extensions into settings.json as direct entries,
- * preserves existing direct entries, and removes the extension pack entry from settings
+ * Flattens a pack's resolved extensions into settings.json as direct entries,
+ * preserves existing direct entries, and removes the pack entry from settings
  * and lockfile.
  *
  * @experimental This API is unstable and may change without notice.
@@ -23,22 +23,19 @@ import { parseFqn } from "../../extensions/index.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the unpack extension pack operation.
+ * Args for the unpack pack operation.
  */
-export type UnpackExtensionPackOperationArgs = {
+export type UnpackPackOperationArgs = {
   /** Pack FQN to unpack. */
   readonly name: string;
 };
 
 /**
- * Unpack an extension pack into direct settings entries.
+ * Unpack a pack into direct settings entries.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type UnpackExtensionPackOperation = Operation<
-  "unpack-pack",
-  UnpackExtensionPackOperationArgs
->;
+export type UnpackPackOperation = Operation<"unpack-pack", UnpackPackOperationArgs>;
 
 // -----------------------------------------------------------------------------
 // Operation Handler
@@ -47,29 +44,26 @@ export type UnpackExtensionPackOperation = Operation<
 /**
  * Unpack operation handler.
  *
- * 1. Look up extension pack in lockfile for resolved extensions
+ * 1. Look up pack in lockfile for resolved extensions
  * 2. Read current settings to find existing direct skill entries
  * 3. Add resolved skills as direct entries (skip existing)
- * 4. Remove extension extension pack from settings and lockfile
+ * 4. Remove pack from settings and lockfile
  */
-export const unpackExtensionPack: OperationHandler<
-  UnpackExtensionPackOperation,
-  WorkspaceMutations
-> = (op) =>
+export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutations> = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
 
-    // Look up the extension pack in the lockfile
-    const lockedPack = yield* ws.getLockedExtensionPack(op.args.name);
+    // Look up the pack in the lockfile
+    const lockedPack = yield* ws.getLockedPack(op.args.name);
 
     if (Option.isNone(lockedPack)) {
       return yield* makeAppError({
         code: "internal",
-        message: `Extension pack "${op.args.name}" is not installed`,
+        message: `Pack "${op.args.name}" is not installed`,
         breadcrumbs: [
           {
             task: "Recover",
-            description: "Install the extension pack first with `axm packs install`.",
+            description: "Install the pack first with `axm packs install`.",
           },
         ],
       });
@@ -80,7 +74,7 @@ export const unpackExtensionPack: OperationHandler<
     if (entry.type !== "registry") {
       return yield* makeAppError({
         code: "internal",
-        message: `Cannot unpack "${op.args.name}" — only registry extension packs can be unpacked`,
+        message: `Cannot unpack "${op.args.name}" — only registry packs can be unpacked`,
       });
     }
 
@@ -171,8 +165,8 @@ export const unpackExtensionPack: OperationHandler<
       { concurrency: 1 },
     );
 
-    // Remove the extension pack entry from settings and lockfile
-    yield* ws.removeExtensionPack(op.args.name);
+    // Remove the pack entry from settings and lockfile
+    yield* ws.removePack(op.args.name);
 
     const skillCount = Object.keys(entry.resolvedSkills).length;
     const commandCount = Object.keys(entry.resolvedCommands).length;

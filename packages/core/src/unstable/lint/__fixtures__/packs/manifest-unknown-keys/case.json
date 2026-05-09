@@ -4,13 +4,13 @@
     {
       "ruleId": "pack/manifest-keys-recognized",
       "severity": "warning",
-      "file": "extension-pack.json",
+      "file": "pack.json",
       "messageIncludes": "made_up_key"
     },
     {
       "ruleId": "pack/manifest-keys-recognized",
       "severity": "warning",
-      "file": "extension-pack.json",
+      "file": "pack.json",
       "messageIncludes": "another_unknown"
     }
   ]

@@ -1,8 +1,8 @@
 /**
- * Install extension pack operation handler.
+ * Install pack operation handler.
  *
- * Fetches the extension pack archive, extracts to the managed location, and
- * writes extension pack metadata to settings and lockfile.
+ * Fetches the pack archive, extracts to the managed location, and
+ * writes pack metadata to settings and lockfile.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -21,7 +21,7 @@ import {
   validateExactResolvedVersionMap,
 } from "../../lockfile/index.js";
 import type { Version } from "../../version-constraints/version-constraints.js";
-import type { ExtensionPackRef } from "../refs.js";
+import type { PackRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
@@ -29,11 +29,11 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
-import { computeExtensionPackPaths } from "../paths.js";
+import { computePackPaths } from "../paths.js";
 import {
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  type ExtensionPackManifest,
-  ExtensionPackManifestSchema,
+  PACK_MANIFEST_FILENAME,
+  type PackManifest,
+  PackManifestSchema,
 } from "../manifest-schema.js";
 
 // -----------------------------------------------------------------------------
@@ -41,9 +41,9 @@ import {
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the install extension pack operation.
+ * Args for the install pack operation.
  */
-export interface InstallExtensionPackOperationArgs {
+export interface InstallPackOperationArgs {
   /** Pack name (e.g., "my-pack") */
   readonly packName: string;
   /** Pack owner (e.g., "@acme") */
@@ -65,18 +65,15 @@ export interface InstallExtensionPackOperationArgs {
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionRange: Option<string>;
   /** Pack extension ref for fetching the archive. */
-  readonly ref: ExtensionPackRef;
+  readonly ref: PackRef;
 }
 
 /**
- * Add an extension pack to the workspace.
+ * Add a pack to the workspace.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type InstallExtensionPackOperation = Operation<
-  "install-pack",
-  InstallExtensionPackOperationArgs
->;
+export type InstallPackOperation = Operation<"install-pack", InstallPackOperationArgs>;
 
 const PACK_DEPENDENCY_SECTIONS = [
   ["skills", "resolvedSkills"],
@@ -86,8 +83,8 @@ const PACK_DEPENDENCY_SECTIONS = [
 ] as const;
 
 const collectMissingResolvedDependencies = (
-  manifest: ExtensionPackManifest,
-  op: InstallExtensionPackOperation,
+  manifest: PackManifest,
+  op: InstallPackOperation,
 ): ReadonlyArray<string> =>
   PACK_DEPENDENCY_SECTIONS.flatMap(([manifestKey, resolvedKey]) =>
     Object.keys(manifest[manifestKey] ?? {}).filter(
@@ -96,14 +93,14 @@ const collectMissingResolvedDependencies = (
   );
 
 /**
- * Install extension pack operation handler.
+ * Install pack operation handler.
  *
- * Fetches the extension pack archive via sources.fetch(), extracts to the managed
- * extension pack location (.axm/extensions/@owner/packs/pack-name/), then records
- * the extension pack in settings and lockfile.
+ * Fetches the pack archive via sources.fetch(), extracts to the managed
+ * pack location (.axm/extensions/@owner/packs/pack-name/), then records
+ * the pack in settings and lockfile.
  */
-export const installExtensionPack: OperationHandler<
-  InstallExtensionPackOperation,
+export const installPack: OperationHandler<
+  InstallPackOperation,
   WorkspaceMutations | CliRenderer | SourceHostProviders | FileSystem.FileSystem | Path.Path
 > = (op) =>
   Effect.gen(function* () {
@@ -135,7 +132,7 @@ export const installExtensionPack: OperationHandler<
     );
 
     // Extract to managed location
-    const packDir = computeExtensionPackPaths(
+    const packDir = computePackPaths(
       path.join,
       ws.baseDir,
       op.args.owner,
@@ -149,18 +146,18 @@ export const installExtensionPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "network",
-              message: `Failed to fetch extension pack archive: ${error.message}`,
+              message: `Failed to fetch pack archive: ${error.message}`,
               cause: error,
             }),
           ),
         );
 
-        const manifestPath = path.join(fetched.directory, EXTENSION_PACK_MANIFEST_FILENAME);
+        const manifestPath = path.join(fetched.directory, PACK_MANIFEST_FILENAME);
         const manifestContent = yield* fs.readFileString(manifestPath).pipe(
           Effect.mapError((error) =>
             makeAppError({
               code: "internal",
-              message: `Failed to read fetched extension pack manifest: ${manifestPath}`,
+              message: `Failed to read fetched pack manifest: ${manifestPath}`,
               cause: error,
             }),
           ),
@@ -173,17 +170,15 @@ export const installExtensionPack: OperationHandler<
           catch: (error) =>
             makeAppError({
               code: "validation",
-              message: `Invalid JSON in fetched extension pack manifest: ${manifestPath}`,
+              message: `Invalid JSON in fetched pack manifest: ${manifestPath}`,
               cause: error,
             }),
         });
-        const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(
-          manifestJson,
-        ).pipe(
+        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(manifestJson).pipe(
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `Invalid fetched extension pack manifest: ${manifestPath}`,
+              message: `Invalid fetched pack manifest: ${manifestPath}`,
               cause: error,
             }),
           ),
@@ -193,12 +188,12 @@ export const installExtensionPack: OperationHandler<
         if (missingDependencies.length > 0) {
           return yield* makeAppError({
             code: "internal",
-            message: `Extension pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
+            message: `Pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
             breadcrumbs: [
               {
                 task: "Recover",
                 description:
-                  "Republish the extension pack or repair the registry metadata before installing this pack.",
+                  "Republish the pack or repair the registry metadata before installing this pack.",
               },
             ],
           });
@@ -208,7 +203,7 @@ export const installExtensionPack: OperationHandler<
           Effect.mapError((e) =>
             makeAppError({
               code: "internal",
-              message: `Failed to extract extension pack to ${packDir}`,
+              message: `Failed to extract pack to ${packDir}`,
               cause: e,
             }),
           ),
@@ -218,7 +213,7 @@ export const installExtensionPack: OperationHandler<
 
     // Write lockfile + settings
     yield* ws
-      .setExtensionPack({
+      .setPack({
         owner: op.args.owner,
         name: decodeExtensionNameSync(op.args.packName),
         resolvedVersion: op.args.resolvedVersion,
@@ -232,19 +227,17 @@ export const installExtensionPack: OperationHandler<
         resolvedSubagents: op.args.resolvedSubagents,
         versionRange: op.args.versionRange,
       })
-      .pipe(
-        Effect.catch((e) => renderer.warn(`Extension pack metadata update failed: ${String(e)}`)),
-      );
+      .pipe(Effect.catch((e) => renderer.warn(`Pack metadata update failed: ${String(e)}`)));
 
     return {
       result: "success",
-      message: `Installed extension pack ${op.args.packName}`,
+      message: `Installed pack ${op.args.packName}`,
     } satisfies JobStepResult;
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({
         result: "error",
-        message: `Failed to install extension pack: ${error.message}`,
+        message: `Failed to install pack: ${error.message}`,
         error,
       } satisfies JobStepResult),
     ),

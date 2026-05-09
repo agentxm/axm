@@ -44,7 +44,7 @@ describe("manifestFilenameForType", () => {
     expect(manifestFilenameForType("command")).toBe("command.json");
     expect(manifestFilenameForType("mcp-server")).toBe("mcp-server.json");
     expect(manifestFilenameForType("subagent")).toBe("subagent.json");
-    expect(manifestFilenameForType("pack")).toBe("extension-pack.json");
+    expect(manifestFilenameForType("pack")).toBe("pack.json");
   });
 });
 
@@ -130,8 +130,8 @@ describe("resolveManifest", () => {
 
       const resolved = yield* resolveManifest({
         type: "pack",
-        entries: [makeEntry("extension-pack.json")],
-        readEntry: makeReadEntry({ "extension-pack.json": manifest }),
+        entries: [makeEntry("pack.json")],
+        readEntry: makeReadEntry({ "pack.json": manifest }),
       });
 
       expect(resolved.identity.name).toBe("my-pack");

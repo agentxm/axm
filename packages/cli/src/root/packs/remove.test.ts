@@ -50,10 +50,7 @@ const createPackManifest = (
     commands: manifest["commands"] ?? {},
     "mcp-servers": manifest["mcp-servers"] ?? {},
   };
-  fs.writeFileSync(
-    path.join(packDir, "extension-pack.json"),
-    JSON.stringify(normalizedManifest, null, 2),
-  );
+  fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(normalizedManifest, null, 2));
   return packDir;
 };
 
@@ -121,7 +118,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
@@ -161,7 +158,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
@@ -204,7 +201,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "my-pack",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/effect-basics"]).toBeUndefined();
@@ -233,7 +230,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(defaultArgs("my-pack", "nonexistent-*")).pipe(
             Effect.flip,
           );
-          expect(getAppError(error).message).toContain("No extensions in extension pack match");
+          expect(getAppError(error).message).toContain("No extensions in pack match");
         }),
       );
     });
@@ -273,7 +270,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
@@ -304,7 +301,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(
             defaultArgs("my-pack", "@acme/skills/nonexistent"),
           ).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("not in the extension pack");
+          expect(getAppError(error).message).toContain("not in the pack");
         }),
       );
     });

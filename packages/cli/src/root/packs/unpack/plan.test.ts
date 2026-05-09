@@ -25,7 +25,7 @@ import { exactVersion, extensionName, makeBaseWorkspaceMock } from "../../../tes
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
 import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcp-servers";
-import type { UninstallExtensionPackOperation } from "@agentxm/client-core/unstable/packs";
+import type { UninstallPackOperation } from "@agentxm/client-core/unstable/packs";
 import { buildUnpackPlan } from "./plan.js";
 
 const ACME = normalizeHandle("@acme");
@@ -109,7 +109,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
   },
 });
 
-const makeUninstallPackOp = (name: string): UninstallExtensionPackOperation => ({
+const makeUninstallPackOp = (name: string): UninstallPackOperation => ({
   name: "uninstall-pack",
   args: { packName: name },
 });

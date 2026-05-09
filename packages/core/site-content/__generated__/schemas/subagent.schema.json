@@ -93,7 +93,7 @@
           "anyOf": [
             {
               "type": "array",
-              "description": "Extension packs this extension is intended to work with, as extension specs (e.g. @owner/packs/name or @owner/packs/name@^1.0.0).",
+              "description": "Packs this extension is intended to work with, as extension specs (e.g. @owner/packs/name or @owner/packs/name@^1.0.0).",
               "items": { "$ref": "#/definitions/ExtensionSpec" }
             },
             { "type": "null" }
@@ -103,7 +103,7 @@
           "anyOf": [
             {
               "type": "boolean",
-              "description": "Whether this extension is designed to work without an extension pack. Defaults to true when omitted."
+              "description": "Whether this extension is designed to work without a pack. Defaults to true when omitted."
             },
             { "type": "null" }
           ]

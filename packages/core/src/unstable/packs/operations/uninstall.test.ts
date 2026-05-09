@@ -13,8 +13,8 @@ import {
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
-import type { UninstallExtensionPackOperation } from "./uninstall.js";
-import { uninstallExtensionPack } from "./uninstall.js";
+import type { UninstallPackOperation } from "./uninstall.js";
+import { uninstallPack } from "./uninstall.js";
 import { handle } from "../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -33,7 +33,7 @@ const makeWorkspaceMock = (axmDir: string): WorkspaceMutationsService =>
     getConfiguredAgents: () => Effect.succeed([]),
   });
 
-const makeOp = (packName = "testing"): UninstallExtensionPackOperation => ({
+const makeOp = (packName = "testing"): UninstallPackOperation => ({
   name: "uninstall-pack",
   args: { packName },
 });
@@ -50,7 +50,7 @@ const makeLayer = (axmDir: string) => {
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("uninstallExtensionPack — orphaned folder cleanup", () => {
+describe("uninstallPack — orphaned folder cleanup", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -73,7 +73,7 @@ describe("uninstallExtensionPack — orphaned folder cleanup", () => {
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(path.join(packDir, "pack.json"), "{}");
 
-        const result = yield* uninstallExtensionPack(makeOp("testing")).pipe(
+        const result = yield* uninstallPack(makeOp("testing")).pipe(
           Effect.provide(makeLayer(axmDir)),
         );
 
@@ -90,7 +90,7 @@ describe("uninstallExtensionPack — orphaned folder cleanup", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const result = yield* uninstallExtensionPack(makeOp("testing")).pipe(
+        const result = yield* uninstallPack(makeOp("testing")).pipe(
           Effect.provide(makeLayer(axmDir)),
         );
 
@@ -116,7 +116,7 @@ describe("uninstallExtensionPack — orphaned folder cleanup", () => {
         fs.mkdirSync(barPackDir, { recursive: true });
         fs.writeFileSync(path.join(barPackDir, "pack.json"), "{}");
 
-        const result = yield* uninstallExtensionPack(makeOp("testing")).pipe(
+        const result = yield* uninstallPack(makeOp("testing")).pipe(
           Effect.provide(makeLayer(axmDir)),
         );
 

@@ -68,7 +68,7 @@ const createManagedPack = (
     name,
     version: manifest["version"] ?? "0.0.1",
   };
-  fs.writeFileSync(path.join(packDir, "extension-pack.json"), JSON.stringify(normalizedManifest));
+  fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(normalizedManifest));
   return packDir;
 };
 
@@ -465,9 +465,9 @@ describe("packs publish.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.message).toContain("Managed extension pack not found");
+          expect(errorResult.message).toContain("Managed pack not found");
           expect(errorResult.guidance).toContain("axm packs new");
-          expect(rendererState.spinnerMessages).toContain("Validating extension pack...");
+          expect(rendererState.spinnerMessages).toContain("Validating pack...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),
       );

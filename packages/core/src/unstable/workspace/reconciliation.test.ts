@@ -14,7 +14,7 @@ import { extensionName, handle } from "../test-helpers.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
-import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
+import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import {
   buildReconciliationSnapshot,
@@ -28,7 +28,7 @@ const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, [
   commandReconciliationAdapter,
   subagentReconciliationAdapter,
   mcpServerReconciliationAdapter,
-  extensionPackReconciliationAdapter,
+  packReconciliationAdapter,
 ]);
 const testLayer = Layer.mergeAll(NodeServices.layer, reconciliationAdaptersLayer);
 

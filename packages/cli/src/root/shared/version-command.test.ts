@@ -30,7 +30,7 @@ const MANIFEST_FILES = {
   skills: { filename: "skill.json", type: "skill" },
   subagents: { filename: "subagent.json", type: "subagent" },
   "mcp-servers": { filename: "mcp-server.json", type: "mcp-server" },
-  packs: { filename: "extension-pack.json", type: "pack" },
+  packs: { filename: "pack.json", type: "pack" },
 } as const;
 
 type ManifestPlural = keyof typeof MANIFEST_FILES;

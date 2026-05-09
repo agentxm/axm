@@ -1,6 +1,6 @@
 /**
- * `pack/manifest-schema-valid` — `extension-pack.json` conforms to
- * `ExtensionPackManifestSchema`.
+ * `pack/manifest-schema-valid` — `pack.json` conforms to
+ * `PackManifestSchema`.
  *
  * Delegates to Effect Schema per `docs/design/lint-engine.md §4`
  * ("Schema-valid rules delegate to Effect Schema"). Issues map 1:1 to
@@ -12,7 +12,7 @@
  *   `pack/manifest-present`).
  *
  * Dependency-map FQN grammar and `VersionRange` decode arms are owned by
- * `ExtensionPackManifestSchema` itself — the dependency sections are typed
+ * `PackManifestSchema` itself — the dependency sections are typed
  * `Record<FQN, VersionRange>` so unknown FQNs, malformed grammar, and
  * bad semver ranges surface as normal schema issues through the shared
  * `schemaDecodeFindings` plumbing.
@@ -23,23 +23,17 @@
 
 import type { PackRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
-import { ExtensionPackManifestSchema } from "../../../packs/manifest-schema.js";
+import { PackManifestSchema } from "../../../packs/manifest-schema.js";
 import { schemaDecodeFindings } from "../shared/schema-rule.js";
 
 const RULE_ID = "pack/manifest-schema-valid";
-const EXTENSION_PACK_JSON = "extension-pack.json";
+const PACK_JSON = "pack.json";
 
 export const manifestSchemaValidRule: AdvisoryRule<PackRuleContext> = {
   id: RULE_ID,
-  description: "extension-pack.json defines a valid pack manifest.",
+  description: "pack.json defines a valid pack manifest.",
   kind: "advisory",
   severity: "error",
   check: (context) =>
-    schemaDecodeFindings(
-      RULE_ID,
-      "error",
-      EXTENSION_PACK_JSON,
-      ExtensionPackManifestSchema,
-      context.subject.packJson,
-    ),
+    schemaDecodeFindings(RULE_ID, "error", PACK_JSON, PackManifestSchema, context.subject.packJson),
 };

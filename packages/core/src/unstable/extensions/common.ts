@@ -132,7 +132,7 @@ export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
   subagent: "subagent",
   file: "file",
   rule: "rule",
-  pack: "extension pack",
+  pack: "pack",
 };
 
 export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, string> = {
@@ -142,7 +142,7 @@ export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, stri
   subagents: "subagents",
   files: "files",
   rules: "rules",
-  packs: "extension packs",
+  packs: "packs",
 };
 
 const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|");
@@ -398,7 +398,7 @@ export const CommonManifestBaseFields = {
 /**
  * Fields shared across non-pack extension manifests (skills, commands,
  * MCP servers, subagents). These describe how an extension relates to
- * extension packs.
+ * packs.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -407,7 +407,7 @@ export const NonPackManifestFields = {
     Schema.Array(ExtensionSpecSchema).pipe(
       Schema.annotate({
         description:
-          "Extension packs this extension is intended to work with, as extension specs (e.g. @owner/packs/name or @owner/packs/name@^1.0.0).",
+          "Packs this extension is intended to work with, as extension specs (e.g. @owner/packs/name or @owner/packs/name@^1.0.0).",
       }),
     ),
   ),
@@ -415,7 +415,7 @@ export const NonPackManifestFields = {
     Schema.Boolean.pipe(
       Schema.annotate({
         description:
-          "Whether this extension is designed to work without an extension pack. Defaults to true when omitted.",
+          "Whether this extension is designed to work without a pack. Defaults to true when omitted.",
       }),
     ),
   ),

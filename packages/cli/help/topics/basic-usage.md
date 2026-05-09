@@ -3,7 +3,7 @@
 AXM is an agent extension manager for coding agents and AI assistants.
 
 - One tool to manage agent skills, subagents, commands, and more across agents.
-- Bundle skills, subagents, commands and more with extension packs
+- Bundle skills, subagents, commands and more with packs
 - Package and publish your extensions to the AgentXM.ai registry
 - Discover and distribute agent extensions for your platform package ecosystems, including JavaScript, Python, Rust, Java, .NET, Ruby, Go, and more
 
@@ -14,7 +14,7 @@ The best way to use AXM is just to ask your agent to do it:
 - "Create a new skill to do <x>"
 - "Update subagent to do <y>"
 - "Disable the doomscroll skill"
-- "Publish a new extension pack with my karate-shihan subagent, rei command, and nunchuck skill"
+- "Publish a new pack with my karate-shihan subagent, rei command, and nunchuck skill"
 
 Use `axm help` to see a list of topics on how to use AXM for your specific use case.
 

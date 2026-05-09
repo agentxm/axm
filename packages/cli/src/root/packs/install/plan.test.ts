@@ -23,7 +23,7 @@ import type { Version } from "@agentxm/client-core/unstable/version-constraints"
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
 import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcp-servers";
-import type { RegistryExtensionPackRef } from "@agentxm/client-core/unstable/packs";
+import type { RegistryPackRef } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -31,7 +31,7 @@ import {
   extensionName,
   exactVersion,
   makeBaseWorkspaceMock,
-  makeRegistryExtensionPackLockEntry,
+  makeRegistryPackLockEntry,
 } from "../../../test-stubs.js";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
@@ -52,7 +52,7 @@ const makePackRef = (
     subagents?: ExtensionDependencyConstraintMap;
     version?: Version;
   },
-): RegistryExtensionPackRef => ({
+): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
   source: { type: "registry", location: new URL("file:///tmp/registry"), owner: Option.none() },
@@ -104,7 +104,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
   packs: Object.fromEntries(
     names.map((name) => [
       name,
-      makeRegistryExtensionPackLockEntry({
+      makeRegistryPackLockEntry({
         owner: ACME,
         name: extensionName(name),
         sourceName: "local",

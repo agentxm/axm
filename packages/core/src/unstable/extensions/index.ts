@@ -109,7 +109,7 @@ export type {
   SkillExtensionRefBase,
   CommandExtensionRefBase,
   McpServerExtensionRefBase,
-  ExtensionPackRefBase,
+  PackRefBase,
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,

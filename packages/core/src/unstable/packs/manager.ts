@@ -1,8 +1,8 @@
 /**
- * Extension pack manager service.
+ * Pack manager service.
  *
- * Implements ExtensionManager<ExtensionPackRef>. Delegates to existing
- * extension pack materialization functions and workspace service methods.
+ * Implements ExtensionManager<PackRef>. Delegates to existing
+ * pack materialization functions and workspace service methods.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,39 +16,38 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
-import type { ExtensionPackRef, RegistryExtensionPackRef } from "./refs.js";
+import type { PackRef, RegistryPackRef } from "./refs.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "../source-resolution/index.js";
 import type { ExtensionManager, PackExtensionTarget } from "../workspace/service-interface.js";
-import { WorkspaceMutations, type SetExtensionPackArgs } from "../workspace/service-interface.js";
+import { WorkspaceMutations, type SetPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import { sanitizeName } from "../extensions/utils.js";
-import { computeExtensionPackPaths } from "./paths.js";
+import { computePackPaths } from "./paths.js";
 import { removeIfExists } from "../utils/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import type { AppError } from "../app-error/index.js";
-import { resolveExtensionPackDependencies } from "./dependency-resolution.js";
+import { resolvePackDependencies } from "./dependency-resolution.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class ExtensionPackManager extends ServiceMap.Service<
-  ExtensionPackManager,
-  ExtensionManager<ExtensionPackRef>
->()("@agentxm/client-core/unstable/packs/manager/ExtensionPackManager") {}
+export class PackManager extends ServiceMap.Service<PackManager, ExtensionManager<PackRef>>()(
+  "@agentxm/client-core/unstable/packs/manager/PackManager",
+) {}
 
-// Build pack SetExtensionPackArgs from a registry ref
-const buildSetExtensionPackArgs = (
-  ref: RegistryExtensionPackRef,
+// Build pack SetPackArgs from a registry ref
+const buildSetPackArgs = (
+  ref: RegistryPackRef,
   versionRange: Option.Option<string>,
   sources: SourceHostProvidersService,
-): Effect.Effect<SetExtensionPackArgs, AppError> =>
+): Effect.Effect<SetPackArgs, AppError> =>
   Effect.gen(function* () {
-    const resolved = yield* resolveExtensionPackDependencies(ref, sources);
+    const resolved = yield* resolvePackDependencies(ref, sources);
 
     return {
       owner: ref.owner,
@@ -63,7 +62,7 @@ const buildSetExtensionPackArgs = (
       resolvedMcpServers: resolved.resolvedMcpServers,
       resolvedSubagents: resolved.resolvedSubagents,
       versionRange,
-    } satisfies SetExtensionPackArgs;
+    } satisfies SetPackArgs;
   });
 
 const checkInstalledOnDisk = (
@@ -112,8 +111,8 @@ const checkInstalledOnDisk = (
 // Live Layer
 // -----------------------------------------------------------------------------
 
-export const ExtensionPackManagerLive = Layer.effect(
-  ExtensionPackManager,
+export const PackManagerLive = Layer.effect(
+  PackManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
@@ -130,17 +129,12 @@ export const ExtensionPackManagerLive = Layer.effect(
     const provide = <A, E>(
       effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, fsPathLayer);
-    const materializeInstall: ExtensionManager<ExtensionPackRef>["materializeInstall"] = Effect.fn(
-      "ExtensionPackManager.materializeInstall",
-    )(function* ({ ref }: { readonly ref: ExtensionPackRef }) {
+    const materializeInstall: ExtensionManager<PackRef>["materializeInstall"] = Effect.fn(
+      "PackManager.materializeInstall",
+    )(function* ({ ref }: { readonly ref: PackRef }) {
       yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
 
-      const packDir = computeExtensionPackPaths(
-        path.join,
-        baseDir,
-        ref.owner,
-        ref.pack.name,
-      ).canonicalPath;
+      const packDir = computePackPaths(path.join, baseDir, ref.owner, ref.pack.name).canonicalPath;
 
       yield* Effect.scoped(
         Effect.gen(function* () {
@@ -148,7 +142,7 @@ export const ExtensionPackManagerLive = Layer.effect(
             Effect.mapError((e: Error) =>
               makeAppError({
                 code: "network",
-                message: `Failed to fetch extension pack archive: ${e.message}`,
+                message: `Failed to fetch pack archive: ${e.message}`,
                 cause: e,
               }),
             ),
@@ -158,7 +152,7 @@ export const ExtensionPackManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "internal",
-                  message: `Failed to extract extension pack to ${packDir}`,
+                  message: `Failed to extract pack to ${packDir}`,
                   cause: e,
                 }),
               ),
@@ -167,24 +161,16 @@ export const ExtensionPackManagerLive = Layer.effect(
         }),
       );
     });
-    const materializeUninstall: ExtensionManager<ExtensionPackRef>["materializeUninstall"] =
-      Effect.fn("ExtensionPackManager.materializeUninstall")(function* ({
-        target,
-      }: {
-        readonly target: PackExtensionTarget;
-      }) {
-        const packDir = computeExtensionPackPaths(
-          path.join,
-          baseDir,
-          target.owner,
-          target.name,
-        ).canonicalPath;
-        yield* removeIfExists(fs, packDir);
-      });
+    const materializeUninstall: ExtensionManager<PackRef>["materializeUninstall"] = Effect.fn(
+      "PackManager.materializeUninstall",
+    )(function* ({ target }: { readonly target: PackExtensionTarget }) {
+      const packDir = computePackPaths(path.join, baseDir, target.owner, target.name).canonicalPath;
+      yield* removeIfExists(fs, packDir);
+    });
 
     return {
       type: "pack",
-      isInstalled: Effect.fn("ExtensionPackManager.isInstalled")(function* ({
+      isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
         target,
       }: {
         readonly target: PackExtensionTarget;
@@ -197,7 +183,7 @@ export const ExtensionPackManagerLive = Layer.effect(
         return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
       }),
       materializeInstall,
-      listMaterializable: Effect.fn("ExtensionPackManager.listMaterializable")(function* () {
+      listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
         const configured = yield* ws.records.getConfiguredPacks();
         return yield* configuredPacksToDiskRefs({ fs, path, baseDir }, configured);
       }),
@@ -207,30 +193,26 @@ export const ExtensionPackManagerLive = Layer.effect(
         ref,
         versionRange,
       }: {
-        readonly ref: ExtensionPackRef;
+        readonly ref: PackRef;
         readonly versionRange: Option.Option<string>;
       }) =>
-        buildSetExtensionPackArgs(ref, versionRange, sources).pipe(
-          Effect.flatMap((args) => ws.setExtensionPack(args)),
-          Effect.withSpan("ExtensionPackManager.upsertSettingsEntry"),
+        buildSetPackArgs(ref, versionRange, sources).pipe(
+          Effect.flatMap((args) => ws.setPack(args)),
+          Effect.withSpan("PackManager.upsertSettingsEntry"),
         ),
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws
-          .removeExtensionPackSettings(target.name)
-          .pipe(Effect.withSpan("ExtensionPackManager.removeSettingsEntry")),
+        ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
-      // Pack lockfile entries are written by upsertSettingsEntry via buildSetExtensionPackArgs;
+      // Pack lockfile entries are written by upsertSettingsEntry via buildSetPackArgs;
       // this method satisfies the ExtensionManager interface but performs no additional work.
-      upsertLockfileEntry: ({ ref }: { readonly ref: ExtensionPackRef }) => {
+      upsertLockfileEntry: ({ ref }: { readonly ref: PackRef }) => {
         void ref;
-        return Effect.void.pipe(Effect.withSpan("ExtensionPackManager.upsertLockfileEntry"));
+        return Effect.void.pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
       },
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws
-          .removeExtensionPackLock(target.name)
-          .pipe(Effect.withSpan("ExtensionPackManager.removeLockfileEntry")),
-    } satisfies ExtensionManager<ExtensionPackRef>;
+        ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
+    } satisfies ExtensionManager<PackRef>;
   }),
 );

@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type {
   Lockfile,
-  ExtensionPackLockEntry,
+  PackLockEntry,
   ResolvedExtensionMap,
 } from "@agentxm/client-core/unstable/lockfile";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -45,7 +45,7 @@ const makePackLockEntry = (
     resolvedMcpServers?: ResolvedExtensionMap;
     resolvedSubagents?: ResolvedExtensionMap;
   },
-): ExtensionPackLockEntry => ({
+): PackLockEntry => ({
   type: "registry",
   owner: ACME,
   name: extensionName(name),
@@ -67,7 +67,7 @@ const emptyLockfile: Lockfile = {
   skills: {},
 };
 
-const lockfileWithPacks = (...entries: [string, ExtensionPackLockEntry][]): Lockfile => ({
+const lockfileWithPacks = (...entries: [string, PackLockEntry][]): Lockfile => ({
   lockfileVersion: 1,
   skills: {},
   packs: Object.fromEntries(entries),

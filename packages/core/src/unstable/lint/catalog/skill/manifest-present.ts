@@ -1,6 +1,6 @@
 /**
  * `skill/manifest-present` — native skills must have a `skill.json` at the
- * extension package root.
+ * package root.
  *
  * Reads through `context.packageFiles` (package-root accessor) rather than
  * `context.files` (content-root accessor). For native skills, the package

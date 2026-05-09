@@ -26,8 +26,8 @@ import {
   parseExtensionFqnParts,
   type ExtensionName,
 } from "../../../extensions/common.js";
-import type { ExtensionPackLockEntry, Lockfile } from "../../../lockfile/schema.js";
-import type { ExtensionPackEntry, Settings } from "../../../settings/schema.js";
+import type { PackLockEntry, Lockfile } from "../../../lockfile/schema.js";
+import type { PackEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
@@ -60,7 +60,7 @@ export type PackDetectionOrigin =
 
 export interface DeclaredPack {
   readonly name: ExtensionName;
-  readonly entry: ExtensionPackEntry;
+  readonly entry: PackEntry;
 }
 export type DeclaredPacks = ReadonlyArray<DeclaredPack>;
 
@@ -73,7 +73,7 @@ export type DeclaredPacks = ReadonlyArray<DeclaredPack>;
 export interface ResolvedPack {
   readonly keyName: string;
   readonly name: ExtensionName;
-  readonly lockEntry: ExtensionPackLockEntry;
+  readonly lockEntry: PackLockEntry;
 }
 export type ResolvedPacks = ReadonlyArray<ResolvedPack>;
 

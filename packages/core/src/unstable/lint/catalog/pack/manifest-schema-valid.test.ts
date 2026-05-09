@@ -1,7 +1,7 @@
 /**
  * Unit tests for `pack/manifest-schema-valid`.
  *
- * Delegates to `Schema.decodeUnknownResult(ExtensionPackManifestSchema)` with
+ * Delegates to `Schema.decodeUnknownResult(PackManifestSchema)` with
  * `onExcessProperty: "ignore"` and `errors: "all"`. Tests cover:
  *
  * - Happy path: fully valid manifest.
@@ -69,7 +69,7 @@ describe("pack/manifest-schema-valid", () => {
       expect(findings.length).toBeGreaterThanOrEqual(1);
       expect(findings.every((f) => f.ruleId === "pack/manifest-schema-valid")).toBe(true);
       expect(findings.every((f) => f.severity === "error")).toBe(true);
-      expect(findings[0]?.location?.file).toBe("extension-pack.json");
+      expect(findings[0]?.location?.file).toBe("pack.json");
     }),
   );
 

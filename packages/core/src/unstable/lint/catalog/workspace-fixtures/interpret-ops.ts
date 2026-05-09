@@ -167,7 +167,7 @@ const externalSkillProbe = (name: string): string =>
   `.axm/extensions/external/skills/${name}/SKILL.md`;
 
 const registryPackProbe = (owner: string, name: string): string =>
-  `.axm/extensions/${owner}/packs/${name}/extension-pack.json`;
+  `.axm/extensions/${owner}/packs/${name}/pack.json`;
 
 const readEnabled = (settings: RawSettings | undefined, skillName: string): boolean => {
   const skills = settings?.skills;

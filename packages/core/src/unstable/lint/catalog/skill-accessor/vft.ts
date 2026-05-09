@@ -90,7 +90,7 @@ export const makeVftSkillFileAccessor = (tree: VFTNode): SkillFileAccessor => {
  *
  * Publish callers use this when the archive layout nests the skill content
  * under a directory (for native managed skills: `src/` holds the content
- * accessor root while the archive root holds the extension package). The
+ * accessor root while the archive root holds the package). The
  * `prefix` is a posix path relative to the tree root; every rule-supplied
  * path is resolved as `<prefix>/<path>` before dispatching to the tree.
  *

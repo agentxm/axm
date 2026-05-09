@@ -98,7 +98,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       TEST_NAMESPACE,
       "packs",
       "managed-pack",
-      "extension-pack.json",
+      "pack.json",
     ),
     {
       owner: TEST_NAMESPACE,

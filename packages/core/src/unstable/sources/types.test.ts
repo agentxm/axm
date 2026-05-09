@@ -26,7 +26,7 @@ import type {
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
-import type { ExtensionPackRef } from "../packs/refs.js";
+import type { PackRef } from "../packs/refs.js";
 import { extensionName, exactVersion, handle } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -479,12 +479,12 @@ describe("McpServerExtensionRef", () => {
 });
 
 // -----------------------------------------------------------------------------
-// ExtensionPackRef
+// PackRef
 // -----------------------------------------------------------------------------
 
-describe("ExtensionPackRef", () => {
-  it("RegistryExtensionPackRef carries version and integrity via refType narrowing", () => {
-    const ref: ExtensionPackRef = {
+describe("PackRef", () => {
+  it("RegistryPackRef carries version and integrity via refType narrowing", () => {
+    const ref: PackRef = {
       type: "pack",
       refType: "registry",
       pack: {
@@ -547,7 +547,7 @@ describe("ExtensionRef", () => {
     }
   });
 
-  it("narrows to ExtensionPackRef via type", () => {
+  it("narrows to PackRef via type", () => {
     const ref: ExtensionRef = {
       type: "pack",
       refType: "registry",

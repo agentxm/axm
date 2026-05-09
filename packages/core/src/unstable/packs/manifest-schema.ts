@@ -1,5 +1,5 @@
 /**
- * Extension pack manifest schema definition.
+ * Pack manifest schema definition.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -11,41 +11,40 @@ import {
   ExtensionNameSchema,
 } from "../extensions/common.js";
 
-export const EXTENSION_PACK_MANIFEST_FILENAME = "extension-pack.json";
+export const PACK_MANIFEST_FILENAME = "pack.json";
 
-export const EXTENSION_PACK_MANIFEST_SCHEMA_URL =
-  "https://axm.sh/schemas/extension-pack.schema.json";
+export const PACK_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/pack.schema.json";
 
 /**
- * Schema for pack manifest files (extension-pack.json).
+ * Schema for pack manifest files (pack.json).
  *
- * Extension packs bundle multiple extensions (skills, commands, MCP servers, subagents)
+ * Packs bundle multiple extensions (skills, commands, MCP servers, subagents)
  * for convenient distribution and installation. Each extension entry
  * maps a fully qualified name to a semver version range.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionPackManifestSchema = Schema.Struct({
+export const PackManifestSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
   type: Schema.Literal("pack"),
   name: ExtensionNameSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "extension pack name is required" }),
+    Schema.annotateKey({ messageMissingKey: "pack name is required" }),
   ),
   skills: Schema.optional(ExtensionDependencyConstraintMapSchema),
   commands: Schema.optional(ExtensionDependencyConstraintMapSchema),
   "mcp-servers": Schema.optional(ExtensionDependencyConstraintMapSchema),
   subagents: Schema.optional(ExtensionDependencyConstraintMapSchema),
 }).annotate({
-  identifier: "ExtensionPackManifest",
-  title: "Extension Pack Manifest",
+  identifier: "PackManifest",
+  title: "Pack Manifest",
   description:
-    "Configuration file (extension-pack.json) that bundles multiple extensions into a single installable pack.",
+    "Configuration file (pack.json) that bundles multiple extensions into a single installable pack.",
 });
 
 /**
- * Inferred type for ExtensionPackManifest schema.
+ * Inferred type for PackManifest schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionPackManifest = Schema.Schema.Type<typeof ExtensionPackManifestSchema>;
+export type PackManifest = Schema.Schema.Type<typeof PackManifestSchema>;

@@ -36,7 +36,7 @@ import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { ExtensionPackManager } from "@agentxm/client-core/unstable/packs";
+import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import {
@@ -279,7 +279,7 @@ type AdapterContext =
   | WorkspaceMutations
   | SourceHostProviders
   | SkillManager
-  | ExtensionPackManager
+  | PackManager
   | CommandManager
   | McpServerManager
   | FileSystem.FileSystem
@@ -318,7 +318,7 @@ const adaptIntent = (
         if (!isIntentWithSource(op.args)) {
           return unmapped(op.name, "missing name/source args");
         }
-        const mgr = yield* ExtensionPackManager;
+        const mgr = yield* PackManager;
         const resolved = yield* resolveConfiguredPack(op.args.name, op.args.source);
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
@@ -330,7 +330,7 @@ const adaptIntent = (
         if (!isIntentWithName(op.args)) {
           return unmapped(op.name, "missing name arg");
         }
-        const mgr = yield* ExtensionPackManager;
+        const mgr = yield* PackManager;
         const retention = yield* makeRetentionPolicy();
         const ws = yield* WorkspaceMutations;
         const configuredPacks = yield* ws.records.getConfiguredPacks();
@@ -460,7 +460,7 @@ const applyFixes = (args: {
   | SourceHostProviders
   | CodingAgentRepository
   | SkillManager
-  | ExtensionPackManager
+  | PackManager
   | CommandManager
   | McpServerManager
   | FileSystem.FileSystem

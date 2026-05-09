@@ -1,5 +1,5 @@
 /**
- * Unit tests for unpackExtensionPack operation handler.
+ * Unit tests for unpackPack operation handler.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -10,18 +10,15 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import {
-  makeBaseWorkspaceMock,
-  makeRegistryExtensionPackLockEntry,
-} from "../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock, makeRegistryPackLockEntry } from "../../workspace/test-stubs.js";
 import { exactVersion, handle } from "../../test-helpers.js";
-import { unpackExtensionPack, type UnpackExtensionPackOperation } from "./unpack.js";
+import { unpackPack, type UnpackPackOperation } from "./unpack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeOp = (name: string): UnpackExtensionPackOperation => ({
+const makeOp = (name: string): UnpackPackOperation => ({
   name: "unpack-pack",
   args: { name },
 });
@@ -46,17 +43,17 @@ const makeWorkspaceMock = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("unpackExtensionPack", () => {
+describe("unpackPack", () => {
   it.effect("promotes resolved commands and mcp-servers (not just skills)", () => {
     const setCommand = vi.fn(() => Effect.void);
     const setMcpServer = vi.fn(() => Effect.void);
     const setSkill = vi.fn(() => Effect.void);
 
     const mock = makeWorkspaceMock({
-      getLockedExtensionPack: () =>
+      getLockedPack: () =>
         Effect.succeed(
           Option.some(
-            makeRegistryExtensionPackLockEntry({
+            makeRegistryPackLockEntry({
               owner: handle("@acme"),
               name: "full-pack",
               resolvedVersion: exactVersion("1.0.0"),
@@ -77,7 +74,7 @@ describe("unpackExtensionPack", () => {
     });
 
     return Effect.gen(function* () {
-      const result = yield* unpackExtensionPack(makeOp("full-pack"));
+      const result = yield* unpackPack(makeOp("full-pack"));
 
       expect(result.result).toBe("success");
       expect(result.message).toContain("3 extension(s)");
@@ -91,10 +88,10 @@ describe("unpackExtensionPack", () => {
     const setCommand = vi.fn(() => Effect.void);
 
     const mock = makeWorkspaceMock({
-      getLockedExtensionPack: () =>
+      getLockedPack: () =>
         Effect.succeed(
           Option.some(
-            makeRegistryExtensionPackLockEntry({
+            makeRegistryPackLockEntry({
               owner: handle("@acme"),
               name: "pack",
               resolvedVersion: exactVersion("1.0.0"),
@@ -121,7 +118,7 @@ describe("unpackExtensionPack", () => {
     });
 
     return Effect.gen(function* () {
-      const result = yield* unpackExtensionPack(makeOp("pack"));
+      const result = yield* unpackPack(makeOp("pack"));
 
       expect(result.result).toBe("success");
       // Should not call setCommand because existing-cmd is already configured
@@ -133,7 +130,7 @@ describe("unpackExtensionPack", () => {
     const mock = makeWorkspaceMock();
 
     return Effect.gen(function* () {
-      const result = yield* unpackExtensionPack(makeOp("nonexistent")).pipe(
+      const result = yield* unpackPack(makeOp("nonexistent")).pipe(
         Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
       );
 

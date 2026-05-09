@@ -7,12 +7,12 @@ import {
   extensionTypeFromPlural,
 } from "../extensions/index.js";
 import {
-  ExtensionPackManifestSchema,
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  type ExtensionPackManifest,
+  PackManifestSchema,
+  PACK_MANIFEST_FILENAME,
+  type PackManifest,
 } from "./manifest-schema.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
-import { computeExtensionPackPaths } from "./paths.js";
+import { computePackPaths } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -40,10 +40,7 @@ import {
 } from "../subagents/manifest-schema.js";
 import { versionSatisfiesRange } from "../version-constraints/version-constraints.js";
 import type { AppError } from "../app-error/index.js";
-import {
-  makeRegistryExtensionPackLockEntry,
-  type ResolvedExtensionMap,
-} from "../lockfile/index.js";
+import { makeRegistryPackLockEntry, type ResolvedExtensionMap } from "../lockfile/index.js";
 import {
   decodeVersionRangeSync,
   type Version,
@@ -73,7 +70,7 @@ const parseRegistryPackSource = (
   });
 };
 
-const parseExtensionPackDependency = (
+const parsePackDependency = (
   type: "skills" | "commands" | "mcp-servers",
   singularType: "skill" | "command" | "mcp-server",
   fqn: string,
@@ -102,7 +99,7 @@ const parseExtensionPackDependency = (
   });
 };
 
-const collectExtensionPackDependencyDeclarations = (
+const collectPackDependencyDeclarations = (
   type: "skills" | "commands" | "mcp-servers",
   singularType: "skill" | "command" | "mcp-server",
   candidates: unknown,
@@ -122,7 +119,7 @@ const collectExtensionPackDependencyDeclarations = (
     } catch {
       continue;
     }
-    const parsedDep = parseExtensionPackDependency(
+    const parsedDep = parsePackDependency(
       type,
       singularType,
       fqn,
@@ -312,7 +309,7 @@ const resolveInstalledDependencyMap = (
     } as const;
   });
 
-export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
+export const packReconciliationAdapter: ReconciliationAdapter = {
   type: "packs",
   scanDeclarations: (context, env) =>
     Effect.gen(function* () {
@@ -350,13 +347,13 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
           origin: "settings",
         });
 
-        const packDir = computeExtensionPackPaths(
+        const packDir = computePackPaths(
           env.path.join,
           context.baseDir,
           owner,
           diskName,
         ).canonicalPath;
-        const manifestPath = env.path.join(packDir, EXTENSION_PACK_MANIFEST_FILENAME);
+        const manifestPath = env.path.join(packDir, PACK_MANIFEST_FILENAME);
         const manifestRaw = yield* env.fs
           .readFileString(manifestPath)
           .pipe(Effect.catch(() => Effect.succeed("")));
@@ -377,27 +374,17 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
           continue;
         }
 
-        const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(
-          parsedJson,
-        ).pipe(Effect.catch(() => Effect.succeed<null>(null)));
+        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(parsedJson).pipe(
+          Effect.catch(() => Effect.succeed<null>(null)),
+        );
         if (manifest === null) {
           warnings.push(`PACK_MANIFEST_INVALID: ${manifestPath}`);
           continue;
         }
 
-        collectExtensionPackDependencyDeclarations(
-          "skills",
-          "skill",
-          manifest.skills,
-          declarations,
-        );
-        collectExtensionPackDependencyDeclarations(
-          "commands",
-          "command",
-          manifest.commands,
-          declarations,
-        );
-        collectExtensionPackDependencyDeclarations(
+        collectPackDependencyDeclarations("skills", "skill", manifest.skills, declarations);
+        collectPackDependencyDeclarations("commands", "command", manifest.commands, declarations);
+        collectPackDependencyDeclarations(
           "mcp-servers",
           "mcp-server",
           manifest["mcp-servers"],
@@ -428,16 +415,16 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
         onSome: (value) => value.name,
       });
 
-      const canonicalPath = computeExtensionPackPaths(
+      const canonicalPath = computePackPaths(
         env.path.join,
         context.baseDir,
         owner,
         diskName,
       ).canonicalPath;
 
-      const decodePackManifest = (json: unknown): ExtensionPackManifest | null => {
+      const decodePackManifest = (json: unknown): PackManifest | null => {
         try {
-          return Schema.decodeUnknownSync(ExtensionPackManifestSchema)(json);
+          return Schema.decodeUnknownSync(PackManifestSchema)(json);
         } catch {
           return null;
         }
@@ -446,7 +433,7 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
       const result = yield* readAndDecodeManifest(
         declaration,
         canonicalPath,
-        EXTENSION_PACK_MANIFEST_FILENAME,
+        PACK_MANIFEST_FILENAME,
         decodePackManifest,
         "pack",
         env,
@@ -524,7 +511,7 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
         reconstructed: {
           type: "packs",
           name: declaration.name,
-          entry: makeRegistryExtensionPackLockEntry({
+          entry: makeRegistryPackLockEntry({
             owner,
             name: diskName,
             resolvedVersion: manifest.version,

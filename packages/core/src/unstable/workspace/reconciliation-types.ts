@@ -7,7 +7,7 @@ import type { Handle } from "../extensions/handle.js";
 import type {
   CommandLockEntry,
   McpServerLockEntry,
-  ExtensionPackLockEntry,
+  PackLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
@@ -79,7 +79,7 @@ export type ReconstructedLockEntry =
   | {
       readonly type: "packs";
       readonly name: ExtensionName;
-      readonly entry: ExtensionPackLockEntry;
+      readonly entry: PackLockEntry;
     };
 
 export type DeclarationResolution =

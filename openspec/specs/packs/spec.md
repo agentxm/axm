@@ -56,6 +56,6 @@ The pack manifest schema SHALL include an optional `subagents` field alongside `
 
 #### Scenario: Pack with subagents field
 
-- **WHEN** `extension-pack.json` contains `subagents: { "@acme/subagents/code-reviewer": "^1.0.0" }`
+- **WHEN** `pack.json` contains `subagents: { "@acme/subagents/code-reviewer": "^1.0.0" }`
 - **THEN** pack validation SHALL succeed
 - **AND** pack resolution SHALL include the subagent in the resolved set

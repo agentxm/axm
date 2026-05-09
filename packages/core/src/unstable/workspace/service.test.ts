@@ -36,7 +36,7 @@ import {
   WorkspaceMutations,
   type SetCommandArgs,
   type SetMcpServerArgs,
-  type SetExtensionPackArgs,
+  type SetPackArgs,
   type WorkspaceMutationsOptions,
 } from "./service-interface.js";
 import { bootstrapWorkspace, WorkspaceInitializationInteractionTest } from "./index.js";
@@ -1471,10 +1471,8 @@ describe("WorkspaceMutationsService", () => {
   // Pack methods
   // ---------------------------------------------------------------------------
 
-  /** Create sample SetExtensionPackArgs for testing. */
-  const makeSampleSetExtensionPackArgs = (
-    overrides?: Partial<SetExtensionPackArgs>,
-  ): SetExtensionPackArgs => ({
+  /** Create sample SetPackArgs for testing. */
+  const makeSampleSetPackArgs = (overrides?: Partial<SetPackArgs>): SetPackArgs => ({
     owner: handle("@acme"),
     name: extensionName("starter-pack"),
     resolvedVersion: exactVersion("1.0.0"),
@@ -1555,7 +1553,7 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("getLockedExtensionPacks", () => {
+  describe("getLockedPacks", () => {
     it.effect("returns packs lock map when lock entries are present", () =>
       Effect.gen(function* () {
         writeLockfileTo(
@@ -1580,7 +1578,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getLockedExtensionPacks();
+        const packs = yield* ws.getLockedPacks();
 
         expect(Object.keys(packs)).toEqual(["starter-pack"]);
         expect(packs["starter-pack"]?.type).toBe("registry");
@@ -1595,14 +1593,14 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getLockedExtensionPacks();
+        const packs = yield* ws.getLockedPacks();
 
         expect(packs).toEqual({});
       }),
     );
   });
 
-  describe("getLockedExtensionPack", () => {
+  describe("getLockedPack", () => {
     it.effect("returns Option.some when pack exists in lockfile", () =>
       Effect.gen(function* () {
         writeLockfileTo(
@@ -1627,7 +1625,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const entry = yield* ws.getLockedExtensionPack("starter-pack");
+        const entry = yield* ws.getLockedPack("starter-pack");
 
         expect(Option.isSome(entry)).toBe(true);
         if (Option.isSome(entry)) {
@@ -1642,21 +1640,21 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const entry = yield* ws.getLockedExtensionPack("nonexistent");
+        const entry = yield* ws.getLockedPack("nonexistent");
 
         expect(Option.isNone(entry)).toBe(true);
       }),
     );
   });
 
-  describe("setExtensionPack", () => {
+  describe("setPack", () => {
     it.effect("installs new pack: adds to settings and lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.setExtensionPack(makeSampleSetExtensionPackArgs());
+        yield* ws.setPack(makeSampleSetPackArgs());
 
         // Verify settings on disk
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1680,7 +1678,7 @@ describe("WorkspaceMutationsService", () => {
 
         const before = new Date();
         const ws = yield* getService(defaultOptions);
-        yield* ws.setExtensionPack(makeSampleSetExtensionPackArgs());
+        yield* ws.setPack(makeSampleSetPackArgs());
         const after = new Date();
 
         const lockfile = readLockfileFromDisk(projectDir);
@@ -1693,7 +1691,7 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("removeExtensionPack", () => {
+  describe("removePack", () => {
     it.effect("removes existing pack from both settings and lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -1739,7 +1737,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removeExtensionPack("starter-pack");
+        yield* ws.removePack("starter-pack");
 
         // Verify settings: starter-pack removed, other-pack remains
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1763,7 +1761,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removeExtensionPack("nonexistent");
+        yield* ws.removePack("nonexistent");
 
         // Verify nothing changed
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1774,11 +1772,11 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("getExtensionPackDir", () => {
+  describe("getPackDir", () => {
     it.effect("returns registry extensions path with owner", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getExtensionPackDir("starter-pack", handle("@acme"));
+        const result = yield* ws.getPackDir("starter-pack", handle("@acme"));
 
         expect(result.canonicalPath).toContain(".axm/extensions/@acme/packs/starter-pack");
       }),
@@ -1787,7 +1785,7 @@ describe("WorkspaceMutationsService", () => {
     it.effect("handles different namespaces correctly", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getExtensionPackDir("my-pack", handle("@community"));
+        const result = yield* ws.getPackDir("my-pack", handle("@community"));
 
         expect(result.canonicalPath).toContain(".axm/extensions/@community/packs/my-pack");
       }),
@@ -3358,7 +3356,7 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("removeExtensionPackSettings", () => {
+  describe("removePackSettings", () => {
     it.effect("removes pack from settings only, not lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -3387,7 +3385,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removeExtensionPackSettings("starter-pack");
+        yield* ws.removePackSettings("starter-pack");
 
         // Settings should NOT have the pack
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -3406,7 +3404,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removeExtensionPackSettings("nonexistent");
+        yield* ws.removePackSettings("nonexistent");
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -3415,7 +3413,7 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("removeExtensionPackLock", () => {
+  describe("removePackLock", () => {
     it.effect("removes pack from lockfile only, not settings", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -3444,7 +3442,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removeExtensionPackLock("starter-pack");
+        yield* ws.removePackLock("starter-pack");
 
         // Settings should still have the pack
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -3463,7 +3461,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removeExtensionPackLock("nonexistent");
+        yield* ws.removePackLock("nonexistent");
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.packs).toBeUndefined();
@@ -3475,7 +3473,7 @@ describe("WorkspaceMutationsService", () => {
   // Pack dependency queries (Phase 3)
   // ---------------------------------------------------------------------------
 
-  describe("isExtensionRequiredByInstalledExtensionPack", () => {
+  describe("isExtensionRequiredByInstalledPack", () => {
     it.effect("returns true when skill is referenced by an installed pack", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -3513,7 +3511,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
           type: "skill",
           name: "code-review",
         });
@@ -3560,7 +3558,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
           type: "command",
           name: "my-cmd",
         });
@@ -3607,7 +3605,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
           type: "mcp-server",
           name: "my-mcp",
         });
@@ -3644,7 +3642,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
           type: "skill",
           name: "orphan-skill",
         });
@@ -3659,7 +3657,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
           type: "skill",
           name: "some-skill",
         });
@@ -3674,7 +3672,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
           type: "pack",
           name: "some-pack",
           owner: handle("@acme"),

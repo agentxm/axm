@@ -15,8 +15,8 @@ import {
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
-import type { RemoveFromExtensionPackOperation } from "./remove-from-pack.js";
-import { removeFromExtensionPack } from "./remove-from-pack.js";
+import type { RemoveFromPackOperation } from "./remove-from-pack.js";
+import { removeFromPack } from "./remove-from-pack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -72,14 +72,14 @@ const createPackManifestWithSkills = (
     "mcp-servers": {},
   };
   const content = JSON.stringify(manifest, null, 2) + "\n";
-  fs.writeFileSync(path.join(packDir, "extension-pack.json"), content);
+  fs.writeFileSync(path.join(packDir, "pack.json"), content);
   return { packDir, manifestHash: hashContent(content), content };
 };
 
-/** Creates a minimal RemoveFromExtensionPackOperation for testing. */
+/** Creates a minimal RemoveFromPackOperation for testing. */
 const makeOp = (
-  overrides: Partial<RemoveFromExtensionPackOperation["args"]> & { manifestHash: string },
-): RemoveFromExtensionPackOperation => ({
+  overrides: Partial<RemoveFromPackOperation["args"]> & { manifestHash: string },
+): RemoveFromPackOperation => ({
   name: "remove-from-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
@@ -93,7 +93,7 @@ const makeOp = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("removeFromExtensionPack", () => {
+describe("removeFromPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -120,7 +120,7 @@ describe("removeFromExtensionPack", () => {
           "@acme/skills/other-skill": "^2.0.0",
         });
 
-        const result = yield* removeFromExtensionPack(
+        const result = yield* removeFromPack(
           makeOp({
             removals: ["@acme/skills/my-skill"],
             manifestHash,
@@ -137,7 +137,7 @@ describe("removeFromExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/my-skill"]).toBeUndefined();
@@ -154,7 +154,7 @@ describe("removeFromExtensionPack", () => {
           "@acme/skills/skill-c": "^3.0.0",
         });
 
-        const result = yield* removeFromExtensionPack(
+        const result = yield* removeFromPack(
           makeOp({
             removals: ["@acme/skills/skill-a", "@acme/skills/skill-c"],
             manifestHash,
@@ -170,7 +170,7 @@ describe("removeFromExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/skill-a"]).toBeUndefined();
@@ -186,7 +186,7 @@ describe("removeFromExtensionPack", () => {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
-        const result = yield* removeFromExtensionPack(makeOp({ removals: [], manifestHash })).pipe(
+        const result = yield* removeFromPack(makeOp({ removals: [], manifestHash })).pipe(
           Effect.provide(withServices(axmDir)),
         );
 
@@ -203,7 +203,7 @@ describe("removeFromExtensionPack", () => {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
-        const result = yield* removeFromExtensionPack(
+        const result = yield* removeFromPack(
           makeOp({
             removals: ["@acme/skills/my-skill"],
             manifestHash: "stale-hash-that-does-not-match",
@@ -225,7 +225,7 @@ describe("removeFromExtensionPack", () => {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
-        yield* removeFromExtensionPack(
+        yield* removeFromPack(
           makeOp({
             removals: ["@acme/skills/my-skill"],
             manifestHash: "stale-hash-that-does-not-match",
@@ -243,7 +243,7 @@ describe("removeFromExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);
@@ -256,7 +256,7 @@ describe("removeFromExtensionPack", () => {
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
-        const result = yield* removeFromExtensionPack(
+        const result = yield* removeFromPack(
           makeOp({
             manifestHash: "nonexistent",
           }),

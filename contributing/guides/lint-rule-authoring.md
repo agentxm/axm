@@ -337,10 +337,10 @@ end with the fix sentence. Do not emit raw decoder text alone.
 
 The right fix depends on who owns the broken surface.
 
-| Surface kind                  | Examples                                                              | Message guidance                                                                            |
-| ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| User-authored source of truth | `.axm/settings.json`, `skill.json`, `extension-pack.json`, `SKILL.md` | If a supported CLI exists, point to that command. Name the file/key only when no CLI exists |
-| Derived or axm-managed state  | `.axm/axm-lock.yaml`, `.axm/extensions/...`, agent artifact dirs      | Point to the command or source-of-truth action that regenerates it                          |
+| Surface kind                  | Examples                                                         | Message guidance                                                                            |
+| ----------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| User-authored source of truth | `.axm/settings.json`, `skill.json`, `pack.json`, `SKILL.md`      | If a supported CLI exists, point to that command. Name the file/key only when no CLI exists |
+| Derived or axm-managed state  | `.axm/axm-lock.yaml`, `.axm/extensions/...`, agent artifact dirs | Point to the command or source-of-truth action that regenerates it                          |
 
 When the broken surface is user-authored, prefer the supported CLI when one
 exists. Do not add a manual file-edit fallback to lint messages for the same

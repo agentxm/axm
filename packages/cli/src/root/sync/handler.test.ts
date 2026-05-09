@@ -8,7 +8,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
-import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -103,7 +103,7 @@ describe("root sync handler", () => {
       managerDependencies,
     );
     const packManagerLayer = Layer.provide(
-      ExtensionPackManagerLive,
+      PackManagerLive,
       Layer.mergeAll(managerDependencies, managersLayer),
     );
     return {

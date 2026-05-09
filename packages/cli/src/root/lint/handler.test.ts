@@ -28,7 +28,7 @@ import {
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
-import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -95,10 +95,7 @@ describe("axm lint handler", () => {
       InstallSubagentCommandWorkflowActionsLive,
       SubagentManagerLive,
     );
-    const packsLayer = Layer.provideMerge(
-      InstallPackCommandWorkflowActionsLive,
-      ExtensionPackManagerLive,
-    );
+    const packsLayer = Layer.provideMerge(InstallPackCommandWorkflowActionsLive, PackManagerLive);
     const coreExtensions = Layer.mergeAll(
       commandsLayer,
       mcpServersLayer,

@@ -12,14 +12,14 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionName } from "../extensions/index.js";
 import type {
   CommandLockEntry,
-  ExtensionPackLockEntry,
+  PackLockEntry,
   McpServerLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandExtensionRef } from "../commands/refs.js";
-import type { ExtensionPackRef } from "../packs/refs.js";
+import type { PackRef } from "../packs/refs.js";
 import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
@@ -67,7 +67,7 @@ const hasSourceType =
     source.type === sourceType;
 
 const registrySourceFromEntry = (
-  entry: Extract<SourceLockEntry | ExtensionPackLockEntry, { readonly type: "registry" }>,
+  entry: Extract<SourceLockEntry | PackLockEntry, { readonly type: "registry" }>,
   getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ): Effect.Effect<RegistrySource, AppError> =>
   Effect.gen(function* () {
@@ -383,11 +383,11 @@ export const subagentLockEntryToRef = (
     },
   );
 
-export const extensionPackLockEntryToRef = (
+export const packLockEntryToRef = (
   name: string,
-  entry: ExtensionPackLockEntry,
+  entry: PackLockEntry,
   deps: Pick<LockEntryToRefDeps, "getConfiguredSourceByName">,
-): Effect.Effect<ExtensionPackRef, AppError> =>
+): Effect.Effect<PackRef, AppError> =>
   Effect.flatMap(decodeLockEntryName(name), (extensionName) =>
     Effect.map(registrySourceFromEntry(entry, deps.getConfiguredSourceByName), (source) => ({
       type: "pack" as const,

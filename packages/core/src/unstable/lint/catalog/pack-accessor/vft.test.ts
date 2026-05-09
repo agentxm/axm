@@ -29,38 +29,38 @@ const makeTree = (files: Readonly<Record<string, string>>): PackVFTNode => {
 describe("makeVftPackFileAccessor", () => {
   it.effect("exists returns true for a rooted file", () =>
     Effect.gen(function* () {
-      const accessor = makeVftPackFileAccessor(makeTree({ "extension-pack.json": "{}" }));
-      expect(yield* accessor.exists("extension-pack.json")).toBe(true);
+      const accessor = makeVftPackFileAccessor(makeTree({ "pack.json": "{}" }));
+      expect(yield* accessor.exists("pack.json")).toBe(true);
     }),
   );
 
   it.effect("exists returns false for a missing file", () =>
     Effect.gen(function* () {
       const accessor = makeVftPackFileAccessor(makeTree({}));
-      expect(yield* accessor.exists("extension-pack.json")).toBe(false);
+      expect(yield* accessor.exists("pack.json")).toBe(false);
     }),
   );
 
   it.effect("exists returns false for a `..` escape attempt", () =>
     Effect.gen(function* () {
-      const accessor = makeVftPackFileAccessor(makeTree({ "extension-pack.json": "x" }));
-      expect(yield* accessor.exists("../extension-pack.json")).toBe(false);
-      expect(yield* accessor.exists("nested/../../extension-pack.json")).toBe(false);
+      const accessor = makeVftPackFileAccessor(makeTree({ "pack.json": "x" }));
+      expect(yield* accessor.exists("../pack.json")).toBe(false);
+      expect(yield* accessor.exists("nested/../../pack.json")).toBe(false);
     }),
   );
 
   it.effect("exists returns false for an absolute path", () =>
     Effect.gen(function* () {
-      const accessor = makeVftPackFileAccessor(makeTree({ "extension-pack.json": "x" }));
-      expect(yield* accessor.exists("/extension-pack.json")).toBe(false);
-      expect(yield* accessor.exists("C:/extension-pack.json")).toBe(false);
+      const accessor = makeVftPackFileAccessor(makeTree({ "pack.json": "x" }));
+      expect(yield* accessor.exists("/pack.json")).toBe(false);
+      expect(yield* accessor.exists("C:/pack.json")).toBe(false);
     }),
   );
 
   it.effect("readBytes returns bytes for a rooted file", () =>
     Effect.gen(function* () {
-      const accessor = makeVftPackFileAccessor(makeTree({ "extension-pack.json": "content" }));
-      const bytes = yield* accessor.readBytes("extension-pack.json");
+      const accessor = makeVftPackFileAccessor(makeTree({ "pack.json": "content" }));
+      const bytes = yield* accessor.readBytes("pack.json");
       expect(new TextDecoder().decode(bytes)).toBe("content");
     }),
   );
@@ -68,7 +68,7 @@ describe("makeVftPackFileAccessor", () => {
   it.effect("readBytes fails with read-error for missing files", () =>
     Effect.gen(function* () {
       const accessor = makeVftPackFileAccessor(makeTree({}));
-      const exit = yield* Effect.exit(accessor.readBytes("extension-pack.json"));
+      const exit = yield* Effect.exit(accessor.readBytes("pack.json"));
       if (exit._tag !== "Failure") {
         throw new Error("expected failure");
       }
@@ -78,7 +78,7 @@ describe("makeVftPackFileAccessor", () => {
 
   it.effect("readBytes fails with path-escape for `..` segments", () =>
     Effect.gen(function* () {
-      const accessor = makeVftPackFileAccessor(makeTree({ "extension-pack.json": "x" }));
+      const accessor = makeVftPackFileAccessor(makeTree({ "pack.json": "x" }));
       const result = yield* accessor.readBytes("../etc/passwd").pipe(Effect.flip);
       expect(result.reason).toBe("path-escape");
     }),
@@ -86,7 +86,7 @@ describe("makeVftPackFileAccessor", () => {
 
   it.effect("readBytes fails with path-escape for absolute paths", () =>
     Effect.gen(function* () {
-      const accessor = makeVftPackFileAccessor(makeTree({ "extension-pack.json": "x" }));
+      const accessor = makeVftPackFileAccessor(makeTree({ "pack.json": "x" }));
       const posix = yield* accessor.readBytes("/etc/passwd").pipe(Effect.flip);
       expect(posix.reason).toBe("path-escape");
       const win = yield* accessor.readBytes("C:/Windows/foo").pipe(Effect.flip);
@@ -96,8 +96,8 @@ describe("makeVftPackFileAccessor", () => {
 
   it.effect("normalizes `./` prefix when reading", () =>
     Effect.gen(function* () {
-      const accessor = makeVftPackFileAccessor(makeTree({ "extension-pack.json": "x" }));
-      const bytes = yield* accessor.readBytes("./extension-pack.json");
+      const accessor = makeVftPackFileAccessor(makeTree({ "pack.json": "x" }));
+      const bytes = yield* accessor.readBytes("./pack.json");
       expect(new TextDecoder().decode(bytes)).toBe("x");
     }),
   );

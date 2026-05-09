@@ -17,8 +17,8 @@ import {
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
-import type { InstallExtensionPackOperation } from "./install.js";
-import { installExtensionPack } from "./install.js";
+import type { InstallPackOperation } from "./install.js";
+import { installPack } from "./install.js";
 
 const makePackRef = () => ({
   type: "pack" as const,
@@ -42,7 +42,7 @@ const makePackRef = () => ({
   compatiblePackages: [],
 });
 
-const makeOp = (): InstallExtensionPackOperation => ({
+const makeOp = (): InstallPackOperation => ({
   name: "install-pack",
   args: {
     packName: "frontend-pack",
@@ -86,7 +86,7 @@ const withServices = (
   );
 };
 
-describe("installExtensionPack", () => {
+describe("installPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -106,7 +106,7 @@ describe("installExtensionPack", () => {
       fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
       fs.mkdirSync(packSourceDir, { recursive: true });
       fs.writeFileSync(
-        path.join(packSourceDir, "extension-pack.json"),
+        path.join(packSourceDir, "pack.json"),
         JSON.stringify(
           {
             owner: "@acme",
@@ -123,7 +123,7 @@ describe("installExtensionPack", () => {
       );
 
       return Effect.gen(function* () {
-        const result = yield* installExtensionPack(makeOp());
+        const result = yield* installPack(makeOp());
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
@@ -142,7 +142,7 @@ describe("installExtensionPack", () => {
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(packSourceDir, { recursive: true });
     fs.writeFileSync(
-      path.join(packSourceDir, "extension-pack.json"),
+      path.join(packSourceDir, "pack.json"),
       JSON.stringify(
         {
           owner: "@acme",
@@ -158,7 +158,7 @@ describe("installExtensionPack", () => {
       ),
     );
 
-    const op: InstallExtensionPackOperation = {
+    const op: InstallPackOperation = {
       ...makeOp(),
       args: {
         ...makeOp().args,
@@ -169,10 +169,10 @@ describe("installExtensionPack", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* installExtensionPack(op);
+      const result = yield* installPack(op);
 
       expect(result.result).toBe("success");
-      expect(fs.existsSync(path.join(packDir, "extension-pack.json"))).toBe(true);
+      expect(fs.existsSync(path.join(packDir, "pack.json"))).toBe(true);
     }).pipe(Effect.provide(withServices(projectDir, packSourceDir)));
   });
 
@@ -184,7 +184,7 @@ describe("installExtensionPack", () => {
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(packSourceDir, { recursive: true });
     fs.writeFileSync(
-      path.join(packSourceDir, "extension-pack.json"),
+      path.join(packSourceDir, "pack.json"),
       JSON.stringify(
         {
           owner: "@acme",
@@ -198,10 +198,10 @@ describe("installExtensionPack", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* installExtensionPack(makeOp());
+      const result = yield* installPack(makeOp());
 
       expect(result.result).toBe("success");
-      expect(fs.existsSync(path.join(packDir, "extension-pack.json"))).toBe(true);
+      expect(fs.existsSync(path.join(packDir, "pack.json"))).toBe(true);
     }).pipe(Effect.provide(withServices(projectDir, packSourceDir)));
   });
 });

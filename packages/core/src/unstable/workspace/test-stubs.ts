@@ -24,10 +24,10 @@ import type {
 } from "./index.js";
 import type { AppError } from "../app-error/index.js";
 import {
-  makeRegistryExtensionPackLockEntry as buildRegistryExtensionPackLockEntry,
+  makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   type CommandLockEntry,
   type McpServerLockEntry,
-  type RegistryExtensionPackLockEntry,
+  type RegistryPackLockEntry,
   type ResolvedExtensionMap,
   type SkillLockEntry,
 } from "../lockfile/index.js";
@@ -172,13 +172,12 @@ export const makeBaseWorkspaceMock = (
     setSkillEntry: () => Effect.void,
     updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    setExtensionPackEntry: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () =>
-      Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
+    getLockedPacks: () => Effect.succeed({}),
+    getLockedPack: () => Effect.succeed(Option.none()),
+    setPack: () => Effect.void,
+    setPackEntry: () => Effect.void,
+    removePack: () => Effect.void,
+    getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
     getLockedCommands: () => Effect.succeed({}),
     getLockedCommand: () => Effect.succeed(Option.none()),
     setCommand: () => Effect.void,
@@ -205,9 +204,9 @@ export const makeBaseWorkspaceMock = (
     setCommandEntry: () => Effect.void,
     removeMcpServerSettings: () => Effect.void,
     removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
+    removePackSettings: () => Effect.void,
+    removePackLock: () => Effect.void,
+    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
   } satisfies WorkspaceMutationsService;
   return { ...base, ...serviceOverrides };
@@ -343,7 +342,7 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   updatedAt: opts.updatedAt ?? TEST_DATE,
 });
 
-export const makeRegistryExtensionPackLockEntry = (opts: {
+export const makeRegistryPackLockEntry = (opts: {
   readonly owner: Handle;
   readonly name: string;
   readonly resolvedVersion?: Version;
@@ -355,8 +354,8 @@ export const makeRegistryExtensionPackLockEntry = (opts: {
   readonly resolvedSubagents?: ResolvedExtensionMap;
   readonly installedAt?: Date;
   readonly updatedAt?: Date;
-}): RegistryExtensionPackLockEntry =>
-  buildRegistryExtensionPackLockEntry({
+}): RegistryPackLockEntry =>
+  buildRegistryPackLockEntry({
     owner: opts.owner,
     name: decodeExtensionNameSync(opts.name),
     resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),

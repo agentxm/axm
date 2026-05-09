@@ -14,8 +14,8 @@ import {
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
-import type { NewExtensionPackOperation } from "./new-pack.js";
-import { newExtensionPack } from "./new-pack.js";
+import type { NewPackOperation } from "./new-pack.js";
+import { newPack } from "./new-pack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -26,7 +26,7 @@ const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredProfile?: string;
-    setPackFn?: WorkspaceMutationsService["setExtensionPack"];
+    setPackFn?: WorkspaceMutationsService["setPack"];
   } = {},
 ): WorkspaceMutationsService => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";
@@ -34,7 +34,7 @@ const makeWorkspaceMock = (
   return makeBaseWorkspaceMock(axmDir, {
     getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    setExtensionPack: opts.setPackFn ?? (() => Effect.void),
+    setPack: opts.setPackFn ?? (() => Effect.void),
   });
 };
 
@@ -45,10 +45,8 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
   return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs), outputLayer);
 };
 
-/** Creates a minimal NewExtensionPackOperation for testing. */
-const makeOp = (
-  overrides: Partial<NewExtensionPackOperation["args"]> = {},
-): NewExtensionPackOperation => ({
+/** Creates a minimal NewPackOperation for testing. */
+const makeOp = (overrides: Partial<NewPackOperation["args"]> = {}): NewPackOperation => ({
   name: "new-pack",
   args: {
     name: overrides.name ?? "my-pack",
@@ -60,7 +58,7 @@ const makeOp = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("newExtensionPack", () => {
+describe("newPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -83,14 +81,14 @@ describe("newExtensionPack", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newExtensionPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* newPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
         // Verify pack directory and manifest were created
         const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
         expect(fs.existsSync(packDir)).toBe(true);
-        expect(fs.existsSync(path.join(packDir, "extension-pack.json"))).toBe(true);
+        expect(fs.existsSync(path.join(packDir, "pack.json"))).toBe(true);
       }),
     );
 
@@ -98,7 +96,7 @@ describe("newExtensionPack", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newExtensionPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* newPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
@@ -109,10 +107,10 @@ describe("newExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "extension-pack.json",
+          "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.$schema).toBe("https://axm.sh/schemas/extension-pack.schema.json");
+        expect(manifest.$schema).toBe("https://axm.sh/schemas/pack.schema.json");
         expect(manifest.owner).toBe("@myorg");
         expect(manifest.type).toBe("pack");
         expect(manifest.name).toBe("my-pack");
@@ -123,14 +121,12 @@ describe("newExtensionPack", () => {
       }),
     );
 
-    it.effect("registers pack in settings via setExtensionPack", () =>
+    it.effect("registers pack in settings via setPack", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
-        const setPackFn = vi.fn<WorkspaceMutationsService["setExtensionPack"]>(
-          (_args) => Effect.void,
-        );
+        const setPackFn = vi.fn<WorkspaceMutationsService["setPack"]>((_args) => Effect.void);
 
-        const result = yield* newExtensionPack(makeOp()).pipe(
+        const result = yield* newPack(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { setPackFn })),
         );
 
@@ -155,11 +151,11 @@ describe("newExtensionPack", () => {
         const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(
-          path.join(packDir, "extension-pack.json"),
+          path.join(packDir, "pack.json"),
           JSON.stringify({ owner: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
         );
 
-        const result = yield* newExtensionPack(makeOp()).pipe(
+        const result = yield* newPack(makeOp()).pipe(
           Effect.provide(withServices(axmDir)),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
         );

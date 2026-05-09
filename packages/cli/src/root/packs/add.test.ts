@@ -52,7 +52,7 @@ const createPackManifest = (
   const packDir = path.join(tempDir, ".axm", "extensions", owner, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
-    path.join(packDir, "extension-pack.json"),
+    path.join(packDir, "pack.json"),
     JSON.stringify(
       {
         ...(manifest ?? {}),
@@ -138,7 +138,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
@@ -178,7 +178,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
@@ -230,7 +230,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "my-pack",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/effect-basics"]).toBe("^1.0.0");
@@ -353,7 +353,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "extension-pack.json",
+            "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/skill-a"]).toBe("^1.0.0");
@@ -392,7 +392,7 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("my-pack", "code-review"));
 
-          expect(logs.info.some((m) => m.includes("already in extension pack"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already in pack"))).toBe(true);
           expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
         }),
       );

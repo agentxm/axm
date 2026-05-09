@@ -6,7 +6,7 @@ import type { ResolvedExtensionMap } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import type { ExtensionPackRef } from "./refs.js";
+import type { PackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
 import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
@@ -25,7 +25,7 @@ type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
   readonly source: RegistrySource;
 };
 
-export interface ResolvedExtensionPackDependencies {
+export interface ResolvedPackDependencies {
   readonly resolvedSkills: ResolvedExtensionMap;
   readonly resolvedCommands: ResolvedExtensionMap;
   readonly resolvedMcpServers: ResolvedExtensionMap;
@@ -44,20 +44,20 @@ const resolveDependencyType = (
   return Effect.fail(
     makeAppError({
       code: "usage",
-      message: `Extension pack dependency type mismatch for expected ${expectedType}`,
+      message: `Pack dependency type mismatch for expected ${expectedType}`,
     }),
   );
 };
 
 const registrySourceForDependency = (
-  pack: ExtensionPackRef,
+  pack: PackRef,
   owner: Handle,
 ): Effect.Effect<RegistrySource, AppError> => {
   if (pack.source.type !== "registry") {
     return Effect.fail(
       makeAppError({
         code: "usage",
-        message: `Cannot resolve extension pack dependencies from non-registry source`,
+        message: `Cannot resolve pack dependencies from non-registry source`,
       }),
     );
   }
@@ -69,7 +69,7 @@ const registrySourceForDependency = (
 };
 
 const resolveDependencyRef = <T extends ExtensionType>(
-  pack: ExtensionPackRef,
+  pack: PackRef,
   expectedType: T,
   fqn: string,
   constraint: VersionRange,
@@ -102,7 +102,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
     if (matchingRef === undefined) {
       return yield* makeAppError({
         code: "usage",
-        message: `Unable to resolve extension pack dependency ${fqn}@${constraint}`,
+        message: `Unable to resolve pack dependency ${fqn}@${constraint}`,
       });
     }
 
@@ -120,7 +120,7 @@ const toResolvedMap = <T extends ExtensionType>(
   );
 
 const resolveDependencyGroup = <T extends ExtensionType>(
-  pack: ExtensionPackRef,
+  pack: PackRef,
   dependencies: ExtensionDependencyConstraintMap,
   expectedType: T,
   sources: SourceHostProvidersService,
@@ -131,10 +131,10 @@ const resolveDependencyGroup = <T extends ExtensionType>(
     { concurrency: "unbounded" },
   );
 
-export const resolveExtensionPackDependencies = (
-  pack: ExtensionPackRef,
+export const resolvePackDependencies = (
+  pack: PackRef,
   sources: SourceHostProvidersService,
-): Effect.Effect<ResolvedExtensionPackDependencies, AppError> =>
+): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
     const resolvedSkills = yield* resolveDependencyGroup(pack, pack.pack.skills, "skill", sources);
     const resolvedCommands = yield* resolveDependencyGroup(

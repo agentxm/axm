@@ -1,7 +1,7 @@
 /**
- * Extension pack feature module for @agentxm/client-core.
+ * Pack feature module for @agentxm/client-core.
  *
- * Provides extension pack manifest schemas, extension ref types, lifecycle manager,
+ * Provides pack manifest schemas, extension ref types, lifecycle manager,
  * path computation, expansion helpers, reconciliation adapter, and operations.
  *
  * @experimental All exports from this module are unstable and may change without notice.
@@ -10,64 +10,46 @@
 
 // Manifest schemas
 export {
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  ExtensionPackManifestSchema,
-  type ExtensionPackManifest,
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+  type PackManifest,
 } from "./manifest-schema.js";
 
 // Extension ref types
-export type { RegistryExtensionPackRef, ExtensionPackRef } from "./refs.js";
+export type { RegistryPackRef, PackRef } from "./refs.js";
 
 // Manager
-export { ExtensionPackManager, ExtensionPackManagerLive } from "./manager.js";
+export { PackManager, PackManagerLive } from "./manager.js";
 
 // Paths
-export { computeExtensionPackPaths, type ExtensionPackDirPath } from "./paths.js";
+export { computePackPaths, type PackDirPath } from "./paths.js";
 
 // Expansion helpers
 export {
-  expandExtensionPackInstallRefs,
-  expandExtensionPackUninstallTargets,
+  expandPackInstallRefs,
+  expandPackUninstallTargets,
   resolveSkillUninstallTargetsFromLockfile,
   type UninstallSettingsContext,
 } from "./expansion.js";
 
 // Reconciliation adapter
-export { extensionPackReconciliationAdapter } from "./reconciliation-adapter.js";
+export { packReconciliationAdapter } from "./reconciliation-adapter.js";
 
 // Operations
+export type { InstallPackOperationArgs, InstallPackOperation } from "./operations/install.js";
+export { installPack } from "./operations/install.js";
+export type { UninstallPackOperationArgs, UninstallPackOperation } from "./operations/uninstall.js";
+export { uninstallPack } from "./operations/uninstall.js";
+export type { NewPackOperationArgs, NewPackOperation } from "./operations/new-pack.js";
+export { newPack } from "./operations/new-pack.js";
+export type { AddToPackOperationArgs, AddToPackOperation } from "./operations/add-to-pack.js";
+export { addToPack } from "./operations/add-to-pack.js";
 export type {
-  InstallExtensionPackOperationArgs,
-  InstallExtensionPackOperation,
-} from "./operations/install.js";
-export { installExtensionPack } from "./operations/install.js";
-export type {
-  UninstallExtensionPackOperationArgs,
-  UninstallExtensionPackOperation,
-} from "./operations/uninstall.js";
-export { uninstallExtensionPack } from "./operations/uninstall.js";
-export type {
-  NewExtensionPackOperationArgs,
-  NewExtensionPackOperation,
-} from "./operations/new-pack.js";
-export { newExtensionPack } from "./operations/new-pack.js";
-export type {
-  AddToExtensionPackOperationArgs,
-  AddToExtensionPackOperation,
-} from "./operations/add-to-pack.js";
-export { addToExtensionPack } from "./operations/add-to-pack.js";
-export type {
-  RemoveFromExtensionPackOperationArgs,
-  RemoveFromExtensionPackOperation,
+  RemoveFromPackOperationArgs,
+  RemoveFromPackOperation,
 } from "./operations/remove-from-pack.js";
-export { removeFromExtensionPack } from "./operations/remove-from-pack.js";
-export type {
-  PublishExtensionPackOperationArgs,
-  PublishExtensionPackOperation,
-} from "./operations/publish.js";
-export { publishExtensionPack } from "./operations/publish.js";
-export type {
-  UnpackExtensionPackOperationArgs,
-  UnpackExtensionPackOperation,
-} from "./operations/unpack.js";
-export { unpackExtensionPack } from "./operations/unpack.js";
+export { removeFromPack } from "./operations/remove-from-pack.js";
+export type { PublishPackOperationArgs, PublishPackOperation } from "./operations/publish.js";
+export { publishPack } from "./operations/publish.js";
+export type { UnpackPackOperationArgs, UnpackPackOperation } from "./operations/unpack.js";
+export { unpackPack } from "./operations/unpack.js";

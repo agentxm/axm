@@ -4,7 +4,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../extensions/index.js";
 import type { McpServerExtensionRef } from "../../mcp-servers/index.js";
-import type { ExtensionPackRef } from "../../packs/index.js";
+import type { PackRef } from "../../packs/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
@@ -302,7 +302,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
     if (parsed === undefined || parsed.type !== "packs" || parsed.name !== name) {
       return yield* makeAppError({
         code: "validation",
-        message: `The configured extension pack entry "${name}" is invalid.`,
+        message: `The configured pack entry "${name}" is invalid.`,
         breadcrumbs: [{ task: "Recover", description: `Use a name like "@owner/packs/name".` }],
       });
     }
@@ -313,7 +313,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          message: `Invalid extension pack source for ${name}: ${cause.message}`,
+          message: `Invalid pack source for ${name}: ${cause.message}`,
           cause,
         }),
       ),
@@ -328,9 +328,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       });
 
     const refs = yield* findWith(resolvedSource).pipe(
-      Effect.map((entries) =>
-        entries.filter((entry): entry is ExtensionPackRef => entry.type === "pack"),
-      ),
+      Effect.map((entries) => entries.filter((entry): entry is PackRef => entry.type === "pack")),
       Effect.catch((error) =>
         resolvedSource.type === "registry"
           ? Effect.gen(function* () {
@@ -352,7 +350,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
                 const fallbackResult = yield* findWith(fallback).pipe(Effect.result);
                 if (fallbackResult._tag === "Success" && fallbackResult.success.length > 0) {
                   return fallbackResult.success.filter(
-                    (entry): entry is ExtensionPackRef => entry.type === "pack",
+                    (entry): entry is PackRef => entry.type === "pack",
                   );
                 }
               }
@@ -364,12 +362,12 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
-          message: `Failed to resolve configured extension pack "${name}"`,
+          message: `Failed to resolve configured pack "${name}"`,
           breadcrumbs: [
             {
               task: "Recover",
               description:
-                "Verify the configured registry source is reachable and still contains the extension pack.",
+                "Verify the configured registry source is reachable and still contains the pack.",
             },
           ],
           cause,
@@ -381,12 +379,12 @@ export const resolveConfiguredPack = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Configured extension pack "${name}" could not be found in its source`,
+        message: `Configured pack "${name}" could not be found in its source`,
         breadcrumbs: [
           {
             task: "Recover",
             description:
-              "Verify the configured source still contains the extension pack or update settings.json.",
+              "Verify the configured source still contains the pack or update settings.json.",
           },
         ],
       });

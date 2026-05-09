@@ -4,7 +4,7 @@
     {
       "ruleId": "pack/manifest-keys-recognized",
       "severity": "warning",
-      "file": "extension-pack.json",
+      "file": "pack.json",
       "messageIncludes": "packs"
     }
   ]

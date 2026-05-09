@@ -10,7 +10,7 @@ import {
   makeRegistrySkillLockEntry,
   makeRegistryCommandLockEntry,
   makeRegistryMcpServerLockEntry,
-  makeRegistryExtensionPackLockEntry,
+  makeRegistryPackLockEntry,
 } from "../test-stubs.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import {
@@ -249,9 +249,9 @@ describe("collectPackCurrency", () => {
               packagingKind: "non-native" as const,
             },
           }),
-        getLockedExtensionPacks: () =>
+        getLockedPacks: () =>
           Effect.succeed({
-            starter: makeRegistryExtensionPackLockEntry({
+            starter: makeRegistryPackLockEntry({
               owner,
               name: "starter",
               resolvedVersion: v("1.0.0"),

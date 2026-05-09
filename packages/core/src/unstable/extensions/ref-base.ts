@@ -113,10 +113,11 @@ export type SubagentExtensionRefBase<
 };
 
 /** @experimental */
-export type ExtensionPackRefBase<
-  TRefType extends RefType,
-  TSource extends Source,
-> = ExtensionRefBase<"pack", TRefType, TSource> & {
+export type PackRefBase<TRefType extends RefType, TSource extends Source> = ExtensionRefBase<
+  "pack",
+  TRefType,
+  TSource
+> & {
   readonly owner: Handle;
   readonly pack: {
     readonly name: ExtensionName;

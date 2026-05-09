@@ -495,13 +495,13 @@ describe("common schemas", () => {
     it("provides sentence-case singular display labels", () => {
       expect(extensionTypeSentenceLabels.skill).toBe("skill");
       expect(extensionTypeSentenceLabels["mcp-server"]).toBe("MCP server");
-      expect(extensionTypeSentenceLabels.pack).toBe("extension pack");
+      expect(extensionTypeSentenceLabels.pack).toBe("pack");
     });
 
     it("provides sentence-case plural display labels", () => {
       expect(extensionTypePluralSentenceLabels.skills).toBe("skills");
       expect(extensionTypePluralSentenceLabels["mcp-servers"]).toBe("MCP servers");
-      expect(extensionTypePluralSentenceLabels.packs).toBe("extension packs");
+      expect(extensionTypePluralSentenceLabels.packs).toBe("packs");
     });
   });
 

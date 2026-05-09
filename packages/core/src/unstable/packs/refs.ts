@@ -1,13 +1,13 @@
 /**
- * Extension pack ref types.
+ * Pack ref types.
  *
- * Concrete extension pack refs built on top of the shared ref base hierarchy.
+ * Concrete pack refs built on top of the shared ref base hierarchy.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import type { ExtensionPackRefBase, RegistryRefDetails } from "../extensions/ref-base.js";
+import type { PackRefBase, RegistryRefDetails } from "../extensions/ref-base.js";
 import type { RegistrySource } from "../sources/types.js";
 
 // -----------------------------------------------------------------------------
@@ -15,8 +15,7 @@ import type { RegistrySource } from "../sources/types.js";
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export type RegistryExtensionPackRef = ExtensionPackRefBase<"registry", RegistrySource> &
-  RegistryRefDetails;
+export type RegistryPackRef = PackRefBase<"registry", RegistrySource> & RegistryRefDetails;
 
 /** @experimental */
-export type ExtensionPackRef = RegistryExtensionPackRef;
+export type PackRef = RegistryPackRef;

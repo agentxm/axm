@@ -10,13 +10,10 @@ import {
   normalizeHandle,
   parseRegistrySourcePatternParts,
 } from "@agentxm/client-core/unstable/extensions";
-import type { RemoveFromExtensionPackOperation } from "@agentxm/client-core/unstable/packs";
-import { removeFromExtensionPack } from "@agentxm/client-core/unstable/packs";
-import {
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  ExtensionPackManifestSchema,
-} from "@agentxm/client-core/unstable/packs";
-import { computeExtensionPackPaths } from "@agentxm/client-core/unstable/packs";
+import type { RemoveFromPackOperation } from "@agentxm/client-core/unstable/packs";
+import { removeFromPack } from "@agentxm/client-core/unstable/packs";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
+import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -55,11 +52,11 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   if (packEntry === undefined) {
     return yield* makeAppError({
       code: "not_found",
-      message: `Extension pack '${args.pack}' not found`,
+      message: `Pack '${args.pack}' not found`,
       breadcrumbs: [
         {
           task: "Recover",
-          description: "Check available extension packs or create one with `axm packs new`",
+          description: "Check available packs or create one with `axm packs new`",
         },
       ],
     });
@@ -97,15 +94,15 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computeExtensionPackPaths(path.join, base, packOwner, args.pack);
-  const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
+  const packDir = computePackPaths(path.join, base, packOwner, args.pack);
+  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "not_found",
-        message: `Extension pack manifest not found at ${manifestPath}`,
-        breadcrumbs: [{ task: "Recover", description: "Ensure the extension pack exists on disk" }],
+        message: `Pack manifest not found at ${manifestPath}`,
+        breadcrumbs: [{ task: "Recover", description: "Ensure the pack exists on disk" }],
         cause: e,
       }),
     ),
@@ -121,16 +118,16 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     catch: (e) =>
       makeAppError({
         code: "validation",
-        message: `Failed to parse extension pack manifest: ${manifestPath}`,
+        message: `Failed to parse pack manifest: ${manifestPath}`,
         cause: e,
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "validation",
-        message: `Invalid extension pack manifest: ${manifestPath}`,
+        message: `Invalid pack manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -158,18 +155,18 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     if (isGlob) {
       return yield* makeAppError({
         code: "internal",
-        message: `No extensions in extension pack match '${args.extension}'`,
-        breadcrumbs: [{ task: "Recover", description: "Check extension pack contents" }],
+        message: `No extensions in pack match '${args.extension}'`,
+        breadcrumbs: [{ task: "Recover", description: "Check pack contents" }],
       });
     }
 
     return yield* makeAppError({
       code: "internal",
-      message: `Extension '${args.extension}' is not in the extension pack`,
+      message: `Extension '${args.extension}' is not in the pack`,
       breadcrumbs: [
         {
           task: "Recover",
-          description: "Check the extension pack manifest for available extensions",
+          description: "Check the pack manifest for available extensions",
         },
       ],
     });
@@ -184,7 +181,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       removals: matchedNames,
       manifestHash,
     },
-  } satisfies RemoveFromExtensionPackOperation;
+  } satisfies RemoveFromPackOperation;
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
@@ -199,7 +196,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.pack,
-    run: provideServices(removeFromExtensionPack(op)).pipe(
+    run: provideServices(removeFromPack(op)).pipe(
       Effect.map(
         (result): JobStepResult =>
           result.result === "error"
@@ -211,7 +208,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   const plan: Plan = {
     _tag: "Plan",
-    name: "Remove from extension pack",
+    name: "Remove from pack",
     description: Option.some(`Remove ${matchedNames.length} extension(s) from ${args.pack}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
@@ -232,9 +229,7 @@ const removeConfig = {
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Remove without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Remove even if it would leave the extension pack empty"),
-  ),
+  force: forceFlag.pipe(Flag.withDescription("Remove even if it would leave the pack empty")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
@@ -250,11 +245,11 @@ export const removeCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(removeConfig),
-  Command.withDescription("Remove an extension from an extension pack manifest"),
+  Command.withDescription("Remove an extension from a pack manifest"),
   Command.withExamples([
     {
       command: "axm packs remove frontend-tools @acme/skills/code-review",
-      description: "Remove an extension from an extension pack",
+      description: "Remove an extension from a pack",
     },
     {
       command: 'axm packs remove my-pack "@acme/effect-*"',

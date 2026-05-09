@@ -15,7 +15,7 @@ import { SettingsSchema } from "../settings/index.js";
 import { SkillManifestSchema } from "../skills/manifest-schema.js";
 import { CommandManifestSchema } from "../commands/manifest-schema.js";
 import { McpServerManifestSchema } from "../mcp-servers/manifest-schema.js";
-import { ExtensionPackManifestSchema } from "../packs/manifest-schema.js";
+import { PackManifestSchema } from "../packs/manifest-schema.js";
 
 const CORE_UNSTABLE = path.join(import.meta.dirname, "..");
 
@@ -76,9 +76,9 @@ describe("example files", () => {
     expect(result.version).toBe("1.0.0");
   });
 
-  it("extension-pack.example.json conforms to ExtensionPackManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "packs/extension-pack.example.json"));
-    const result = Schema.decodeUnknownSync(ExtensionPackManifestSchema)(example);
+  it("pack.example.json conforms to PackManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "packs/pack.example.json"));
+    const result = Schema.decodeUnknownSync(PackManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");
     expect(result.type).toBe("pack");

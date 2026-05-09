@@ -576,15 +576,13 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionPackEntryObjectSchema = Schema.Struct({
-  source: Schema.String.pipe(
-    Schema.annotateKey({ messageMissingKey: "extension pack source is required" }),
-  ),
+export const PackEntryObjectSchema = Schema.Struct({
+  source: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "pack source is required" })),
   authored: Schema.optional(Schema.Boolean),
 }).annotate({
-  identifier: "ExtensionPackEntryObject",
-  title: "Extension Pack Entry Object",
-  description: "An extension pack with its source location.",
+  identifier: "PackEntryObject",
+  title: "Pack Entry Object",
+  description: "A pack with its source location.",
 });
 
 /**
@@ -595,19 +593,16 @@ export const ExtensionPackEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionPackEntrySchema = Schema.Union([
-  Schema.String,
-  ExtensionPackEntryObjectSchema,
-]).pipe(
+export const PackEntrySchema = Schema.Union([Schema.String, PackEntryObjectSchema]).pipe(
   Schema.decodeTo(
     Schema.Struct({
       source: Schema.String,
       authored: Schema.Boolean,
     }).annotate({
-      identifier: "ExtensionPackEntry",
-      title: "Extension Pack Entry",
+      identifier: "PackEntry",
+      title: "Pack Entry",
       description:
-        "An extension pack reference — either a source string or an object with source and authored.",
+        "A pack reference — either a source string or an object with source and authored.",
     }),
     SchemaTransformation.transform({
       decode: (entry): { readonly source: string; readonly authored: boolean } =>
@@ -623,11 +618,11 @@ export const ExtensionPackEntrySchema = Schema.Union([
 );
 
 /**
- * Inferred type for ExtensionPackEntry schema.
+ * Inferred type for PackEntry schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionPackEntry = Schema.Schema.Type<typeof ExtensionPackEntrySchema>;
+export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
 
 /**
  * Packs map - maps pack names to pack entries.
@@ -641,20 +636,20 @@ export type ExtensionPackEntry = Schema.Schema.Type<typeof ExtensionPackEntrySch
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionPacksMapSchema = Schema.Record(Schema.String, ExtensionPackEntrySchema)
-  .check(Schema.makeFilter(validateNamedRecordKeys("extension pack", decodeExtensionNameSync)))
+export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
+  .check(Schema.makeFilter(validateNamedRecordKeys("pack", decodeExtensionNameSync)))
   .annotate({
-    identifier: "ExtensionPacksMap",
-    title: "Extension Packs Map",
-    description: "Your installed extension packs, keyed by name.",
+    identifier: "PacksMap",
+    title: "Packs Map",
+    description: "Your installed packs, keyed by name.",
   });
 
 /**
- * Inferred type for ExtensionPacksMap schema.
+ * Inferred type for PacksMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionPacksMap = Schema.Schema.Type<typeof ExtensionPacksMapSchema>;
+export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
 
 // -----------------------------------------------------------------------------
 // Ignored Patterns Schema
@@ -729,7 +724,7 @@ export const SettingsSchema = Schema.Struct({
   commands: Schema.optional(CommandsMapSchema),
   subagents: Schema.optional(SubagentsMapSchema),
   mcpServers: Schema.optional(McpServersMapSchema),
-  packs: Schema.optional(ExtensionPacksMapSchema),
+  packs: Schema.optional(PacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
   ignored: Schema.optional(IgnoredSettingsSchema),
   lint: Schema.optional(LintConfigSchema),

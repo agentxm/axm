@@ -3,7 +3,7 @@
  *
  * Each fixture directory under `__fixtures__/packs/<case>/` contains:
  *
- * - The input tree (optional `extension-pack.json` and any other files the
+ * - The input tree (optional `pack.json` and any other files the
  *   case needs).
  * - `case.json` — { description, expectedFindings[] }.
  *
@@ -13,7 +13,7 @@
  * the actual message. Exact findings count must match.
  *
  * Fixture trees are simple flat directories — the v1 pack catalog only
- * reads `extension-pack.json`.
+ * reads `pack.json`.
  */
 
 import * as nodeFs from "node:fs";
@@ -75,7 +75,7 @@ const loadCase = (name: string): { readonly case: FixtureCase; readonly tree: Pa
 };
 
 const decodePackJson = (tree: PackVFTNode): unknown => {
-  const bytes = tree.getFile("extension-pack.json");
+  const bytes = tree.getFile("pack.json");
   if (bytes === undefined) {
     return undefined;
   }

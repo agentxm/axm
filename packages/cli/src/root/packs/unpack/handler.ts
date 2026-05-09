@@ -41,7 +41,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     "Checking pack...",
     () =>
       Effect.gen(function* () {
-        const lockedPack = yield* ws.getLockedExtensionPack(args.name);
+        const lockedPack = yield* ws.getLockedPack(args.name);
 
         if (Option.isNone(lockedPack)) {
           return yield* makeAppError({
@@ -50,7 +50,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
             breadcrumbs: [
               {
                 task: "Recover",
-                description: "Install the extension pack first with `axm packs install`.",
+                description: "Install the pack first with `axm packs install`.",
               },
             ],
           });
@@ -61,7 +61,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         if (entry.type !== "registry") {
           return yield* makeAppError({
             code: "internal",
-            message: `Cannot unpack "${args.name}" — only registry extension packs can be unpacked`,
+            message: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
           });
         }
 

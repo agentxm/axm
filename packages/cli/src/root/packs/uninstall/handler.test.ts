@@ -27,7 +27,7 @@ import {
   UninstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { ExtensionPackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -141,7 +141,7 @@ describe("packs uninstall handler", () => {
     );
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const ManagersLayer = Layer.mergeAll(
-      ExtensionPackManagerLive,
+      PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
@@ -370,7 +370,7 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          expect(logs.warn.some((m) => m.includes("No extension packs matched"))).toBe(true);
+          expect(logs.warn.some((m) => m.includes("No packs matched"))).toBe(true);
           expect(logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
         }),
       );

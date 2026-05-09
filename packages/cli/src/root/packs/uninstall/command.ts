@@ -8,11 +8,11 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
   name: Argument.string("name").pipe(
-    Argument.withDescription("Name or glob pattern of the extension pack to uninstall"),
+    Argument.withDescription("Name or glob pattern of the pack to uninstall"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
   force: forceFlag.pipe(
-    Flag.withDescription("Remove even if extensions in this extension pack are used elsewhere"),
+    Flag.withDescription("Remove even if extensions in this pack are used elsewhere"),
   ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be removed without making changes"),
@@ -29,11 +29,11 @@ export const uninstallCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
-  Command.withDescription("Uninstall an extension pack"),
+  Command.withDescription("Uninstall a pack"),
   Command.withExamples([
     {
       command: "axm packs uninstall my-pack",
-      description: "Remove an extension pack and its orphaned extensions",
+      description: "Remove a pack and its orphaned extensions",
     },
     {
       command: "axm packs uninstall my-pack --preview",
@@ -45,7 +45,7 @@ export const uninstallCommand = Command.make(
     },
     {
       command: "axm packs uninstall acme-*",
-      description: "Remove all extension packs matching a pattern",
+      description: "Remove all packs matching a pattern",
     },
   ]),
 );

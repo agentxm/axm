@@ -18,7 +18,7 @@ import {
   parseRegistrySourceRef,
 } from "@agentxm/client-core/unstable/extensions";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
-import { ExtensionPackManager } from "@agentxm/client-core/unstable/packs";
+import { PackManager } from "@agentxm/client-core/unstable/packs";
 import {
   applyPlan,
   resolvePlan,
@@ -69,7 +69,7 @@ const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(functi
   const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
-  const packManager = yield* ExtensionPackManager;
+  const packManager = yield* PackManager;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;

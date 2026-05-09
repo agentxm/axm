@@ -52,7 +52,7 @@ removeBuiltInFlag(GlobalFlag.LogLevel);
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
-    "Open extension manager for AI coding agents.\n  Manage skills, commands, MCP servers, and extension packs across your AI coding agents from a single CLI.",
+    "Open extension manager for AI coding agents.\n  Manage skills, commands, MCP servers, and packs across your AI coding agents from a single CLI.",
   ),
   Command.annotate(LearnMore, LEARN_MORE_FOOTER),
   Command.withExamples([

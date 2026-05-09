@@ -218,12 +218,7 @@ export const collectPackCurrency = (
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency(
-      "pack",
-      ws.records.getConfiguredPacks,
-      ws.getLockedExtensionPacks,
-      client,
-    );
+    return yield* collectCurrency("pack", ws.records.getConfiguredPacks, ws.getLockedPacks, client);
   });
 
 // ---------------------------------------------------------------------------

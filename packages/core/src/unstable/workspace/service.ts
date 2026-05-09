@@ -24,14 +24,14 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import {
   LOCKFILE_NAME,
-  makeRegistryExtensionPackLockEntry,
+  makeRegistryPackLockEntry,
   writeLockfile,
-  type RegistryExtensionPackLockEntry,
+  type RegistryPackLockEntry,
   type SubagentsLockMap,
 } from "../lockfile/index.js";
 import type { Lockfile } from "../lockfile/schema.js";
 import { computeSkillPaths } from "../skills/paths.js";
-import { computeExtensionPackPaths } from "../packs/paths.js";
+import { computePackPaths } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
@@ -49,8 +49,8 @@ import {
   type McpServersMap,
   type SkillEntry,
   type SubagentEntry,
-  type ExtensionPackEntry,
-  type ExtensionPacksMap,
+  type PackEntry,
+  type PacksMap,
   type Settings,
   SETTINGS_FILENAME,
   type SkillsMap,
@@ -78,7 +78,7 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsOptions,
   type SetSkillArgs,
-  type SetExtensionPackArgs,
+  type SetPackArgs,
   type SetCommandArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
@@ -685,19 +685,18 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((s): ReadonlyArray<string> => s.ignored?.packs ?? []),
         ),
 
-      getLockedExtensionPacks: () =>
-        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
+      getLockedPacks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
 
-      getLockedExtensionPack: (name: string) =>
+      getLockedPack: (name: string) =>
         readLockfileSafe(workspaceDir).pipe(
           Effect.map((lf) => Option.fromUndefinedOr((lf.packs ?? {})[name])),
         ),
 
-      setExtensionPack: (args: SetExtensionPackArgs) =>
+      setPack: (args: SetPackArgs) =>
         withMutex(
           Effect.gen(function* () {
             const { name, versionRange, ...lockFields } = args;
-            const lockEntry: RegistryExtensionPackLockEntry = makeRegistryExtensionPackLockEntry({
+            const lockEntry: RegistryPackLockEntry = makeRegistryPackLockEntry({
               ...lockFields,
               name,
             });
@@ -709,7 +708,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             });
             const source = Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
+            const currentPacks: PacksMap = currentSettings.packs ?? {};
             const authored = currentPacks[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
@@ -732,27 +731,27 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setExtensionPack")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setPack")),
 
-      setExtensionPackEntry: (name: string, entry: ExtensionPackEntry) =>
+      setPackEntry: (name: string, entry: PackEntry) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
+            const currentPacks: PacksMap = currentSettings.packs ?? {};
             const updatedSettings = {
               ...currentSettings,
               packs: { ...currentPacks, [name]: entry },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setExtensionPackEntry")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setPackEntry")),
 
-      removeExtensionPack: (name: string) =>
+      removePack: (name: string) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
+            const currentPacks: PacksMap = currentSettings.packs ?? {};
             if (!(name in currentPacks)) return; // no-op
 
             const { [name]: _, ...remainingPacks } = currentPacks;
@@ -770,10 +769,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeExtensionPack")),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removePack")),
 
-      getExtensionPackDir: (name: string, owner: Handle) =>
-        Effect.succeed(computeExtensionPackPaths(path.join, baseDir, owner, name)),
+      getPackDir: (name: string, owner: Handle) =>
+        Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
 
       // -----------------------------------------------------------------------
       // Command methods
@@ -1213,11 +1212,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      removeExtensionPackSettings: (name: string) =>
+      removePackSettings: (name: string) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
+            const currentPacks: PacksMap = currentSettings.packs ?? {};
             if (!(name in currentPacks)) return;
             const { [name]: _, ...remainingPacks } = currentPacks;
             void _;
@@ -1226,7 +1225,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      removeExtensionPackLock: (name: string) =>
+      removePackLock: (name: string) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1243,7 +1242,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       // Pack dependency queries
       // -----------------------------------------------------------------------
 
-      isExtensionRequiredByInstalledExtensionPack: (target: ExtensionTarget) =>
+      isExtensionRequiredByInstalledPack: (target: ExtensionTarget) =>
         Effect.gen(function* () {
           // Packs don't depend on other packs in this model
           if (target.type === "pack") return false;

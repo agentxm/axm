@@ -29,7 +29,7 @@ import type { ExtensionRef } from "../../../extensions/index.js";
 import type { RegistrySkillRef } from "../../../skills/index.js";
 import type { RegistryCommandRef } from "../../../commands/index.js";
 import type { RegistryMcpServerRef } from "../../../mcp-servers/index.js";
-import type { RegistryExtensionPackRef } from "../../../packs/index.js";
+import type { RegistryPackRef } from "../../../packs/index.js";
 import type { RegistrySubagentRef } from "../../../subagents/index.js";
 import type { RegistrySource, FindOptions } from "../../../sources/index.js";
 import {
@@ -228,7 +228,7 @@ const expectRegistryCommandRef = (ref: ExtensionRef): RegistryCommandRef => {
   return ref;
 };
 
-const expectRegistryExtensionPackRef = (ref: ExtensionRef): RegistryExtensionPackRef => {
+const expectRegistryPackRef = (ref: ExtensionRef): RegistryPackRef => {
   if (ref.type !== "pack" || ref.refType !== "registry") {
     throw new Error("Expected registry pack ref");
   }
@@ -428,7 +428,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it.effect("maps pack entries to ExtensionPackRef with empty deps", () => {
+  it.effect("maps pack entries to PackRef with empty deps", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       makeManifest({ type: "pack", name: "my-pack", version: "3.0.0", integrity: "sha512-ghi" }),
@@ -451,7 +451,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         const ref = at(refs, 0);
         expect(ref.type).toBe("pack");
         expect(ref.refType).toBe("registry");
-        const packRef = expectRegistryExtensionPackRef(ref);
+        const packRef = expectRegistryPackRef(ref);
         expect(packRef.pack.name).toBe("my-pack");
         expect(packRef.pack.skills).toEqual({});
         expect(packRef.pack.commands).toEqual({});
@@ -494,7 +494,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         });
 
         expect(refs).toHaveLength(1);
-        const packRef = expectRegistryExtensionPackRef(at(refs, 0));
+        const packRef = expectRegistryPackRef(at(refs, 0));
         expect(packRef.pack.skills).toEqual({
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
@@ -544,7 +544,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         });
 
         expect(refs).toHaveLength(1);
-        const packRef = expectRegistryExtensionPackRef(at(refs, 0));
+        const packRef = expectRegistryPackRef(at(refs, 0));
         expect(packRef.pack.skills).toEqual({ "@acme/skills/valid": "^1.0.0" });
         expect(packRef.pack.commands).toEqual({});
         expect(packRef.pack.mcpServers).toEqual({});

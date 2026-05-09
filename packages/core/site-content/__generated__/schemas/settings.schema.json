@@ -151,7 +151,7 @@
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/McpServerEntry" }
     },
-    "ExtensionPackEntryObject": {
+    "PackEntryObject": {
       "type": "object",
       "properties": {
         "source": { "type": "string" },
@@ -159,16 +159,11 @@
       },
       "required": ["source"],
       "additionalProperties": false,
-      "title": "Extension Pack Entry Object",
-      "description": "An extension pack with its source location."
+      "title": "Pack Entry Object",
+      "description": "A pack with its source location."
     },
-    "ExtensionPackEntry": {
-      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/ExtensionPackEntryObject" }]
-    },
-    "ExtensionPacksMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/ExtensionPackEntry" }
-    },
+    "PackEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/PackEntryObject" }] },
+    "PacksMap": { "type": "object", "additionalProperties": { "$ref": "#/definitions/PackEntry" } },
     "SkillEntryObject": {
       "type": "object",
       "properties": {
@@ -299,7 +294,7 @@
         "commands": { "anyOf": [{ "$ref": "#/definitions/CommandsMap" }, { "type": "null" }] },
         "subagents": { "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }, { "type": "null" }] },
         "mcpServers": { "anyOf": [{ "$ref": "#/definitions/McpServersMap" }, { "type": "null" }] },
-        "packs": { "anyOf": [{ "$ref": "#/definitions/ExtensionPacksMap" }, { "type": "null" }] },
+        "packs": { "anyOf": [{ "$ref": "#/definitions/PacksMap" }, { "type": "null" }] },
         "skills": { "anyOf": [{ "$ref": "#/definitions/SkillsMap" }, { "type": "null" }] },
         "ignored": { "anyOf": [{ "$ref": "#/definitions/IgnoredSettings" }, { "type": "null" }] },
         "lint": { "anyOf": [{ "$ref": "#/definitions/LintConfig" }, { "type": "null" }] }

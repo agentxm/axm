@@ -1,9 +1,9 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import { ExtensionPackManifestSchema } from "./manifest-schema.js";
+import { PackManifestSchema } from "./manifest-schema.js";
 
-describe("ExtensionPackManifestSchema", () => {
-  const decode = Schema.decodeUnknownSync(ExtensionPackManifestSchema);
+describe("PackManifestSchema", () => {
+  const decode = Schema.decodeUnknownSync(PackManifestSchema);
 
   it("accepts valid minimal manifest", () => {
     const input = {

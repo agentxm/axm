@@ -103,7 +103,7 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<Plan, AppError> => {
       const retentionPolicy = {
         isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
-          ws.isExtensionRequiredByInstalledExtensionPack(args.target),
+          ws.isExtensionRequiredByInstalledPack(args.target),
         markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
           ws.markDependencyRetainedInLockfile(args.target),
       };

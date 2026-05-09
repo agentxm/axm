@@ -9,7 +9,7 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 const installConfig = {
   source: Argument.string("source").pipe(
     Argument.withDescription(
-      "Registry extension pack reference (@owner/packs/name, @owner/packs/name@version, or bare pack-name)",
+      "Registry pack reference (@owner/packs/name, @owner/packs/name@version, or bare pack-name)",
     ),
     Argument.optional,
   ),
@@ -17,9 +17,7 @@ const installConfig = {
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Reinstall even if the extension pack already exists"),
-  ),
+  force: forceFlag.pipe(Flag.withDescription("Reinstall even if the pack already exists")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),
@@ -36,12 +34,12 @@ export const installCommand = Command.make(
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(
-    "Reinstall configured extension packs from their sources, or install an extension pack and its extensions from a registry",
+    "Reinstall configured packs from their sources, or install a pack and its extensions from a registry",
   ),
   Command.withExamples([
     {
       command: "axm packs install",
-      description: "Reinstall all configured extension packs from their sources",
+      description: "Reinstall all configured packs from their sources",
     },
     {
       command: "axm packs install @acme/packs/frontend-tools",

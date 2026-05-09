@@ -1,5 +1,5 @@
 /**
- * Add-to-extension-pack operation — applies a precomputed manifest-add delta to an extension pack manifest.
+ * Add-to-pack operation — applies a precomputed manifest-add delta to a pack manifest.
  *
  * Validates manifest precondition (stale check) before writing.
  *
@@ -17,11 +17,8 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { parseFqnOrThrow } from "../../extensions/index.js";
-import {
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  ExtensionPackManifestSchema,
-} from "../manifest-schema.js";
-import { computeExtensionPackPaths } from "../paths.js";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
+import { computePackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
 
 // -----------------------------------------------------------------------------
@@ -29,9 +26,9 @@ import { hashContent } from "./hash-content.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the add-to-extension-pack operation.
+ * Args for the add-to-pack operation.
  */
-export interface AddToExtensionPackOperationArgs {
+export interface AddToPackOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */
@@ -43,18 +40,18 @@ export interface AddToExtensionPackOperationArgs {
 }
 
 /**
- * Add extensions to an extension pack manifest.
+ * Add extensions to a pack manifest.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AddToExtensionPackOperation = Operation<"add-to-pack", AddToExtensionPackOperationArgs>;
+export type AddToPackOperation = Operation<"add-to-pack", AddToPackOperationArgs>;
 
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
 /**
- * Add-to-extension-pack operation handler.
+ * Add-to-pack operation handler.
  *
  * 1. Short-circuit if additions map is empty (no-op)
  * 2. Read current manifest and compute hash
@@ -62,8 +59,8 @@ export type AddToExtensionPackOperation = Operation<"add-to-pack", AddToExtensio
  * 4. Apply additions to manifest
  * 5. Write updated manifest
  */
-export const addToExtensionPack: OperationHandler<
-  AddToExtensionPackOperation,
+export const addToPack: OperationHandler<
+  AddToPackOperation,
   FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
@@ -80,17 +77,15 @@ export const addToExtensionPack: OperationHandler<
     }
 
     // 2. Read current manifest
-    const packDir = computeExtensionPackPaths(path.join, base, packOwner, packName);
-    const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
+    const packDir = computePackPaths(path.join, base, packOwner, packName);
+    const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "not_found",
-          message: `Extension pack manifest not found at ${manifestPath}`,
-          breadcrumbs: [
-            { task: "Recover", description: "Ensure the extension pack exists on disk" },
-          ],
+          message: `Pack manifest not found at ${manifestPath}`,
+          breadcrumbs: [{ task: "Recover", description: "Ensure the pack exists on disk" }],
           cause: e,
         }),
       ),
@@ -101,7 +96,7 @@ export const addToExtensionPack: OperationHandler<
     if (currentHash !== manifestHash) {
       return yield* makeAppError({
         code: "conflict",
-        message: `Extension pack manifest is stale — it was modified since the plan was created`,
+        message: `Pack manifest is stale — it was modified since the plan was created`,
         breadcrumbs: [
           { task: "Recover", description: "Re-run the command to create a fresh plan" },
         ],
@@ -117,16 +112,16 @@ export const addToExtensionPack: OperationHandler<
       catch: (e) =>
         makeAppError({
           code: "validation",
-          message: `Failed to parse extension pack manifest: ${manifestPath}`,
+          message: `Failed to parse pack manifest: ${manifestPath}`,
           cause: e,
         }),
     });
 
-    const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid extension pack manifest: ${manifestPath}`,
+          message: `Invalid pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -170,7 +165,7 @@ export const addToExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write extension pack manifest: ${manifestPath}`,
+          message: `Failed to write pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -178,6 +173,6 @@ export const addToExtensionPack: OperationHandler<
 
     return {
       result: "success",
-      message: `Added ${Object.keys(additions).length} extension(s) to extension pack`,
+      message: `Added ${Object.keys(additions).length} extension(s) to pack`,
     } satisfies JobStepResult;
   });

@@ -1,5 +1,5 @@
 /**
- * Unit tests for the publishExtensionPack operation handler.
+ * Unit tests for the publishPack operation handler.
  */
 
 import * as fs from "node:fs";
@@ -16,7 +16,7 @@ import {
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
-import { publishExtensionPack, type PublishExtensionPackOperation } from "./publish.js";
+import { publishPack, type PublishPackOperation } from "./publish.js";
 import { handle } from "../../test-helpers.js";
 
 /** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
@@ -38,10 +38,8 @@ const withServices = (axmDir: string, registryRoot: string) => {
   return Layer.mergeAll(NodeServices.layer, WorkspaceMutations.layer(mockWs));
 };
 
-/** Creates a minimal PublishExtensionPackOperation for testing. */
-const makeOp = (
-  overrides: Partial<PublishExtensionPackOperation["args"]> = {},
-): PublishExtensionPackOperation => ({
+/** Creates a minimal PublishPackOperation for testing. */
+const makeOp = (overrides: Partial<PublishPackOperation["args"]> = {}): PublishPackOperation => ({
   name: "publish-pack",
   args: {
     name: overrides.name ?? "@community/packs/my-pack",
@@ -49,7 +47,7 @@ const makeOp = (
   },
 });
 
-describe("publishExtensionPack", () => {
+describe("publishPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -82,10 +80,7 @@ describe("publishExtensionPack", () => {
       skills: { "@community/skills/example": "^1.0.0" },
       ...manifest,
     };
-    fs.writeFileSync(
-      path.join(packDir, "extension-pack.json"),
-      JSON.stringify(defaultManifest, null, 2),
-    );
+    fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(defaultManifest, null, 2));
 
     return { base, axmDir, packDir, registryRoot };
   };
@@ -97,7 +92,7 @@ describe("publishExtensionPack", () => {
           compatiblePackages: ["pkg:npm/claude-code"],
         });
 
-        yield* publishExtensionPack(
+        yield* publishPack(
           makeOp({ name: "@community/packs/compat-pack", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
@@ -124,7 +119,7 @@ describe("publishExtensionPack", () => {
         subagents: { "@community/subagents/researcher": "1.4.0" },
       });
 
-      yield* publishExtensionPack(
+      yield* publishPack(
         makeOp({ name: "@community/packs/full-pack", registryName: "local" }),
       ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 

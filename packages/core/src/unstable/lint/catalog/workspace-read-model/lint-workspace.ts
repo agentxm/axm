@@ -317,7 +317,7 @@ export const externalSkillDisplayRoot = (name: string): string =>
  * Compute the `displayRoot` for a registry-installed pack.
  *
  * **No `src/` segment** — matches the on-disk layout at
- * `axm/packages/core/src/unstable/packs/paths.ts#computeExtensionPackPaths`.
+ * `axm/packages/core/src/unstable/packs/paths.ts#computePackPaths`.
  *
  * @experimental This API is unstable and may change without notice.
  */

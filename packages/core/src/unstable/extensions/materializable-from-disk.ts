@@ -30,11 +30,8 @@ import {
 } from "../subagents/manifest-schema.js";
 import type { RegistrySource } from "../sources/types.js";
 import type { Handle } from "./handle.js";
-import type { ExtensionPackRef } from "../packs/refs.js";
-import {
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  ExtensionPackManifestSchema,
-} from "../packs/manifest-schema.js";
+import type { PackRef } from "../packs/refs.js";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
 
 interface DiskRefEnv {
   readonly fs: FileSystem.FileSystem;
@@ -310,7 +307,7 @@ export const configuredSubagentsToDiskRefs = (
 export const configuredPacksToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredExtensionRef>>,
-): Effect.Effect<ReadonlyArray<ExtensionPackRef>, AppError> =>
+): Effect.Effect<ReadonlyArray<PackRef>, AppError> =>
   Effect.forEach(
     Object.entries(configured),
     ([settingsName, entry]) =>
@@ -363,14 +360,14 @@ export const configuredPacksToDiskRefs = (
                 return matches.find(Option.isSome) ?? Option.none();
               });
 
-        if (Option.isNone(location)) return Option.none<ExtensionPackRef>();
-        const manifestPath = env.path.join(location.value.dir, EXTENSION_PACK_MANIFEST_FILENAME);
+        if (Option.isNone(location)) return Option.none<PackRef>();
+        const manifestPath = env.path.join(location.value.dir, PACK_MANIFEST_FILENAME);
         const manifestExists = yield* env.fs
           .exists(manifestPath)
           .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!manifestExists) return Option.none<ExtensionPackRef>();
+        if (!manifestExists) return Option.none<PackRef>();
         const json = yield* readManifestJson(env, manifestPath);
-        const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
+        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
@@ -395,7 +392,7 @@ export const configuredPacksToDiskRefs = (
             mcpServers: manifest["mcp-servers"] ?? {},
             subagents: manifest.subagents ?? {},
           },
-        } satisfies ExtensionPackRef);
+        } satisfies PackRef);
       }),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));

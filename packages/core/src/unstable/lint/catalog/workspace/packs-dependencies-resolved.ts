@@ -2,7 +2,7 @@
  * `workspace/packs-dependencies-resolved` — every pack-declared dependency
  * FQN is installed.
  *
- * For each `RegistryExtensionPackLockEntry`, every FQN appearing in
+ * For each `RegistryPackLockEntry`, every FQN appearing in
  * `resolvedSkills`, `resolvedCommands`, `resolvedMcpServers`, or
  * `resolvedSubagents` has a matching installed member lock entry.
  *
@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
-import { type Lockfile, type ExtensionPackLockEntry } from "../../../lockfile/schema.js";
+import { type Lockfile, type PackLockEntry } from "../../../lockfile/schema.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-dependencies-resolved";
@@ -84,7 +84,7 @@ const singularDependencyType = (typeSegment: string): string => {
   }
 };
 
-const packInstallSpecifier = (entry: ExtensionPackLockEntry, packName: string): string =>
+const packInstallSpecifier = (entry: PackLockEntry, packName: string): string =>
   entry.type === "registry" ? `${entry.owner}/packs/${entry.name}` : packName;
 
 const missingDependencyFinding = (
@@ -104,7 +104,7 @@ const missingDependencyFinding = (
 });
 
 const collectResolved = (
-  entry: ExtensionPackLockEntry,
+  entry: PackLockEntry,
 ): ReadonlyArray<{ readonly fqn: string; readonly typeSegment: string }> => [
   ...Object.keys(entry.resolvedSkills).map((fqn) => ({ fqn, typeSegment: "skills" })),
   ...Object.keys(entry.resolvedCommands).map((fqn) => ({ fqn, typeSegment: "commands" })),

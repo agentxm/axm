@@ -1,7 +1,7 @@
 /**
  * Pack-specific install plan builder.
  *
- * Accepts a ExtensionPackRef and constructs the full install plan with inline
+ * Accepts a PackRef and constructs the full install plan with inline
  * run closures that capture workspace services and materialization dependencies.
  *
  * @experimental This API is unstable and may change without notice.
@@ -16,13 +16,10 @@ import type { VersionRange } from "@agentxm/client-core/unstable/version-constra
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile, ResolvedExtensionMap } from "@agentxm/client-core/unstable/lockfile";
-import type { RegistryExtensionPackRef } from "@agentxm/client-core/unstable/packs";
+import type { RegistryPackRef } from "@agentxm/client-core/unstable/packs";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { installSkill, type InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import {
-  installExtensionPack,
-  type InstallExtensionPackOperation,
-} from "@agentxm/client-core/unstable/packs";
+import { installPack, type InstallPackOperation } from "@agentxm/client-core/unstable/packs";
 import {
   installCommand,
   type InstallCommandOperation,
@@ -39,7 +36,7 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
  * Union of operation types produced by the pack install plan builder.
  */
 export type PackInstallOp =
-  | InstallExtensionPackOperation
+  | InstallPackOperation
   | InstallSkillOperation
   | InstallCommandOperation
   | InstallMcpServerOperation;
@@ -49,7 +46,7 @@ export type PackInstallOp =
  */
 export interface BuildInstallPlanArgs {
   /** The pack extension ref to install */
-  readonly ref: RegistryExtensionPackRef;
+  readonly ref: RegistryPackRef;
   /** Already-resolved skill install operations */
   readonly skillOps: ReadonlyArray<InstallSkillOperation>;
   /** Already-resolved command install operations */
@@ -157,8 +154,8 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
 
     const resolvedSubagents: ResolvedExtensionMap = {};
 
-    // Build InstallExtensionPackOperation from the ref
-    const packOp: InstallExtensionPackOperation = {
+    // Build InstallPackOperation from the ref
+    const packOp: InstallPackOperation = {
       name: "install-pack",
       args: {
         packName: ref.pack.name,
@@ -179,7 +176,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       const runOperation = (() => {
         switch (op.name) {
           case "install-pack":
-            return installExtensionPack(op);
+            return installPack(op);
           case "install-skill":
             return installSkill(op);
           case "install-command":

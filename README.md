@@ -14,7 +14,7 @@
 # Extension manager for coding agents and AI assistants
 
 - Manage agent skills, subagents, commands, MCP servers and more. Use the right tool(s) for the job.
-- Bundle extensions with extension packs to share workflows across projects, teams, and others.
+- Bundle extensions with packs to share workflows across projects, teams, and others.
 - Switch effortlessly between coding agents, bringing your workflow with you. Avoid lock-in.
 
 > [!WARNING]
@@ -92,13 +92,13 @@ axm install @acme/skills/code-review
 
 ## Extension types
 
-| Type                | What it is                                                                                 | Example                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| **Skills**          | Context-triggered agent capabilities per the [agentskills.io](https://agentskills.io) spec | `@acme/skills/code-review` — apply team review standards on every diff           |
-| **Commands**        | User-invokable prompts (slash commands, saved prompts)                                     | `@acme/commands/release-notes` — draft release notes from recent commits         |
-| **Subagents**       | Task-specialized agents the main agent delegates to                                        | `@acme/subagents/researcher` — delegate doc-reading to a cheaper model           |
-| **MCP servers**     | Model Context Protocol servers exposing tools, data, and integrations                      | `@acme/mcp-servers/linear` — tools for reading and updating Linear issues        |
-| **Extension packs** | Curated bundles teams install and keep in sync                                             | `@acme/packs/frontend-tools` — the frontend guild's standard skills and commands |
+| Type            | What it is                                                                                 | Example                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| **Skills**      | Context-triggered agent capabilities per the [agentskills.io](https://agentskills.io) spec | `@acme/skills/code-review` — apply team review standards on every diff           |
+| **Commands**    | User-invokable prompts (slash commands, saved prompts)                                     | `@acme/commands/release-notes` — draft release notes from recent commits         |
+| **Subagents**   | Task-specialized agents the main agent delegates to                                        | `@acme/subagents/researcher` — delegate doc-reading to a cheaper model           |
+| **MCP servers** | Model Context Protocol servers exposing tools, data, and integrations                      | `@acme/mcp-servers/linear` — tools for reading and updating Linear issues        |
+| **Packs**       | Curated bundles teams install and keep in sync                                             | `@acme/packs/frontend-tools` — the frontend guild's standard skills and commands |
 
 Every type has its own subcommand namespace (`axm skills`, `axm commands`,
 `axm subagents`, `axm mcp-servers`, `axm packs`) sharing a common shape:

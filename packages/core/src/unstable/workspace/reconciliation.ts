@@ -8,7 +8,7 @@ import type {
   CommandLockEntry,
   Lockfile,
   McpServerLockEntry,
-  ExtensionPackLockEntry,
+  PackLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
@@ -64,7 +64,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
   const commands: Record<string, CommandLockEntry> = {};
   const subagents: Record<string, SubagentLockEntry> = {};
   const mcpServers: Record<string, McpServerLockEntry> = {};
-  const packs: Record<string, ExtensionPackLockEntry> = {};
+  const packs: Record<string, PackLockEntry> = {};
 
   for (const result of results) {
     if (result._tag !== "Compatible") {

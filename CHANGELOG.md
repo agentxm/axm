@@ -12,6 +12,9 @@
 
 ### Breaking Changes
 
+- Pack manifests are now named `pack.json` and use
+  `https://axm.sh/schemas/pack.schema.json`; previous pack manifest
+  filenames/schema URLs are no longer supported.
 - Command frontmatter now renders verbatim. AXM no longer translates portable
   field names such as `argumentHint` to `argument-hint` or `allowedTools` to
   `allowed-tools`; write the target agent's native key, or use

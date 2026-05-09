@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$ref": "#/definitions/ExtensionPackManifest",
+  "$ref": "#/definitions/PackManifest",
   "definitions": {
     "Handle": {
       "type": "string",
@@ -59,7 +59,7 @@
       ]
     },
     "VersionRange": { "type": "string" },
-    "ExtensionPackManifest": {
+    "PackManifest": {
       "type": "object",
       "properties": {
         "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -118,8 +118,8 @@
       },
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,
-      "title": "Extension Pack Manifest",
-      "description": "Configuration file (extension-pack.json) that bundles multiple extensions into a single installable pack."
+      "title": "Pack Manifest",
+      "description": "Configuration file (pack.json) that bundles multiple extensions into a single installable pack."
     }
   }
 }

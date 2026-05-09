@@ -1,8 +1,8 @@
 /**
- * Extension pack expansion helpers for cross-type dependency expansion.
+ * Pack expansion helpers for cross-type dependency expansion.
  *
- * - expandExtensionPackInstallRefs: Expands a pack ref into install refs (pack + dependencies)
- * - expandExtensionPackUninstallTargets: Computes removable uninstall targets (pack + orphaned deps)
+ * - expandPackInstallRefs: Expands a pack ref into install refs (pack + dependencies)
+ * - expandPackUninstallTargets: Computes removable uninstall targets (pack + orphaned deps)
  * - resolveSkillUninstallTargetsFromLockfile: Resolves skill names to targets via lockfile
  *
  * @experimental This API is unstable and may change without notice.
@@ -17,7 +17,7 @@ import {
   type ExtensionType,
 } from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
-import type { ExtensionPackRef } from "./refs.js";
+import type { PackRef } from "./refs.js";
 import type {
   ExtensionTarget,
   PackExtensionTarget,
@@ -25,10 +25,10 @@ import type {
 } from "../workspace/service-interface.js";
 import type { Lockfile } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
-import { resolveExtensionPackDependencies } from "./dependency-resolution.js";
+import { resolvePackDependencies } from "./dependency-resolution.js";
 
 // -----------------------------------------------------------------------------
-// expandExtensionPackInstallRefs
+// expandPackInstallRefs
 // -----------------------------------------------------------------------------
 
 const nameFromFqn = (fqn: string): ExtensionName => {
@@ -36,23 +36,23 @@ const nameFromFqn = (fqn: string): ExtensionName => {
 };
 
 /**
- * Expand an extension pack ref into its cross-type dependency refs.
+ * Expand a pack ref into its cross-type dependency refs.
  *
- * Returns the extension pack ref first, followed by dependency refs (skill, command,
+ * Returns the pack ref first, followed by dependency refs (skill, command,
  * mcp-server) in declaration order. Only dependency types listed in
  * `supportedDependencyTypes` are included.
  *
- * Dependency refs use the extension pack's registry source and empty integrity
+ * Dependency refs use the pack's registry source and empty integrity
  * (integrity is resolved during materialization, not at expansion time).
  */
-export const expandExtensionPackInstallRefs = (args: {
-  readonly pack: ExtensionPackRef;
+export const expandPackInstallRefs = (args: {
+  readonly pack: PackRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly sources: SourceHostProvidersService;
 }): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> =>
   Effect.gen(function* () {
     const { pack, supportedDependencyTypes, sources } = args;
-    const resolved = yield* resolveExtensionPackDependencies(pack, sources);
+    const resolved = yield* resolvePackDependencies(pack, sources);
 
     const deps = resolved.dependencyRefs.filter((ref) =>
       supportedDependencyTypes.includes(ref.type),
@@ -63,7 +63,7 @@ export const expandExtensionPackInstallRefs = (args: {
   });
 
 // -----------------------------------------------------------------------------
-// expandExtensionPackUninstallTargets
+// expandPackUninstallTargets
 // -----------------------------------------------------------------------------
 
 /** Settings shape needed for directly-configured extension checks. */
@@ -75,16 +75,16 @@ export interface UninstallSettingsContext {
 }
 
 /**
- * Compute removable uninstall targets for an extension pack.
+ * Compute removable uninstall targets for a pack.
  *
- * Returns the extension pack target first, followed by orphaned dependency targets.
- * Orphaned = extension pack dependency candidates minus:
- *   - dependencies still referenced by remaining installed extension packs
+ * Returns the pack target first, followed by orphaned dependency targets.
+ * Orphaned = pack dependency candidates minus:
+ *   - dependencies still referenced by remaining installed packs
  *   - dependencies directly configured in settings
  *
  * Only dependency types listed in `supportedDependencyTypes` are considered.
  */
-export const expandExtensionPackUninstallTargets = (args: {
+export const expandPackUninstallTargets = (args: {
   readonly pack: PackExtensionTarget;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly lockfile: Lockfile;

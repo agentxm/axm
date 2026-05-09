@@ -84,7 +84,7 @@ Extension authors SHALL be able to declare compatibility without version constra
 
 ### Requirement: Field placement on CommonManifestBaseFields
 
-The `compatiblePackages` field SHALL be defined on `CommonManifestBaseFields` so it applies uniformly to all extension types. Extension packs SHALL NOT use this field — pack compatibility is derived from constituent extensions.
+The `compatiblePackages` field SHALL be defined on `CommonManifestBaseFields` so it applies uniformly to all extension types. Packs SHALL NOT use this field — pack compatibility is derived from constituent extensions.
 
 #### Scenario: Field shared across extension types
 

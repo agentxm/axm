@@ -27,7 +27,7 @@
 
 AXM (Agent eXtension Manager) is the open extension manager for AI coding
 agents — discover, install, publish, and manage skills, commands, subagents,
-MCP servers, and extension packs from a single CLI.
+MCP servers, and packs from a single CLI.
 [AgentXM.ai](https://agentxm.ai) is the extension registry AXM connects to.
 An AgentXM.ai account is only required for publishing extensions or
 installing private extensions; public extensions install without an account.

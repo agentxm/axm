@@ -168,7 +168,7 @@ const publishPackToRegistry = async (
         OWNER,
         "packs",
         name,
-        "extension-pack.json",
+        "pack.json",
       );
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
 

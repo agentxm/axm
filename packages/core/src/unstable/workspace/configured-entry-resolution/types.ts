@@ -2,7 +2,7 @@ import type * as Option from "effect/Option";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import type { AppError } from "../../app-error/index.js";
 import type { McpServerExtensionRef } from "../../mcp-servers/index.js";
-import type { ExtensionPackRef } from "../../packs/index.js";
+import type { PackRef } from "../../packs/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
 import type { VersionRange } from "../../version-constraints/version-constraints.js";
@@ -23,7 +23,7 @@ export type ResolvedConfiguredSkill = ResolvedConfiguredEntry<SkillExtensionRef>
 export type ResolvedConfiguredSubagent = ResolvedConfiguredEntry<SubagentExtensionRef>;
 export type ResolvedConfiguredCommand = ResolvedConfiguredEntry<CommandExtensionRef>;
 export type ResolvedConfiguredMcpServer = ResolvedConfiguredEntry<McpServerExtensionRef>;
-export type ResolvedConfiguredPack = ResolvedConfiguredEntry<ExtensionPackRef>;
+export type ResolvedConfiguredPack = ResolvedConfiguredEntry<PackRef>;
 
 export const toConfiguredEntryFailureReason = (error: AppError): ConfiguredEntryFailureReason => {
   switch (error.code) {

@@ -121,7 +121,7 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
         (() => {
           const retentionPolicy: UninstallRetentionPolicy = {
             isRequiredByInstalledPack: (policyArgs) =>
-              ws.isExtensionRequiredByInstalledExtensionPack(policyArgs.target),
+              ws.isExtensionRequiredByInstalledPack(policyArgs.target),
             markDependencyRetainedInLockfile: (policyArgs) =>
               ws.markDependencyRetainedInLockfile(policyArgs.target),
           };

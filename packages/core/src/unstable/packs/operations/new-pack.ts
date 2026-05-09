@@ -1,5 +1,5 @@
 /**
- * New extension pack operation — scaffolds a new extension pack directory with manifest,
+ * New pack operation — scaffolds a new pack directory with manifest,
  * and registers in settings/lockfile.
  *
  * @experimental This API is unstable and may change without notice.
@@ -12,15 +12,12 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, formatFqn } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
-import {
-  EXTENSION_PACK_MANIFEST_FILENAME,
-  EXTENSION_PACK_MANIFEST_SCHEMA_URL,
-} from "../manifest-schema.js";
+import { PACK_MANIFEST_FILENAME, PACK_MANIFEST_SCHEMA_URL } from "../manifest-schema.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { computeExtensionPackPaths } from "../paths.js";
+import { computePackPaths } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
@@ -28,9 +25,9 @@ import { decodeVersionSync } from "../../version-constraints/version-constraints
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the new extension pack operation.
+ * Args for the new pack operation.
  */
-export interface NewExtensionPackOperationArgs {
+export interface NewPackOperationArgs {
   /** Pack name (without owner). */
   readonly name: string;
   /** Profile (e.g., "@myorg"). */
@@ -38,27 +35,27 @@ export interface NewExtensionPackOperationArgs {
 }
 
 /**
- * Scaffold a new extension pack in the workspace.
+ * Scaffold a new pack in the workspace.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type NewExtensionPackOperation = Operation<"new-pack", NewExtensionPackOperationArgs>;
+export type NewPackOperation = Operation<"new-pack", NewPackOperationArgs>;
 
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
 /**
- * New extension pack operation handler.
+ * New pack operation handler.
  *
- * 1. Compute extension pack directory path
- * 2. Check if extension pack manifest already exists
- * 3. Create extension pack directory
- * 4. Write extension-pack.json manifest
- * 5. Register in settings via ws.setExtensionPack
+ * 1. Compute pack directory path
+ * 2. Check if pack manifest already exists
+ * 3. Create pack directory
+ * 4. Write pack.json manifest
+ * 5. Register in settings via ws.setPack
  */
-export const newExtensionPack: OperationHandler<
-  NewExtensionPackOperation,
+export const newPack: OperationHandler<
+  NewPackOperation,
   FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
@@ -72,16 +69,16 @@ export const newExtensionPack: OperationHandler<
     const extensionName = decodeExtensionNameSync(name);
     const fqn = formatFqn({ owner, type: "pack", name: extensionName });
 
-    // 1. Compute extension pack directory path
-    const packDir = computeExtensionPackPaths(path.join, base, owner, name);
-    const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
+    // 1. Compute pack directory path
+    const packDir = computePackPaths(path.join, base, owner, name);
+    const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
-    // 2. Check if extension pack manifest already exists
+    // 2. Check if pack manifest already exists
     const exists = yield* fs.exists(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to check if extension pack exists: ${manifestPath}`,
+          message: `Failed to check if pack exists: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -90,22 +87,22 @@ export const newExtensionPack: OperationHandler<
     if (exists) {
       return yield* makeAppError({
         code: "conflict",
-        message: `Extension pack '${fqn}' already exists at ${packDir.canonicalPath}`,
+        message: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
         breadcrumbs: [
           {
             task: "Recover",
-            description: "Choose a different name or remove the existing extension pack first",
+            description: "Choose a different name or remove the existing pack first",
           },
         ],
       });
     }
 
-    // 3. Create extension pack directory
+    // 3. Create pack directory
     yield* fs.makeDirectory(packDir.canonicalPath, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create extension pack directory: ${packDir.canonicalPath}`,
+          message: `Failed to create pack directory: ${packDir.canonicalPath}`,
           cause: e,
         }),
       ),
@@ -113,7 +110,7 @@ export const newExtensionPack: OperationHandler<
 
     // 4. Write manifest
     const manifest = {
-      $schema: EXTENSION_PACK_MANIFEST_SCHEMA_URL,
+      $schema: PACK_MANIFEST_SCHEMA_URL,
       owner,
       type: "pack",
       name: extensionName,
@@ -127,18 +124,18 @@ export const newExtensionPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write extension pack manifest: ${manifestPath}`,
+          message: `Failed to write pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
     );
 
     // 5. Register in settings (best-effort: directory/manifest already on disk).
-    // Mark authored first so the subsequent setExtensionPack preserves the flag.
-    yield* ws.setExtensionPackEntry(name, { source: fqn, authored: true }).pipe(Effect.ignore);
+    // Mark authored first so the subsequent setPack preserves the flag.
+    yield* ws.setPackEntry(name, { source: fqn, authored: true }).pipe(Effect.ignore);
     const now = new Date();
     yield* ws
-      .setExtensionPack({
+      .setPack({
         owner,
         name: extensionName,
         resolvedVersion: initialVersion,
@@ -156,6 +153,6 @@ export const newExtensionPack: OperationHandler<
 
     return {
       result: "success",
-      message: `Created extension pack ${fqn}`,
+      message: `Created pack ${fqn}`,
     } satisfies JobStepResult;
   });

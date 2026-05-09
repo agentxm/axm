@@ -130,7 +130,7 @@ User-invokable agent prompts. Note: "command" here refers to the extension type
 }
 ```
 
-#### extension-pack.json
+#### pack.json
 
 Bundle of extensions. References extensions by fully qualified name. Packs can
 include other packs, enabling transitive dependencies.
@@ -791,7 +791,7 @@ axm install mygithuborg/some-skills
 # or
 axm skills install mygithuborg/some-skills
 
-# create extension pack
+# create pack
 axm packs new @wayne-industries/utility-belt
 
 # add extension to pack

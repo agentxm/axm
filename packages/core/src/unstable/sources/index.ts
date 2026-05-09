@@ -77,7 +77,7 @@ export type { InputPattern, InputParseResult, ShorthandInput } from "./parser.js
 export { lockEntryToSourceParams, printSourceParams } from "./printer.js";
 export {
   commandLockEntryToRef,
-  extensionPackLockEntryToRef,
+  packLockEntryToRef,
   mcpServerLockEntryToRef,
   skillLockEntryToRef,
   subagentLockEntryToRef,

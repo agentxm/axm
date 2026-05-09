@@ -1,3 +1,13 @@
+## 0.5.1 (2026-05-09)
+
+### 🩹 Fixes
+
+- Update Effect dependencies to beta.64 ([172f0fcc](https://github.com/agentxm/axm/commit/172f0fcc))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## Unreleased
 
 ### Breaking Changes

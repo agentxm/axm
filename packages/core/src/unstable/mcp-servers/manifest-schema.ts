@@ -5,7 +5,11 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
+import {
+  CommonManifestBaseFields,
+  ExtensionNameSchema,
+  NonPackManifestFields,
+} from "../extensions/common.js";
 
 /**
  * Filename for MCP server manifest files.
@@ -32,6 +36,7 @@ export const MCP_SERVER_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/mcp-server
 export const McpServerManifestSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
+  ...NonPackManifestFields,
   type: Schema.Literal("mcp-server"),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "MCP server name is required" }),

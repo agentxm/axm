@@ -21,7 +21,7 @@ import type {
   ExtensionDependencyConstraintMap,
   ExtensionName,
   ExtensionType,
-  FullyQualifiedRef,
+  ExtensionSpec,
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
@@ -197,7 +197,7 @@ export interface ExtensionExistsResponse {
  */
 export interface DiscoverExtensionsArgs {
   readonly packages: ReadonlyArray<PackageUrlParts>;
-  readonly workspaceRecommendedExtensions?: ReadonlyArray<FullyQualifiedRef>;
+  readonly workspaceRecommendedExtensions?: ReadonlyArray<ExtensionSpec>;
 }
 
 // -----------------------------------------------------------------------------

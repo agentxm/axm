@@ -23,7 +23,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   decodeExtensionNameSync,
-  parseFullyQualifiedNameParts,
+  parseExtensionFqnParts,
   type ExtensionName,
 } from "../../../extensions/common.js";
 import type { ExtensionPackLockEntry, Lockfile } from "../../../lockfile/schema.js";
@@ -139,7 +139,7 @@ const declaredFromSettings = (settings: Settings): DeclaredPacks => {
 const resolvedFromLockfile = (lockfile: Lockfile): ResolvedPacks => {
   if (lockfile.packs === undefined) return [];
   return Object.entries(lockfile.packs).map(([keyName, lockEntry]) => {
-    const parsed = parseFullyQualifiedNameParts(keyName);
+    const parsed = parseExtensionFqnParts(keyName);
     return {
       keyName,
       name: parsed?.name ?? decodeExtensionNameSync(keyName),

@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   decodeExtensionNameSync,
-  parseFullyQualifiedNameParts,
+  parseExtensionFqnParts,
   type ExtensionName,
   type ExtensionType,
 } from "../extensions/index.js";
@@ -32,7 +32,7 @@ import { resolveExtensionPackDependencies } from "./dependency-resolution.js";
 // -----------------------------------------------------------------------------
 
 const nameFromFqn = (fqn: string): ExtensionName => {
-  return parseFullyQualifiedNameParts(fqn)?.name ?? decodeExtensionNameSync(fqn);
+  return parseExtensionFqnParts(fqn)?.name ?? decodeExtensionNameSync(fqn);
 };
 
 /**

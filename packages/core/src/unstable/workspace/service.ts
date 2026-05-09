@@ -38,7 +38,7 @@ import {
   AgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
-  parseFullyQualifiedNameParts,
+  parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
 } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
@@ -1261,7 +1261,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
             // Check if any FQN key in the resolved map ends with the target name
             for (const fqn of Object.keys(resolvedMap)) {
-              const resolvedName = parseFullyQualifiedNameParts(fqn)?.name;
+              const resolvedName = parseExtensionFqnParts(fqn)?.name;
               if (resolvedName === target.name) return true;
             }
           }

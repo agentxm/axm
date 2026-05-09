@@ -14,9 +14,9 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import {
-  parseFullyQualifiedRefParts,
+  parseExtensionSpecParts,
   toExtensionTypePlural,
-  type FullyQualifiedRef,
+  type ExtensionSpec,
 } from "../extensions/common.js";
 import type { RegistryClient } from "../registry/client.js";
 import type {
@@ -131,7 +131,7 @@ const makeEntryKey = (entry: DiscoverExtensionEntry): string =>
 const mergeResults = (
   detected: ReadonlyArray<{ readonly purlString: string; readonly parts: PackageUrlParts }>,
   response: DiscoverExtensionsResponse | undefined,
-  localRecs: HashMap.HashMap<string, ReadonlyArray<FullyQualifiedRef>>,
+  localRecs: HashMap.HashMap<string, ReadonlyArray<ExtensionSpec>>,
 ): ReadonlyArray<DiscoverPackageResult> => {
   if (response === undefined) {
     return buildLocalOnlyResults(detected, localRecs);
@@ -215,7 +215,7 @@ const mergeResults = (
  */
 const buildLocalOnlyResults = (
   detected: ReadonlyArray<{ readonly purlString: string; readonly parts: PackageUrlParts }>,
-  localRecs: HashMap.HashMap<string, ReadonlyArray<FullyQualifiedRef>>,
+  localRecs: HashMap.HashMap<string, ReadonlyArray<ExtensionSpec>>,
 ): ReadonlyArray<DiscoverPackageResult> => {
   const results: Array<DiscoverPackageResult> = [];
   const fallbackVersion = decodeVersionSync("0.0.0");
@@ -226,7 +226,7 @@ const buildLocalOnlyResults = (
 
     const extensions: Array<DiscoverResultEntry> = [];
     for (const ref of refsOpt.value) {
-      const parsed = parseFullyQualifiedRefParts(ref);
+      const parsed = parseExtensionSpecParts(ref);
       if (parsed === undefined) continue;
 
       extensions.push({
@@ -253,14 +253,14 @@ const buildLocalOnlyResults = (
  * Check if any ref in the array matches the extension entry's FQN pattern.
  */
 const hasMatchingRef = (
-  refs: ReadonlyArray<FullyQualifiedRef>,
+  refs: ReadonlyArray<ExtensionSpec>,
   entry: DiscoverExtensionEntry,
 ): boolean => {
   const plural = toExtensionTypePlural(entry.type);
   const fqn = `${entry.owner}/${plural}/${entry.name}`;
 
   for (const ref of refs) {
-    const parsed = parseFullyQualifiedRefParts(ref);
+    const parsed = parseExtensionSpecParts(ref);
     if (parsed === undefined) continue;
     const refFqn = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
     if (refFqn === fqn) return true;

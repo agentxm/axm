@@ -6,7 +6,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   extensionTypeToPlural,
-  parseFullyQualifiedNameParts,
+  parseExtensionFqnParts,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   resolveIdentifier,
@@ -120,7 +120,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
 
 const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>) =>
   Effect.gen(function* () {
-    const parts = parseFullyQualifiedNameParts(handle);
+    const parts = parseExtensionFqnParts(handle);
     if (parts !== undefined) {
       return parts;
     }

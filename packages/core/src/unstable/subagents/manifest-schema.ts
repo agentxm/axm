@@ -5,7 +5,11 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
+import {
+  CommonManifestBaseFields,
+  ExtensionNameSchema,
+  NonPackManifestFields,
+} from "../extensions/common.js";
 
 /**
  * Filename for subagent manifest files.
@@ -34,6 +38,7 @@ export const MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/subagent.schema.json"
 export const SubagentManifestSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
+  ...NonPackManifestFields,
   type: Schema.Literal("subagent"),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "subagent name is required" }),

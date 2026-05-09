@@ -5,7 +5,11 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
+import {
+  CommonManifestBaseFields,
+  ExtensionNameSchema,
+  NonPackManifestFields,
+} from "../extensions/common.js";
 
 export const MANIFEST_FILENAME = "skill.json";
 
@@ -22,6 +26,15 @@ export const MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/skill.schema.json";
 export const SkillManifestSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
+  ...NonPackManifestFields,
+  description: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "Optional, registry-only description shown in listings. This is separate from the SKILL.md frontmatter `description`, which is the trigger phrase the agent uses to decide when to invoke the skill.",
+      }),
+    ),
+  ),
   type: Schema.Literal("skill"),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "skill name is required" }),

@@ -13,7 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseFullyQualifiedNameParts } from "@agentxm/client-core/unstable/extensions";
+import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile, ExtensionPackLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
@@ -47,7 +47,7 @@ export type PackUninstallOp =
  * E.g., `@acme/skills/code-review` -> `code-review`
  */
 const simpleNameFromFqn = (fqn: string): string => {
-  return parseFullyQualifiedNameParts(fqn)?.name ?? fqn;
+  return parseExtensionFqnParts(fqn)?.name ?? fqn;
 };
 
 /**

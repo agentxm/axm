@@ -10,7 +10,7 @@ import {
   decodeExtensionNameSync,
   extensionTypePluralSentenceLabels,
   formatFqn,
-  parseFullyQualifiedNameParts,
+  parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
   toExtensionTypePlural,
   type ExtensionName,
@@ -375,7 +375,7 @@ const resolveFromCandidates = (
 export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
   Effect.gen(function* () {
     const trimmed = args.input.trim();
-    const parsed = parseFullyQualifiedNameParts(trimmed);
+    const parsed = parseExtensionFqnParts(trimmed);
     if (parsed !== undefined) {
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({
@@ -438,7 +438,7 @@ export const resolveInstalledIdentifier = (args: {
 }) =>
   Effect.gen(function* () {
     const trimmed = args.input.trim();
-    const parsed = parseFullyQualifiedNameParts(trimmed);
+    const parsed = parseExtensionFqnParts(trimmed);
     if (parsed !== undefined) {
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({

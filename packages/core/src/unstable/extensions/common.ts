@@ -221,13 +221,13 @@ export const ExtensionTypePluralSchema = Schema.Literals(extensionTypePluralSegm
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FullyQualifiedNamePartsSchema = Schema.Struct({
+export const ExtensionFqnPartsSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
 }).annotate({
-  identifier: "FullyQualifiedNameParts",
-  title: "Fully Qualified Name Parts",
+  identifier: "ExtensionFqnParts",
+  title: "Extension FQN Parts",
   description: "The parts of a full extension identifier like @my-org/skills/code-review.",
 });
 
@@ -236,18 +236,16 @@ export const FullyQualifiedNamePartsSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type FullyQualifiedNameParts = Schema.Schema.Type<typeof FullyQualifiedNamePartsSchema>;
+export type ExtensionFqnParts = Schema.Schema.Type<typeof ExtensionFqnPartsSchema>;
 
-const decodeFullyQualifiedNameParts = Schema.decodeUnknownResult(FullyQualifiedNamePartsSchema);
+const decodeExtensionFqnParts = Schema.decodeUnknownResult(ExtensionFqnPartsSchema);
 
 /**
  * Parse a fully qualified name string into validated structured parts.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const parseFullyQualifiedNameParts = (
-  input: string,
-): FullyQualifiedNameParts | undefined => {
+export const parseExtensionFqnParts = (input: string): ExtensionFqnParts | undefined => {
   const parts = input.split("/");
   if (parts.length !== 3) {
     return undefined;
@@ -263,21 +261,21 @@ export const parseFullyQualifiedNameParts = (
   }
 
   const type = toExtensionType(typeSegment);
-  const result = decodeFullyQualifiedNameParts({ owner, type, name });
+  const result = decodeExtensionFqnParts({ owner, type, name });
   return Result.isSuccess(result) ? result.success : undefined;
 };
 
 /**
- * Parse a fully qualified ref string (with optional version constraint) into parts.
+ * Parse an extension spec string (with optional version constraint) into parts.
  * Strips the version constraint suffix and returns the validated FQN parts.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const parseFullyQualifiedRefParts = (input: string): FullyQualifiedNameParts | undefined => {
+export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | undefined => {
   const lastSlash = input.lastIndexOf("/");
   const constraintAt = lastSlash > 0 ? input.indexOf("@", lastSlash + 1) : -1;
   const fqnPart = constraintAt > 0 ? input.slice(0, constraintAt) : input;
-  return parseFullyQualifiedNameParts(fqnPart);
+  return parseExtensionFqnParts(fqnPart);
 };
 
 /**
@@ -285,10 +283,10 @@ export const parseFullyQualifiedRefParts = (input: string): FullyQualifiedNamePa
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FullyQualifiedNameSchema = Schema.String.pipe(
+export const ExtensionFqnSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => {
-      return parseFullyQualifiedNameParts(value) === undefined
+      return parseExtensionFqnParts(value) === undefined
         ? `Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name form, got: ${value}`
         : undefined;
     }),
@@ -296,22 +294,21 @@ export const FullyQualifiedNameSchema = Schema.String.pipe(
 );
 
 /**
- * Inferred type for FullyQualifiedName schema.
+ * Inferred type for ExtensionFqn schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type FullyQualifiedName = Schema.Schema.Type<typeof FullyQualifiedNameSchema>;
+export type ExtensionFqn = Schema.Schema.Type<typeof ExtensionFqnSchema>;
 
 /**
- * Fully qualified extension reference with optional version constraint.
- *
- * Accepts `@owner/type/name` or `@owner/type/name@constraint` where
- * the FQN portion validates through FullyQualifiedNameSchema and the
- * optional constraint validates as a semver VersionRange.
+ * Extension spec — fully qualified extension name with an optional version
+ * constraint suffix. Accepts `@owner/type/name` or `@owner/type/name@constraint`
+ * where the FQN portion validates through ExtensionFqnSchema and the optional
+ * constraint validates as a semver VersionRange.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FullyQualifiedRefSchema = Schema.String.pipe(
+export const ExtensionSpecSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => {
       // Find the constraint separator: the @ after the last slash
@@ -322,8 +319,8 @@ export const FullyQualifiedRefSchema = Schema.String.pipe(
       const constraintPart = constraintAt > 0 ? value.slice(constraintAt + 1) : undefined;
 
       // Validate FQN portion
-      if (parseFullyQualifiedNameParts(fqnPart) === undefined) {
-        return `Expected fully qualified ref in @handle/type/name[@constraint] form, got: ${value}`;
+      if (parseExtensionFqnParts(fqnPart) === undefined) {
+        return `Expected extension spec in @handle/type/name[@constraint] form, got: ${value}`;
       }
 
       // Validate constraint portion if present
@@ -338,20 +335,21 @@ export const FullyQualifiedRefSchema = Schema.String.pipe(
     }),
   ),
   Schema.annotate({
-    identifier: "FullyQualifiedRef",
-    title: "Fully Qualified Extension Reference",
-    description: "An extension reference like @owner/skills/name or @owner/skills/name@^1.0.0.",
+    identifier: "ExtensionSpec",
+    title: "Extension Spec",
+    description:
+      "Fully qualified extension name with an optional version constraint, like @owner/skills/name or @owner/skills/name@^1.0.0.",
     examples: ["@acme/skills/code-review", "@acme/skills/code-review@^1.0.0"],
   }),
-  Schema.brand("FullyQualifiedRef"),
+  Schema.brand("ExtensionSpec"),
 );
 
 /**
- * Inferred type for FullyQualifiedRef schema.
+ * Inferred type for ExtensionSpec schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type FullyQualifiedRef = Schema.Schema.Type<typeof FullyQualifiedRefSchema>;
+export type ExtensionSpec = Schema.Schema.Type<typeof ExtensionSpecSchema>;
 
 /**
  * Map of fully-qualified extension names to semver constraints.
@@ -359,7 +357,7 @@ export type FullyQualifiedRef = Schema.Schema.Type<typeof FullyQualifiedRefSchem
  * @experimental This API is unstable and may change without notice.
  */
 export const ExtensionDependencyConstraintMapSchema = Schema.Record(
-  FullyQualifiedNameSchema,
+  ExtensionFqnSchema,
   VersionRangeSchema,
 );
 
@@ -388,7 +386,39 @@ export const CommonManifestBaseFields = {
   license: Schema.optional(Schema.String),
   bugs: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
-  compatiblePackages: Schema.optional(Schema.Array(PackageUrlSchema)),
+  compatiblePackages: Schema.optional(
+    Schema.Array(PackageUrlSchema).pipe(
+      Schema.annotate({
+        description: "Packages this extension is designed to work with, as Package URLs (purls).",
+      }),
+    ),
+  ),
+};
+
+/**
+ * Fields shared across non-pack extension manifests (skills, commands,
+ * MCP servers, subagents). These describe how an extension relates to
+ * extension packs.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const NonPackManifestFields = {
+  recommendedPacks: Schema.optional(
+    Schema.Array(ExtensionSpecSchema).pipe(
+      Schema.annotate({
+        description:
+          "Extension packs this extension is intended to work with, as extension specs (e.g. @owner/packs/name or @owner/packs/name@^1.0.0).",
+      }),
+    ),
+  ),
+  standalone: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        description:
+          "Whether this extension is designed to work without an extension pack. Defaults to true when omitted.",
+      }),
+    ),
+  ),
 };
 
 /**

@@ -81,7 +81,11 @@
         },
         "compatiblePackages": {
           "anyOf": [
-            { "type": "array", "items": { "$ref": "#/definitions/PackageUrl" } },
+            {
+              "type": "array",
+              "description": "Packages this extension is designed to work with, as Package URLs (purls).",
+              "items": { "$ref": "#/definitions/PackageUrl" }
+            },
             { "type": "null" }
           ]
         },

@@ -5,7 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { FullyQualifiedRefSchema } from "../extensions/common.js";
+import { ExtensionSpecSchema } from "../extensions/common.js";
 
 /**
  * Schema for the axm package metadata file that library authors ship
@@ -15,7 +15,7 @@ import { FullyQualifiedRefSchema } from "../extensions/common.js";
  */
 export const AxmPackageMetaSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
-  recommendedExtensions: Schema.Array(FullyQualifiedRefSchema),
+  recommendedExtensions: Schema.Array(ExtensionSpecSchema),
 }).annotate({
   identifier: "AxmPackageMeta",
   title: "axm Package Metadata",

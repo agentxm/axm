@@ -7,13 +7,13 @@ import type { AgentId } from "./agents/types.js";
 import {
   decodeExtensionNameSync,
   ExtensionDependencyConstraintMapSchema,
-  FullyQualifiedNameSchema,
-  FullyQualifiedRefSchema,
+  ExtensionFqnSchema,
+  ExtensionSpecSchema,
   RenderedFilePathSchema,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
-  type FullyQualifiedName,
-  type FullyQualifiedRef,
+  type ExtensionFqn,
+  type ExtensionSpec,
   type RenderedFilePath,
 } from "./extensions/index.js";
 import { decodeHandleSync, type Handle } from "./extensions/handle.js";
@@ -102,11 +102,11 @@ export const exactVersion = (value: string): Version => decodeVersionSync(value)
 
 export const versionRange = (value: string): VersionRange => decodeVersionRangeSync(value);
 
-export const fullyQualifiedName = (value: string): FullyQualifiedName =>
-  Schema.decodeUnknownSync(FullyQualifiedNameSchema)(value);
+export const fullyQualifiedName = (value: string): ExtensionFqn =>
+  Schema.decodeUnknownSync(ExtensionFqnSchema)(value);
 
-export const fullyQualifiedRef = (value: string): FullyQualifiedRef =>
-  Schema.decodeUnknownSync(FullyQualifiedRefSchema)(value);
+export const fullyQualifiedRef = (value: string): ExtensionSpec =>
+  Schema.decodeUnknownSync(ExtensionSpecSchema)(value);
 
 export const dependencyConstraints = (
   value: Record<string, string>,

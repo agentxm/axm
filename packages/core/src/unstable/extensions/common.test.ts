@@ -1,8 +1,8 @@
 /**
  * Unit tests for common schema definitions.
  *
- * Tests validation behavior for AuthorSchema, FullyQualifiedNameSchema,
- * FullyQualifiedRefSchema, ExtensionTypeSchema, and AgentIdSchema schemas.
+ * Tests validation behavior for AuthorSchema, ExtensionFqnSchema,
+ * ExtensionSpecSchema, ExtensionTypeSchema, and AgentIdSchema schemas.
  */
 
 import * as Result from "effect/Result";
@@ -18,8 +18,8 @@ import {
   extensionTypePluralLabels,
   extensionTypePluralSentenceLabels,
   extensionTypeSentenceLabels,
-  FullyQualifiedNameSchema,
-  FullyQualifiedRefSchema,
+  ExtensionFqnSchema,
+  ExtensionSpecSchema,
 } from "./common.js";
 import { HandleSchema } from "./handle.js";
 
@@ -78,11 +78,9 @@ describe("common schemas", () => {
     });
   });
 
-  describe("FullyQualifiedName", () => {
+  describe("ExtensionFqn", () => {
     it("accepts valid 3-segment FQN", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "@wayne/skills/grappling-hook",
-      );
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/skills/grappling-hook");
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
@@ -91,23 +89,19 @@ describe("common schemas", () => {
     });
 
     it("accepts packs type segment", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "@wayne/packs/bat-utility",
-      );
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/packs/bat-utility");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts commands type segment", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "@wayne/commands/bat-deploy",
-      );
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/commands/bat-deploy");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts mcp-servers type segment", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)(
         "@wayne/mcp-servers/bat-signal",
       );
 
@@ -115,23 +109,19 @@ describe("common schemas", () => {
     });
 
     it("accepts subagents type segment", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "@wayne/subagents/reviewer",
-      );
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/subagents/reviewer");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts files type segment", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "@wayne/files/project-rules",
-      );
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/files/project-rules");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts rules type segment", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)(
         "@wayne/rules/review-checklist",
       );
 
@@ -139,40 +129,37 @@ describe("common schemas", () => {
     });
 
     it("accepts pattern with numbers", () => {
-      const result =
-        Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne123/packs/tool456");
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne123/packs/tool456");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("rejects 2-segment name (old format)", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne/grappling-hook");
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/grappling-hook");
 
       expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects name without @ prefix", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "wayne/skills/grappling-hook",
-      );
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("wayne/skills/grappling-hook");
 
       expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects name without owner (just name)", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("grappling-hook");
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("grappling-hook");
 
       expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects incomplete pattern (@owner only)", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne");
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne");
 
       expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects invalid type segment", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)(
         "@wayne/widgets/grappling-hook",
       );
 
@@ -180,22 +167,20 @@ describe("common schemas", () => {
     });
 
     it("rejects names with underscores", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "@wayne/skills/bat_signal",
-      );
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/skills/bat_signal");
 
       expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects empty string", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("");
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("");
 
       expect(Result.isFailure(result)).toBe(true);
     });
   });
 
-  describe("FullyQualifiedRef", () => {
-    const decode = Schema.decodeUnknownResult(FullyQualifiedRefSchema);
+  describe("ExtensionSpec", () => {
+    const decode = Schema.decodeUnknownResult(ExtensionSpecSchema);
 
     it("accepts FQN without version constraint", () => {
       const result = decode("@wayne/skills/grappling-hook");

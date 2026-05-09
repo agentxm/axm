@@ -14,7 +14,7 @@ import {
   parseFqn,
   parseFqnOrThrow,
   toExtensionTypePlural,
-  type FullyQualifiedNameParts,
+  type ExtensionFqnParts,
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
   parseRegistrySourcePatternParts,
@@ -408,7 +408,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
 /** Create a per-type publish dependency step from a parsed FQN. */
 const makeDependencyStep = (
-  parsed: FullyQualifiedNameParts,
+  parsed: ExtensionFqnParts,
   depFqn: string,
   registryName: string,
   provideServices: <A, E>(

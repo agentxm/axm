@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { FullyQualifiedRefSchema } from "../extensions/common.js";
+import { ExtensionSpecSchema } from "../extensions/common.js";
 import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlPartsSchema, PackageUrlSchema } from "./package-url.js";
 import { readLocalRecommendations } from "./read.js";
@@ -13,7 +13,7 @@ import type { DetectedPackage, PackageReader } from "./types.js";
 const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-const makeRef = Schema.decodeUnknownSync(FullyQualifiedRefSchema);
+const makeRef = Schema.decodeUnknownSync(ExtensionSpecSchema);
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
 const withNodeContext = <A, E>(

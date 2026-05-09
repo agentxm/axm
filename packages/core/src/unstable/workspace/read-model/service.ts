@@ -9,7 +9,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENTS } from "../../agents/registry.js";
 import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
-import { parseFullyQualifiedNameParts, type ExtensionName } from "../../extensions/common.js";
+import { parseExtensionFqnParts, type ExtensionName } from "../../extensions/common.js";
 import { type Handle } from "../../extensions/handle.js";
 import { SETTINGS_FILENAME } from "../../settings/settings.js";
 import type { SourceHostConfig } from "../../settings/schema.js";
@@ -162,7 +162,7 @@ const memberNamesFromResolvedMap = (
   resolvedMap: Readonly<Record<string, unknown>>,
 ): ReadonlyArray<ExtensionName> =>
   Object.keys(resolvedMap).flatMap((fqn) => {
-    const parts = parseFullyQualifiedNameParts(fqn);
+    const parts = parseExtensionFqnParts(fqn);
     return parts === undefined ? [] : [parts.name];
   });
 

@@ -8,11 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
-import {
-  parseFullyQualifiedNameParts,
-  toExtensionTypePlural,
-  type FullyQualifiedNameParts,
-} from "./common.js";
+import { parseExtensionFqnParts, toExtensionTypePlural, type ExtensionFqnParts } from "./common.js";
 
 /**
  * Parse a 3-segment FQN string into its parts.
@@ -21,7 +17,7 @@ import {
  */
 export const parseFqn = (input: string) =>
   Effect.gen(function* () {
-    const parsed = parseFullyQualifiedNameParts(input);
+    const parsed = parseExtensionFqnParts(input);
     if (parsed === undefined) {
       return yield* makeAppError({
         code: "validation",
@@ -43,8 +39,8 @@ export const parseFqn = (input: string) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const parseFqnOrThrow = (input: string): FullyQualifiedNameParts => {
-  const parsed = parseFullyQualifiedNameParts(input);
+export const parseFqnOrThrow = (input: string): ExtensionFqnParts => {
+  const parsed = parseExtensionFqnParts(input);
   if (parsed === undefined) {
     throw new Error(
       `Invalid fully qualified name: ${input}. Expected format: @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name`,
@@ -58,5 +54,5 @@ export const parseFqnOrThrow = (input: string): FullyQualifiedNameParts => {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const formatFqn = (fqn: FullyQualifiedNameParts): string =>
+export const formatFqn = (fqn: ExtensionFqnParts): string =>
   `${fqn.owner}/${toExtensionTypePlural(fqn.type)}/${fqn.name}`;

@@ -31,7 +31,7 @@ import type {
   DiscoverExtensionsArgs,
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
-import { isExtensionTypePlural, parseFullyQualifiedRefParts } from "../extensions/common.js";
+import { isExtensionTypePlural, parseExtensionSpecParts } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import type { DiscoverExtensionEntry, DiscoverExtensionsResponse } from "./discover-schema.js";
 import { purlMatch } from "../packaging/purl-match.js";
@@ -132,9 +132,9 @@ const indexToDiscoverEntry = (index: ExtensionIndex): DiscoverExtensionEntry => 
   };
 };
 
-/** Parse a FullyQualifiedRef string into owner/type/name parts (ignoring version constraint). */
+/** Parse a ExtensionSpec string into owner/type/name parts (ignoring version constraint). */
 const parseRef = (ref: string): { owner: string; type: ExtensionType; name: string } | undefined =>
-  parseFullyQualifiedRefParts(ref);
+  parseExtensionSpecParts(ref);
 
 /**
  * Scan all extensions under the extensions root directory.

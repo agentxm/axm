@@ -47,6 +47,7 @@
         }
       ]
     },
+    "ExtensionSpec": { "type": "string" },
     "ExtensionName": {
       "type": "string",
       "allOf": [
@@ -64,7 +65,15 @@
         "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },
-        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Optional, registry-only description shown in listings. This is separate from the SKILL.md frontmatter `description`, which is the trigger phrase the agent uses to decide when to invoke the skill."
+            },
+            { "type": "null" }
+          ]
+        },
         "keywords": {
           "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         },
@@ -80,7 +89,30 @@
         },
         "compatiblePackages": {
           "anyOf": [
-            { "type": "array", "items": { "$ref": "#/definitions/PackageUrl" } },
+            {
+              "type": "array",
+              "description": "Packages this extension is designed to work with, as Package URLs (purls).",
+              "items": { "$ref": "#/definitions/PackageUrl" }
+            },
+            { "type": "null" }
+          ]
+        },
+        "recommendedPacks": {
+          "anyOf": [
+            {
+              "type": "array",
+              "description": "Extension packs this extension is intended to work with, as extension specs (e.g. @owner/packs/name or @owner/packs/name@^1.0.0).",
+              "items": { "$ref": "#/definitions/ExtensionSpec" }
+            },
+            { "type": "null" }
+          ]
+        },
+        "standalone": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this extension is designed to work without an extension pack. Defaults to true when omitted."
+            },
             { "type": "null" }
           ]
         },

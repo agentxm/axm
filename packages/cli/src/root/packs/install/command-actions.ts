@@ -44,7 +44,7 @@ import {
 import {
   buildUninstallOperation,
   buildInstallOperation,
-  parseFullyQualifiedNameParts,
+  parseExtensionFqnParts,
   targetFromRef,
   toLabel,
   type UninstallRetentionPolicy,
@@ -146,7 +146,7 @@ const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   subagent: new Set<string>(),
 });
 
-const nameFromFqn = (fqn: string): string => parseFullyQualifiedNameParts(fqn)?.name ?? fqn;
+const nameFromFqn = (fqn: string): string => parseExtensionFqnParts(fqn)?.name ?? fqn;
 
 const collectResolvedDependencyNames = (
   refs: ReadonlyArray<ExtensionRef>,

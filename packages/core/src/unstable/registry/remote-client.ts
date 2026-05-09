@@ -21,7 +21,7 @@ import {
   makeAppError,
 } from "../app-error/index.js";
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
-import { parseFullyQualifiedRefParts } from "../extensions/common.js";
+import { parseExtensionSpecParts } from "../extensions/common.js";
 import {
   decodeExtensionNameSync,
   toAuthor,
@@ -907,7 +907,7 @@ export const createRemoteRegistryClient = (
       const resolvedRecommendationIndexes = yield* Effect.forEach(
         args.workspaceRecommendedExtensions ?? [],
         (ref) => {
-          const parsed = parseFullyQualifiedRefParts(ref);
+          const parsed = parseExtensionSpecParts(ref);
           if (parsed === undefined || !isRemoteDiscoverableType(parsed.type)) {
             return Effect.succeed(Option.none<ExtensionIndex>());
           }

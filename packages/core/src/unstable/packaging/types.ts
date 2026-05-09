@@ -9,7 +9,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type { FullyQualifiedRef } from "../extensions/common.js";
+import type { ExtensionSpec } from "../extensions/common.js";
 import type { PackageType } from "./package-type.js";
 import type { PackageUrlParts } from "./package-url.js";
 
@@ -47,7 +47,7 @@ export interface PackageReader {
   readonly read: (
     pkg: DetectedPackage,
   ) => Effect.Effect<
-    Option.Option<ReadonlyArray<FullyQualifiedRef>>,
+    Option.Option<ReadonlyArray<ExtensionSpec>>,
     never,
     FileSystem.FileSystem | Path.Path
   >;

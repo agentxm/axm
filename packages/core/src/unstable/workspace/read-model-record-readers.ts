@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
 import {
-  parseFullyQualifiedNameParts,
+  parseExtensionFqnParts,
   type ExtensionName,
   type InstallableExtensionType,
 } from "../extensions/index.js";
@@ -92,7 +92,7 @@ export const makeReadModelRecordReaders = (args: {
     for (const pack of packs) {
       const resolved = pack.lockEntry[key] ?? {};
       for (const fqn of Object.keys(resolved)) {
-        const parsed = parseFullyQualifiedNameParts(fqn);
+        const parsed = parseExtensionFqnParts(fqn);
         if (parsed !== undefined) names.push(parsed.name);
       }
     }

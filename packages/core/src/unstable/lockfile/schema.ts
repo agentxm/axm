@@ -10,7 +10,7 @@
 import * as Schema from "effect/Schema";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
-  FullyQualifiedNameSchema,
+  ExtensionFqnSchema,
   HandleSchema,
   RenderedFilesMapSchema,
   SourceHashSchema,
@@ -310,7 +310,7 @@ export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchem
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-export const ResolvedExtensionMapSchema = Schema.Record(FullyQualifiedNameSchema, VersionSchema);
+export const ResolvedExtensionMapSchema = Schema.Record(ExtensionFqnSchema, VersionSchema);
 
 /**
  * Inferred type for resolved extension maps.

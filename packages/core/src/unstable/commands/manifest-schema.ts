@@ -5,7 +5,11 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
+import {
+  CommonManifestBaseFields,
+  ExtensionNameSchema,
+  NonPackManifestFields,
+} from "../extensions/common.js";
 
 /**
  * Filename for command manifest files.
@@ -32,6 +36,7 @@ export const COMMAND_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/command.schem
 export const CommandManifestSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
+  ...NonPackManifestFields,
   type: Schema.Literal("command"),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "command name is required" }),

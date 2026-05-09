@@ -27,14 +27,6 @@ export const SkillManifestSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
   ...NonPackManifestFields,
-  description: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotate({
-        description:
-          "Registry-facing summary shown in listings. Distinct from the SKILL.md frontmatter `description`, which is the trigger phrase the agent uses to decide when to invoke the skill.",
-      }),
-    ),
-  ),
   type: Schema.Literal("skill"),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "skill name is required" }),
@@ -47,7 +39,7 @@ export const SkillManifestSchema = Schema.Struct({
   identifier: "SkillManifest",
   title: "Skill Manifest",
   description:
-    "Skill extension manifest (skill.json). The prompt body and trigger phrase live in SKILL.md alongside this file; this manifest carries the registry-facing identity, version, and metadata.",
+    "Extension manifest file for skill. Carries the registry-facing identity, version, and metadata.",
 });
 
 /**

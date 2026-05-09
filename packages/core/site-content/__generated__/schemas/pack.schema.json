@@ -65,7 +65,7 @@
         {
           "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Non-Pack Extension FQN",
-          "description": "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, files, rules). Used where pack FQNs aren't permitted, such as the keys of a pack manifest's dependencies map.",
+          "description": "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, files, rules).",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
         }
       ]
@@ -159,7 +159,7 @@
         "name": { "$ref": "#/definitions/ExtensionName" },
         "dependencies": {
           "type": "object",
-          "description": "Map of fully-qualified non-pack extension names to version ranges. Installing the pack installs each entry at a version satisfying its range. Packs cannot depend on other packs.",
+          "description": "Map of fully-qualified non-pack extension names to version ranges. Packs cannot depend on other packs.",
           "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
           "additionalProperties": { "$ref": "#/definitions/VersionRange" }
         }
@@ -167,7 +167,7 @@
       "required": ["owner", "version", "type", "name", "dependencies"],
       "additionalProperties": false,
       "title": "Pack Manifest",
-      "description": "Pack extension manifest (pack.json). Bundles a curated set of skills, commands, MCP servers, subagents, files, and rules into a single installable unit. Installing the pack installs each entry in its dependencies map at a version satisfying the listed range."
+      "description": "Extension manifest file for extension packs. Bundles a curated set of skills, commands, MCP servers, subagents, files, and rules into a single installable unit."
     }
   }
 }

@@ -54,7 +54,7 @@
         {
           "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/packs\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
           "title": "Pack Spec",
-          "description": "Pack reference with an optional version constraint suffix. Used in places like an extension's recommendedPacks list, where a pack can be pinned to a version range.",
+          "description": "Pack reference with an optional version constraint suffix.",
           "examples": ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"]
         }
       ]
@@ -170,13 +170,13 @@
           "anyOf": [
             {
               "type": "object",
-              "description": "Per-agent frontmatter overrides applied when this command is materialized for a specific coding agent. Keys are agent ids (e.g. claude-code, cursor); values are the field overrides for that agent.",
+              "description": "Per-agent frontmatter overrides keyed by agent id (e.g. claude-code, cursor). Values are the frontmatter fields to override for that agent.",
               "propertyNames": {
                 "pattern": "^(?:adal|amp|antigravity|augment|claude-code|cline|codebuddy|codex|command-code|continue|crush|cursor|droid|gemini-cli|github-copilot|goose|iflow-cli|junie|kilo|kimi-cli|kiro-cli|kode|mcpjam|mistral-vibe|mux|neovate|openclaw|opencode|openhands|pi|pochi|qoder|qwen-code|replit|roo|trae|trae-cn|windsurf|zencoder)$"
               },
               "additionalProperties": {
                 "type": "object",
-                "description": "Frontmatter field overrides applied when materializing the command for this agent. Keys are frontmatter field names; values replace the matching fields in the command's `<name>.md` content file."
+                "description": "Frontmatter fields to override for this agent. Keys are frontmatter field names; values replace the matching fields when this command is consumed by the agent."
               }
             },
             { "type": "null" }
@@ -186,7 +186,7 @@
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,
       "title": "Command Manifest",
-      "description": "Slash-command extension manifest (command.json). The prompt body lives in `<name>.md` (e.g., `review-pr.md`) alongside this file and is materialized into each supported coding agent's commands directory."
+      "description": "Extension manifest file for slash-command. Carries the registry-facing identity, version, and metadata, plus optional per-agent frontmatter overrides."
     }
   }
 }

@@ -44,7 +44,7 @@
         {
           "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Extension FQN",
-          "description": "Canonical extension identifier in @owner/<type>s/<name> form. Used as keys in lockfile entries and any place that addresses any extension regardless of type.",
+          "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
         }
       ]

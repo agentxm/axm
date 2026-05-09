@@ -51,7 +51,7 @@ export const SubagentManifestSchema = Schema.Struct({
   identifier: "SubagentManifest",
   title: "Subagent Manifest",
   description:
-    "Subagent extension manifest (subagent.json). The agent prompt, tool list, and other behavior fields live in subagent.md frontmatter alongside this file; this manifest carries only the registry-facing identity, version, and metadata.",
+    "Extension manifest file for subagent. Carries the registry-facing identity, version, and metadata.",
 });
 
 /**

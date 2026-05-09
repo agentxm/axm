@@ -342,8 +342,7 @@ export const ExtensionFqnSchema = Schema.String.pipe(
   Schema.annotate({
     identifier: "ExtensionFqn",
     title: "Extension FQN",
-    description:
-      "Canonical extension identifier in @owner/<type>s/<name> form. Used as keys in lockfile entries and any place that addresses any extension regardless of type.",
+    description: "Canonical extension identifier in @owner/<type>s/<name> form.",
     examples: ["@acme/skills/code-review", "@my-org/commands/format"],
     message: INVALID_EXTENSION_FQN_MESSAGE,
   }),
@@ -374,7 +373,7 @@ export const NonPackExtensionFqnSchema = Schema.String.pipe(
     identifier: "NonPackExtensionFqn",
     title: "Non-Pack Extension FQN",
     description:
-      "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, files, rules). Used where pack FQNs aren't permitted, such as the keys of a pack manifest's dependencies map.",
+      "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, files, rules).",
     examples: ["@acme/skills/code-review", "@my-org/commands/format"],
     message: INVALID_NON_PACK_EXTENSION_FQN_MESSAGE,
   }),
@@ -401,8 +400,7 @@ export const PackFqnSchema = Schema.String.pipe(
   Schema.annotate({
     identifier: "PackFqn",
     title: "Pack FQN",
-    description:
-      "Pack identifier in @owner/packs/<name> form. Used wherever only packs are permitted, such as references to a pack from another manifest.",
+    description: "Pack identifier in @owner/packs/<name> form.",
     examples: ["@acme/packs/typescript", "@my-org/packs/web"],
     message: INVALID_PACK_FQN_MESSAGE,
   }),
@@ -457,8 +455,7 @@ export const ExtensionSpecSchema = Schema.NonEmptyString.pipe(
   Schema.annotate({
     identifier: "ExtensionSpec",
     title: "Extension Spec",
-    description:
-      "Extension reference with an optional version constraint suffix. Accepted by install-time inputs that need to specify a version range alongside the FQN.",
+    description: "Extension reference with an optional version constraint suffix.",
     examples: ["@acme/skills/code-review", "@acme/skills/code-review@^1.0.0"],
   }),
   Schema.brand("ExtensionSpec"),
@@ -510,8 +507,7 @@ export const PackSpecSchema = Schema.NonEmptyString.pipe(
   Schema.annotate({
     identifier: "PackSpec",
     title: "Pack Spec",
-    description:
-      "Pack reference with an optional version constraint suffix. Used in places like an extension's recommendedPacks list, where a pack can be pinned to a version range.",
+    description: "Pack reference with an optional version constraint suffix.",
     examples: ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"],
   }),
   Schema.brand("PackSpec"),
@@ -554,7 +550,7 @@ export const NonPackExtensionDependencyConstraintMapSchema = Schema.Record(
   VersionRangeSchema,
 ).annotate({
   description:
-    "Map of fully-qualified non-pack extension names to version ranges. Installing the pack installs each entry at a version satisfying its range. Packs cannot depend on other packs.",
+    "Map of fully-qualified non-pack extension names to version ranges. Packs cannot depend on other packs.",
 });
 
 /**

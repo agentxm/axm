@@ -54,7 +54,7 @@
         {
           "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/packs\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
           "title": "Pack Spec",
-          "description": "Pack reference with an optional version constraint suffix. Used in places like an extension's recommendedPacks list, where a pack can be pinned to a version range.",
+          "description": "Pack reference with an optional version constraint suffix.",
           "examples": ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"]
         }
       ]
@@ -81,7 +81,7 @@
           "anyOf": [
             {
               "type": "string",
-              "description": "Registry-facing summary shown in listings. Distinct from the SKILL.md frontmatter `description`, which is the trigger phrase the agent uses to decide when to invoke the skill."
+              "description": "Short, registry-facing summary of this extension shown in listings and search results."
             },
             { "type": "null" }
           ]
@@ -170,7 +170,7 @@
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,
       "title": "Skill Manifest",
-      "description": "Skill extension manifest (skill.json). The prompt body and trigger phrase live in SKILL.md alongside this file; this manifest carries the registry-facing identity, version, and metadata."
+      "description": "Extension manifest file for skill. Carries the registry-facing identity, version, and metadata."
     }
   }
 }

@@ -49,7 +49,7 @@ export const McpServerManifestSchema = Schema.Struct({
   identifier: "McpServerManifest",
   title: "MCP Server Manifest",
   description:
-    "MCP server extension manifest (mcp-server.json). Registers a Model Context Protocol server that coding agents can connect to for additional tools and resources.",
+    "Extension manifest file for MCP server. Registers a Model Context Protocol server that coding agents can connect to for additional tools and resources.",
 });
 
 /**

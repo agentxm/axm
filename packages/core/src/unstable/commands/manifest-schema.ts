@@ -61,18 +61,18 @@ export const CommandManifestSchema = Schema.Struct({
       AgentOverrideKeySchema,
       Schema.Record(Schema.String, Schema.Unknown).annotate({
         description:
-          "Frontmatter field overrides applied when materializing the command for this agent. Keys are frontmatter field names; values replace the matching fields in the command's `<name>.md` content file.",
+          "Frontmatter fields to override for this agent. Keys are frontmatter field names; values replace the matching fields when this command is consumed by the agent.",
       }),
     ).annotate({
       description:
-        "Per-agent frontmatter overrides applied when this command is materialized for a specific coding agent. Keys are agent ids (e.g. claude-code, cursor); values are the field overrides for that agent.",
+        "Per-agent frontmatter overrides keyed by agent id (e.g. claude-code, cursor). Values are the frontmatter fields to override for that agent.",
     }),
   ),
 }).annotate({
   identifier: "CommandManifest",
   title: "Command Manifest",
   description:
-    "Slash-command extension manifest (command.json). The prompt body lives in `<name>.md` (e.g., `review-pr.md`) alongside this file and is materialized into each supported coding agent's commands directory.",
+    "Extension manifest file for slash-command. Carries the registry-facing identity, version, and metadata, plus optional per-agent frontmatter overrides.",
 });
 
 /**

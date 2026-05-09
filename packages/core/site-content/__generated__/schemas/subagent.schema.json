@@ -54,7 +54,7 @@
         {
           "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/packs\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
           "title": "Pack Spec",
-          "description": "Pack reference with an optional version constraint suffix. Used in places like an extension's recommendedPacks list, where a pack can be pinned to a version range.",
+          "description": "Pack reference with an optional version constraint suffix.",
           "examples": ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"]
         }
       ]
@@ -170,7 +170,7 @@
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,
       "title": "Subagent Manifest",
-      "description": "Subagent extension manifest (subagent.json). The agent prompt, tool list, and other behavior fields live in subagent.md frontmatter alongside this file; this manifest carries only the registry-facing identity, version, and metadata."
+      "description": "Extension manifest file for subagent. Carries the registry-facing identity, version, and metadata."
     }
   }
 }

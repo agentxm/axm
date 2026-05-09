@@ -25,7 +25,10 @@ import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { validateManifestHasNoAgentsField } from "../../publish/manifest-policy.js";
+import {
+  validateCommandManifestHasNoAgentOverridesField,
+  validateManifestHasNoAgentsField,
+} from "../../publish/manifest-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -122,6 +125,16 @@ export const publishCommand: (
       return yield* makeAppError({
         code: "validation",
         message: agentsFieldValidation.failure.detail,
+      });
+    }
+    const agentOverridesFieldValidation = validateCommandManifestHasNoAgentOverridesField(
+      COMMAND_MANIFEST_FILENAME,
+      manifestJson,
+    );
+    if (Result.isFailure(agentOverridesFieldValidation)) {
+      return yield* makeAppError({
+        code: "validation",
+        message: agentOverridesFieldValidation.failure.detail,
       });
     }
 

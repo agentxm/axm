@@ -165,28 +165,12 @@
           ]
         },
         "type": { "type": "string", "enum": ["command"] },
-        "name": { "$ref": "#/definitions/ExtensionName" },
-        "agentOverrides": {
-          "anyOf": [
-            {
-              "type": "object",
-              "description": "Per-agent frontmatter overrides keyed by agent id (e.g. claude-code, cursor). Values are the frontmatter fields to override for that agent.",
-              "propertyNames": {
-                "pattern": "^(?:adal|amp|antigravity|augment|claude-code|cline|codebuddy|codex|command-code|continue|crush|cursor|droid|gemini-cli|github-copilot|goose|iflow-cli|junie|kilo|kimi-cli|kiro-cli|kode|mcpjam|mistral-vibe|mux|neovate|openclaw|opencode|openhands|pi|pochi|qoder|qwen-code|replit|roo|trae|trae-cn|windsurf|zencoder)$"
-              },
-              "additionalProperties": {
-                "type": "object",
-                "description": "Frontmatter fields to override for this agent. Keys are frontmatter field names; values replace the matching fields when this command is consumed by the agent."
-              }
-            },
-            { "type": "null" }
-          ]
-        }
+        "name": { "$ref": "#/definitions/ExtensionName" }
       },
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,
       "title": "Command Manifest",
-      "description": "Extension manifest file for slash-command. Carries the registry-facing identity, version, and metadata, plus optional per-agent frontmatter overrides."
+      "description": "Extension manifest file for slash-command. Carries registry-facing identity, version, and metadata. Per-agent frontmatter overrides live in the content file."
     }
   }
 }

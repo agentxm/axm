@@ -87,6 +87,7 @@ Run the deployment pipeline.`;
 
       const result = yield* parseCommandMd(content);
       expect(Option.isSome(result.frontmatter)).toBe(true);
+      expect(Option.isNone(result.agentOverrides)).toBe(true);
       const fm = Option.getOrThrow(result.frontmatter);
       expect(fm["description"]).toBe("Deploy application");
       expect(fm["argument-hint"]).toBe("<target>");
@@ -100,7 +101,68 @@ Run the deployment pipeline.`;
       const content = "# Simple Command\n\nJust a body.";
       const result = yield* parseCommandMd(content);
       expect(Option.isNone(result.frontmatter)).toBe(true);
+      expect(Option.isNone(result.agentOverrides)).toBe(true);
       expect(result.body).toBe(content);
+    }),
+  );
+
+  it.effect("extracts agentOverrides from frontmatter", () =>
+    Effect.gen(function* () {
+      const content = `---
+description: Deploy application
+agentOverrides:
+  codex:
+    model: o3
+    config:
+      retries: 3
+  claude-code:
+    allowedTools:
+      - Bash
+---
+Deploy the app.`;
+
+      const result = yield* parseCommandMd(content);
+      const overrides = Option.getOrThrow(result.agentOverrides);
+
+      expect(overrides["codex"]).toEqual({
+        model: "o3",
+        config: { retries: 3 },
+      });
+      expect(overrides["claude-code"]).toEqual({
+        allowedTools: ["Bash"],
+      });
+    }),
+  );
+
+  it.effect("returns no agentOverrides for malformed root", () =>
+    Effect.gen(function* () {
+      const content = `---
+agentOverrides: true
+---
+Deploy the app.`;
+
+      const result = yield* parseCommandMd(content);
+
+      expect(Option.isNone(result.agentOverrides)).toBe(true);
+    }),
+  );
+
+  it.effect("ignores agentOverrides entries that are not mappings", () =>
+    Effect.gen(function* () {
+      const content = `---
+agentOverrides:
+  codex: o3
+  claude-code:
+    model: opus
+---
+Deploy the app.`;
+
+      const result = yield* parseCommandMd(content);
+      const overrides = Option.getOrThrow(result.agentOverrides);
+
+      expect(overrides).toEqual({
+        "claude-code": { model: "opus" },
+      });
     }),
   );
 
@@ -182,5 +244,13 @@ describe("projectFrontmatterToManifest", () => {
   it("projects null model", () => {
     const result = projectFrontmatterToManifest({ model: null });
     expect(result.model).toBeNull();
+  });
+
+  it("does not project agentOverrides to manifest fields", () => {
+    const result = projectFrontmatterToManifest({
+      description: "Deploy app",
+      agentOverrides: { codex: { model: "o3" } },
+    });
+    expect(result).toEqual({ description: "Deploy app", model: undefined });
   });
 });

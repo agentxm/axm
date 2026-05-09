@@ -125,7 +125,7 @@ export const enableCommand: OperationHandler<
     }
 
     // Read the command content file and command.json
-    const { frontmatter, body, manifest } = yield* readCommandContent(
+    const { frontmatter, agentOverrides, body, manifest } = yield* readCommandContent(
       canonicalPath,
       op.args.commandName,
       "ENABLE_COMMAND",
@@ -161,6 +161,7 @@ export const enableCommand: OperationHandler<
     const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: op.args.commandName,
       frontmatter,
+      agentOverrides: Option.getOrUndefined(agentOverrides),
       body,
       manifest,
       owner,

@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { parseFrontmatterEffect, type FrontmatterResult } from "../extensions/frontmatter.js";
+import type { AllAgentOverrides } from "../extensions/agent-overrides.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 
 /**
@@ -34,6 +35,13 @@ export const CommandFrontmatterSchema = Schema.Record(Schema.String, Schema.Unkn
 export type CommandFrontmatter = Schema.Schema.Type<typeof CommandFrontmatterSchema>;
 
 /**
+ * Map of agent-id -> merge patch applied during per-agent rendering.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type CommandAgentOverrides = AllAgentOverrides;
+
+/**
  * Result of parsing a command content file.
  *
  * @experimental This API is unstable and may change without notice.
@@ -41,12 +49,26 @@ export type CommandFrontmatter = Schema.Schema.Type<typeof CommandFrontmatterSch
 export interface CommandContentResult {
   /** Parsed and validated frontmatter, or Option.none() if no frontmatter block was found. */
   readonly frontmatter: Option.Option<CommandFrontmatter>;
+  /** The `agentOverrides` map keyed by agent id, when present and structurally valid. */
+  readonly agentOverrides: Option.Option<CommandAgentOverrides>;
   /** Content body after the frontmatter block, or full content if no frontmatter. */
   readonly body: string;
 }
 
 const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+export const extractAgentOverrides = (
+  fm: Readonly<Record<string, unknown>>,
+): Option.Option<CommandAgentOverrides> => {
+  const raw = fm["agentOverrides"];
+  if (!isPlainObject(raw)) return Option.none();
+  const out: Record<string, Readonly<Record<string, unknown>>> = {};
+  for (const [agentId, patch] of Object.entries(raw)) {
+    if (isPlainObject(patch)) out[agentId] = patch;
+  }
+  return Option.some(out);
+};
 
 /**
  * Parse a command content file into validated frontmatter and body.
@@ -61,7 +83,7 @@ export const parseCommandMd = (content: string): Effect.Effect<CommandContentRes
     const parsed: FrontmatterResult = yield* parseFrontmatterEffect(content);
 
     if (parsed.frontmatter === undefined) {
-      return { frontmatter: Option.none(), body: parsed.body };
+      return { frontmatter: Option.none(), agentOverrides: Option.none(), body: parsed.body };
     }
 
     if (!isPlainObject(parsed.frontmatter)) {
@@ -77,7 +99,11 @@ export const parseCommandMd = (content: string): Effect.Effect<CommandContentRes
       });
     }
 
-    return { frontmatter: Option.some(parsed.frontmatter), body: parsed.body };
+    return {
+      frontmatter: Option.some(parsed.frontmatter),
+      agentOverrides: extractAgentOverrides(parsed.frontmatter),
+      body: parsed.body,
+    };
   });
 
 /**

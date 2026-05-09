@@ -8,34 +8,36 @@ The commands capability provides workspace-level command management with agent-s
 
 ### Requirement: Command manifest schema
 
-The command manifest (`command.json`) SHALL extend `CommonManifestFields` with command-specific packaging and distribution fields:
+The command manifest (`command.json`) SHALL carry registry-facing identity, version, and metadata only.
 
-- `agents`: optional array of agent ID strings filtering which configured agents receive rendered command files
-- `agentOverrides`: optional record keyed by agent ID, where each value is a record of agent-specific field overrides
+The manifest SHALL NOT carry `agents` or `agentOverrides`. Render targeting is owned by `settings.json` (`settings.agents`). Per-agent frontmatter overrides are owned by the command content file (`${name}.md`) frontmatter.
 
 The manifest MAY contain derived copies of ${name}.md frontmatter fields (`description`, `model`, etc.) for registry search and filtering, but these SHALL be synced FROM the content file during `publish` — never edited directly in the manifest.
 
-#### Scenario: Valid manifest with agent filter
+#### Scenario: Manifest agentOverrides field rejected at publish
 
-- **WHEN** `command.json` contains `agents: ["claude-code", "cursor"]` and `agentOverrides: { "claude-code": { "hooks": { "prerun": ["echo hi"] } } }`
-- **THEN** manifest validation SHALL succeed (structural validation only)
-- **AND** semantic validation of `agentOverrides` SHALL be deferred to each agent's renderer
+- **WHEN** `command.json` contains an `agentOverrides` field
+- **AND** `axm commands publish` is run
+- **THEN** publish SHALL fail with a validation error indicating that `agentOverrides` is no longer a manifest field
+- **AND** the error message SHALL direct authors to move `agentOverrides` to the command content file frontmatter
 
 #### Scenario: Valid manifest with minimal fields
 
 - **WHEN** `command.json` contains only `CommonManifestFields` with `type: "command"` and no command-specific fields
 - **THEN** manifest validation SHALL succeed with defaults applied
 
-#### Scenario: No agents filter renders to all configured agents
+#### Scenario: Rendering targets all agents in settings
 
-- **WHEN** `command.json` omits the `agents` field
-- **THEN** the command SHALL be rendered to all agents configured in the workspace
+- **WHEN** `command.json` is published without an `agents` field
+- **AND** the workspace has `settings.agents: ["claude-code", "cursor", "gemini-cli"]` configured
+- **THEN** the command SHALL be rendered to Claude Code, Cursor, and Gemini CLI
 
-#### Scenario: Agents filter restricts rendering
+#### Scenario: Manifest agents field rejected at publish
 
-- **WHEN** `command.json` contains `agents: ["claude-code", "cursor"]`
-- **AND** the workspace has agents `["claude-code", "cursor", "gemini-cli"]` configured
-- **THEN** the command SHALL only be rendered to Claude Code and Cursor
+- **WHEN** `command.json` contains an `agents` field
+- **AND** `axm commands publish` is run
+- **THEN** publish SHALL fail with a validation error indicating that `agents` is no longer a manifest field
+- **AND** the error message SHALL direct authors to express targeting in `settings.agents`
 
 ### Requirement: Command content file
 
@@ -51,6 +53,7 @@ The command prompt body and behavioral configuration SHALL reside in a `${name}.
 - `argumentHint`: optional string describing argument usage shown to users
 - `autoInvocable`: optional boolean (default true) controlling whether agents may invoke the command without user initiation
 - `userInvocable`: optional boolean (default true) controlling whether users can invoke the command via slash syntax
+- `agentOverrides`: optional record keyed by agent ID, where each value is an agent-specific RFC 7396 merge patch
 
 The manifest (`command.json`) is the source of truth for packaging/distribution concerns. The command content file (`${name}.md`) frontmatter is the source of truth for behavioral/authoring concerns. This model applies uniformly to commands and subagents.
 
@@ -76,6 +79,18 @@ The manifest (`command.json`) is the source of truth for packaging/distribution 
 - **WHEN** `${name}.md` frontmatter contains `model: null`
 - **THEN** no model override SHALL apply
 - **AND** agents SHALL use their default model selection
+
+#### Scenario: Content file with agent-specific overrides
+
+- **WHEN** `${name}.md` frontmatter contains `agentOverrides: { "codex": { "model": "o3" } }`
+- **THEN** AXM SHALL apply the matching entry as an RFC 7396 JSON Merge Patch on top of the rendered fields for Codex
+- **AND** `agentOverrides` itself SHALL NOT appear in the rendered file
+
+#### Scenario: AgentOverrides-only frontmatter for plain-text renderer
+
+- **WHEN** `${name}.md` frontmatter contains only `agentOverrides`
+- **AND** the command is rendered for an agent that does not render frontmatter
+- **THEN** AXM SHALL NOT emit a lossy-rendering warning for omitted frontmatter
 
 ### Requirement: Command settings entry schema
 

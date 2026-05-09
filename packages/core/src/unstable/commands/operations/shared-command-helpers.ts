@@ -13,9 +13,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
+import type { AllAgentOverrides } from "../../extensions/agent-overrides.js";
 import { warnOnOrphanOverrides } from "../../extensions/agent-overrides.js";
+import { validateCommandManifestHasNoAgentOverridesField } from "../../publish/manifest-policy.js";
 import { parseCommandMd, type CommandContentResult } from "../command-content.js";
 import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../manifest-schema.js";
 import type { CommandManifest } from "../manifest-schema.js";
@@ -83,7 +86,7 @@ export const readCommandContent = (
       );
       frontmatter = yield* parseCommandMd(content);
     } else {
-      frontmatter = { frontmatter: Option.none(), body: "" };
+      frontmatter = { frontmatter: Option.none(), agentOverrides: Option.none(), body: "" };
     }
 
     // Read command.json
@@ -103,8 +106,30 @@ export const readCommandContent = (
           }),
         ),
       );
+      const manifestJson = yield* Effect.try({
+        try: () => {
+          const parsed: unknown = JSON.parse(manifestContent);
+          return parsed;
+        },
+        catch: (error) =>
+          makeAppError({
+            code: "internal",
+            message: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
+            cause: error,
+          }),
+      });
+      const agentOverridesFieldValidation = validateCommandManifestHasNoAgentOverridesField(
+        COMMAND_MANIFEST_FILENAME,
+        manifestJson,
+      );
+      if (Result.isFailure(agentOverridesFieldValidation)) {
+        return yield* makeAppError({
+          code: "validation",
+          message: agentOverridesFieldValidation.failure.detail,
+        });
+      }
       manifest = yield* Effect.try({
-        try: () => Schema.decodeUnknownSync(CommandManifestSchema)(JSON.parse(manifestContent)),
+        try: () => Schema.decodeUnknownSync(CommandManifestSchema)(manifestJson),
         catch: (error) =>
           makeAppError({
             code: "internal",
@@ -127,6 +152,7 @@ export const readCommandContent = (
 export interface RenderToAgentsArgs {
   readonly commandName: string;
   readonly frontmatter: CommandContentResult["frontmatter"];
+  readonly agentOverrides: AllAgentOverrides | undefined;
   readonly body: string;
   readonly manifest: CommandManifest | undefined;
   /** Owner string for building an effective manifest when none exists. */
@@ -153,6 +179,14 @@ export interface RenderToAgentsResult {
   readonly rawRenderedFiles: Record<string, Array<{ path: string }>>;
 }
 
+const stripAgentOverrides = (
+  frontmatter: CommandContentResult["frontmatter"],
+): CommandContentResult["frontmatter"] =>
+  Option.map(frontmatter, (fm) => {
+    if (!("agentOverrides" in fm)) return fm;
+    return Object.fromEntries(Object.entries(fm).filter(([key]) => key !== "agentOverrides"));
+  });
+
 /**
  * Render a command to all configured agents concurrently.
  */
@@ -170,9 +204,11 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
       version: decodeVersionSync("0.0.0"),
     };
 
+    const frontmatter = stripAgentOverrides(args.frontmatter);
+
     yield* warnOnOrphanOverrides(
       `Command "${args.commandName}"`,
-      args.manifest?.agentOverrides,
+      args.agentOverrides,
       configuredAgents.map((a) => a.id),
     );
 
@@ -180,14 +216,14 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
     const outcomes = yield* Effect.forEach(
       configuredAgents,
       (agent: CodingAgent) => {
-        const agentOverrides = args.manifest?.agentOverrides?.[agent.id];
+        const agentOverrides = args.agentOverrides?.[agent.id];
 
         return agent
           .addCommand({
             workspaceRoot: args.workspaceRoot,
             scope: "project",
             commandName: args.commandName,
-            frontmatter: args.frontmatter,
+            frontmatter,
             body: args.body,
             manifest: effectiveManifest,
             agentOverrides: Option.fromUndefinedOr(agentOverrides),

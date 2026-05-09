@@ -274,7 +274,7 @@ export const installCommand: (
     const canonicalPath = yield* materializeCommand(ref);
 
     // --- Read command content ---
-    const { frontmatter, body, manifest } = yield* readCommandContent(
+    const { frontmatter, agentOverrides, body, manifest } = yield* readCommandContent(
       canonicalPath,
       ref.command.name,
       "INSTALL_COMMAND",
@@ -310,6 +310,7 @@ export const installCommand: (
     const { outcomes, successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: ref.command.name,
       frontmatter,
+      agentOverrides: Option.getOrUndefined(agentOverrides),
       body,
       manifest,
       owner,

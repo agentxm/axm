@@ -8,6 +8,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
 import {
@@ -174,10 +175,11 @@ export const newCommand: OperationHandler<
       ),
     );
 
-    const { frontmatter, body } = yield* parseCommandMd(commandMdContent);
+    const { frontmatter, agentOverrides, body } = yield* parseCommandMd(commandMdContent);
     const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: name,
       frontmatter,
+      agentOverrides: Option.getOrUndefined(agentOverrides),
       body,
       manifest,
       owner,

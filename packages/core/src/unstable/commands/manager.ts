@@ -363,7 +363,7 @@ export const CommandManagerLive = Layer.effect(
           }
         });
 
-        const { frontmatter, body, manifest } = yield* provide(
+        const { frontmatter, agentOverrides, body, manifest } = yield* provide(
           readCommandContent(canonicalPath, ref.command.name, "INSTALL_COMMAND"),
         );
 
@@ -396,6 +396,7 @@ export const CommandManagerLive = Layer.effect(
           renderToAgents({
             commandName: ref.command.name,
             frontmatter,
+            agentOverrides: Option.getOrUndefined(agentOverrides),
             body,
             manifest,
             owner,

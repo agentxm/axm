@@ -205,7 +205,8 @@ to verify._
 
 Extension slash-command rendering is not governed by this guide. Command
 package frontmatter is opaque agent-native data; renderers pass it through
-verbatim and apply `agentOverrides` as RFC 7396 merge patches.
+verbatim and apply frontmatter `agentOverrides` as RFC 7396 merge patches.
+`command.json` carries registry-facing metadata only.
 
 The parsing/handler boundary is the central architectural constraint. Parsing
 concerns stay at the command boundary; domain work lives in handlers and

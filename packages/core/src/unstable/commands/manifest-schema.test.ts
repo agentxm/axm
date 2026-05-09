@@ -34,7 +34,7 @@ describe("CommandManifestSchema", () => {
     expect("agents" in result).toBe(false);
   });
 
-  it("accepts manifest with agentOverrides", () => {
+  it("ignores residual agentOverrides field while decoding older manifests", () => {
     const input = {
       owner: "@wayne",
       type: "command",
@@ -45,10 +45,10 @@ describe("CommandManifestSchema", () => {
       },
     };
     const result = decode(input);
-    expect(result.agentOverrides).toEqual({ codex: { model: "o3" } });
+    expect("agentOverrides" in result).toBe(false);
   });
 
-  it("accepts manifest without agents or agentOverrides", () => {
+  it("accepts manifest without agents", () => {
     const input = {
       owner: "@wayne",
       type: "command",
@@ -56,7 +56,7 @@ describe("CommandManifestSchema", () => {
       version: "1.0.0",
     };
     const result = decode(input);
-    expect(result.agentOverrides).toBeUndefined();
+    expect("agentOverrides" in result).toBe(false);
   });
 
   it("rejects manifest with invalid name format", () => {

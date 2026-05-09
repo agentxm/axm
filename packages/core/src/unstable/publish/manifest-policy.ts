@@ -105,22 +105,36 @@ export interface ResolvedManifest {
   readonly fileName: string;
 }
 
-const hasAgentsField = (value: unknown): boolean =>
+const hasOwnField = (value: unknown, field: string): boolean =>
   typeof value === "object" &&
   value !== null &&
   !Array.isArray(value) &&
-  Object.hasOwn(value, "agents");
+  Object.hasOwn(value, field);
 
 export const validateManifestHasNoAgentsField = (
   fileName: string,
   raw: unknown,
 ): Result.Result<void, ManifestError> => {
-  if (!hasAgentsField(raw)) return Result.void;
+  if (!hasOwnField(raw, "agents")) return Result.void;
 
   return Result.fail(
     new ManifestError({
       code: "manifest_schema_invalid",
       detail: `Manifest file "${fileName}" must not include "agents"; express targeting in settings.agents.`,
+    }),
+  );
+};
+
+export const validateCommandManifestHasNoAgentOverridesField = (
+  fileName: string,
+  raw: unknown,
+): Result.Result<void, ManifestError> => {
+  if (!hasOwnField(raw, "agentOverrides")) return Result.void;
+
+  return Result.fail(
+    new ManifestError({
+      code: "manifest_schema_invalid",
+      detail: `Manifest file "${fileName}" must not include "agentOverrides"; move agentOverrides to the command content file frontmatter.`,
     }),
   );
 };
@@ -174,6 +188,9 @@ export const resolveManifest = (
     );
 
     yield* validateManifestHasNoAgentsField(manifestEntry.fileName, parsed);
+    if (input.type === "command") {
+      yield* validateCommandManifestHasNoAgentOverridesField(manifestEntry.fileName, parsed);
+    }
 
     const schema = manifestSchemaForType(input.type);
     if (schema !== undefined) {

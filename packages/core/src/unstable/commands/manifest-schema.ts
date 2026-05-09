@@ -5,7 +5,6 @@
  */
 
 import * as Schema from "effect/Schema";
-import { AGENT_IDS } from "../agents/types.js";
 import {
   CommonManifestBaseFields,
   ExtensionNameSchema,
@@ -26,21 +25,11 @@ export const COMMAND_MANIFEST_FILENAME = "command.json";
  */
 export const COMMAND_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/command.schema.json";
 
-const AGENT_OVERRIDE_KEY_PATTERN = new RegExp(`^(?:${AGENT_IDS.join("|")})$`);
-
-const AgentOverrideKeySchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(AGENT_OVERRIDE_KEY_PATTERN, {
-      message: "Expected a supported agent id.",
-    }),
-  ),
-);
-
 /**
  * Schema for command manifest files (command.json).
  *
- * Commands provide executable CLI functionality that can be
- * registered and invoked through the AXM CLI.
+ * Commands provide registry-facing identity, version, and metadata. Fields
+ * like `model` and `agentOverrides` live in the content file's frontmatter.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -56,23 +45,11 @@ export const CommandManifestSchema = Schema.Struct({
         "Short name for this command within its owner namespace. Combined with owner, forms the FQN @owner/commands/<name>.",
     }),
   ),
-  agentOverrides: Schema.optional(
-    Schema.Record(
-      AgentOverrideKeySchema,
-      Schema.Record(Schema.String, Schema.Unknown).annotate({
-        description:
-          "Frontmatter fields to override for this agent. Keys are frontmatter field names; values replace the matching fields when this command is consumed by the agent.",
-      }),
-    ).annotate({
-      description:
-        "Per-agent frontmatter overrides keyed by agent id (e.g. claude-code, cursor). Values are the frontmatter fields to override for that agent.",
-    }),
-  ),
 }).annotate({
   identifier: "CommandManifest",
   title: "Command Manifest",
   description:
-    "Extension manifest file for slash-command. Carries the registry-facing identity, version, and metadata, plus optional per-agent frontmatter overrides.",
+    "Extension manifest file for slash-command. Carries registry-facing identity, version, and metadata. Per-agent frontmatter overrides live in the content file.",
 });
 
 /**

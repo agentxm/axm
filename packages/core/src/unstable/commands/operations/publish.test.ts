@@ -186,6 +186,26 @@ describe("publishCommand", () => {
     }),
   );
 
+  it.effect("rejects command manifests that still contain agentOverrides", () =>
+    Effect.gen(function* () {
+      const { axmDir, registryRoot } = setup("@community", "old-overrides", {
+        agentOverrides: {
+          codex: { model: "o3" },
+        },
+      });
+
+      const result = yield* publishCommand(
+        makeOp({ name: "@community/commands/old-overrides", registryName: "local" }),
+      ).pipe(
+        Effect.provide(withServices(axmDir, registryRoot)),
+        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+      );
+
+      expect(result.result).toBe("error");
+      expect(result.message).toContain("command content file frontmatter");
+    }),
+  );
+
   it.effect("is idempotent when same version + same integrity published twice", () =>
     Effect.gen(function* () {
       const { axmDir, registryRoot } = setup("@community", "idem-cmd");

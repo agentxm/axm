@@ -64,8 +64,8 @@ export const VersionRangeSchema = Schema.NonEmptyString.pipe(
     identifier: "VersionRange",
     title: "Version Range",
     description:
-      "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3.",
-    examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3"],
+      'A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use "*" to always resolve to the latest available version.',
+    examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"],
     message: "Expected a semver version range (e.g., ^1.0.0)",
   }),
   Schema.brand("VersionRange"),

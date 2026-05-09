@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@agentxm/client-utils": "workspace:*",
-    "execa": "^9.6.1"
+    "execa": "catalog:"
   },
   "devDependencies": {
     "vitest": "catalog:"

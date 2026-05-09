@@ -201,8 +201,8 @@
     "effect": "catalog:",
     "fflate": "catalog:",
     "gray-matter": "catalog:",
-    "jsonc-parser": "^3.3.1",
-    "packageurl-js": "^2.0.1",
+    "jsonc-parser": "catalog:",
+    "packageurl-js": "catalog:",
     "semver": "catalog:",
     "simple-git": "catalog:"
   },
@@ -212,7 +212,7 @@
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
-    "swagger2openapi": "^7.0.8",
+    "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

@@ -14,7 +14,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  parseFqn,
+  fqnInvalidErrorToAppError,
+} from "../../extensions/index.js";
 import {
   COMMAND_MANIFEST_FILENAME,
   CommandManifestSchema,
@@ -78,7 +82,7 @@ export const publishCommand: (
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* parseFqn(op.args.name);
+    const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
 
     // Locate the extension directory
     const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "commands", fqn.name);

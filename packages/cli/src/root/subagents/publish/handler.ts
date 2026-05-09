@@ -2,6 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -17,6 +18,7 @@ import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/u
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
   REGISTRY_EXTENSIONS_DIR,
+  fqnInvalidErrorToAppError,
   parseFqn,
   parseRegistrySourcePatternParts,
 } from "@agentxm/client-core/unstable/extensions";
@@ -207,7 +209,9 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     "Validating extensions...",
     () =>
       Effect.gen(function* () {
-        const fqns = yield* Effect.forEach(extensionNames, (extName) => parseFqn(extName));
+        const fqns = yield* Effect.forEach(extensionNames, (extName) =>
+          Effect.fromResult(Result.mapError(parseFqn(extName), fqnInvalidErrorToAppError)),
+        );
 
         yield* Effect.forEach(fqns, (fqn, i) => {
           const extName = extensionNames[i];

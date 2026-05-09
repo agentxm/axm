@@ -11,13 +11,19 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
-import { REGISTRY_EXTENSIONS_DIR, formatFqn, parseFqn } from "../../extensions/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  formatFqn,
+  parseFqn,
+  fqnInvalidErrorToAppError,
+} from "../../extensions/index.js";
 import type { SkillExtensionRef } from "../refs.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL } from "../manifest-schema.js";
 import { stripFileProtocol } from "../../utils/index.js";
@@ -74,7 +80,7 @@ export const copySkill: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* parseFqn(op.args.targetName);
+    const fqn = yield* Result.mapError(parseFqn(op.args.targetName), fqnInvalidErrorToAppError);
 
     // Target path in the managed extensions store
     const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "skills", fqn.name);

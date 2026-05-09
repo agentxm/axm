@@ -21,7 +21,7 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/index.js";
-import { parseFqn } from "../../extensions/index.js";
+import { parseFqnOrThrow } from "../../extensions/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -99,7 +99,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
       Object.entries(entry.resolvedSkills),
       ([skillFqn, version]) =>
         Effect.gen(function* () {
-          const parsed = yield* parseFqn(skillFqn);
+          const parsed = parseFqnOrThrow(skillFqn);
           if (parsed.name in currentSkills) return; // preserve existing direct entry
           yield* ws.setSkill({
             name: parsed.name,
@@ -125,7 +125,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
       Object.entries(entry.resolvedCommands),
       ([commandFqn, version]) =>
         Effect.gen(function* () {
-          const parsed = yield* parseFqn(commandFqn);
+          const parsed = parseFqnOrThrow(commandFqn);
           if (parsed.name in currentCommands) return;
           yield* ws.setCommand({
             name: parsed.name,
@@ -151,7 +151,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
       Object.entries(entry.resolvedMcpServers),
       ([mcpServerFqn, version]) =>
         Effect.gen(function* () {
-          const parsed = yield* parseFqn(mcpServerFqn);
+          const parsed = parseFqnOrThrow(mcpServerFqn);
           if (parsed.name in currentMcpServers) return;
           yield* ws.setMcpServer({
             name: parsed.name,
@@ -176,7 +176,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
       Object.entries(entry.resolvedSubagents),
       ([subagentFqn, version]) =>
         Effect.gen(function* () {
-          const parsed = yield* parseFqn(subagentFqn);
+          const parsed = parseFqnOrThrow(subagentFqn);
           if (parsed.name in currentSubagents) return;
           yield* ws.setSubagent({
             name: parsed.name,

@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
@@ -10,6 +11,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   extensionTypeSentenceLabels,
   extensionTypeToPlural,
+  fqnInvalidErrorToAppError,
   parseFqn,
 } from "@agentxm/client-core/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
@@ -179,7 +181,7 @@ const supportedHandleHints = versionableTypes
 
 const inferVersionableType = (handle: string) =>
   Effect.gen(function* () {
-    const fqn = yield* parseFqn(handle);
+    const fqn = yield* Result.mapError(parseFqn(handle), fqnInvalidErrorToAppError);
     if (!isVersionableType(fqn.type)) {
       return yield* makeAppError({
         code: "validation",

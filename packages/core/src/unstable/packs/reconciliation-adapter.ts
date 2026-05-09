@@ -3,7 +3,7 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
   parseExtensionFqnParts,
-  parseFqn,
+  parseFqnOrThrow,
   readAndDecodeManifest,
   extensionTypeFromPlural,
 } from "../extensions/index.js";
@@ -342,7 +342,7 @@ const resolveInstalledDependencyMaps = (
 ) =>
   Effect.gen(function* () {
     for (const fqn of Object.keys(dependencies)) {
-      const parsed = yield* parseFqn(fqn);
+      const parsed = parseFqnOrThrow(fqn);
       switch (parsed.type) {
         case "skill":
         case "command":

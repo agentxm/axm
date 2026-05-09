@@ -2,6 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
@@ -11,7 +12,9 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
   formatFqn,
+  fqnInvalidErrorToAppError,
   parseFqn,
+  parseFqnOrThrow,
   toExtensionTypePlural,
   type ExtensionFqnParts,
   REGISTRY_EXTENSIONS_DIR,
@@ -205,7 +208,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   })();
 
   // Parse owner and pack name from the full name
-  const fqn = yield* parseFqn(packName);
+  const fqn = yield* Result.mapError(parseFqn(packName), fqnInvalidErrorToAppError);
 
   // Step 2: Validate managed pack exists
   const manifestPath = yield* renderer.withSpinner(
@@ -295,7 +298,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       allDeps,
       (depFqn) =>
         Effect.gen(function* () {
-          const parsed = yield* parseFqn(depFqn);
+          const parsed = parseFqnOrThrow(depFqn);
           const depDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,

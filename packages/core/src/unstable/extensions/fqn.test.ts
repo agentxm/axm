@@ -3,7 +3,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
+import * as Result from "effect/Result";
 import { describe, expect, it } from "@effect/vitest";
 import { extensionName, handle } from "../test-helpers.js";
 import { formatFqn, parseFqn } from "./fqn.js";
@@ -47,12 +47,13 @@ describe("parseFqn", () => {
       expected: { owner: "@acme", type: "rule", name: "review-checklist" },
     },
   ].forEach(({ input, expected }) => {
-    it.effect(`parses valid FQN: ${input}`, () =>
-      Effect.gen(function* () {
-        const result = yield* parseFqn(input);
-        expect(result).toEqual(expected);
-      }),
-    );
+    it(`parses valid FQN: ${input}`, () => {
+      const result = parseFqn(input);
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success).toEqual(expected);
+      }
+    });
   });
 
   [
@@ -67,12 +68,14 @@ describe("parseFqn", () => {
     { input: "@acme//code-review", desc: "missing type segment" },
     { input: "@/skills/code-review", desc: "empty handle" },
   ].forEach(({ input, desc }) => {
-    it.effect(`rejects invalid input: ${desc} (${input})`, () =>
-      Effect.gen(function* () {
-        const exit = yield* Effect.exit(parseFqn(input));
-        expect(Exit.isFailure(exit)).toBe(true);
-      }),
-    );
+    it(`rejects invalid input: ${desc} (${input})`, () => {
+      const result = parseFqn(input);
+      expect(Result.isFailure(result)).toBe(true);
+      if (Result.isFailure(result)) {
+        expect(result.failure._tag).toBe("FqnInvalidError");
+        expect(result.failure.input).toBe(input);
+      }
+    });
   });
 });
 

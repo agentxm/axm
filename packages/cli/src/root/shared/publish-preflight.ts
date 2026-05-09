@@ -1,9 +1,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as semver from "semver";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { extensionTypeToPlural, parseFqn } from "@agentxm/client-core/unstable/extensions";
+import {
+  extensionTypeToPlural,
+  fqnInvalidErrorToAppError,
+  parseFqn,
+} from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 
 import { resolveManifestVersionInfo, type VersionableExtensionType } from "./extension-version.js";
@@ -19,7 +24,7 @@ export const checkPublishVersionPreflight = (args: {
     if (args.force) return;
 
     const local = yield* resolveManifestVersionInfo(args.fqn, args.type);
-    const fqn = yield* parseFqn(args.fqn);
+    const fqn = yield* Result.mapError(parseFqn(args.fqn), fqnInvalidErrorToAppError);
     const client = yield* createRegistryClient(args.registryUrl);
     const indexOption = yield* client.getExtensionIndex({
       owner: fqn.owner,

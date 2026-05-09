@@ -14,7 +14,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  parseFqn,
+  fqnInvalidErrorToAppError,
+} from "../../extensions/index.js";
 import {
   SubagentManifestSchema,
   type SubagentManifest,
@@ -80,7 +84,7 @@ export const publishSubagent: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* parseFqn(op.args.name);
+    const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
 
     // Locate the managed extension directory
     const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "subagents", fqn.name);

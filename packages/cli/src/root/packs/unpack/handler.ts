@@ -14,7 +14,7 @@ import {
   type InstallMcpServerOperation,
 } from "@agentxm/client-core/unstable/mcp-servers";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
-import { parseFqn } from "@agentxm/client-core/unstable/extensions";
+import { parseFqnOrThrow } from "@agentxm/client-core/unstable/extensions";
 import { buildUnpackPlan } from "./plan.js";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../../json-output.js";
@@ -88,59 +88,56 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)
   const skillOps = yield* Effect.forEach(
     Object.entries(entry.resolvedSkills),
-    ([fqn, version]) =>
-      Effect.gen(function* () {
-        const parsed = yield* parseFqn(fqn);
-        return {
-          name: "install-skill" as const,
-          args: {
-            ref: buildRegistrySkillRef(parsed.owner, parsed.name, version, source, []),
-            force: false,
-            versionRange: Option.none<string>(),
-            skipSettings: Option.none<boolean>(),
-            strictUnknownAgents: Option.none<boolean>(),
-            existingInstalledAt: Option.none<Date>(),
-            sourceName: Option.none<string>(),
-          },
-        };
-      }),
+    ([fqn, version]) => {
+      const parsed = parseFqnOrThrow(fqn);
+      return Effect.succeed({
+        name: "install-skill" as const,
+        args: {
+          ref: buildRegistrySkillRef(parsed.owner, parsed.name, version, source, []),
+          force: false,
+          versionRange: Option.none<string>(),
+          skipSettings: Option.none<boolean>(),
+          strictUnknownAgents: Option.none<boolean>(),
+          existingInstalledAt: Option.none<Date>(),
+          sourceName: Option.none<string>(),
+        },
+      });
+    },
     { concurrency: "unbounded" },
   );
 
   const commandOps: ReadonlyArray<InstallCommandOperation> = yield* Effect.forEach(
     Object.entries(entry.resolvedCommands),
-    ([fqn, version]) =>
-      Effect.gen(function* () {
-        const parsed = yield* parseFqn(fqn);
-        return {
-          name: "install-command" as const,
-          args: {
-            ref: buildRegistryCommandRef(parsed.owner, parsed.name, version, source, []),
-            force: false,
-            versionRange: Option.none<string>(),
-            skipSettings: Option.none<boolean>(),
-          },
-        };
-      }),
+    ([fqn, version]) => {
+      const parsed = parseFqnOrThrow(fqn);
+      return Effect.succeed({
+        name: "install-command" as const,
+        args: {
+          ref: buildRegistryCommandRef(parsed.owner, parsed.name, version, source, []),
+          force: false,
+          versionRange: Option.none<string>(),
+          skipSettings: Option.none<boolean>(),
+        },
+      });
+    },
     { concurrency: "unbounded" },
   );
 
   const mcpServerOps: ReadonlyArray<InstallMcpServerOperation> = yield* Effect.forEach(
     Object.entries(entry.resolvedMcpServers),
-    ([fqn, version]) =>
-      Effect.gen(function* () {
-        const parsed = yield* parseFqn(fqn);
-        return {
-          name: "install-mcp-server" as const,
-          args: {
-            ref: buildRegistryMcpServerRef(parsed.owner, parsed.name, version, source, []),
-            force: false,
-            versionRange: Option.none<string>(),
-            skipSettings: Option.none<boolean>(),
-            strictAgentSync: args.strictAgentSync,
-          },
-        };
-      }),
+    ([fqn, version]) => {
+      const parsed = parseFqnOrThrow(fqn);
+      return Effect.succeed({
+        name: "install-mcp-server" as const,
+        args: {
+          ref: buildRegistryMcpServerRef(parsed.owner, parsed.name, version, source, []),
+          force: false,
+          versionRange: Option.none<string>(),
+          skipSettings: Option.none<boolean>(),
+          strictAgentSync: args.strictAgentSync,
+        },
+      });
+    },
     { concurrency: "unbounded" },
   );
 

@@ -12,8 +12,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { parseFqn } from "../../extensions/index.js";
+import { parseFqn, fqnInvalidErrorToAppError } from "../../extensions/index.js";
 import {
   PackManifestSchema,
   type PackManifest,
@@ -72,7 +73,7 @@ export const publishPack: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* parseFqn(op.args.name);
+    const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
 
     // Locate the managed pack directory
     const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;

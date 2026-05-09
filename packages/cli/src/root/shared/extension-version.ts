@@ -1,6 +1,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
@@ -8,6 +9,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   REGISTRY_EXTENSIONS_DIR,
   extensionTypeToPlural,
+  fqnInvalidErrorToAppError,
   parseFqn,
   type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
@@ -113,7 +115,7 @@ export const resolveManifestVersionInfo = (
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
-    const fqn = yield* parseFqn(fqnInput);
+    const fqn = yield* Result.mapError(parseFqn(fqnInput), fqnInvalidErrorToAppError);
 
     if (!isVersionableType(fqn.type) || fqn.type !== expectedType) {
       return yield* makeAppError({

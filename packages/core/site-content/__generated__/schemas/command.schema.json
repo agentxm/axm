@@ -40,7 +40,7 @@
       "type": "string",
       "allOf": [
         {
-          "pattern": "^pkg:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+          "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
           "title": "Package URL",
           "description": "A Package URL (purl) string identifying a package across ecosystems (e.g. pkg:npm/react@18.2.0).",
           "examples": ["pkg:npm/react@18.2.0", "pkg:pypi/requests@2.31.0", "pkg:cargo/serde@1.0"]

@@ -63,12 +63,36 @@ export class AppError extends Data.TaggedError("AppError")<{
 }> {}
 ```
 
-`code` is one of the nine CLI error categories: `usage`, `not_found`, `auth`,
-`forbidden`, `conflict`, `rate_limit`, `network`, `validation`, or `internal`.
-AppError exit codes are a pure function of `code`.
+`code` is one of the ten CLI error categories: `issues`, `usage`, `not_found`,
+`auth`, `forbidden`, `conflict`, `rate_limit`, `network`, `validation`, or
+`internal`. AppError exit codes are a pure function of `code` — see
+[`ExitCode`](../../packages/core/src/unstable/app-error/app-error.ts) for the
+1:1 numeric mapping.
 
 All next-step guidance belongs in `breadcrumbs`; there is no separate guidance
 string.
+
+#### Choosing a code
+
+These pairs trip people up most often:
+
+- **`usage` vs `validation`** — `usage` is for invocation shape: bad flags,
+  missing arguments, parser errors. The Effect CLI parser produces these
+  before a handler runs. `validation` is for inputs that parsed but failed
+  domain rules (a malformed FQN, an out-of-range number, a registry source
+  the parser accepts but the resolver rejects). Rule of thumb: if the user
+  needs to fix `argv`, it is `usage`; if the user needs to fix a value, it
+  is `validation`.
+- **`issues` vs `internal`** — `issues` (exit 1) means the command ran
+  successfully and reported problems the user needs to attend to (lint
+  findings, doctor checks, compatibility warnings escalated under `--strict`).
+  Reach for it when the command's job is to surface problems. `internal`
+  (exit 10) means the command itself failed unexpectedly. Lint is the
+  canonical user of `issues` today, but it is not lint-only — any
+  "ran but found problems" outcome belongs here.
+- **`auth` vs `forbidden`** — `auth` is missing/expired credentials (sign
+  in again). `forbidden` is signed in but not authorized for the action
+  (mirrors HTTP 401 vs 403). Different recovery, so callers care.
 
 Use `makeAppError` for convenience construction:
 
@@ -97,7 +121,7 @@ stack trace.
 
 - [ ] **AppError at the boundary** — command handlers translate all errors to
       `AppError` before calling the runtime
-- [ ] **Category code** — `AppError.code` is one of the nine CLI error
+- [ ] **Category code** — `AppError.code` is one of the ten CLI error
       categories
 - [ ] **Cause preserved** — `makeAppError` wraps the original error in `cause`
       for debugging

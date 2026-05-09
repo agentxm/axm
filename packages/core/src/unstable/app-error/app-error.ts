@@ -7,11 +7,27 @@ import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
  * Named exit codes for the CLI. `Success` is the only exit code without an
  * `AppErrorCode` counterpart; the rest map 1:1 with `AppErrorCode` via
  * `exitCodeFor`.
+ *
+ * Reserved ranges:
+ * - `0` — success
+ * - `1`–`10` — AXM application errors (this enum)
+ * - `11`–`127` — reserved for future AXM application errors; do not reuse
+ * - `128`+ — POSIX signal convention (e.g., 130 SIGINT, 143 SIGTERM); set
+ *   by the runtime's signal handlers, not by `AppError`
+ *
+ * The numeric values diverge from `sysexits.h` deliberately: AXM uses a
+ * flat 1–N scheme so the `code` field in JSON output stays the agent-facing
+ * discriminator rather than the number.
+ *
+ * The descriptions here are the canonical wording. Other surfaces — the
+ * help topic at `packages/cli/help/topics/exit-codes.md`, docs, error
+ * envelopes — should match. A consistency test pins the help topic to
+ * these strings; see `app-error.test.ts`.
  */
 export const ExitCode = {
   /** Success. Also used for help output and cancelled prompts. */
   Success: 0,
-  /** Command ran, but reported issues that need attention (e.g. `axm lint` findings). Pairs with `AppErrorCode` `issues`. */
+  /** Command ran successfully but reported problems requiring attention (e.g., `axm lint` findings, doctor-style checks). Not lint-only — any "ran but found problems" outcome belongs here. Pairs with `AppErrorCode` `issues`. */
   Issues: 1,
   /** Invalid command, flags, or arguments. Fix the invocation. Pairs with `AppErrorCode` `usage`. */
   Usage: 2,
@@ -29,7 +45,7 @@ export const ExitCode = {
   Network: 8,
   /** Input parsed but failed validation. Correct it and retry. Pairs with `AppErrorCode` `validation`. */
   Validation: 9,
-  /** Unexpected failure. Likely a bug — please report it. Pairs with `AppErrorCode` `internal`. */
+  /** Unexpected internal error. Likely a bug — please report it. Pairs with `AppErrorCode` `internal`. */
   Internal: 10,
 } as const;
 

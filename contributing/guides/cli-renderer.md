@@ -320,7 +320,9 @@ Rules:
 - emit a matching stderr `error` event in machine mode
 
 The shell already conveys the process exit status, so the envelope does not
-restate it.
+restate it. Exit codes are derived 1:1 from `code`; see the `ExitCode` enum
+in `packages/core/src/unstable/app-error/app-error.ts` for the mapping and
+the reserved ranges (1–10 in use, 11–127 reserved, 128+ for POSIX signals).
 
 ---
 

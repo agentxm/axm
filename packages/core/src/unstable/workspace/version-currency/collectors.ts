@@ -18,10 +18,7 @@ import type { ExtensionName, ExtensionType } from "../../extensions/index.js";
 import { parseRegistrySourcePatternParts } from "../../extensions/registry-source.js";
 import { toExtensionTypePlural } from "../../extensions/index.js";
 import type { RegistryClient } from "../../registry/client.js";
-import type {
-  ExactSemverVersion,
-  VersionConstraint,
-} from "../../version-constraints/version-constraints.js";
+import type { Version, VersionRange } from "../../version-constraints/version-constraints.js";
 import type { Handle } from "../../extensions/handle.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
@@ -39,8 +36,8 @@ export interface ExtensionCurrencyEntry {
   /** Fully-qualified name: `@owner/type/name`. */
   readonly ref: string;
   readonly type: ExtensionType;
-  readonly installedVersion: ExactSemverVersion;
-  readonly constraint: Option.Option<VersionConstraint>;
+  readonly installedVersion: Version;
+  readonly constraint: Option.Option<VersionRange>;
   readonly currency: CurrencyResult;
 }
 
@@ -51,10 +48,10 @@ export interface ExtensionCurrencyEntry {
 /**
  * Parse a version constraint from a settings source string like `@acme/skills/code-review@^1.0.0`.
  */
-const parseConstraintFromSource = (source: string): Option.Option<VersionConstraint> => {
+const parseConstraintFromSource = (source: string): Option.Option<VersionRange> => {
   const parts = parseRegistrySourcePatternParts(source);
   if (parts === undefined) return Option.none();
-  return Option.fromUndefinedOr(parts.versionConstraint);
+  return Option.fromUndefinedOr(parts.versionRange);
 };
 
 /** Build fully-qualified ref like `@acme/skills/code-review`. */
@@ -73,7 +70,7 @@ interface RegistryLockFields {
   readonly type: "registry";
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly resolvedVersion: ExactSemverVersion;
+  readonly resolvedVersion: Version;
 }
 
 interface ConfiguredEntryWithEnabled {

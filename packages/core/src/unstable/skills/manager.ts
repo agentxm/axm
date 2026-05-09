@@ -207,10 +207,10 @@ export const SkillManagerLive = Layer.effect(
 
       upsertSettingsEntry: ({
         ref,
-        versionConstraint,
+        versionRange,
       }: {
         readonly ref: SkillExtensionRef;
-        readonly versionConstraint: Option.Option<string>;
+        readonly versionRange: Option.Option<string>;
       }) => {
         const lockEntry = buildSkillLockEntry(ref, agents);
         if (lockEntry.type === "registry") {
@@ -218,14 +218,12 @@ export const SkillManagerLive = Layer.effect(
             `skills.${ref.skill.name}.resolvedVersion`,
             lockEntry.resolvedVersion,
           ).pipe(
-            Effect.flatMap(() =>
-              ws.setSkill({ name: ref.skill.name, lockEntry, versionConstraint }),
-            ),
+            Effect.flatMap(() => ws.setSkill({ name: ref.skill.name, lockEntry, versionRange })),
             Effect.withSpan("SkillManager.upsertSettingsEntry"),
           );
         }
         return ws
-          .setSkill({ name: ref.skill.name, lockEntry, versionConstraint })
+          .setSkill({ name: ref.skill.name, lockEntry, versionRange })
           .pipe(Effect.withSpan("SkillManager.upsertSettingsEntry"));
       },
 
@@ -245,7 +243,7 @@ export const SkillManagerLive = Layer.effect(
               ws.setSkillLock({
                 name: ref.skill.name,
                 lockEntry,
-                versionConstraint: Option.none(),
+                versionRange: Option.none(),
               }),
             ),
             Effect.withSpan("SkillManager.upsertLockfileEntry"),
@@ -255,7 +253,7 @@ export const SkillManagerLive = Layer.effect(
           .setSkillLock({
             name: ref.skill.name,
             lockEntry,
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
           })
           .pipe(Effect.withSpan("SkillManager.upsertLockfileEntry"));
       },

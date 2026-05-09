@@ -17,10 +17,7 @@ import { EXTENSION_PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import {
-  ExactSemverVersionSchema,
-  type ExactSemverVersion,
-} from "@agentxm/client-core/unstable/version-constraints";
+import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
 
 export const versionableTypes = [
   "command",
@@ -37,12 +34,12 @@ export interface ManifestVersionInfo {
   readonly fqn: string;
   readonly type: VersionableExtensionType;
   readonly manifestPath: string;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
 }
 
 export interface BumpManifestVersionResult extends ManifestVersionInfo {
-  readonly from: ExactSemverVersion;
-  readonly to: ExactSemverVersion;
+  readonly from: Version;
+  readonly to: Version;
   readonly written: boolean;
 }
 
@@ -62,7 +59,7 @@ const manifestFilenameByType: Record<VersionableExtensionType, string> = {
 const manifestFilename = (type: VersionableExtensionType): string => manifestFilenameByType[type];
 
 const decodeExactVersion = (value: unknown, manifestPath: string) =>
-  Schema.decodeUnknownEffect(ExactSemverVersionSchema)(value).pipe(
+  Schema.decodeUnknownEffect(VersionSchema)(value).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "validation",
@@ -159,7 +156,7 @@ export const resolveManifestVersionInfo = (
     } satisfies ManifestVersionInfo;
   });
 
-const bumpVersion = (from: ExactSemverVersion, bump: VersionBump, manifestPath: string) =>
+const bumpVersion = (from: Version, bump: VersionBump, manifestPath: string) =>
   Effect.gen(function* () {
     const next = semver.inc(from, bump);
     if (next === null) {

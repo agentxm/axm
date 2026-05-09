@@ -12,7 +12,7 @@ import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import type { ExtensionType } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
-import type { ExactSemverVersion } from "@agentxm/client-core/unstable/version-constraints";
+import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 import {
   collectAllCurrencyEntries,
   collectCommandCurrency,
@@ -74,10 +74,10 @@ const OutdatedTable = {
 // Mapping helpers
 // ---------------------------------------------------------------------------
 
-const formatVersion = (version: ExactSemverVersion, isMajor: boolean): string =>
+const formatVersion = (version: Version, isMajor: boolean): string =>
   isMajor ? `${version} (major)` : version;
 
-const resolveDisplayVersion = (entry: ExtensionCurrencyEntry): ExactSemverVersion =>
+const resolveDisplayVersion = (entry: ExtensionCurrencyEntry): Version =>
   entry.currency.status === "major-update-available"
     ? entry.currency.latestAvailable
     : Option.getOrElse(entry.currency.latestMatching, () => entry.currency.latestAvailable);

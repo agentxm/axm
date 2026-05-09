@@ -8,8 +8,8 @@ import { type ExtensionName } from "../extensions/common.js";
 import { type Handle } from "../extensions/handle.js";
 import { parseRegistrySourceRef } from "../extensions/registry-source.js";
 import {
-  decodeVersionConstraintSync,
-  type VersionConstraint,
+  decodeVersionRangeSync,
+  type VersionRange,
 } from "../version-constraints/version-constraints.js";
 import type {
   DeclarationResolution,
@@ -22,7 +22,7 @@ const parseRegistryCommandSource = (
 ): Option.Option<{
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly constraint: VersionConstraint;
+  readonly constraint: VersionRange;
 }> => {
   if (source === "registry") {
     return Option.none();
@@ -36,7 +36,7 @@ const parseRegistryCommandSource = (
   return Option.some({
     owner: parsed.owner,
     name: parsed.name,
-    constraint: parsed.versionConstraint ?? decodeVersionConstraintSync("*"),
+    constraint: parsed.versionRange ?? decodeVersionRangeSync("*"),
   });
 };
 

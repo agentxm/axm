@@ -1,5 +1,5 @@
 {
-  "description": "Dependency map value is not a valid VersionConstraint; manifest-schema-valid fires error.",
+  "description": "Dependency map value is not a valid VersionRange; manifest-schema-valid fires error.",
   "expectedFindings": [
     {
       "ruleId": "pack/manifest-schema-valid",

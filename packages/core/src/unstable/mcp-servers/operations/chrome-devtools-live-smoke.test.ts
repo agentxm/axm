@@ -107,7 +107,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             compatiblePackages: [],
           },
           force: false,
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
           skipSettings: Option.some(true),
           strictAgentSync: Option.some(false),
         },

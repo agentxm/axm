@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
-import { extensionName, handle, versionConstraint } from "../test-helpers.js";
+import { extensionName, handle, versionRange } from "../test-helpers.js";
 import { type InputPattern, parseInputPattern } from "./parser.js";
 
 describe("parseInputPattern", () => {
@@ -32,7 +32,7 @@ describe("parseInputPattern", () => {
         type: Option.some("skills"),
         owner: handle("@myorg"),
         name: Option.some(extensionName("some-name")),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
     });
 
@@ -42,7 +42,7 @@ describe("parseInputPattern", () => {
         type: Option.some("mcp-servers"),
         owner: handle("@myorg"),
         name: Option.some(extensionName("server-a")),
-        versionConstraint: Option.some(versionConstraint("^1.2.3")),
+        versionRange: Option.some(versionRange("^1.2.3")),
       });
     });
 
@@ -52,7 +52,7 @@ describe("parseInputPattern", () => {
         type: Option.some("packs"),
         owner: handle("@myorg"),
         name: Option.some(extensionName("my-pack")),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
     });
 
@@ -66,7 +66,7 @@ describe("parseInputPattern", () => {
         type: Option.none(),
         owner: handle("@myorg"),
         name: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
     });
 
@@ -76,7 +76,7 @@ describe("parseInputPattern", () => {
         type: Option.some("skills"),
         owner: handle("@myorg"),
         name: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
     });
 

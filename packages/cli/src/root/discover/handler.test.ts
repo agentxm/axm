@@ -10,7 +10,7 @@ import {
 import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
 import type { DiscoverExtensionEntry } from "@agentxm/client-core/unstable/registry";
 import type { DiscoverPackageResult, DiscoverResult } from "@agentxm/client-core/unstable/discover";
-import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 import { makeCliTestContext } from "../../test-helpers.js";
 import { formatPackageName, handleDiscoverWith, toDiscoverOutput } from "./handler.js";
@@ -22,7 +22,7 @@ const makeEntry = (name: string): DiscoverExtensionEntry => ({
   name: decodeExtensionNameSync(name),
   owner: decodeHandleSync("@acme"),
   description: `${name} description`,
-  latestVersion: decodeExactSemverVersionSync("1.0.0"),
+  latestVersion: decodeVersionSync("1.0.0"),
 });
 
 const sampleResult: DiscoverResult = {

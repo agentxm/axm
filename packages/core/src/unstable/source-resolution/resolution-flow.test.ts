@@ -150,7 +150,7 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
             names: [],
             type: "skill",
             owner: Option.none(),
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
           });
         }).pipe(Effect.provide(providers), Effect.scoped);
 

@@ -18,10 +18,10 @@ import {
 } from "./extensions/index.js";
 import { decodeHandleSync, type Handle } from "./extensions/handle.js";
 import {
-  decodeExactSemverVersionSync,
-  decodeVersionConstraintSync,
-  type ExactSemverVersion,
-  type VersionConstraint,
+  decodeVersionSync,
+  decodeVersionRangeSync,
+  type Version,
+  type VersionRange,
 } from "./version-constraints/version-constraints.js";
 import { PackageTypeSchema } from "./packaging/package-type.js";
 import { PackageUrlSchema, type PackageUrlParts } from "./packaging/package-url.js";
@@ -98,11 +98,9 @@ export const handle = (value: string): Handle => decodeHandleSync(value);
 
 export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
 
-export const exactVersion = (value: string): ExactSemverVersion =>
-  decodeExactSemverVersionSync(value);
+export const exactVersion = (value: string): Version => decodeVersionSync(value);
 
-export const versionConstraint = (value: string): VersionConstraint =>
-  decodeVersionConstraintSync(value);
+export const versionRange = (value: string): VersionRange => decodeVersionRangeSync(value);
 
 export const fullyQualifiedName = (value: string): FullyQualifiedName =>
   Schema.decodeUnknownSync(FullyQualifiedNameSchema)(value);

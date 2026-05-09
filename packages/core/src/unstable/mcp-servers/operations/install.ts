@@ -26,7 +26,7 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -38,7 +38,7 @@ import { decodeExactSemverVersionSync } from "../../version-constraints/version-
 export type InstallMcpServerOperationArgs = {
   readonly ref: McpServerExtensionRef;
   readonly force: boolean;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
   /** When true, enforce strict policy for MCP sync outcomes. */
@@ -63,7 +63,7 @@ const buildLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntr
   type: "registry",
   owner: ref.owner,
   name: ref.name,
-  resolvedVersion: decodeExactSemverVersionSync(ref.version),
+  resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   installedAt: now,

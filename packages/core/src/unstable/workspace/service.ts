@@ -495,7 +495,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           return computeSkillPaths(path.join, baseDir, entrySource, sanitizeName(dirName));
         }),
 
-      setSkill: ({ name, lockEntry, versionConstraint }: SetSkillArgs) =>
+      setSkill: ({ name, lockEntry, versionRange }: SetSkillArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings — thread version constraint through so it survives the round-trip
@@ -508,9 +508,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                       type: "skill",
                       name: decodeExtensionNameSync(name),
                     });
-                    return Option.isSome(versionConstraint)
-                      ? `${fqn}@${versionConstraint.value}`
-                      : fqn;
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
                   })()
                 : printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
@@ -698,20 +696,18 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       setExtensionPack: (args: SetExtensionPackArgs) =>
         withMutex(
           Effect.gen(function* () {
-            const { name, versionConstraint, ...lockFields } = args;
+            const { name, versionRange, ...lockFields } = args;
             const lockEntry: RegistryExtensionPackLockEntry = makeRegistryExtensionPackLockEntry({
               ...lockFields,
               name,
             });
-            // Update settings — thread versionConstraint through so it's preserved
+            // Update settings — thread versionRange through so it's preserved
             const fqn = formatFqn({
               owner: args.owner,
               type: "pack",
               name: decodeExtensionNameSync(name),
             });
-            const source = Option.isSome(versionConstraint)
-              ? `${fqn}@${versionConstraint.value}`
-              : fqn;
+            const source = Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
             const authored = currentPacks[name]?.authored ?? false;

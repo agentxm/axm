@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import { checkCurrency } from "./check-currency.js";
 import { makeExtensionIndex } from "./test-stubs.js";
 
-const v = decodeExactSemverVersionSync;
+const v = decodeVersionSync;
 
 const makeIndex = (versions: ReadonlyArray<string>) =>
   makeExtensionIndex("test-ext", "skill", versions);

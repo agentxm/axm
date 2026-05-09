@@ -21,7 +21,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { computeExtensionPackPaths } from "../paths.js";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -66,7 +66,7 @@ export const newExtensionPack: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
-    const initialVersion = decodeExactSemverVersionSync("0.0.1");
+    const initialVersion = decodeVersionSync("0.0.1");
 
     const { name, owner } = op.args;
     const extensionName = decodeExtensionNameSync(name);
@@ -150,7 +150,7 @@ export const newExtensionPack: OperationHandler<
         resolvedCommands: {},
         resolvedMcpServers: {},
         resolvedSubagents: {},
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       })
       .pipe(Effect.ignore);
 

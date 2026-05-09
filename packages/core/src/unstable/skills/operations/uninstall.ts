@@ -134,7 +134,7 @@ export const uninstallSkill: OperationHandler<
           .setSkill({
             name: op.args.skillName,
             lockEntry: { ...lockEntry, agents: remainingAgents },
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
           })
           .pipe(
             Effect.mapError((e) =>

@@ -38,16 +38,16 @@ import {
   MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
   SubagentManifestSchema,
 } from "../subagents/manifest-schema.js";
-import { satisfiesConstraint } from "../version-constraints/version-constraints.js";
+import { versionSatisfiesRange } from "../version-constraints/version-constraints.js";
 import type { AppError } from "../app-error/index.js";
 import {
   makeRegistryExtensionPackLockEntry,
   type ResolvedExtensionMap,
 } from "../lockfile/index.js";
 import {
-  decodeVersionConstraintSync,
-  type ExactSemverVersion,
-  type VersionConstraint,
+  decodeVersionRangeSync,
+  type Version,
+  type VersionRange,
 } from "../version-constraints/version-constraints.js";
 
 const parseRegistryPackSource = (
@@ -55,7 +55,7 @@ const parseRegistryPackSource = (
 ): Option.Option<{
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly constraint: VersionConstraint;
+  readonly constraint: VersionRange;
 }> => {
   if (source === "registry") {
     return Option.none();
@@ -69,7 +69,7 @@ const parseRegistryPackSource = (
   return Option.some({
     owner: parsed.owner,
     name: parsed.name,
-    constraint: parsed.versionConstraint ?? decodeVersionConstraintSync("*"),
+    constraint: parsed.versionRange ?? decodeVersionRangeSync("*"),
   });
 };
 
@@ -77,7 +77,7 @@ const parseExtensionPackDependency = (
   type: "skills" | "commands" | "mcp-servers",
   singularType: "skill" | "command" | "mcp-server",
   fqn: string,
-  constraint: VersionConstraint,
+  constraint: VersionRange,
   order: number,
 ): Option.Option<ReconciliationDeclaration> => {
   let parsed;
@@ -116,9 +116,9 @@ const collectExtensionPackDependencyDeclarations = (
     if (typeof constraint !== "string") {
       continue;
     }
-    let versionConstraint: VersionConstraint;
+    let versionRange: VersionRange;
     try {
-      versionConstraint = decodeVersionConstraintSync(constraint);
+      versionRange = decodeVersionRangeSync(constraint);
     } catch {
       continue;
     }
@@ -126,7 +126,7 @@ const collectExtensionPackDependencyDeclarations = (
       type,
       singularType,
       fqn,
-      versionConstraint,
+      versionRange,
       declarations.length,
     );
     if (Option.isSome(parsedDep)) {
@@ -138,13 +138,13 @@ const collectExtensionPackDependencyDeclarations = (
 type DependencyManifest = {
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
 };
 
 type DependencyResolution =
   | {
       readonly _tag: "Resolved";
-      readonly version: ExactSemverVersion;
+      readonly version: Version;
     }
   | {
       readonly _tag: "Unresolved";
@@ -172,7 +172,7 @@ const decodeSubagentManifest = makeManifestDecoder(SubagentManifestSchema);
 const readInstalledDependencyVersion = (
   type: "skills" | "commands" | "mcp-servers" | "subagents",
   fqn: string,
-  constraint: VersionConstraint,
+  constraint: VersionRange,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
   env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
 ): Effect.Effect<DependencyResolution, AppError> =>
@@ -264,7 +264,7 @@ const readInstalledDependencyVersion = (
       } satisfies DependencyResolution;
     }
 
-    if (!satisfiesConstraint(manifest.version, constraint)) {
+    if (!versionSatisfiesRange(manifest.version, constraint)) {
       return {
         _tag: "Unresolved",
         reason: "declaration-mismatch",
@@ -294,7 +294,7 @@ const resolveInstalledDependencyMap = (
   AppError
 > =>
   Effect.gen(function* () {
-    const resolvedEntries: Array<readonly [string, ExactSemverVersion]> = [];
+    const resolvedEntries: Array<readonly [string, Version]> = [];
 
     for (const [fqn, constraint] of Object.entries(dependencies ?? {})) {
       const result = yield* readInstalledDependencyVersion(type, fqn, constraint, context, env);

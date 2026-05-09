@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile, ResolvedExtensionMap } from "@agentxm/client-core/unstable/lockfile";
@@ -63,7 +63,7 @@ export interface BuildInstallPlanArgs {
   /** Plan description */
   readonly description: Option.Option<string>;
   /** Version constraint from the original input */
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }
 
 /**
@@ -72,16 +72,8 @@ export interface BuildInstallPlanArgs {
  */
 export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
   Effect.gen(function* () {
-    const {
-      ref,
-      skillOps,
-      commandOps,
-      mcpServerOps,
-      lockfile,
-      name,
-      description,
-      versionConstraint,
-    } = args;
+    const { ref, skillOps, commandOps, mcpServerOps, lockfile, name, description, versionRange } =
+      args;
 
     // Capture services for run closures
     const workspace = yield* WorkspaceMutations;
@@ -178,7 +170,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         resolvedCommands,
         resolvedMcpServers,
         resolvedSubagents,
-        versionConstraint,
+        versionRange,
         ref,
       },
     };

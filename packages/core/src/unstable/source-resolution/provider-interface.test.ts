@@ -17,7 +17,7 @@ import type {
 } from "../sources/index.js";
 import type { ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "../registry/index.js";
-import { exactVersion, extensionName, versionConstraint } from "../test-helpers.js";
+import { exactVersion, extensionName, versionRange } from "../test-helpers.js";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {
   readonly publishExtension: (
@@ -97,7 +97,7 @@ describe("SourceHostProvider", () => {
         names: [],
         type: "skill",
         owner: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       };
       const result = yield* provider.find(source, options);
       expect(Array.isArray(result)).toBe(true);
@@ -184,7 +184,7 @@ describe("FindOptions", () => {
       names: [],
       type: "skill",
       owner: Option.none(),
-      versionConstraint: Option.none(),
+      versionRange: Option.none(),
     };
     expect(options.type).toBe("skill");
 
@@ -192,7 +192,7 @@ describe("FindOptions", () => {
       names: [],
       type: "pack",
       owner: Option.none(),
-      versionConstraint: Option.none(),
+      versionRange: Option.none(),
     };
     expect(packOptions.type).toBe("pack");
 
@@ -200,7 +200,7 @@ describe("FindOptions", () => {
       names: [],
       type: "mcp-server",
       owner: Option.none(),
-      versionConstraint: Option.none(),
+      versionRange: Option.none(),
     };
     expect(mcpOptions.type).toBe("mcp-server");
   });
@@ -210,18 +210,18 @@ describe("FindOptions", () => {
       names: [],
       type: "*",
       owner: Option.none(),
-      versionConstraint: Option.none(),
+      versionRange: Option.none(),
     };
     expect(options.type).toBe("*");
   });
 
-  it("accepts versionConstraint", () => {
+  it("accepts versionRange", () => {
     const options: FindOptions = {
       names: ["my-skill"],
       type: "skill",
       owner: Option.none(),
-      versionConstraint: Option.some(versionConstraint("^1.2.3")),
+      versionRange: Option.some(versionRange("^1.2.3")),
     };
-    expect(Option.getOrNull(options.versionConstraint)).toBe("^1.2.3");
+    expect(Option.getOrNull(options.versionRange)).toBe("^1.2.3");
   });
 });

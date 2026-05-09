@@ -3,11 +3,11 @@ import * as Option from "effect/Option";
 import * as semver from "semver";
 
 /**
- * Minimal version entry shape used for constraint resolution.
+ * Minimal version entry shape used for range resolution.
  * Compatible with the full VersionEntry from the registry module.
  */
 export interface VersionEntryLike {
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
 }
 
 /**
@@ -20,100 +20,100 @@ export const SEMVER_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
 
 /**
- * Schema for exact semver versions (no ranges).
+ * Schema for an exact semver version (no ranges).
  */
-export const ExactSemverVersionSchema = Schema.String.pipe(
+export const VersionSchema = Schema.String.pipe(
   Schema.check(
     Schema.isPattern(SEMVER_PATTERN, {
-      message: "Expected an exact semver version (e.g., 1.0.0)",
+      message: "Expected a semver version (e.g., 1.0.0)",
     }),
   ),
   Schema.annotate({
-    identifier: "ExactSemverVersion",
-    title: "Exact Semver Version",
-    description: "An exact version number like 1.0.0 (no ranges allowed).",
+    identifier: "Version",
+    title: "Version",
+    description: "A semver version like 1.0.0. Ranges are not allowed here.",
     examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
-    message: "Expected an exact semver version (e.g., 1.0.0)",
+    message: "Expected a semver version (e.g., 1.0.0)",
   }),
-  Schema.brand("ExactSemverVersion"),
+  Schema.brand("Version"),
 );
 
 /**
- * Inferred type for exact semver versions.
+ * Inferred type for an exact semver version.
  */
-export type ExactSemverVersion = Schema.Schema.Type<typeof ExactSemverVersionSchema>;
+export type Version = Schema.Schema.Type<typeof VersionSchema>;
 
 /**
- * Schema for semver version constraints, including exact versions and ranges.
+ * Schema for a semver version range, including exact versions and range expressions.
  */
-export const VersionConstraintSchema = Schema.String.pipe(
+export const VersionRangeSchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => {
       const normalized = semver.validRange(value);
-      return normalized !== null ? undefined : `Expected semver constraint, got: ${value}`;
+      return normalized !== null ? undefined : `Expected a semver version range, got: ${value}`;
     }),
   ),
   Schema.annotate({
-    identifier: "VersionConstraint",
-    title: "Version Constraint",
-    description: "A version requirement like ^1.0.0, ~2.3.0, or an exact version.",
+    identifier: "VersionRange",
+    title: "Version Range",
+    description:
+      "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3.",
     examples: ["^1.0.0", "~2.3.0", ">=1.0.0 <3.0.0", "1.2.3"],
-    message: "Expected a valid semver constraint (e.g., ^1.0.0)",
+    message: "Expected a semver version range (e.g., ^1.0.0)",
   }),
-  Schema.brand("VersionConstraint"),
+  Schema.brand("VersionRange"),
 );
 
 /**
- * Inferred type for semver version constraints.
+ * Inferred type for a semver version range.
  */
-export type VersionConstraint = Schema.Schema.Type<typeof VersionConstraintSchema>;
+export type VersionRange = Schema.Schema.Type<typeof VersionRangeSchema>;
 
 /**
  * Decode a value as an exact semver version.
  */
-export const decodeExactSemverVersionSync = Schema.decodeUnknownSync(ExactSemverVersionSchema);
+export const decodeVersionSync = Schema.decodeUnknownSync(VersionSchema);
 
 /**
- * Decode a value as a semver constraint.
+ * Decode a value as a semver version range.
  */
-export const decodeVersionConstraintSync = Schema.decodeUnknownSync(VersionConstraintSchema);
+export const decodeVersionRangeSync = Schema.decodeUnknownSync(VersionRangeSchema);
 
 const parseSemverVersion = (version: string): semver.SemVer | null => semver.parse(version);
 
 /**
- * Extract a version constraint suffix from a source string.
+ * Extract a version range suffix from a source string.
  *
  * Handles both namespaced (`@handle/name@^1.0.0`) and non-namespaced (`name@^1.0.0`) names.
  * Returns `Option.none()` when no version suffix is present.
  */
-export const parseVersionConstraint = (sourceString: string): Option.Option<VersionConstraint> => {
-  const decodeConstraint = (value: string): Option.Option<VersionConstraint> => {
+export const parseVersionRange = (sourceString: string): Option.Option<VersionRange> => {
+  const decodeRange = (value: string): Option.Option<VersionRange> => {
     try {
-      return Option.some(decodeVersionConstraintSync(value));
+      return Option.some(decodeVersionRangeSync(value));
     } catch {
       return Option.none();
     }
   };
 
-  // For namespaced packages (@handle/name@constraint), find the @ after the handle
+  // For namespaced packages (@handle/name@range), find the @ after the handle
   if (sourceString.startsWith("@")) {
     const slashIndex = sourceString.indexOf("/");
     if (slashIndex === -1) return Option.none();
     const afterHandle = sourceString.indexOf("@", slashIndex + 1);
     if (afterHandle === -1) return Option.none();
-    return decodeConstraint(sourceString.slice(afterHandle + 1));
+    return decodeRange(sourceString.slice(afterHandle + 1));
   }
-  // For non-namespaced packages (name@constraint)
+  // For non-namespaced packages (name@range)
   const atIndex = sourceString.indexOf("@");
   if (atIndex === -1) return Option.none();
-  return decodeConstraint(sourceString.slice(atIndex + 1));
+  return decodeRange(sourceString.slice(atIndex + 1));
 };
 
 /**
- * Check whether a string is a valid semver range.
+ * Check whether a string is a valid semver version range.
  */
-export const isValidConstraint = (constraint: string): boolean =>
-  semver.validRange(constraint) !== null;
+export const isValidVersionRange = (range: string): boolean => semver.validRange(range) !== null;
 
 /**
  * Check whether moving from `previousVersion` to `currentVersion` includes at
@@ -133,35 +133,33 @@ export const hasMinorOrMajorVersionBump = (
 };
 
 /**
- * Check whether a version satisfies a semver constraint.
+ * Check whether a version satisfies a semver version range.
  */
-export const satisfiesConstraint = (
-  version: ExactSemverVersion,
-  constraint: VersionConstraint,
-): boolean => semver.satisfies(version, constraint);
+export const versionSatisfiesRange = (version: Version, range: VersionRange): boolean =>
+  semver.satisfies(version, range);
 
 /**
- * Select the first version (newest-first) that satisfies the constraint.
+ * Select the first version (newest-first) that satisfies the range.
  *
- * - `Option.none()` constraint or `"*"` matches any version.
- * - Invalid constraints match nothing.
+ * - `Option.none()` range or `"*"` matches any version.
+ * - Invalid ranges match nothing.
  */
-export const resolveVersionWithConstraint = (
+export const resolveVersionInRange = (
   versions: ReadonlyArray<VersionEntryLike>,
-  constraint: Option.Option<string>,
+  range: Option.Option<string>,
 ): Option.Option<VersionEntryLike> => {
-  const constraintStr = Option.getOrElse(constraint, () => "*");
+  const rangeStr = Option.getOrElse(range, () => "*");
 
-  // Wildcard means no constraint filtering
-  const isWildcard = constraintStr === "*";
+  // Wildcard means no range filtering
+  const isWildcard = rangeStr === "*";
 
-  // Validate the constraint early
-  if (!isWildcard && !isValidConstraint(constraintStr)) {
+  // Validate the range early
+  if (!isWildcard && !isValidVersionRange(rangeStr)) {
     return Option.none();
   }
 
   for (const version of versions) {
-    if (!isWildcard && !semver.satisfies(version.version, constraintStr)) {
+    if (!isWildcard && !semver.satisfies(version.version, rangeStr)) {
       continue;
     }
     return Option.some(version);

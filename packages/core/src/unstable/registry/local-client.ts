@@ -72,9 +72,9 @@ const readExtensionIndex = (
 
 const indexToManifest = (
   index: ExtensionIndex,
-  versionConstraint: Option.Option<string>,
+  versionRange: Option.Option<string>,
 ): Option.Option<RegistryExtensionManifest> => {
-  const selectedVersion = resolveVersionEntry(index.versions, versionConstraint);
+  const selectedVersion = resolveVersionEntry(index.versions, versionRange);
   if (Option.isNone(selectedVersion)) return Option.none();
 
   const ver = selectedVersion.value;
@@ -106,7 +106,7 @@ const processNameDir = (
   path: Path.Path,
   typeDir: string,
   nameDir: string,
-  versionConstraint: Option.Option<string>,
+  versionRange: Option.Option<string>,
 ): Effect.Effect<Option.Option<RegistryExtensionManifest>, AppError> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
@@ -115,7 +115,7 @@ const processNameDir = (
     if (!idxExists) return Option.none();
 
     const index = yield* readExtensionIndex(fs, idxPath);
-    return indexToManifest(index, versionConstraint);
+    return indexToManifest(index, versionRange);
   });
 
 /** Convert an ExtensionIndex to a DiscoverExtensionEntry.

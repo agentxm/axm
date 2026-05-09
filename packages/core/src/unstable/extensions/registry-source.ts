@@ -6,7 +6,7 @@ import * as SchemaIssue from "effect/SchemaIssue";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import { ExtensionNameSchema, ExtensionTypePluralSchema } from "./common.js";
 import { HandleSchema } from "./handle.js";
-import { VersionConstraintSchema } from "../version-constraints/version-constraints.js";
+import { VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
 const invalidRegistrySourcePattern = (input: string) =>
   `Expected registry source pattern in @handle, @handle/<plural-type>, or @handle/<plural-type>/<name>@<constraint> form, got: ${input}`;
@@ -18,21 +18,21 @@ export const RegistrySourcePatternPartsSchema = Schema.Struct({
   owner: HandleSchema,
   type: Schema.optional(ExtensionTypePluralSchema),
   name: Schema.optional(ExtensionNameSchema),
-  versionConstraint: Schema.optional(VersionConstraintSchema),
+  versionRange: Schema.optional(VersionRangeSchema),
 })
   .pipe(
     Schema.check(
       Schema.makeFilter((value) => {
         if (value.type === undefined) {
-          return value.name === undefined && value.versionConstraint === undefined
+          return value.name === undefined && value.versionRange === undefined
             ? undefined
-            : "Registry source pattern cannot include name or versionConstraint without type";
+            : "Registry source pattern cannot include name or versionRange without type";
         }
 
         if (value.name === undefined) {
-          return value.versionConstraint === undefined
+          return value.versionRange === undefined
             ? undefined
-            : "Registry source pattern cannot include versionConstraint without name";
+            : "Registry source pattern cannot include versionRange without name";
         }
 
         return undefined;
@@ -54,7 +54,7 @@ export const RegistrySourceRefPartsSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypePluralSchema,
   name: ExtensionNameSchema,
-  versionConstraint: Schema.optional(VersionConstraintSchema),
+  versionRange: Schema.optional(VersionRangeSchema),
 }).annotate({
   identifier: "RegistrySourceRefParts",
   title: "Registry Source Ref",
@@ -71,7 +71,7 @@ const decodeRegistrySourceRefParts = Schema.decodeUnknownResult(RegistrySourceRe
 
 const parseNameAndConstraintSegment = (
   segment: string,
-): { readonly name: string; readonly versionConstraint?: string | undefined } | undefined => {
+): { readonly name: string; readonly versionRange?: string | undefined } | undefined => {
   const atIndex = segment.indexOf("@");
   if (atIndex === 0) {
     return undefined;
@@ -82,12 +82,12 @@ const parseNameAndConstraintSegment = (
   }
 
   const name = segment.slice(0, atIndex);
-  const versionConstraint = segment.slice(atIndex + 1);
-  if (name.length === 0 || versionConstraint.length === 0) {
+  const versionRange = segment.slice(atIndex + 1);
+  if (name.length === 0 || versionRange.length === 0) {
     return undefined;
   }
 
-  return { name, versionConstraint };
+  return { name, versionRange };
 };
 
 export const parseRegistrySourcePatternParts = (
@@ -112,7 +112,7 @@ export const parseRegistrySourcePatternParts = (
         readonly owner: string;
         readonly type?: string | undefined;
         readonly name?: string | undefined;
-        readonly versionConstraint?: string | undefined;
+        readonly versionRange?: string | undefined;
       }
     | undefined;
 
@@ -133,7 +133,7 @@ export const parseRegistrySourcePatternParts = (
           owner,
           type,
           name: parsedName.name,
-          versionConstraint: parsedName.versionConstraint,
+          versionRange: parsedName.versionRange,
         };
       }
     }
@@ -168,8 +168,8 @@ export const formatRegistrySourcePatternParts = (value: RegistrySourcePatternPar
     output += `/${value.name}`;
   }
 
-  if (value.versionConstraint !== undefined) {
-    output += `@${value.versionConstraint}`;
+  if (value.versionRange !== undefined) {
+    output += `@${value.versionRange}`;
   }
 
   return output;

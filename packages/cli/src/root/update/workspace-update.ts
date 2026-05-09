@@ -167,9 +167,9 @@ const mergeFragments = (
 const resolveSkillIntent = (name: string, source: string) =>
   resolveConfiguredSkill(name, source).pipe(
     Effect.map(
-      ({ ref, versionConstraint }) =>
+      ({ ref, versionRange }) =>
         ({
-          skillsToInstall: [{ ref, versionConstraint }],
+          skillsToInstall: [{ ref, versionRange }],
         }) satisfies InstallSkillCommandIntent,
     ),
   );
@@ -177,9 +177,9 @@ const resolveSkillIntent = (name: string, source: string) =>
 const resolveSubagentIntent = (name: string, source: string) =>
   resolveConfiguredSubagent(name, source).pipe(
     Effect.map(
-      ({ ref, versionConstraint }) =>
+      ({ ref, versionRange }) =>
         ({
-          subagentsToInstall: [{ ref, versionConstraint }],
+          subagentsToInstall: [{ ref, versionRange }],
         }) satisfies InstallSubagentCommandIntent,
     ),
   );
@@ -187,10 +187,10 @@ const resolveSubagentIntent = (name: string, source: string) =>
 const resolveCommandIntent = (name: string, source: string) =>
   resolveConfiguredCommand(name, source).pipe(
     Effect.map(
-      ({ ref, versionConstraint }) =>
+      ({ ref, versionRange }) =>
         ({
           ref,
-          versionConstraint,
+          versionRange,
           force: false,
         }) satisfies InstallCommandCommandIntent,
     ),
@@ -199,10 +199,10 @@ const resolveCommandIntent = (name: string, source: string) =>
 const resolveMcpServerIntent = (name: string, source: string) =>
   resolveConfiguredMcpServer(name, source).pipe(
     Effect.map(
-      ({ ref, versionConstraint }) =>
+      ({ ref, versionRange }) =>
         ({
           ref,
-          versionConstraint,
+          versionRange,
           force: false,
         }) satisfies InstallMcpServerCommandIntent,
     ),
@@ -211,10 +211,10 @@ const resolveMcpServerIntent = (name: string, source: string) =>
 const resolvePackRef = (name: string, source: string) =>
   resolveConfiguredPack(name, source).pipe(
     Effect.map(
-      ({ ref, versionConstraint }) =>
+      ({ ref, versionRange }) =>
         ({
           packToInstall: ref,
-          versionConstraint,
+          versionRange,
         }) satisfies InstallPackCommandIntent,
     ),
   );

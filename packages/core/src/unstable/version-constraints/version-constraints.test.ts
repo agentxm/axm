@@ -1,15 +1,15 @@
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import { exactVersion, versionConstraint } from "../test-helpers.js";
+import { exactVersion, versionRange } from "../test-helpers.js";
 
 import type { VersionEntryLike } from "./version-constraints.js";
 import {
-  isValidConstraint,
-  parseVersionConstraint,
-  resolveVersionWithConstraint,
-  satisfiesConstraint,
-  VersionConstraintSchema,
+  isValidVersionRange,
+  parseVersionRange,
+  resolveVersionInRange,
+  versionSatisfiesRange,
+  VersionRangeSchema,
 } from "./version-constraints.js";
 
 // -----------------------------------------------------------------------------
@@ -21,11 +21,11 @@ const makeVersionEntryLike = (version: string): VersionEntryLike => ({
 });
 
 // -----------------------------------------------------------------------------
-// VersionConstraintSchema
+// VersionRangeSchema
 // -----------------------------------------------------------------------------
 
-describe("VersionConstraintSchema", () => {
-  const decode = Schema.decodeUnknownSync(VersionConstraintSchema);
+describe("VersionRangeSchema", () => {
+  const decode = Schema.decodeUnknownSync(VersionRangeSchema);
 
   it("accepts exact versions and ranges", () => {
     expect(decode("1.2.3")).toBe("1.2.3");
@@ -39,98 +39,96 @@ describe("VersionConstraintSchema", () => {
 });
 
 // -----------------------------------------------------------------------------
-// parseVersionConstraint
+// parseVersionRange
 // -----------------------------------------------------------------------------
 
-describe("parseVersionConstraint", () => {
+describe("parseVersionRange", () => {
   it("returns Option.none() for a bare namespaced name", () => {
-    expect(parseVersionConstraint("@handle/name")).toEqual(Option.none());
+    expect(parseVersionRange("@handle/name")).toEqual(Option.none());
   });
 
   it("extracts a caret constraint", () => {
-    expect(parseVersionConstraint("@handle/name@^1.0.0")).toEqual(Option.some("^1.0.0"));
+    expect(parseVersionRange("@handle/name@^1.0.0")).toEqual(Option.some("^1.0.0"));
   });
 
   it("extracts an exact version", () => {
-    expect(parseVersionConstraint("@handle/name@1.2.3")).toEqual(Option.some("1.2.3"));
+    expect(parseVersionRange("@handle/name@1.2.3")).toEqual(Option.some("1.2.3"));
   });
 
   it("extracts a tilde constraint", () => {
-    expect(parseVersionConstraint("@handle/name@~1.2.0")).toEqual(Option.some("~1.2.0"));
+    expect(parseVersionRange("@handle/name@~1.2.0")).toEqual(Option.some("~1.2.0"));
   });
 
   it("extracts a range constraint", () => {
-    expect(parseVersionConstraint("@handle/name@>=1.0.0 <2.0.0")).toEqual(
-      Option.some(">=1.0.0 <2.0.0"),
-    );
+    expect(parseVersionRange("@handle/name@>=1.0.0 <2.0.0")).toEqual(Option.some(">=1.0.0 <2.0.0"));
   });
 
   it("returns Option.none() for non-namespaced bare name", () => {
-    expect(parseVersionConstraint("name")).toEqual(Option.none());
+    expect(parseVersionRange("name")).toEqual(Option.none());
   });
 
   it("extracts constraint from non-namespaced name", () => {
-    expect(parseVersionConstraint("name@^2.0.0")).toEqual(Option.some("^2.0.0"));
+    expect(parseVersionRange("name@^2.0.0")).toEqual(Option.some("^2.0.0"));
   });
 });
 
 // -----------------------------------------------------------------------------
-// isValidConstraint
+// isValidVersionRange
 // -----------------------------------------------------------------------------
 
-describe("isValidConstraint", () => {
+describe("isValidVersionRange", () => {
   it("accepts caret range", () => {
-    expect(isValidConstraint("^1.0.0")).toBe(true);
+    expect(isValidVersionRange("^1.0.0")).toBe(true);
   });
 
   it("accepts exact version", () => {
-    expect(isValidConstraint("1.2.3")).toBe(true);
+    expect(isValidVersionRange("1.2.3")).toBe(true);
   });
 
   it("rejects invalid string", () => {
-    expect(isValidConstraint("not-a-version")).toBe(false);
+    expect(isValidVersionRange("not-a-version")).toBe(false);
   });
 
   it("accepts wildcard", () => {
-    expect(isValidConstraint("*")).toBe(true);
+    expect(isValidVersionRange("*")).toBe(true);
   });
 
   it("accepts tilde range", () => {
-    expect(isValidConstraint("~1.2.0")).toBe(true);
+    expect(isValidVersionRange("~1.2.0")).toBe(true);
   });
 
   it("accepts hyphen range", () => {
-    expect(isValidConstraint(">=1.0.0 <2.0.0")).toBe(true);
+    expect(isValidVersionRange(">=1.0.0 <2.0.0")).toBe(true);
   });
 });
 
 // -----------------------------------------------------------------------------
-// satisfiesConstraint
+// versionSatisfiesRange
 // -----------------------------------------------------------------------------
 
-describe("satisfiesConstraint", () => {
+describe("versionSatisfiesRange", () => {
   it("returns true when version is within caret range", () => {
-    expect(satisfiesConstraint(exactVersion("1.2.3"), versionConstraint("^1.0.0"))).toBe(true);
+    expect(versionSatisfiesRange(exactVersion("1.2.3"), versionRange("^1.0.0"))).toBe(true);
   });
 
   it("returns false when version is outside caret range", () => {
-    expect(satisfiesConstraint(exactVersion("2.0.0"), versionConstraint("^1.0.0"))).toBe(false);
+    expect(versionSatisfiesRange(exactVersion("2.0.0"), versionRange("^1.0.0"))).toBe(false);
   });
 
   it("returns true for exact match", () => {
-    expect(satisfiesConstraint(exactVersion("1.0.0"), versionConstraint("1.0.0"))).toBe(true);
+    expect(versionSatisfiesRange(exactVersion("1.0.0"), versionRange("1.0.0"))).toBe(true);
   });
 
   it("returns false for exact mismatch", () => {
-    expect(satisfiesConstraint(exactVersion("1.0.1"), versionConstraint("1.0.0"))).toBe(false);
+    expect(versionSatisfiesRange(exactVersion("1.0.1"), versionRange("1.0.0"))).toBe(false);
   });
 });
 
 // -----------------------------------------------------------------------------
-// resolveVersionWithConstraint
+// resolveVersionInRange
 // -----------------------------------------------------------------------------
 
-describe("resolveVersionWithConstraint", () => {
+describe("resolveVersionInRange", () => {
   const versions: ReadonlyArray<VersionEntryLike> = [
     makeVersionEntryLike("2.0.0"),
     makeVersionEntryLike("1.3.0"),
@@ -139,30 +137,30 @@ describe("resolveVersionWithConstraint", () => {
   ];
 
   it("returns highest matching version for caret constraint", () => {
-    const result = resolveVersionWithConstraint(versions, Option.some("^1.0.0"));
+    const result = resolveVersionInRange(versions, Option.some("^1.0.0"));
     expect(Option.isSome(result)).toBe(true);
     expect(Option.getOrThrow(result).version).toBe("1.3.0");
   });
 
   it("returns Option.none() when no version matches", () => {
-    const result = resolveVersionWithConstraint(versions, Option.some("^5.0.0"));
+    const result = resolveVersionInRange(versions, Option.some("^5.0.0"));
     expect(Option.isNone(result)).toBe(true);
   });
 
   it("returns newest version when constraint is None", () => {
-    const result = resolveVersionWithConstraint(versions, Option.none());
+    const result = resolveVersionInRange(versions, Option.none());
     expect(Option.isSome(result)).toBe(true);
     expect(Option.getOrThrow(result).version).toBe("2.0.0");
   });
 
   it("returns newest version when constraint is wildcard", () => {
-    const result = resolveVersionWithConstraint(versions, Option.some("*"));
+    const result = resolveVersionInRange(versions, Option.some("*"));
     expect(Option.isSome(result)).toBe(true);
     expect(Option.getOrThrow(result).version).toBe("2.0.0");
   });
 
   it("returns Option.none() for empty versions array", () => {
-    const result = resolveVersionWithConstraint([], Option.some("^1.0.0"));
+    const result = resolveVersionInRange([], Option.some("^1.0.0"));
     expect(Option.isNone(result)).toBe(true);
   });
 });

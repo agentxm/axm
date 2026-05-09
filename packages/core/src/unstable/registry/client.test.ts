@@ -33,7 +33,7 @@ import {
   fullyQualifiedRef,
   handle,
   packageType,
-  versionConstraint,
+  versionRange,
 } from "../test-helpers.js";
 
 /** Resolve FileSystem + Path and create a local registry client in one step. */
@@ -113,7 +113,7 @@ const makeIndexArgs = (name = "my-skill", owner = "@test") => ({
 });
 
 const makePackageVersion = (value: string) =>
-  /[\^~*<>\s]/.test(value) ? versionConstraint(value) : exactVersion(value);
+  /[\^~*<>\s]/.test(value) ? versionRange(value) : exactVersion(value);
 
 const makePackageArgs = (name = "my-skill", version?: string, owner = "@test") => ({
   ...makeIndexArgs(name, owner),

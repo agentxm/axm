@@ -21,7 +21,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
@@ -61,7 +61,7 @@ description: A new skill
 Describe what this skill does and when to use it.
 `;
 
-const INITIAL_SKILL_VERSION = decodeExactSemverVersionSync("0.0.1");
+const INITIAL_SKILL_VERSION = decodeVersionSync("0.0.1");
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -184,7 +184,7 @@ export const newSkill: OperationHandler<
     const now = new Date();
     yield* ws.setSkillLock({
       name,
-      versionConstraint: Option.none(),
+      versionRange: Option.none(),
       lockEntry: {
         type: "registry",
         owner,

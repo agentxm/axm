@@ -30,7 +30,7 @@ import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/
 import { copyExtensionDirectory, validatePathSafety } from "../extensions/utils.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { CodingAgentRepository } from "../agents/index.js";
 import {
   checkInstalledOnDisk,
@@ -52,7 +52,7 @@ const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockE
   type: "registry",
   owner: ref.owner,
   name: ref.name,
-  resolvedVersion: decodeExactSemverVersionSync(ref.version),
+  resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   agents: [],
@@ -460,7 +460,7 @@ export const CommandManagerLive = Layer.effect(
         ref,
       }: {
         readonly ref: CommandExtensionRef;
-        readonly versionConstraint: Option.Option<string>;
+        readonly versionRange: Option.Option<string>;
       }) => {
         const now = new Date();
         const lockEntry = buildLockEntryFromRef(ref, now);

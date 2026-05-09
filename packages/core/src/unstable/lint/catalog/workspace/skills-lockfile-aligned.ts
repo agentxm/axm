@@ -131,7 +131,7 @@ const collectAlignmentViolations = (
     if (parsed === undefined) {
       continue;
     }
-    const constraint = parsed.versionConstraint;
+    const constraint = parsed.versionRange;
     if (constraint === undefined || constraint === lockEntry.resolvedVersion) {
       continue;
     }

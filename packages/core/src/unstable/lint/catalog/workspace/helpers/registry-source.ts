@@ -16,7 +16,7 @@ export interface RegistrySourceParts {
   readonly owner: string;
   readonly type: string;
   readonly name: string;
-  readonly versionConstraint: string | undefined;
+  readonly versionRange: string | undefined;
 }
 
 /**
@@ -34,6 +34,6 @@ export const parseRegistrySource = (source: string): RegistrySourceParts | undef
     owner: parsed.owner,
     type: parsed.type,
     name: parsed.name,
-    versionConstraint: parsed.versionConstraint,
+    versionRange: parsed.versionRange,
   };
 };

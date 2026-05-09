@@ -10,7 +10,7 @@
  */
 
 import * as Option from "effect/Option";
-import type { VersionConstraint } from "../version-constraints/version-constraints.js";
+import type { VersionRange } from "../version-constraints/version-constraints.js";
 import type { ExtensionName, ExtensionTypePlural, Handle } from "../extensions/index.js";
 import { parseRegistrySourcePatternParts } from "../extensions/registry-source.js";
 
@@ -30,7 +30,7 @@ type RegistryPatternInput = {
   readonly type: Option.Option<ExtensionTypePlural>;
   readonly owner: Handle;
   readonly name: Option.Option<ExtensionName>;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 };
 
 /** A valid URL (validated via `Schema.URL`). */
@@ -152,7 +152,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
           type: Option.fromUndefinedOr(parsed.type),
           owner: parsed.owner,
           name: Option.fromUndefinedOr(parsed.name),
-          versionConstraint: Option.fromUndefinedOr(parsed.versionConstraint),
+          versionRange: Option.fromUndefinedOr(parsed.versionRange),
         }),
       );
     }

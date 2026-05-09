@@ -23,7 +23,7 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -39,7 +39,7 @@ const buildMcpServerLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServe
   type: "registry",
   owner: ref.owner,
   name: ref.name,
-  resolvedVersion: decodeExactSemverVersionSync(ref.version),
+  resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   installedAt: now,
@@ -252,7 +252,7 @@ export const McpServerManagerLive = Layer.effect(
         ref,
       }: {
         readonly ref: McpServerExtensionRef;
-        readonly versionConstraint: Option.Option<string>;
+        readonly versionRange: Option.Option<string>;
       }) => {
         if (ref.refType !== "registry")
           return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertSettingsEntry"));

@@ -11,9 +11,9 @@
  * - `subject.packJson === undefined` — manifest is absent (covered by
  *   `pack/manifest-present`).
  *
- * Dependency-map FQN grammar and `VersionConstraint` decode arms are owned by
+ * Dependency-map FQN grammar and `VersionRange` decode arms are owned by
  * `ExtensionPackManifestSchema` itself — the dependency sections are typed
- * `Record<FQN, VersionConstraint>` so unknown FQNs, malformed grammar, and
+ * `Record<FQN, VersionRange>` so unknown FQNs, malformed grammar, and
  * bad semver ranges surface as normal schema issues through the shared
  * `schemaDecodeFindings` plumbing.
  *

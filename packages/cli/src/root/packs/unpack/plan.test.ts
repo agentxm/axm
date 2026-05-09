@@ -53,7 +53,7 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
       compatiblePackages: [],
     },
     force: false,
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     skipSettings: Option.none(),
     sourceName: Option.none(),
     strictUnknownAgents: Option.none(),
@@ -80,7 +80,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       compatiblePackages: [],
     },
     force: false,
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     skipSettings: Option.none(),
   },
 });
@@ -104,7 +104,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       compatiblePackages: [],
     },
     force: false,
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     skipSettings: Option.none(),
   },
 });

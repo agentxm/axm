@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { ExtensionCurrencyEntry } from "@agentxm/client-core/unstable/workspace";
-import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 import { makeCliTestContext } from "../../test-helpers.js";
 import { handleOutdatedWith } from "./handler.js";
@@ -12,7 +12,7 @@ import { handleOutdatedWith } from "./handler.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const v = decodeExactSemverVersionSync;
+const v = decodeVersionSync;
 
 const makeEntry = (
   overrides: Partial<ExtensionCurrencyEntry> & {

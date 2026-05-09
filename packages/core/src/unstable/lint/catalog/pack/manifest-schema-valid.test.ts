@@ -10,7 +10,7 @@
  * - Bad `owner` (not a handle).
  * - Bad `name` (uppercase).
  * - Dependency-map FQN grammar violation.
- * - Bad `VersionConstraint` strings.
+ * - Bad `VersionRange` strings.
  * - Excess keys are ignored at this rule (keys-recognized owns them).
  * - No manifest: zero findings.
  */
@@ -117,7 +117,7 @@ describe("pack/manifest-schema-valid", () => {
     }),
   );
 
-  it.effect("flags a bad VersionConstraint string", () =>
+  it.effect("flags a bad VersionRange string", () =>
     Effect.gen(function* () {
       const findings = yield* manifestSchemaValidRule.check(
         makeContext({

@@ -247,7 +247,7 @@ describe("packs install handler", () => {
           const result = yield* actions.parseArgs(defaultSourceArgs("@acme/packs/my-pack"));
           expect(result.owner).toBe("@acme");
           expect(result.packName).toBe("my-pack");
-          expect(result.versionConstraint).toEqual(Option.none());
+          expect(result.versionRange).toEqual(Option.none());
         }),
       );
     });
@@ -264,7 +264,7 @@ describe("packs install handler", () => {
           const result = yield* actions.parseArgs(defaultSourceArgs("@acme/packs/my-pack@^2.0.0"));
           expect(result.owner).toBe("@acme");
           expect(result.packName).toBe("my-pack");
-          expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
+          expect(result.versionRange).toEqual(Option.some("^2.0.0"));
         }),
       );
     });
@@ -300,7 +300,7 @@ describe("packs install handler", () => {
           const result = yield* actions.parseArgs(defaultSourceArgs("my-pack@^2.0.0"));
           expect(result.owner).toBe("@myorg");
           expect(result.packName).toBe("my-pack");
-          expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
+          expect(result.versionRange).toEqual(Option.some("^2.0.0"));
           expect(result.resolvedInput).toBe("@myorg/packs/my-pack@^2.0.0");
         }),
       );
@@ -1319,7 +1319,7 @@ describe("packs install handler", () => {
           const actions = yield* InstallPackCommandWorkflowActions;
           const plan = yield* actions.buildPlan({
             packToInstall: packRef,
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
           });
 
           const labels = plan.jobs.flatMap((job) => job.steps.map((step) => step.label));
@@ -1369,7 +1369,7 @@ describe("packs install handler", () => {
           const actions = yield* InstallPackCommandWorkflowActions;
           const plan = yield* actions.buildPlan({
             packToInstall: packRef,
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
           });
 
           const labels = plan.jobs.flatMap((job) => job.steps.map((step) => step.label));

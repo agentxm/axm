@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile, SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import type { ExactSemverVersion } from "@agentxm/client-core/unstable/version-constraints";
+import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -67,7 +67,7 @@ const makeOp = (
   overrides?: Partial<{
     sourceType: "github" | "gitlab" | "bitbucket" | "azurerepos" | "git" | "registry" | "local";
     force: boolean;
-    version: ExactSemverVersion;
+    version: Version;
     gitTreeSha: Option.Option<string>;
   }>,
 ): InstallSkillOperation => {
@@ -185,7 +185,7 @@ const makeOp = (
     args: {
       ref,
       force: overrides?.force ?? false,
-      versionConstraint: Option.none(),
+      versionRange: Option.none(),
       skipSettings: Option.none(),
       strictUnknownAgents: Option.none(),
       existingInstalledAt: Option.none(),

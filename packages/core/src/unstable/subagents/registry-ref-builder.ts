@@ -11,7 +11,7 @@ import * as Option from "effect/Option";
 import type { Handle, ExtensionName } from "../extensions/index.js";
 import type { RegistrySubagentRef } from "./refs.js";
 import type { RegistrySource } from "../sources/index.js";
-import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
+import type { Version } from "../version-constraints/version-constraints.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 
 /**
@@ -20,7 +20,7 @@ import type { PackageUrlParts } from "../packaging/package-url.js";
 export const buildRegistrySubagentRef = (
   owner: Handle,
   name: ExtensionName,
-  version: ExactSemverVersion,
+  version: Version,
   source: RegistrySource,
   compatiblePackages: ReadonlyArray<PackageUrlParts>,
 ): RegistrySubagentRef => ({

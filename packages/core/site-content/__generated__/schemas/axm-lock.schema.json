@@ -26,13 +26,13 @@
         }
       ]
     },
-    "ExactSemverVersion": {
+    "Version": {
       "type": "string",
       "allOf": [
         {
           "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-          "title": "Exact Semver Version",
-          "description": "An exact version number like 1.0.0 (no ranges allowed).",
+          "title": "Version",
+          "description": "A semver version like 1.0.0. Ranges are not allowed here.",
           "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
         }
       ]
@@ -43,26 +43,26 @@
         "type": { "type": "string", "enum": ["registry"] },
         "owner": { "$ref": "#/definitions/Handle" },
         "name": { "$ref": "#/definitions/ExtensionName" },
-        "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
+        "resolvedVersion": { "$ref": "#/definitions/Version" },
         "integrity": { "type": "string" },
         "sourceName": { "type": "string" },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "resolvedSkills": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/ExactSemverVersion" }
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         },
         "resolvedCommands": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/ExactSemverVersion" }
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         },
         "resolvedMcpServers": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/ExactSemverVersion" }
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         },
         "resolvedSubagents": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/ExactSemverVersion" }
+          "additionalProperties": { "$ref": "#/definitions/Version" }
         }
       },
       "required": [
@@ -369,7 +369,7 @@
                   "type": { "type": "string", "enum": ["registry"] },
                   "owner": { "$ref": "#/definitions/Handle" },
                   "name": { "$ref": "#/definitions/ExtensionName" },
-                  "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
+                  "resolvedVersion": { "$ref": "#/definitions/Version" },
                   "integrity": { "type": "string" },
                   "sourceName": { "type": "string" },
                   "agents": { "type": "array", "items": { "type": "string" } },
@@ -689,7 +689,7 @@
                       "type": { "type": "string", "enum": ["registry"] },
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
+                      "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
                       "agents": { "type": "array", "items": { "type": "string" } },
@@ -1012,7 +1012,7 @@
                       "type": { "type": "string", "enum": ["registry"] },
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
+                      "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
                       "agents": { "type": "array", "items": { "type": "string" } },
@@ -1220,7 +1220,7 @@
                       "type": { "type": "string", "enum": ["registry"] },
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": { "$ref": "#/definitions/ExactSemverVersion" },
+                      "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },

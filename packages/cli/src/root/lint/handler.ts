@@ -299,7 +299,7 @@ const adaptIntent = (
         const resolved = yield* resolveConfiguredSkill(op.args.name, op.args.source);
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
-          versionConstraint: resolved.versionConstraint,
+          versionRange: resolved.versionRange,
         });
         return { kind: "step", step };
       }
@@ -322,7 +322,7 @@ const adaptIntent = (
         const resolved = yield* resolveConfiguredPack(op.args.name, op.args.source);
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
-          versionConstraint: resolved.versionConstraint,
+          versionRange: resolved.versionRange,
         });
         return { kind: "step", step };
       }
@@ -358,7 +358,7 @@ const adaptIntent = (
         const resolved = yield* resolveConfiguredCommand(op.args.name, op.args.source);
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
-          versionConstraint: resolved.versionConstraint,
+          versionRange: resolved.versionRange,
         });
         return { kind: "step", step };
       }
@@ -381,7 +381,7 @@ const adaptIntent = (
         const resolved = yield* resolveConfiguredMcpServer(op.args.name, op.args.source);
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
-          versionConstraint: resolved.versionConstraint,
+          versionRange: resolved.versionRange,
         });
         return { kind: "step", step };
       }

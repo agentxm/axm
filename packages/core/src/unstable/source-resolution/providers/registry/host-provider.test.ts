@@ -81,7 +81,7 @@ const defaultFindOptions: FindOptions = {
   names: [],
   type: "skill",
   owner: Option.none(),
-  versionConstraint: Option.none(),
+  versionRange: Option.none(),
 };
 
 const makeVersionEntry = (overrides?: {
@@ -277,7 +277,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
           names: ["my-skill"],
           type: "skill",
           owner: Option.none(),
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
         };
         const refs = yield* provider.find(registry.source, findOptions);
 

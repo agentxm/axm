@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 
 import { makeAppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";
-import { resolveVersionWithConstraint } from "../version-constraints/version-constraints.js";
+import { resolveVersionInRange } from "../version-constraints/version-constraints.js";
 import { toExtensionTypePlural, type ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "./schema.js";
 
@@ -39,13 +39,13 @@ export const selectVersion = (
 
 export const resolveVersionEntry = (
   versions: ReadonlyArray<VersionEntry>,
-  versionConstraint: Option.Option<string>,
+  versionRange: Option.Option<string>,
 ): Option.Option<VersionEntry> => {
-  if (Option.isNone(versionConstraint)) {
+  if (Option.isNone(versionRange)) {
     return selectVersion(versions);
   }
 
-  const resolved = resolveVersionWithConstraint(versions, versionConstraint);
+  const resolved = resolveVersionInRange(versions, versionRange);
   if (Option.isNone(resolved)) {
     return Option.none();
   }

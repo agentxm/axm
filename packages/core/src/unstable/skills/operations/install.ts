@@ -59,7 +59,7 @@ export type InstallSkillOperationArgs = {
   readonly ref: SkillExtensionRef;
   readonly force: boolean;
   /** Version constraint from the original input when available. */
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
   /** When true, fail on unknown configured agents instead of warning+skip. */
@@ -83,7 +83,7 @@ export type InstallSkillOperation = Operation<"install-skill", InstallSkillOpera
 
 type MaterializedSkill = {
   readonly skillSrcPath: string;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
 };
 
 // -----------------------------------------------------------------------------
@@ -167,7 +167,7 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
     const sourcePath = stripFileProtocol(ref.location);
     yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
 
-    return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
+    return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
   });
 
 const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
@@ -186,13 +186,13 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
       yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
     }
 
-    return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
+    return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
   });
 
 const installFromRegistry = (
   ref: RegistrySkillRef,
   sanitizedName: string,
-  versionConstraint: Option.Option<string>,
+  versionRange: Option.Option<string>,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -256,7 +256,7 @@ const installFromRegistry = (
       );
     }
 
-    return { skillSrcPath, versionConstraint } satisfies MaterializedSkill;
+    return { skillSrcPath, versionRange } satisfies MaterializedSkill;
   });
 
 // -----------------------------------------------------------------------------
@@ -337,13 +337,13 @@ const installForDirectory = (opts: {
 const materializeSkill = (
   ref: SkillExtensionRef,
   sanitizedName: string,
-  versionConstraint: Option.Option<string>,
+  versionRange: Option.Option<string>,
 ) => {
   switch (ref.refType) {
     case "git-hosted":
       return installFromGitHosted(ref, sanitizedName);
     case "registry":
-      return installFromRegistry(ref, sanitizedName, versionConstraint);
+      return installFromRegistry(ref, sanitizedName, versionRange);
     case "local":
       return installFromLocal(ref, sanitizedName);
   }
@@ -382,7 +382,7 @@ export const installSkill: OperationHandler<
     const strictUnknownAgents = Option.getOrElse(op.args.strictUnknownAgents, () => false);
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
-    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionConstraint);
+    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange);
 
     // ── Shared: resolve agent targets + install once per distinct dir ────────
     const configuredAgents = yield* agentRepo
@@ -521,7 +521,7 @@ export const installSkill: OperationHandler<
     const skillArgs = {
       name: ref.skill.name,
       lockEntry,
-      versionConstraint: materialized.versionConstraint,
+      versionRange: materialized.versionRange,
     };
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setSkillLock(skillArgs)

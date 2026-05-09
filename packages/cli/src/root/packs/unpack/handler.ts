@@ -93,7 +93,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       args: {
         ref: buildRegistrySkillRef(parsed.owner, parsed.name, version, source, []),
         force: false,
-        versionConstraint: Option.none<string>(),
+        versionRange: Option.none<string>(),
         skipSettings: Option.none<boolean>(),
         strictUnknownAgents: Option.none<boolean>(),
         existingInstalledAt: Option.none<Date>(),
@@ -111,7 +111,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       args: {
         ref: buildRegistryCommandRef(parsed.owner, parsed.name, version, source, []),
         force: false,
-        versionConstraint: Option.none<string>(),
+        versionRange: Option.none<string>(),
         skipSettings: Option.none<boolean>(),
       },
     };
@@ -126,7 +126,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       args: {
         ref: buildRegistryMcpServerRef(parsed.owner, parsed.name, version, source, []),
         force: false,
-        versionConstraint: Option.none<string>(),
+        versionRange: Option.none<string>(),
         skipSettings: Option.none<boolean>(),
         strictAgentSync: args.strictAgentSync,
       },

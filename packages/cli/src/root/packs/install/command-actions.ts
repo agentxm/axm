@@ -18,7 +18,7 @@ import * as Result from "effect/Result";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import type { ExtensionName, ExtensionRef, Handle } from "@agentxm/client-core/unstable/extensions";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
@@ -73,7 +73,7 @@ export interface InstallPackHandlerArgs {
 export interface ParsedPackInstallArgs {
   readonly owner: Handle;
   readonly packName: ExtensionName;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly resolvedInput: string;
   readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
 }
@@ -83,7 +83,7 @@ export interface PackSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
   readonly packName: ExtensionName;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }
 
 // -----------------------------------------------------------------------------
@@ -323,7 +323,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           const parsed = parseRegistryInstallTarget(trimmed, {
             expectedType: "pack",
             allowBareName: true,
-            allowBareVersionConstraint: true,
+            allowBareVersionRange: true,
           });
 
           if (Result.isSuccess(parsed)) {
@@ -332,7 +332,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 inputKind: "registry-pattern-input" as const,
                 owner: parsed.success.owner,
                 packName: parsed.success.name,
-                versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
+                versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
                 resolvedInput: trimmed,
               };
             }
@@ -358,8 +358,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 }),
               ),
             );
-            const versionConstraint = Option.fromUndefinedOr(parsed.success.versionConstraint);
-            const resolvedInput = Option.match(versionConstraint, {
+            const versionRange = Option.fromUndefinedOr(parsed.success.versionRange);
+            const resolvedInput = Option.match(versionRange, {
               onNone: () => `${owner}/packs/${parsed.success.name}`,
               onSome: (constraint) => `${owner}/packs/${parsed.success.name}@${constraint}`,
             });
@@ -368,12 +368,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
             return {
               inputKind:
-                parsed.success.versionConstraint === undefined
+                parsed.success.versionRange === undefined
                   ? ("name-input" as const)
                   : ("name-input-with-version" as const),
               owner,
               packName: parsed.success.name,
-              versionConstraint,
+              versionRange,
               resolvedInput,
             };
           }
@@ -454,7 +454,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               source,
               owner: parsed.owner,
               packName: parsed.packName,
-              versionConstraint: parsed.versionConstraint,
+              versionRange: parsed.versionRange,
             },
           ];
         }),
@@ -482,7 +482,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       names: [req.packName],
                       type: "pack",
                       owner: Option.some(req.owner),
-                      versionConstraint: req.versionConstraint,
+                      versionRange: req.versionRange,
                     });
 
                   const probes: RegistryLookupProbe[] = [];
@@ -635,7 +635,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
         return {
           packToInstall: packRef,
-          versionConstraint: parsed.versionConstraint,
+          versionRange: parsed.versionRange,
         };
       });
 
@@ -671,14 +671,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (ref.type === "pack") {
             return buildInstallOperation<ExtensionPackRef>(packMgr, {
               ref,
-              versionConstraint: intent.versionConstraint,
+              versionRange: intent.versionRange,
             });
           }
 
           if (ref.type === "skill") {
             return buildInstallOperation<SkillExtensionRef>(skillMgr, {
               ref,
-              versionConstraint: Option.none(),
+              versionRange: Option.none(),
               skipSettings: true,
             });
           }
@@ -686,7 +686,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (ref.type === "command") {
             return buildInstallOperation<CommandExtensionRef>(commandMgr, {
               ref,
-              versionConstraint: Option.none(),
+              versionRange: Option.none(),
               skipSettings: true,
             });
           }
@@ -694,7 +694,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (ref.type === "mcp-server") {
             return buildInstallOperation<McpServerExtensionRef>(mcpServerMgr, {
               ref,
-              versionConstraint: Option.none(),
+              versionRange: Option.none(),
               skipSettings: true,
             });
           }
@@ -702,7 +702,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (ref.type === "subagent") {
             return buildInstallOperation<SubagentExtensionRef>(subagentMgr, {
               ref,
-              versionConstraint: Option.none(),
+              versionRange: Option.none(),
               skipSettings: true,
             });
           }

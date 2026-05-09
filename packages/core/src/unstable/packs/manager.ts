@@ -30,7 +30,7 @@ import { removeIfExists } from "../utils/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import type { AppError } from "../app-error/index.js";
 import { resolveExtensionPackDependencies } from "./dependency-resolution.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -44,7 +44,7 @@ export class ExtensionPackManager extends ServiceMap.Service<
 // Build pack SetExtensionPackArgs from a registry ref
 const buildSetExtensionPackArgs = (
   ref: RegistryExtensionPackRef,
-  versionConstraint: Option.Option<string>,
+  versionRange: Option.Option<string>,
   sources: SourceHostProvidersService,
 ): Effect.Effect<SetExtensionPackArgs, AppError> =>
   Effect.gen(function* () {
@@ -53,7 +53,7 @@ const buildSetExtensionPackArgs = (
     return {
       owner: ref.owner,
       name: ref.pack.name,
-      resolvedVersion: decodeExactSemverVersionSync(ref.version),
+      resolvedVersion: decodeVersionSync(ref.version),
       integrity: Option.getOrElse(ref.integrity, () => ""),
       sourceName: "default",
       installedAt: new Date(),
@@ -62,7 +62,7 @@ const buildSetExtensionPackArgs = (
       resolvedCommands: resolved.resolvedCommands,
       resolvedMcpServers: resolved.resolvedMcpServers,
       resolvedSubagents: resolved.resolvedSubagents,
-      versionConstraint,
+      versionRange,
     } satisfies SetExtensionPackArgs;
   });
 
@@ -205,12 +205,12 @@ export const ExtensionPackManagerLive = Layer.effect(
 
       upsertSettingsEntry: ({
         ref,
-        versionConstraint,
+        versionRange,
       }: {
         readonly ref: ExtensionPackRef;
-        readonly versionConstraint: Option.Option<string>;
+        readonly versionRange: Option.Option<string>;
       }) =>
-        buildSetExtensionPackArgs(ref, versionConstraint, sources).pipe(
+        buildSetExtensionPackArgs(ref, versionRange, sources).pipe(
           Effect.flatMap((args) => ws.setExtensionPack(args)),
           Effect.withSpan("ExtensionPackManager.upsertSettingsEntry"),
         ),

@@ -19,7 +19,7 @@ import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -54,7 +54,7 @@ export interface InstallSubagentSourceHandlerArgs {
  */
 export interface ParsedSubagentInstallArgs {
   readonly source: Source;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly requestedSubagents: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
   readonly all: boolean;
@@ -67,7 +67,7 @@ export interface SubagentSourceRequest {
   readonly source: Source;
   readonly requestedSubagents: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }
 
 // -----------------------------------------------------------------------------
@@ -220,10 +220,10 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                 }
 
                 const parsedSource = parsedSourceOption.value;
-                const versionConstraint =
+                const versionRange =
                   parsedSource.pattern.pattern === "registry-pattern-input"
-                    ? parsedSource.pattern.versionConstraint
-                    : Option.none<VersionConstraint>();
+                    ? parsedSource.pattern.versionRange
+                    : Option.none<VersionRange>();
 
                 const resolutionProbes: RegistryLookupProbe[] = [];
                 const source = yield* resolveSubagentInstallSource(parsedSource, {
@@ -237,7 +237,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
                 return {
                   source,
-                  versionConstraint,
+                  versionRange,
                   requestedSubagents,
                   requestedOwner,
                   resolutionProbes,
@@ -248,13 +248,8 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
             },
           );
 
-          const {
-            source,
-            versionConstraint,
-            requestedSubagents,
-            requestedOwner,
-            resolutionProbes,
-          } = parsed;
+          const { source, versionRange, requestedSubagents, requestedOwner, resolutionProbes } =
+            parsed;
 
           if (resolutionProbes.length > 0) {
             yield* renderer.message(
@@ -264,7 +259,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
           return {
             source,
-            versionConstraint,
+            versionRange,
             requestedSubagents,
             requestedOwner,
             all: args.all,
@@ -278,7 +273,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
           source: parsed.source,
           requestedSubagents: parsed.requestedSubagents,
           requestedOwner: parsed.requestedOwner,
-          versionConstraint: parsed.versionConstraint,
+          versionRange: parsed.versionRange,
         },
       ]);
 
@@ -302,7 +297,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                     names: req.requestedSubagents,
                     type: "subagent" as const,
                     owner: req.requestedOwner,
-                    versionConstraint: req.versionConstraint,
+                    versionRange: req.versionRange,
                   })
                   .pipe(
                     Effect.map(
@@ -375,10 +370,8 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
           return {
             subagentsToInstall: selectedSubagents.map((ref) => ({
               ref,
-              versionConstraint:
-                ref.refType === "registry"
-                  ? parsed.versionConstraint
-                  : Option.none<VersionConstraint>(),
+              versionRange:
+                ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
           } satisfies InstallSubagentCommandIntent;
         }),
@@ -395,7 +388,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
             steps: intent.subagentsToInstall.map((entry) =>
               buildInstallOperation(subagentMgr, {
                 ref: entry.ref,
-                versionConstraint: entry.versionConstraint,
+                versionRange: entry.versionRange,
               }),
             ),
           },

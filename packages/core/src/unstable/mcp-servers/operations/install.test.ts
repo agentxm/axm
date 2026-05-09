@@ -205,7 +205,7 @@ const makeOp = (
   overrides: {
     ref?: McpServerExtensionRef;
     force?: boolean;
-    versionConstraint?: Option.Option<string>;
+    versionRange?: Option.Option<string>;
     skipSettings?: boolean;
     strictAgentSync?: boolean;
   } = {},
@@ -214,7 +214,7 @@ const makeOp = (
   args: {
     ref: overrides.ref ?? makeRegistryRef(),
     force: overrides.force ?? false,
-    versionConstraint: overrides.versionConstraint ?? Option.none(),
+    versionRange: overrides.versionRange ?? Option.none(),
     skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
     strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
   },

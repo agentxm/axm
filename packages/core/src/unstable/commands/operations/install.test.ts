@@ -171,7 +171,7 @@ const makeOp = (
   overrides: {
     ref?: CommandExtensionRef;
     force?: boolean;
-    versionConstraint?: Option.Option<string>;
+    versionRange?: Option.Option<string>;
     skipSettings?: boolean;
   } = {},
 ): InstallCommandOperation => ({
@@ -179,7 +179,7 @@ const makeOp = (
   args: {
     ref: overrides.ref ?? makeRegistryRef(),
     force: overrides.force ?? false,
-    versionConstraint: overrides.versionConstraint ?? Option.none(),
+    versionRange: overrides.versionRange ?? Option.none(),
     skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
   },
 });

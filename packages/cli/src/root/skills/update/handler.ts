@@ -167,7 +167,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   type ResolveResult = {
     readonly type: "match";
     readonly ref: SkillExtensionRef;
-    readonly versionConstraint: Option.Option<string>;
+    readonly versionRange: Option.Option<string>;
     readonly warnings: ReadonlyArray<string>;
   };
 
@@ -176,7 +176,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     options: {
       readonly skillNames: ReadonlyArray<string>;
       readonly owner: Option.Option<Handle>;
-      readonly versionConstraint: Option.Option<string>;
+      readonly versionRange: Option.Option<string>;
     },
   ) =>
     sources
@@ -184,7 +184,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         names: options.skillNames,
         type: "skill",
         owner: options.owner,
-        versionConstraint: options.versionConstraint,
+        versionRange: options.versionRange,
       })
       .pipe(
         Effect.map((refs) =>
@@ -217,7 +217,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       if (Option.isNone(indexOption)) {
         return Option.none<{
           readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
-          readonly versionConstraint: Option.Option<string>;
+          readonly versionRange: Option.Option<string>;
           readonly warnings: ReadonlyArray<string>;
         }>();
       }
@@ -260,7 +260,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       const exactRefs = yield* findSkillRefs(source, {
         skillNames: [lookupName],
         owner: Option.some(owner),
-        versionConstraint: Option.some(resolvedVersion.value.resolvedVersion),
+        versionRange: Option.some(resolvedVersion.value.resolvedVersion),
       });
       const exactRef = exactRefs.find(
         (ref): ref is Extract<SkillExtensionRef, { readonly refType: "registry" }> =>
@@ -283,7 +283,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
       return Option.some({
         ref: exactRef,
-        versionConstraint: userConstraint,
+        versionRange: userConstraint,
         warnings: [
           ...resolvedVersion.value.warnings,
           ...detectHoldbackWarnings(
@@ -331,9 +331,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                 owner: registryPattern.value.owner,
                 lookupName,
                 userConstraint:
-                  registryPattern.value.versionConstraint === undefined
+                  registryPattern.value.versionRange === undefined
                     ? Option.none()
-                    : Option.some(registryPattern.value.versionConstraint),
+                    : Option.some(registryPattern.value.versionRange),
                 packConstraints:
                   packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ??
                   [],
@@ -342,7 +342,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                 return Option.some<ResolveResult>({
                   type: "match",
                   ref: registryResolved.value.ref,
-                  versionConstraint: registryResolved.value.versionConstraint,
+                  versionRange: registryResolved.value.versionRange,
                   warnings: registryResolved.value.warnings,
                 });
               }
@@ -356,7 +356,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             const namedRefs = yield* findSkillRefs(source, {
               skillNames: [name],
               owner: requestedOwner,
-              versionConstraint: Option.none(),
+              versionRange: Option.none(),
             });
             const skillRef = namedRefs.find((r) => r.skill.name === name);
 
@@ -364,7 +364,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               return Option.some<ResolveResult>({
                 type: "match",
                 ref: skillRef,
-                versionConstraint: Option.none(),
+                versionRange: Option.none(),
                 warnings: [],
               });
             }
@@ -411,7 +411,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       args: {
         ref: item.ref,
         force: args.force,
-        versionConstraint: item.versionConstraint,
+        versionRange: item.versionRange,
         skipSettings: Option.none(),
         strictUnknownAgents: Option.none(),
         existingInstalledAt,

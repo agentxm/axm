@@ -13,8 +13,8 @@ import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
 import { buildRegistryMcpServerRef } from "../mcp-servers/registry-ref-builder.js";
 import { buildRegistrySubagentRef } from "../subagents/registry-ref-builder.js";
 import {
-  decodeExactSemverVersionSync,
-  type VersionConstraint,
+  decodeVersionSync,
+  type VersionRange,
 } from "../version-constraints/version-constraints.js";
 
 type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
@@ -72,7 +72,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
   pack: ExtensionPackRef,
   expectedType: T,
   fqn: string,
-  constraint: VersionConstraint,
+  constraint: VersionRange,
   sources: SourceHostProvidersService,
 ): Effect.Effect<ResolvedDependency<T>, AppError> =>
   Effect.gen(function* () {
@@ -85,7 +85,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
         names: [parsed.name],
         type: expectedType,
         owner: Option.some(parsed.owner),
-        versionConstraint: Option.some<string>(constraint),
+        versionRange: Option.some<string>(constraint),
       }),
     );
 
@@ -115,7 +115,7 @@ const toResolvedMap = <T extends ExtensionType>(
   Object.fromEntries(
     dependencies.map((dependency) => [
       formatFqn(dependency),
-      decodeExactSemverVersionSync(dependency.ref.version),
+      decodeVersionSync(dependency.ref.version),
     ]),
   );
 

@@ -40,10 +40,10 @@ import {
   type SkillLockEntry,
 } from "@agentxm/client-core/unstable/lockfile";
 import {
-  decodeExactSemverVersionSync,
-  decodeVersionConstraintSync,
-  type ExactSemverVersion,
-  type VersionConstraint,
+  decodeVersionSync,
+  decodeVersionRangeSync,
+  type Version,
+  type VersionRange,
 } from "@agentxm/client-core/unstable/version-constraints";
 import type * as Record from "effect/Record";
 
@@ -234,15 +234,13 @@ const hasEntries = (
   value: Readonly<Record<string, unknown>> | undefined,
 ): value is Record<string, unknown> => value !== undefined && Object.keys(value).length > 0;
 
-export const exactVersion = (value: string): ExactSemverVersion =>
-  decodeExactSemverVersionSync(value);
+export const exactVersion = (value: string): Version => decodeVersionSync(value);
 
 export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
 
 export const handle = (value: string): Handle => normalizeHandle(value);
 
-export const versionConstraint = (value: string): VersionConstraint =>
-  decodeVersionConstraintSync(value);
+export const versionRange = (value: string): VersionRange => decodeVersionRangeSync(value);
 
 export const resolvedExtensionMap = (
   entries: Readonly<Record<string, string>>,
@@ -310,7 +308,7 @@ export const makeLocalSkillLockEntry = (opts?: {
 export const makeRegistrySkillLockEntry = (opts: {
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly resolvedVersion?: ExactSemverVersion;
+  readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly agents?: ReadonlyArray<string>;
@@ -320,7 +318,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   type: "registry",
   owner: normalizeHandle(opts.owner),
   name: extensionName(opts.name),
-  resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
+  resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   agents: [...(opts.agents ?? ["claude-code"])],
@@ -331,7 +329,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 export const makeRegistryExtensionPackLockEntry = (opts: {
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly resolvedVersion?: ExactSemverVersion;
+  readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly resolvedSkills?: ResolvedExtensionMap;
@@ -344,7 +342,7 @@ export const makeRegistryExtensionPackLockEntry = (opts: {
   buildRegistryExtensionPackLockEntry({
     owner: normalizeHandle(opts.owner),
     name: extensionName(opts.name),
-    resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
+    resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",
     installedAt: opts.installedAt ?? TEST_DATE,

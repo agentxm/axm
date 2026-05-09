@@ -21,13 +21,13 @@ import {
   resolveManifest,
   validateDeclaredManifestAlignment,
 } from "./manifest-policy.js";
-import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
+import type { Version } from "../version-constraints/version-constraints.js";
 
 export interface DeclaredPublishIdentity {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
 }
 
 export interface PublishArchiveInput {
@@ -51,7 +51,7 @@ export interface PublishInput {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly archiveBytes: Uint8Array;
   readonly archiveContentType: string;
   readonly manifest: ResolvedManifest;

@@ -26,13 +26,13 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { decodeExactSemverVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
-const INITIAL_VERSION = decodeExactSemverVersionSync("0.0.1");
+const INITIAL_VERSION = decodeVersionSync("0.0.1");
 
 export interface SubagentsNewHandlerArgs {
   readonly name: ExtensionName;

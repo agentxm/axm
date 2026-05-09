@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
+import { VersionSchema } from "../version-constraints/version-constraints.js";
 import type { ResolvedExtensionMap } from "./schema.js";
 
-const decodeExactSemverVersion = Schema.decodeUnknownEffect(ExactSemverVersionSchema);
+const decodeVersion = Schema.decodeUnknownEffect(VersionSchema);
 
 const makeResolvedVersionError = (field: string, value: string, cause: unknown): AppError =>
   makeAppError({
@@ -21,7 +21,7 @@ const makeResolvedVersionError = (field: string, value: string, cause: unknown):
   });
 
 export const validateExactResolvedVersion = (field: string, value: string) =>
-  decodeExactSemverVersion(value).pipe(
+  decodeVersion(value).pipe(
     Effect.asVoid,
     Effect.mapError((cause) => makeResolvedVersionError(field, value, cause)),
   );

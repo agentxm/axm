@@ -25,7 +25,7 @@ import type { Source } from "./types.js";
  *
  * - `names`: extension names to match (empty = all)
  * - `type`: findable extension type filter or `"*"` for all
- * - `versionConstraint`: optional version constraint for registry-backed lookups
+ * - `versionRange`: optional version constraint for registry-backed lookups
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -34,7 +34,7 @@ export interface FindOptions {
   readonly type: ExtensionType | "*";
   /** Registry owner filter (e.g. "@acme"). */
   readonly owner: Option.Option<Handle>;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------

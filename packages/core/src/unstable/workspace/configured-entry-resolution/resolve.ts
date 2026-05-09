@@ -8,7 +8,7 @@ import type { ExtensionPackRef } from "../../packs/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
-import type { VersionConstraint } from "../../version-constraints/version-constraints.js";
+import type { VersionRange } from "../../version-constraints/version-constraints.js";
 import { WorkspaceMutations } from "../service-interface.js";
 
 export const resolveConfiguredSkill = (name: string, source: string) =>
@@ -31,17 +31,17 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
         : resolvedSource.type === "registry"
           ? resolvedSource.owner
           : Option.none();
-    const versionConstraint =
+    const versionRange =
       resolvedSource.type === "registry" && parsedPattern?.type === "skills"
-        ? Option.fromUndefinedOr(parsedPattern.versionConstraint)
-        : Option.none<VersionConstraint>();
+        ? Option.fromUndefinedOr(parsedPattern.versionRange)
+        : Option.none<VersionRange>();
 
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "skill",
         owner: requestedOwner,
-        versionConstraint,
+        versionRange,
       })
       .pipe(
         Effect.map((entries) =>
@@ -78,7 +78,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
 
     return {
       ref,
-      versionConstraint: ref.refType === "registry" ? versionConstraint : Option.none(),
+      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
     };
   });
 
@@ -102,17 +102,17 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
         : resolvedSource.type === "registry"
           ? resolvedSource.owner
           : Option.none();
-    const versionConstraint =
+    const versionRange =
       resolvedSource.type === "registry" && parsedPattern?.type === "subagents"
-        ? Option.fromUndefinedOr(parsedPattern.versionConstraint)
-        : Option.none<VersionConstraint>();
+        ? Option.fromUndefinedOr(parsedPattern.versionRange)
+        : Option.none<VersionRange>();
 
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "subagent",
         owner: requestedOwner,
-        versionConstraint,
+        versionRange,
       })
       .pipe(
         Effect.map((entries) =>
@@ -149,7 +149,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
 
     return {
       ref,
-      versionConstraint: ref.refType === "registry" ? versionConstraint : Option.none(),
+      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
     };
   });
 
@@ -166,7 +166,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
     }
 
     const providers = yield* SourceHostProviders;
-    const versionConstraint = Option.fromUndefinedOr(parsed.versionConstraint);
+    const versionRange = Option.fromUndefinedOr(parsed.versionRange);
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -182,7 +182,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
         names: [name],
         type: "command",
         owner: Option.some(parsed.owner),
-        versionConstraint,
+        versionRange,
       })
       .pipe(
         Effect.map((entries) =>
@@ -219,7 +219,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
 
     return {
       ref,
-      versionConstraint,
+      versionRange,
     };
   });
 
@@ -238,7 +238,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
     }
 
     const providers = yield* SourceHostProviders;
-    const versionConstraint = Option.fromUndefinedOr(parsed.versionConstraint);
+    const versionRange = Option.fromUndefinedOr(parsed.versionRange);
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -254,7 +254,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
         names: [name],
         type: "mcp-server",
         owner: Option.some(parsed.owner),
-        versionConstraint,
+        versionRange,
       })
       .pipe(
         Effect.map((entries) =>
@@ -291,7 +291,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
 
     return {
       ref,
-      versionConstraint,
+      versionRange,
     };
   });
 
@@ -308,7 +308,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
     }
 
     const providers = yield* SourceHostProviders;
-    const versionConstraint = Option.fromUndefinedOr(parsed.versionConstraint);
+    const versionRange = Option.fromUndefinedOr(parsed.versionRange);
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -324,7 +324,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
         names: [name],
         type: "pack",
         owner: Option.some(parsed.owner),
-        versionConstraint,
+        versionRange,
       });
 
     const refs = yield* findWith(resolvedSource).pipe(
@@ -394,6 +394,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
 
     return {
       ref,
-      versionConstraint,
+      versionRange,
     };
   });

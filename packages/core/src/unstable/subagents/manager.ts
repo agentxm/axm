@@ -350,7 +350,7 @@ export const SubagentManagerLive = Layer.effect(
         ref,
       }: {
         readonly ref: SubagentExtensionRef;
-        readonly versionConstraint: Option.Option<string>;
+        readonly versionRange: Option.Option<string>;
       }) => {
         const lockEntry = buildSubagentLockEntry(ref, agents, new Date());
         if (lockEntry.type === "registry") {

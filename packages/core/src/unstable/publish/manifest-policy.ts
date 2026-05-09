@@ -27,10 +27,7 @@ import {
   SubagentManifestSchema,
   MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
 } from "../subagents/manifest-schema.js";
-import {
-  ExactSemverVersionSchema,
-  type ExactSemverVersion,
-} from "../version-constraints/version-constraints.js";
+import { VersionSchema, type Version } from "../version-constraints/version-constraints.js";
 import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
 
 export class ManifestError extends Data.TaggedError("ManifestError")<{
@@ -65,9 +62,7 @@ export const ManifestIdentitySchema = Schema.Struct({
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
   type: ExtensionTypeSchema.pipe(Schema.annotateKey({ messageMissingKey: "type is required" })),
   name: ExtensionNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "name is required" })),
-  version: ExactSemverVersionSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "version is required" }),
-  ),
+  version: VersionSchema.pipe(Schema.annotateKey({ messageMissingKey: "version is required" })),
 }).annotate({
   identifier: "ManifestIdentity",
   title: "Manifest Identity",
@@ -104,7 +99,7 @@ export interface DeclaredPublishIdentity {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
 }
 
 export interface ResolvedManifest {

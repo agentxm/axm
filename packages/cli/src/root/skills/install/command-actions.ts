@@ -21,7 +21,7 @@ import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -58,7 +58,7 @@ export interface InstallSkillSourceHandlerArgs {
  */
 export interface ParsedSkillInstallArgs {
   readonly source: Source;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly requestedSkills: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
   readonly all: boolean;
@@ -71,7 +71,7 @@ export interface SkillSourceRequest {
   readonly source: Source;
   readonly requestedSkills: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }
 
 // -----------------------------------------------------------------------------
@@ -286,10 +286,10 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 }
 
                 const parsedSource = parsedSourceOption.value;
-                const versionConstraint =
+                const versionRange =
                   parsedSource.pattern.pattern === "registry-pattern-input"
-                    ? parsedSource.pattern.versionConstraint
-                    : Option.none<VersionConstraint>();
+                    ? parsedSource.pattern.versionRange
+                    : Option.none<VersionRange>();
 
                 const resolutionProbes: RegistryLookupProbe[] = [];
                 const source = yield* resolveSkillInstallSource(parsedSource, {
@@ -303,7 +303,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
 
                 return {
                   source,
-                  versionConstraint,
+                  versionRange,
                   requestedSkills,
                   requestedOwner,
                   resolutionProbes,
@@ -314,7 +314,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             },
           );
 
-          const { source, versionConstraint, requestedSkills, requestedOwner, resolutionProbes } =
+          const { source, versionRange, requestedSkills, requestedOwner, resolutionProbes } =
             parsed;
 
           if (resolutionProbes.length > 0) {
@@ -325,7 +325,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
 
           return {
             source,
-            versionConstraint,
+            versionRange,
             requestedSkills,
             requestedOwner,
             all: args.all,
@@ -339,7 +339,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           source: parsed.source,
           requestedSkills: parsed.requestedSkills,
           requestedOwner: parsed.requestedOwner,
-          versionConstraint: parsed.versionConstraint,
+          versionRange: parsed.versionRange,
         },
       ]);
 
@@ -363,7 +363,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                     names: req.requestedSkills,
                     type: "skill" as const,
                     owner: req.requestedOwner,
-                    versionConstraint: req.versionConstraint,
+                    versionRange: req.versionRange,
                   })
                   .pipe(
                     Effect.map(
@@ -433,10 +433,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           return {
             skillsToInstall: selectedSkills.map((ref) => ({
               ref,
-              versionConstraint:
-                ref.refType === "registry"
-                  ? parsed.versionConstraint
-                  : Option.none<VersionConstraint>(),
+              versionRange:
+                ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
           } satisfies InstallSkillCommandIntent;
         }),
@@ -458,7 +456,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             steps: intent.skillsToInstall.map((entry) =>
               buildInstallOperation(skillMgr, {
                 ref: entry.ref,
-                versionConstraint: entry.versionConstraint,
+                versionRange: entry.versionRange,
               }),
             ),
           },

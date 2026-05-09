@@ -50,7 +50,7 @@ export interface InstallMcpServerHandlerArgs {
 export interface ParsedMcpServerInstallArgs {
   readonly owner: Handle;
   readonly serverName: ExtensionName;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
   readonly resolvedInput: string;
   readonly force: boolean;
 }
@@ -63,7 +63,7 @@ export interface McpServerInstallSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
   readonly serverName: ExtensionName;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -124,7 +124,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             return {
               owner: parsed.success.owner,
               serverName: parsed.success.name,
-              versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
+              versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
               resolvedInput: trimmed,
               force: false,
             };
@@ -154,7 +154,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           return {
             owner,
             serverName: parsed.success.name,
-            versionConstraint: Option.none<string>(),
+            versionRange: Option.none<string>(),
             resolvedInput: `${owner}/mcp-servers/${parsed.success.name}`,
             force: false,
           };
@@ -230,7 +230,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               source,
               owner: parsed.owner,
               serverName: parsed.serverName,
-              versionConstraint: parsed.versionConstraint,
+              versionRange: parsed.versionRange,
             },
           ];
         }),
@@ -249,7 +249,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                   names: [req.serverName],
                   type: "mcp-server",
                   owner: Option.some(req.owner),
-                  versionConstraint: req.versionConstraint,
+                  versionRange: req.versionRange,
                 })
                 .pipe(
                   Effect.mapError((error) =>
@@ -306,7 +306,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         }
         return {
           ref,
-          versionConstraint: parsed.versionConstraint,
+          versionRange: parsed.versionRange,
           force: parsed.force,
         };
       });
@@ -322,7 +322,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             steps: [
               buildInstallOperation(mcpServerMgr, {
                 ref: intent.ref,
-                versionConstraint: intent.versionConstraint,
+                versionRange: intent.versionRange,
               }),
             ],
           },

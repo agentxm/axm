@@ -11,7 +11,7 @@ import * as Schema from "effect/Schema";
 import { ExtensionTypeSchema } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
-import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
+import { VersionSchema } from "../version-constraints/version-constraints.js";
 import { PackageUrlSchema } from "../packaging/package-url.js";
 
 // =============================================================================
@@ -35,7 +35,7 @@ export const DiscoverExtensionEntrySchema = Schema.Struct({
   name: ExtensionNameSchema,
   owner: HandleSchema,
   description: Schema.String,
-  latestVersion: ExactSemverVersionSchema,
+  latestVersion: VersionSchema,
 }).annotate({
   identifier: "DiscoverExtensionEntry",
   title: "Discover Extension Entry",

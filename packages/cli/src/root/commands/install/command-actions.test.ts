@@ -99,7 +99,7 @@ describe("parseCommandInstallArgs", () => {
       );
       expect(result.owner).toBe("@acme");
       expect(result.commandName).toBe("my-cmd");
-      expect(Option.isNone(result.versionConstraint)).toBe(true);
+      expect(Option.isNone(result.versionRange)).toBe(true);
       expect(result.resolvedInput).toBe("@acme/commands/my-cmd");
     }),
   );
@@ -114,7 +114,7 @@ describe("parseCommandInstallArgs", () => {
       );
       expect(result.owner).toBe("@acme");
       expect(result.commandName).toBe("my-cmd");
-      expect(Option.getOrNull(result.versionConstraint)).toBe("^1.0.0");
+      expect(Option.getOrNull(result.versionRange)).toBe("^1.0.0");
     }),
   );
 
@@ -186,7 +186,7 @@ describe("buildPlan", () => {
       const plan = yield* runWithActions((actions) =>
         actions.buildPlan({
           ref: makeRegistryRef(),
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
           force: false,
         }),
       );
@@ -213,7 +213,7 @@ describe("buildPlan", () => {
         (actions) =>
           actions.buildPlan({
             ref: makeRegistryRef(),
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
             force: false,
           }),
         makeActionsLayer(workspace),

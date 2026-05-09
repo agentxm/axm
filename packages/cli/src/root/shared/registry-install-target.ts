@@ -9,17 +9,17 @@ import {
   toExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
 import {
-  VersionConstraintSchema,
-  type VersionConstraint,
+  VersionRangeSchema,
+  type VersionRange,
 } from "@agentxm/client-core/unstable/version-constraints";
 
 const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
-const decodeVersionConstraint = Schema.decodeUnknownResult(VersionConstraintSchema);
+const decodeVersionRange = Schema.decodeUnknownResult(VersionRangeSchema);
 
 export interface BareRegistryInstallTarget {
   readonly kind: "bare-name";
   readonly name: ExtensionName;
-  readonly versionConstraint?: VersionConstraint | undefined;
+  readonly versionRange?: VersionRange | undefined;
 }
 
 export interface QualifiedRegistryInstallTarget {
@@ -27,7 +27,7 @@ export interface QualifiedRegistryInstallTarget {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly versionConstraint?: VersionConstraint | undefined;
+  readonly versionRange?: VersionRange | undefined;
 }
 
 export type RegistryInstallTarget = BareRegistryInstallTarget | QualifiedRegistryInstallTarget;
@@ -42,7 +42,7 @@ export type RegistryInstallTargetParseError =
 export interface ParseRegistryInstallTargetOptions {
   readonly expectedType: ExtensionType;
   readonly allowBareName: boolean;
-  readonly allowBareVersionConstraint?: boolean | undefined;
+  readonly allowBareVersionRange?: boolean | undefined;
 }
 
 const parseBareName = (
@@ -57,7 +57,7 @@ const parseBareName = (
   const rawName = atIndex === -1 ? input : input.slice(0, atIndex);
   const rawConstraint = atIndex === -1 ? undefined : input.slice(atIndex + 1);
 
-  if (rawConstraint !== undefined && !options.allowBareVersionConstraint) {
+  if (rawConstraint !== undefined && !options.allowBareVersionRange) {
     return Result.fail({ kind: "not-registry" });
   }
 
@@ -77,7 +77,7 @@ const parseBareName = (
     return Result.fail({ kind: "invalid-version-constraint" });
   }
 
-  const decodedConstraint = decodeVersionConstraint(rawConstraint);
+  const decodedConstraint = decodeVersionRange(rawConstraint);
   if (Result.isFailure(decodedConstraint)) {
     return Result.fail({ kind: "invalid-version-constraint" });
   }
@@ -85,7 +85,7 @@ const parseBareName = (
   return Result.succeed({
     kind: "bare-name",
     name: decodedName.success,
-    versionConstraint: decodedConstraint.success,
+    versionRange: decodedConstraint.success,
   });
 };
 
@@ -114,7 +114,7 @@ export const parseRegistryInstallTarget = (
       owner: parsedRegistry.owner,
       type: parsedSingularType,
       name: parsedRegistry.name,
-      versionConstraint: parsedRegistry.versionConstraint,
+      versionRange: parsedRegistry.versionRange,
     });
   }
 

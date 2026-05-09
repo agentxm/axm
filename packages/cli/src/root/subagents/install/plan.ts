@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
 import type { Source } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -28,7 +28,7 @@ export interface BuildSubagentInstallPlanArgs {
   readonly selectedSubagents: ReadonlyArray<SubagentExtensionRef>;
   readonly source: Source;
   readonly force: boolean;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }
 
 /**
@@ -39,7 +39,7 @@ export const buildSubagentInstallPlan = ({
   selectedSubagents,
   source,
   force,
-  versionConstraint,
+  versionRange,
 }: BuildSubagentInstallPlanArgs) =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
@@ -78,7 +78,7 @@ export const buildSubagentInstallPlan = ({
         Effect.flatMap(() =>
           subagentMgr.upsertSettingsEntry({
             ref,
-            versionConstraint: ref.refType === "registry" ? versionConstraint : Option.none(),
+            versionRange: ref.refType === "registry" ? versionRange : Option.none(),
           }),
         ),
         Effect.map(

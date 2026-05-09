@@ -30,7 +30,7 @@ describe("registry-source", () => {
         owner: "@acme",
         type: "skills",
         name: "reviewer",
-        versionConstraint: "^1.2.3",
+        versionRange: "^1.2.3",
       });
     });
 
@@ -57,7 +57,7 @@ describe("registry-source", () => {
         owner: "@acme",
         type: "skills",
         name: "reviewer",
-        versionConstraint: "1.2.3",
+        versionRange: "1.2.3",
       });
     });
 
@@ -77,7 +77,7 @@ describe("registry-source", () => {
         expect(result.success.owner).toBe("@acme");
         expect(result.success.type).toBe("mcp-servers");
         expect(result.success.name).toBe("devtools");
-        expect(result.success.versionConstraint).toBe("^2.0.0");
+        expect(result.success.versionRange).toBe("^2.0.0");
       }
     });
 
@@ -95,7 +95,7 @@ describe("registry-source", () => {
       if (Result.isSuccess(result)) {
         expect(result.success.type).toBe("packs");
         expect(result.success.name).toBe("toolbox");
-        expect(result.success.versionConstraint).toBe("~1.0.0");
+        expect(result.success.versionRange).toBe("~1.0.0");
       }
     });
   });

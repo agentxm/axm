@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
 import { normalizeHandle } from "../../extensions/handle.js";
 import {
@@ -23,7 +23,7 @@ import {
 } from "./collectors.js";
 import { makeExtensionIndex, makeStubRegistryClient } from "./test-stubs.js";
 
-const v = decodeExactSemverVersionSync;
+const v = decodeVersionSync;
 const owner = normalizeHandle("@acme");
 
 describe("collectSkillCurrency", () => {

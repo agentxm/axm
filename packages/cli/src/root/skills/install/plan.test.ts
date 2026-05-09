@@ -12,7 +12,7 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
 import type { LocalSkillRef, RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
 import type { Source } from "@agentxm/client-core/unstable/sources";
@@ -24,7 +24,7 @@ import {
   exactVersion,
   extensionName,
   makeBaseWorkspaceMock,
-  versionConstraint,
+  versionRange,
 } from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillInstallPlan } from "./plan.js";
@@ -89,13 +89,13 @@ const runBuildPlan = ({
   selectedSkills,
   lockedSkills,
   force = false,
-  versionConstraint = Option.none<VersionConstraint>(),
+  versionRange = Option.none<VersionRange>(),
   source = testSource,
 }: {
   readonly selectedSkills: ReadonlyArray<LocalSkillRef | RegistrySkillRef>;
   readonly lockedSkills: SkillsLockMap;
   readonly force?: boolean;
-  readonly versionConstraint?: Option.Option<VersionConstraint>;
+  readonly versionRange?: Option.Option<VersionRange>;
   readonly source?: Source;
 }) => {
   const workspaceMock = makeBaseWorkspaceMock("/tmp/axm", {
@@ -115,7 +115,7 @@ const runBuildPlan = ({
     selectedSkills,
     source,
     force,
-    versionConstraint,
+    versionRange,
   }).pipe(
     Effect.provideService(WorkspaceMutations, workspaceMock),
     Effect.provideService(SourceHostProviders, sourceProvidersMock),
@@ -210,7 +210,7 @@ describe("buildSkillInstallPlan", () => {
       const plan = yield* runBuildPlan({
         selectedSkills: [makeLocalSkillRef("local-skill"), makeRegistrySkillRef("registry-skill")],
         lockedSkills: {},
-        versionConstraint: Option.some(versionConstraint("^1.2.3")),
+        versionRange: Option.some(versionRange("^1.2.3")),
       });
 
       const localStep = at(at(plan.jobs, 0).steps, 0);

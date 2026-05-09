@@ -111,7 +111,7 @@ export interface UninstallRetentionPolicy {
 
 export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly ref: TRef;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
   /** When true, skip writing to settings (e.g. pack dependency installs). */
   readonly skipSettings?: boolean;
 }
@@ -129,7 +129,7 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     if (!args.skipSettings) {
       yield* manager.upsertSettingsEntry({
         ref: args.ref,
-        versionConstraint: args.versionConstraint,
+        versionRange: args.versionRange,
       });
     }
     return {

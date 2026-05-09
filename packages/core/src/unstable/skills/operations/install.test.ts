@@ -53,7 +53,7 @@ const makeWorkspaceMock = (
   axmDir: string,
   overrides?: {
     setSkillFn?: (
-      args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionConstraint">,
+      args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
   },
@@ -94,8 +94,8 @@ const makeWorkspaceMock = (
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     setSkill: setSkillFn
-      ? ({ name, lockEntry, versionConstraint }: SetSkillArgs) =>
-          setSkillFn({ name, lockEntry, versionConstraint })
+      ? ({ name, lockEntry, versionRange }: SetSkillArgs) =>
+          setSkillFn({ name, lockEntry, versionRange })
       : ({ name, lockEntry }: Pick<SetSkillArgs, "name" | "lockEntry">) =>
           Effect.try({
             try: () => {
@@ -114,8 +114,8 @@ const makeWorkspaceMock = (
               }),
           }),
     setSkillLock: setSkillFn
-      ? ({ name, lockEntry, versionConstraint }: SetSkillArgs) =>
-          setSkillFn({ name, lockEntry, versionConstraint })
+      ? ({ name, lockEntry, versionRange }: SetSkillArgs) =>
+          setSkillFn({ name, lockEntry, versionRange })
       : ({ name, lockEntry }: Pick<SetSkillArgs, "name" | "lockEntry">) =>
           Effect.try({
             try: () => {
@@ -142,7 +142,7 @@ const withServices = (
   axmDir: string,
   wsOverrides?: {
     setSkillFn?: (
-      args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionConstraint">,
+      args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
   },
@@ -214,7 +214,7 @@ const makeOp = (
     owner?: string;
     location?: string;
     version?: Option.Option<string>;
-    versionConstraint?: Option.Option<string>;
+    versionRange?: Option.Option<string>;
     gitTreeSha?: Option.Option<string>;
     skipSettings?: boolean;
     strictUnknownAgents?: boolean;
@@ -277,7 +277,7 @@ const makeOp = (
     args: {
       ref,
       force: overrides.force ?? false,
-      versionConstraint: overrides.versionConstraint ?? Option.none(),
+      versionRange: overrides.versionRange ?? Option.none(),
       skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
       strictUnknownAgents: Option.fromUndefinedOr(overrides.strictUnknownAgents),
       existingInstalledAt: Option.none(),
@@ -401,7 +401,7 @@ describe("installSkill", () => {
           args: {
             ref,
             force: false,
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
             skipSettings: Option.none(),
             strictUnknownAgents: Option.none(),
             existingInstalledAt: Option.none(),
@@ -441,7 +441,7 @@ describe("installSkill", () => {
         expect(setSkillFn).toHaveBeenCalledWith({
           name: "my-skill",
           lockEntry: expect.any(Object),
-          versionConstraint: expect.anything(),
+          versionRange: expect.anything(),
         });
       }),
     );
@@ -772,7 +772,7 @@ describe("installSkill", () => {
             },
             owner: "@community",
             version: Option.some("1.2.3"),
-            versionConstraint: Option.some("^1.0.0"),
+            versionRange: Option.some("^1.0.0"),
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -792,7 +792,7 @@ describe("installSkill", () => {
     );
 
     // Range versions (e.g. "^1.0.0") are now statically prevented by the
-    // ExactSemverVersion branded type on RegistrySkillRef.version.
+    // Version branded type on RegistrySkillRef.version.
     // Schema-level rejection is tested in version-constraints.test.ts.
   });
 
@@ -877,7 +877,7 @@ describe("installSkill", () => {
   });
 
   describe("version constraint in settings", () => {
-    it.effect("passes no versionConstraint for registry source without constraint", () =>
+    it.effect("passes no versionRange for registry source without constraint", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
@@ -900,40 +900,11 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
         const args = at(setSkillFn.mock.calls, 0)[0];
-        expect(Option.isNone(args.versionConstraint)).toBe(true);
+        expect(Option.isNone(args.versionRange)).toBe(true);
       }),
     );
 
-    it.effect("passes caret versionConstraint for @acme/tool@^1.0.0", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@acme", "tool");
-        const setSkillFn = vi.fn(
-          (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
-        );
-
-        const result = yield* installSkill(
-          makeOp({
-            source: {
-              type: "registry",
-              location: new URL("file:///tmp/reg"),
-              owner: Option.none(),
-            },
-            owner: "@acme",
-            skillName: "tool",
-            version: Option.some("1.2.3"),
-            versionConstraint: Option.some("^1.0.0"),
-          }),
-        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
-
-        expect(result.result).toBe("success");
-        expect(setSkillFn).toHaveBeenCalledOnce();
-        const args = at(setSkillFn.mock.calls, 0)[0];
-        expect(Option.getOrNull(args.versionConstraint)).toBe("^1.0.0");
-      }),
-    );
-
-    it.effect("passes exact versionConstraint for @acme/tool@1.2.3", () =>
+    it.effect("passes caret versionRange for @acme/tool@^1.0.0", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
@@ -951,18 +922,47 @@ describe("installSkill", () => {
             owner: "@acme",
             skillName: "tool",
             version: Option.some("1.2.3"),
-            versionConstraint: Option.some("1.2.3"),
+            versionRange: Option.some("^1.0.0"),
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
         const args = at(setSkillFn.mock.calls, 0)[0];
-        expect(Option.getOrNull(args.versionConstraint)).toBe("1.2.3");
+        expect(Option.getOrNull(args.versionRange)).toBe("^1.0.0");
       }),
     );
 
-    it.effect("passes no versionConstraint for local source", () =>
+    it.effect("passes exact versionRange for @acme/tool@1.2.3", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@acme", "tool");
+        const setSkillFn = vi.fn(
+          (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
+        );
+
+        const result = yield* installSkill(
+          makeOp({
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              owner: Option.none(),
+            },
+            owner: "@acme",
+            skillName: "tool",
+            version: Option.some("1.2.3"),
+            versionRange: Option.some("1.2.3"),
+          }),
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+
+        expect(result.result).toBe("success");
+        expect(setSkillFn).toHaveBeenCalledOnce();
+        const args = at(setSkillFn.mock.calls, 0)[0];
+        expect(Option.getOrNull(args.versionRange)).toBe("1.2.3");
+      }),
+    );
+
+    it.effect("passes no versionRange for local source", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -977,7 +977,7 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
         const args = at(setSkillFn.mock.calls, 0)[0];
-        expect(Option.isNone(args.versionConstraint)).toBe(true);
+        expect(Option.isNone(args.versionRange)).toBe(true);
       }),
     );
   });

@@ -115,7 +115,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
                 names: [name],
                 type: "command",
                 owner: Option.none(),
-                versionConstraint: Option.none(),
+                versionRange: Option.none(),
               })
               .pipe(
                 Effect.map((refs) =>
@@ -170,7 +170,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
       args: {
         ref: entry.ref,
         force: args.force,
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
         skipSettings: Option.none(),
       },
     }).pipe(

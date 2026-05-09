@@ -10,10 +10,7 @@ import * as Result from "effect/Result";
 import { AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { PackageUrlSchema } from "../packaging/package-url.js";
-import {
-  ExactSemverVersionSchema,
-  VersionConstraintSchema,
-} from "../version-constraints/version-constraints.js";
+import { VersionSchema, VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
 /**
  * Author information for a manifest.
@@ -310,7 +307,7 @@ export type FullyQualifiedName = Schema.Schema.Type<typeof FullyQualifiedNameSch
  *
  * Accepts `@owner/type/name` or `@owner/type/name@constraint` where
  * the FQN portion validates through FullyQualifiedNameSchema and the
- * optional constraint validates as a semver VersionConstraint.
+ * optional constraint validates as a semver VersionRange.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -331,8 +328,7 @@ export const FullyQualifiedRefSchema = Schema.String.pipe(
 
       // Validate constraint portion if present
       if (constraintPart !== undefined) {
-        const constraintResult =
-          Schema.decodeUnknownResult(VersionConstraintSchema)(constraintPart);
+        const constraintResult = Schema.decodeUnknownResult(VersionRangeSchema)(constraintPart);
         if (Result.isFailure(constraintResult)) {
           return `Expected valid version constraint after @, got: ${constraintPart}`;
         }
@@ -364,7 +360,7 @@ export type FullyQualifiedRef = Schema.Schema.Type<typeof FullyQualifiedRefSchem
  */
 export const ExtensionDependencyConstraintMapSchema = Schema.Record(
   FullyQualifiedNameSchema,
-  VersionConstraintSchema,
+  VersionRangeSchema,
 );
 
 /**
@@ -384,9 +380,7 @@ export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
  */
 export const CommonManifestBaseFields = {
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
-  version: ExactSemverVersionSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "version is required" }),
-  ),
+  version: VersionSchema.pipe(Schema.annotateKey({ messageMissingKey: "version is required" })),
   description: Schema.optional(Schema.String),
   keywords: Schema.optional(Schema.Array(Schema.String)),
   repository: Schema.optional(Schema.String),

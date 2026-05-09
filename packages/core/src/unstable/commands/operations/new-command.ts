@@ -28,7 +28,7 @@ import {
   type CommandManifest,
 } from "../manifest-schema.js";
 import { commandContentFilename } from "../paths.js";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { parseCommandMd } from "../command-content.js";
 import { renderToAgents } from "./shared-command-helpers.js";
@@ -73,7 +73,7 @@ description: ${description || "A new command"}
 Describe what this command does and how to use it.
 `;
 
-const INITIAL_COMMAND_VERSION = decodeExactSemverVersionSync("0.1.0");
+const INITIAL_COMMAND_VERSION = decodeVersionSync("0.1.0");
 
 // -----------------------------------------------------------------------------
 // Public API

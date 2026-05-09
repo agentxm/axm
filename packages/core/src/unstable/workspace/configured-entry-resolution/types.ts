@@ -5,7 +5,7 @@ import type { McpServerExtensionRef } from "../../mcp-servers/index.js";
 import type { ExtensionPackRef } from "../../packs/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
-import type { VersionConstraint } from "../../version-constraints/version-constraints.js";
+import type { VersionRange } from "../../version-constraints/version-constraints.js";
 
 export type ConfiguredEntryFailureReason =
   | "entry-malformed"
@@ -16,7 +16,7 @@ export type ConfiguredEntryFailureReason =
 
 export interface ResolvedConfiguredEntry<TRef> {
   readonly ref: TRef;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }
 
 export type ResolvedConfiguredSkill = ResolvedConfiguredEntry<SkillExtensionRef>;

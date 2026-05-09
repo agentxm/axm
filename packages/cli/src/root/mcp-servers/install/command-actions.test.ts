@@ -77,7 +77,7 @@ describe("parseMcpServerInstallArgs", () => {
       );
       expect(result.owner).toBe("@acme");
       expect(result.serverName).toBe("my-server");
-      expect(Option.isNone(result.versionConstraint)).toBe(true);
+      expect(Option.isNone(result.versionRange)).toBe(true);
       expect(result.resolvedInput).toBe("@acme/mcp-servers/my-server");
     }),
   );
@@ -91,7 +91,7 @@ describe("parseMcpServerInstallArgs", () => {
       );
       expect(result.owner).toBe("@acme");
       expect(result.serverName).toBe("my-server");
-      expect(Option.getOrNull(result.versionConstraint)).toBe("^2.0.0");
+      expect(Option.getOrNull(result.versionRange)).toBe("^2.0.0");
     }),
   );
 

@@ -150,7 +150,7 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<void, AppError, never>;
   readonly upsertSettingsEntry: (args: {
     readonly ref: TRef;
-    readonly versionConstraint: Option.Option<string>;
+    readonly versionRange: Option.Option<string>;
   }) => Effect.Effect<void, AppError, never>;
   readonly removeSettingsEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
@@ -237,7 +237,7 @@ export interface SetSkillArgs {
   readonly name: string;
   readonly lockEntry: SkillLockEntry;
   /** Version constraint from the original source (e.g. "^1.0.0"). Preserved in settings, not in lockfile. */
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
 }
 
 /**
@@ -246,7 +246,7 @@ export interface SetSkillArgs {
  */
 export type SetExtensionPackArgs = RegistryExtensionPackLockEntryArgs & {
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
 };
 
 /**

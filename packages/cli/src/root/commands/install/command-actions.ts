@@ -25,7 +25,7 @@ import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { ExtensionName, Handle } from "@agentxm/client-core/unstable/extensions";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
@@ -66,7 +66,7 @@ export interface InstallCommandHandlerArgs {
 export interface ParsedCommandInstallArgs {
   readonly owner: Handle;
   readonly commandName: ExtensionName;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly resolvedInput: string;
   readonly force: boolean;
 }
@@ -79,7 +79,7 @@ export interface CommandInstallSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
   readonly commandName: ExtensionName;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }
 
 // -----------------------------------------------------------------------------
@@ -141,7 +141,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               return {
                 owner: parsed.success.owner,
                 commandName: parsed.success.name,
-                versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
+                versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
                 resolvedInput: trimmed,
                 force: false,
               };
@@ -163,7 +163,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 return {
                   owner: configuredOwner.value,
                   commandName: parsed.success.name,
-                  versionConstraint: Option.none<VersionConstraint>(),
+                  versionRange: Option.none<VersionRange>(),
                   resolvedInput: `${configuredOwner.value}/commands/${parsed.success.name}`,
                   force: false,
                 };
@@ -187,7 +187,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             return {
               owner,
               commandName: parsed.success.name,
-              versionConstraint: Option.none<VersionConstraint>(),
+              versionRange: Option.none<VersionRange>(),
               resolvedInput: resolved.fqn,
               force: false,
             };
@@ -264,7 +264,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               source,
               owner: parsed.owner,
               commandName: parsed.commandName,
-              versionConstraint: parsed.versionConstraint,
+              versionRange: parsed.versionRange,
             },
           ];
         }),
@@ -283,7 +283,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                   names: [req.commandName],
                   type: "command",
                   owner: Option.some(req.owner),
-                  versionConstraint: req.versionConstraint,
+                  versionRange: req.versionRange,
                 })
                 .pipe(
                   Effect.mapError((error) =>
@@ -338,7 +338,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         }
         return {
           ref,
-          versionConstraint: parsed.versionConstraint,
+          versionRange: parsed.versionRange,
           force: parsed.force,
         };
       });
@@ -388,7 +388,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               steps: [
                 buildInstallOperation(commandMgr, {
                   ref: intent.ref,
-                  versionConstraint: intent.versionConstraint,
+                  versionRange: intent.versionRange,
                 }),
               ],
             },

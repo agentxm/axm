@@ -148,7 +148,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     options: {
       readonly subagentNames: ReadonlyArray<string>;
       readonly owner: Option.Option<Handle>;
-      readonly versionConstraint: Option.Option<string>;
+      readonly versionRange: Option.Option<string>;
     },
   ) =>
     sources
@@ -156,7 +156,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
         names: options.subagentNames,
         type: "subagent",
         owner: options.owner,
-        versionConstraint: options.versionConstraint,
+        versionRange: options.versionRange,
       })
       .pipe(
         Effect.map((refs) =>
@@ -187,7 +187,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
             const namedRefs = yield* findSubagentRefs(source, {
               subagentNames: [name],
               owner: requestedOwner,
-              versionConstraint: Option.none(),
+              versionRange: Option.none(),
             });
             const subagentRef = namedRefs.find((r) => r.subagent.name === name);
 
@@ -232,7 +232,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const makeRunClosure: MakeRunClosure = (op) => {
     const step = buildInstallOperation(subagentMgr, {
       ref: op.ref,
-      versionConstraint: Option.none(),
+      versionRange: Option.none(),
     });
     if (step.readiness === "error") {
       return Effect.fail(

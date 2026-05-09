@@ -51,7 +51,7 @@ const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 export type InstallCommandOperationArgs = {
   readonly ref: CommandExtensionRef;
   readonly force: boolean;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
 };

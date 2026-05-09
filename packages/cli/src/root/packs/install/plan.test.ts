@@ -19,7 +19,7 @@ import {
   type ExtensionDependencyConstraintMap,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Lockfile } from "@agentxm/client-core/unstable/lockfile";
-import type { ExactSemverVersion } from "@agentxm/client-core/unstable/version-constraints";
+import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
 import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcp-servers";
@@ -50,7 +50,7 @@ const makePackRef = (
     commands?: ExtensionDependencyConstraintMap;
     mcpServers?: ExtensionDependencyConstraintMap;
     subagents?: ExtensionDependencyConstraintMap;
-    version?: ExactSemverVersion;
+    version?: Version;
   },
 ): RegistryExtensionPackRef => ({
   type: "pack",
@@ -90,7 +90,7 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
       location: `file:///tmp/skills/${name}`,
     },
     force: false,
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     skipSettings: Option.none(),
     strictUnknownAgents: Option.none(),
     existingInstalledAt: Option.none(),
@@ -132,7 +132,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       compatiblePackages: [],
     },
     force: false,
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     skipSettings: Option.some(true),
   },
 });
@@ -156,7 +156,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       compatiblePackages: [],
     },
     force: false,
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     skipSettings: Option.some(true),
   },
 });
@@ -287,7 +287,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       expect(plan.jobs).toHaveLength(1);
@@ -307,7 +307,7 @@ describe("buildInstallPlan", () => {
         lockfile: lockfileWithPacks("my-pack"),
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -326,7 +326,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       expect(plan.jobs).toHaveLength(1);
@@ -345,7 +345,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       expect(getStep(getSteps(plan), 0).label).toBe("pack-a");
@@ -362,7 +362,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack(s)",
         description: Option.some("Install packs from registry"),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       expect(plan.name).toBe("Install pack(s)");
@@ -380,7 +380,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       expect(plan.jobs).toHaveLength(1);
@@ -402,7 +402,7 @@ describe("buildInstallPlan", () => {
         lockfile: lockfileNoPacks,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -425,7 +425,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -445,7 +445,7 @@ describe("buildInstallPlan", () => {
         lockfile: lockfileWithSkills("my-skill"),
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -463,7 +463,7 @@ describe("buildInstallPlan", () => {
         lockfile: lockfileWithSkills("skill-a"),
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -483,7 +483,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -502,7 +502,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -538,7 +538,7 @@ describe("buildInstallPlan", () => {
         lockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -563,7 +563,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -584,7 +584,7 @@ describe("buildInstallPlan", () => {
         lockfile: lockfileWithCommands("my-cmd"),
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -602,7 +602,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -625,7 +625,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -646,7 +646,7 @@ describe("buildInstallPlan", () => {
         lockfile: lockfileWithMcpServers("my-server"),
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -668,7 +668,7 @@ describe("buildInstallPlan", () => {
         lockfile: emptyLockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);
@@ -716,7 +716,7 @@ describe("buildInstallPlan", () => {
         lockfile,
         name: "Install pack",
         description: Option.none(),
-        versionConstraint: Option.none(),
+        versionRange: Option.none(),
       });
 
       const steps = getSteps(plan);

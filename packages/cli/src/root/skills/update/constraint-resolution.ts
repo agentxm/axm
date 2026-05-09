@@ -11,9 +11,9 @@
 
 import * as Option from "effect/Option";
 import {
-  decodeExactSemverVersionSync,
-  decodeVersionConstraintSync,
-  satisfiesConstraint,
+  decodeVersionSync,
+  decodeVersionRangeSync,
+  versionSatisfiesRange,
 } from "@agentxm/client-core/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
@@ -83,9 +83,9 @@ export const resolveConstrainedVersion = (
 
   // Case 1: User has explicit constraint
   if (!isWildcard) {
-    const userConstraint = decodeVersionConstraintSync(userConstraintStr);
+    const userConstraint = decodeVersionRangeSync(userConstraintStr);
     const matched = versions.find((v) =>
-      satisfiesConstraint(decodeExactSemverVersionSync(v), userConstraint),
+      versionSatisfiesRange(decodeVersionSync(v), userConstraint),
     );
     if (matched === undefined) return Option.none();
     return Option.some({ resolvedVersion: matched, warnings: [] });
@@ -100,10 +100,7 @@ export const resolveConstrainedVersion = (
   // Try each version (newest first) against all pack constraints
   for (const version of versions) {
     const allSatisfied = constraints.packConstraints.every((pc) =>
-      satisfiesConstraint(
-        decodeExactSemverVersionSync(version),
-        decodeVersionConstraintSync(pc.constraint),
-      ),
+      versionSatisfiesRange(decodeVersionSync(version), decodeVersionRangeSync(pc.constraint)),
     );
     if (allSatisfied) {
       return Option.some({ resolvedVersion: version, warnings: [] });
@@ -114,10 +111,7 @@ export const resolveConstrainedVersion = (
   const warnings = constraints.packConstraints
     .filter(
       (pc) =>
-        !satisfiesConstraint(
-          decodeExactSemverVersionSync(newest),
-          decodeVersionConstraintSync(pc.constraint),
-        ),
+        !versionSatisfiesRange(decodeVersionSync(newest), decodeVersionRangeSync(pc.constraint)),
     )
     .map((pc) => `${skillName} held at ${newest} by pack "${pc.packName}" (${pc.constraint})`);
 
@@ -157,9 +151,9 @@ export const detectHoldbackWarnings = (
   return constraints.packConstraints
     .filter(
       (pc) =>
-        !satisfiesConstraint(
-          decodeExactSemverVersionSync(latestVersion),
-          decodeVersionConstraintSync(pc.constraint),
+        !versionSatisfiesRange(
+          decodeVersionSync(latestVersion),
+          decodeVersionRangeSync(pc.constraint),
         ),
     )
     .map(

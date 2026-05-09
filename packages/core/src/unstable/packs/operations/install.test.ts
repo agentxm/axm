@@ -54,7 +54,7 @@ const makeOp = (): InstallExtensionPackOperation => ({
     resolvedCommands: {},
     resolvedMcpServers: {},
     resolvedSubagents: {},
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     ref: makePackRef(),
   },
 });

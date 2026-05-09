@@ -51,7 +51,7 @@ const defaultFindOptions: FindOptions = {
   names: [],
   type: "skill",
   owner: Option.none(),
-  versionConstraint: Option.none(),
+  versionRange: Option.none(),
 };
 
 const makeRegistryDir = (): string => mkdtempSync(nodePath.join(tmpdir(), "test-registry-"));

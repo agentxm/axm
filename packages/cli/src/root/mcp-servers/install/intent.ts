@@ -14,6 +14,6 @@ import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcp-se
  */
 export interface InstallMcpServerCommandIntent {
   readonly ref: McpServerExtensionRef;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionRange: Option.Option<string>;
   readonly force: boolean;
 }

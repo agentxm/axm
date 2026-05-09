@@ -53,7 +53,7 @@ const harness = (params: {
 
 const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // Run the lockfile through the canonical decoder so branded fields
-  // (HandleSchema, ExtensionNameSchema, ExactSemverVersionSchema,
+  // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // FullyQualifiedNameSchema) carry the correct brands.
   decodedLockfile({
     lockfileVersion: 1,

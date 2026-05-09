@@ -114,7 +114,7 @@ export const unpackExtensionPack: OperationHandler<
               installedAt: now,
               updatedAt: now,
             } satisfies SkillLockEntry,
-            versionConstraint: Option.none(),
+            versionRange: Option.none(),
           });
         }),
       { concurrency: 1 },

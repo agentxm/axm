@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import type { ExtensionIndex } from "../../registry/schema.js";
 import type { RegistryClient } from "../../registry/client.js";
 
-const v = decodeExactSemverVersionSync;
+const v = decodeVersionSync;
 
 export const makeExtensionIndex = (
   name: string,

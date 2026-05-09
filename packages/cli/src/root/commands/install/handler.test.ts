@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import type { RegistryCommandRef } from "@agentxm/client-core/unstable/commands";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleInstallCommand } from "./handler.js";
@@ -44,7 +44,7 @@ const commandRef: RegistryCommandRef = {
 const parsedArgs: ParsedCommandInstallArgs = {
   owner: handle("@acme"),
   commandName: extensionName("my-cmd"),
-  versionConstraint: Option.none<VersionConstraint>(),
+  versionRange: Option.none<VersionRange>(),
   resolvedInput: "@acme/commands/my-cmd",
   force: false,
 };
@@ -57,12 +57,12 @@ const sourceRequest: CommandInstallSourceRequest = {
   },
   owner: handle("@acme"),
   commandName: extensionName("my-cmd"),
-  versionConstraint: Option.none<VersionConstraint>(),
+  versionRange: Option.none<VersionRange>(),
 };
 
 const installIntent: InstallCommandCommandIntent = {
   ref: commandRef,
-  versionConstraint: Option.none<VersionConstraint>(),
+  versionRange: Option.none<VersionRange>(),
   force: false,
 };
 

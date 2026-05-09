@@ -8,13 +8,13 @@
 
 import type * as Option from "effect/Option";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 
 /**
  * Intent for installing a command extension.
  */
 export interface InstallCommandCommandIntent {
   readonly ref: CommandExtensionRef;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly force: boolean;
 }

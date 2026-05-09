@@ -20,7 +20,7 @@ import {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,
 } from "../../lockfile/index.js";
-import type { ExactSemverVersion } from "../../version-constraints/version-constraints.js";
+import type { Version } from "../../version-constraints/version-constraints.js";
 import type { ExtensionPackRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
@@ -49,7 +49,7 @@ export interface InstallExtensionPackOperationArgs {
   /** Pack owner (e.g., "@acme") */
   readonly owner: Handle;
   /** Exact resolved version */
-  readonly resolvedVersion: ExactSemverVersion;
+  readonly resolvedVersion: Version;
   /** SRI integrity string */
   readonly integrity: string;
   /** Registry source name */
@@ -63,7 +63,7 @@ export interface InstallExtensionPackOperationArgs {
   /** Resolved subagent FQNs to exact versions */
   readonly resolvedSubagents: ResolvedExtensionMap;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
-  readonly versionConstraint: Option<string>;
+  readonly versionRange: Option<string>;
   /** Pack extension ref for fetching the archive. */
   readonly ref: ExtensionPackRef;
 }
@@ -230,7 +230,7 @@ export const installExtensionPack: OperationHandler<
         resolvedCommands: op.args.resolvedCommands,
         resolvedMcpServers: op.args.resolvedMcpServers,
         resolvedSubagents: op.args.resolvedSubagents,
-        versionConstraint: op.args.versionConstraint,
+        versionRange: op.args.versionRange,
       })
       .pipe(
         Effect.catch((e) => renderer.warn(`Extension pack metadata update failed: ${String(e)}`)),

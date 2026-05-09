@@ -122,9 +122,9 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
  */
 const toRegistryManifest = (
   index: ExtensionIndex,
-  versionConstraint: Option.Option<string>,
+  versionRange: Option.Option<string>,
 ): Option.Option<RegistryExtensionManifest> => {
-  const selected = resolveVersionEntry(index.versions, versionConstraint);
+  const selected = resolveVersionEntry(index.versions, versionRange);
   if (Option.isNone(selected)) return Option.none();
 
   const latest = selected.value;

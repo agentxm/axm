@@ -10,8 +10,8 @@
 import * as Option from "effect/Option";
 import * as semver from "semver";
 
-import type { ExactSemverVersion } from "../../version-constraints/version-constraints.js";
-import { resolveVersionWithConstraint } from "../../version-constraints/version-constraints.js";
+import type { Version } from "../../version-constraints/version-constraints.js";
+import { resolveVersionInRange } from "../../version-constraints/version-constraints.js";
 import { selectVersion } from "../../registry/utils.js";
 import type { ExtensionIndex } from "../../registry/schema.js";
 
@@ -35,11 +35,11 @@ export type CurrencyStatus = "current" | "update-available" | "major-update-avai
  */
 export interface CurrencyResult {
   readonly status: CurrencyStatus;
-  readonly installedVersion: ExactSemverVersion;
+  readonly installedVersion: Version;
   /** Latest version satisfying the declared constraint. None when no version satisfies. */
-  readonly latestMatching: Option.Option<ExactSemverVersion>;
+  readonly latestMatching: Option.Option<Version>;
   /** Absolute latest version in the index (regardless of constraint). */
-  readonly latestAvailable: ExactSemverVersion;
+  readonly latestAvailable: Version;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ export interface CurrencyResult {
  * @param index - Extension index containing all available versions (newest-first).
  */
 export const checkCurrency = (
-  installedVersion: ExactSemverVersion,
+  installedVersion: Version,
   constraint: Option.Option<string>,
   index: ExtensionIndex,
 ): CurrencyResult => {
@@ -65,7 +65,7 @@ export const checkCurrency = (
     onSome: (entry) => entry.version,
   });
 
-  const matchingEntry = resolveVersionWithConstraint(index.versions, constraint);
+  const matchingEntry = resolveVersionInRange(index.versions, constraint);
   const latestMatching = Option.map(matchingEntry, (entry) => entry.version);
 
   const status = determineStatus(installedVersion, latestMatching, latestAvailable);
@@ -74,9 +74,9 @@ export const checkCurrency = (
 };
 
 const determineStatus = (
-  installed: ExactSemverVersion,
-  latestMatching: Option.Option<ExactSemverVersion>,
-  latestAvailable: ExactSemverVersion,
+  installed: Version,
+  latestMatching: Option.Option<Version>,
+  latestAvailable: Version,
 ): CurrencyStatus => {
   const installedMajor = semver.major(installed);
   const availableMajor = semver.major(latestAvailable);

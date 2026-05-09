@@ -6,7 +6,7 @@
 
 import type * as Option from "effect/Option";
 import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 
 /**
  * Describes the resolved intent to install one or more subagents.
@@ -17,6 +17,6 @@ import type { VersionConstraint } from "@agentxm/client-core/unstable/version-co
 export type InstallSubagentCommandIntent = {
   readonly subagentsToInstall: ReadonlyArray<{
     readonly ref: SubagentExtensionRef;
-    readonly versionConstraint: Option.Option<VersionConstraint>;
+    readonly versionRange: Option.Option<VersionRange>;
   }>;
 };

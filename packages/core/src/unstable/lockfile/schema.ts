@@ -16,7 +16,7 @@ import {
   SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
-import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
+import { VersionSchema } from "../version-constraints/version-constraints.js";
 import { SourceRefSchema, SourceSegmentSchema, SourceSubPathSchema } from "../sources/types.js";
 
 // =============================================================================
@@ -109,7 +109,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       type: Schema.Literal("registry"),
       owner: HandleSchema,
       name: ExtensionNameSchema,
-      resolvedVersion: ExactSemverVersionSchema,
+      resolvedVersion: VersionSchema,
       integrity: Schema.String,
       sourceName: Schema.String,
       ...extraFields,
@@ -310,10 +310,7 @@ export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchem
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-export const ResolvedExtensionMapSchema = Schema.Record(
-  FullyQualifiedNameSchema,
-  ExactSemverVersionSchema,
-);
+export const ResolvedExtensionMapSchema = Schema.Record(FullyQualifiedNameSchema, VersionSchema);
 
 /**
  * Inferred type for resolved extension maps.
@@ -331,7 +328,7 @@ export const RegistryExtensionPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   owner: HandleSchema,
   name: ExtensionNameSchema,
-  resolvedVersion: ExactSemverVersionSchema,
+  resolvedVersion: VersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
   installedAt: DateFromIsoDateTimeStringSchema,

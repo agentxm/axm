@@ -160,7 +160,7 @@ describe("SubagentManager", () => {
         const manager = yield* SubagentManager;
         yield* manager.upsertSettingsEntry({
           ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
         });
         expect(setSubagentSpy).toHaveBeenCalledOnce();
       }).pipe(

@@ -9,7 +9,7 @@ import {
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
-import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
+import { VersionSchema } from "../version-constraints/version-constraints.js";
 
 describe("lockfile schema", () => {
   describe("DateFromIsoDateTimeStringSchema", () => {
@@ -43,19 +43,17 @@ describe("lockfile schema", () => {
     });
   });
 
-  describe("ExactSemverVersion", () => {
+  describe("Version", () => {
     it("accepts exact semver versions", () => {
-      expect(Schema.decodeUnknownSync(ExactSemverVersionSchema)("1.2.3")).toBe("1.2.3");
-      expect(Schema.decodeUnknownSync(ExactSemverVersionSchema)("1.2.3-beta.1")).toBe(
-        "1.2.3-beta.1",
-      );
+      expect(Schema.decodeUnknownSync(VersionSchema)("1.2.3")).toBe("1.2.3");
+      expect(Schema.decodeUnknownSync(VersionSchema)("1.2.3-beta.1")).toBe("1.2.3-beta.1");
     });
 
     it("rejects semver ranges", () => {
-      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)("^1.2.3")).toThrow();
-      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)("~1.2.3")).toThrow();
-      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)(">=1.0.0 <2.0.0")).toThrow();
-      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)("*")).toThrow();
+      expect(() => Schema.decodeUnknownSync(VersionSchema)("^1.2.3")).toThrow();
+      expect(() => Schema.decodeUnknownSync(VersionSchema)("~1.2.3")).toThrow();
+      expect(() => Schema.decodeUnknownSync(VersionSchema)(">=1.0.0 <2.0.0")).toThrow();
+      expect(() => Schema.decodeUnknownSync(VersionSchema)("*")).toThrow();
     });
   });
 

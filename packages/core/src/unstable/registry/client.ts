@@ -29,10 +29,7 @@ import type { DiscoverExtensionsResponse } from "./discover-schema.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
-import type {
-  ExactSemverVersion,
-  VersionConstraint,
-} from "../version-constraints/version-constraints.js";
+import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Search Options
@@ -71,7 +68,7 @@ export interface GetExtensionPackageArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: Option.Option<ExactSemverVersion | VersionConstraint>;
+  readonly version: Option.Option<Version | VersionRange>;
 }
 
 // -----------------------------------------------------------------------------
@@ -109,7 +106,7 @@ export interface PublishExtensionArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly archive: Uint8Array;
   readonly metadata: VersionEntry;
 }
@@ -221,7 +218,7 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly license: Option.Option<string>;
   readonly authors: ReadonlyArray<Author>;
   readonly dependencies: ExtensionDependencyConstraintMap;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly integrity: string;
   /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
   readonly compatiblePackages: ReadonlyArray<PackageUrlParts>;

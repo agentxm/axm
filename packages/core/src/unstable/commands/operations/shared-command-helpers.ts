@@ -25,7 +25,7 @@ import type { CodingAgent, CommandSyncOutcome } from "../../agents/coding-agent.
 import { CodingAgentRepository } from "../../agents/index.js";
 import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { decodeExtensionNameSync, decodeHandleSync } from "../../extensions/index.js";
-import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // readCommandContent
@@ -167,7 +167,7 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
       type: "command",
       name: decodeExtensionNameSync(args.commandName),
       owner: decodeHandleSync(args.owner),
-      version: decodeExactSemverVersionSync("0.0.0"),
+      version: decodeVersionSync("0.0.0"),
     };
 
     yield* warnOnOrphanOverrides(

@@ -23,7 +23,7 @@ import type {
   DiscoverExtensionEntry,
   DiscoverExtensionsResponse,
 } from "../registry/discover-schema.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { detectPackages } from "../packaging/detect.js";
 import { packageDetectors, packageReaders } from "../packaging/index.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
@@ -218,7 +218,7 @@ const buildLocalOnlyResults = (
   localRecs: HashMap.HashMap<string, ReadonlyArray<FullyQualifiedRef>>,
 ): ReadonlyArray<DiscoverPackageResult> => {
   const results: Array<DiscoverPackageResult> = [];
-  const fallbackVersion = decodeExactSemverVersionSync("0.0.0");
+  const fallbackVersion = decodeVersionSync("0.0.0");
 
   for (const pkg of detected) {
     const refsOpt = HashMap.get(localRecs, pkg.purlString);

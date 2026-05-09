@@ -17,7 +17,7 @@ import {
 import { ExtensionNameSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { PackageUrlSchema } from "../packaging/package-url.js";
-import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
+import { VersionSchema } from "../version-constraints/version-constraints.js";
 
 // =============================================================================
 // Version Entry
@@ -35,7 +35,7 @@ import { ExactSemverVersionSchema } from "../version-constraints/version-constra
  * @experimental This API is unstable and may change without notice.
  */
 export const VersionEntrySchema = Schema.Struct({
-  version: ExactSemverVersionSchema,
+  version: VersionSchema,
   published: IsoDateTimeStringSchema,
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
   compatiblePackages: Schema.optional(Schema.Array(PackageUrlSchema)),

@@ -29,7 +29,7 @@ import {
   property,
   recordEntry,
   stringProperty,
-  versionConstraint,
+  versionRange,
 } from "../test-helpers.js";
 import { layer as workspaceLayer } from "./service.js";
 import {
@@ -680,7 +680,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setSkill({
           name: "code-review",
           lockEntry: makeSampleLockEntry(),
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
         });
 
         // Verify settings on disk — source derived from lock entry
@@ -706,7 +706,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setSkill({
           name: "code-review",
           lockEntry: makeSampleLockEntry(),
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
         });
         const after = new Date();
 
@@ -748,7 +748,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setSkill({
           name: "code-review",
           lockEntry: updatedEntry,
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
         });
 
         // Verify settings updated — source derived from lock entry
@@ -786,7 +786,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setSkill({
           name: "tool",
           lockEntry: registryEntry,
-          versionConstraint: Option.some(versionConstraint("^1.0.0")),
+          versionRange: Option.some(versionRange("^1.0.0")),
         });
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -816,7 +816,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setSkill({
           name: "tool",
           lockEntry: registryEntry,
-          versionConstraint: Option.none(),
+          versionRange: Option.none(),
         });
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -846,7 +846,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setSkill({
           name: "tool",
           lockEntry: registryEntry,
-          versionConstraint: Option.some(versionConstraint("1.2.3")),
+          versionRange: Option.some(versionRange("1.2.3")),
         });
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1224,7 +1224,7 @@ describe("WorkspaceMutationsService", () => {
             ws.setSkill({
               name: "code-review",
               lockEntry: makeSampleLockEntry(),
-              versionConstraint: Option.none(),
+              versionRange: Option.none(),
             }),
             ws.addConfiguredSource(newSource),
           ],
@@ -1486,7 +1486,7 @@ describe("WorkspaceMutationsService", () => {
     resolvedCommands: {},
     resolvedMcpServers: {},
     resolvedSubagents: {},
-    versionConstraint: Option.none(),
+    versionRange: Option.none(),
     ...overrides,
   });
 

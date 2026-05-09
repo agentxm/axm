@@ -8,9 +8,9 @@
 
 import type * as Option from "effect/Option";
 import type { ExtensionPackRef } from "@agentxm/client-core/unstable/packs";
-import type { VersionConstraint } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: ExtensionPackRef;
-  readonly versionConstraint: Option.Option<VersionConstraint>;
+  readonly versionRange: Option.Option<VersionRange>;
 }

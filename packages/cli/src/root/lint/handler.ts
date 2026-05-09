@@ -30,7 +30,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -781,6 +781,6 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     onSome: (s) => s.failed > 0,
   });
   if (outcome === "fail" || fixFailed) {
-    return yield* Effect.die(effectCliExit(1));
+    return yield* Effect.die(effectCliExit(ExitCode.Issues));
   }
 });

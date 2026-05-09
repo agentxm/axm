@@ -6,6 +6,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
+import { ExitCode } from "@agentxm/client-core/unstable/app-error";
 import { JsonHelpDocSchema } from "./formatter.js";
 import { PetsListOutputSchema } from "./root/pets/list.js";
 import { OutputsDetailOutputSchema } from "./root/outputs/detail.js";
@@ -193,7 +194,7 @@ describe("axm-spike source smoke", () => {
     const result = await runSpike(["--help"]);
     const output = combinedOutput(result);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(output).toContain("axm-spike");
     expect(output).toContain("pets");
     expect(output).toContain("prompts");
@@ -208,7 +209,7 @@ describe("axm-spike source smoke", () => {
     const result = await runSpike(["pets", "list", "--help"]);
     const output = combinedOutput(result);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(output).toContain("--json");
     expect(output).toContain("items[]");
     expect(output).toContain("count");
@@ -218,7 +219,7 @@ describe("axm-spike source smoke", () => {
     const result = await runSpike(["pets", "intake", "--help"]);
     const output = combinedOutput(result);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(output).toContain("--json");
   });
 
@@ -226,7 +227,7 @@ describe("axm-spike source smoke", () => {
     const result = await runSpike(["pets", "list", "--json", "--help"]);
     const output = decodeJsonHelp(JSON.parse(result.stdout));
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(output.usage).toContain("axm-spike pets list");
     expect(output.globalFlags?.map((flag) => flag.name)).toEqual(["json"]);
   });
@@ -234,7 +235,7 @@ describe("axm-spike source smoke", () => {
   it("allows --json on non-document commands without emitting stdout data", async () => {
     const result = await runSpike(["outputs", "box", "--json"]);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("This box renders one message at a time.");
   });
@@ -244,7 +245,7 @@ describe("axm-spike source smoke", () => {
     const parsed = JSON.parse(result.stdout);
     const output = decodePetsListOutput(parsed);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
     expect(output.count).toBeGreaterThan(0);
     expect(output.items[0]?.name).toBeDefined();
@@ -255,7 +256,7 @@ describe("axm-spike source smoke", () => {
     const parsed = JSON.parse(result.stdout);
     const output = decodeOutputsRaw(parsed);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
     expect(output.data.lines).toContain("Name: axm-spike");
   });
@@ -265,7 +266,7 @@ describe("axm-spike source smoke", () => {
     const parsed = JSON.parse(result.stdout);
     const output = decodeOutputsDetail(parsed);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
     expect(output.data.name).toBe("Mochi");
     expect(output.data.habitat).toBe("showroom");
@@ -276,7 +277,7 @@ describe("axm-spike source smoke", () => {
     const parsed = JSON.parse(result.stdout);
     const output = decodeOutputsTable(parsed);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
     expect(output.count).toBe(4);
     expect(output.items[0]?.name).toBe("Mochi");
@@ -287,7 +288,7 @@ describe("axm-spike source smoke", () => {
     const parsed = JSON.parse(result.stdout);
     const output = decodeOutputsResult(parsed);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
     expect(output.count).toBe(3);
     expect(output.data.kind).toBe("list");
@@ -302,7 +303,7 @@ describe("axm-spike source smoke", () => {
     const parsed = JSON.parse(result.stdout);
     const output = decodeOutputsTree(parsed);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
     expect(output.data.roots[0]?.name).toBe("packages");
     expect(output.data.roots[0]?.children?.[0]?.children?.[0]?.name).toBe("src");
@@ -322,7 +323,7 @@ describe("axm-spike telemetry demos", () => {
       const request = await waitForErrorRequest(server);
       const body = expectErrorRequestBody(request.body);
 
-      expect(result.exitCode).toBe(10);
+      expect(result.exitCode).toBe(ExitCode.Internal);
       expect(result.stderr).toContain("Simulated handled telemetry failure");
       expect(request.url).toBe("/v1/errors");
       expect(body.errors[0]).toEqual({
@@ -349,7 +350,7 @@ describe("axm-spike telemetry demos", () => {
       const request = await waitForErrorRequest(server);
       const body = expectErrorRequestBody(request.body);
 
-      expect(result.exitCode).toBe(10);
+      expect(result.exitCode).toBe(ExitCode.Internal);
       expect(result.stderr).toContain("Simulated defect telemetry failure");
       expect(request.url).toBe("/v1/errors");
       expect(body.errors[0]).toEqual({

@@ -81,8 +81,7 @@ export const AppErrorCodes = [
 export const AppErrorCodeSchema = Schema.Literals(AppErrorCodes).annotate({
   identifier: "AppErrorCode",
   title: "AppError Code",
-  description:
-    "Error category. Sets the exit code and the `code` field in JSON output.",
+  description: "Error category. Sets the exit code and the `code` field in JSON output.",
 });
 
 const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {

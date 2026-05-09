@@ -5,6 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { ExitCode } from "../app-error/index.js";
 import { handle } from "../test-helpers.js";
 import { addMcpServerMixed, removeMcpServerMixed, runCliInvocation } from "./mcp-sync.js";
 
@@ -33,7 +34,7 @@ describe("mcp-sync helpers", () => {
           cwd: process.cwd(),
         });
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode).toBe(ExitCode.Success);
         expect(result.stdout).toContain("token=[REDACTED]");
         expect(result.stdout).toContain("key=[REDACTED]");
         expect(result.stdout).toContain("bearer [REDACTED]");

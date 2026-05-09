@@ -139,6 +139,7 @@ export const runCliInvocation = (
         const timeout = setTimeout(() => {
           child.kill("SIGTERM");
           resolve({
+            // 124 follows the Unix `timeout(1)` convention; not an `ExitCode`.
             exitCode: 124,
             stdout: "",
             stderr: `Command timed out after ${invocation.timeoutMs}ms`,

@@ -19,7 +19,6 @@ export interface ErrorClassification {
     readonly channel: "stdout" | "stderr";
     readonly content: string;
   };
-  readonly stderrMessage?: string;
 }
 
 /**
@@ -27,7 +26,7 @@ export interface ErrorClassification {
  *
  * Channel routing per format:
  * - text:        human-readable to stderr only (no stdout pollution)
- * - json:        typed error JSON to stdout + brief message to stderr
+ * - json:        typed error JSON to stdout + NDJSON error event to stderr
  * Exit codes:
  * - ShowHelp (no errors) → 0 (help successfully displayed)
  * - ShowHelp (with errors) → 2 (usage — help shown due to invocation error)
@@ -61,7 +60,6 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
         channel: "stdout",
         content: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n",
       },
-      stderrMessage: `\u2717 ${error.message}`,
     };
   }
 
@@ -129,7 +127,6 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
           2,
         ) + "\n",
     },
-    stderrMessage: `\u2717 ${message}`,
   };
 };
 
@@ -147,9 +144,6 @@ export const handleError = (error: unknown, format: OutputFormat): never => {
         writeStderr(JSON.stringify(result.errorEvent));
       }
       process.stdout.write(result.output.content);
-      if (result.stderrMessage) {
-        writeStderr(result.stderrMessage);
-      }
     } else {
       writeStderr(result.output.content);
     }

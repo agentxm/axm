@@ -130,7 +130,6 @@ describe("classifyError — generic errors", () => {
       code: "internal",
       message: "boom",
     });
-    expect(result.stderrMessage).toBe("\u2717 boom");
   });
 });
 

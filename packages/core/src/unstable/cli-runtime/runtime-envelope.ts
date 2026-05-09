@@ -111,7 +111,6 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
     writeMachineBreadcrumbs(error.breadcrumbs ?? []);
     writeMachineError(error);
     process.stdout.write(JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n");
-    writeStderr(`\u2717 ${error.message}`);
   });
 
 // ---------------------------------------------------------------------------

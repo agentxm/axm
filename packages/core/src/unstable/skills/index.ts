@@ -24,6 +24,7 @@ export { parseSkillMd, SkillFrontmatterSchema } from "./skill-content.js";
 
 // Manager
 export { SkillManager, SkillManagerLive } from "./manager.js";
+export { ensureSkillAgentArtifact } from "./materialization.js";
 
 // Paths
 export { computeSkillPaths, type SkillPathSource, type SkillDirPaths } from "./paths.js";

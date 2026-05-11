@@ -9,12 +9,14 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
+import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
 import { expectDefined } from "../test-helpers.js";
-import { handleSetup, SetupSkillInstaller } from "./setup.js";
+import { AXM_SKILL_JSON, AXM_SKILL_MD } from "./setup/bundled-axm-skill.js";
+import { handleSetup, SetupSkillInstaller, SetupSkillInstallerLive } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
 
@@ -26,6 +28,7 @@ const makeSetupTestContext = (opts?: {
   };
   readonly selectAgents?: ReadonlyArray<string>;
   readonly scope?: "project" | "user";
+  readonly installer?: "stub" | "live";
 }) => {
   const renderer = TestRenderer.make();
   const installCalls: Array<{
@@ -42,16 +45,20 @@ const makeSetupTestContext = (opts?: {
     renderer.layer,
     workspaceInitInteraction.layer,
     TestFlagsLayer(opts?.flags),
+    Layer.succeed(RegistryUrl, "https://registry.invalid"),
   );
-  const layer = Layer.mergeAll(
-    baseLayer,
-    Layer.succeed(SetupSkillInstaller, {
-      installDefaultSkill: (args) =>
-        Effect.sync(() => {
-          installCalls.push(args);
-        }),
-    }),
-  );
+  const layer =
+    opts?.installer === "live"
+      ? Layer.provideMerge(SetupSkillInstallerLive, baseLayer)
+      : Layer.mergeAll(
+          baseLayer,
+          Layer.succeed(SetupSkillInstaller, {
+            installDefaultSkill: (args) =>
+              Effect.sync(() => {
+                installCalls.push(args);
+              }),
+          }),
+        );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
@@ -108,6 +115,45 @@ describe("setup.handler", () => {
           expect(installCalls).toEqual([
             { scope: "project", yes: false, force: false, preview: false },
           ]);
+        }),
+      );
+    });
+
+    it.effect("pseudo-installs the bundled AXM skill without registry services", () => {
+      const { provide } = makeSetupTestContext({ installer: "live" });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          const axmDir = path.join(tempDir, ".axm");
+          const skillJsonPath = path.join(
+            axmDir,
+            "extensions",
+            "@agentxm",
+            "skills",
+            "axm",
+            "skill.json",
+          );
+          const skillMdPath = path.join(
+            axmDir,
+            "extensions",
+            "@agentxm",
+            "skills",
+            "axm",
+            "src",
+            "SKILL.md",
+          );
+          const agentSkillPath = path.join(tempDir, ".claude", "skills", "axm");
+
+          expect(JSON.parse(fs.readFileSync(skillJsonPath, "utf-8"))).toEqual(
+            JSON.parse(AXM_SKILL_JSON),
+          );
+          expect(fs.readFileSync(skillMdPath, "utf-8")).toBe(AXM_SKILL_MD);
+          expect(fs.existsSync(agentSkillPath)).toBe(true);
+
+          const lockfile = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
+          expect(lockfile).toContain("skills: {}");
         }),
       );
     });

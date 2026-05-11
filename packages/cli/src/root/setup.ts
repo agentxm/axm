@@ -1,10 +1,9 @@
-import { AGENTS } from "@agentxm/client-core/unstable/agents";
+import { AGENTS, CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { AgentId } from "@agentxm/client-core/unstable/agents";
 import {
   forceFlag,
   nonInteractiveFlag,
   previewFlag,
-  Verbosity,
   yesFlag,
 } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -12,15 +11,17 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   bootstrapWorkspace,
   scanAllSubagentFiles,
   type AgentSubagentSummary,
   type WorkspaceMutationsOptions,
   type WorkspaceScope,
+  WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { normalizeHandle, sanitizeName } from "@agentxm/client-core/unstable/extensions";
+import { computeSkillPaths, ensureSkillAgentArtifact } from "@agentxm/client-core/unstable/skills";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -35,7 +36,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import { scopeFlag } from "../cli-flags.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { withRuntime, withWorkspace } from "../runtime.js";
-import { InstallSkillCommandWorkflowActions } from "./skills/install/command-actions.js";
+import { AXM_SKILL_JSON, AXM_SKILL_MD } from "./setup/bundled-axm-skill.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,
@@ -81,7 +82,84 @@ export class SetupSkillInstaller extends ServiceMap.Service<
   SetupSkillInstallerService
 >()("axm.sh/root/setup/SetupSkillInstaller") {}
 
-const SetupSkillInstallerLive = Layer.effect(
+const mapBundledSkillWriteError = (filePath: string) => (cause: unknown) =>
+  makeAppError({
+    code: "internal",
+    message: `Failed to write bundled AXM skill file: ${filePath}`,
+    cause,
+  });
+
+const installBundledAxmSkill = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const agentRepo = yield* CodingAgentRepository;
+  const sanitizedName = sanitizeName("axm");
+  const { canonicalPath, skillSrcPath } = computeSkillPaths(
+    path.join,
+    ws.baseDir,
+    { refType: "registry", owner: normalizeHandle("@agentxm") },
+    sanitizedName,
+  );
+  const skillJsonPath = path.join(canonicalPath, "skill.json");
+  const skillMdPath = path.join(skillSrcPath, "SKILL.md");
+  const fsPathLayer = Layer.mergeAll(
+    Layer.succeed(FileSystem.FileSystem, fs),
+    Layer.succeed(Path.Path, path),
+  );
+  const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, fsPathLayer);
+
+  yield* fs
+    .makeDirectory(skillSrcPath, { recursive: true })
+    .pipe(Effect.mapError(mapBundledSkillWriteError(skillSrcPath)));
+  yield* fs
+    .writeFileString(skillJsonPath, AXM_SKILL_JSON)
+    .pipe(Effect.mapError(mapBundledSkillWriteError(skillJsonPath)));
+  yield* fs
+    .writeFileString(skillMdPath, AXM_SKILL_MD)
+    .pipe(Effect.mapError(mapBundledSkillWriteError(skillMdPath)));
+
+  const configuredAgents = yield* agentRepo
+    .getConfiguredAgents()
+    .pipe(Effect.provideService(WorkspaceMutations, ws));
+  const resolvedAgents = yield* Effect.forEach(
+    configuredAgents,
+    (agent) =>
+      agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+        Effect.provide(fsPathLayer),
+        Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+      ),
+    { concurrency: "unbounded" },
+  );
+  const misconfigured = resolvedAgents.filter(({ outcome }) => outcome._tag === "misconfigured");
+  if (misconfigured.length > 0) {
+    return yield* makeAppError({
+      code: "validation",
+      message: "One or more configured agents have invalid skills directory settings",
+    });
+  }
+
+  const installTargets = resolvedAgents.flatMap(({ outcome }) =>
+    outcome._tag === "supported" ? [path.normalize(outcome.dir)] : [],
+  );
+  const distinctTargets = [...new Set(installTargets)];
+
+  yield* Effect.forEach(
+    distinctTargets,
+    (targetDir) =>
+      ensureSkillAgentArtifact({
+        canonicalSkillSrcPath: skillSrcPath,
+        targetDir,
+        sanitizedName,
+        pathService: path,
+        baseDir: ws.baseDir,
+        provide,
+      }),
+    { concurrency: "unbounded" },
+  );
+});
+
+export const SetupSkillInstallerLive = Layer.effect(
   SetupSkillInstaller,
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -90,7 +168,6 @@ const SetupSkillInstallerLive = Layer.effect(
     const terminal = yield* Terminal.Terminal;
     const nonInteractive = yield* nonInteractiveFlag;
     const registryUrl = yield* RegistryUrl;
-    const verbosity = yield* Verbosity;
     const capturedLayer = Layer.mergeAll(
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(FileSystem.FileSystem, fs),
@@ -98,19 +175,11 @@ const SetupSkillInstallerLive = Layer.effect(
       Layer.succeed(Terminal.Terminal, terminal),
       Layer.succeed(nonInteractiveFlag, nonInteractive),
       Layer.succeed(RegistryUrl, registryUrl),
-      Layer.succeed(Verbosity, verbosity),
     );
 
     return {
       installDefaultSkill: (args) =>
-        Effect.gen(function* () {
-          const actions = yield* InstallSkillCommandWorkflowActions;
-          yield* runInstallCommandWorkflow(
-            { source: "@agentxm/skills/axm", skills: [], all: false },
-            actions,
-            args,
-          );
-        }).pipe(withWorkspace(args.scope), Effect.provide(capturedLayer)),
+        installBundledAxmSkill.pipe(withWorkspace(args.scope), Effect.provide(capturedLayer)),
     };
   }),
 );

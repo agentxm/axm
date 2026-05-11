@@ -1,6 +1,6 @@
 # Basic usage
 
-AXM is an agent extension manager for coding agents and AI assistants.
+AXM is the agent extension manager for coding agents and AI assistants.
 
 - One tool to manage agent skills, subagents, commands, and more across agents.
 - Bundle skills, subagents, commands and more with packs

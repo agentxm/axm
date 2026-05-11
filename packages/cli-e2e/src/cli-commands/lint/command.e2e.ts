@@ -123,7 +123,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         // Keep agents narrow so fix only needs to materialize one agent
         // link; claude-code ships with a built-in detector.
         settings.agents = ["claude-code"];
-        settings.skills = { demo: sourceRoot.path };
+        settings.skills = { ...settings.skills, demo: sourceRoot.path };
         writeJson(settingsPath, settings);
 
         // First pass: expect findings before fix.

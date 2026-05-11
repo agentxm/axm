@@ -1,3 +1,13 @@
+## 0.5.3 (2026-05-11)
+
+### 🩹 Fixes
+
+- Refine CLI parsing, setup guidance, and help documentation. ([86a6b715](https://github.com/agentxm/axm/commit/86a6b715))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.5.2 (2026-05-09)
 
 ### 🩹 Fixes

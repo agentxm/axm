@@ -131,7 +131,7 @@ const makeManifest = (overrides?: {
   dependencies: dependencyConstraints(overrides?.dependencies ?? {}),
   version: exactVersion(overrides?.version ?? "1.0.0"),
   integrity: overrides?.integrity ?? "sha512-abc",
-  compatiblePackages: [],
+  companionPackages: [],
 });
 
 /** Create a mock RegistryClient with controllable return values. */
@@ -618,7 +618,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
       integrity: Option.some(integrity),
-      compatiblePackages: [],
+      companionPackages: [],
     };
 
     return runEffect(
@@ -666,7 +666,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-wrongIntegrityValue=="),
-      compatiblePackages: [],
+      companionPackages: [],
     };
 
     return runEffect(
@@ -707,7 +707,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       name: extensionName("my-server"),
       version: exactVersion("2.0.0"),
       integrity: Option.some(integrity),
-      compatiblePackages: [],
+      companionPackages: [],
     };
 
     return runEffect(
@@ -828,7 +828,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-abc"),
-      compatiblePackages: [],
+      companionPackages: [],
     };
 
     return runEffect(

@@ -134,11 +134,11 @@
             { "type": "null" }
           ]
         },
-        "compatiblePackages": {
+        "companionPackages": {
           "anyOf": [
             {
               "type": "array",
-              "description": "External ecosystem packages this extension targets (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
+              "description": "External ecosystem packages this extension is designed to work with (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
               "items": { "$ref": "#/definitions/PackageUrl" }
             },
             { "type": "null" }

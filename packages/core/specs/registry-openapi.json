@@ -1399,7 +1399,7 @@
                               { "type": "null" }
                             ]
                           },
-                          "compatiblePackages": {
+                          "companionPackages": {
                             "anyOf": [
                               { "type": "array", "items": { "type": "string" } },
                               { "type": "null" }
@@ -1640,7 +1640,7 @@
                         { "type": "null" }
                       ]
                     },
-                    "compatiblePackages": {
+                    "companionPackages": {
                       "anyOf": [
                         { "type": "array", "items": { "type": "string" } },
                         { "type": "null" }

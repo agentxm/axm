@@ -22,7 +22,7 @@ export const buildRegistrySubagentRef = (
   name: ExtensionName,
   version: Version,
   source: RegistrySource,
-  compatiblePackages: ReadonlyArray<PackageUrlParts>,
+  companionPackages: ReadonlyArray<PackageUrlParts>,
 ): RegistrySubagentRef => ({
   type: "subagent",
   refType: "registry",
@@ -32,5 +32,5 @@ export const buildRegistrySubagentRef = (
   name,
   version,
   integrity: Option.none(),
-  compatiblePackages,
+  companionPackages,
 });

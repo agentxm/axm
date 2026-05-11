@@ -606,11 +606,11 @@ export const CommonManifestBaseFields = {
     }),
   ),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
-  compatiblePackages: Schema.optional(
+  companionPackages: Schema.optional(
     Schema.Array(PackageUrlSchema).pipe(
       Schema.annotate({
         description:
-          "External ecosystem packages this extension targets (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
+          "External ecosystem packages this extension is designed to work with (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
       }),
     ),
   ),

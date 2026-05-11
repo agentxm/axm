@@ -22,7 +22,7 @@ export const buildRegistrySkillRef = (
   name: ExtensionName,
   version: Version,
   source: RegistrySource,
-  compatiblePackages: ReadonlyArray<PackageUrlParts>,
+  companionPackages: ReadonlyArray<PackageUrlParts>,
 ): RegistrySkillRef => ({
   type: "skill",
   refType: "registry",
@@ -32,5 +32,5 @@ export const buildRegistrySkillRef = (
   name,
   version,
   integrity: Option.none(),
-  compatiblePackages,
+  companionPackages,
 });

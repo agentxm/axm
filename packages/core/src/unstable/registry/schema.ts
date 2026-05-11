@@ -38,7 +38,7 @@ export const VersionEntrySchema = Schema.Struct({
   version: VersionSchema,
   published: IsoDateTimeStringSchema,
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
-  compatiblePackages: Schema.optional(Schema.Array(PackageUrlSchema)),
+  companionPackages: Schema.optional(Schema.Array(PackageUrlSchema)),
   integrity: Schema.String,
 }).annotate({
   identifier: "VersionEntry",

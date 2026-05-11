@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { formatPackageUrlParts, toLabelWithCompatibility, toStepKey } from "./operations.js";
+import { formatPackageUrlParts, toLabelWithCompanions, toStepKey } from "./operations.js";
 import { handle, packageUrl } from "../test-helpers.js";
 
 describe("formatPackageUrlParts", () => {
@@ -33,21 +33,21 @@ describe("formatPackageUrlParts", () => {
   });
 });
 
-describe("toLabelWithCompatibility", () => {
-  it("returns base label when compatiblePackages is empty", () => {
-    const result = toLabelWithCompatibility({ type: "skill", name: "my-skill" }, []);
+describe("toLabelWithCompanions", () => {
+  it("returns base label when companionPackages is empty", () => {
+    const result = toLabelWithCompanions({ type: "skill", name: "my-skill" }, []);
     expect(result).toBe("my-skill");
   });
 
-  it("appends single compatiblePackage in parentheses", () => {
-    const result = toLabelWithCompatibility({ type: "skill", name: "react-testing" }, [
+  it("appends single companionPackage in parentheses", () => {
+    const result = toLabelWithCompanions({ type: "skill", name: "react-testing" }, [
       packageUrl("pkg:npm/react"),
     ]);
     expect(result).toBe("react-testing (pkg:npm/react)");
   });
 
-  it("appends multiple compatiblePackages comma-separated", () => {
-    const result = toLabelWithCompatibility({ type: "skill", name: "fullstack" }, [
+  it("appends multiple companionPackages comma-separated", () => {
+    const result = toLabelWithCompanions({ type: "skill", name: "fullstack" }, [
       packageUrl("pkg:npm/react"),
       packageUrl("pkg:npm/typescript"),
     ]);
@@ -55,7 +55,7 @@ describe("toLabelWithCompatibility", () => {
   });
 
   it("works with pack targets", () => {
-    const result = toLabelWithCompatibility(
+    const result = toLabelWithCompanions(
       { type: "pack", name: "frontend", owner: handle("@acme") },
       [packageUrl("pkg:npm/react")],
     );

@@ -66,7 +66,7 @@ const makeRegistrySkillRef = (name: string) =>
     name: extensionName(name),
     version: exactVersion("1.2.3"),
     integrity: Option.some("sha512-deadbeef"),
-    compatiblePackages: [],
+    companionPackages: [],
   }) satisfies RegistrySkillRef;
 
 const lockfileWith = (...names: string[]): SkillsLockMap =>

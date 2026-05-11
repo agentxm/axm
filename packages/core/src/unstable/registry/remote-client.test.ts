@@ -92,7 +92,7 @@ const extensionIndexResponse = {
       published: "2025-01-01T00:00:00Z",
       integrity: "sha512-abc123",
       dependencies: {},
-      compatiblePackages: ["pkg:npm/react"],
+      companionPackages: ["pkg:npm/react"],
     },
     {
       version: "0.9.0",
@@ -107,7 +107,7 @@ const makeExtensionIndexResponse = (overrides?: {
   readonly owner?: string;
   readonly type?: string;
   readonly description?: string;
-  readonly compatiblePackages?: ReadonlyArray<string>;
+  readonly companionPackages?: ReadonlyArray<string>;
 }) => ({
   ...extensionIndexResponse,
   ...(overrides?.name === undefined ? {} : { name: overrides.name }),
@@ -117,9 +117,9 @@ const makeExtensionIndexResponse = (overrides?: {
   versions: [
     {
       ...extensionIndexResponse.versions[0],
-      ...(overrides?.compatiblePackages === undefined
+      ...(overrides?.companionPackages === undefined
         ? {}
-        : { compatiblePackages: [...overrides.compatiblePackages] }),
+        : { companionPackages: [...overrides.companionPackages] }),
     },
     ...extensionIndexResponse.versions.slice(1),
   ],
@@ -263,7 +263,7 @@ describe("getExtensionIndex", () => {
       expect(index.type).toBe("skill");
       expect(index.versions).toHaveLength(2);
       expect(index.versions[0]?.version).toBe("1.0.0");
-      expect(index.versions[0]?.compatiblePackages?.[0]).toMatchObject({
+      expect(index.versions[0]?.companionPackages?.[0]).toMatchObject({
         type: "npm",
         name: "react",
       });
@@ -680,7 +680,7 @@ describe("discoverExtensions", () => {
                 name: "test-skill",
                 type: "skill",
                 description: "Skill result",
-                compatiblePackages: ["pkg:npm/react"],
+                companionPackages: ["pkg:npm/react"],
               }),
             ),
             { status: 200 },
@@ -694,7 +694,7 @@ describe("discoverExtensions", () => {
                 name: "test-command",
                 type: "command",
                 description: "Command result",
-                compatiblePackages: ["pkg:npm/react"],
+                companionPackages: ["pkg:npm/react"],
               }),
             ),
             { status: 200 },
@@ -708,7 +708,7 @@ describe("discoverExtensions", () => {
                 name: "test-mcp",
                 type: "mcp-server",
                 description: "MCP result",
-                compatiblePackages: ["pkg:npm/react"],
+                companionPackages: ["pkg:npm/react"],
               }),
             ),
             { status: 200 },
@@ -722,7 +722,7 @@ describe("discoverExtensions", () => {
                 name: "test-subagent",
                 type: "subagent",
                 description: "Subagent result",
-                compatiblePackages: ["pkg:npm/react"],
+                companionPackages: ["pkg:npm/react"],
               }),
             ),
             { status: 200 },
@@ -736,7 +736,7 @@ describe("discoverExtensions", () => {
                 name: "recommended-skill",
                 type: "skill",
                 description: "Recommended result",
-                compatiblePackages: ["pkg:npm/react"],
+                companionPackages: ["pkg:npm/react"],
               }),
             ),
             { status: 200 },

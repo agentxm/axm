@@ -117,11 +117,11 @@ describe("publishCommand", () => {
     }),
   );
 
-  describe("compatiblePackages propagation", () => {
-    it.effect("propagates compatiblePackages from manifest to VersionEntry", () =>
+  describe("companionPackages propagation", () => {
+    it.effect("propagates companionPackages from manifest to VersionEntry", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup("@community", "compat-cmd", {
-          compatiblePackages: ["pkg:npm/claude-code", "pkg:npm/%40openai/codex"],
+          companionPackages: ["pkg:npm/claude-code", "pkg:npm/%40openai/codex"],
         });
 
         yield* publishCommand(
@@ -137,14 +137,14 @@ describe("publishCommand", () => {
           "index.json",
         );
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-        expect(index.versions[0].compatiblePackages).toEqual([
+        expect(index.versions[0].companionPackages).toEqual([
           { type: "npm", name: "claude-code" },
           { type: "npm", namespace: "@openai", name: "codex" },
         ]);
       }),
     );
 
-    it.effect("omits compatiblePackages when manifest does not include it", () =>
+    it.effect("omits companionPackages when manifest does not include it", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup();
 
@@ -161,7 +161,7 @@ describe("publishCommand", () => {
           "index.json",
         );
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-        expect(index.versions[0]).not.toHaveProperty("compatiblePackages");
+        expect(index.versions[0]).not.toHaveProperty("companionPackages");
       }),
     );
   });

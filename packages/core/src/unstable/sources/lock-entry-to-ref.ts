@@ -195,7 +195,7 @@ export const skillLockEntryToRef = (
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              compatiblePackages: [],
+              companionPackages: [],
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
             }),
           );
@@ -247,7 +247,7 @@ export const commandLockEntryToRef = (
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              compatiblePackages: [],
+              companionPackages: [],
               command: { name: extensionName },
             }),
           );
@@ -299,7 +299,7 @@ export const mcpServerLockEntryToRef = (
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              compatiblePackages: [],
+              companionPackages: [],
               server: { name: extensionName },
             }),
           );
@@ -351,7 +351,7 @@ export const subagentLockEntryToRef = (
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              compatiblePackages: [],
+              companionPackages: [],
               subagent: { name: extensionName, description: Option.none() },
             }),
           );
@@ -397,7 +397,7 @@ export const packLockEntryToRef = (
       name: entry.name,
       version: entry.resolvedVersion,
       integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-      compatiblePackages: [],
+      companionPackages: [],
       pack: {
         name: extensionName,
         dependencies: {},

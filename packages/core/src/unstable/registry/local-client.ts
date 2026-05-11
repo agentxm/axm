@@ -92,7 +92,7 @@ const indexToManifest = (
     dependencies: ver.dependencies ?? {},
     version: ver.version,
     integrity: ver.integrity,
-    compatiblePackages: ver.compatiblePackages ?? [],
+    companionPackages: ver.companionPackages ?? [],
   } satisfies RegistryExtensionManifest);
 };
 
@@ -495,12 +495,12 @@ export const createLocalRegistryClient = (
       // Scan all extensions and read their index.json
       const allExtensions = yield* scanAllExtensions(fs, path, extensionsRoot);
 
-      // Match packages against extension compatiblePackages (from latest version)
+      // Match packages against extension companionPackages (from latest version)
       const results = args.packages.flatMap((detectedPurl) => {
         const matching = allExtensions.filter((ext) => {
           const latestVersion = ext.versions[0];
           if (latestVersion === undefined) return false;
-          return (latestVersion.compatiblePackages ?? []).some((declared) =>
+          return (latestVersion.companionPackages ?? []).some((declared) =>
             purlMatch(detectedPurl, declared),
           );
         });

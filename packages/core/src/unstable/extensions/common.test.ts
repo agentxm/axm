@@ -419,27 +419,27 @@ describe("common schemas", () => {
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("accepts manifest with compatiblePackages", () => {
+    it("accepts manifest with companionPackages", () => {
       const input = {
         owner: "@wayne",
         name: "grappling-hook",
         version: "1.0.0",
-        compatiblePackages: ["pkg:npm/react", "pkg:npm/%40angular/core"],
+        companionPackages: ["pkg:npm/react", "pkg:npm/%40angular/core"],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
-        expect(result.success.compatiblePackages).toHaveLength(2);
-        expect(result.success.compatiblePackages?.[0]?.type).toBe("npm");
-        expect(result.success.compatiblePackages?.[0]?.name).toBe("react");
-        expect(result.success.compatiblePackages?.[1]?.namespace).toBe("@angular");
-        expect(result.success.compatiblePackages?.[1]?.name).toBe("core");
+        expect(result.success.companionPackages).toHaveLength(2);
+        expect(result.success.companionPackages?.[0]?.type).toBe("npm");
+        expect(result.success.companionPackages?.[0]?.name).toBe("react");
+        expect(result.success.companionPackages?.[1]?.namespace).toBe("@angular");
+        expect(result.success.companionPackages?.[1]?.name).toBe("core");
       }
     });
 
-    it("accepts manifest without compatiblePackages", () => {
+    it("accepts manifest without companionPackages", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
@@ -450,32 +450,32 @@ describe("common schemas", () => {
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
-        expect(result.success.compatiblePackages).toBeUndefined();
+        expect(result.success.companionPackages).toBeUndefined();
       }
     });
 
-    it("accepts manifest with empty compatiblePackages array", () => {
+    it("accepts manifest with empty companionPackages array", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
         version: "0.1.0",
-        compatiblePackages: [],
+        companionPackages: [],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
-        expect(result.success.compatiblePackages).toEqual([]);
+        expect(result.success.companionPackages).toEqual([]);
       }
     });
 
-    it("rejects manifest with invalid purl strings in compatiblePackages", () => {
+    it("rejects manifest with invalid purl strings in companionPackages", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
         version: "0.1.0",
-        compatiblePackages: ["not-a-purl"],
+        companionPackages: ["not-a-purl"],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);

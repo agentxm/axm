@@ -85,11 +85,11 @@ describe("publishPack", () => {
     return { base, axmDir, packDir, registryRoot };
   };
 
-  describe("compatiblePackages NOT propagated for packs", () => {
-    it.effect("does not include compatiblePackages in VersionEntry even when manifest has it", () =>
+  describe("companionPackages NOT propagated for packs", () => {
+    it.effect("does not include companionPackages in VersionEntry even when manifest has it", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup("@community", "compat-pack", {
-          compatiblePackages: ["pkg:npm/claude-code"],
+          companionPackages: ["pkg:npm/claude-code"],
         });
 
         yield* publishPack(
@@ -105,7 +105,7 @@ describe("publishPack", () => {
           "index.json",
         );
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-        expect(index.versions[0]).not.toHaveProperty("compatiblePackages");
+        expect(index.versions[0]).not.toHaveProperty("companionPackages");
       }),
     );
   });

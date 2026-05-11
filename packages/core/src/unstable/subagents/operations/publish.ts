@@ -215,8 +215,8 @@ export const publishSubagent: OperationHandler<
       version: manifest.version,
       published: new Date().toISOString(),
       integrity,
-      ...(manifest.compatiblePackages !== undefined && {
-        compatiblePackages: manifest.compatiblePackages,
+      ...(manifest.companionPackages !== undefined && {
+        companionPackages: manifest.companionPackages,
       }),
     };
 

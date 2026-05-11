@@ -211,7 +211,7 @@ export const resolvePackDependencies = (
             dependency.name,
             dependency.ref.version,
             dependency.source,
-            dependency.ref.compatiblePackages,
+            dependency.ref.companionPackages,
           ),
         ),
         ...resolvedCommands.map((dependency) =>
@@ -220,7 +220,7 @@ export const resolvePackDependencies = (
             dependency.name,
             dependency.ref.version,
             dependency.source,
-            dependency.ref.compatiblePackages,
+            dependency.ref.companionPackages,
           ),
         ),
         ...resolvedMcpServers.map((dependency) =>
@@ -229,7 +229,7 @@ export const resolvePackDependencies = (
             dependency.name,
             dependency.ref.version,
             dependency.source,
-            dependency.ref.compatiblePackages,
+            dependency.ref.companionPackages,
           ),
         ),
         ...resolvedSubagents.map((dependency) =>
@@ -238,7 +238,7 @@ export const resolvePackDependencies = (
             dependency.name,
             dependency.ref.version,
             dependency.source,
-            dependency.ref.compatiblePackages,
+            dependency.ref.companionPackages,
           ),
         ),
       ],

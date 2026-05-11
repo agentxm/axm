@@ -131,21 +131,21 @@ const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUr
 /**
  * Extract compatible packages from a skill ref.
  *
- * Registry refs have a typed `compatiblePackages` field.
+ * Registry refs have a typed `companionPackages` field.
  * Local/git-hosted refs may carry them in the generic `metadata` bag.
  *
  * @internal Exported for testing only.
  */
-export const getCompatiblePackages = (ref: SkillExtensionRef): ReadonlyArray<PackageUrlParts> => {
+export const getCompanionPackages = (ref: SkillExtensionRef): ReadonlyArray<PackageUrlParts> => {
   if (ref.refType === "registry") {
-    return ref.compatiblePackages ?? [];
+    return ref.companionPackages ?? [];
   }
 
   // For non-registry refs, check the generic metadata bag
   return Option.match(ref.skill.metadata, {
     onNone: (): ReadonlyArray<PackageUrlParts> => [],
     onSome: (m) => {
-      const raw = m["compatiblePackages"];
+      const raw = m["companionPackages"];
       if (!globalThis.Array.isArray(raw)) return [];
       // Validate each entry individually — skip invalid ones rather than failing the whole array
       return raw.flatMap((entry: unknown) => {
@@ -162,10 +162,10 @@ export const getCompatiblePackages = (ref: SkillExtensionRef): ReadonlyArray<Pac
  *
  * @internal Exported for testing only.
  */
-export const buildCompatiblePackagesSection = (
+export const buildCompanionPackagesSection = (
   refs: ReadonlyArray<SkillExtensionRef>,
 ): PlanSection | undefined => {
-  const allPackages = refs.flatMap((ref) => getCompatiblePackages(ref));
+  const allPackages = refs.flatMap((ref) => getCompanionPackages(ref));
   if (allPackages.length === 0) return undefined;
 
   // Deduplicate by formatted string
@@ -432,7 +432,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       );
 
     const buildPlan = (intent: InstallSkillCommandIntent) => {
-      const compatSection = buildCompatiblePackagesSection(
+      const compatSection = buildCompanionPackagesSection(
         intent.skillsToInstall.map((entry) => entry.ref),
       );
       const sections = compatSection !== undefined ? [compatSection] : undefined;

@@ -38,7 +38,7 @@ const commandRef: RegistryCommandRef = {
   name: extensionName("my-cmd"),
   version: exactVersion("1.0.0"),
   integrity: Option.none(),
-  compatiblePackages: [],
+  companionPackages: [],
 };
 
 const parsedArgs: ParsedCommandInstallArgs = {

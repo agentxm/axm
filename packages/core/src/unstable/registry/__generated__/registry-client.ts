@@ -1533,7 +1533,7 @@ export type ExtensionsGet200 = {
     readonly published: IsoDateTimeString;
     readonly integrity: string;
     readonly dependencies?: { readonly [x: string]: VersionConstraint } | null;
-    readonly compatiblePackages?: ReadonlyArray<string> | null;
+    readonly companionPackages?: ReadonlyArray<string> | null;
     readonly yanked_at?: IsoDateTimeString | null;
   }>;
   readonly visibility?: "public" | "internal" | "private" | null;
@@ -1556,7 +1556,7 @@ export const ExtensionsGet200 = Schema.Struct({
       dependencies: Schema.optionalKey(
         Schema.Union([Schema.Record(Schema.String, VersionConstraint), Schema.Null]),
       ),
-      compatiblePackages: Schema.optionalKey(
+      companionPackages: Schema.optionalKey(
         Schema.Union([Schema.Array(Schema.String), Schema.Null]),
       ),
       yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
@@ -1623,7 +1623,7 @@ export type ExtensionsGetVersion200 = {
   readonly license?: string | null;
   readonly authors?: ReadonlyArray<Author> | null;
   readonly dependencies?: { readonly [x: string]: VersionConstraint } | null;
-  readonly compatiblePackages?: ReadonlyArray<string> | null;
+  readonly companionPackages?: ReadonlyArray<string> | null;
   readonly yanked_at?: IsoDateTimeString | null;
   readonly deleted_at?: IsoDateTimeString | null;
 };
@@ -1642,7 +1642,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   dependencies: Schema.optionalKey(
     Schema.Union([Schema.Record(Schema.String, VersionConstraint), Schema.Null]),
   ),
-  compatiblePackages: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
+  companionPackages: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
   yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
   deleted_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
 });

@@ -110,10 +110,10 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
       published: v.published,
       integrity: v.integrity,
       dependencies: v.dependencies === null ? undefined : v.dependencies,
-      compatiblePackages:
-        v.compatiblePackages === null || v.compatiblePackages === undefined
+      companionPackages:
+        v.companionPackages === null || v.companionPackages === undefined
           ? undefined
-          : v.compatiblePackages,
+          : v.companionPackages,
     })),
   });
 
@@ -140,7 +140,7 @@ const toRegistryManifest = (
     dependencies: latest.dependencies ?? {},
     version: latest.version,
     integrity: latest.integrity,
-    compatiblePackages: latest.compatiblePackages ?? [],
+    companionPackages: latest.companionPackages ?? [],
   });
 };
 
@@ -878,8 +878,8 @@ export const createRemoteRegistryClient = (
             return [];
           }
 
-          const compatiblePackages = latestVersion.compatiblePackages ?? [];
-          if (!compatiblePackages.some((declared) => purlMatch(detectedPackage, declared))) {
+          const companionPackages = latestVersion.companionPackages ?? [];
+          if (!companionPackages.some((declared) => purlMatch(detectedPackage, declared))) {
             return [];
           }
 

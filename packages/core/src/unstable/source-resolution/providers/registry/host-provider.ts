@@ -113,7 +113,7 @@ const manifestFromIndex = (
     dependencies: version.dependencies ?? {},
     version: version.version,
     integrity: version.integrity,
-    compatiblePackages: version.compatiblePackages ?? [],
+    companionPackages: version.companionPackages ?? [],
   } satisfies RegistryExtensionManifest);
 };
 
@@ -224,7 +224,7 @@ const toExtensionRef = (
     name: entry.name,
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),
-    compatiblePackages: entry.compatiblePackages,
+    companionPackages: entry.companionPackages,
   };
 
   switch (entry.type) {

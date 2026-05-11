@@ -104,7 +104,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             name: extensionName("chrome-devtools-mcp"),
             version: exactVersion(liveVersion),
             integrity: liveIntegrity === "" ? Option.none() : Option.some(liveIntegrity),
-            compatiblePackages: [],
+            companionPackages: [],
           },
           force: false,
           versionRange: Option.none(),

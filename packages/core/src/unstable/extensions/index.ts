@@ -154,7 +154,7 @@ export {
   formatPackageUrlParts,
   targetFromRef,
   toLabel,
-  toLabelWithCompatibility,
+  toLabelWithCompanions,
 } from "./operations.js";
 
 export {

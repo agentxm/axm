@@ -252,7 +252,7 @@ const makeOp = (
           name: skill.name,
           version: exactVersion(Option.getOrElse(version, () => "1.0.0")),
           integrity: Option.none(),
-          compatiblePackages: [],
+          companionPackages: [],
         } satisfies RegistrySkillRef;
       case "local":
         return {

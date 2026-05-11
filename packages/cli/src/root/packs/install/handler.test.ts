@@ -438,7 +438,7 @@ describe("packs install handler", () => {
         name: extensionName("my-pack"),
         version: exactVersion("1.0.0"),
         integrity: Option.some("abc"),
-        compatiblePackages: [],
+        companionPackages: [],
       };
 
       const mockService: SourceHostProvidersService = {
@@ -524,7 +524,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("shows per-extension compatiblePackages alongside extension names", () => {
+    it.effect("shows per-extension companionPackages alongside extension names", () => {
       const packRef: PackRef = {
         type: "pack",
         refType: "registry",
@@ -537,7 +537,7 @@ describe("packs install handler", () => {
         name: extensionName("frontend"),
         version: exactVersion("1.0.0"),
         integrity: Option.none(),
-        compatiblePackages: [],
+        companionPackages: [],
       };
 
       const mockService: SourceHostProvidersService = {
@@ -563,7 +563,7 @@ describe("packs install handler", () => {
                 name: extensionName("react-testing"),
                 version: exactVersion("1.2.0"),
                 integrity: Option.none(),
-                compatiblePackages: [{ type: decodePackageType("npm"), name: "react" }],
+                companionPackages: [{ type: decodePackageType("npm"), name: "react" }],
               },
             ]);
           }
@@ -593,7 +593,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("shows no compatibility info when extensions have no compatiblePackages", () => {
+    it.effect("shows no compatibility info when extensions have no companionPackages", () => {
       const packRef: PackRef = {
         type: "pack",
         refType: "registry",
@@ -606,7 +606,7 @@ describe("packs install handler", () => {
         name: extensionName("basic-pack"),
         version: exactVersion("1.0.0"),
         integrity: Option.none(),
-        compatiblePackages: [],
+        companionPackages: [],
       };
 
       const mockService: SourceHostProvidersService = {
@@ -632,7 +632,7 @@ describe("packs install handler", () => {
                 name: extensionName("plain-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -693,7 +693,7 @@ describe("packs install handler", () => {
       name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
-      compatiblePackages: [],
+      companionPackages: [],
     });
 
     it.effect("builds plan from pack ref returned by sources.find", () => {
@@ -724,7 +724,7 @@ describe("packs install handler", () => {
                 name: extensionName("code-review"),
                 version: exactVersion("1.2.3"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -831,7 +831,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -850,7 +850,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -1071,7 +1071,7 @@ describe("packs install handler", () => {
                 name: extensionName("code-review"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -1090,7 +1090,7 @@ describe("packs install handler", () => {
                 name: extensionName("lint"),
                 version: exactVersion("2.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -1109,7 +1109,7 @@ describe("packs install handler", () => {
                 name: extensionName("analytics"),
                 version: exactVersion("3.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -1176,7 +1176,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -1195,7 +1195,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }
@@ -1273,7 +1273,7 @@ describe("packs install handler", () => {
                 name: extensionName("kept-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
-                compatiblePackages: [],
+                companionPackages: [],
               },
             ]);
           }

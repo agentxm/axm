@@ -10,7 +10,7 @@ export const buildRegistryCommandRef = (
   name: ExtensionName,
   version: Version,
   source: RegistrySource,
-  compatiblePackages: ReadonlyArray<PackageUrlParts>,
+  companionPackages: ReadonlyArray<PackageUrlParts>,
 ): RegistryCommandRef => ({
   type: "command",
   refType: "registry",
@@ -20,5 +20,5 @@ export const buildRegistryCommandRef = (
   name,
   version,
   integrity: Option.none(),
-  compatiblePackages,
+  companionPackages,
 });

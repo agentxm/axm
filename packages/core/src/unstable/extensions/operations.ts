@@ -71,18 +71,18 @@ export const formatPackageUrlParts = (parts: PackageUrlParts): string => {
 };
 
 /**
- * Build a display label with optional compatiblePackages suffix.
+ * Build a display label with optional companionPackages suffix.
  *
- * When compatiblePackages is non-empty, appends them parenthesized:
+ * When companionPackages is non-empty, appends them parenthesized:
  *   `code-review (pkg:npm/react, pkg:npm/typescript)`
  */
-export const toLabelWithCompatibility = (
+export const toLabelWithCompanions = (
   target: ExtensionTarget,
-  compatiblePackages: ReadonlyArray<PackageUrlParts>,
+  companionPackages: ReadonlyArray<PackageUrlParts>,
 ): string => {
   const base = toLabel(target);
-  if (compatiblePackages.length === 0) return base;
-  const purls = compatiblePackages.map(formatPackageUrlParts).join(", ");
+  if (companionPackages.length === 0) return base;
+  const purls = companionPackages.map(formatPackageUrlParts).join(", ");
   return `${base} (${purls})`;
 };
 
@@ -149,11 +149,11 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
   args: InstallOperationArgs<TRef>,
 ): PlannedJobStep => {
   const target = targetFromRef(args.ref);
-  const compatPkgs = args.ref.refType === "registry" ? args.ref.compatiblePackages : [];
+  const companionPkgs = args.ref.refType === "registry" ? args.ref.companionPackages : [];
 
   return {
     key: toStepKey(target),
-    label: toLabelWithCompatibility(target, compatPkgs),
+    label: toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
     run: runInstallOperation(manager, args),
   } satisfies PlannedJobStep;
@@ -184,11 +184,11 @@ export const buildMaterializeOperation = <TRef extends ExtensionRef>(
   args: MaterializeOperationArgs<TRef>,
 ): PlannedJobStep => {
   const target = targetFromRef(args.ref);
-  const compatPkgs = args.ref.refType === "registry" ? args.ref.compatiblePackages : [];
+  const companionPkgs = args.ref.refType === "registry" ? args.ref.companionPackages : [];
 
   return {
     key: toStepKey(target),
-    label: toLabelWithCompatibility(target, compatPkgs),
+    label: toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
     run: runMaterializeOperation(manager, args),
   } satisfies PlannedJobStep;

@@ -221,7 +221,7 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly version: Version;
   readonly integrity: string;
   /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
-  readonly compatiblePackages: ReadonlyArray<PackageUrlParts>;
+  readonly companionPackages: ReadonlyArray<PackageUrlParts>;
 }
 
 // -----------------------------------------------------------------------------

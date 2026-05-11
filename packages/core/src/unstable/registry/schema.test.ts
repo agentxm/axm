@@ -78,25 +78,25 @@ describe("registry schema", () => {
       expect(result.dependencies).toEqual({});
     });
 
-    it("accepts entry with compatiblePackages array", () => {
+    it("accepts entry with companionPackages array", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
         integrity: "sha512-abc123",
-        compatiblePackages: ["pkg:npm/react@18.2.0", "pkg:pypi/django"],
+        companionPackages: ["pkg:npm/react@18.2.0", "pkg:pypi/django"],
       };
 
       const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
 
-      expect(result.compatiblePackages).toHaveLength(2);
-      expect(result.compatiblePackages?.[0]?.type).toBe("npm");
-      expect(result.compatiblePackages?.[0]?.name).toBe("react");
-      expect(result.compatiblePackages?.[0]?.version).toBe("18.2.0");
-      expect(result.compatiblePackages?.[1]?.type).toBe("pypi");
-      expect(result.compatiblePackages?.[1]?.name).toBe("django");
+      expect(result.companionPackages).toHaveLength(2);
+      expect(result.companionPackages?.[0]?.type).toBe("npm");
+      expect(result.companionPackages?.[0]?.name).toBe("react");
+      expect(result.companionPackages?.[0]?.version).toBe("18.2.0");
+      expect(result.companionPackages?.[1]?.type).toBe("pypi");
+      expect(result.companionPackages?.[1]?.name).toBe("django");
     });
 
-    it("omits compatiblePackages when absent", () => {
+    it("omits companionPackages when absent", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
@@ -105,21 +105,21 @@ describe("registry schema", () => {
 
       const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
 
-      expect(result.compatiblePackages).toBeUndefined();
+      expect(result.companionPackages).toBeUndefined();
     });
 
-    it("encodes compatiblePackages back to purl strings", () => {
+    it("encodes companionPackages back to purl strings", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
         integrity: "sha512-abc123",
-        compatiblePackages: ["pkg:npm/react@18.2.0"],
+        companionPackages: ["pkg:npm/react@18.2.0"],
       };
 
       const decoded = Schema.decodeUnknownSync(VersionEntrySchema)(input);
       const encoded = Schema.encodeSync(VersionEntrySchema)(decoded);
 
-      expect(encoded.compatiblePackages).toEqual(["pkg:npm/react@18.2.0"]);
+      expect(encoded.companionPackages).toEqual(["pkg:npm/react@18.2.0"]);
     });
   });
 

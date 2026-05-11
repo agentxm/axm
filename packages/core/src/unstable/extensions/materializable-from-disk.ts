@@ -155,7 +155,7 @@ export const configuredSkillsToDiskRefs = (
           name: manifest.name,
           version: manifest.version,
           integrity: Option.none(),
-          compatiblePackages: [],
+          companionPackages: [],
           skill: {
             name: manifest.name,
             description: Option.fromUndefinedOr(manifest.description),
@@ -204,7 +204,7 @@ export const configuredCommandsToDiskRefs = (
           name: manifest.name,
           version: manifest.version,
           integrity: Option.none(),
-          compatiblePackages: [],
+          companionPackages: [],
           command: { name: manifest.name },
         } satisfies CommandExtensionRef);
       }),
@@ -249,7 +249,7 @@ export const configuredMcpServersToDiskRefs = (
           name: manifest.name,
           version: manifest.version,
           integrity: Option.none(),
-          compatiblePackages: [],
+          companionPackages: [],
           server: { name: manifest.name },
         } satisfies McpServerExtensionRef);
       }),
@@ -294,7 +294,7 @@ export const configuredSubagentsToDiskRefs = (
           name: manifest.name,
           version: manifest.version,
           integrity: Option.none(),
-          compatiblePackages: [],
+          companionPackages: [],
           subagent: {
             name: manifest.name,
             description: Option.fromUndefinedOr(manifest.description),
@@ -384,7 +384,7 @@ export const configuredPacksToDiskRefs = (
           name: manifest.name,
           version: manifest.version,
           integrity: Option.none(),
-          compatiblePackages: [],
+          companionPackages: [],
           pack: {
             name: manifest.name,
             dependencies: manifest.dependencies,

@@ -300,7 +300,7 @@ describe("sourceToLockEntry", () => {
       name: extensionName("test-skill"),
       version: exactVersion("2.1.0"),
       integrity: Option.some("sha512-AAAA=="),
-      compatiblePackages: [],
+      companionPackages: [],
     };
 
     const result = sourceToLockEntry({
@@ -342,7 +342,7 @@ describe("sourceToLockEntry", () => {
       name: extensionName("test-skill"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-AAAA=="),
-      compatiblePackages: [],
+      companionPackages: [],
     };
 
     const result = sourceToLockEntry({

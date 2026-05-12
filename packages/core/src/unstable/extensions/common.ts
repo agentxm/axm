@@ -651,7 +651,12 @@ export const NonPackManifestFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const AgentIdSchema = Schema.Literals([...AGENT_IDS]);
+export const AgentIdSchema = Schema.Literals([...AGENT_IDS]).annotate({
+  identifier: "AgentId",
+  title: "Agent ID",
+  description: "Supported coding agent identifier used in `.axm/settings.json` `agents`.",
+  examples: ["claude-code", "codex", "cursor"],
+});
 
 /**
  * Inferred type for AgentId schema.

@@ -120,12 +120,12 @@ const ruleIdKeyFilter = Schema.makeFilter(
  * @experimental This API is unstable and may change without notice.
  */
 export const LintRulesMapSchema = Schema.Record(Schema.String, LintRuleSeveritySchema)
-  .check(ruleIdKeyFilter)
   .annotate({
     identifier: "LintRulesMap",
     title: "Lint Rules Map",
     description: "Map of exact <namespace>/<name> rule ids to severity overrides for `axm lint`.",
-  });
+  })
+  .check(ruleIdKeyFilter);
 
 /**
  * Inferred type for `LintRulesMap`.
@@ -148,11 +148,16 @@ export type LintRulesMap = Schema.Schema.Type<typeof LintRulesMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const LintConfigSchema = Schema.Struct({
-  rules: Schema.optional(LintRulesMapSchema),
+  rules: Schema.optionalKey(
+    LintRulesMapSchema.annotate({
+      description: "Exact lint rule ids mapped to severity overrides.",
+      examples: [{ "workspace/settings-schema-valid": "error" }],
+    }),
+  ),
 }).annotate({
   identifier: "LintConfig",
   title: "Lint Config",
-  description: "WorkspaceMutations lint configuration under `lint` in `.axm/settings.json`.",
+  description: "Lint configuration under `lint` in `.axm/settings.json`.",
 });
 
 /**

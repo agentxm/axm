@@ -1,7 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$ref": "#/definitions/Settings",
+  "$ref": "#/definitions/AxmSettings",
   "definitions": {
+    "TelemetryMode": {
+      "anyOf": [{ "type": "boolean" }, { "type": "string", "enum": ["errors"] }],
+      "title": "Telemetry Mode",
+      "description": "`true` sends usage and error telemetry, `\"errors\"` sends only errors, and `false` disables telemetry.",
+      "examples": [true, "errors", false]
+    },
     "Handle": {
       "type": "string",
       "allOf": [
@@ -13,13 +19,60 @@
         }
       ]
     },
+    "AgentId": {
+      "type": "string",
+      "enum": [
+        "adal",
+        "amp",
+        "antigravity",
+        "augment",
+        "claude-code",
+        "cline",
+        "codebuddy",
+        "codex",
+        "command-code",
+        "continue",
+        "crush",
+        "cursor",
+        "droid",
+        "gemini-cli",
+        "github-copilot",
+        "goose",
+        "iflow-cli",
+        "junie",
+        "kilo",
+        "kimi-cli",
+        "kiro-cli",
+        "kode",
+        "mcpjam",
+        "mistral-vibe",
+        "mux",
+        "neovate",
+        "openclaw",
+        "opencode",
+        "openhands",
+        "pi",
+        "pochi",
+        "qoder",
+        "qwen-code",
+        "replit",
+        "roo",
+        "trae",
+        "trae-cn",
+        "windsurf",
+        "zencoder"
+      ],
+      "title": "Agent ID",
+      "description": "Supported coding agent identifier used in `.axm/settings.json` `agents`.",
+      "examples": ["claude-code", "codex", "cursor"]
+    },
     "SourceName": {
       "type": "string",
       "allOf": [
         {
           "pattern": "^[a-z0-9][a-z0-9.-]*$",
           "title": "Source Name",
-          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+          "description": "Alias used in entry source strings for this source host.",
           "examples": ["github", "my-registry.dev"]
         }
       ]
@@ -34,7 +87,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "GitHub Source Host",
-      "description": "Configuration for a GitHub source."
+      "description": "GitHub host available by its `name` alias in entry source strings."
     },
     "GitLabSourceHostConfig": {
       "type": "object",
@@ -46,7 +99,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "GitLab Source Host",
-      "description": "Configuration for a GitLab source."
+      "description": "GitLab host available by its `name` alias in entry source strings."
     },
     "BitbucketSourceHostConfig": {
       "type": "object",
@@ -58,7 +111,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "Bitbucket Source Host",
-      "description": "Configuration for a Bitbucket source."
+      "description": "Bitbucket host available by its `name` alias in entry source strings."
     },
     "AzureReposSourceHostConfig": {
       "type": "object",
@@ -70,7 +123,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "Azure Repos Source Host",
-      "description": "Configuration for an Azure Repos source."
+      "description": "Azure Repos host available by its `name` alias in entry source strings."
     },
     "RegistrySourceHostConfig": {
       "type": "object",
@@ -82,7 +135,7 @@
       "required": ["name", "type", "location"],
       "additionalProperties": false,
       "title": "Registry Source Host",
-      "description": "Configuration for a package registry source."
+      "description": "Registry source available by its `name` alias in entry source strings."
     },
     "SourceHostConfig": {
       "anyOf": [
@@ -95,37 +148,50 @@
       "title": "Source Host Config",
       "description": "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
     },
-    "SkillEntryObject": {
-      "type": "object",
-      "properties": {
-        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "enabled": {
-          "anyOf": [
-            {
+    "SkillEntry": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+                  "examples": [
+                    "@acme/skills/code-review@^1.0.0",
+                    "github:acme/agent-extensions",
+                    "./extensions/code-review"
+                  ]
+                }
+              ]
+            },
+            "enabled": {
               "type": "boolean",
               "description": "Whether this entry is enabled. Defaults to true when omitted.",
               "default": true
             },
-            { "type": "null" }
-          ]
-        },
-        "authored": {
-          "anyOf": [
-            {
+            "authored": {
               "type": "boolean",
               "description": "Whether this entry was authored locally. Defaults to false when omitted.",
               "default": false
-            },
-            { "type": "null" }
-          ]
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false,
+          "title": "Skill Entry Object",
+          "description": "A skill with source, enabled, and authored settings."
         }
-      },
-      "required": ["source"],
-      "additionalProperties": false,
-      "title": "Skill Entry Object",
-      "description": "A skill with its source location and whether it's enabled."
+      ],
+      "title": "Skill Entry",
+      "description": "Skill source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+      "examples": [
+        "@acme/skills/code-review@^1.0.0",
+        { "source": "github:acme/agent-extensions", "enabled": false }
+      ]
     },
-    "SkillEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SkillEntryObject" }] },
     "SkillsMap": {
       "type": "object",
       "title": "Skills Map",
@@ -137,45 +203,59 @@
       "type": "object",
       "properties": {
         "ignore": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+          "type": "array",
+          "description": "Installed skill names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false,
       "title": "Skills Config",
       "description": "Feature-level configuration for skills."
     },
-    "CommandEntryObject": {
-      "type": "object",
-      "properties": {
-        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "enabled": {
-          "anyOf": [
-            {
+    "CommandEntry": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+                  "examples": [
+                    "@acme/commands/code-review@^1.0.0",
+                    "github:acme/agent-extensions",
+                    "./extensions/code-review"
+                  ]
+                }
+              ]
+            },
+            "enabled": {
               "type": "boolean",
               "description": "Whether this entry is enabled. Defaults to true when omitted.",
               "default": true
             },
-            { "type": "null" }
-          ]
-        },
-        "authored": {
-          "anyOf": [
-            {
+            "authored": {
               "type": "boolean",
               "description": "Whether this entry was authored locally. Defaults to false when omitted.",
               "default": false
-            },
-            { "type": "null" }
-          ]
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false,
+          "title": "Command Entry Object",
+          "description": "A command with source, enabled, and authored settings."
         }
-      },
-      "required": ["source"],
-      "additionalProperties": false,
-      "title": "Command Entry Object",
-      "description": "A command with its source location and whether it's enabled."
-    },
-    "CommandEntry": {
-      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/CommandEntryObject" }]
+      ],
+      "title": "Command Entry",
+      "description": "Command source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+      "examples": [
+        "@acme/commands/code-review@^1.0.0",
+        { "source": "github:acme/agent-extensions", "enabled": false }
+      ]
     },
     "CommandsMap": {
       "type": "object",
@@ -188,45 +268,59 @@
       "type": "object",
       "properties": {
         "ignore": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+          "type": "array",
+          "description": "Installed command names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false,
       "title": "Commands Config",
       "description": "Feature-level configuration for commands."
     },
-    "SubagentEntryObject": {
-      "type": "object",
-      "properties": {
-        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "enabled": {
-          "anyOf": [
-            {
+    "SubagentEntry": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+                  "examples": [
+                    "@acme/subagents/code-review@^1.0.0",
+                    "github:acme/agent-extensions",
+                    "./extensions/code-review"
+                  ]
+                }
+              ]
+            },
+            "enabled": {
               "type": "boolean",
               "description": "Whether this entry is enabled. Defaults to true when omitted.",
               "default": true
             },
-            { "type": "null" }
-          ]
-        },
-        "authored": {
-          "anyOf": [
-            {
+            "authored": {
               "type": "boolean",
               "description": "Whether this entry was authored locally. Defaults to false when omitted.",
               "default": false
-            },
-            { "type": "null" }
-          ]
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false,
+          "title": "Subagent Entry Object",
+          "description": "A subagent with source, enabled, and authored settings."
         }
-      },
-      "required": ["source"],
-      "additionalProperties": false,
-      "title": "Subagent Entry Object",
-      "description": "A subagent with its source location and whether it's enabled."
-    },
-    "SubagentEntry": {
-      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SubagentEntryObject" }]
+      ],
+      "title": "Subagent Entry",
+      "description": "Subagent source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+      "examples": [
+        "@acme/subagents/reviewer@^1.0.0",
+        { "source": "github:acme/agent-extensions", "enabled": false }
+      ]
     },
     "SubagentsMap": {
       "type": "object",
@@ -239,34 +333,55 @@
       "type": "object",
       "properties": {
         "ignore": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+          "type": "array",
+          "description": "Installed subagent names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false,
       "title": "Subagents Config",
       "description": "Feature-level configuration for subagents."
     },
-    "PackEntryObject": {
-      "type": "object",
-      "properties": {
-        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "authored": {
-          "anyOf": [
-            {
+    "PackEntry": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+                  "examples": [
+                    "@acme/packs/code-review@^1.0.0",
+                    "github:acme/agent-extensions",
+                    "./extensions/code-review"
+                  ]
+                }
+              ]
+            },
+            "authored": {
               "type": "boolean",
               "description": "Whether this entry was authored locally. Defaults to false when omitted.",
               "default": false
-            },
-            { "type": "null" }
-          ]
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false,
+          "title": "Pack Entry Object",
+          "description": "A pack with source and authored settings. Pack entries do not support `enabled` yet."
         }
-      },
-      "required": ["source"],
-      "additionalProperties": false,
-      "title": "Pack Entry Object",
-      "description": "A pack with its source location."
+      ],
+      "title": "Pack Entry",
+      "description": "Pack source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. Pack entries do not support `enabled` yet.",
+      "examples": [
+        "@acme/packs/typescript@^1.0.0",
+        { "source": "github:acme/agent-extensions", "authored": true }
+      ]
     },
-    "PackEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/PackEntryObject" }] },
     "PacksMap": {
       "type": "object",
       "title": "Packs Map",
@@ -278,35 +393,54 @@
       "type": "object",
       "properties": {
         "ignore": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+          "type": "array",
+          "description": "Installed pack names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false,
       "title": "Packs Config",
       "description": "Feature-level configuration for packs."
     },
-    "McpServerEntryObject": {
-      "type": "object",
-      "properties": {
-        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "authored": {
-          "anyOf": [
-            {
+    "McpServerEntry": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+                  "examples": [
+                    "@acme/mcp-servers/code-review@^1.0.0",
+                    "github:acme/agent-extensions",
+                    "./extensions/code-review"
+                  ]
+                }
+              ]
+            },
+            "authored": {
               "type": "boolean",
               "description": "Whether this entry was authored locally. Defaults to false when omitted.",
               "default": false
-            },
-            { "type": "null" }
-          ]
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false,
+          "title": "MCP Server Entry Object",
+          "description": "An MCP server with source and authored settings. MCP entries do not support `enabled` yet."
         }
-      },
-      "required": ["source"],
-      "additionalProperties": false,
-      "title": "MCP Server Entry Object",
-      "description": "An MCP server with its source location."
-    },
-    "McpServerEntry": {
-      "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/McpServerEntryObject" }]
+      ],
+      "title": "MCP Server Entry",
+      "description": "MCP server source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. MCP entries do not support `enabled` yet.",
+      "examples": [
+        "@acme/mcp-servers/context@^1.0.0",
+        { "source": "github:acme/agent-extensions", "authored": true }
+      ]
     },
     "McpServersMap": {
       "type": "object",
@@ -319,7 +453,10 @@
       "type": "object",
       "properties": {
         "ignore": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+          "type": "array",
+          "description": "Installed MCP server names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false,
@@ -332,108 +469,106 @@
       "title": "Lint Rule Severity",
       "description": "Severity override for a lint rule: 'off' silences it, 'info'/'warn'/'error' raise or lower severity."
     },
-    "LintRulesMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/LintRuleSeverity" }
-    },
     "LintConfig": {
       "type": "object",
       "properties": {
-        "rules": { "anyOf": [{ "$ref": "#/definitions/LintRulesMap" }, { "type": "null" }] }
+        "rules": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/LintRuleSeverity" },
+          "title": "Lint Rules Map",
+          "description": "Map of exact <namespace>/<name> rule ids to severity overrides for `axm lint`."
+        }
       },
       "additionalProperties": false,
       "title": "Lint Config",
-      "description": "WorkspaceMutations lint configuration under `lint` in `.axm/settings.json`."
+      "description": "Lint configuration under `lint` in `.axm/settings.json`."
     },
-    "Settings": {
+    "AxmSettings": {
       "type": "object",
       "properties": {
         "telemetry": {
-          "anyOf": [
-            { "anyOf": [{ "type": "boolean" }, { "type": "string", "enum": ["errors"] }] },
-            { "type": "null" }
-          ]
+          "anyOf": [{ "$ref": "#/definitions/TelemetryMode" }],
+          "description": "Workspace telemetry mode: full, errors-only, or disabled."
         },
-        "owner": { "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }] },
+        "owner": {
+          "anyOf": [{ "$ref": "#/definitions/Handle" }],
+          "description": "Default owner handle used when AXM scaffolds or resolves workspace extensions."
+        },
         "agents": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "adal",
-                  "amp",
-                  "antigravity",
-                  "augment",
-                  "claude-code",
-                  "cline",
-                  "codebuddy",
-                  "codex",
-                  "command-code",
-                  "continue",
-                  "crush",
-                  "cursor",
-                  "droid",
-                  "gemini-cli",
-                  "github-copilot",
-                  "goose",
-                  "iflow-cli",
-                  "junie",
-                  "kilo",
-                  "kimi-cli",
-                  "kiro-cli",
-                  "kode",
-                  "mcpjam",
-                  "mistral-vibe",
-                  "mux",
-                  "neovate",
-                  "openclaw",
-                  "opencode",
-                  "openhands",
-                  "pi",
-                  "pochi",
-                  "qoder",
-                  "qwen-code",
-                  "replit",
-                  "roo",
-                  "trae",
-                  "trae-cn",
-                  "windsurf",
-                  "zencoder"
-                ]
-              }
-            },
-            { "type": "null" }
-          ]
+          "type": "array",
+          "description": "Coding agents AXM should sync managed extensions into.",
+          "examples": [["claude-code", "codex"]],
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/AgentId" }
         },
         "sources": {
-          "anyOf": [
-            { "type": "array", "items": { "$ref": "#/definitions/SourceHostConfig" } },
-            { "type": "null" }
-          ]
+          "type": "array",
+          "description": "Named source hosts used to resolve source-scheme entry references.",
+          "items": { "$ref": "#/definitions/SourceHostConfig" }
         },
-        "skills": { "anyOf": [{ "$ref": "#/definitions/SkillsMap" }, { "type": "null" }] },
-        "skillsConfig": { "anyOf": [{ "$ref": "#/definitions/SkillsConfig" }, { "type": "null" }] },
-        "commands": { "anyOf": [{ "$ref": "#/definitions/CommandsMap" }, { "type": "null" }] },
+        "skills": {
+          "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
+          "description": "Desired skills keyed by workspace skill name."
+        },
+        "skillsConfig": {
+          "anyOf": [{ "$ref": "#/definitions/SkillsConfig" }],
+          "description": "Feature-level options for skill management."
+        },
+        "commands": {
+          "anyOf": [{ "$ref": "#/definitions/CommandsMap" }],
+          "description": "Desired commands keyed by workspace command name."
+        },
         "commandsConfig": {
-          "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }, { "type": "null" }]
+          "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }],
+          "description": "Feature-level options for command management."
         },
-        "subagents": { "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }, { "type": "null" }] },
+        "subagents": {
+          "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
+          "description": "Desired subagents keyed by workspace subagent name."
+        },
         "subagentsConfig": {
-          "anyOf": [{ "$ref": "#/definitions/SubagentsConfig" }, { "type": "null" }]
+          "anyOf": [{ "$ref": "#/definitions/SubagentsConfig" }],
+          "description": "Feature-level options for subagent management."
         },
-        "packs": { "anyOf": [{ "$ref": "#/definitions/PacksMap" }, { "type": "null" }] },
-        "packsConfig": { "anyOf": [{ "$ref": "#/definitions/PacksConfig" }, { "type": "null" }] },
-        "mcpServers": { "anyOf": [{ "$ref": "#/definitions/McpServersMap" }, { "type": "null" }] },
+        "packs": {
+          "anyOf": [{ "$ref": "#/definitions/PacksMap" }],
+          "description": "Desired packs keyed by workspace pack name."
+        },
+        "packsConfig": {
+          "anyOf": [{ "$ref": "#/definitions/PacksConfig" }],
+          "description": "Feature-level options for pack management."
+        },
+        "mcpServers": {
+          "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
+          "description": "Desired MCP servers keyed by workspace MCP server name."
+        },
         "mcpServersConfig": {
-          "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }, { "type": "null" }]
+          "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }],
+          "description": "Feature-level options for MCP server management."
         },
-        "lint": { "anyOf": [{ "$ref": "#/definitions/LintConfig" }, { "type": "null" }] }
+        "lint": {
+          "anyOf": [{ "$ref": "#/definitions/LintConfig" }],
+          "description": "Lint configuration for `axm lint` in this workspace."
+        }
       },
       "additionalProperties": false,
       "title": "AXM Settings",
-      "description": "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config."
+      "description": "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config.",
+      "examples": [
+        {
+          "telemetry": "errors",
+          "agents": ["claude-code", "codex"],
+          "skills": {
+            "code-review": {
+              "source": "@acme/skills/code-review@^1.0.0",
+              "enabled": true,
+              "authored": false
+            }
+          },
+          "skillsConfig": { "ignore": ["local-*"] },
+          "lint": { "rules": { "workspace/settings-schema-valid": "error" } }
+        }
+      ]
     }
   }
 }

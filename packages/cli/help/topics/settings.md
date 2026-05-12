@@ -1,0 +1,39 @@
+# Settings
+
+AXM workspace state lives in `.axm/settings.json`.
+
+## `.axm/settings.json`
+
+[`settings.json`](https://axm.sh/schemas/settings.schema.json)
+
+<!-- axm:embed-schema settings.schema.json -->
+
+## Anatomy
+
+`owner` is the default handle AXM uses when creating or resolving workspace-owned extensions.
+
+`agents` lists the coding agents AXM syncs into. `sources` names registries and source hosts that entries can reference.
+
+Extension entries live under `skills`, `commands`, `subagents`, `packs`, and `mcpServers`. Each entry can be a source string or an object with metadata such as `enabled` or `authored`.
+
+Feature config lives under `skillsConfig`, `commandsConfig`, `subagentsConfig`, `packsConfig`, and `mcpServersConfig`.
+
+`lint` configures workspace-only severity overrides for `axm lint`.
+
+## Authoring
+
+Let AXM edit settings for routine install, remove, enable, disable, and source changes. Hand-edit settings when reviewing generated changes, adding source hosts, or adjusting `lint.rules`.
+
+Set `authored: true` only for extensions you expect to edit in this workspace.
+
+## Ignoring Extensions
+
+Use each feature's `ignore` list to leave matching pre-existing extensions unmanaged. Ignored extensions are not pruned or reconciled by AXM.
+
+## Where to go next
+
+- `axm help basic-usage` — workspace file overview
+- `axm help skills` — working with skills
+- `axm help commands` — working with slash commands
+- `axm help subagents` — working with subagents
+- `axm help packs` — working with packs

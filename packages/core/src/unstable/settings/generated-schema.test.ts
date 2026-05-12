@@ -88,7 +88,7 @@ describe("generated schemas", () => {
       return;
     }
 
-    const settingsDefinition = definitions["Settings"];
+    const settingsDefinition = definitions["AxmSettings"];
     expect(isRecord(settingsDefinition)).toBe(true);
     if (!isRecord(settingsDefinition)) {
       return;
@@ -156,6 +156,89 @@ describe("generated schemas", () => {
       const mapSchema = getDefinition(settingsSchema, name);
       const propertyNames = getRecord(mapSchema, "propertyNames");
       expect(propertyNames["pattern"]).toBe("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$");
+    }
+  });
+
+  it("publishes settings usability annotations", () => {
+    const settingsSchema = readGeneratedSettingsSchema();
+    const settings = getDefinition(settingsSchema, "AxmSettings");
+    const telemetry = getDefinition(settingsSchema, "TelemetryMode");
+    const agentId = getDefinition(settingsSchema, "AgentId");
+
+    expect(settingsSchema["$ref"]).toBe("#/definitions/AxmSettings");
+    expect(settings["title"]).toBe("AXM Settings");
+    expect(settings["examples"]).toEqual(expect.any(Array));
+
+    for (const field of [
+      "telemetry",
+      "owner",
+      "agents",
+      "sources",
+      "skills",
+      "skillsConfig",
+      "commands",
+      "commandsConfig",
+      "subagents",
+      "subagentsConfig",
+      "packs",
+      "packsConfig",
+      "mcpServers",
+      "mcpServersConfig",
+      "lint",
+    ]) {
+      expect(getProperty(settings, field)["description"]).toEqual(expect.any(String));
+    }
+
+    expect(telemetry["title"]).toBe("Telemetry Mode");
+    expect(telemetry["examples"]).toEqual(expect.arrayContaining([true, "errors", false]));
+
+    expect(agentId["title"]).toBe("Agent ID");
+    expect(agentId["examples"]).toEqual(expect.arrayContaining(["claude-code", "codex"]));
+
+    const agents = getProperty(settings, "agents");
+    expect(agents["allOf"]).toEqual(expect.arrayContaining([{ uniqueItems: true }]));
+  });
+
+  it("publishes settings entry annotations inline", () => {
+    const settingsSchema = readGeneratedSettingsSchema();
+    const definitions = getRecord(settingsSchema, "definitions");
+
+    for (const name of [
+      "SkillEntry",
+      "CommandEntry",
+      "SubagentEntry",
+      "McpServerEntry",
+      "PackEntry",
+    ]) {
+      const entry = getDefinition(settingsSchema, name);
+      expect(entry["title"]).toEqual(expect.any(String));
+      expect(entry["description"]).toContain("Source accepts FQN");
+      expect(entry["examples"]).toEqual(expect.any(Array));
+    }
+
+    expect(definitions).not.toHaveProperty("SkillEntryObject");
+    expect(definitions).not.toHaveProperty("CommandEntryObject");
+    expect(definitions).not.toHaveProperty("SubagentEntryObject");
+    expect(definitions).not.toHaveProperty("McpServerEntryObject");
+    expect(definitions).not.toHaveProperty("PackEntryObject");
+  });
+
+  it("publishes lint rules map annotations inside settings schema", () => {
+    const settingsSchema = readGeneratedSettingsSchema();
+    const lintConfig = getDefinition(settingsSchema, "LintConfig");
+    const rules = getProperty(lintConfig, "rules");
+
+    expect(rules["title"]).toBe("Lint Rules Map");
+    expect(rules["description"]).toContain("exact <namespace>/<name> rule ids");
+  });
+
+  it("omits null arms from settings optional fields", () => {
+    const settingsSchema = readGeneratedSettingsSchema();
+    const settings = getDefinition(settingsSchema, "AxmSettings");
+
+    for (const field of ["telemetry", "owner", "skills", "lint"]) {
+      const serialized = JSON.stringify(getProperty(settings, field));
+      expect(serialized).not.toContain('"type":"null"');
     }
   });
 

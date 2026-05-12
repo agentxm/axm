@@ -33,9 +33,23 @@ const SourceNameSchema = Schema.String.check(
   identifier: "SourceName",
   title: "Source Name",
   description:
-    "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+    "Alias used in entry source strings, using lowercase letters, numbers, hyphens, and dots.",
   examples: ["github", "my-registry.dev"],
 });
+
+const sourceNameFieldSchema = SourceNameSchema.pipe(
+  Schema.annotateKey({ messageMissingKey: "source name is required" }),
+  Schema.annotate({
+    description: "Alias used in entry source strings for this source host.",
+  }),
+);
+
+const sourceUrlFieldSchema = Schema.URLFromString.pipe(
+  Schema.annotateKey({ messageMissingKey: "source url is required" }),
+  Schema.annotate({
+    description: "Base URL for this source host endpoint.",
+  }),
+);
 
 /**
  * GitHub source host configuration.
@@ -43,15 +57,13 @@ const SourceNameSchema = Schema.String.check(
  * @experimental This API is unstable and may change without notice.
  */
 const GitHubSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
+  name: sourceNameFieldSchema,
   type: Schema.Literal("github"),
-  url: Schema.URLFromString.pipe(
-    Schema.annotateKey({ messageMissingKey: "source url is required" }),
-  ),
+  url: sourceUrlFieldSchema,
 }).annotate({
   identifier: "GitHubSourceHostConfig",
   title: "GitHub Source Host",
-  description: "Configuration for a GitHub source.",
+  description: "GitHub host available by its `name` alias in entry source strings.",
 });
 
 /**
@@ -60,15 +72,13 @@ const GitHubSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const GitLabSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
+  name: sourceNameFieldSchema,
   type: Schema.Literal("gitlab"),
-  url: Schema.URLFromString.pipe(
-    Schema.annotateKey({ messageMissingKey: "source url is required" }),
-  ),
+  url: sourceUrlFieldSchema,
 }).annotate({
   identifier: "GitLabSourceHostConfig",
   title: "GitLab Source Host",
-  description: "Configuration for a GitLab source.",
+  description: "GitLab host available by its `name` alias in entry source strings.",
 });
 
 /**
@@ -77,15 +87,13 @@ const GitLabSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const BitbucketSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
+  name: sourceNameFieldSchema,
   type: Schema.Literal("bitbucket"),
-  url: Schema.URLFromString.pipe(
-    Schema.annotateKey({ messageMissingKey: "source url is required" }),
-  ),
+  url: sourceUrlFieldSchema,
 }).annotate({
   identifier: "BitbucketSourceHostConfig",
   title: "Bitbucket Source Host",
-  description: "Configuration for a Bitbucket source.",
+  description: "Bitbucket host available by its `name` alias in entry source strings.",
 });
 
 /**
@@ -94,15 +102,13 @@ const BitbucketSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const AzureReposSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
+  name: sourceNameFieldSchema,
   type: Schema.Literal("azurerepos"),
-  url: Schema.URLFromString.pipe(
-    Schema.annotateKey({ messageMissingKey: "source url is required" }),
-  ),
+  url: sourceUrlFieldSchema,
 }).annotate({
   identifier: "AzureReposSourceHostConfig",
   title: "Azure Repos Source Host",
-  description: "Configuration for an Azure Repos source.",
+  description: "Azure Repos host available by its `name` alias in entry source strings.",
 });
 
 /**
@@ -111,15 +117,19 @@ const AzureReposSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const RegistrySourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
+  name: sourceNameFieldSchema,
   type: Schema.Literal("registry"),
   location: Schema.URLFromString.pipe(
     Schema.annotateKey({ messageMissingKey: "source location is required" }),
+    Schema.annotate({
+      description:
+        "Registry endpoint for this source; accepts http(s)://, file://, or local paths.",
+    }),
   ),
 }).annotate({
   identifier: "RegistrySourceHostConfig",
   title: "Registry Source Host",
-  description: "Configuration for a package registry source.",
+  description: "Registry source available by its `name` alias in entry source strings.",
 });
 
 /**
@@ -187,19 +197,54 @@ const ExtensionMapKeySchema = Schema.String.check(
   }),
 );
 
-const authoredFieldSchema = Schema.optional(
+const authoredFieldSchema = Schema.optionalKey(
   Schema.Boolean.annotate({
     description: "Whether this entry was authored locally. Defaults to false when omitted.",
     default: false,
   }),
 );
 
-const enabledFieldSchema = Schema.optional(
+const enabledFieldSchema = Schema.optionalKey(
   Schema.Boolean.annotate({
     description: "Whether this entry is enabled. Defaults to true when omitted.",
     default: true,
   }),
 );
+
+const entrySourceFieldSchema = (label: string, fqnType: string) =>
+  Schema.NonEmptyString.pipe(
+    Schema.annotateKey({ messageMissingKey: `${label} source is required` }),
+    Schema.annotate({
+      description:
+        "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+      examples: [
+        `@acme/${fqnType}/code-review@^1.0.0`,
+        "github:acme/agent-extensions",
+        "./extensions/code-review",
+      ],
+    }),
+  );
+
+const telemetryModeExamples = [true, "errors", false] as const;
+
+/**
+ * Telemetry preference for this workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const TelemetryModeSchema = Schema.Union([
+  Schema.Boolean,
+  Schema.Literal("errors"),
+]).annotate({
+  identifier: "TelemetryMode",
+  title: "Telemetry Mode",
+  description:
+    '`true` sends usage and error telemetry, `"errors"` sends only errors, and `false` disables telemetry.',
+  examples: telemetryModeExamples,
+});
+
+/** @experimental */
+export type TelemetryMode = Schema.Schema.Type<typeof TelemetryModeSchema>;
 
 const compactOrVerboseEntry = <
   ObjectEntry extends AuthoredEntryObject,
@@ -213,13 +258,21 @@ const compactOrVerboseEntry = <
     readonly decode: (entry: string | ObjectEntry) => CanonicalEntry;
     readonly encode: (entry: CanonicalEntry) => string | ObjectEntry;
   },
+  annotations: {
+    readonly identifier: string;
+    readonly title: string;
+    readonly description: string;
+    readonly examples: ReadonlyArray<string | ObjectEntry>;
+  },
 ) =>
-  Schema.Union([Schema.String, objectSchema]).pipe(
-    Schema.decodeTo(
-      canonicalSchema,
-      SchemaTransformation.transform<CanonicalEntry, string | ObjectEntry>(transformation),
-    ),
-  );
+  Schema.Union([Schema.String, objectSchema])
+    .annotate(annotations)
+    .pipe(
+      Schema.decodeTo(
+        canonicalSchema,
+        SchemaTransformation.transform<CanonicalEntry, string | ObjectEntry>(transformation),
+      ),
+    );
 
 /**
  * Managed skill with source and optional config flags.
@@ -227,15 +280,12 @@ const compactOrVerboseEntry = <
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillEntryObjectSchema = Schema.Struct({
-  source: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "skill source is required" }),
-  ),
+  source: entrySourceFieldSchema("skill", "skills"),
   enabled: enabledFieldSchema,
   authored: authoredFieldSchema,
 }).annotate({
-  identifier: "SkillEntryObject",
   title: "Skill Entry Object",
-  description: "A skill with its source location and whether it's enabled.",
+  description: "A skill with source, enabled, and authored settings.",
 });
 
 /**
@@ -255,11 +305,6 @@ export const SkillEntrySchema = compactOrVerboseEntry(
     source: Schema.String,
     enabled: Schema.Boolean,
     authored: Schema.Boolean,
-  }).annotate({
-    identifier: "SkillEntry",
-    title: "Skill Entry",
-    description:
-      "A skill reference — either a source string like @owner/skills/name or an object with source, enabled, and authored.",
   }),
   {
     decode: (entry: string | EnabledEntryObject): EnabledEntry =>
@@ -279,6 +324,16 @@ export const SkillEntrySchema = compactOrVerboseEntry(
       if (entry.authored) obj.authored = true;
       return obj;
     },
+  },
+  {
+    identifier: "SkillEntry",
+    title: "Skill Entry",
+    description:
+      "Skill source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+    examples: [
+      "@acme/skills/code-review@^1.0.0",
+      { source: "github:acme/agent-extensions", enabled: false },
+    ],
   },
 );
 
@@ -320,15 +375,12 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const CommandEntryObjectSchema = Schema.Struct({
-  source: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "command source is required" }),
-  ),
+  source: entrySourceFieldSchema("command", "commands"),
   enabled: enabledFieldSchema,
   authored: authoredFieldSchema,
 }).annotate({
-  identifier: "CommandEntryObject",
   title: "Command Entry Object",
-  description: "A command with its source location and whether it's enabled.",
+  description: "A command with source, enabled, and authored settings.",
 });
 
 /**
@@ -346,11 +398,6 @@ export const CommandEntrySchema = compactOrVerboseEntry(
     source: Schema.String,
     enabled: Schema.Boolean,
     authored: Schema.Boolean,
-  }).annotate({
-    identifier: "CommandEntry",
-    title: "Command Entry",
-    description:
-      "A command reference — either a source string like @owner/commands/name or an object with source, enabled, and authored.",
   }),
   {
     decode: (entry: string | EnabledEntryObject): EnabledEntry =>
@@ -370,6 +417,16 @@ export const CommandEntrySchema = compactOrVerboseEntry(
       if (entry.authored) obj.authored = true;
       return obj;
     },
+  },
+  {
+    identifier: "CommandEntry",
+    title: "Command Entry",
+    description:
+      "Command source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+    examples: [
+      "@acme/commands/code-review@^1.0.0",
+      { source: "github:acme/agent-extensions", enabled: false },
+    ],
   },
 );
 
@@ -411,14 +468,12 @@ export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerEntryObjectSchema = Schema.Struct({
-  source: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "MCP server source is required" }),
-  ),
+  source: entrySourceFieldSchema("MCP server", "mcp-servers"),
   authored: authoredFieldSchema,
 }).annotate({
-  identifier: "McpServerEntryObject",
   title: "MCP Server Entry Object",
-  description: "An MCP server with its source location.",
+  description:
+    "An MCP server with source and authored settings. MCP entries do not support `enabled` yet.",
 });
 
 /**
@@ -434,11 +489,6 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
   Schema.Struct({
     source: Schema.String,
     authored: Schema.Boolean,
-  }).annotate({
-    identifier: "McpServerEntry",
-    title: "MCP Server Entry",
-    description:
-      "An MCP server reference — either a source string or an object with source and authored.",
   }),
   {
     decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
@@ -447,6 +497,16 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         : { source: entry.source, authored: entry.authored ?? false },
     encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
       entry.authored ? { source: entry.source, authored: true } : entry.source,
+  },
+  {
+    identifier: "McpServerEntry",
+    title: "MCP Server Entry",
+    description:
+      "MCP server source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. MCP entries do not support `enabled` yet.",
+    examples: [
+      "@acme/mcp-servers/context@^1.0.0",
+      { source: "github:acme/agent-extensions", authored: true },
+    ],
   },
 );
 
@@ -490,15 +550,12 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const SubagentEntryObjectSchema = Schema.Struct({
-  source: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "subagent source is required" }),
-  ),
+  source: entrySourceFieldSchema("subagent", "subagents"),
   enabled: enabledFieldSchema,
   authored: authoredFieldSchema,
 }).annotate({
-  identifier: "SubagentEntryObject",
   title: "Subagent Entry Object",
-  description: "A subagent with its source location and whether it's enabled.",
+  description: "A subagent with source, enabled, and authored settings.",
 });
 
 /**
@@ -516,11 +573,6 @@ export const SubagentEntrySchema = compactOrVerboseEntry(
     source: Schema.String,
     enabled: Schema.Boolean,
     authored: Schema.Boolean,
-  }).annotate({
-    identifier: "SubagentEntry",
-    title: "Subagent Entry",
-    description:
-      "A subagent reference — either a source string like @owner/subagents/name or an object with source, enabled, and authored.",
   }),
   {
     decode: (entry: string | EnabledEntryObject): EnabledEntry =>
@@ -540,6 +592,16 @@ export const SubagentEntrySchema = compactOrVerboseEntry(
       if (entry.authored) obj.authored = true;
       return obj;
     },
+  },
+  {
+    identifier: "SubagentEntry",
+    title: "Subagent Entry",
+    description:
+      "Subagent source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+    examples: [
+      "@acme/subagents/reviewer@^1.0.0",
+      { source: "github:acme/agent-extensions", enabled: false },
+    ],
   },
 );
 
@@ -588,14 +650,12 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const PackEntryObjectSchema = Schema.Struct({
-  source: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "pack source is required" }),
-  ),
+  source: entrySourceFieldSchema("pack", "packs"),
   authored: authoredFieldSchema,
 }).annotate({
-  identifier: "PackEntryObject",
   title: "Pack Entry Object",
-  description: "A pack with its source location.",
+  description:
+    "A pack with source and authored settings. Pack entries do not support `enabled` yet.",
 });
 
 /**
@@ -611,10 +671,6 @@ export const PackEntrySchema = compactOrVerboseEntry(
   Schema.Struct({
     source: Schema.String,
     authored: Schema.Boolean,
-  }).annotate({
-    identifier: "PackEntry",
-    title: "Pack Entry",
-    description: "A pack reference — either a source string or an object with source and authored.",
   }),
   {
     decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
@@ -623,6 +679,16 @@ export const PackEntrySchema = compactOrVerboseEntry(
         : { source: entry.source, authored: entry.authored ?? false },
     encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
       entry.authored ? { source: entry.source, authored: true } : entry.source,
+  },
+  {
+    identifier: "PackEntry",
+    title: "Pack Entry",
+    description:
+      "Pack source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. Pack entries do not support `enabled` yet.",
+    examples: [
+      "@acme/packs/typescript@^1.0.0",
+      { source: "github:acme/agent-extensions", authored: true },
+    ],
   },
 );
 
@@ -668,7 +734,12 @@ export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillsConfigSchema = Schema.Struct({
-  ignore: Schema.optional(Schema.Array(Schema.String)),
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed skill names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
 }).annotate({
   identifier: "SkillsConfig",
   title: "Skills Config",
@@ -684,7 +755,12 @@ export type SkillsConfig = Schema.Schema.Type<typeof SkillsConfigSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const CommandsConfigSchema = Schema.Struct({
-  ignore: Schema.optional(Schema.Array(Schema.String)),
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed command names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
 }).annotate({
   identifier: "CommandsConfig",
   title: "Commands Config",
@@ -700,7 +776,12 @@ export type CommandsConfig = Schema.Schema.Type<typeof CommandsConfigSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const SubagentsConfigSchema = Schema.Struct({
-  ignore: Schema.optional(Schema.Array(Schema.String)),
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed subagent names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
 }).annotate({
   identifier: "SubagentsConfig",
   title: "Subagents Config",
@@ -716,7 +797,12 @@ export type SubagentsConfig = Schema.Schema.Type<typeof SubagentsConfigSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServersConfigSchema = Schema.Struct({
-  ignore: Schema.optional(Schema.Array(Schema.String)),
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed MCP server names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
 }).annotate({
   identifier: "McpServersConfig",
   title: "MCP Servers Config",
@@ -732,7 +818,12 @@ export type McpServersConfig = Schema.Schema.Type<typeof McpServersConfigSchema>
  * @experimental This API is unstable and may change without notice.
  */
 export const PacksConfigSchema = Schema.Struct({
-  ignore: Schema.optional(Schema.Array(Schema.String)),
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed pack names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
 }).annotate({
   identifier: "PacksConfig",
   title: "Packs Config",
@@ -789,26 +880,110 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * @experimental This API is unstable and may change without notice.
  */
 export const SettingsSchema = Schema.Struct({
-  telemetry: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("errors")])),
-  owner: Schema.optional(HandleSchema),
-  agents: Schema.optional(Schema.Array(AgentIdSchema)),
-  sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
-  skills: Schema.optional(SkillsMapSchema),
-  skillsConfig: Schema.optional(SkillsConfigSchema),
-  commands: Schema.optional(CommandsMapSchema),
-  commandsConfig: Schema.optional(CommandsConfigSchema),
-  subagents: Schema.optional(SubagentsMapSchema),
-  subagentsConfig: Schema.optional(SubagentsConfigSchema),
-  packs: Schema.optional(PacksMapSchema),
-  packsConfig: Schema.optional(PacksConfigSchema),
-  mcpServers: Schema.optional(McpServersMapSchema),
-  mcpServersConfig: Schema.optional(McpServersConfigSchema),
-  lint: Schema.optional(LintConfigSchema),
+  telemetry: Schema.optionalKey(
+    Schema.Union([TelemetryModeSchema]).annotate({
+      description: "Workspace telemetry mode: full, errors-only, or disabled.",
+    }),
+  ),
+  owner: Schema.optionalKey(
+    Schema.Union([HandleSchema]).annotate({
+      description: "Default owner handle used when AXM scaffolds or resolves workspace extensions.",
+    }),
+  ),
+  agents: Schema.optionalKey(
+    Schema.Array(AgentIdSchema)
+      .annotate({
+        description: "Coding agents AXM should sync managed extensions into.",
+        examples: [["claude-code", "codex"]],
+      })
+      .check(Schema.isUnique()),
+  ),
+  sources: Schema.optionalKey(
+    Schema.Array(SourceHostConfigSchema).annotate({
+      description: "Named source hosts used to resolve source-scheme entry references.",
+    }),
+  ),
+  skills: Schema.optionalKey(
+    Schema.Union([SkillsMapSchema]).annotate({
+      description: "Desired skills keyed by workspace skill name.",
+    }),
+  ),
+  skillsConfig: Schema.optionalKey(
+    Schema.Union([SkillsConfigSchema]).annotate({
+      description: "Feature-level options for skill management.",
+    }),
+  ),
+  commands: Schema.optionalKey(
+    Schema.Union([CommandsMapSchema]).annotate({
+      description: "Desired commands keyed by workspace command name.",
+    }),
+  ),
+  commandsConfig: Schema.optionalKey(
+    Schema.Union([CommandsConfigSchema]).annotate({
+      description: "Feature-level options for command management.",
+    }),
+  ),
+  subagents: Schema.optionalKey(
+    Schema.Union([SubagentsMapSchema]).annotate({
+      description: "Desired subagents keyed by workspace subagent name.",
+    }),
+  ),
+  subagentsConfig: Schema.optionalKey(
+    Schema.Union([SubagentsConfigSchema]).annotate({
+      description: "Feature-level options for subagent management.",
+    }),
+  ),
+  packs: Schema.optionalKey(
+    Schema.Union([PacksMapSchema]).annotate({
+      description: "Desired packs keyed by workspace pack name.",
+    }),
+  ),
+  packsConfig: Schema.optionalKey(
+    Schema.Union([PacksConfigSchema]).annotate({
+      description: "Feature-level options for pack management.",
+    }),
+  ),
+  mcpServers: Schema.optionalKey(
+    Schema.Union([McpServersMapSchema]).annotate({
+      description: "Desired MCP servers keyed by workspace MCP server name.",
+    }),
+  ),
+  mcpServersConfig: Schema.optionalKey(
+    Schema.Union([McpServersConfigSchema]).annotate({
+      description: "Feature-level options for MCP server management.",
+    }),
+  ),
+  lint: Schema.optionalKey(
+    Schema.Union([LintConfigSchema]).annotate({
+      description: "Lint configuration for `axm lint` in this workspace.",
+    }),
+  ),
 }).annotate({
-  identifier: "Settings",
+  identifier: "AxmSettings",
   title: "AXM Settings",
   description:
     "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config.",
+  examples: [
+    {
+      telemetry: "errors",
+      agents: ["claude-code", "codex"],
+      skills: {
+        "code-review": {
+          source: "@acme/skills/code-review@^1.0.0",
+          enabled: true,
+          authored: false,
+        },
+      },
+      skillsConfig: {
+        ignore: ["local-*"],
+      },
+      lint: {
+        rules: {
+          "workspace/settings-schema-valid": "error",
+        },
+      },
+    },
+  ],
 });
 
 /**

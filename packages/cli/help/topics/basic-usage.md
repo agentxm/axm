@@ -54,6 +54,7 @@ It's possible to ignore pre-existing skills and other extensions in your workspa
 **Use `axm help` to see a list of topics and select the one relevant to your task.**
 
 - `axm help getting-started` — first-time setup for a workspace that has never used AXM
+- `axm help settings` — `.axm/settings.json` fields and schema
 - `axm help skills` — working with skills
 - `axm help subagents` — working with subagents
 - `axm help commands` — working with slash commands

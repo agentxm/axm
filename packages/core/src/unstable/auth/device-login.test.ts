@@ -72,39 +72,31 @@ const makeLayers = (opts?: { readonly browserOpens?: boolean; readonly getMeFail
 };
 
 describe("runDeviceLogin", () => {
-  it.effect("opens the browser and copies the device code when available", () => {
+  it.effect("opens the static URL and copies the URL when requested", () => {
     const { layer, logs, interactionState } = makeLayers({ browserOpens: true });
 
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
-        expect(interactionState.openBrowserCalls).toEqual([
-          "https://auth.agentxm.ai/device?code=ABCD-1234",
-        ]);
-        expect(logs.step).toContain("Opening browser to sign in...");
-        expect(logs.message).toContain("https://auth.agentxm.ai/device?code=ABCD-1234");
-        expect(
-          logs.step.some((message) =>
-            message.includes("Open this URL in your browser: https://auth.agentxm.ai/device"),
-          ),
-        ).toBe(false);
-        expect(logs.step).toContain("Your verification code: ABCD-1234 (copied to clipboard)");
+        expect(interactionState.copyToClipboardCalls).toEqual(["https://auth.agentxm.ai/device"]);
+        expect(interactionState.openBrowserCalls).toEqual(["https://auth.agentxm.ai/device"]);
+        expect(logs.step).toContain("Opening browser to complete device authorization...");
+        expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device (copied to clipboard)");
+        expect(logs.step).toContain("Code: ABCD-1234");
         expect(logs.success).toContain("Logged in to registry.agentxm.ai as @alice.");
       }),
     );
   });
 
-  it.effect("falls back to manual browser instructions when launch fails", () => {
-    const { layer, logs } = makeLayers({ browserOpens: false });
+  it.effect("prints static manual instructions when browser launch is disabled", () => {
+    const { layer, logs, interactionState } = makeLayers({ browserOpens: false });
 
-    return runDeviceLogin(REGISTRY_URL).pipe(
+    return runDeviceLogin(REGISTRY_URL, { openBrowser: false }).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(logs.step).toContain(
-          "Open this URL in your browser: https://auth.agentxm.ai/device?code=ABCD-1234",
-        );
-        expect(logs.step).toContain("Your verification code: ABCD-1234 (copied to clipboard)");
+        expect(interactionState.openBrowserCalls).toEqual([]);
+        expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device (copied to clipboard)");
+        expect(logs.step).toContain("Code: ABCD-1234");
       }),
     );
   });
@@ -128,7 +120,7 @@ describe("runDeviceLogin", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("omits clipboard hint when clipboard copy fails", () => {
+  it.effect("omits URL clipboard hint when clipboard copy fails", () => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () => Effect.succeed(true),
@@ -173,7 +165,8 @@ describe("runDeviceLogin", () => {
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(logs.step).toContain("Your verification code: ABCD-1234");
+        expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device");
+        expect(logs.step).toContain("Code: ABCD-1234");
         expect(logs.step.some((m) => m.includes("copied to clipboard"))).toBe(false);
       }),
     );

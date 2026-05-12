@@ -138,8 +138,8 @@ describe("CredentialStore", () => {
       isRoot: false,
     };
 
-    it("selects restricted-file for default environment", () => {
-      expect(selectTier(baseEnv)).toBe("restricted-file");
+    it("selects keychain for default environment", () => {
+      expect(selectTier(baseEnv)).toBe("keychain");
     });
 
     it("selects restricted-file for container environment", () => {
@@ -154,8 +154,8 @@ describe("CredentialStore", () => {
       expect(selectTier({ ...baseEnv, isSSH: true })).toBe("restricted-file");
     });
 
-    it("selects restricted-file for WSL environment (keychain not implemented)", () => {
-      expect(selectTier({ ...baseEnv, isWSL: true })).toBe("restricted-file");
+    it("selects keychain for WSL desktop environments", () => {
+      expect(selectTier({ ...baseEnv, isWSL: true })).toBe("keychain");
     });
 
     it("container takes precedence over SSH", () => {

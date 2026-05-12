@@ -21,7 +21,6 @@ import { expect } from "vitest";
 
 import { AuthClient, AuthClientLive, pollOnce } from "./auth-client.js";
 import { RegistryUrl } from "./registry-url.js";
-import * as GeneratedRegistryClient from "../registry/__generated__/registry-client.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -53,7 +52,7 @@ const makeTestLayer = (handler: (request: HttpClientRequest.HttpClientRequest) =
   return Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 };
 
-/** Build a valid AuthExchangeDeviceCode200-compatible JSON response body. */
+/** Build a valid token endpoint JSON response body. */
 const makeTokenResponse = (overrides?: {
   readonly access_token?: string;
   readonly refresh_token?: string;
@@ -68,7 +67,9 @@ const makeTokenResponse = (overrides?: {
 });
 
 /** Build a valid DeviceTokenOAuthError-compatible JSON error body. */
-const makeOAuthError = (error: GeneratedRegistryClient.DeviceTokenOAuthError["error"]) => ({
+type OAuthDeviceError = "authorization_pending" | "slow_down" | "expired_token" | "access_denied";
+
+const makeOAuthError = (error: OAuthDeviceError) => ({
   kind: "DeviceTokenOAuthError",
   error,
   error_description: `OAuth error: ${error}`,
@@ -125,6 +126,28 @@ const makeRefreshTokenError = () => ({
 // -----------------------------------------------------------------------------
 // initiateDeviceFlow
 // -----------------------------------------------------------------------------
+
+describe("AuthClient.buildAuthorizeUrl", () => {
+  it.effect("includes a request expiry when provided", () => {
+    const layer = makeTestLayer(() => new Response(null, { status: 204 }));
+    const expiresAt = new Date("2026-05-12T12:00:00.000Z");
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const url = new URL(
+        client.buildAuthorizeUrl({
+          challenge: "challenge",
+          expiresAt,
+          state: "state",
+          redirectUri: "http://127.0.0.1:49152/callback",
+        }),
+      );
+
+      expect(url.pathname).toBe("/oauth/authorize");
+      expect(url.searchParams.get("request_expires_at")).toBe(expiresAt.toISOString());
+    }).pipe(Effect.provide(layer));
+  });
+});
 
 describe("AuthClient.initiateDeviceFlow", () => {
   it.effect("returns device flow response on success", () => {
@@ -208,21 +231,13 @@ describe("AuthClient.initiateDeviceFlow", () => {
 });
 
 // -----------------------------------------------------------------------------
-// pollOnce (single poll step via generated client)
+// pollOnce (single poll step via token endpoint)
 // -----------------------------------------------------------------------------
 
 describe("pollOnce", () => {
-  /** Create a generated registry client backed by a mock HTTP handler. */
-  const makeMockClient = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) => {
-    const httpClient = makeMockHttpClient(handler);
-    return GeneratedRegistryClient.make(
-      httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(REGISTRY_URL))),
-    );
-  };
-
   it.effect("returns Success on 200 with token", () => {
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
-    const client = makeMockClient(
+    const httpClient = makeMockHttpClient(
       () =>
         new Response(
           JSON.stringify(makeTokenResponse({ access_token: "axm_ses_new", expires_at: expiresAt })),
@@ -231,7 +246,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(client, "dev_123");
+      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
       expect(result._tag).toBe("Success");
       if (result._tag === "Success") {
         expect(result.token.access_token).toBe("axm_ses_new");
@@ -241,7 +256,7 @@ describe("pollOnce", () => {
   });
 
   it.effect("returns Pending on authorization_pending error", () => {
-    const client = makeMockClient(
+    const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("authorization_pending")), {
           status: 400,
@@ -250,13 +265,13 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(client, "dev_123");
+      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
       expect(result._tag).toBe("Pending");
     });
   });
 
   it.effect("returns SlowDown on slow_down error", () => {
-    const client = makeMockClient(
+    const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("slow_down")), {
           status: 400,
@@ -265,13 +280,13 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(client, "dev_123");
+      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
       expect(result._tag).toBe("SlowDown");
     });
   });
 
   it.effect("returns AccessDenied on access_denied error", () => {
-    const client = makeMockClient(
+    const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("access_denied")), {
           status: 400,
@@ -280,13 +295,13 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(client, "dev_123");
+      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
       expect(result._tag).toBe("AccessDenied");
     });
   });
 
   it.effect("returns ExpiredToken on expired_token error", () => {
-    const client = makeMockClient(
+    const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("expired_token")), {
           status: 400,
@@ -295,7 +310,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(client, "dev_123");
+      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
       expect(result._tag).toBe("ExpiredToken");
     });
   });
@@ -303,7 +318,7 @@ describe("pollOnce", () => {
   it.effect("maps transient HttpClientError (500) to AUTH_LOGIN_FAILED", () => {
     // pollOnce does not retry on its own; a 5xx StatusCodeError is classified
     // as transient and collapses into the "Lost connection" AppError message.
-    const client = makeMockClient(
+    const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify({ message: "internal error" }), {
           status: 500,
@@ -312,17 +327,17 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const error = yield* pollOnce(client, "dev_123").pipe(Effect.flip);
+      const error = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip);
       expect(error.code).toBe("auth");
       expect(error.message).toBe("Lost connection to the registry during login");
     });
   });
 
   it.effect("fails with AUTH_LOGIN_FAILED on schema decode error (malformed 200 body)", () => {
-    // A 200 with a body that does not match AuthExchangeDeviceCode200 surfaces
+    // A 200 with a body that does not match the token response schema surfaces
     // a SchemaError (not an HttpClientError), which is NOT considered transient
     // and must flow through the "unexpected error" branch.
-    const client = makeMockClient(
+    const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify({ not: "a token" }), {
           status: 200,
@@ -331,7 +346,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const error = yield* pollOnce(client, "dev_123").pipe(Effect.flip);
+      const error = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip);
       expect(error.code).toBe("auth");
       expect(error.message).toBe("Device token exchange failed with an unexpected error");
     });
@@ -523,7 +538,7 @@ describe("AuthClient.refreshToken", () => {
     const expiresAt = "2026-03-10T12:30:00.000Z";
 
     const layer = makeTestLayer((req) => {
-      expect(req.url).toContain("/v1/auth/token/refresh");
+      expect(req.url).toContain("/v1/auth/token");
       expect(req.method).toBe("POST");
       return new Response(
         JSON.stringify(
@@ -563,7 +578,7 @@ describe("AuthClient.refreshToken", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_REFRESH_FAILED on 401", () => {
+  it.effect("fails with AUTH_REFRESH_FAILED on non-OAuth error status", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeRefreshTokenError()), {
@@ -599,7 +614,7 @@ describe("AuthClient.refreshToken", () => {
 describe("AuthClient.revokeToken", () => {
   it.effect("succeeds on 200", () => {
     const layer = makeTestLayer((req) => {
-      expect(req.url).toContain("/v1/auth/token/revoke");
+      expect(req.url).toContain("/v1/auth/revoke");
       expect(req.method).toBe("POST");
       return new Response("", { status: 200 });
     });

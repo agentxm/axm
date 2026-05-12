@@ -1,7 +1,7 @@
 /**
  * CredentialStore Effect service — credential storage and auth policy.
  *
- * Tier 1: OS keychain (TODO: @napi-rs/keyring not yet added)
+ * Tier 1: OS keychain (@napi-rs/keyring)
  * Tier 2: Restricted-permission file (~/.config/axm/credentials.json)
  *
  * CI and container environments are token-only by policy. They do not persist
@@ -17,6 +17,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { Entry } from "@napi-rs/keyring";
+import * as lockfile from "proper-lockfile";
 import { errAuthTokenRequired, type AppError, makeAppError } from "../app-error/index.js";
 import { isCI } from "../cli-flags/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
@@ -60,6 +62,7 @@ const CREDENTIALS_FILENAME = "credentials.json";
 const CONFIG_DIR_NAME = "axm";
 const DIR_PERMISSIONS = 0o700;
 const FILE_PERMISSIONS = 0o600;
+const KEYCHAIN_SERVICE = "axm";
 
 // -----------------------------------------------------------------------------
 // Internal helpers (take fs/path as args to avoid context leakage)
@@ -113,6 +116,35 @@ const checkFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
 const setFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
   fs.chmod(filePath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
 
+const withCredentialFileLock = <A, E, R>(
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  homeDir: string,
+  effect: Effect.Effect<A, E, R>,
+) =>
+  Effect.gen(function* () {
+    yield* ensureCredentialsDir(fs, path, homeDir);
+    const dir = getCredentialsDir(path, homeDir);
+    const release = yield* Effect.tryPromise({
+      try: () => lockfile.lock(dir, { retries: { retries: 5, minTimeout: 25, maxTimeout: 100 } }),
+      catch: (error) =>
+        makeAppError({
+          code: "auth",
+          message: "Could not lock credential storage",
+          cause: error,
+        }),
+    });
+
+    return yield* effect.pipe(
+      Effect.ensuring(
+        Effect.tryPromise({
+          try: () => release(),
+          catch: () => undefined,
+        }).pipe(Effect.catch(() => Effect.void)),
+      ),
+    );
+  });
+
 const readCredentialFile = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -161,6 +193,15 @@ const readCredentialFile = (
     );
   });
 
+const deleteCredentialFile = (fs: FileSystem.FileSystem, path: Path.Path, homeDir: string) =>
+  Effect.gen(function* () {
+    const filePath = getCredentialsPath(path, homeDir);
+    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (exists) {
+      yield* fs.remove(filePath).pipe(Effect.catch(() => Effect.void));
+    }
+  });
+
 const writeCredentialFile = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -197,6 +238,81 @@ const emptyCredentialFile: CredentialFile = {
   registries: {},
 };
 
+const keychainAccount = (registryUrl: string): string => `registry:${registryUrl}`;
+
+const readKeychainCredentialFile = (
+  registryUrl: string,
+): Effect.Effect<Option.Option<CredentialFile>, AppError> =>
+  Effect.try({
+    try: () => {
+      const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
+      return entry.getPassword();
+    },
+    catch: (error) =>
+      makeAppError({
+        code: "auth",
+        message: "OS keychain could not be read",
+        cause: error,
+      }),
+  }).pipe(
+    Effect.flatMap((content) => {
+      if (content === null) return Effect.succeed(Option.none<CredentialFile>());
+      return decodeCredentialFileFromJsonString(content).pipe(
+        Effect.map((file) => Option.some(file)),
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "auth",
+            message: "Failed to parse OS keychain credentials",
+            cause: error,
+          }),
+        ),
+      );
+    }),
+  );
+
+const writeKeychainCredentialFile = (
+  registryUrl: string,
+  data: CredentialFile,
+): Effect.Effect<void, AppError> =>
+  Effect.gen(function* () {
+    const encoded = yield* Schema.encodeEffect(CredentialFileSchema)(data).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "auth",
+          message: "Failed to encode credential file",
+          cause: error,
+        }),
+      ),
+    );
+    const content = JSON.stringify(encoded);
+    yield* Effect.try({
+      try: () => {
+        const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
+        entry.setPassword(content);
+      },
+      catch: (error) =>
+        makeAppError({
+          code: "auth",
+          message: "OS keychain could not be written",
+          cause: error,
+        }),
+    });
+  });
+
+const deleteKeychainCredentialFile = (registryUrl: string): Effect.Effect<void, AppError> =>
+  Effect.try({
+    try: () => {
+      const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
+      entry.deletePassword();
+    },
+    catch: (error) =>
+      makeAppError({
+        code: "auth",
+        message: "OS keychain credential could not be deleted",
+        cause: error,
+      }),
+  }).pipe(Effect.catch(() => Effect.void));
+
 // -----------------------------------------------------------------------------
 // Tier selection based on environment
 // -----------------------------------------------------------------------------
@@ -222,10 +338,12 @@ export const detectEnvironment = Effect.gen(function* () {
 /**
  * Select storage tier based on detected environment.
  *
- * Until keychain support lands, all persisted credentials use the restricted
- * file backend. Whether persistence is allowed is a separate policy decision.
+ * Use OS keychain by default, falling back to the restricted file backend when
+ * keychain access is unavailable. Whether persistence is allowed is a separate
+ * policy decision.
  */
-export const selectTier = (_env: EnvironmentInfo): StorageTier => "restricted-file";
+export const selectTier = (env: EnvironmentInfo): StorageTier =>
+  env.isContainer || env.isCI || env.isSSH ? "restricted-file" : "keychain";
 
 export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean =>
   !env.isContainer && !env.isCI;
@@ -248,6 +366,32 @@ export const CredentialStoreLive = Layer.effect(
     const env = yield* detectEnvironment;
     const storageTier = selectTier(env);
     const persistedCredentialsAllowed = canUsePersistedCredentials(env);
+    const readStoredFile = () =>
+      withCredentialFileLock(fs, path, homeDir, readCredentialFile(fs, path, homeDir));
+    const writeStoredFile = (data: CredentialFile) =>
+      withCredentialFileLock(fs, path, homeDir, writeCredentialFile(fs, path, homeDir, data));
+
+    const loadCredentialFile = (registryUrl: string) =>
+      storageTier === "keychain"
+        ? readKeychainCredentialFile(registryUrl).pipe(
+            Effect.catch(() =>
+              Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
+                Effect.flatMap(() => readStoredFile()),
+              ),
+            ),
+          )
+        : readStoredFile();
+
+    const saveCredentialFile = (registryUrl: string, data: CredentialFile) =>
+      storageTier === "keychain"
+        ? writeKeychainCredentialFile(registryUrl, data).pipe(
+            Effect.catch(() =>
+              Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
+                Effect.flatMap(() => writeStoredFile(data)),
+              ),
+            ),
+          )
+        : writeStoredFile(data);
     const save: CredentialStoreService["save"] = Effect.fn("CredentialStore.save")(
       function* (registryUrl, handle, credentials) {
         if (!persistedCredentialsAllowed) {
@@ -258,7 +402,7 @@ export const CredentialStoreLive = Layer.effect(
           yield* Effect.logWarning("Running as root. Credentials will be owned by root.");
         }
 
-        const existing = yield* readCredentialFile(fs, path, homeDir);
+        const existing = yield* loadCredentialFile(registryUrl);
         const file = Option.getOrElse(existing, () => emptyCredentialFile);
 
         const registryEntry = file.registries[registryUrl] ?? { accounts: {} };
@@ -286,12 +430,32 @@ export const CredentialStoreLive = Layer.effect(
           },
         };
 
-        yield* writeCredentialFile(fs, path, homeDir, updated);
+        yield* saveCredentialFile(registryUrl, updated);
+        if (storageTier === "keychain") {
+          yield* deleteCredentialFile(fs, path, homeDir);
+        }
       },
     );
     const load: CredentialStoreService["load"] = Effect.fn("CredentialStore.load")(
       function* (registryUrl) {
-        const existing = yield* readCredentialFile(fs, path, homeDir);
+        const existing = yield* loadCredentialFile(registryUrl);
+        if (storageTier === "keychain") {
+          const legacy = yield* readStoredFile();
+          const legacyRegistry = Option.isSome(legacy)
+            ? legacy.value.registries[registryUrl]
+            : undefined;
+          if (Option.isNone(existing) && legacyRegistry !== undefined) {
+            const migrated: CredentialFile = {
+              version: 1,
+              registries: { [registryUrl]: legacyRegistry },
+            };
+            yield* writeKeychainCredentialFile(registryUrl, migrated).pipe(
+              Effect.catch(() => Effect.void),
+            );
+            yield* deleteCredentialFile(fs, path, homeDir);
+            return yield* load(registryUrl);
+          }
+        }
         if (Option.isNone(existing)) return Option.none<StoredCredentials>();
 
         const registry = existing.value.registries[registryUrl];
@@ -313,7 +477,10 @@ export const CredentialStoreLive = Layer.effect(
     );
     const clear: CredentialStoreService["clear"] = Effect.fn("CredentialStore.clear")(
       function* (registryUrl) {
-        const existing = yield* readCredentialFile(fs, path, homeDir);
+        if (storageTier === "keychain") {
+          yield* deleteKeychainCredentialFile(registryUrl);
+        }
+        const existing = yield* readStoredFile();
         if (Option.isNone(existing)) return;
 
         const { [registryUrl]: _, ...remainingRegistries } = existing.value.registries;
@@ -322,7 +489,7 @@ export const CredentialStoreLive = Layer.effect(
           registries: remainingRegistries,
         };
 
-        yield* writeCredentialFile(fs, path, homeDir, updated);
+        yield* writeStoredFile(updated);
       },
     );
 

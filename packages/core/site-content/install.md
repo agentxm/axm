@@ -275,9 +275,10 @@ local token so subsequent `axm` commands can reach the registry.
 Offer both paths and let the user pick:
 
 - **Interactive (recommended):** ask the user to run `axm login` in their
-  terminal. Tell them this opens a browser for a one-time OAuth device
-  flow; AXM can't run it on their behalf because the browser step requires
-  them to be present.
+  terminal. Tell them this opens a browser for a one-time AgentXM.ai
+  authorization flow; AXM can't run it on their behalf because the browser step
+  requires them to be present. In SSH, CI, Codespaces, or `--device-code` mode,
+  AXM falls back to a five-minute device-code flow.
 - **Non-interactive:** ask the user to export `AXM_TOKEN` in the
   environment where AXM will run. Explain that `AXM_TOKEN` is a
   pre-generated credential that skips the browser step; you must not

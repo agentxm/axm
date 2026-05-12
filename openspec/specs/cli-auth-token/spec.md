@@ -27,7 +27,7 @@ The `axm token` command SHALL output the current resolved token to stdout with n
 
 - **WHEN** the user runs `axm token` and credentials exist in the store
 - **THEN** the CLI SHALL output the stored access token
-- **AND** if the token is expired, the CLI SHALL attempt refresh before outputting
+- **AND** if the token is expired, the CLI SHALL attempt refresh through `POST /v1/auth/token` before outputting
 
 #### Scenario: No token available
 

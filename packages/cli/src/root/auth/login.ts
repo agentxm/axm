@@ -8,6 +8,10 @@ import {
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
   runDeviceLogin,
+  runLoopbackLogin,
+  selectLoginStrategy,
+  type LoopbackCallbackRejected,
+  type LoopbackLoginFallback,
 } from "@agentxm/client-core/unstable/auth";
 import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -15,17 +19,47 @@ import { isNonInteractive, yesFlag } from "@agentxm/client-core/unstable/cli-fla
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { errAuthRequired, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
+import { envOption } from "@agentxm/client-core/unstable/utils";
 import { withAuthRuntime } from "../../runtime.js";
 
 interface LoginInteractions {
   readonly confirmRelogin?: (message: string) => Effect.Effect<boolean, PromptCancelled | AppError>;
+  readonly runLoopbackLogin?: (
+    registryUrl: string,
+  ) => Effect.Effect<void, AppError | LoopbackLoginFallback | LoopbackCallbackRejected>;
+  readonly runDeviceLogin?: (
+    registryUrl: string,
+    options?: { readonly openBrowser?: boolean },
+  ) => Effect.Effect<void, AppError>;
 }
 
 const confirmRelogin = (message: string) =>
   requireInteractive(Prompt.confirm({ message }), { message });
 
+const loginStrategyEnvironment = Effect.gen(function* () {
+  const env = yield* Effect.all({
+    SSH_CONNECTION: envOption("SSH_CONNECTION"),
+    SSH_CLIENT: envOption("SSH_CLIENT"),
+    SSH_TTY: envOption("SSH_TTY"),
+    DISPLAY: envOption("DISPLAY"),
+    WAYLAND_DISPLAY: envOption("WAYLAND_DISPLAY"),
+    CI: envOption("CI"),
+    CODESPACES: envOption("CODESPACES"),
+  });
+
+  return {
+    ...(Option.isSome(env.SSH_CONNECTION) ? { SSH_CONNECTION: env.SSH_CONNECTION.value } : {}),
+    ...(Option.isSome(env.SSH_CLIENT) ? { SSH_CLIENT: env.SSH_CLIENT.value } : {}),
+    ...(Option.isSome(env.SSH_TTY) ? { SSH_TTY: env.SSH_TTY.value } : {}),
+    ...(Option.isSome(env.DISPLAY) ? { DISPLAY: env.DISPLAY.value } : {}),
+    ...(Option.isSome(env.WAYLAND_DISPLAY) ? { WAYLAND_DISPLAY: env.WAYLAND_DISPLAY.value } : {}),
+    ...(Option.isSome(env.CI) ? { CI: env.CI.value } : {}),
+    ...(Option.isSome(env.CODESPACES) ? { CODESPACES: env.CODESPACES.value } : {}),
+  };
+});
+
 export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
-  options: { yes: boolean },
+  options: { yes: boolean; deviceCode: boolean; noBrowser: boolean },
   interactions?: LoginInteractions,
 ) {
   const credStore = yield* CredentialStore;
@@ -61,17 +95,47 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     }
   }
 
-  yield* runDeviceLogin(registryUrl);
+  const strategy = selectLoginStrategy(options, yield* loginStrategyEnvironment);
+  const performDeviceLogin = interactions?.runDeviceLogin ?? runDeviceLogin;
+  const performLoopbackLogin = interactions?.runLoopbackLogin ?? runLoopbackLogin;
+
+  if (strategy === "device-code") {
+    if (!options.deviceCode && !options.noBrowser) {
+      yield* renderer.info("No browser available in this environment; using device code fallback.");
+    }
+    yield* performDeviceLogin(registryUrl, {
+      openBrowser: options.deviceCode && !options.noBrowser,
+    });
+    return;
+  }
+
+  yield* performLoopbackLogin(registryUrl).pipe(
+    Effect.catchTag("LoopbackLoginFallback", (error) =>
+      Effect.gen(function* () {
+        yield* renderer.info(`${error.message} Using device code fallback.`);
+        yield* performDeviceLogin(registryUrl, { openBrowser: false });
+      }),
+    ),
+    Effect.catchTag("LoopbackCallbackRejected", (error) =>
+      Effect.fail(errAuthRequired(error.message)),
+    ),
+  );
 }, Effect.asVoid);
 
 const loginConfig = {
   yes: yesFlag.pipe(
     Flag.withDescription("Skip the browser-open confirmation and launch immediately"),
   ),
+  deviceCode: Flag.boolean("device-code").pipe(
+    Flag.withDescription("Use the device-code fallback instead of loopback browser login"),
+  ),
+  noBrowser: Flag.boolean("no-browser").pipe(
+    Flag.withDescription("Do not open a browser; use device-code fallback"),
+  ),
 } as const;
 
-export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
-  handleLogin({ yes }).pipe(withAuthRuntime("auth login")),
+export const loginCommand = Command.make("login", loginConfig, ({ yes, deviceCode, noBrowser }) =>
+  handleLogin({ yes, deviceCode, noBrowser }).pipe(withAuthRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),
@@ -79,5 +143,6 @@ export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
     { command: "axm auth login", description: "Sign in to the default registry" },
     { command: "axm login", description: "Same command via shortcut" },
     { command: "axm auth login --yes", description: "Skip the browser confirmation" },
+    { command: "axm auth login --device-code", description: "Sign in with device code fallback" },
   ]),
 );

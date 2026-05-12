@@ -92,27 +92,34 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
     return Option.map(meResult, (me) => me.userHandle);
   });
 
-const presentDeviceFlow = (verificationUrl: string, userCode: string) =>
+export interface RunDeviceLoginOptions {
+  readonly openBrowser?: boolean;
+}
+
+const presentDeviceFlow = (
+  verificationUri: string,
+  userCode: string,
+  options: RunDeviceLoginOptions,
+) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const interaction = yield* DeviceLoginInteraction;
 
-    // Copy to clipboard first so code is ready before browser loads
-    const copiedToClipboard = yield* interaction.copyToClipboard(userCode);
-    const openedBrowser = yield* interaction.openBrowser(verificationUrl);
-
-    if (openedBrowser) {
-      yield* renderer.step("Opening browser to sign in...");
-      yield* renderer.message(verificationUrl);
-    } else {
-      yield* renderer.step(`Open this URL in your browser: ${verificationUrl}`);
+    const shouldOpenBrowser = options.openBrowser ?? true;
+    const copiedToClipboard = yield* interaction.copyToClipboard(verificationUri);
+    if (shouldOpenBrowser) {
+      const openedBrowser = yield* interaction.openBrowser(verificationUri);
+      if (openedBrowser) {
+        yield* renderer.step("Opening browser to complete device authorization...");
+      }
     }
 
     const clipboardHint = copiedToClipboard ? " (copied to clipboard)" : "";
-    yield* renderer.step(`Your verification code: ${userCode}${clipboardHint}`);
+    yield* renderer.step(`Visit: ${verificationUri}${clipboardHint}`);
+    yield* renderer.step(`Code: ${userCode}`);
   });
 
-export const runDeviceLogin = (registryUrl: string) =>
+export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
@@ -123,12 +130,12 @@ export const runDeviceLogin = (registryUrl: string) =>
     }
 
     const deviceFlow = yield* authClient.initiateDeviceFlow();
-    const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
 
-    yield* presentDeviceFlow(verificationUrl, deviceFlow.user_code);
+    yield* presentDeviceFlow(deviceFlow.verification_uri, deviceFlow.user_code, options);
 
-    const token = yield* renderer.withSpinner("Waiting for approval in browser...", () =>
-      authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
+    const token = yield* renderer.withSpinner(
+      "Waiting for you to authorize in your browser...",
+      () => authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
     );
 
     const handle = yield* persistLoginCredentials(registryUrl, token);

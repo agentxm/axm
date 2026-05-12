@@ -14,13 +14,13 @@ The `axm logout` command SHALL revoke the server token then clear local credenti
 
 - **WHEN** the user runs `axm logout` and credentials exist
 - **THEN** the CLI SHALL load the current token from the credential store
-- **AND** call `POST /v1/auth/token/revoke` with the access token
+- **AND** call `POST /v1/auth/revoke` with the access token
 - **AND** clear local credentials from the credential store
 - **AND** display "Logged out successfully."
 
 #### Scenario: Remote revoke fails
 
-- **WHEN** `POST /v1/auth/token/revoke` fails (5xx, timeout, network error)
+- **WHEN** `POST /v1/auth/revoke` fails (5xx, timeout, network error)
 - **THEN** the CLI SHALL still clear local credentials
 - **AND** display "Signed out locally, but remote revoke failed."
 - **AND** display guidance: "Your token may still be active on the server. It will expire automatically."

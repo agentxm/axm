@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Device authorization grant flow for CLI login — browser launch, manual fallback, device code polling, and credential persistence on success.
+Authorization code + PKCE loopback login with device-code fallback, browser launch, polling, and credential persistence on success.
 
 ## Requirements
 
@@ -55,7 +55,7 @@ After receiving a device code, the CLI SHALL attempt to open the verification UR
 
 ### Requirement: Device code polling
 
-The CLI SHALL poll `POST /v1/auth/device/token` at the server-provided interval until a terminal state is reached.
+The CLI SHALL poll `POST /v1/auth/token` with `grant_type=urn:ietf:params:oauth:grant-type:device_code` at the server-provided interval until a terminal state is reached.
 
 #### Scenario: Authorization pending
 

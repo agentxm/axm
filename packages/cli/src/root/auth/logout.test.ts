@@ -22,6 +22,7 @@ const ALICE = normalizeHandle("@alice");
 
 const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolean }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+  const revokeTokenCalls: Array<string> = [];
 
   const credStoreLayer = opts?.existingCredentials
     ? CredentialStoreTest("restricted-file", {
@@ -50,7 +51,10 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
               message: "Revoke failed",
             }),
           )
-      : () => Effect.void,
+      : (token) => {
+          revokeTokenCalls.push(token);
+          return Effect.void;
+        },
   });
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
@@ -67,7 +71,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(FullLayer));
 
-  return { provide, rendererState };
+  return { provide, rendererState, revokeTokenCalls };
 };
 
 const REGISTRY_HOST = "registry.agentxm.ai";
@@ -91,10 +95,11 @@ describe("auth logout handler", () => {
   });
 
   it.effect("revokes token and shows identity on success", () => {
-    const { provide, rendererState } = makeLayers({ existingCredentials: true });
+    const { provide, rendererState, revokeTokenCalls } = makeLayers({ existingCredentials: true });
     return provide(
       Effect.gen(function* () {
         yield* handleLogout();
+        expect(revokeTokenCalls).toEqual(["axm_ref_existing"]);
         expect(
           rendererState.logs.some(
             (l) =>

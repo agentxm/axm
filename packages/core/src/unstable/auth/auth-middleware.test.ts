@@ -242,7 +242,7 @@ describe("AuthMiddleware", () => {
         const url = req.url;
 
         // Refresh endpoint — response must match generated AuthRefreshToken200 schema
-        if (url.includes("/v1/auth/token/refresh")) {
+        if (url.includes("/v1/auth/token")) {
           return new Response(
             JSON.stringify({
               access_token: "axm_ses_refreshed",
@@ -274,7 +274,7 @@ describe("AuthMiddleware", () => {
 
     it.effect("returns 401 when refresh fails", () => {
       const layers = makeTestLayers((req) => {
-        if (req.url.includes("/v1/auth/token/refresh")) {
+        if (req.url.includes("/v1/auth/token")) {
           return new Response("forbidden", { status: 403 });
         }
         return new Response("unauthorized", { status: 401 });
@@ -293,7 +293,7 @@ describe("AuthMiddleware", () => {
       let refreshCalled = false;
 
       const layers = makeTestLayers((req) => {
-        if (req.url.includes("/v1/auth/token/refresh")) {
+        if (req.url.includes("/v1/auth/token")) {
           refreshCalled = true;
           return new Response("ok", { status: 200 });
         }
@@ -314,7 +314,7 @@ describe("AuthMiddleware", () => {
 
       const layers = makeTestLayers(
         (req) => {
-          if (req.url.includes("/v1/auth/token/refresh")) {
+          if (req.url.includes("/v1/auth/token")) {
             refreshCalled = true;
             return new Response("ok", { status: 200 });
           }
@@ -337,7 +337,7 @@ describe("AuthMiddleware", () => {
       let mainRequestCount = 0;
 
       const layers = makeTestLayers((req) => {
-        if (req.url.includes("/v1/auth/token/refresh")) {
+        if (req.url.includes("/v1/auth/token")) {
           return new Response(
             JSON.stringify({
               access_token: "axm_ses_refreshed",

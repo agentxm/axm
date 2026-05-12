@@ -122,7 +122,7 @@ describe("auth login handler", () => {
     const { provide } = makeLayers({ nonInteractive: true });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleLogin({ yes: false }).pipe(
+        const result = yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false }).pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
         expect(result).toMatchObject({ error: true, code: "auth" });
@@ -134,7 +134,7 @@ describe("auth login handler", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleLogin({ yes: false }).pipe(
+        const result = yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false }).pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
         expect(result).toMatchObject({ error: true, code: "auth" });
@@ -146,7 +146,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false });
+        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
         expect(
           rendererState.logs.some(
             (l) =>
@@ -162,11 +162,9 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false });
+        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
         const steps = rendererState.logs.filter((l) => l._tag === "step").map((l) => l.message);
-        expect(steps.some((m) => m.includes("https://auth.agentxm.ai/device?code=ABCD-1234"))).toBe(
-          true,
-        );
+        expect(steps.some((m) => m.includes("https://auth.agentxm.ai/device"))).toBe(true);
         expect(steps.some((m) => m.includes("ABCD-1234"))).toBe(true);
       }),
     );
@@ -180,7 +178,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false },
+          { yes: false, deviceCode: true, noBrowser: false },
           {
             confirmRelogin: (message) => {
               confirmCalls.push(message);
@@ -212,7 +210,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: true });
+        yield* handleLogin({ yes: true, deviceCode: true, noBrowser: false });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -237,7 +235,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false },
+          { yes: false, deviceCode: true, noBrowser: false },
           {
             confirmRelogin: (message) => {
               confirmCalls.push(message);
@@ -262,7 +260,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false });
+        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -312,7 +310,7 @@ describe("auth login handler", () => {
     );
 
     return Effect.gen(function* () {
-      yield* handleLogin({ yes: false });
+      yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
 
       expect(
         rendererState2.logs.some(

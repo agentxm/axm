@@ -46,7 +46,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 
   // Step 2: Attempt remote revoke (tolerate failure)
   const revokeResult = yield* authClient
-    .revokeToken(existing.value.access_token)
+    .revokeToken(existing.value.refresh_token)
     .pipe(Effect.option);
 
   // Step 3: Clear local credentials

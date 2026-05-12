@@ -182,6 +182,10 @@ axm logout
 axm token                   # Print the current token (for scripting)
 ```
 
+`axm login` opens the browser for the default loopback PKCE flow. Use
+`axm login --device-code` or `axm login --no-browser` for SSH/headless
+environments.
+
 ## Supported agents
 
 AXM supports nearly 40 agents — Claude Code, Codex, Cursor,

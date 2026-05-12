@@ -153,82 +153,38 @@ export const SessionTokenResponse = Schema.Struct({
   title: "Session Token Response",
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
-export type DeviceTokenOAuthError = {
-  readonly kind: "DeviceTokenOAuthError";
+export type TokenOAuthError = {
+  readonly kind: "TokenOAuthError";
   readonly error:
     | "invalid_request"
+    | "invalid_client"
+    | "invalid_grant"
+    | "unauthorized_client"
+    | "unsupported_grant_type"
+    | "invalid_scope"
     | "authorization_pending"
     | "slow_down"
     | "expired_token"
     | "access_denied";
   readonly error_description: string;
 };
-export const DeviceTokenOAuthError = Schema.Struct({
-  kind: Schema.Literal("DeviceTokenOAuthError"),
+export const TokenOAuthError = Schema.Struct({
+  kind: Schema.Literal("TokenOAuthError"),
   error: Schema.Literals([
     "invalid_request",
+    "invalid_client",
+    "invalid_grant",
+    "unauthorized_client",
+    "unsupported_grant_type",
+    "invalid_scope",
     "authorization_pending",
     "slow_down",
     "expired_token",
     "access_denied",
-  ]).annotate({
-    title: "OAuth Device Error Code",
-    description: "RFC 8628 error code indicating the polling state.",
-  }),
+  ]).annotate({ title: "OAuth Token Error", description: "OAuth token endpoint error code." }),
   error_description: Schema.String.annotate({
     description: "Human-readable explanation of the error.",
   }),
-});
-export type RefreshSessionTokenResponse = {
-  readonly access_token: string;
-  readonly refresh_token: string;
-  readonly token_type: "Bearer";
-  readonly expires_in: number;
-  readonly expires_at: string;
-  readonly scope?: string | null;
-};
-export const RefreshSessionTokenResponse = Schema.Struct({
-  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
-  refresh_token: Schema.String.annotate({
-    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
-  }),
-  token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.annotate({
-    description: "Access token lifetime remaining in seconds.",
-  }).check(Schema.isInt()),
-  expires_at: Schema.String.annotate({
-    description: "ISO 8601 timestamp when the access token expires.",
-    format: "date-time",
-  }),
-  scope: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
-      Schema.Null,
-    ]),
-  ),
-}).annotate({
-  title: "Session Token Response",
-  description: "OAuth 2.0 token response containing an access/refresh token pair.",
-});
-export type RefreshTokenError = {
-  readonly kind: "RefreshTokenError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: unknown;
-};
-export const RefreshTokenError = Schema.Struct({
-  kind: Schema.Literal("RefreshTokenError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(Schema.Unknown),
 });
 export type UserId = string;
 export const UserId = Schema.String.check(
@@ -433,7 +389,14 @@ export const ChangeTeamMemberRoleBody = Schema.Struct({
   }),
 }).annotate({ title: "Change Team Member Role Body" });
 export type ExtensionName = string;
-export const ExtensionName = Schema.String;
+export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
+  Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"), {
+    title: "Extension Name",
+    description:
+      "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+    examples: ["my-skill", "code-review", "prettier"],
+  }),
+);
 export type ExtensionType =
   | "skill"
   | "command"
@@ -455,8 +418,19 @@ export const ExtensionType = Schema.Literals([
   description:
     "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack.",
 });
-export type ExactSemverVersion = string;
-export const ExactSemverVersion = Schema.String;
+export type Version = string;
+export const Version = Schema.String.check(
+  Schema.isPattern(
+    new RegExp(
+      "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+    ),
+    {
+      title: "Version",
+      description: "A semver version like 1.0.0. Ranges are not allowed here.",
+      examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
+    },
+  ),
+);
 export type Author = {
   readonly name?: string | null;
   readonly email?: string | null;
@@ -488,8 +462,15 @@ export const Author = Schema.Struct({
     ]),
   ),
 }).annotate({ title: "Author", description: "Author details: name, email, and homepage URL." });
-export type VersionConstraint = string;
-export const VersionConstraint = Schema.String;
+export type VersionRange = string;
+export const VersionRange = Schema.String.check(Schema.isMinLength(1)).check(
+  Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z| .-]+$"), {
+    title: "Version Range",
+    description:
+      'A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use "*" to always resolve to the latest available version.',
+    examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"],
+  }),
+);
 export type PatchVisibilityBody = {
   readonly visibility?: "public" | "internal" | "private" | null;
   readonly listed?: boolean | null;
@@ -1020,13 +1001,13 @@ export type PublishIdentity = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
 };
 export const PublishIdentity = Schema.Struct({
   owner: Handle,
   type: ExtensionType,
   name: ExtensionName,
-  version: ExactSemverVersion,
+  version: Version,
 }).annotate({
   title: "Publish Identity",
   description: "URL-path identity of the extension version under publish.",
@@ -1035,7 +1016,7 @@ export type SearchHit = {
   readonly name: ExtensionName;
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly latestVersion: ExactSemverVersion;
+  readonly latestVersion: Version;
   readonly description?: string | null;
   readonly repository?: string | null;
   readonly license?: string | null;
@@ -1047,7 +1028,7 @@ export const SearchHit = Schema.Struct({
   name: ExtensionName,
   owner: Handle,
   type: ExtensionType,
-  latestVersion: ExactSemverVersion,
+  latestVersion: Version,
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -1214,6 +1195,83 @@ export type AuthIssueDeviceCode400 = DecodeErrorResponse;
 export const AuthIssueDeviceCode400 = DecodeErrorResponse;
 export type AuthIssueDeviceCode500 = InternalError;
 export const AuthIssueDeviceCode500 = InternalError;
+export type AuthExchangeTokenRequestFormUrlEncoded = {
+  readonly grant_type: string;
+  readonly code?: string | null;
+  readonly code_verifier?: string | null;
+  readonly client_id?: string | null;
+  readonly redirect_uri?: string | null;
+  readonly device_code?: string | null;
+  readonly refresh_token?: string | null;
+  readonly scope?: string | null;
+};
+export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
+  grant_type: Schema.String.annotate({
+    description: "OAuth grant type.",
+    examples: [
+      "authorization_code",
+      "urn:ietf:params:oauth:grant-type:device_code",
+      "refresh_token",
+    ],
+  }),
+  code: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Authorization code returned to the loopback callback.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  code_verifier: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "PKCE verifier generated by the CLI." }),
+      Schema.Null,
+    ]),
+  ),
+  client_id: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "OAuth client identifier.", examples: ["axm-cli"] }),
+      Schema.Null,
+    ]),
+  ),
+  redirect_uri: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Loopback redirect URI the authorization code was bound to.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  device_code: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "The device verification code received from the /device/code endpoint.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  refresh_token: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Refresh token to exchange for a new token pair." }),
+      Schema.Null,
+    ]),
+  ),
+  scope: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Optional requested scope for refresh-token exchange.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+});
+export type AuthExchangeToken200 = SessionTokenResponse;
+export const AuthExchangeToken200 = SessionTokenResponse;
+export type AuthExchangeToken400 = InvalidRequestError | DecodeErrorResponse | TokenOAuthError;
+export const AuthExchangeToken400 = Schema.Union([
+  Schema.Union([InvalidRequestError, DecodeErrorResponse]),
+  TokenOAuthError,
+]);
 export type AuthExchangeDeviceCodeRequestFormUrlEncoded = {
   readonly grant_type: string;
   readonly device_code: string;
@@ -1232,15 +1290,68 @@ export const AuthExchangeDeviceCodeRequestFormUrlEncoded = Schema.Struct({
     examples: ["axm-cli"],
   }),
 });
-export type AuthExchangeDeviceCode200 = SessionTokenResponse;
-export const AuthExchangeDeviceCode200 = SessionTokenResponse;
-export type AuthExchangeDeviceCode400 =
-  | InvalidRequestError
-  | DecodeErrorResponse
-  | DeviceTokenOAuthError;
-export const AuthExchangeDeviceCode400 = Schema.Union([
-  Schema.Union([InvalidRequestError, DecodeErrorResponse]),
-  DeviceTokenOAuthError,
+export type AuthExchangeDeviceCode200 = {
+  readonly access_token: string;
+  readonly refresh_token: string;
+  readonly token_type: "Bearer";
+  readonly expires_in: number;
+  readonly expires_at: string;
+  readonly scope?: string | null;
+};
+export const AuthExchangeDeviceCode200 = Schema.Struct({
+  access_token: Schema.String,
+  refresh_token: Schema.String,
+  token_type: Schema.Literal("Bearer"),
+  expires_in: Schema.Number.check(Schema.isInt()),
+  expires_at: Schema.String,
+  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
+export type AuthExchangeDeviceCode400 = TokenOAuthError | DecodeErrorResponse;
+export const AuthExchangeDeviceCode400 = Schema.Union([TokenOAuthError, DecodeErrorResponse]);
+export type AuthExchangeCliAuthorizationCodeRequestFormUrlEncoded = {
+  readonly grant_type: string;
+  readonly code: string;
+  readonly code_verifier: string;
+  readonly client_id: string;
+  readonly redirect_uri: string;
+};
+export const AuthExchangeCliAuthorizationCodeRequestFormUrlEncoded = Schema.Struct({
+  grant_type: Schema.String.annotate({
+    description: "OAuth grant type. Must be 'authorization_code'.",
+    examples: ["authorization_code"],
+  }),
+  code: Schema.String.annotate({
+    description: "Authorization code returned to the loopback callback.",
+  }),
+  code_verifier: Schema.String.annotate({ description: "PKCE verifier generated by the CLI." }),
+  client_id: Schema.String.annotate({
+    description: "OAuth client identifier, e.g. 'axm-cli'.",
+    examples: ["axm-cli"],
+  }),
+  redirect_uri: Schema.String.annotate({
+    description: "Loopback redirect URI the authorization code was bound to.",
+  }),
+});
+export type AuthExchangeCliAuthorizationCode200 = {
+  readonly access_token: string;
+  readonly refresh_token: string;
+  readonly token_type: "Bearer";
+  readonly expires_in: number;
+  readonly expires_at: string;
+  readonly scope?: string | null;
+};
+export const AuthExchangeCliAuthorizationCode200 = Schema.Struct({
+  access_token: Schema.String,
+  refresh_token: Schema.String,
+  token_type: Schema.Literal("Bearer"),
+  expires_in: Schema.Number.check(Schema.isInt()),
+  expires_at: Schema.String,
+  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
+export type AuthExchangeCliAuthorizationCode400 = TokenOAuthError | DecodeErrorResponse;
+export const AuthExchangeCliAuthorizationCode400 = Schema.Union([
+  TokenOAuthError,
+  DecodeErrorResponse,
 ]);
 export type AuthRefreshTokenRequestFormUrlEncoded = {
   readonly grant_type: "refresh_token";
@@ -1261,22 +1372,45 @@ export const AuthRefreshTokenRequestFormUrlEncoded = Schema.Struct({
     ]),
   ),
 });
-export type AuthRefreshToken200 = RefreshSessionTokenResponse;
-export const AuthRefreshToken200 = RefreshSessionTokenResponse;
-export type AuthRefreshToken400 = DecodeErrorResponse;
-export const AuthRefreshToken400 = DecodeErrorResponse;
-export type AuthRefreshToken401 = RefreshTokenError;
-export const AuthRefreshToken401 = RefreshTokenError;
-export type AuthRevokeTokenRequestFormUrlEncoded = { readonly token: string };
-export const AuthRevokeTokenRequestFormUrlEncoded = Schema.Struct({
+export type AuthRefreshToken200 = {
+  readonly access_token: string;
+  readonly refresh_token: string;
+  readonly token_type: "Bearer";
+  readonly expires_in: number;
+  readonly expires_at: string;
+  readonly scope?: string | null;
+};
+export const AuthRefreshToken200 = Schema.Struct({
+  access_token: Schema.String,
+  refresh_token: Schema.String,
+  token_type: Schema.Literal("Bearer"),
+  expires_in: Schema.Number.check(Schema.isInt()),
+  expires_at: Schema.String,
+  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
+export type AuthRefreshToken400 = TokenOAuthError | DecodeErrorResponse;
+export const AuthRefreshToken400 = Schema.Union([TokenOAuthError, DecodeErrorResponse]);
+export type AuthRevokeOAuthTokenRequestFormUrlEncoded = {
+  readonly token: string;
+  readonly token_type_hint?: "refresh_token" | "access_token" | null;
+};
+export const AuthRevokeOAuthTokenRequestFormUrlEncoded = Schema.Struct({
   token: Schema.String.check(
     Schema.isMinLength(1, {
       description: "The access token or refresh token to revoke. Revocation is idempotent.",
     }),
   ),
+  token_type_hint: Schema.optionalKey(
+    Schema.Union([
+      Schema.Literals(["refresh_token", "access_token"]).annotate({
+        description: "Optional RFC 7009 token type hint. Revocation remains non-enumerating.",
+      }),
+      Schema.Null,
+    ]),
+  ),
 });
-export type AuthRevokeToken400 = DecodeErrorResponse;
-export const AuthRevokeToken400 = DecodeErrorResponse;
+export type AuthRevokeOAuthToken400 = DecodeErrorResponse;
+export const AuthRevokeOAuthToken400 = DecodeErrorResponse;
 export type AuthGetMe200 = AuthMeResponse;
 export const AuthGetMe200 = AuthMeResponse;
 export type AuthGetMe400 = DecodeErrorResponse;
@@ -1449,7 +1583,7 @@ export type ExtensionsListByOwner200 = {
     readonly name: ExtensionName;
     readonly owner: Handle;
     readonly type: ExtensionType;
-    readonly latestVersion: ExactSemverVersion;
+    readonly latestVersion: Version;
     readonly description?: string | null;
     readonly repository?: string | null;
     readonly license?: string | null;
@@ -1465,7 +1599,7 @@ export const ExtensionsListByOwner200 = Schema.Struct({
       name: ExtensionName,
       owner: Handle,
       type: ExtensionType,
-      latestVersion: ExactSemverVersion,
+      latestVersion: Version,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -1487,7 +1621,7 @@ export type ExtensionsListByType200 = {
     readonly name: ExtensionName;
     readonly owner: Handle;
     readonly type: ExtensionType;
-    readonly latestVersion: ExactSemverVersion;
+    readonly latestVersion: Version;
     readonly description?: string | null;
     readonly repository?: string | null;
     readonly license?: string | null;
@@ -1503,7 +1637,7 @@ export const ExtensionsListByType200 = Schema.Struct({
       name: ExtensionName,
       owner: Handle,
       type: ExtensionType,
-      latestVersion: ExactSemverVersion,
+      latestVersion: Version,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -1529,10 +1663,10 @@ export type ExtensionsGet200 = {
   readonly license?: string | null;
   readonly authors?: ReadonlyArray<Author> | null;
   readonly versions: ReadonlyArray<{
-    readonly version: ExactSemverVersion;
+    readonly version: Version;
     readonly published: IsoDateTimeString;
     readonly integrity: string;
-    readonly dependencies?: { readonly [x: string]: VersionConstraint } | null;
+    readonly dependencies?: { readonly [x: string]: VersionRange } | null;
     readonly companionPackages?: ReadonlyArray<string> | null;
     readonly yanked_at?: IsoDateTimeString | null;
   }>;
@@ -1550,11 +1684,11 @@ export const ExtensionsGet200 = Schema.Struct({
   authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   versions: Schema.Array(
     Schema.Struct({
-      version: ExactSemverVersion,
+      version: Version,
       published: IsoDateTimeString,
       integrity: Schema.String.annotate({ readOnly: true }),
       dependencies: Schema.optionalKey(
-        Schema.Union([Schema.Record(Schema.String, VersionConstraint), Schema.Null]),
+        Schema.Union([Schema.Record(Schema.String, VersionRange), Schema.Null]),
       ),
       companionPackages: Schema.optionalKey(
         Schema.Union([Schema.Array(Schema.String), Schema.Null]),
@@ -1614,7 +1748,7 @@ export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly status: "pending" | "available" | "failed";
   readonly published: IsoDateTimeString;
   readonly integrity: string;
@@ -1622,7 +1756,7 @@ export type ExtensionsGetVersion200 = {
   readonly repository?: string | null;
   readonly license?: string | null;
   readonly authors?: ReadonlyArray<Author> | null;
-  readonly dependencies?: { readonly [x: string]: VersionConstraint } | null;
+  readonly dependencies?: { readonly [x: string]: VersionRange } | null;
   readonly companionPackages?: ReadonlyArray<string> | null;
   readonly yanked_at?: IsoDateTimeString | null;
   readonly deleted_at?: IsoDateTimeString | null;
@@ -1631,7 +1765,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   name: ExtensionName,
   owner: Handle,
   type: ExtensionType,
-  version: ExactSemverVersion,
+  version: Version,
   status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
   published: IsoDateTimeString,
   integrity: Schema.String.annotate({ readOnly: true }),
@@ -1640,7 +1774,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   dependencies: Schema.optionalKey(
-    Schema.Union([Schema.Record(Schema.String, VersionConstraint), Schema.Null]),
+    Schema.Union([Schema.Record(Schema.String, VersionRange), Schema.Null]),
   ),
   companionPackages: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
   yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
@@ -1662,7 +1796,7 @@ export type ExtensionsPublishVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly integrity: string;
   readonly sha256_hex: string;
   readonly published_at: IsoDateTimeString;
@@ -1672,7 +1806,7 @@ export const ExtensionsPublishVersion200 = Schema.Struct({
   owner: Handle,
   type: ExtensionType,
   name: ExtensionName,
-  version: ExactSemverVersion,
+  version: Version,
   integrity: Schema.String.annotate({ readOnly: true }),
   sha256_hex: Schema.String.annotate({ readOnly: true }),
   published_at: IsoDateTimeString,
@@ -1682,7 +1816,7 @@ export type ExtensionsPublishVersion201 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly integrity: string;
   readonly sha256_hex: string;
   readonly published_at: IsoDateTimeString;
@@ -1692,7 +1826,7 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
   owner: Handle,
   type: ExtensionType,
   name: ExtensionName,
-  version: ExactSemverVersion,
+  version: Version,
   integrity: Schema.String.annotate({ readOnly: true }),
   sha256_hex: Schema.String.annotate({ readOnly: true }),
   published_at: IsoDateTimeString,
@@ -1794,14 +1928,14 @@ export type ExtensionsYankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly yankedAt: IsoDateTimeString | null;
 };
 export const ExtensionsYankVersion200 = Schema.Struct({
   owner: Handle,
   type: ExtensionType,
   name: ExtensionName,
-  version: ExactSemverVersion,
+  version: Version,
   yankedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
@@ -1816,14 +1950,14 @@ export type ExtensionsUnyankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: ExactSemverVersion;
+  readonly version: Version;
   readonly yankedAt: null;
 };
 export const ExtensionsUnyankVersion200 = Schema.Struct({
   owner: Handle,
   type: ExtensionType,
   name: ExtensionName,
-  version: ExactSemverVersion,
+  version: Version,
   yankedAt: Schema.Null,
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
@@ -2217,6 +2351,17 @@ export const make = (
           }),
         ),
       ),
+    AuthExchangeToken: (options) =>
+      HttpClientRequest.post(`/v1/auth/token`).pipe(
+        HttpClientRequest.bodyUrlParams(options.payload as any),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AuthExchangeToken200),
+            "400": decodeError("AuthExchangeToken400", AuthExchangeToken400),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     AuthExchangeDeviceCode: (options) =>
       HttpClientRequest.post(`/v1/auth/device/token`).pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
@@ -2228,6 +2373,20 @@ export const make = (
           }),
         ),
       ),
+    AuthExchangeCliAuthorizationCode: (options) =>
+      HttpClientRequest.post(`/v1/auth/cli/token`).pipe(
+        HttpClientRequest.bodyUrlParams(options.payload as any),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AuthExchangeCliAuthorizationCode200),
+            "400": decodeError(
+              "AuthExchangeCliAuthorizationCode400",
+              AuthExchangeCliAuthorizationCode400,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     AuthRefreshToken: (options) =>
       HttpClientRequest.post(`/v1/auth/token/refresh`).pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
@@ -2235,17 +2394,16 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthRefreshToken200),
             "400": decodeError("AuthRefreshToken400", AuthRefreshToken400),
-            "401": decodeError("AuthRefreshToken401", AuthRefreshToken401),
             orElse: unexpectedStatus,
           }),
         ),
       ),
-    AuthRevokeToken: (options) =>
-      HttpClientRequest.post(`/v1/auth/token/revoke`).pipe(
+    AuthRevokeOAuthToken: (options) =>
+      HttpClientRequest.post(`/v1/auth/revoke`).pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
-            "400": decodeError("AuthRevokeToken400", AuthRevokeToken400),
+            "400": decodeError("AuthRevokeOAuthToken400", AuthRevokeOAuthToken400),
             "200": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -2865,7 +3023,19 @@ export interface RegistryClient {
     | RegistryClientError<"AuthIssueDeviceCode500", typeof AuthIssueDeviceCode500.Type>
   >;
   /**
-   * Exchange device code for access token (RFC 8628 polling)
+   * Exchange OAuth grant for access token
+   */
+  readonly AuthExchangeToken: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthExchangeTokenRequestFormUrlEncoded.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
+    WithOptionalResponse<typeof AuthExchangeToken200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthExchangeToken400", typeof AuthExchangeToken400.Type>
+  >;
+  /**
+   * Deprecated: exchange device code for access token
    */
   readonly AuthExchangeDeviceCode: <Config extends OperationConfig>(options: {
     readonly payload: typeof AuthExchangeDeviceCodeRequestFormUrlEncoded.Encoded;
@@ -2877,7 +3047,22 @@ export interface RegistryClient {
     | RegistryClientError<"AuthExchangeDeviceCode400", typeof AuthExchangeDeviceCode400.Type>
   >;
   /**
-   * Exchange refresh token for new token pair
+   * Deprecated: exchange AXM CLI authorization code for access token
+   */
+  readonly AuthExchangeCliAuthorizationCode: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthExchangeCliAuthorizationCodeRequestFormUrlEncoded.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
+    WithOptionalResponse<typeof AuthExchangeCliAuthorizationCode200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "AuthExchangeCliAuthorizationCode400",
+        typeof AuthExchangeCliAuthorizationCode400.Type
+      >
+  >;
+  /**
+   * Deprecated: exchange refresh token
    */
   readonly AuthRefreshToken: <Config extends OperationConfig>(options: {
     readonly payload: typeof AuthRefreshTokenRequestFormUrlEncoded.Encoded;
@@ -2887,19 +3072,18 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"AuthRefreshToken400", typeof AuthRefreshToken400.Type>
-    | RegistryClientError<"AuthRefreshToken401", typeof AuthRefreshToken401.Type>
   >;
   /**
-   * Revoke an authentication token
+   * Revoke an OAuth token (RFC 7009)
    */
-  readonly AuthRevokeToken: <Config extends OperationConfig>(options: {
-    readonly payload: typeof AuthRevokeTokenRequestFormUrlEncoded.Encoded;
+  readonly AuthRevokeOAuthToken: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthRevokeOAuthTokenRequestFormUrlEncoded.Encoded;
     readonly config?: Config | undefined;
   }) => Effect.Effect<
     WithOptionalResponse<void, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
-    | RegistryClientError<"AuthRevokeToken400", typeof AuthRevokeToken400.Type>
+    | RegistryClientError<"AuthRevokeOAuthToken400", typeof AuthRevokeOAuthToken400.Type>
   >;
   /**
    * Return authenticated user info

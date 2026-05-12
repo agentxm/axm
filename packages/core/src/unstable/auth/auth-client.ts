@@ -11,12 +11,15 @@
  */
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
+import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
@@ -37,7 +40,9 @@ import {
 const CLIENT_ID = "axm-cli";
 const DEVICE_CODE_SCOPES =
   "extensions:read extensions:publish:new extensions:publish:version extensions:yank extensions:admin account:read account:write";
+const PKCE_SCOPES = "openid profile email offline_access";
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
+const AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
 const SLOW_DOWN_INCREMENT_MS = 5000;
 const TRANSIENT_DEVICE_POLL_RETRY_COUNT = 2;
 const TRANSIENT_DEVICE_POLL_RETRY_BASE_DELAY = "250 millis";
@@ -64,6 +69,20 @@ export interface MeResponse {
   readonly orgs: ReadonlyArray<{ readonly id: string; readonly handle: Handle }>;
 }
 
+export interface BuildAuthorizeUrlParams {
+  readonly challenge: string;
+  readonly expiresAt?: Date;
+  readonly state: string;
+  readonly redirectUri: string;
+  readonly scopes?: ReadonlyArray<string>;
+}
+
+export interface ExchangePkceCodeParams {
+  readonly code: string;
+  readonly verifier: string;
+  readonly redirectUri: string;
+}
+
 // -----------------------------------------------------------------------------
 // Polling state (for testability)
 // -----------------------------------------------------------------------------
@@ -81,6 +100,11 @@ export type PollResult =
 // -----------------------------------------------------------------------------
 
 export interface AuthClientService {
+  readonly buildAuthorizeUrl: (params: BuildAuthorizeUrlParams) => string;
+  readonly getAuthorizationIssuer: () => string;
+  readonly exchangePkceCode: (
+    params: ExchangePkceCodeParams,
+  ) => Effect.Effect<NormalizedTokenResponse, AppError>;
   readonly initiateDeviceFlow: () => Effect.Effect<DeviceFlowResponse, AppError>;
   readonly pollDeviceToken: (
     deviceCode: string,
@@ -89,7 +113,7 @@ export interface AuthClientService {
   readonly refreshToken: (
     refreshTokenValue: string,
   ) => Effect.Effect<NormalizedTokenResponse, AppError>;
-  readonly revokeToken: (accessToken: string) => Effect.Effect<void, AppError>;
+  readonly revokeToken: (token: string) => Effect.Effect<void, AppError>;
   readonly getMe: (accessToken: string) => Effect.Effect<MeResponse, AppError>;
 }
 
@@ -116,15 +140,62 @@ const normalizeTokenResponse = (token: {
   expires_at: token.expires_at,
 });
 
-/**
- * Extract the semantic OAuth error from an AuthExchangeDeviceCode400 RegistryClientError.
- *
- * The generated 400 union can carry either a problem-style `{ code }` payload or
- * the RFC 8628 device-flow payload `{ error, error_description }`.
- */
-const getOAuthErrorCode = (
-  error: GeneratedRegistryClient.RegistryClientError<"AuthExchangeDeviceCode400", unknown>,
-): string | undefined => getString(error.cause, "error") ?? getString(error.cause, "code");
+const SessionTokenResponseSchema = Schema.Struct({
+  access_token: Schema.String,
+  refresh_token: Schema.String,
+  expires_at: Schema.String,
+});
+
+const OAuthTokenErrorResponseSchema = Schema.Struct({
+  error: Schema.String,
+  error_description: Schema.optional(Schema.String),
+});
+
+const unexpectedTokenStatus = (response: HttpClientResponse.HttpClientResponse) =>
+  Effect.flatMap(
+    Effect.orElseSucceed(response.text, () => "Unexpected status code"),
+    (description) =>
+      Effect.fail(
+        new HttpClientError.HttpClientError({
+          reason: new HttpClientError.StatusCodeError({
+            request: response.request,
+            response,
+            description,
+          }),
+        }),
+      ),
+  );
+
+const deriveAuthorizationOrigin = (registryUrl: string): string => {
+  const url = new URL(registryUrl);
+  if (url.origin === "https://registry.agentxm.ai") {
+    return "https://agentxm.ai";
+  }
+  if (url.origin === "https://registry-dev.agentxm-ai.workers.dev") {
+    return "https://web-dev.agentxm-ai.workers.dev";
+  }
+  if (url.host === "localhost:4300") {
+    return "http://localhost:4200";
+  }
+  if (url.host === "127.0.0.1:4300") {
+    return "http://127.0.0.1:4200";
+  }
+  if (url.hostname === "127.0.0.1") {
+    return `${url.protocol}//${url.hostname}:4200`;
+  }
+  return url.origin;
+};
+
+const mapAuthCodeExchangeError = (error: unknown) =>
+  makeAppError({
+    code: "auth",
+    message: "Authorization code exchange failed",
+    breadcrumbs: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
+    cause: error,
+  });
+
+const getOAuthErrorCode = (error: unknown): string | undefined =>
+  getString(error, "error") ?? getString(error, "code");
 
 const isRetryableDevicePollError = (
   error: AppError | RetryableDevicePollError,
@@ -167,74 +238,85 @@ const retryTransientDevicePollFailure = <A>(
 // Single poll step
 // -----------------------------------------------------------------------------
 
+const postTokenForm = (
+  httpClient: HttpClient.HttpClient,
+  registryUrl: string,
+  body: Readonly<Record<string, string>>,
+): Effect.Effect<NormalizedTokenResponse, unknown> =>
+  HttpClientRequest.post("/v1/auth/token").pipe(
+    HttpClientRequest.bodyUrlParams(body),
+    (request) =>
+      httpClient
+        .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)))
+        .execute(request),
+    Effect.flatMap(
+      HttpClientResponse.matchStatus({
+        "2xx": HttpClientResponse.schemaBodyJson(SessionTokenResponseSchema),
+        "400": (response) =>
+          HttpClientResponse.schemaBodyJson(OAuthTokenErrorResponseSchema)(response).pipe(
+            Effect.flatMap((error) => Effect.fail(error)),
+          ),
+        orElse: unexpectedTokenStatus,
+      }),
+    ),
+    Effect.map(normalizeTokenResponse),
+  );
+
 /**
- * Internal: execute a single device token poll against the generated client.
+ * Internal: execute a single device token poll against the OAuth token endpoint.
  *
  * Surfaces transient HTTP failures as RetryableDevicePollError so callers can
  * decide whether to retry; other failures are mapped to AppError directly.
  *
- * @param client - Generated registry client instance
+ * @param httpClient - Effect HTTP client
+ * @param registryUrl - Registry API origin
  * @param deviceCode - Device verification code from the initial authorization
  */
 const pollOnceInternal = (
-  client: GeneratedRegistryClient.RegistryClient,
+  httpClient: HttpClient.HttpClient,
+  registryUrl: string,
   deviceCode: string,
 ): Effect.Effect<PollResult, AppError | RetryableDevicePollError> =>
-  client
-    .AuthExchangeDeviceCode({
-      payload: {
-        client_id: CLIENT_ID,
-        device_code: deviceCode,
-        grant_type: DEVICE_CODE_GRANT_TYPE,
-      },
-    })
-    .pipe(
-      Effect.map(
-        (token): PollResult => ({
-          _tag: "Success",
-          token: normalizeTokenResponse(token),
-        }),
-      ),
-      Effect.catch((error): Effect.Effect<PollResult, AppError | RetryableDevicePollError> => {
-        if (isRegistryClientError("AuthExchangeDeviceCode400")(error)) {
-          const code = getOAuthErrorCode(error);
-          switch (code) {
-            case "authorization_pending":
-              return Effect.succeed<PollResult>({ _tag: "Pending" });
-            case "slow_down":
-              return Effect.succeed<PollResult>({ _tag: "SlowDown" });
-            case "access_denied":
-              return Effect.succeed<PollResult>({ _tag: "AccessDenied" });
-            case "expired_token":
-              return Effect.succeed<PollResult>({ _tag: "ExpiredToken" });
-            default:
-              return Effect.fail(
-                makeAppError({
-                  code: "auth",
-                  message: "Device token exchange failed with an unexpected error",
-                  breadcrumbs: [
-                    { description: "Try running `axm login` again.", cmd: "axm login" },
-                  ],
-                  cause: error,
-                }),
-              );
-          }
-        }
-
-        if (isTransientHttpClientError(error)) {
-          return Effect.fail(new RetryableDevicePollError({ cause: error }));
-        }
-
-        return Effect.fail(
-          makeAppError({
-            code: "auth",
-            message: "Device token exchange failed with an unexpected error",
-            breadcrumbs: [{ description: "Try running `axm login` again.", cmd: "axm login" }],
-            cause: error,
-          }),
-        );
+  postTokenForm(httpClient, registryUrl, {
+    client_id: CLIENT_ID,
+    device_code: deviceCode,
+    grant_type: DEVICE_CODE_GRANT_TYPE,
+  }).pipe(
+    Effect.map(
+      (token): PollResult => ({
+        _tag: "Success",
+        token,
       }),
-    );
+    ),
+    Effect.catch((error): Effect.Effect<PollResult, AppError | RetryableDevicePollError> => {
+      const code = getOAuthErrorCode(error);
+      switch (code) {
+        case "authorization_pending":
+          return Effect.succeed<PollResult>({ _tag: "Pending" });
+        case "slow_down":
+          return Effect.succeed<PollResult>({ _tag: "SlowDown" });
+        case "access_denied":
+          return Effect.succeed<PollResult>({ _tag: "AccessDenied" });
+        case "expired_token":
+          return Effect.succeed<PollResult>({ _tag: "ExpiredToken" });
+        default:
+          break;
+      }
+
+      if (isTransientHttpClientError(error)) {
+        return Effect.fail(new RetryableDevicePollError({ cause: error }));
+      }
+
+      return Effect.fail(
+        makeAppError({
+          code: "auth",
+          message: "Device token exchange failed with an unexpected error",
+          breadcrumbs: [{ description: "Try running `axm login` again.", cmd: "axm login" }],
+          cause: error,
+        }),
+      );
+    }),
+  );
 
 /**
  * Execute a single device token poll (exported for testing).
@@ -243,10 +325,11 @@ const pollOnceInternal = (
  * not retry on its own. For the retrying variant, use `pollDeviceToken`.
  */
 export const pollOnce = (
-  client: GeneratedRegistryClient.RegistryClient,
+  httpClient: HttpClient.HttpClient,
+  registryUrl: string,
   deviceCode: string,
 ): Effect.Effect<PollResult, AppError> =>
-  pollOnceInternal(client, deviceCode).pipe(
+  pollOnceInternal(httpClient, registryUrl, deviceCode).pipe(
     Effect.catchTag("RetryableDevicePollError", (e) =>
       Effect.fail(makeTransientDevicePollAppError(e.cause)),
     ),
@@ -261,9 +344,48 @@ export const AuthClientLive = Layer.effect(
   Effect.gen(function* () {
     const httpClient = yield* HttpClient.HttpClient;
     const registryUrl = yield* RegistryUrl;
+    const authorizationOrigin = deriveAuthorizationOrigin(registryUrl);
     const client = GeneratedRegistryClient.make(
       httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl))),
     );
+
+    const buildAuthorizeUrl: AuthClientService["buildAuthorizeUrl"] = ({
+      challenge,
+      expiresAt,
+      state,
+      redirectUri,
+      scopes,
+    }) => {
+      const url = new URL("/oauth/authorize", authorizationOrigin);
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("client_id", CLIENT_ID);
+      url.searchParams.set("code_challenge", challenge);
+      url.searchParams.set("code_challenge_method", "S256");
+      url.searchParams.set("state", state);
+      url.searchParams.set("redirect_uri", redirectUri);
+      url.searchParams.set("scope", (scopes ?? PKCE_SCOPES.split(" ")).join(" "));
+      if (expiresAt !== undefined) {
+        url.searchParams.set("request_expires_at", expiresAt.toISOString());
+      }
+      return url.href;
+    };
+
+    const getAuthorizationIssuer: AuthClientService["getAuthorizationIssuer"] = () =>
+      authorizationOrigin;
+
+    const exchangePkceCode: AuthClientService["exchangePkceCode"] = Effect.fn(
+      "AuthClient.exchangePkceCode",
+    )(function* ({ code, verifier, redirectUri }) {
+      const response = yield* postTokenForm(httpClient, registryUrl, {
+        grant_type: AUTHORIZATION_CODE_GRANT_TYPE,
+        code,
+        code_verifier: verifier,
+        client_id: CLIENT_ID,
+        redirect_uri: redirectUri,
+      }).pipe(Effect.mapError(mapAuthCodeExchangeError));
+
+      return response;
+    });
 
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
       "AuthClient.initiateDeviceFlow",
@@ -304,7 +426,9 @@ export const AuthClientLive = Layer.effect(
 
       while (true) {
         yield* Effect.sleep(currentInterval);
-        const result = yield* retryTransientDevicePollFailure(pollOnceInternal(client, deviceCode));
+        const result = yield* retryTransientDevicePollFailure(
+          pollOnceInternal(httpClient, registryUrl, deviceCode),
+        );
 
         switch (result._tag) {
           case "Success":
@@ -332,44 +456,48 @@ export const AuthClientLive = Layer.effect(
 
     const refreshToken: AuthClientService["refreshToken"] = Effect.fn("AuthClient.refreshToken")(
       function* (refreshTokenValue) {
-        const token = yield* client
-          .AuthRefreshToken({
-            payload: {
-              grant_type: "refresh_token",
-              refresh_token: refreshTokenValue,
-              client_id: CLIENT_ID,
-            },
-          })
-          .pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "auth",
-                message: "Token refresh request failed",
-                breadcrumbs: [
-                  { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
-                ],
-                cause: error,
-              }),
-            ),
-          );
-
-        return normalizeTokenResponse(token);
+        return yield* postTokenForm(httpClient, registryUrl, {
+          grant_type: "refresh_token",
+          refresh_token: refreshTokenValue,
+          client_id: CLIENT_ID,
+        }).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "auth",
+              message: "Token refresh request failed",
+              breadcrumbs: [
+                { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
+              ],
+              cause: error,
+            }),
+          ),
+        );
       },
     );
 
     const revokeToken: AuthClientService["revokeToken"] = Effect.fn("AuthClient.revokeToken")(
-      function* (accessToken) {
-        yield* client
-          .AuthRevokeToken({
-            payload: { token: accessToken },
-          })
-          .pipe(
-            Effect.catch((error) =>
-              Effect.logWarning(
-                `Token revocation failed: ${String(error)}. Local credentials will still be cleared.`,
-              ),
+      function* (token) {
+        yield* HttpClientRequest.post("/v1/auth/revoke").pipe(
+          HttpClientRequest.bodyUrlParams({
+            token,
+            token_type_hint: "refresh_token",
+          }),
+          (request) =>
+            httpClient
+              .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)))
+              .execute(request),
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "200": () => Effect.void,
+              orElse: (response) => response.text.pipe(Effect.flatMap(Effect.fail)),
+            }),
+          ),
+          Effect.catch((error) =>
+            Effect.logWarning(
+              `Token revocation failed: ${String(error)}. Local credentials will still be cleared.`,
             ),
-          );
+          ),
+        );
       },
     );
 
@@ -447,6 +575,9 @@ export const AuthClientLive = Layer.effect(
     );
 
     return {
+      buildAuthorizeUrl,
+      getAuthorizationIssuer,
+      exchangePkceCode,
       initiateDeviceFlow,
       pollDeviceToken,
       refreshToken,
@@ -462,6 +593,16 @@ export const AuthClientLive = Layer.effect(
 
 export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
   Layer.succeed(AuthClient, {
+    buildAuthorizeUrl: ({ redirectUri }) =>
+      `https://agentxm.ai/oauth/authorize?redirect_uri=${redirectUri}`,
+    getAuthorizationIssuer: () => "https://agentxm.ai",
+    exchangePkceCode: () =>
+      Effect.fail(
+        makeAppError({
+          code: "auth",
+          message: "Not implemented in test",
+        }),
+      ),
     initiateDeviceFlow: () =>
       Effect.fail(
         makeAppError({

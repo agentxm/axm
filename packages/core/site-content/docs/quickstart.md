@@ -138,7 +138,10 @@ After installing axm through any method, you need to authenticate.
 axm auth login
 ```
 
-Opens a browser for OAuth device code authorization. Grant access when prompted.
+Opens a browser for AgentXM.ai authorization. Grant access when prompted.
+On desktop systems this uses a local loopback callback with PKCE. In SSH, CI,
+Codespaces, or `--device-code` mode, AXM displays a five-minute device code and
+opens the static verification page.
 
 Verify authentication:
 

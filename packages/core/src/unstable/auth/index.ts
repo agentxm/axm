@@ -75,7 +75,26 @@ export {
   DeviceLoginInteraction,
   DeviceLoginInteractionTest,
   runDeviceLogin,
+  type RunDeviceLoginOptions,
 } from "./device-login.js";
+
+export {
+  makeOAuthState,
+  makePkceChallenge,
+  makePkceVerifier,
+  runLoopbackLogin,
+} from "./loopback-login.js";
+export {
+  LoopbackCallbackRejected,
+  LoopbackLoginFallback,
+  startLoopbackServer,
+} from "./loopback-server.js";
+export {
+  selectLoginStrategy,
+  type LoginStrategy,
+  type LoginStrategyEnvironment,
+  type LoginStrategyOptions,
+} from "./login-strategy.js";
 
 // Login interaction (platform browser launch and clipboard)
 export type {

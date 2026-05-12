@@ -1,3 +1,13 @@
+## 0.7.0 (2026-05-12)
+
+### 🚀 Features
+
+- Add package-manager upgrade support and update Windows install behavior. ([9fa6fc50](https://github.com/agentxm/axm/commit/9fa6fc50))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.6.2 (2026-05-12)
 
 ### 🩹 Fixes

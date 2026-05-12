@@ -1,3 +1,13 @@
+## 0.6.1 (2026-05-12)
+
+### 🩹 Fixes
+
+- Consolidate CLI auth endpoints and PKCE login flow. ([d185a689](https://github.com/agentxm/axm/commit/d185a689))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.6.0 (2026-05-12)
 
 ### 🚀 Features

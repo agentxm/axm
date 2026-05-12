@@ -3,6 +3,14 @@ import { mkdirSync } from "node:fs";
 import { run } from "./release-command.js";
 import { fail, RELEASE_REPO, requireSuccessfulCiRun } from "./release-shared.js";
 
+const EXPECTED_ASSETS = [
+  "axm-darwin-arm64",
+  "axm-darwin-x64",
+  "axm-linux-arm64",
+  "axm-linux-x64",
+  "axm-windows-x64.exe",
+] as const;
+
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
@@ -16,19 +24,20 @@ if (args.length !== 2) {
 
 const sha = args[0] ?? fail("Usage: pnpm download-ci-binaries -- <commit-sha> <output-dir>");
 const outputDir = args[1] ?? fail("Usage: pnpm download-ci-binaries -- <commit-sha> <output-dir>");
-const artifactName = `axm-binaries-${sha}`;
 const ciRun = requireSuccessfulCiRun(sha);
 
 mkdirSync(outputDir, { recursive: true });
 
-run("gh", [
-  "run",
-  "download",
-  String(ciRun.databaseId),
-  "--repo",
-  RELEASE_REPO,
-  "--name",
-  artifactName,
-  "--dir",
-  outputDir,
-]);
+for (const asset of EXPECTED_ASSETS) {
+  run("gh", [
+    "run",
+    "download",
+    String(ciRun.databaseId),
+    "--repo",
+    RELEASE_REPO,
+    "--name",
+    `axm-binary-${asset}-${sha}`,
+    "--dir",
+    outputDir,
+  ]);
+}

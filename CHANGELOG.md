@@ -1,3 +1,13 @@
+## 0.7.1 (2026-05-12)
+
+### 🩹 Fixes
+
+- Release package-manager upgrade support, Windows install updates, and CI-stable lint fix verification. ([230cfd40](https://github.com/agentxm/axm/commit/230cfd40))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.7.0 (2026-05-12)
 
 ### 🚀 Features

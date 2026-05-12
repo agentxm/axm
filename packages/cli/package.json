@@ -1,6 +1,6 @@
 {
   "name": "axm.sh",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Extension manager for AI coding agents — install skills, subagents, slash commands, and MCP servers across Claude Code, Codex, Cursor, Copilot, and more.",
   "type": "module",
   "license": "MIT",

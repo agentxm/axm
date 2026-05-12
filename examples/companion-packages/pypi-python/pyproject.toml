@@ -7,11 +7,11 @@ name = "agentxm-example-tinyflags"
 version = "0.1.0"
 description = "Tiny feature flags library used by AXM companion package examples."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.12"
 keywords = ["feature-flags", "tinyflags", "agentxm"]
 
-[project.optional-dependencies]
+[dependency-groups]
 test = ["pytest>=8"]
 
 [tool.hatch.build.targets.wheel]
@@ -32,4 +32,11 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "RUF"]
+select = ["E", "F", "I", "B", "N", "UP", "RUF", "SIM", "PT", "PERF"]
+
+[tool.ruff.format]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"

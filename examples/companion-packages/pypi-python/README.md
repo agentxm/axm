@@ -23,7 +23,14 @@ a package-author recommendation.
 Targets Python 3.12+. Build backend is Hatchling. Tests use `pytest`.
 
 ```bash
-pip install -e ".[test]"
+uv sync --group test
+uv run pytest
+```
+
+Without `uv`, pip 25.1+ reads the same dependency group:
+
+```bash
+pip install -e . --group test
 pytest
 ```
 

@@ -137,7 +137,7 @@ export const publishSkill: OperationHandler<
     );
 
     // Build zip archive from extension directory (includes manifest + src/)
-    const archive = yield* buildZipArchive(extensionDir, "PUBLISH_SKILL_ARCHIVE_FAILED");
+    const archive = yield* buildZipArchive(extensionDir);
 
     // Compute integrity
     const integrity = yield* computeIntegrity(archive);

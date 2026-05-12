@@ -123,7 +123,7 @@ export const publishPack: OperationHandler<
     );
 
     // Build zip archive from pack directory
-    const archive = yield* buildZipArchive(packDir, "PUBLISH_PACK_ARCHIVE_FAILED");
+    const archive = yield* buildZipArchive(packDir);
 
     // Compute integrity
     const integrity = yield* computeIntegrity(archive);

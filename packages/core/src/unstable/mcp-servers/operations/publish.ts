@@ -139,7 +139,7 @@ export const publishMcpServer: (
     );
 
     // Build zip archive from extension directory
-    const archive = yield* buildZipArchive(extensionDir, "PUBLISH_MCP_SERVER_ARCHIVE_FAILED");
+    const archive = yield* buildZipArchive(extensionDir);
 
     // Compute integrity
     const integrity = yield* computeIntegrity(archive);

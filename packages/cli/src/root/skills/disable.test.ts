@@ -158,7 +158,7 @@ describe("disable.handler", () => {
       // Add ignored pattern that matches the skill
       const settingsPath = path.join(tempDir, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.ignored = { skills: ["code-review"] };
+      settings.skillsConfig = { ignore: ["code-review"] };
       fs.writeFileSync(settingsPath, JSON.stringify(settings));
 
       return provide(

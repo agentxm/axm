@@ -95,6 +95,55 @@
       "title": "Source Host Config",
       "description": "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
     },
+    "SkillEntryObject": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry is enabled. Defaults to true when omitted.",
+              "default": true
+            },
+            { "type": "null" }
+          ]
+        },
+        "authored": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "default": false
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false,
+      "title": "Skill Entry Object",
+      "description": "A skill with its source location and whether it's enabled."
+    },
+    "SkillEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SkillEntryObject" }] },
+    "SkillsMap": {
+      "type": "object",
+      "title": "Skills Map",
+      "description": "Your installed skills, keyed by name.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
+      "additionalProperties": { "$ref": "#/definitions/SkillEntry" }
+    },
+    "SkillsConfig": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Skills Config",
+      "description": "Feature-level configuration for skills."
+    },
     "CommandEntryObject": {
       "type": "object",
       "properties": {
@@ -134,6 +183,17 @@
       "description": "Your installed commands, keyed by name.",
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/CommandEntry" }
+    },
+    "CommandsConfig": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Commands Config",
+      "description": "Feature-level configuration for commands."
     },
     "SubagentEntryObject": {
       "type": "object",
@@ -175,6 +235,56 @@
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/SubagentEntry" }
     },
+    "SubagentsConfig": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Subagents Config",
+      "description": "Feature-level configuration for subagents."
+    },
+    "PackEntryObject": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "authored": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "default": false
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false,
+      "title": "Pack Entry Object",
+      "description": "A pack with its source location."
+    },
+    "PackEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/PackEntryObject" }] },
+    "PacksMap": {
+      "type": "object",
+      "title": "Packs Map",
+      "description": "Your installed packs, keyed by name.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
+      "additionalProperties": { "$ref": "#/definitions/PackEntry" }
+    },
+    "PacksConfig": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Packs Config",
+      "description": "Feature-level configuration for packs."
+    },
     "McpServerEntryObject": {
       "type": "object",
       "properties": {
@@ -205,94 +315,16 @@
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/McpServerEntry" }
     },
-    "PackEntryObject": {
+    "McpServersConfig": {
       "type": "object",
       "properties": {
-        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "authored": {
-          "anyOf": [
-            {
-              "type": "boolean",
-              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
-              "default": false
-            },
-            { "type": "null" }
-          ]
-        }
-      },
-      "required": ["source"],
-      "additionalProperties": false,
-      "title": "Pack Entry Object",
-      "description": "A pack with its source location."
-    },
-    "PackEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/PackEntryObject" }] },
-    "PacksMap": {
-      "type": "object",
-      "title": "Packs Map",
-      "description": "Your installed packs, keyed by name.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/PackEntry" }
-    },
-    "SkillEntryObject": {
-      "type": "object",
-      "properties": {
-        "source": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "enabled": {
-          "anyOf": [
-            {
-              "type": "boolean",
-              "description": "Whether this entry is enabled. Defaults to true when omitted.",
-              "default": true
-            },
-            { "type": "null" }
-          ]
-        },
-        "authored": {
-          "anyOf": [
-            {
-              "type": "boolean",
-              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
-              "default": false
-            },
-            { "type": "null" }
-          ]
-        }
-      },
-      "required": ["source"],
-      "additionalProperties": false,
-      "title": "Skill Entry Object",
-      "description": "A skill with its source location and whether it's enabled."
-    },
-    "SkillEntry": { "anyOf": [{ "type": "string" }, { "$ref": "#/definitions/SkillEntryObject" }] },
-    "SkillsMap": {
-      "type": "object",
-      "title": "Skills Map",
-      "description": "Your installed skills, keyed by name.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/SkillEntry" }
-    },
-    "IgnoredSettings": {
-      "type": "object",
-      "properties": {
-        "skills": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-        },
-        "commands": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-        },
-        "subagents": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-        },
-        "mcpServers": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-        },
-        "packs": {
+        "ignore": {
           "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         }
       },
       "additionalProperties": false,
-      "title": "Ignored Settings",
-      "description": "Glob patterns for extensions to ignore, grouped by type (e.g. skills, commands)."
+      "title": "MCP Servers Config",
+      "description": "Feature-level configuration for MCP servers."
     },
     "LintRuleSeverity": {
       "type": "string",
@@ -381,17 +413,27 @@
             { "type": "null" }
           ]
         },
-        "commands": { "anyOf": [{ "$ref": "#/definitions/CommandsMap" }, { "type": "null" }] },
-        "subagents": { "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }, { "type": "null" }] },
-        "mcpServers": { "anyOf": [{ "$ref": "#/definitions/McpServersMap" }, { "type": "null" }] },
-        "packs": { "anyOf": [{ "$ref": "#/definitions/PacksMap" }, { "type": "null" }] },
         "skills": { "anyOf": [{ "$ref": "#/definitions/SkillsMap" }, { "type": "null" }] },
-        "ignored": { "anyOf": [{ "$ref": "#/definitions/IgnoredSettings" }, { "type": "null" }] },
+        "skillsConfig": { "anyOf": [{ "$ref": "#/definitions/SkillsConfig" }, { "type": "null" }] },
+        "commands": { "anyOf": [{ "$ref": "#/definitions/CommandsMap" }, { "type": "null" }] },
+        "commandsConfig": {
+          "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }, { "type": "null" }]
+        },
+        "subagents": { "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }, { "type": "null" }] },
+        "subagentsConfig": {
+          "anyOf": [{ "$ref": "#/definitions/SubagentsConfig" }, { "type": "null" }]
+        },
+        "packs": { "anyOf": [{ "$ref": "#/definitions/PacksMap" }, { "type": "null" }] },
+        "packsConfig": { "anyOf": [{ "$ref": "#/definitions/PacksConfig" }, { "type": "null" }] },
+        "mcpServers": { "anyOf": [{ "$ref": "#/definitions/McpServersMap" }, { "type": "null" }] },
+        "mcpServersConfig": {
+          "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }, { "type": "null" }]
+        },
         "lint": { "anyOf": [{ "$ref": "#/definitions/LintConfig" }, { "type": "null" }] }
       },
       "additionalProperties": false,
       "title": "AXM Settings",
-      "description": "Your workspace configuration — owner, sources, installed extensions, and ignore patterns."
+      "description": "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config."
     }
   }
 }

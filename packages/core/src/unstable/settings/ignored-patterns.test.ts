@@ -5,67 +5,67 @@ import { AppError } from "../app-error/index.js";
 import { SettingsSchema } from "./schema.js";
 import { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";
 
-describe("SettingsSchema ignored fields", () => {
-  it("accepts settings with ignored.skills", () => {
+describe("SettingsSchema feature config ignore fields", () => {
+  it("accepts settings with skillsConfig.ignore", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      ignored: { skills: ["openspec-*"] },
+      skillsConfig: { ignore: ["openspec-*"] },
     });
 
-    expect(result.ignored?.skills).toEqual(["openspec-*"]);
+    expect(result.skillsConfig?.ignore).toEqual(["openspec-*"]);
   });
 
-  it("accepts settings with ignored.commands", () => {
+  it("accepts settings with commandsConfig.ignore", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      ignored: { commands: ["legacy-*"] },
+      commandsConfig: { ignore: ["legacy-*"] },
     });
 
-    expect(result.ignored?.commands).toEqual(["legacy-*"]);
+    expect(result.commandsConfig?.ignore).toEqual(["legacy-*"]);
   });
 
-  it("accepts settings with ignored.mcpServers", () => {
+  it("accepts settings with mcpServersConfig.ignore", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      ignored: { mcpServers: ["test-*"] },
+      mcpServersConfig: { ignore: ["test-*"] },
     });
 
-    expect(result.ignored?.mcpServers).toEqual(["test-*"]);
+    expect(result.mcpServersConfig?.ignore).toEqual(["test-*"]);
   });
 
-  it("accepts settings with ignored.packs", () => {
+  it("accepts settings with packsConfig.ignore", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      ignored: { packs: ["dev-*"] },
+      packsConfig: { ignore: ["dev-*"] },
     });
 
-    expect(result.ignored?.packs).toEqual(["dev-*"]);
+    expect(result.packsConfig?.ignore).toEqual(["dev-*"]);
   });
 
-  it("accepts settings with empty ignored object", () => {
+  it("accepts settings with empty config object", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      ignored: {},
+      skillsConfig: {},
     });
 
-    expect(result.ignored).toEqual({});
+    expect(result.skillsConfig).toEqual({});
   });
 
-  it("accepts settings without ignored field", () => {
+  it("accepts settings without feature config fields", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({});
 
-    expect(result.ignored).toBeUndefined();
+    expect(result.skillsConfig).toBeUndefined();
   });
 
-  it("accepts settings with all ignored fields", () => {
+  it("accepts settings with all feature config ignore fields", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      ignored: {
-        skills: ["a-*"],
-        commands: ["b-*"],
-        mcpServers: ["c-*"],
-        packs: ["d-*"],
-      },
+      skillsConfig: { ignore: ["a-*"] },
+      commandsConfig: { ignore: ["b-*"] },
+      subagentsConfig: { ignore: ["c-*"] },
+      mcpServersConfig: { ignore: ["d-*"] },
+      packsConfig: { ignore: ["e-*"] },
     });
 
-    expect(result.ignored?.skills).toEqual(["a-*"]);
-    expect(result.ignored?.commands).toEqual(["b-*"]);
-    expect(result.ignored?.mcpServers).toEqual(["c-*"]);
-    expect(result.ignored?.packs).toEqual(["d-*"]);
+    expect(result.skillsConfig?.ignore).toEqual(["a-*"]);
+    expect(result.commandsConfig?.ignore).toEqual(["b-*"]);
+    expect(result.subagentsConfig?.ignore).toEqual(["c-*"]);
+    expect(result.mcpServersConfig?.ignore).toEqual(["d-*"]);
+    expect(result.packsConfig?.ignore).toEqual(["e-*"]);
   });
 });
 

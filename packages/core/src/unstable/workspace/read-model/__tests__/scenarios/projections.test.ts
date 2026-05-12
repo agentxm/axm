@@ -55,16 +55,15 @@ const settingsJson = (params: {
     string | { readonly source: string; readonly enabled?: boolean }
   >;
   readonly packs?: Record<string, string | { readonly source: string }>;
-  readonly ignored?: {
-    readonly skills?: ReadonlyArray<string>;
-    readonly subagents?: ReadonlyArray<string>;
-  };
+  readonly skillsConfig?: { readonly ignore?: ReadonlyArray<string> };
+  readonly subagentsConfig?: { readonly ignore?: ReadonlyArray<string> };
 }): object => {
   const out: Record<string, unknown> = {};
   if (params.skills !== undefined) out["skills"] = params.skills;
   if (params.subagents !== undefined) out["subagents"] = params.subagents;
   if (params.packs !== undefined) out["packs"] = params.packs;
-  if (params.ignored !== undefined) out["ignored"] = params.ignored;
+  if (params.skillsConfig !== undefined) out["skillsConfig"] = params.skillsConfig;
+  if (params.subagentsConfig !== undefined) out["subagentsConfig"] = params.subagentsConfig;
   return out;
 };
 
@@ -399,7 +398,7 @@ describe("projection: ignored skill is suppressed but raw evidence remains visib
             _tag: "valid",
             contents: settingsJson({
               skills: { "review-tool": "github:owner/review-tool" },
-              ignored: { skills: ["review-tool"] },
+              skillsConfig: { ignore: ["review-tool"] },
             }),
           },
           agentDirs: {
@@ -411,7 +410,7 @@ describe("projection: ignored skill is suppressed but raw evidence remains visib
         (ctx) =>
           Effect.gen(function* () {
             // NOTE: the live context wires `ignoredNames: new Set<string>()`
-            // unconditionally (Phase 9 has not yet plumbed `ignored.skills`
+            // unconditionally (Phase 9 has not yet plumbed `skillsConfig.ignore`
             // through to the projection helper). The raw evidence-vs-projection
             // contract is still verified through declared + actual cells.
             const project = ctx.scope("project");

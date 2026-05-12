@@ -222,7 +222,7 @@ export const makeReadModelRecordReaders = (args: {
             const resolved = yield* scoped.skills.resolved;
             const unmanaged = yield* scoped.skills.unmanaged;
             const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).ignored?.skills ?? [];
+              Option.getOrElse(settings, () => createDefaultSettings()).skillsConfig?.ignore ?? [];
             return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
           }
           case "command": {
@@ -232,7 +232,8 @@ export const makeReadModelRecordReaders = (args: {
             const packs = yield* scoped.packs.resolved;
             const unmanaged = yield* scoped.commands.unmanaged;
             const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).ignored?.commands ?? [];
+              Option.getOrElse(settings, () => createDefaultSettings()).commandsConfig?.ignore ??
+              [];
             return collectReadModelRecordRows({
               type,
               installed,
@@ -251,7 +252,8 @@ export const makeReadModelRecordReaders = (args: {
             const resolved = yield* scoped.mcpServers.resolved;
             const unmanaged = yield* scoped.mcpServers.unmanaged;
             const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).ignored?.mcpServers ?? [];
+              Option.getOrElse(settings, () => createDefaultSettings()).mcpServersConfig?.ignore ??
+              [];
             return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
           }
           case "pack": {
@@ -260,7 +262,7 @@ export const makeReadModelRecordReaders = (args: {
             const resolved = yield* scoped.packs.resolved;
             const unmanaged = yield* scoped.packs.unmanaged;
             const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).ignored?.packs ?? [];
+              Option.getOrElse(settings, () => createDefaultSettings()).packsConfig?.ignore ?? [];
             return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
           }
           case "subagent": {
@@ -270,7 +272,8 @@ export const makeReadModelRecordReaders = (args: {
             const packs = yield* scoped.packs.resolved;
             const unmanaged = yield* scoped.subagents.unmanaged;
             const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).ignored?.subagents ?? [];
+              Option.getOrElse(settings, () => createDefaultSettings()).subagentsConfig?.ignore ??
+              [];
             return collectReadModelRecordRows({
               type,
               installed,

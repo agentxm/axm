@@ -53,6 +53,12 @@ export interface ScopedStateDeps {
   readonly lockfilePath: string | null;
 }
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasLegacyIgnoredSettings = (value: unknown): boolean =>
+  isRecord(value) && Object.hasOwn(value, "ignored");
+
 // ---------------------------------------------------------------------------
 // Raw bytes loaders (shared by the decoded loaders and the public raw cells)
 // ---------------------------------------------------------------------------
@@ -104,6 +110,16 @@ const loadSettings = (
       try: (): unknown => JSON.parse(bytes),
       catch: (cause): SettingsParseError => new SettingsParseError({ path, raw: bytes, cause }),
     });
+
+    if (hasLegacyIgnoredSettings(parsed)) {
+      return yield* new SettingsDecodeError({
+        path,
+        issues: [
+          "ignored: Legacy settings key is no longer supported; use feature config siblings such as skillsConfig.ignore",
+        ],
+        raw: parsed,
+      });
+    }
 
     const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed).pipe(
       Effect.mapError(

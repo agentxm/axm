@@ -442,7 +442,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       getIgnoredSkillPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.ignored?.skills ?? []),
+          Effect.map((s): ReadonlyArray<string> => s.skillsConfig?.ignore ?? []),
         ),
 
       getConfiguredAgents: () =>
@@ -672,17 +672,17 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       getIgnoredCommandPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.ignored?.commands ?? []),
+          Effect.map((s): ReadonlyArray<string> => s.commandsConfig?.ignore ?? []),
         ),
 
       getIgnoredMcpServerPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.ignored?.mcpServers ?? []),
+          Effect.map((s): ReadonlyArray<string> => s.mcpServersConfig?.ignore ?? []),
         ),
 
       getIgnoredPackPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.ignored?.packs ?? []),
+          Effect.map((s): ReadonlyArray<string> => s.packsConfig?.ignore ?? []),
         ),
 
       getLockedPacks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),

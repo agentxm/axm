@@ -10,8 +10,7 @@
  *    `SettingsReadError`; we emit one finding per read failure).
  * 3. The parsed value is a JSON object (not an array or scalar) — enforced
  *    by `Schema.decodeUnknownResult(SettingsSchema)` structurally.
- * 4. `Schema.decodeUnknownResult(SettingsSchema)` with
- *    `onExcessProperty: "ignore"` succeeds; `ParseResult` issues map 1:1 to
+ * 4. `SettingsSchema` decode succeeds; `ParseResult` issues map 1:1 to
  *    findings via `schemaDecodeFindings`.
  *
  * Reports the read-failure finding when arm 2 fails; otherwise reports the

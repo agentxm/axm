@@ -548,7 +548,7 @@ describe("uninstall.handler", () => {
       const settings = {
         agents: ["claude-code"],
         skills: { "effect-basics": "local" },
-        ignored: { skills: ["effect-stream"] },
+        skillsConfig: { ignore: ["effect-stream"] },
       };
       fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
       const lockfile = {

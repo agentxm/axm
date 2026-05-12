@@ -133,7 +133,7 @@ describe("skills.prune.handler", () => {
         nodePath.join(axmDir, "settings.json"),
         JSON.stringify({
           agents: ["claude-code"],
-          ignored: { skills: ["internal-*"] },
+          skillsConfig: { ignore: ["internal-*"] },
         }),
       );
       fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");

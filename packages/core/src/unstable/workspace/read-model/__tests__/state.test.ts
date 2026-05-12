@@ -260,6 +260,32 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
+  it.effect("fails with SettingsDecodeError for legacy ignored settings", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const fs = buildFs(
+        {
+          readers: {
+            [SETTINGS_PATH]: () =>
+              Effect.succeed(JSON.stringify({ ignored: { skills: ["legacy-*"] } })),
+          },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const err = yield* Effect.flip(api.settings);
+      expect(err).toBeInstanceOf(SettingsDecodeError);
+      if (err._tag === "SettingsDecodeError") {
+        expect(err.issues).toEqual([
+          "ignored: Legacy settings key is no longer supported; use feature config siblings such as skillsConfig.ignore",
+        ]);
+      }
+    }),
+  );
+
   it.effect("Effect.cached: two yield*-s share one execution and one IO call", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;

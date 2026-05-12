@@ -659,33 +659,88 @@ export const PacksMapSchema = Schema.Record(ExtensionMapKeySchema, PackEntrySche
 export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
 
 // -----------------------------------------------------------------------------
-// Ignored Patterns Schema
+// Feature Config Schemas
 // -----------------------------------------------------------------------------
 
 /**
- * Ignored patterns map — per-extension-type arrays of glob patterns
- * for extensions to exclude from lifecycle classification.
+ * Feature-level configuration for skills.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const IgnoredSettingsSchema = Schema.Struct({
-  skills: Schema.optional(Schema.Array(Schema.String)),
-  commands: Schema.optional(Schema.Array(Schema.String)),
-  subagents: Schema.optional(Schema.Array(Schema.String)),
-  mcpServers: Schema.optional(Schema.Array(Schema.String)),
-  packs: Schema.optional(Schema.Array(Schema.String)),
+export const SkillsConfigSchema = Schema.Struct({
+  ignore: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
-  identifier: "IgnoredSettings",
-  title: "Ignored Settings",
-  description: "Glob patterns for extensions to ignore, grouped by type (e.g. skills, commands).",
+  identifier: "SkillsConfig",
+  title: "Skills Config",
+  description: "Feature-level configuration for skills.",
 });
 
+/** @experimental */
+export type SkillsConfig = Schema.Schema.Type<typeof SkillsConfigSchema>;
+
 /**
- * Inferred type for IgnoredSettings schema.
+ * Feature-level configuration for commands.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type IgnoredSettings = Schema.Schema.Type<typeof IgnoredSettingsSchema>;
+export const CommandsConfigSchema = Schema.Struct({
+  ignore: Schema.optional(Schema.Array(Schema.String)),
+}).annotate({
+  identifier: "CommandsConfig",
+  title: "Commands Config",
+  description: "Feature-level configuration for commands.",
+});
+
+/** @experimental */
+export type CommandsConfig = Schema.Schema.Type<typeof CommandsConfigSchema>;
+
+/**
+ * Feature-level configuration for subagents.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SubagentsConfigSchema = Schema.Struct({
+  ignore: Schema.optional(Schema.Array(Schema.String)),
+}).annotate({
+  identifier: "SubagentsConfig",
+  title: "Subagents Config",
+  description: "Feature-level configuration for subagents.",
+});
+
+/** @experimental */
+export type SubagentsConfig = Schema.Schema.Type<typeof SubagentsConfigSchema>;
+
+/**
+ * Feature-level configuration for MCP servers.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const McpServersConfigSchema = Schema.Struct({
+  ignore: Schema.optional(Schema.Array(Schema.String)),
+}).annotate({
+  identifier: "McpServersConfig",
+  title: "MCP Servers Config",
+  description: "Feature-level configuration for MCP servers.",
+});
+
+/** @experimental */
+export type McpServersConfig = Schema.Schema.Type<typeof McpServersConfigSchema>;
+
+/**
+ * Feature-level configuration for packs.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PacksConfigSchema = Schema.Struct({
+  ignore: Schema.optional(Schema.Array(Schema.String)),
+}).annotate({
+  identifier: "PacksConfig",
+  title: "Packs Config",
+  description: "Feature-level configuration for packs.",
+});
+
+/** @experimental */
+export type PacksConfig = Schema.Schema.Type<typeof PacksConfigSchema>;
 
 /**
  * Canonical key order for settings properties.
@@ -701,11 +756,15 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "sources",
   "agents",
   "skills",
+  "skillsConfig",
   "commands",
+  "commandsConfig",
   "subagents",
+  "subagentsConfig",
   "packs",
+  "packsConfig",
   "mcpServers",
-  "ignored",
+  "mcpServersConfig",
   "lint",
 ];
 
@@ -717,9 +776,15 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
  * - skills: Desired skills by name to source string
+ * - skillsConfig: Feature-level configuration for skills
  * - commands: Desired commands by name to version specifier
+ * - commandsConfig: Feature-level configuration for commands
+ * - subagents: Desired subagents by name to version specifier
+ * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
- * - mcp-servers: Desired MCP servers by name to version specifier
+ * - packsConfig: Feature-level configuration for packs
+ * - mcpServers: Desired MCP servers by name to version specifier
+ * - mcpServersConfig: Feature-level configuration for MCP servers
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -728,18 +793,22 @@ export const SettingsSchema = Schema.Struct({
   owner: Schema.optional(HandleSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
-  commands: Schema.optional(CommandsMapSchema),
-  subagents: Schema.optional(SubagentsMapSchema),
-  mcpServers: Schema.optional(McpServersMapSchema),
-  packs: Schema.optional(PacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
-  ignored: Schema.optional(IgnoredSettingsSchema),
+  skillsConfig: Schema.optional(SkillsConfigSchema),
+  commands: Schema.optional(CommandsMapSchema),
+  commandsConfig: Schema.optional(CommandsConfigSchema),
+  subagents: Schema.optional(SubagentsMapSchema),
+  subagentsConfig: Schema.optional(SubagentsConfigSchema),
+  packs: Schema.optional(PacksMapSchema),
+  packsConfig: Schema.optional(PacksConfigSchema),
+  mcpServers: Schema.optional(McpServersMapSchema),
+  mcpServersConfig: Schema.optional(McpServersConfigSchema),
   lint: Schema.optional(LintConfigSchema),
 }).annotate({
   identifier: "Settings",
   title: "AXM Settings",
   description:
-    "Your workspace configuration — owner, sources, installed extensions, and ignore patterns.",
+    "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config.",
 });
 
 /**

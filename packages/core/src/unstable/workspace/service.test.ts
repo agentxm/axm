@@ -1913,7 +1913,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          ignored: { skills: ["test-*", "deprecated-tool"] },
+          skillsConfig: { ignore: ["test-*", "deprecated-tool"] },
         });
 
         const ws = yield* getService(defaultOptions);
@@ -2152,7 +2152,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          ignored: { commands: ["debug-*"] },
+          commandsConfig: { ignore: ["debug-*"] },
         });
 
         const ws = yield* getService(defaultOptions);
@@ -2262,7 +2262,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          ignored: { mcpServers: ["test-*"] },
+          mcpServersConfig: { ignore: ["test-*"] },
         });
 
         const ws = yield* getService(defaultOptions);
@@ -2388,7 +2388,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          ignored: { packs: ["legacy-*"] },
+          packsConfig: { ignore: ["legacy-*"] },
         });
 
         const ws = yield* getService(defaultOptions);

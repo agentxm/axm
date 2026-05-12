@@ -4,10 +4,11 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { expectRecord, handle } from "../test-helpers.js";
 import { createDefaultSettings, writeSettings } from "./settings.js";
-import type { Settings } from "./schema.js";
+import { SettingsSchema, type Settings } from "./schema.js";
 
 describe("settings", () => {
   let tempDir: string;
@@ -74,6 +75,45 @@ describe("settings", () => {
           const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
           const keys = Object.keys(expectRecord(JSON.parse(content)));
           expect(keys).toEqual(["owner", "agents", "skills"]);
+        }),
+      ),
+    );
+
+    it.effect("round-trips new feature config shape", () =>
+      withContext(
+        Effect.gen(function* () {
+          const settings: Settings = {
+            agents: ["claude-code"],
+            skills: { commit: { source: "^1.0.0", enabled: true, authored: false } },
+            skillsConfig: { ignore: ["internal-*"] },
+          };
+
+          yield* writeSettings(axmDir, settings);
+
+          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const decoded = Schema.decodeUnknownSync(SettingsSchema)(JSON.parse(content));
+          expect(decoded).toEqual(settings);
+        }),
+      ),
+    );
+
+    it.effect("strips empty feature config blocks", () =>
+      withContext(
+        Effect.gen(function* () {
+          const settings: Settings = {
+            skillsConfig: {},
+            commandsConfig: { ignore: [] },
+            subagentsConfig: { ignore: ["local-*"] },
+            packsConfig: { ignore: [] },
+            mcpServersConfig: {},
+          };
+
+          yield* writeSettings(axmDir, settings);
+
+          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          expect(JSON.parse(content)).toEqual({
+            subagentsConfig: { ignore: ["local-*"] },
+          });
         }),
       ),
     );

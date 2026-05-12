@@ -49,12 +49,31 @@ export const createDefaultSettings = (): Settings => ({});
 const encodeSettingsSync = Schema.encodeSync(SettingsSchema);
 const decodeSettingsSync = Schema.decodeUnknownSync(SettingsSchema);
 
+const settingsConfigKeys = new Set([
+  "skillsConfig",
+  "commandsConfig",
+  "subagentsConfig",
+  "packsConfig",
+  "mcpServersConfig",
+]);
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
+  if (!settingsConfigKeys.has(key) || !isRecord(value)) return false;
+  const ignore = value["ignore"];
+  return ignore === undefined || (Array.isArray(ignore) && ignore.length === 0);
+};
+
 const orderSettingsRecord = (
   settings: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> =>
   SETTINGS_KEY_ORDER.reduce<Record<string, unknown>>((ordered, key) => {
     const value = settings[key];
-    return value === undefined ? ordered : { ...ordered, [key]: value };
+    return value === undefined || isEmptySettingsConfig(key, value)
+      ? ordered
+      : { ...ordered, [key]: value };
   }, {});
 
 export const orderSettingsKeys = (settings: Settings): Settings =>

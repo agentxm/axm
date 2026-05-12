@@ -1,4 +1,4 @@
-export const AXM_SKILL_VERSION = "0.2.0";
+export const AXM_SKILL_VERSION = "0.2.1";
 
 export const AXM_SKILL_JSON = [
   "{",
@@ -26,6 +26,10 @@ export const AXM_SKILL_MD = [
   "**MUST follow these rules:**",
   "",
   "1. **Choose right output mode**: `--json` for full JSON",
+  "2. **Gate mutating CLI use**: AXM can copy, symlink, and delete AXM-managed files. Before running mutating AXM commands, verify:",
+  "   - User explicitly chose to trust AXM for filesystem mutations.",
+  "   - Agent sandbox can write every needed target. Codex: use `--sandbox workspace-write` plus `--add-dir <dir>` for extra roots; `read-only` needs explicit escalation. Claude Code: enable workspace/user-dir write permissions.",
+  "   - If trust or permissions are missing, do not run AXM for mutating operations. Tell the user the exact `axm ...` command to run after they configure permissions. Offer option to run CI command via agent prompt if you have the ability to do so with sufficient consent from the user.",
   "",
   "### CLI Introspection",
   "",

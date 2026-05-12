@@ -9,7 +9,8 @@ setup) `axm setup` has completed.
 2. Verify `axm --version`.
 3. Probe sign-in → ask the user → optionally hand off `axm login`.
 4. Run `axm setup --yes`.
-5. Load `axm help getting-started` and `axm help basic-usage`.
+5. Read `.axm/extensions/@agentxm/skills/axm/src/SKILL.md`, then load
+   `axm help getting-started` and `axm help basic-usage`.
 
 ## Invariants
 
@@ -167,11 +168,16 @@ files in the current directory, install default extensions (including
 
 ```bash
 axm setup --yes
+cat .axm/extensions/@agentxm/skills/axm/src/SKILL.md
 axm help getting-started
 axm help basic-usage
 ```
 
-Read both help topics before doing any other AXM work in this session:
+After setup, read the installed AXM skill and both help topics before doing
+any other AXM work in this session:
+
+- **`.axm/extensions/@agentxm/skills/axm/src/SKILL.md`** — agent rules for
+  safe AXM CLI use, permissions, output modes, and day-to-day operations.
 
 - **`getting-started`** — first-time workspace setup; explains what `axm
 setup` just produced.
@@ -179,10 +185,6 @@ setup` just produced.
   `axm-lock.yaml`, `.axm/extensions/`), the commit policy (`.axm/` and
   `axm-lock.yaml` must be checked in, not gitignored), and how to act safely
   in an existing workspace.
-
-After both, consult the installed `@agentxm/skills/axm` skill for day-to-day
-operations (greenfield/brownfield/unmanaged-skills workspaces, extension
-management, publishing).
 
 ---
 

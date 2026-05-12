@@ -134,6 +134,7 @@ describe("TelemetryClientLive", () => {
           const error = expectRecord(at(errors, 0));
           expect(property(error, "name")).toBe("WORKSPACE_NOT_FOUND");
           expect(property(error, "message")).toBe("WorkspaceMutations not initialized");
+          expect(property(error, "details")).toEqual(["some detail"]);
         }
         expect(property(body, "level")).toBe("error");
         expect(property(body, "handled")).toBe(true);

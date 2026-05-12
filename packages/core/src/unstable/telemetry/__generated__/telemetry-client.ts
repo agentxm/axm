@@ -234,6 +234,7 @@ export type TelemetryErrorsRequest = {
       readonly postContext?: ReadonlyArray<string>;
     }>;
     readonly stack?: string;
+    readonly details?: ReadonlyArray<string>;
   }>;
   readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
   readonly handled?: boolean;
@@ -273,6 +274,9 @@ export const TelemetryErrorsRequest = Schema.Struct({
         ).check(Schema.isMaxLength(100)),
       ),
       stack: Schema.optionalKey(Schema.String),
+      details: Schema.optionalKey(
+        Schema.Array(Schema.String.check(Schema.isMaxLength(512))).check(Schema.isMaxLength(16)),
+      ),
     }).annotate({
       title: "Telemetry Error Item",
       description: "One error instance included in a telemetry error report.",

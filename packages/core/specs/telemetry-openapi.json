@@ -535,7 +535,12 @@
             "items": { "$ref": "#/components/schemas/TelemetryStackFrame" },
             "allOf": [{ "maxItems": 100 }]
           },
-          "stack": { "type": "string" }
+          "stack": { "type": "string" },
+          "details": {
+            "type": "array",
+            "items": { "type": "string", "allOf": [{ "maxLength": 512 }] },
+            "allOf": [{ "maxItems": 16 }]
+          }
         },
         "required": ["message", "name"],
         "additionalProperties": false,

@@ -128,7 +128,15 @@ export const makeTelemetryClient = (
     const reportError: TelemetryClientService["reportError"] = (error) => {
       const now = new Date().toISOString();
       const payload = {
-        errors: [{ message: error.message, name: error.name }],
+        errors: [
+          {
+            message: error.message,
+            name: error.name,
+            ...(error.details !== undefined && error.details.length > 0
+              ? { details: error.details }
+              : {}),
+          },
+        ],
         level: error.level,
         handled: error.handled,
         tags: {

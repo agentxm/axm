@@ -111,9 +111,12 @@ describe("axm lint (e2e, Phase 7)", () => {
       try {
         // `axm setup` seeds settings.json and the empty lockfile, so the
         // Phase 5 LOCKFILE_PARSE_FAILED edge case doesn't surface here.
-        const init = await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        const init = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
         expect(init.exitCode).toBe(0);
 
         seedSkillSource(sourceRoot.path, "demo");

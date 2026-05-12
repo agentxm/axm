@@ -10,12 +10,15 @@ Skill packages live in `./.axm/extensions/<@owner>/skills/<skill-name>`.
 
 ## `src/`
 
-The `src/` within the skill package contains `SKILL.md` and any other files as specified by the agentskills.io specification.
+The `src/` directory holds `SKILL.md` and any other files described by the [agentskills.io](https://agentskills.io) specification.
+
+`SKILL.md` is Markdown with YAML frontmatter. Only `name` is required, and it must match both the manifest's `name` and the skill directory name. Everything else in the frontmatter passes through verbatim to the rendered agent file.
 
 ## Authoring and editing skills
 
-The contents of the `src` symlinked by AXM to the respective agent skill directories, so no need to `axm sync` after an edit. Only run `axm sync` if symlinks or copies are broken.
+The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.
 
 ## Where to go next
 
-- `axm skills --help` — full skill subcommand surface.
+- `axm skills --help` — full skill subcommand surface
+- `axm help packs` — bundling skill extensions with extension packs

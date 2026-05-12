@@ -30,7 +30,13 @@ allowed-tools:
 Review {{arguments}}.
 ```
 
-Supported body placeholders: `{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}`.
+Supported body placeholders:
+
+- `{{arguments}}` — all arguments the user passed to the command.
+- `{{arguments[N]}}` — the Nth positional argument, zero-indexed.
+- `{{arg:name}}` — a named argument slot, rendered with each target agent's named-argument syntax (e.g. `${input:name}` on Copilot, `$name` on Junie). Families without native named arguments — Claude Code, Cursor, Gemini — render the placeholder as a context appendix instead of inlining a value.
+
+Use `\{{` to render a literal `{{` without substitution.
 
 Use `agentOverrides` in the content file frontmatter for per-agent differences.
 Each `agentOverrides.<agent-id>` entry is applied as an RFC 7396 JSON Merge
@@ -52,9 +58,11 @@ native command directory:
   Nested filenames map to Gemini `:` command namespaces.
 - **Plain text** (Kiro CLI) — body only; frontmatter is not rendered.
 
-Do not edit rendered command files directly. Edit the command package source and
-re-render.
+Targets that drop frontmatter (such as Cursor's body-only Markdown) ignore keys like `argument-hint` and `allowed-tools` entirely. Keep the body self-explanatory so the command still works on those agents, and use `agentOverrides` for anything that must vary by target.
+
+Do not edit rendered command files directly. Edit the command package source and re-render.
 
 ## Where to go next
 
-- `axm commands --help` — full command subcommand surface.
+- `axm help packs` — bundling command extensions with extension packs
+- `axm commands --help` — full command subcommand surface

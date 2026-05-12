@@ -16,8 +16,9 @@ Targeting is workspace-owned through `.axm/settings.json` `agents`; publish reje
 
 The `src/` directory holds `<subagent-name>.md` — Markdown with YAML frontmatter and a body containing the system prompt.
 
-Only one frontmatter field is required: `name`. Everything else you write in the frontmatter passes through verbatim into the rendered agent-native file. AXM does not interpret or reshape it. Omit top-level frontmatter unless it will work on all agents. Otherwise, specify the desired subagent
-configuration per each agent's official subagent documentation.
+Only one frontmatter field is required: `name`. Everything else you write in the frontmatter passes through verbatim into the rendered agent-native file. AXM does not interpret or reshape it.
+
+Put fields that every target agent understands at the top level. Put agent-specific fields under `agentOverrides.<agent-id>` so they only render for that agent. See each agent's official subagent documentation for the supported fields.
 
 ```markdown
 ---
@@ -75,4 +76,5 @@ Run `axm subagents publish` to release a new version. Publish validates the mani
 
 ## Where to go next
 
-- `axm subagents --help` — full subagent subcommand surface.
+- `axm subagents --help` — full subagent subcommand surface
+- `axm help packs` — bundling subagent extensions with extension packs

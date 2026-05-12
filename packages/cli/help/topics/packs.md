@@ -16,22 +16,24 @@ Run `axm packs publish <pack>` to release a new version. Install with `axm packs
 
 ## Pack dependencies
 
-Bundle extensions by defining the pack dependencies in pack.json:
+Bundle extensions by defining the pack dependencies in `pack.json`. Each key uses the same fully qualified form as the extension directories (`<@owner>/<type>/<name>`, with the plural type segment):
 
 ```
 "dependencies": {
   "@acme/skills/brick-building": "*",
-  "@acme/subagent/brick-layer": "^1.0.0"
+  "@acme/subagents/brick-layer": "^1.0.0"
 }
 ```
 
 Use `"*"` to indicate the latest version (recommended) unless there is a specific reason to constrain it.
 
-Packs may not depend on other extension packs. There are no transitive dependencies.
+## No transitive dependencies
+
+Packs may not depend on other extension packs. A pack's dependency graph is exactly the extensions it lists.
 
 ## Recommended packs
 
-Bundled extensions should specify recommended packs to indicate the extension was designed to work with a specified pack:
+Extensions that are designed to work with a specific pack should declare it in `recommendedPacks`:
 
 ```
 {
@@ -45,8 +47,8 @@ See the individual help topics for each extension type for more details.
 
 ## Standalone extensions
 
-For extensions that are not designed to work unless they are bundled with the extensions in the recommended packs, `standalone` should be set to `true` in the manifest for those extensions.
+`standalone` defaults to `false`. Set it to `true` only when the extension is meaningless outside its recommended packs. Otherwise leave the field undefined.
 
 ## Where to go next
 
-- `axm packs --help` — full pack subcommand surface.
+- `axm packs --help` — full pack subcommand surface

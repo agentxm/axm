@@ -1,3 +1,13 @@
+## 0.7.3 (2026-05-12)
+
+### 🩹 Fixes
+
+- Keep the publish lint entrypoint free of workspace lint config side effects. ([b32f36dd](https://github.com/agentxm/axm/commit/b32f36dd))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.7.2 (2026-05-12)
 
 ### 🩹 Fixes

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/AgentXM.Example.TinyFlags.FSharp/AgentXM.Example.TinyFlags.FSharp.fsproj" />
+  <Project Path="test/AgentXM.Example.TinyFlags.FSharp.Tests/AgentXM.Example.TinyFlags.FSharp.Tests.fsproj" />
+</Solution>

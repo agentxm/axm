@@ -1,5 +1,5 @@
 {
-  "name": "@agentxm/tinyflags",
+  "name": "@agentxm/example-tinyflags",
   "version": "0.1.0",
   "description": "Tiny feature flags library used by AXM companion package examples.",
   "type": "module",

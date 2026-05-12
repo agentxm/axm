@@ -7,10 +7,11 @@ feature flag library and ships matching skills, a subagent, and a pack.
 The example extensions are published under the AgentXM.ai `@examples` owner
 namespace. The ecosystem packages they support are published under the
 appropriate `agentxm` package namespace for that ecosystem, such as the npm
-scope `@agentxm`.
+scope `@agentxm`, and their package names include `example`.
 
 Each ecosystem package also embeds package-native AXM recommendation metadata.
-For npm, this is the `axm.recommendedExtensions` field in `package.json`. The
+For npm, this is the `axm.recommendedExtensions` field in `package.json`. For
+NuGet, this is an `axm.json` sidecar shipped in the package root. The
 package-side metadata recommends the companion pack, while the extension-side
 manifests use `companionPackages` to point back to the package.
 
@@ -27,15 +28,15 @@ behavior in every ecosystem:
 - Include tests that prove default behavior, rollout boundaries, and validation.
 
 The API should feel native in each ecosystem. JavaScript uses ES modules and
-Node's built-in test runner; later examples should use idiomatic equivalents
-for Python, Go, Ruby, Java, .NET, and other package ecosystems.
+Node's built-in test runner. .NET examples use runnable test projects with
+framework-native source.
 
 ## Extension Set
 
 Each ecosystem example includes these extension roles:
 
 - Add flag skill: guides users through adding a TinyFlags flag with tests.
-- Rollout review skill: reviews rollout safety and JavaScript package details.
+- Rollout review skill: reviews rollout safety and ecosystem package details.
 - Cleanup skill: removes stale flags without leaving dead references.
 - Maintainer subagent: performs focused TinyFlags design and implementation
   review.
@@ -50,4 +51,6 @@ supports.
 
 ## Examples
 
-- `npm-javascript/` — npm package example for `@agentxm/tinyflags`.
+- `npm-javascript/` — npm package example for `@agentxm/example-tinyflags`.
+- `dotnet-csharp/` — NuGet C# package example for `AgentXM.Example.TinyFlags.CSharp`.
+- `dotnet-fsharp/` — NuGet F# package example for `AgentXM.Example.TinyFlags.FSharp`.

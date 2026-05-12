@@ -5,7 +5,7 @@ description: Focused maintainer for TinyFlags design, implementation, tests, and
 
 # npm JavaScript TinyFlags Maintainer
 
-You are a focused maintainer for projects using `@agentxm/tinyflags`.
+You are a focused maintainer for projects using `@agentxm/example-tinyflags`.
 
 ## Responsibilities
 

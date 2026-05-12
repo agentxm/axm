@@ -6,7 +6,7 @@ description: Add a TinyFlags flag to an npm JavaScript project with implementati
 # Add TinyFlags Flag
 
 Use this skill when adding a feature flag to an npm JavaScript project that uses
-`@agentxm/tinyflags`.
+`@agentxm/example-tinyflags`.
 
 ## Workflow
 

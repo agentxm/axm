@@ -2,7 +2,7 @@
 
 This example shows how an npm package can ship companion AXM extensions for its
 users. The package is a small ES module feature flag library named
-`@agentxm/tinyflags`.
+`@agentxm/example-tinyflags`.
 
 The AXM extensions are published to AgentXM.ai under `@examples`. The npm
 package uses the npm ecosystem scope `@agentxm`.
@@ -18,8 +18,8 @@ The package metadata embeds AXM recommendations directly in `package.json`:
 ```
 
 When this package is installed in another project, `axm discover` can read that
-metadata from `node_modules/@agentxm/tinyflags/package.json` and surface the
-companion pack as a package-author recommendation.
+metadata from `node_modules/@agentxm/example-tinyflags/package.json` and
+surface the companion pack as a package-author recommendation.
 
 ## Package
 
@@ -46,7 +46,7 @@ The authored extension sources live under `.axm/extensions/@examples/`.
 | Pack     | `@examples/packs/npm-javascript-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each manifest
-declares `pkg:npm/@agentxm/tinyflags@0.1.0` as its companion package.
+declares `pkg:npm/@agentxm/example-tinyflags@0.1.0` as its companion package.
 
 ## Scenario
 

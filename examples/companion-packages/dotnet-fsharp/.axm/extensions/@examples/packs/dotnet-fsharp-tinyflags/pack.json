@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "dotnet-fsharp-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the .NET F# TinyFlags package.",
+  "keywords": ["nuget", "dotnet", "fsharp", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:nuget/agentxm.example.tinyflags.fsharp@0.1.0"],
+  "dependencies": {
+    "@examples/skills/dotnet-fsharp-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/dotnet-fsharp-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/dotnet-fsharp-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/dotnet-fsharp-tinyflags-maintainer": "^0.1.0"
+  }
+}

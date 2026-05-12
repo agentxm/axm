@@ -6,7 +6,7 @@
   "version": "0.1.0",
   "description": "Review and maintain TinyFlags usage in npm JavaScript projects.",
   "keywords": ["npm", "javascript", "feature-flags", "tinyflags"],
-  "companionPackages": ["pkg:npm/@agentxm/tinyflags@0.1.0"],
+  "companionPackages": ["pkg:npm/@agentxm/example-tinyflags@0.1.0"],
   "recommendedPacks": ["@examples/packs/npm-javascript-tinyflags"],
   "standalone": false
 }

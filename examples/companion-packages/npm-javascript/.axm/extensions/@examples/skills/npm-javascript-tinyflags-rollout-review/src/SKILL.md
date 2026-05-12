@@ -21,11 +21,11 @@ TinyFlags-backed behavior in an npm JavaScript package.
 
 ## JavaScript Details
 
-Check ES module imports from `@agentxm/tinyflags` and avoid introducing CommonJS
-interop unless the package already uses it. Prefer named exports:
+Check ES module imports from `@agentxm/example-tinyflags` and avoid introducing
+CommonJS interop unless the package already uses it. Prefer named exports:
 
 ```js
-import { booleanFlag, createFlags, variantFlag } from "@agentxm/tinyflags";
+import { booleanFlag, createFlags, variantFlag } from "@agentxm/example-tinyflags";
 ```
 
 Rollout changes should be small and reviewable. If a rollout moves from 0 to

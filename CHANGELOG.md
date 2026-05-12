@@ -1,3 +1,13 @@
+## 0.6.2 (2026-05-12)
+
+### 🩹 Fixes
+
+- Build release binaries on native CI runners. ([dc6c07f8](https://github.com/agentxm/axm/commit/dc6c07f8))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.6.1 (2026-05-12)
 
 ### 🩹 Fixes

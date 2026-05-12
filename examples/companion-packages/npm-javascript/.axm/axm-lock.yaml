@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  npm-javascript-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: npm-javascript-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+  npm-javascript-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: npm-javascript-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+  npm-javascript-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: npm-javascript-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+subagents:
+  npm-javascript-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: npm-javascript-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+packs:
+  npm-javascript-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: npm-javascript-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/npm-javascript-tinyflags-add-flag": 0.1.0
+      "@examples/skills/npm-javascript-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/npm-javascript-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/npm-javascript-tinyflags-maintainer": 0.1.0

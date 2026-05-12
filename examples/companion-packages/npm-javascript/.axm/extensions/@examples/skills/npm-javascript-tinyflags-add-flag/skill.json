@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "npm-javascript-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to an npm JavaScript project with tests.",
+  "keywords": ["npm", "javascript", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:npm/@agentxm/tinyflags@0.1.0"],
+  "recommendedPacks": ["@examples/packs/npm-javascript-tinyflags"],
+  "standalone": false
+}

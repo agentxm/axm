@@ -1,3 +1,13 @@
+## 0.6.0 (2026-05-12)
+
+### 🚀 Features
+
+- Add settings ignore configuration and companion package guidance. ([834c8a60](https://github.com/agentxm/axm/commit/834c8a60))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.5.3 (2026-05-11)
 
 ### 🩹 Fixes

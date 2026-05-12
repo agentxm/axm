@@ -7,6 +7,20 @@ users. The package is a small ES module feature flag library named
 The AXM extensions are published to AgentXM.ai under `@examples`. The npm
 package uses the npm ecosystem scope `@agentxm`.
 
+The package metadata embeds AXM recommendations directly in `package.json`:
+
+```json
+{
+  "axm": {
+    "recommendedExtensions": ["@examples/packs/npm-javascript-tinyflags@^0.1.0"]
+  }
+}
+```
+
+When this package is installed in another project, `axm discover` can read that
+metadata from `node_modules/@agentxm/tinyflags/package.json` and surface the
+companion pack as a package-author recommendation.
+
 ## Package
 
 ```bash
@@ -39,6 +53,7 @@ declares `pkg:npm/@agentxm/tinyflags@0.1.0` as its companion package.
 A framework or library author can use this layout as a model:
 
 1. Implement the normal ecosystem package.
-2. Add AXM extension sources in `.axm/extensions/<owner>/`.
-3. Mark the extensions as authored in `.axm/settings.json`.
-4. Publish the extensions independently or as a companion pack.
+2. Embed package-native AXM metadata recommending the companion pack.
+3. Add AXM extension sources in `.axm/extensions/<owner>/`.
+4. Mark the extensions as authored in `.axm/settings.json`.
+5. Publish the extensions independently or as a companion pack.

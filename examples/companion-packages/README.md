@@ -9,6 +9,11 @@ namespace. The ecosystem packages they support are published under the
 appropriate `agentxm` package namespace for that ecosystem, such as the npm
 scope `@agentxm`.
 
+Each ecosystem package also embeds package-native AXM recommendation metadata.
+For npm, this is the `axm.recommendedExtensions` field in `package.json`. The
+package-side metadata recommends the companion pack, while the extension-side
+manifests use `companionPackages` to point back to the package.
+
 ## Functional Spec
 
 The sample library is `TinyFlags`, a minimal feature flag package with the same
@@ -39,8 +44,9 @@ Each ecosystem example includes these extension roles:
 All example extensions use owner `@examples`. Extension names are prefixed by
 ecosystem, for example `npm-javascript-tinyflags-add-flag`.
 
-Each manifest declares a `companionPackages` Package URL for the ecosystem
-package it supports.
+Each package embeds a recommendation for its companion pack, and each extension
+manifest declares a `companionPackages` Package URL for the ecosystem package it
+supports.
 
 ## Examples
 

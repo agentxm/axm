@@ -9,5 +9,10 @@
   "scripts": {
     "test": "node --test"
   },
+  "axm": {
+    "recommendedExtensions": [
+      "@examples/packs/npm-javascript-tinyflags@^0.1.0"
+    ]
+  },
   "license": "MIT"
 }

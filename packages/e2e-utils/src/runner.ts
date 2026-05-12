@@ -19,11 +19,15 @@ export const runCommand = async (
   options: RunCliOptions,
 ): Promise<CliResult> => {
   const { cwd = process.cwd(), env = {}, timeout = DEFAULT_TIMEOUT } = options;
+  // Bun warns when FORCE_COLOR and NO_COLOR are both present. The e2e runner
+  // intentionally sets NO_COLOR so stderr channel-contract tests stay stable.
+  // eslint-disable-next-line no-restricted-properties -- E2E runner needs parent env for child process
+  const { FORCE_COLOR: _forceColor, ...parentEnv } = process.env;
 
   const result = await execa(command, [...args], {
     cwd,
-    // eslint-disable-next-line no-restricted-properties -- E2E runner needs parent env for child process
-    env: { ...process.env, CI: "", ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
+    env: { ...parentEnv, CI: "", ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
+    extendEnv: false,
     timeout,
     reject: false,
   });

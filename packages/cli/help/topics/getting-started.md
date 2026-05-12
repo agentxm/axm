@@ -18,6 +18,10 @@ If this fails, follow the install bootstrap at `https://axm.sh/install.md`
 before continuing. Do not invent a runner fallback such as `bunx`, `pnpx`, or
 `npx` — they skip `axm setup` and split state across cached versions.
 
+## Add AXM CLI to allowed tools
+
+Add the `axm` CLI to the list of allowed tools for your coding agent.
+
 ## Initialize the workspace
 
 Run setup in the project you want AXM to manage:

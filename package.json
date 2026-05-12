@@ -11,6 +11,7 @@
     "spike": "bun packages/cli-spike/src/main.ts",
     "release-prepare": "bun scripts/release-prepare.ts",
     "release-publish": "bun scripts/release-publish.ts",
+    "release-publish-local": "bun scripts/release-publish-local.ts",
     "validate-release-tag": "bun scripts/validate-release-tag.ts",
     "resolve-release-meta": "bun scripts/resolve-release-meta.ts",
     "download-ci-binaries": "bun scripts/download-ci-binaries.ts",
@@ -48,6 +49,7 @@
     "release:plan:check": "nx release plan:check",
     "release:prepare": "pnpm exec nx run axm:release-prepare --outputStyle=static",
     "release:publish": "pnpm exec nx run axm:release-publish --outputStyle=static",
+    "release:publish:local": "pnpm exec nx run axm:release-publish-local --outputStyle=static",
     "generate": "pnpm exec nx run axm:generate-registry --outputStyle=static && pnpm exec nx run axm:generate-telemetry --outputStyle=static",
     "generate:registry": "pnpm exec nx run axm:generate-registry --outputStyle=static",
     "generate:telemetry": "pnpm exec nx run axm:generate-telemetry --outputStyle=static"

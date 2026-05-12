@@ -61,6 +61,15 @@
         "cwd": "."
       }
     },
+    "release-publish-local": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm release-publish-local",
+        "cwd": "."
+      }
+    },
     "validate-release-tag": {
       "executor": "nx:run-commands",
       "cache": false,

@@ -4,10 +4,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
+import { LockfileSchema } from "@agentxm/client-core/unstable/lockfile";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
+import * as YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -15,10 +18,12 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
 import { expectDefined } from "../test-helpers.js";
-import { AXM_SKILL_JSON, AXM_SKILL_MD } from "./setup/bundled-axm-skill.js";
+import { AXM_SKILL_JSON, AXM_SKILL_MD, AXM_SKILL_VERSION } from "./setup/bundled-axm-skill.js";
 import { handleSetup, SetupSkillInstaller, SetupSkillInstallerLive } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
+const readLockfile = (filePath: string) =>
+  Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(fs.readFileSync(filePath, "utf-8")));
 
 const makeSetupTestContext = (opts?: {
   readonly flags?: {
@@ -152,8 +157,15 @@ describe("setup.handler", () => {
           expect(fs.readFileSync(skillMdPath, "utf-8")).toBe(AXM_SKILL_MD);
           expect(fs.existsSync(agentSkillPath)).toBe(true);
 
-          const lockfile = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
-          expect(lockfile).toContain("skills: {}");
+          const lockfile = readLockfile(path.join(axmDir, "axm-lock.yaml"));
+          const axmLockEntry = expectDefined(lockfile.skills["axm"]);
+          expect(axmLockEntry.type).toBe("registry");
+          if (axmLockEntry.type !== "registry") return;
+          expect(axmLockEntry.owner).toBe("@agentxm");
+          expect(axmLockEntry.name).toBe("axm");
+          expect(axmLockEntry.resolvedVersion).toBe(AXM_SKILL_VERSION);
+          expect(axmLockEntry.sourceName).toBe("default");
+          expect(axmLockEntry.agents).toEqual(["claude-code"]);
         }),
       );
     });

@@ -12,6 +12,7 @@ import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   bootstrapWorkspace,
   scanAllSubagentFiles,
@@ -20,9 +21,14 @@ import {
   type WorkspaceScope,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import { normalizeHandle, sanitizeName } from "@agentxm/client-core/unstable/extensions";
+import {
+  decodeExtensionNameSync,
+  normalizeHandle,
+  sanitizeName,
+} from "@agentxm/client-core/unstable/extensions";
 import { computeSkillPaths, ensureSkillAgentArtifact } from "@agentxm/client-core/unstable/skills";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -36,7 +42,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import { scopeFlag } from "../cli-flags.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { withRuntime, withWorkspace } from "../runtime.js";
-import { AXM_SKILL_JSON, AXM_SKILL_MD } from "./setup/bundled-axm-skill.js";
+import { AXM_SKILL_JSON, AXM_SKILL_MD, AXM_SKILL_VERSION } from "./setup/bundled-axm-skill.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,
@@ -157,6 +163,24 @@ const installBundledAxmSkill = Effect.gen(function* () {
       }),
     { concurrency: "unbounded" },
   );
+
+  const now = new Date();
+  const lockEntry: SkillLockEntry = {
+    type: "registry",
+    owner: normalizeHandle("@agentxm"),
+    name: decodeExtensionNameSync(sanitizedName),
+    resolvedVersion: decodeVersionSync(AXM_SKILL_VERSION),
+    integrity: "",
+    sourceName: "default",
+    agents: configuredAgents.map((agent) => agent.id),
+    installedAt: now,
+    updatedAt: now,
+  };
+  yield* ws.setSkillLock({
+    name: sanitizedName,
+    lockEntry,
+    versionRange: Option.none(),
+  });
 });
 
 export const SetupSkillInstallerLive = Layer.effect(

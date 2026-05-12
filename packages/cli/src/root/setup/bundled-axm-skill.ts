@@ -1,10 +1,12 @@
+export const AXM_SKILL_VERSION = "0.2.0";
+
 export const AXM_SKILL_JSON = [
   "{",
   '  "$schema": "https://axm.sh/schemas/skill.schema.json",',
   '  "owner": "@agentxm",',
   '  "type": "skill",',
   '  "name": "axm",',
-  '  "version": "0.2.0"',
+  `  "version": "${AXM_SKILL_VERSION}"`,
   "}",
   "",
 ].join("\n");

@@ -135,6 +135,44 @@ script:
 
 ---
 
+## Local Preview Publish
+
+`pnpm release:publish:local` publishes the three release-group npm packages
+(`@agentxm/client-utils`, `@agentxm/client-core`, `axm.sh`) directly from the
+working tree under a non-default dist-tag (default: `preview`). It is for fast
+iteration only. It is not a substitute for the canonical CI release: it skips
+cross-platform binaries, npm provenance, Homebrew, installer verification, and
+the version-plan changelog flow.
+
+```bash
+pnpm release:publish:local -- --dry-run
+pnpm release:publish:local
+```
+
+The script derives a unique preview version from the working tree
+(`{patch+1}-preview.{unix}.{short-sha}[.dirty]`), builds `utils`, `core`, and
+`cli`, stamps the version into the three manifests, packs each with `pnpm
+pack`, then `npm publish`es each tarball under the chosen dist-tag. Manifests
+are restored in a `finally` block.
+
+Install the published preview globally:
+
+```bash
+npm install -g axm.sh@preview
+```
+
+Optional flags:
+
+- `--tag=<dist-tag>` - override the dist-tag (default `preview`; `latest` is
+  refused).
+- `--no-build` - skip the Nx build step when iterating on packaging only.
+- `--dry-run` - run `npm publish --dry-run` against each tarball.
+
+Login: requires `npm login` (no provenance is attached because OIDC is only
+available from GitHub Actions).
+
+---
+
 ## Notes
 
 - If the tag version and package manifest versions do not match, publishing

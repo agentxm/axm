@@ -115,6 +115,10 @@
       "types": "./dist/src/unstable/lint/index.d.ts",
       "default": "./dist/src/unstable/lint/index.js"
     },
+    "./unstable/lint/publish": {
+      "types": "./dist/src/unstable/lint/publish.d.ts",
+      "default": "./dist/src/unstable/lint/publish.js"
+    },
     "./unstable/workspace": {
       "types": "./dist/src/unstable/workspace/index.d.ts",
       "default": "./dist/src/unstable/workspace/index.js"

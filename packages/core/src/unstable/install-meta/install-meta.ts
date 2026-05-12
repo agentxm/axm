@@ -2,7 +2,7 @@
  * InstallMeta service — reads and writes `install-meta.json`.
  *
  * The metadata file lives at `~/.axm/install-meta.json` (Unix)
- * or `%LOCALAPPDATA%\axm\install-meta.json` (Windows).
+ * or `%USERPROFILE%\.axm\install-meta.json` (Windows).
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

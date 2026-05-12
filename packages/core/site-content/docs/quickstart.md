@@ -183,18 +183,18 @@ Add this line to your shell profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`) t
 **Native Install (Windows PowerShell):**
 
 ```powershell
-$env:Path = "$env:LOCALAPPDATA\axm;" + $env:Path
+$env:Path = "$env:USERPROFILE\.axm\bin;" + $env:Path
 ```
 
-To make it permanent, add `%LOCALAPPDATA%\axm` to your system PATH via Settings > System > Environment Variables.
+To make it permanent, add `%USERPROFILE%\.axm\bin` to your system PATH via Settings > System > Environment Variables.
 
 **Native Install (Windows CMD):**
 
 ```cmd
-set PATH=%LOCALAPPDATA%\axm;%PATH%
+set PATH=%USERPROFILE%\.axm\bin;%PATH%
 ```
 
-To make it permanent, add `%LOCALAPPDATA%\axm` to your system PATH via Settings > System > Environment Variables.
+To make it permanent, add `%USERPROFILE%\.axm\bin` to your system PATH via Settings > System > Environment Variables.
 
 **Homebrew:**
 

@@ -44,19 +44,14 @@ export const isContainer = Effect.gen(function* () {
 });
 
 /**
- * Pure data-dir resolution given explicit platform inputs.
+ * Pure data-dir resolution given explicit home-directory inputs.
  * Shared by `resolveAxmDataDir` (reads process globals) and call sites
  * that supply inputs directly for testability.
  */
 export const resolveAxmDataDirPure = (
   pathJoin: (...segments: ReadonlyArray<string>) => string,
-  platform: string,
   homeDir: string,
-  localAppData: string | undefined,
 ): string => {
-  if (platform === "win32" && localAppData !== undefined) {
-    return pathJoin(localAppData, "axm");
-  }
   return pathJoin(homeDir, ".axm");
 };
 
@@ -64,14 +59,16 @@ export const resolveAxmDataDirPure = (
  * Resolve the axm data directory using platform conventions.
  *
  * - Unix: `~/.axm/`
- * - Windows: `%LOCALAPPDATA%\axm\`
+ * - Windows: `%USERPROFILE%\.axm\`
  */
 export const resolveAxmDataDir = (pathJoin: (...segments: ReadonlyArray<string>) => string) =>
   Effect.sync(() => {
     const platform = process.platform;
-    const localAppData = readEnv("LOCALAPPDATA");
-    const homeDir = readEnv("HOME") ?? readEnv("USERPROFILE") ?? readEnv("HOMEPATH") ?? "/tmp";
-    return resolveAxmDataDirPure(pathJoin, platform, homeDir, localAppData);
+    const homeDir =
+      platform === "win32"
+        ? (readEnv("USERPROFILE") ?? readEnv("HOME") ?? readEnv("HOMEPATH") ?? "/tmp")
+        : (readEnv("HOME") ?? readEnv("USERPROFILE") ?? readEnv("HOMEPATH") ?? "/tmp");
+    return resolveAxmDataDirPure(pathJoin, homeDir);
   });
 
 /** Returns true if /proc/version contains "microsoft". Requires FileSystem. */

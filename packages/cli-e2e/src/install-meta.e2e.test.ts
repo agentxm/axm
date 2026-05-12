@@ -22,6 +22,9 @@ describe("install-meta.json script content", () => {
   it("install.ps1 writes install-meta.json with method and timestamp", () => {
     const script = fs.readFileSync(path.join(repoRoot, "install.ps1"), "utf-8");
 
+    expect(script).toContain('Join-Path $env:USERPROFILE ".axm\\bin"');
+    expect(script).toContain('Join-Path (Split-Path $installDir -Parent) "install-meta.json"');
+    expect(script).not.toContain("LOCALAPPDATA");
     expect(script).toContain("install-meta.json");
     expect(script).toContain("method");
     expect(script).toContain("script");
@@ -32,6 +35,9 @@ describe("install-meta.json script content", () => {
   it("install.cmd writes install-meta.json with method and timestamp", () => {
     const script = fs.readFileSync(path.join(repoRoot, "install.cmd"), "utf-8");
 
+    expect(script).toContain('set "INSTALL_DIR=%USERPROFILE%\\.axm\\bin"');
+    expect(script).toContain('set "META_FILE=%USERPROFILE%\\.axm\\install-meta.json"');
+    expect(script).not.toContain("LOCALAPPDATA");
     expect(script).toContain("install-meta.json");
     expect(script).toContain('"method": "script"');
     expect(script).toContain('"installedAt":');

@@ -72,6 +72,9 @@
 - Command `agentOverrides` now use RFC 7396 merge-patch semantics, matching
   subagents: objects merge recursively, `null` deletes keys, arrays replace
   wholesale, and primitive values replace.
+- Windows script installs now use `%USERPROFILE%\.axm\bin\axm.exe`. Users with
+  a prior `%LOCALAPPDATA%\axm\` install should re-run the install script, then
+  remove the old directory and PATH entry manually.
 
 ## 0.5.0 (2026-05-06)
 

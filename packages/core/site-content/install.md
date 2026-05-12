@@ -56,12 +56,12 @@ A manager is "available" if its `--version` exits 0 (`brew --version`,
 `npm --version`; PowerShell: `Get-Command brew|npm`). Don't install a new
 package manager just to install AXM.
 
-| Detected           | Method                                                  |
-| ------------------ | ------------------------------------------------------- |
-| Neither            | Install script (A on macOS/Linux, B on Windows)         |
-| Homebrew only      | Homebrew (D)                                            |
-| npm only           | npm (E)                                                 |
-| Both brew and npm  | **Ask the user** (see below)                            |
+| Detected          | Method                                          |
+| ----------------- | ----------------------------------------------- |
+| Neither           | Install script (A on macOS/Linux, B on Windows) |
+| Homebrew only     | Homebrew (D)                                    |
+| npm only          | npm (E)                                         |
+| Both brew and npm | **Ask the user** (see below)                    |
 
 The install script is always a valid fallback if a package-manager install
 fails.
@@ -73,7 +73,7 @@ it later.** Frame the choice that way, then ask the user to pick one:
 
 1. **Install script** (recommended) — self-managed via `axm upgrade`,
    independent of any package manager. Installs to `~/.axm/bin`
-   (macOS/Linux) or `%LOCALAPPDATA%\axm` (Windows).
+   (macOS/Linux) or `%USERPROFILE%\.axm\bin` (Windows).
 2. **Homebrew** — `brew upgrade agentxm/tap/axm`, alongside other brew
    packages. Pick this if most CLIs are managed with brew.
 3. **npm** — `npm update -g axm.sh`, alongside other global npm packages.
@@ -83,16 +83,16 @@ Wait for the user's choice before running an installer.
 
 ### Run the installer
 
-| Option | Platform       | Command                                                                  |
-| ------ | -------------- | ------------------------------------------------------------------------ |
-| A      | macOS / Linux  | `curl -fsSL https://axm.sh/install.sh \| sh`                             |
-| B      | Windows (PS)   | `irm https://axm.sh/install.ps1 \| iex`                                  |
-| C      | Windows (CMD)  | `curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd`    |
-| D      | Homebrew       | `brew install agentxm/tap/axm`                                           |
-| E      | npm (any OS)   | `npm install -g axm.sh`                                                  |
+| Option | Platform      | Command                                                               |
+| ------ | ------------- | --------------------------------------------------------------------- |
+| A      | macOS / Linux | `curl -fsSL https://axm.sh/install.sh \| sh`                          |
+| B      | Windows (PS)  | `irm https://axm.sh/install.ps1 \| iex`                               |
+| C      | Windows (CMD) | `curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd` |
+| D      | Homebrew      | `brew install agentxm/tap/axm`                                        |
+| E      | npm (any OS)  | `npm install -g axm.sh`                                               |
 
 Install locations: `~/.axm/bin/axm` (script, macOS/Linux);
-`%LOCALAPPDATA%\axm\axm.exe` (script, Windows).
+`%USERPROFILE%\.axm\bin\axm.exe` (script, Windows).
 
 ### Verify
 
@@ -120,7 +120,7 @@ Branch on the JSON `type` field:
 
 ## 4. Ask the user about sign-in
 
-Tell the user *why* the choice matters: signing in is only needed to publish
+Tell the user _why_ the choice matters: signing in is only needed to publish
 extensions or install private extensions; the workspace can still be set up
 without it. Then ask them to pick:
 
@@ -175,7 +175,7 @@ axm help basic-usage
 Read both help topics before doing any other AXM work in this session:
 
 - **`getting-started`** — first-time workspace setup; explains what `axm
-  setup` just produced.
+setup` just produced.
 - **`basic-usage`** — the key workspace files (`.axm/settings.json`,
   `axm-lock.yaml`, `.axm/extensions/`), the commit policy (`.axm/` and
   `axm-lock.yaml` must be checked in, not gitignored), and how to act safely
@@ -193,7 +193,7 @@ management, publishing).
 
 - **Script (macOS/Linux):** `export PATH="$HOME/.axm/bin:$PATH"`; persist in
   `~/.bashrc` / `~/.zshrc`.
-- **Script (Windows):** add `%LOCALAPPDATA%\axm` to PATH via System
-  Environment Variables, or `$env:Path = "$env:LOCALAPPDATA\axm;$env:Path"`.
+- **Script (Windows):** add `%USERPROFILE%\.axm\bin` to PATH via System
+  Environment Variables, or `$env:Path = "$env:USERPROFILE\.axm\bin;$env:Path"`.
 - **Homebrew:** `brew link axm`.
 - **npm:** `export PATH="$(npm config get prefix)/bin:$PATH"`.

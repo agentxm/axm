@@ -113,10 +113,7 @@ const derivePreviewVersion = (base: string): string => {
 };
 
 const stampVersion = (originalContent: string, version: string, source: string): string => {
-  const updated = originalContent.replace(
-    /^(\s*"version":\s*")[^"]+(")/m,
-    `$1${version}$2`,
-  );
+  const updated = originalContent.replace(/^(\s*"version":\s*")[^"]+(")/m, `$1${version}$2`);
   if (updated === originalContent) {
     fail(`Could not stamp version field in ${source}.`);
   }
@@ -137,10 +134,7 @@ const restoreManifests = (snapshots: readonly ManifestSnapshot[]) => {
   }
 };
 
-const writeStampedManifests = (
-  snapshots: readonly ManifestSnapshot[],
-  version: string,
-) => {
+const writeStampedManifests = (snapshots: readonly ManifestSnapshot[], version: string) => {
   for (const { path, original } of snapshots) {
     writeFileSync(path, stampVersion(original, version, path), "utf8");
   }

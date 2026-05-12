@@ -10,7 +10,7 @@ Define the `axm upgrade` command that detects the installation method and either
 
 The `axm upgrade` command SHALL detect how axm was installed using the following precedence chain:
 
-1. `process.execPath` inside `~/.axm/bin/` or `%LOCALAPPDATA%\axm\` → `script`
+1. `process.execPath` inside `~/.axm/bin/` or `%USERPROFILE%\.axm\bin\` → `script`
 2. Resolved `process.execPath` contains `/Cellar/` → `homebrew`
 3. `import.meta.url` resolves inside a `node_modules` path → `npm`
 4. `install-meta.json` exists and contains a known method → value from file
@@ -18,7 +18,7 @@ The `axm upgrade` command SHALL detect how axm was installed using the following
 
 #### Scenario: Binary in axm install directory
 
-- **WHEN** the resolved `process.execPath` is inside `~/.axm/bin/` (Unix) or `%LOCALAPPDATA%\axm\` (Windows)
+- **WHEN** the resolved `process.execPath` is inside `~/.axm/bin/` (Unix) or `%USERPROFILE%\.axm\bin\` (Windows)
 - **THEN** the command SHALL detect the installation method as `script`
 
 #### Scenario: Binary in Homebrew Cellar

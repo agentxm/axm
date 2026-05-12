@@ -9,8 +9,9 @@ if defined AXM_INSTALL_BASE_URL (
 ) else (
     set "BINARY_URL=https://github.com/agentxm/axm/releases/latest/download/axm-windows-x64.exe"
 )
-set "INSTALL_DIR=%LOCALAPPDATA%\axm"
+set "INSTALL_DIR=%USERPROFILE%\.axm\bin"
 set "INSTALL_PATH=%INSTALL_DIR%\axm.exe"
+set "META_FILE=%USERPROFILE%\.axm\install-meta.json"
 
 call :check_curl
 call :install_axm
@@ -48,7 +49,6 @@ if %errorlevel% neq 0 (
 )
 
 rem Write install metadata
-set "META_FILE=%INSTALL_DIR%\install-meta.json"
 for /f %%i in ('powershell -NoProfile -Command "[DateTime]::UtcNow.ToString(\"yyyy-MM-dd'T'HH:mm:ss'Z'\")"') do set "TIMESTAMP=%%i"
 if %errorlevel% neq 0 (
     echo Error: Failed to generate install timestamp.

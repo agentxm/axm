@@ -12,7 +12,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 
 import {
   type InstallMethodInputs,
@@ -29,8 +28,6 @@ const baseInputs: InstallMethodInputs = {
   execPath: "/usr/local/bin/bun",
   importMetaUrl: "file:///usr/local/lib/axm/src/main.ts",
   homeDir: "/Users/testuser",
-  platform: "darwin",
-  localAppData: Option.none(),
 };
 
 // -----------------------------------------------------------------------------
@@ -64,17 +61,27 @@ describe("InstallMethod", () => {
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
-    it.effect("detects script install on Windows with LOCALAPPDATA", () =>
+    it.effect("detects script install on Windows with USERPROFILE dotfile layout", () =>
       Effect.gen(function* () {
         const inputs: InstallMethodInputs = {
           ...baseInputs,
-          execPath: "C:\\Users\\testuser\\AppData\\Local\\axm\\bin\\bun.exe",
+          execPath: "C:\\Users\\testuser\\.axm\\bin\\axm.exe",
           homeDir: "C:\\Users\\testuser",
-          platform: "win32",
-          localAppData: Option.some("C:\\Users\\testuser\\AppData\\Local"),
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("returns unknown for legacy Windows AppData layout", () =>
+      Effect.gen(function* () {
+        const inputs: InstallMethodInputs = {
+          ...baseInputs,
+          execPath: "C:\\Users\\testuser\\AppData\\Local\\axm\\axm.exe",
+          homeDir: "C:\\Users\\testuser",
+        };
+        const result = yield* detectFromInputs(inputs);
+        expect(result._tag).toBe("Unknown");
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 

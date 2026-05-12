@@ -17,13 +17,13 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
-import { resolveAxmDataDirPure } from "../utils/index.js";
+import { envOption, resolveAxmDataDirPure } from "../utils/index.js";
 
 // -----------------------------------------------------------------------------
 // Tagged union type
 // -----------------------------------------------------------------------------
 
-/** Installed via the install script (~/.axm/bin/ or %LOCALAPPDATA%\axm\). */
+/** Installed via the install script (~/.axm/bin/ or %USERPROFILE%\.axm\bin\). */
 export class Script extends Data.TaggedClass("Script")<{
   readonly execPath: string;
 }> {}
@@ -103,8 +103,6 @@ export interface InstallMethodInputs {
   readonly execPath: string;
   readonly importMetaUrl: string;
   readonly homeDir: string;
-  readonly platform: string;
-  readonly localAppData: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -114,18 +112,10 @@ export interface InstallMethodInputs {
 const isScriptInstall = (inputs: InstallMethodInputs): Option.Option<Script> => {
   const normalized = inputs.execPath.replace(/\\/g, "/");
 
-  // Unix: ~/.axm/bin/
-  const unixPattern = `${inputs.homeDir.replace(/\\/g, "/")}/.axm/bin/`;
-  if (normalized.startsWith(unixPattern)) {
+  // Script installer: ~/.axm/bin/ on Unix, %USERPROFILE%\.axm\bin\ on Windows.
+  const scriptPattern = `${inputs.homeDir.replace(/\\/g, "/")}/.axm/bin/`;
+  if (normalized.startsWith(scriptPattern)) {
     return Option.some(new Script({ execPath: inputs.execPath }));
-  }
-
-  // Windows: %LOCALAPPDATA%\axm\
-  if (Option.isSome(inputs.localAppData)) {
-    const winPattern = `${inputs.localAppData.value.replace(/\\/g, "/")}/axm/`;
-    if (normalized.startsWith(winPattern)) {
-      return Option.some(new Script({ execPath: inputs.execPath }));
-    }
   }
 
   return Option.none();
@@ -171,7 +161,7 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    // Priority 1: Script install (exec path in ~/.axm/bin/ or %LOCALAPPDATA%\axm\)
+    // Priority 1: Script install (exec path in ~/.axm/bin/)
     const scriptResult = isScriptInstall(inputs);
     if (Option.isSome(scriptResult)) return scriptResult.value;
 
@@ -187,12 +177,7 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
     if (Option.isSome(npmResult)) return npmResult.value;
 
     // Priority 4: install-meta.json fallback
-    const metaDir = resolveAxmDataDirPure(
-      path.join,
-      inputs.platform,
-      inputs.homeDir,
-      Option.isSome(inputs.localAppData) ? inputs.localAppData.value : undefined,
-    );
+    const metaDir = resolveAxmDataDirPure(path.join, inputs.homeDir);
     const metaPath = path.join(metaDir, "install-meta.json");
     const metaResult = yield* readInstallMeta(fs, metaPath);
     if (Option.isSome(metaResult)) {
@@ -217,6 +202,25 @@ const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
     return Option.some(decoded.value.method);
   });
 
+const selectHomeDir = (
+  platform: string,
+  home: Option.Option<string>,
+  userProfile: Option.Option<string>,
+  homePath: Option.Option<string>,
+): string => {
+  if (platform === "win32") {
+    if (Option.isSome(userProfile)) return userProfile.value;
+    if (Option.isSome(home)) return home.value;
+    if (Option.isSome(homePath)) return homePath.value;
+    return "/tmp";
+  }
+
+  if (Option.isSome(home)) return home.value;
+  if (Option.isSome(userProfile)) return userProfile.value;
+  if (Option.isSome(homePath)) return homePath.value;
+  return "/tmp";
+};
+
 // -----------------------------------------------------------------------------
 // Live layer
 // -----------------------------------------------------------------------------
@@ -228,23 +232,16 @@ export const InstallMethodLive = Layer.effect(
     const pathService = yield* Path.Path;
 
     // Capture runtime inputs once at layer construction
-    const homeDir = yield* Effect.sync(() => {
-      // Cross-platform home directory resolution
-      // eslint-disable-next-line no-restricted-properties -- Centralized env var access for home dir
-      return process.env["HOME"] ?? process.env["USERPROFILE"] ?? process.env["HOMEPATH"] ?? "/tmp";
-    });
     const platform = yield* Effect.sync(() => process.platform);
-    const localAppData = yield* Effect.sync(() =>
-      // eslint-disable-next-line no-restricted-properties -- Centralized env var access for LOCALAPPDATA
-      Option.fromUndefinedOr(process.env["LOCALAPPDATA"]),
-    );
+    const home = yield* envOption("HOME");
+    const userProfile = yield* envOption("USERPROFILE");
+    const homePath = yield* envOption("HOMEPATH");
+    const homeDir = selectHomeDir(platform, home, userProfile, homePath);
 
     const inputs: InstallMethodInputs = {
       execPath: process.execPath,
       importMetaUrl: import.meta.url,
       homeDir,
-      platform,
-      localAppData,
     };
 
     const detect: InstallMethodService["detect"] = () =>

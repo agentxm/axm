@@ -27,7 +27,7 @@ The `install.cmd` script SHALL download the prebuilt axm Windows binary from the
 
 ### Requirement: CMD install script places binary on PATH
 
-The script SHALL install the binary to a well-known location (e.g., `%LOCALAPPDATA%\\axm\\`) and instruct the user to add it to PATH if not already present.
+The script SHALL install the binary to `%USERPROFILE%\\.axm\\bin\\` and instruct the user to add it to PATH if not already present.
 
 #### Scenario: Install directory created and binary placed
 
@@ -68,10 +68,10 @@ After placing the binary, the script SHALL write an install metadata file record
 
 #### Scenario: Metadata file written after install
 
-- **WHEN** the binary has been placed in `%LOCALAPPDATA%\axm\`
-- **THEN** the script SHALL write `%LOCALAPPDATA%\axm\install-meta.json` containing `{"method": "script", "installedAt": "<ISO 8601 timestamp>"}`
+- **WHEN** the binary has been placed in `%USERPROFILE%\.axm\bin\`
+- **THEN** the script SHALL write `%USERPROFILE%\.axm\install-meta.json` containing `{"method": "script", "installedAt": "<ISO 8601 timestamp>"}`
 
 #### Scenario: Metadata file overwritten on reinstall
 
-- **WHEN** the script runs and `%LOCALAPPDATA%\axm\install-meta.json` already exists
+- **WHEN** the script runs and `%USERPROFILE%\.axm\install-meta.json` already exists
 - **THEN** the script SHALL overwrite the file with fresh metadata including the current timestamp

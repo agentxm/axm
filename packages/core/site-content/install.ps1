@@ -38,7 +38,7 @@ function Download-Binary {
 
     $artifact = "axm-windows-${Arch}.exe"
     $downloadUrl = "$BASE_URL/$artifact"
-    $installDir = Join-Path $env:LOCALAPPDATA "axm"
+    $installDir = Join-Path $env:USERPROFILE ".axm\bin"
     $target = Join-Path $installDir "axm.exe"
 
     Write-Host "Detected platform: windows-$Arch"
@@ -69,7 +69,7 @@ function Download-Binary {
     Write-Host "Installed to $target"
 
     # Write install metadata
-    $metaFile = Join-Path $installDir "install-meta.json"
+    $metaFile = Join-Path (Split-Path $installDir -Parent) "install-meta.json"
     $timestamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
     $metaContent = "{`"method`": `"script`", `"installedAt`": `"$timestamp`"}"
     Set-Content -Path $metaFile -Value $metaContent -Encoding UTF8

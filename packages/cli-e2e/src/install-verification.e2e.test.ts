@@ -123,8 +123,8 @@ const createBashEnv = (tempPath: string): Readonly<Record<string, string>> => ({
 });
 
 const createWindowsEnv = (tempPath: string): Readonly<Record<string, string>> => ({
-  LOCALAPPDATA: tempPath,
-  PATH: `${path.join(tempPath, "axm")}${pathSeparator}${process.env["PATH"] ?? ""}`,
+  USERPROFILE: tempPath,
+  PATH: `${path.join(tempPath, ".axm", "bin")}${pathSeparator}${process.env["PATH"] ?? ""}`,
   AXM_INSTALL_BASE_URL: installBaseUrl,
 });
 
@@ -195,8 +195,8 @@ describe("install script verification", () => {
         expect(getOutput(result)).toContain("Detected platform: windows-x64");
         expect(getOutput(result)).toContain("Done! Run 'axm auth login' to get started.");
 
-        await verifyInstalledBinary(path.join(temp.path, "axm", "axm.exe"));
-        verifyInstallMeta(path.join(temp.path, "axm", "install-meta.json"));
+        await verifyInstalledBinary(path.join(temp.path, ".axm", "bin", "axm.exe"));
+        verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
         return;
       }
 
@@ -210,8 +210,8 @@ describe("install script verification", () => {
       expect(getOutput(result)).toContain("Installing axm...");
       expect(getOutput(result)).toContain("Done! Run 'axm auth login' to authenticate.");
 
-      await verifyInstalledBinary(path.join(temp.path, "axm", "axm.exe"));
-      verifyInstallMeta(path.join(temp.path, "axm", "install-meta.json"));
+      await verifyInstalledBinary(path.join(temp.path, ".axm", "bin", "axm.exe"));
+      verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
     } finally {
       temp.cleanup();
     }

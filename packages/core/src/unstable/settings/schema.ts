@@ -32,8 +32,7 @@ const SourceNameSchema = Schema.String.check(
 ).annotate({
   identifier: "SourceName",
   title: "Source Name",
-  description:
-    "Alias used in entry source strings, using lowercase letters, numbers, hyphens, and dots.",
+  description: "A source host alias: lowercase letters, numbers, hyphens, and dots.",
   examples: ["github", "my-registry.dev"],
 });
 
@@ -63,7 +62,7 @@ const GitHubSourceHostConfigSchema = Schema.Struct({
 }).annotate({
   identifier: "GitHubSourceHostConfig",
   title: "GitHub Source Host",
-  description: "GitHub host available by its `name` alias in entry source strings.",
+  description: "A GitHub source host.",
 });
 
 /**
@@ -78,7 +77,7 @@ const GitLabSourceHostConfigSchema = Schema.Struct({
 }).annotate({
   identifier: "GitLabSourceHostConfig",
   title: "GitLab Source Host",
-  description: "GitLab host available by its `name` alias in entry source strings.",
+  description: "A GitLab source host.",
 });
 
 /**
@@ -93,7 +92,7 @@ const BitbucketSourceHostConfigSchema = Schema.Struct({
 }).annotate({
   identifier: "BitbucketSourceHostConfig",
   title: "Bitbucket Source Host",
-  description: "Bitbucket host available by its `name` alias in entry source strings.",
+  description: "A Bitbucket source host.",
 });
 
 /**
@@ -108,7 +107,7 @@ const AzureReposSourceHostConfigSchema = Schema.Struct({
 }).annotate({
   identifier: "AzureReposSourceHostConfig",
   title: "Azure Repos Source Host",
-  description: "Azure Repos host available by its `name` alias in entry source strings.",
+  description: "An Azure Repos source host.",
 });
 
 /**
@@ -129,7 +128,7 @@ const RegistrySourceHostConfigSchema = Schema.Struct({
 }).annotate({
   identifier: "RegistrySourceHostConfig",
   title: "Registry Source Host",
-  description: "Registry source available by its `name` alias in entry source strings.",
+  description: "A package registry source host.",
 });
 
 /**
@@ -149,7 +148,7 @@ export const SourceHostConfigSchema = Schema.Union([
   identifier: "SourceHostConfig",
   title: "Source Host Config",
   description:
-    "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry.",
+    "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry.",
 });
 
 /**
@@ -199,14 +198,16 @@ const ExtensionMapKeySchema = Schema.String.check(
 
 const authoredFieldSchema = Schema.optionalKey(
   Schema.Boolean.annotate({
-    description: "Whether this entry was authored locally. Defaults to false when omitted.",
+    description:
+      "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
     default: false,
   }),
 );
 
 const enabledFieldSchema = Schema.optionalKey(
   Schema.Boolean.annotate({
-    description: "Whether this entry is enabled. Defaults to true when omitted.",
+    description:
+      "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
     default: true,
   }),
 );
@@ -285,7 +286,7 @@ export const SkillEntryObjectSchema = Schema.Struct({
   authored: authoredFieldSchema,
 }).annotate({
   title: "Skill Entry Object",
-  description: "A skill with source, enabled, and authored settings.",
+  description: "A skill entry with source and optional enabled/authored flags.",
 });
 
 /**
@@ -328,8 +329,7 @@ export const SkillEntrySchema = compactOrVerboseEntry(
   {
     identifier: "SkillEntry",
     title: "Skill Entry",
-    description:
-      "Skill source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+    description: "A skill entry: a source string, or an object with source plus optional flags.",
     examples: [
       "@acme/skills/code-review@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
@@ -359,7 +359,7 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
 export const SkillsMapSchema = Schema.Record(ExtensionMapKeySchema, SkillEntrySchema).annotate({
   identifier: "SkillsMap",
   title: "Skills Map",
-  description: "Your installed skills, keyed by name.",
+  description: "A map of skill names to skill entries.",
 });
 
 /**
@@ -380,7 +380,7 @@ export const CommandEntryObjectSchema = Schema.Struct({
   authored: authoredFieldSchema,
 }).annotate({
   title: "Command Entry Object",
-  description: "A command with source, enabled, and authored settings.",
+  description: "A command entry with source and optional enabled/authored flags.",
 });
 
 /**
@@ -421,8 +421,7 @@ export const CommandEntrySchema = compactOrVerboseEntry(
   {
     identifier: "CommandEntry",
     title: "Command Entry",
-    description:
-      "Command source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+    description: "A command entry: a source string, or an object with source plus optional flags.",
     examples: [
       "@acme/commands/code-review@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
@@ -452,7 +451,7 @@ export type CommandEntry = Schema.Schema.Type<typeof CommandEntrySchema>;
 export const CommandsMapSchema = Schema.Record(ExtensionMapKeySchema, CommandEntrySchema).annotate({
   identifier: "CommandsMap",
   title: "Commands Map",
-  description: "Your installed commands, keyed by name.",
+  description: "A map of command names to command entries.",
 });
 
 /**
@@ -472,8 +471,7 @@ export const McpServerEntryObjectSchema = Schema.Struct({
   authored: authoredFieldSchema,
 }).annotate({
   title: "MCP Server Entry Object",
-  description:
-    "An MCP server with source and authored settings. MCP entries do not support `enabled` yet.",
+  description: "An MCP server entry with source and optional authored flag.",
 });
 
 /**
@@ -502,7 +500,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
     identifier: "McpServerEntry",
     title: "MCP Server Entry",
     description:
-      "MCP server source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. MCP entries do not support `enabled` yet.",
+      "An MCP server entry: a source string, or an object with source plus optional authored flag.",
     examples: [
       "@acme/mcp-servers/context@^1.0.0",
       { source: "github:acme/agent-extensions", authored: true },
@@ -530,7 +528,7 @@ export const McpServersMapSchema = Schema.Record(
 ).annotate({
   identifier: "McpServersMap",
   title: "MCP Servers Map",
-  description: "Your installed MCP servers, keyed by name.",
+  description: "A map of MCP server names to MCP server entries.",
 });
 
 /**
@@ -555,7 +553,7 @@ export const SubagentEntryObjectSchema = Schema.Struct({
   authored: authoredFieldSchema,
 }).annotate({
   title: "Subagent Entry Object",
-  description: "A subagent with source, enabled, and authored settings.",
+  description: "A subagent entry with source and optional enabled/authored flags.",
 });
 
 /**
@@ -596,8 +594,7 @@ export const SubagentEntrySchema = compactOrVerboseEntry(
   {
     identifier: "SubagentEntry",
     title: "Subagent Entry",
-    description:
-      "Subagent source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+    description: "A subagent entry: a source string, or an object with source plus optional flags.",
     examples: [
       "@acme/subagents/reviewer@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
@@ -630,7 +627,7 @@ export const SubagentsMapSchema = Schema.Record(
 ).annotate({
   identifier: "SubagentsMap",
   title: "Subagents Map",
-  description: "Your installed subagents, keyed by name.",
+  description: "A map of subagent names to subagent entries.",
 });
 
 /**
@@ -654,8 +651,7 @@ export const PackEntryObjectSchema = Schema.Struct({
   authored: authoredFieldSchema,
 }).annotate({
   title: "Pack Entry Object",
-  description:
-    "A pack with source and authored settings. Pack entries do not support `enabled` yet.",
+  description: "A pack entry with source and optional authored flag.",
 });
 
 /**
@@ -684,7 +680,7 @@ export const PackEntrySchema = compactOrVerboseEntry(
     identifier: "PackEntry",
     title: "Pack Entry",
     description:
-      "Pack source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. Pack entries do not support `enabled` yet.",
+      "A pack entry: a source string, or an object with source plus optional authored flag.",
     examples: [
       "@acme/packs/typescript@^1.0.0",
       { source: "github:acme/agent-extensions", authored: true },
@@ -714,7 +710,7 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
 export const PacksMapSchema = Schema.Record(ExtensionMapKeySchema, PackEntrySchema).annotate({
   identifier: "PacksMap",
   title: "Packs Map",
-  description: "Your installed packs, keyed by name.",
+  description: "A map of pack names to pack entries.",
 });
 
 /**
@@ -905,7 +901,8 @@ export const SettingsSchema = Schema.Struct({
   ),
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
-      description: "Desired skills keyed by workspace skill name.",
+      description:
+        "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly.",
     }),
   ),
   skillsConfig: Schema.optionalKey(
@@ -915,7 +912,8 @@ export const SettingsSchema = Schema.Struct({
   ),
   commands: Schema.optionalKey(
     Schema.Union([CommandsMapSchema]).annotate({
-      description: "Desired commands keyed by workspace command name.",
+      description:
+        "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly.",
     }),
   ),
   commandsConfig: Schema.optionalKey(
@@ -925,7 +923,8 @@ export const SettingsSchema = Schema.Struct({
   ),
   subagents: Schema.optionalKey(
     Schema.Union([SubagentsMapSchema]).annotate({
-      description: "Desired subagents keyed by workspace subagent name.",
+      description:
+        "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly.",
     }),
   ),
   subagentsConfig: Schema.optionalKey(
@@ -935,7 +934,8 @@ export const SettingsSchema = Schema.Struct({
   ),
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
-      description: "Desired packs keyed by workspace pack name.",
+      description:
+        "Your installed packs, keyed by workspace pack name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. Pack entries do not support `enabled` yet.",
     }),
   ),
   packsConfig: Schema.optionalKey(
@@ -945,7 +945,8 @@ export const SettingsSchema = Schema.Struct({
   ),
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
-      description: "Desired MCP servers keyed by workspace MCP server name.",
+      description:
+        "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. MCP server entries do not support `enabled` yet.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(
@@ -963,16 +964,21 @@ export const SettingsSchema = Schema.Struct({
   title: "AXM Settings",
   description:
     "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config.",
+  // Examples are emitted verbatim into the generated JSON Schema. We declare
+  // them in the encoded (compact) form so agents see the preferred shape:
+  // plain source strings, with the object form reserved for non-default flags.
+  // Assertion needed: `.annotate()` types examples against the decoded
+  // canonical shape (where `enabled`/`authored` are required booleans), but
+  // emitting that shape would teach agents to write the very defaults we want
+  // them to omit.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   examples: [
     {
       telemetry: "errors",
       agents: ["claude-code", "codex"],
       skills: {
-        "code-review": {
-          source: "@acme/skills/code-review@^1.0.0",
-          enabled: true,
-          authored: false,
-        },
+        "code-review": "@acme/skills/code-review@^1.0.0",
+        "legacy-rules": { source: "@acme/skills/legacy-rules@^1.0.0", enabled: false },
       },
       skillsConfig: {
         ignore: ["local-*"],
@@ -983,7 +989,7 @@ export const SettingsSchema = Schema.Struct({
         },
       },
     },
-  ],
+  ] as unknown as never,
 });
 
 /**

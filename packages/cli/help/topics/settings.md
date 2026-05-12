@@ -16,6 +16,18 @@ AXM workspace state lives in `.axm/settings.json`.
 
 Extension entries live under `skills`, `commands`, `subagents`, `packs`, and `mcpServers`. Each entry can be a source string or an object with metadata such as `enabled` or `authored`.
 
+Prefer the plain source string. Use the object form only when you need to depart from the defaults — set `enabled: false` to disable an entry, or `authored: true` to mark it as locally authored. Never write `enabled: true` or `authored: false` explicitly; those are the defaults and should be omitted.
+
+```jsonc
+{
+  "skills": {
+    "code-review": "@acme/skills/code-review@^1.0.0",
+    "legacy-rules": { "source": "@acme/skills/legacy-rules@^1.0.0", "enabled": false },
+    "house-style": { "source": "./skills/house-style", "authored": true },
+  },
+}
+```
+
 Feature config lives under `skillsConfig`, `commandsConfig`, `subagentsConfig`, `packsConfig`, and `mcpServersConfig`.
 
 `lint` configures workspace-only severity overrides for `axm lint`.
@@ -24,7 +36,7 @@ Feature config lives under `skillsConfig`, `commandsConfig`, `subagentsConfig`, 
 
 Let AXM edit settings for routine install, remove, enable, disable, and source changes. Hand-edit settings when reviewing generated changes, adding source hosts, or adjusting `lint.rules`.
 
-Set `authored: true` only for extensions you expect to edit in this workspace.
+Set `authored: true` only for extensions you expect to edit in this workspace. Omit `authored` otherwise — `false` is the default and should not be written explicitly. Likewise, omit `enabled` unless you are disabling an entry with `enabled: false`.
 
 ## Ignoring Extensions
 

@@ -87,7 +87,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "GitHub Source Host",
-      "description": "GitHub host available by its `name` alias in entry source strings."
+      "description": "A GitHub source host."
     },
     "GitLabSourceHostConfig": {
       "type": "object",
@@ -99,7 +99,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "GitLab Source Host",
-      "description": "GitLab host available by its `name` alias in entry source strings."
+      "description": "A GitLab source host."
     },
     "BitbucketSourceHostConfig": {
       "type": "object",
@@ -111,7 +111,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "Bitbucket Source Host",
-      "description": "Bitbucket host available by its `name` alias in entry source strings."
+      "description": "A Bitbucket source host."
     },
     "AzureReposSourceHostConfig": {
       "type": "object",
@@ -123,7 +123,7 @@
       "required": ["name", "type", "url"],
       "additionalProperties": false,
       "title": "Azure Repos Source Host",
-      "description": "Azure Repos host available by its `name` alias in entry source strings."
+      "description": "An Azure Repos source host."
     },
     "RegistrySourceHostConfig": {
       "type": "object",
@@ -135,7 +135,7 @@
       "required": ["name", "type", "location"],
       "additionalProperties": false,
       "title": "Registry Source Host",
-      "description": "Registry source available by its `name` alias in entry source strings."
+      "description": "A package registry source host."
     },
     "SourceHostConfig": {
       "anyOf": [
@@ -146,7 +146,7 @@
         { "$ref": "#/definitions/RegistrySourceHostConfig" }
       ],
       "title": "Source Host Config",
-      "description": "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
+      "description": "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
     },
     "SkillEntry": {
       "anyOf": [
@@ -170,23 +170,23 @@
             },
             "enabled": {
               "type": "boolean",
-              "description": "Whether this entry is enabled. Defaults to true when omitted.",
+              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
             "authored": {
               "type": "boolean",
-              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Skill Entry Object",
-          "description": "A skill with source, enabled, and authored settings."
+          "description": "A skill entry with source and optional enabled/authored flags."
         }
       ],
       "title": "Skill Entry",
-      "description": "Skill source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+      "description": "A skill entry: a source string, or an object with source plus optional flags.",
       "examples": [
         "@acme/skills/code-review@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false }
@@ -195,7 +195,7 @@
     "SkillsMap": {
       "type": "object",
       "title": "Skills Map",
-      "description": "Your installed skills, keyed by name.",
+      "description": "A map of skill names to skill entries.",
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/SkillEntry" }
     },
@@ -235,23 +235,23 @@
             },
             "enabled": {
               "type": "boolean",
-              "description": "Whether this entry is enabled. Defaults to true when omitted.",
+              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
             "authored": {
               "type": "boolean",
-              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Command Entry Object",
-          "description": "A command with source, enabled, and authored settings."
+          "description": "A command entry with source and optional enabled/authored flags."
         }
       ],
       "title": "Command Entry",
-      "description": "Command source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+      "description": "A command entry: a source string, or an object with source plus optional flags.",
       "examples": [
         "@acme/commands/code-review@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false }
@@ -260,7 +260,7 @@
     "CommandsMap": {
       "type": "object",
       "title": "Commands Map",
-      "description": "Your installed commands, keyed by name.",
+      "description": "A map of command names to command entries.",
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/CommandEntry" }
     },
@@ -300,23 +300,23 @@
             },
             "enabled": {
               "type": "boolean",
-              "description": "Whether this entry is enabled. Defaults to true when omitted.",
+              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
             "authored": {
               "type": "boolean",
-              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Subagent Entry Object",
-          "description": "A subagent with source, enabled, and authored settings."
+          "description": "A subagent entry with source and optional enabled/authored flags."
         }
       ],
       "title": "Subagent Entry",
-      "description": "Subagent source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths.",
+      "description": "A subagent entry: a source string, or an object with source plus optional flags.",
       "examples": [
         "@acme/subagents/reviewer@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false }
@@ -325,7 +325,7 @@
     "SubagentsMap": {
       "type": "object",
       "title": "Subagents Map",
-      "description": "Your installed subagents, keyed by name.",
+      "description": "A map of subagent names to subagent entries.",
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/SubagentEntry" }
     },
@@ -365,18 +365,18 @@
             },
             "authored": {
               "type": "boolean",
-              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Pack Entry Object",
-          "description": "A pack with source and authored settings. Pack entries do not support `enabled` yet."
+          "description": "A pack entry with source and optional authored flag."
         }
       ],
       "title": "Pack Entry",
-      "description": "Pack source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. Pack entries do not support `enabled` yet.",
+      "description": "A pack entry: a source string, or an object with source plus optional authored flag.",
       "examples": [
         "@acme/packs/typescript@^1.0.0",
         { "source": "github:acme/agent-extensions", "authored": true }
@@ -385,7 +385,7 @@
     "PacksMap": {
       "type": "object",
       "title": "Packs Map",
-      "description": "Your installed packs, keyed by name.",
+      "description": "A map of pack names to pack entries.",
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/PackEntry" }
     },
@@ -425,18 +425,18 @@
             },
             "authored": {
               "type": "boolean",
-              "description": "Whether this entry was authored locally. Defaults to false when omitted.",
+              "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "MCP Server Entry Object",
-          "description": "An MCP server with source and authored settings. MCP entries do not support `enabled` yet."
+          "description": "An MCP server entry with source and optional authored flag."
         }
       ],
       "title": "MCP Server Entry",
-      "description": "MCP server source string or object. Source accepts FQN + optional version, source-scheme refs, and local paths. MCP entries do not support `enabled` yet.",
+      "description": "An MCP server entry: a source string, or an object with source plus optional authored flag.",
       "examples": [
         "@acme/mcp-servers/context@^1.0.0",
         { "source": "github:acme/agent-extensions", "authored": true }
@@ -445,7 +445,7 @@
     "McpServersMap": {
       "type": "object",
       "title": "MCP Servers Map",
-      "description": "Your installed MCP servers, keyed by name.",
+      "description": "A map of MCP server names to MCP server entries.",
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/McpServerEntry" }
     },
@@ -508,7 +508,7 @@
         },
         "skills": {
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
-          "description": "Desired skills keyed by workspace skill name."
+          "description": "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly."
         },
         "skillsConfig": {
           "anyOf": [{ "$ref": "#/definitions/SkillsConfig" }],
@@ -516,7 +516,7 @@
         },
         "commands": {
           "anyOf": [{ "$ref": "#/definitions/CommandsMap" }],
-          "description": "Desired commands keyed by workspace command name."
+          "description": "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly."
         },
         "commandsConfig": {
           "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }],
@@ -524,7 +524,7 @@
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
-          "description": "Desired subagents keyed by workspace subagent name."
+          "description": "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly."
         },
         "subagentsConfig": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsConfig" }],
@@ -532,7 +532,7 @@
         },
         "packs": {
           "anyOf": [{ "$ref": "#/definitions/PacksMap" }],
-          "description": "Desired packs keyed by workspace pack name."
+          "description": "Your installed packs, keyed by workspace pack name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. Pack entries do not support `enabled` yet."
         },
         "packsConfig": {
           "anyOf": [{ "$ref": "#/definitions/PacksConfig" }],
@@ -540,7 +540,7 @@
         },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
-          "description": "Desired MCP servers keyed by workspace MCP server name."
+          "description": "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. MCP server entries do not support `enabled` yet."
         },
         "mcpServersConfig": {
           "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }],
@@ -559,11 +559,8 @@
           "telemetry": "errors",
           "agents": ["claude-code", "codex"],
           "skills": {
-            "code-review": {
-              "source": "@acme/skills/code-review@^1.0.0",
-              "enabled": true,
-              "authored": false
-            }
+            "code-review": "@acme/skills/code-review@^1.0.0",
+            "legacy-rules": { "source": "@acme/skills/legacy-rules@^1.0.0", "enabled": false }
           },
           "skillsConfig": { "ignore": ["local-*"] },
           "lint": { "rules": { "workspace/settings-schema-valid": "error" } }

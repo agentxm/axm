@@ -212,8 +212,16 @@ describe("generated schemas", () => {
     ]) {
       const entry = getDefinition(settingsSchema, name);
       expect(entry["title"]).toEqual(expect.any(String));
-      expect(entry["description"]).toContain("Source accepts FQN");
+      expect(entry["description"]).toEqual(expect.any(String));
       expect(entry["examples"]).toEqual(expect.any(Array));
+
+      const anyOf = entry["anyOf"];
+      if (!Array.isArray(anyOf) || !isRecord(anyOf[1])) {
+        throw new Error(`Expected ${name} anyOf to contain an object arm.`);
+      }
+      const sourceField = getProperty(anyOf[1], "source");
+      const sourceAnnotated = getAnnotatedAllOfRecord(sourceField);
+      expect(sourceAnnotated["description"]).toContain("FQN");
     }
 
     expect(definitions).not.toHaveProperty("SkillEntryObject");

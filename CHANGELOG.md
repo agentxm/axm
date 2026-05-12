@@ -1,3 +1,13 @@
+## 0.7.2 (2026-05-12)
+
+### 🩹 Fixes
+
+- Add a publish-focused lint entrypoint so registry consumers avoid the workspace lint barrel. ([06bdcb18](https://github.com/agentxm/axm/commit/06bdcb18))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.7.1 (2026-05-12)
 
 ### 🩹 Fixes

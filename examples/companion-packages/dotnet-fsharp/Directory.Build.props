@@ -11,8 +11,8 @@
     <Company>AgentXM</Company>
     <Copyright>Copyright (c) AgentXM</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/agentxm/axm-b</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/agentxm/axm-b</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/agentxm/axm</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/agentxm/axm</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>

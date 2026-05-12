@@ -24,7 +24,11 @@ surface the companion pack as a package-author recommendation.
 ## Package
 
 ```bash
-npm test
+npm install
+npm run typecheck   # checks JSDoc types in src/ with tsc
+npm test            # node --test
+npm run test:coverage
+npm run build       # emits .d.ts files to dist/
 ```
 
 The library lives in `src/index.js` and exposes:
@@ -32,6 +36,10 @@ The library lives in `src/index.js` and exposes:
 - `booleanFlag(options)`
 - `variantFlag(variants, options)`
 - `createFlags(definitions)`
+
+Types are authored as JSDoc with `// @ts-check`. `npm run build` emits
+declaration files to `dist/` so TypeScript consumers get full type information
+without the source itself being TypeScript.
 
 ## Companion Extensions
 

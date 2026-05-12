@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "pypi-python-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Remove a stale TinyFlags flag from a PyPI Python project.",
+  "keywords": ["pypi", "python", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:pypi/agentxm-example-tinyflags@0.1.0"],
+  "recommendedPacks": ["@examples/packs/pypi-python-tinyflags"],
+  "standalone": false
+}

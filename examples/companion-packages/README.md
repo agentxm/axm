@@ -11,9 +11,10 @@ scope `@agentxm`, and their package names include `example`.
 
 Each ecosystem package also embeds package-native AXM recommendation metadata.
 For npm, this is the `axm.recommendedExtensions` field in `package.json`. For
-NuGet, this is an `axm.json` sidecar shipped in the package root. The
-package-side metadata recommends the companion pack, while the extension-side
-manifests use `companionPackages` to point back to the package.
+NuGet, this is an `axm.json` sidecar shipped in the package root. For PyPI,
+this is a `[tool.axm]` table in `pyproject.toml`. The package-side metadata
+recommends the companion pack, while the extension-side manifests use
+`companionPackages` to point back to the package.
 
 ## Functional Spec
 
@@ -53,3 +54,4 @@ supports.
 - `npm-javascript/` — npm package example for `@agentxm/example-tinyflags`.
 - `dotnet-csharp/` — NuGet C# package example for `AgentXM.Example.TinyFlags.CSharp`.
 - `dotnet-fsharp/` — NuGet F# package example for `AgentXM.Example.TinyFlags.FSharp`.
+- `pypi-python/` — PyPI Python package example for `agentxm-example-tinyflags`.

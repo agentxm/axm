@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "pypi-python-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the PyPI Python TinyFlags package.",
+  "keywords": ["pypi", "python", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:pypi/agentxm-example-tinyflags@0.1.0"],
+  "dependencies": {
+    "@examples/skills/pypi-python-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/pypi-python-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/pypi-python-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/pypi-python-tinyflags-maintainer": "^0.1.0"
+  }
+}

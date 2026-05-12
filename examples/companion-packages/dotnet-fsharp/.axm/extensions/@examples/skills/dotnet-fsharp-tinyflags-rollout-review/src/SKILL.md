@@ -24,16 +24,10 @@ Check opens from `AgentXM.Example.TinyFlags.FSharp` and keep flag definitions
 data-first:
 
 ```fsharp
-TinyFlags.Create(
-    [
-        "checkoutRedesign",
-        TinyFlag.booleanFlag
-            {
-                DefaultValue = false
-                Rollout = Some 10
-            }
-    ]
-)
+TinyFlags.create [
+    "checkoutRedesign",
+    Flag.Boolean(defaultValue = false, rollout = 10)
+]
 ```
 
 Rollout changes should be small and reviewable. If a rollout moves from 0 to

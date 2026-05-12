@@ -28,8 +28,7 @@ behavior in every ecosystem:
 - Include tests that prove default behavior, rollout boundaries, and validation.
 
 The API should feel native in each ecosystem. JavaScript uses ES modules and
-Node's built-in test runner. .NET examples use runnable test projects with
-framework-native source.
+Node's built-in test runner. .NET examples use framework-native test projects.
 
 ## Extension Set
 

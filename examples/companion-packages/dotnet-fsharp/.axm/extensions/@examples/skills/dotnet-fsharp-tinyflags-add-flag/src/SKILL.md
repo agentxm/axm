@@ -11,7 +11,7 @@ Use this skill when adding a feature flag to a .NET F# project that uses
 ## Workflow
 
 1. Find the module or value that creates the `TinyFlags` instance.
-2. Add the flag with `TinyFlag.booleanFlag` or `TinyFlag.variantFlag`.
+2. Add the flag with `Flag.Boolean` or `Flag.Variant`.
 3. Prefer camelCase for local F# values and PascalCase for public types.
 4. Add or update test coverage for default behavior and rollout behavior.
 5. Update README or local package docs when the flag is user-facing.
@@ -21,14 +21,10 @@ Use this skill when adding a feature flag to a .NET F# project that uses
 Use a disabled-by-default boolean flag:
 
 ```fsharp
-TinyFlag.booleanFlag
-    {
-        DefaultValue = false
-        Rollout = None
-    }
+Flag.Boolean(defaultValue = false)
 ```
 
-Use `Rollout = Some 10` for a percentage rollout. The rollout is deterministic
+Use `rollout = 10` for a percentage rollout. The rollout is deterministic
 by `UserId`, `AccountId`, or `SessionId`.
 
 ## Variant Flags
@@ -36,12 +32,11 @@ by `UserId`, `AccountId`, or `SessionId`.
 Use a variant flag when the call site needs a named treatment:
 
 ```fsharp
-TinyFlag.variantFlag
-    [ "classic"; "semantic" ]
-    {
-        DefaultValue = Some "classic"
-        Rollout = Some(Map.ofList [ "semantic", 10 ])
-    }
+Flag.Variant(
+    variants = [ "classic"; "semantic" ],
+    defaultValue = "classic",
+    rollout = Map.ofList [ "semantic", 10 ]
+)
 ```
 
 ## Done Criteria

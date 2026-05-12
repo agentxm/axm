@@ -11,9 +11,9 @@ be removed from a .NET F# project.
 ## Workflow
 
 1. Identify the final behavior: enabled, disabled, or a specific variant.
-2. Replace `flags.Enabled(...)`, `flags.Variant(...)`, and `flags.Evaluate(...)`
+2. Replace `TinyFlags.enabled`, `TinyFlags.variant`, and `TinyFlags.evaluate`
    call sites with the final behavior.
-3. Delete the flag definition from the `TinyFlags.Create` list.
+3. Delete the flag definition from the `TinyFlags.create` list.
 4. Remove tests that only exercise obsolete rollout branching.
 5. Add or update tests for the final simplified behavior.
 6. Search for the flag key in source, tests, README files, and examples.

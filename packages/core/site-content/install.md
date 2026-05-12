@@ -44,8 +44,7 @@ if (Get-Command axm -ErrorAction SilentlyContinue) { axm --version } else { "NOT
 Branch on stdout:
 
 - **`X.Y.Z`** → installed. Run `axm upgrade` (auto-detects the install
-  method; if it prints a `brew`/`npm` command, run that and re-probe).
-  Skip to **§3**.
+  method and upgrades script, Homebrew, and npm installs). Skip to **§3**.
 - **`NOT_INSTALLED`** or anything else → continue to **§2**.
 
 ## 2. Install
@@ -76,7 +75,7 @@ it later.** Frame the choice that way, then ask the user to pick one:
    (macOS/Linux) or `%USERPROFILE%\.axm\bin` (Windows).
 2. **Homebrew** — `brew upgrade agentxm/tap/axm`, alongside other brew
    packages. Pick this if most CLIs are managed with brew.
-3. **npm** — `npm update -g axm.sh`, alongside other global npm packages.
+3. **npm** — `npm install -g axm.sh`, alongside other global npm packages.
    Pick this if AXM is part of a Node.js-heavy environment. Requires Node.js.
 
 Wait for the user's choice before running an installer.

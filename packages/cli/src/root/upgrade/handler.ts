@@ -17,6 +17,7 @@ import {
   DEFAULT_GITHUB_REPO,
 } from "@agentxm/client-core/unstable/version-resolution";
 import { loadVersion } from "../../version.js";
+import { Subprocess, type CommandResult } from "./subprocess.js";
 
 export interface UpgradeHandlerArgs {
   readonly force: boolean;
@@ -35,6 +36,10 @@ type UpgradeResult = typeof UpgradeResultSchema.Type;
 const UpgradeDocumentFields = {
   result: UpgradeResultSchema,
 } satisfies Schema.Struct.Fields;
+
+const BREW_UPGRADE_COMMAND = "brew upgrade agentxm/tap/axm";
+const NPM_PACKAGE = "axm.sh";
+const HOMEBREW_ENV = { HOMEBREW_NO_AUTO_UPDATE: "1" } as const;
 
 interface PlatformBinaryInfo {
   readonly binaryName: string;
@@ -201,23 +206,12 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
   });
 
 const verifyBinary = (binaryPath: string) =>
-  Effect.tryPromise({
-    try: () =>
-      new Promise<string>((resolve, reject) => {
-        import("node:child_process")
-          .then(({ execFile }) => {
-            execFile(binaryPath, ["--version"], { timeout: 10_000 }, (error, stdout) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(stdout.trim());
-              }
-            });
-          })
-          .catch(reject);
-      }),
-    catch: () =>
-      makeAppError({
+  Effect.gen(function* () {
+    const subprocess = yield* Subprocess;
+    const result = yield* subprocess.run(binaryPath, ["--version"], { timeoutMs: 10_000 });
+
+    if (result.exitCode !== 0) {
+      return yield* makeAppError({
         code: "validation",
         message: "Downloaded binary could not be verified",
         breadcrumbs: [
@@ -226,8 +220,78 @@ const verifyBinary = (binaryPath: string) =>
             cmd: "axm --version",
           },
         ],
-      }),
+      });
+    }
+
+    return result.stdout.trim();
   });
+
+const resolveTargetVersion = (localVersion: string) =>
+  Effect.gen(function* () {
+    const httpClient = yield* HttpClient.HttpClient;
+    const repo = yield* resolveGithubRepo();
+    const resolution = yield* resolveLatestVersion(httpClient, localVersion, repo);
+    return resolution.remoteVersion;
+  });
+
+const commandOutput = (result: CommandResult): string =>
+  [result.stdout.trim(), result.stderr.trim()].filter((part) => part.length > 0).join("\n");
+
+const commandFailedError = (args: {
+  readonly manager: string;
+  readonly command: string;
+  readonly result: CommandResult;
+}) => {
+  const output = commandOutput(args.result);
+  const permissionHint = /EACCES|permission denied/i.test(output)
+    ? " This looks like a permissions issue."
+    : "";
+
+  return makeAppError({
+    code: "internal",
+    message: `${args.manager} upgrade failed.${permissionHint}`,
+    breadcrumbs: [
+      {
+        description:
+          output.length > 0
+            ? `Command output:\n${output}`
+            : `Command exited with code ${String(args.result.exitCode)}.`,
+      },
+      {
+        description: "Manual fallback:",
+        cmd: args.command,
+      },
+    ],
+  });
+};
+
+const failOnCommandError = (args: {
+  readonly manager: string;
+  readonly command: string;
+  readonly result: CommandResult;
+}) =>
+  args.result.exitCode === 0 ? Effect.succeed(args.result) : Effect.fail(commandFailedError(args));
+
+const verifyUpgradedVersion = (targetVersion: string) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const version = yield* verifyBinary(process.execPath).pipe(
+      Effect.catch(() =>
+        renderer.warn("Could not verify upgraded binary. Try running `axm --version` to check."),
+      ),
+    );
+
+    if (version === undefined || version === targetVersion) return;
+    yield* renderer.warn(
+      `Upgrade completed, but axm reports ${version} instead of ${targetVersion}.`,
+    );
+  });
+
+const homebrewTapIsPresent = (result: CommandResult): boolean =>
+  result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .includes("agentxm/tap");
 
 const cleanupWindowsOld = (targetPath: string) =>
   Effect.gen(function* () {
@@ -240,17 +304,61 @@ const cleanupWindowsOld = (targetPath: string) =>
 const handleHomebrew = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const subprocess = yield* Subprocess;
     const localVersion = loadVersion();
+    const targetVersion = yield* resolveTargetVersion(localVersion);
+    const delegatedCommand = BREW_UPGRADE_COMMAND;
+
     if (force) {
       yield* renderer.info("--force has no effect for Homebrew installs.");
     }
     yield* renderer.info("Installed via Homebrew");
-    yield* renderer.info("Run: brew upgrade agentxm/tap/axm");
+
+    const tapList = yield* subprocess.run("brew", ["tap"], { env: HOMEBREW_ENV });
+    if (tapList.exitCode !== 0) {
+      return yield* commandFailedError({
+        manager: "Homebrew",
+        command: delegatedCommand,
+        result: tapList,
+      });
+    }
+
+    if (!homebrewTapIsPresent(tapList)) {
+      yield* renderer.withSpinner(
+        "Tapping Homebrew formula...",
+        () =>
+          subprocess
+            .run("brew", ["tap", "agentxm/tap"], { env: HOMEBREW_ENV })
+            .pipe(
+              Effect.flatMap((result) =>
+                failOnCommandError({ manager: "Homebrew", command: delegatedCommand, result }),
+              ),
+            ),
+        { successMessage: "Tapped agentxm/tap" },
+      );
+    }
+
+    yield* renderer.withSpinner(
+      "Upgrading via Homebrew...",
+      () =>
+        subprocess
+          .run("brew", ["upgrade", "agentxm/tap/axm"], { env: HOMEBREW_ENV })
+          .pipe(
+            Effect.flatMap((result) =>
+              failOnCommandError({ manager: "Homebrew", command: delegatedCommand, result }),
+            ),
+          ),
+      { successMessage: `Upgraded to ${targetVersion}` },
+    );
+
+    yield* verifyUpgradedVersion(targetVersion);
+
     return {
-      status: "delegated",
+      status: "upgraded",
       installMethod: "homebrew",
       localVersion,
-      delegatedCommand: "brew upgrade agentxm/tap/axm",
+      targetVersion,
+      delegatedCommand,
       force,
     } satisfies UpgradeResult;
   });
@@ -258,17 +366,37 @@ const handleHomebrew = (force: boolean) =>
 const handleNpm = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const subprocess = yield* Subprocess;
     const localVersion = loadVersion();
+    const targetVersion = yield* resolveTargetVersion(localVersion);
+    const delegatedCommand = `npm install -g ${NPM_PACKAGE}@${targetVersion}`;
+
     if (force) {
       yield* renderer.info("--force has no effect for npm installs.");
     }
     yield* renderer.info("Installed via npm");
-    yield* renderer.info("Run: npm update -g axm.sh");
+
+    yield* renderer.withSpinner(
+      "Upgrading via npm...",
+      () =>
+        subprocess
+          .run("npm", ["install", "-g", `${NPM_PACKAGE}@${targetVersion}`])
+          .pipe(
+            Effect.flatMap((result) =>
+              failOnCommandError({ manager: "npm", command: delegatedCommand, result }),
+            ),
+          ),
+      { successMessage: `Upgraded to ${targetVersion}` },
+    );
+
+    yield* verifyUpgradedVersion(targetVersion);
+
     return {
-      status: "delegated",
+      status: "upgraded",
       installMethod: "npm",
       localVersion,
-      delegatedCommand: "npm update -g axm.sh",
+      targetVersion,
+      delegatedCommand,
       force,
     } satisfies UpgradeResult;
   });

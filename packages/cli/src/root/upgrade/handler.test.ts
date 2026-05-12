@@ -28,6 +28,7 @@ import {
 import { InstallMeta, type InstallMetaData } from "@agentxm/client-core/unstable/install-meta";
 
 import { handleUpgrade, resolvePlatformBinary, makeDownloadUrl } from "./handler.js";
+import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -88,12 +89,48 @@ interface TestLayersOptions {
   readonly method?: InstallMethodType;
   readonly httpHandler?: (url: string) => Response;
   readonly httpClient?: HttpClient.HttpClient;
+  readonly subprocess?: ReturnType<typeof makeMockSubprocess>;
 }
+
+interface CommandInvocation {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
+  readonly options: RunCommandOptions | undefined;
+}
+
+const commandResult = (opts?: {
+  readonly exitCode?: number;
+  readonly stdout?: string;
+  readonly stderr?: string;
+}): CommandResult => ({
+  exitCode: opts?.exitCode ?? 0,
+  stdout: opts?.stdout ?? "99.0.0\n",
+  stderr: opts?.stderr ?? "",
+});
+
+const makeMockSubprocess = (
+  handler?: (invocation: CommandInvocation) => CommandResult,
+): {
+  readonly calls: Array<CommandInvocation>;
+  readonly layer: Layer.Layer<Subprocess>;
+} => {
+  const calls: Array<CommandInvocation> = [];
+  const layer = Layer.succeed(Subprocess, {
+    run: (command: string, args: ReadonlyArray<string>, options?: RunCommandOptions) =>
+      Effect.sync(() => {
+        const invocation = { command, args: [...args], options };
+        calls.push(invocation);
+        return handler?.(invocation) ?? commandResult();
+      }),
+  });
+  return { calls, layer };
+};
 
 const makeTestLayers = (opts?: TestLayersOptions) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
   const logs = logsByTag(rendererState);
   const installMeta = makeMockInstallMeta();
+  const subprocess = opts?.subprocess ?? makeMockSubprocess();
 
   const method = opts?.method ?? new Script({ execPath: "/tmp/test-bin/axm" });
   const installMethodLayer = makeMockInstallMethod(method);
@@ -114,13 +151,14 @@ const makeTestLayers = (opts?: TestLayersOptions) => {
     installMethodLayer,
     installMeta.layer,
     httpClientLayer,
+    subprocess.layer,
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(fullLayer));
 
-  return { provide, rendererState, logs, installMeta };
+  return { provide, rendererState, logs, installMeta, subprocess };
 };
 
 // =============================================================================
@@ -172,49 +210,174 @@ describe("makeDownloadUrl", () => {
   });
 });
 
-// =============================================================================
-// Delegation messages
-// =============================================================================
-
 describe("handleUpgrade", () => {
-  describe("homebrew delegation", () => {
-    it.effect("prints brew upgrade message", () => {
-      const { provide, logs } = makeTestLayers({
+  describe("homebrew upgrades", () => {
+    it.effect("runs brew upgrade and verifies the upgraded binary", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "agentxm/tap\n" });
+        }
+        return commandResult();
+      });
+      const { provide, logs, rendererState } = makeTestLayers({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
           expect(logs.info).toContain("Installed via Homebrew");
-          expect(logs.info).toContain("Run: brew upgrade agentxm/tap/axm");
+          expect(rendererState.spinnerMessages).toContain("Upgrading via Homebrew...");
+          expect(rendererState.spinnerMessages).toContain("Upgraded to 99.0.0");
+          expect(
+            subprocess.calls.some(
+              (call) =>
+                call.command === "brew" && call.args.join(" ") === "upgrade agentxm/tap/axm",
+            ),
+          ).toBe(true);
+          expect(
+            subprocess.calls.some(
+              (call) => call.command === process.execPath && call.args.join(" ") === "--version",
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("taps Homebrew formula when missing", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "homebrew/core\n" });
+        }
+        return commandResult();
+      });
+      const { provide, rendererState } = makeTestLayers({
+        method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(rendererState.spinnerMessages).toContain("Tapping Homebrew formula...");
+          expect(
+            subprocess.calls.some(
+              (call) => call.command === "brew" && call.args.join(" ") === "tap agentxm/tap",
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("fails with manual fallback when brew upgrade fails", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "agentxm/tap\n" });
+        }
+        if (
+          invocation.command === "brew" &&
+          invocation.args.join(" ") === "upgrade agentxm/tap/axm"
+        ) {
+          return commandResult({ exitCode: 1, stderr: "Permission denied" });
+        }
+        return commandResult();
+      });
+      const { provide } = makeTestLayers({
+        method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleUpgrade({ force: false }).pipe(
+            Effect.catchTag("AppError", (e) =>
+              Effect.succeed({
+                error: true,
+                code: e.code,
+                message: e.message,
+                cmd: e.breadcrumbs?.[1]?.cmd,
+              }),
+            ),
+          );
+          expect(result).toMatchObject({
+            error: true,
+            code: "internal",
+            cmd: "brew upgrade agentxm/tap/axm",
+          });
         }),
       );
     });
 
     it.effect("notes that --force has no effect", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "agentxm/tap\n" });
+        }
+        return commandResult();
+      });
       const { provide, logs } = makeTestLayers({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
           expect(logs.info).toContain("--force has no effect for Homebrew installs.");
-          expect(logs.info).toContain("Run: brew upgrade agentxm/tap/axm");
         }),
       );
     });
   });
 
-  describe("npm delegation", () => {
-    it.effect("prints npm update message", () => {
-      const { provide, logs } = makeTestLayers({
+  describe("npm upgrades", () => {
+    it.effect("runs pinned npm install and verifies the upgraded binary", () => {
+      const subprocess = makeMockSubprocess();
+      const { provide, logs, rendererState } = makeTestLayers({
         method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
+        subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
           expect(logs.info).toContain("Installed via npm");
-          expect(logs.info).toContain("Run: npm update -g axm.sh");
+          expect(rendererState.spinnerMessages).toContain("Upgrading via npm...");
+          expect(rendererState.spinnerMessages).toContain("Upgraded to 99.0.0");
+          expect(
+            subprocess.calls.some(
+              (call) =>
+                call.command === "npm" && call.args.join(" ") === "install -g axm.sh@99.0.0",
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("fails with manual fallback when npm install fails", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "npm") {
+          return commandResult({ exitCode: 1, stderr: "EACCES: permission denied" });
+        }
+        return commandResult();
+      });
+      const { provide } = makeTestLayers({
+        method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleUpgrade({ force: false }).pipe(
+            Effect.catchTag("AppError", (e) =>
+              Effect.succeed({
+                error: true,
+                code: e.code,
+                message: e.message,
+                cmd: e.breadcrumbs?.[1]?.cmd,
+              }),
+            ),
+          );
+          expect(result).toMatchObject({
+            error: true,
+            code: "internal",
+            message: "npm upgrade failed. This looks like a permissions issue.",
+            cmd: "npm install -g axm.sh@99.0.0",
+          });
         }),
       );
     });
@@ -227,7 +390,6 @@ describe("handleUpgrade", () => {
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
           expect(logs.info).toContain("--force has no effect for npm installs.");
-          expect(logs.info).toContain("Run: npm update -g axm.sh");
         }),
       );
     });
@@ -382,15 +544,20 @@ describe("handleUpgrade", () => {
 
   describe("--force on non-script installs", () => {
     it.effect("force flag is noted but does not error for homebrew", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "agentxm/tap\n" });
+        }
+        return commandResult();
+      });
       const { provide, logs } = makeTestLayers({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
           expect(logs.info).toContain("--force has no effect for Homebrew installs.");
-          // Still shows the delegation message
-          expect(logs.info).toContain("Run: brew upgrade agentxm/tap/axm");
         }),
       );
     });
@@ -403,7 +570,6 @@ describe("handleUpgrade", () => {
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
           expect(logs.info).toContain("--force has no effect for npm installs.");
-          expect(logs.info).toContain("Run: npm update -g axm.sh");
         }),
       );
     });

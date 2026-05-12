@@ -8,8 +8,9 @@ import { Command, Flag } from "effect/unstable/cli";
 import { withRuntime } from "../../runtime.js";
 
 import { handleUpgrade } from "./handler.js";
+import { SubprocessLive } from "./subprocess.js";
 
-const upgradeLayer = Layer.mergeAll(InstallMethodLive, InstallMetaLive);
+const upgradeLayer = Layer.mergeAll(InstallMethodLive, InstallMetaLive, SubprocessLive);
 
 const upgradeConfig = {
   force: forceFlag.pipe(

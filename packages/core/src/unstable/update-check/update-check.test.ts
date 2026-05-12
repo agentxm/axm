@@ -148,22 +148,22 @@ describe("notificationMessage", () => {
     expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
   });
 
-  it("returns homebrew message for Homebrew method", () => {
+  it("returns axm upgrade message for Homebrew method", () => {
     const msg = notificationMessage(
       new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
       "0.1.0",
       "0.2.0",
     );
-    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: brew upgrade agentxm/tap/axm");
+    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
   });
 
-  it("returns npm message for Npm method", () => {
+  it("returns axm upgrade message for Npm method", () => {
     const msg = notificationMessage(
       new Npm({ importUrl: "file:///lib/node_modules/axm" }),
       "0.1.0",
       "0.2.0",
     );
-    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: npm update -g axm.sh");
+    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
   });
 
   it("returns script message for Unknown method", () => {
@@ -188,9 +188,7 @@ describe("notificationMessage", () => {
       "0.2.0",
       "agent",
     );
-    expect(msg).toBe(
-      'AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="npm update -g axm.sh"',
-    );
+    expect(msg).toBe('AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="axm upgrade"');
   });
 });
 

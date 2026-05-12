@@ -405,7 +405,7 @@ describe("withUpdateCheck", () => {
     );
   });
 
-  it.effect("notification includes method-aware install command for Homebrew", () => {
+  it.effect("notification recommends axm upgrade for Homebrew", () => {
     const { printer, messages } = makeTestPrinter();
     const commandProgram = Effect.void;
 
@@ -423,14 +423,14 @@ describe("withUpdateCheck", () => {
       Effect.tap(() =>
         Effect.sync(() => {
           expect(messages.length).toBe(1);
-          expect(messages[0]).toContain("brew upgrade agentxm/tap/axm");
+          expect(messages[0]).toContain("axm upgrade");
         }),
       ),
       Effect.provide(layer),
     );
   });
 
-  it.effect("notification includes method-aware install command for Npm", () => {
+  it.effect("notification recommends axm upgrade for Npm", () => {
     const { printer, messages } = makeTestPrinter();
     const commandProgram = Effect.void;
 
@@ -448,7 +448,7 @@ describe("withUpdateCheck", () => {
       Effect.tap(() =>
         Effect.sync(() => {
           expect(messages.length).toBe(1);
-          expect(messages[0]).toContain("npm update -g axm.sh");
+          expect(messages[0]).toContain("axm upgrade");
         }),
       ),
       Effect.provide(layer),

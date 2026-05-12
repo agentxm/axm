@@ -111,17 +111,7 @@ export const shouldSkip = (context: SkipCheckContext): boolean =>
   (context.isNonInteractive && !context.isAgentSession) ||
   (!context.isStderrTTY && !context.isAgentSession);
 
-const notificationCommand = (method: InstallMethodType): string => {
-  switch (method._tag) {
-    case "Script":
-    case "Unknown":
-      return "axm upgrade";
-    case "Homebrew":
-      return "brew upgrade agentxm/tap/axm";
-    case "Npm":
-      return "npm update -g axm.sh";
-  }
-};
+const notificationCommand = (_method: InstallMethodType): string => "axm upgrade";
 
 /**
  * Build an install-method-aware notification message.

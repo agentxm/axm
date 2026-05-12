@@ -24,10 +24,7 @@ export type {
 export type { LintFinding, LintRule } from "./rule.js";
 export { packRules } from "./catalog/pack.js";
 export { skillRules } from "./catalog/skill.js";
-export {
-  makeVftPackFileAccessor,
-  type PackVFTNode,
-} from "./catalog/pack-accessor/vft.js";
+export { makeVftPackFileAccessor, type PackVFTNode } from "./catalog/pack-accessor/vft.js";
 export {
   makeVftSkillFileAccessor,
   makeVftSkillFileAccessorScoped,

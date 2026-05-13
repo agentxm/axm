@@ -20,6 +20,7 @@ import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/u
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { SKILL_NAME_RULES } from "../breadcrumbs.js";
 
@@ -124,7 +125,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   const breadcrumbs = [
     {
-      description: `Edit \`.axm/extensions/${owner}/skills/${args.name}/src/SKILL.md\` to fill in instructions`,
+      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name, "src", "SKILL.md")}\` to fill in instructions`,
     },
     {
       description: "Apply changes to your workspace",

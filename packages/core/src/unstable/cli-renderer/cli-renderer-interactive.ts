@@ -1,6 +1,7 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
 
 import {
   CliRenderer,
@@ -8,6 +9,7 @@ import {
   type DetailView,
   type DetailOptions,
   type ListPayload,
+  type LogLevel,
   type ResolvedDetailField,
   type ProgressConfig,
   type ProgressHandle,
@@ -15,6 +17,9 @@ import {
   type SpinnerHandle,
   type SpinnerOptions,
   type SuccessOptions,
+  type TaskLogConfig,
+  type TaskLogGroupHandle,
+  type TaskLogHandle,
   type TableView,
   type TreePayload,
   type TreeDef,
@@ -24,6 +29,7 @@ import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import * as chrome from "./ansi-chrome.js";
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 import { getEntityView } from "./entity-registry.js";
+import { resolveCliOutputPolicy, type CliOutputPolicy } from "./output-policy.js";
 
 const ANSI_DIM = "\u001b[2m";
 const ANSI_RESET = "\u001b[0m";
@@ -291,6 +297,90 @@ const taskCompletionMessage = (title: string, result: string | void): string => 
 
 const formatBreadcrumbCommand = (crumb: Breadcrumb): string => crumb.cmd ?? "";
 
+const dim = (message: string, outputPolicy: CliOutputPolicy): string =>
+  outputPolicy.colors ? `${ANSI_DIM}${message}${ANSI_RESET}` : message;
+
+const plainLine = (symbol: string, message: string): Effect.Effect<void> =>
+  writeStderrLine(`${symbol}  ${message}`);
+
+const renderLogLine = (
+  outputPolicy: CliOutputPolicy,
+  level: LogLevel,
+  message: string,
+): Effect.Effect<void> => {
+  if (outputPolicy.colors) {
+    return chrome.logLine(level, message);
+  }
+  return level === "message" ? writeStderrLine(message) : plainLine(chrome.Symbols[level], message);
+};
+
+const plainSpinner = (message: string): Effect.Effect<SpinnerHandle> =>
+  plainLine(chrome.Symbols.step, message).pipe(
+    Effect.as({
+      stop: (nextMessage) => plainLine(chrome.Symbols.success, nextMessage ?? message),
+      update: (nextMessage) => plainLine(chrome.Symbols.step, nextMessage ?? message),
+      cancel: (nextMessage) => plainLine(chrome.Symbols.cancel, nextMessage ?? message),
+      error: (nextMessage) => plainLine(chrome.Symbols.error, nextMessage ?? message),
+      clear: () => Effect.void,
+    } satisfies SpinnerHandle),
+  );
+
+const plainProgress = (
+  config: ProgressConfig,
+  message: string | undefined,
+): Effect.Effect<ProgressHandle> => {
+  const max = Math.max(config.max ?? 100, 1);
+  let current = 0;
+  let currentMessage = message ?? "";
+
+  const renderUpdate = (nextMessage?: string): Effect.Effect<void> => {
+    currentMessage = nextMessage ?? currentMessage;
+    const percent = Math.round((current / max) * 100);
+    const text = currentMessage.length === 0 ? `${percent}%` : `${percent}% ${currentMessage}`;
+    return plainLine(chrome.Symbols.step, text);
+  };
+
+  const handle: ProgressHandle = {
+    stop: (nextMessage) => plainLine(chrome.Symbols.success, nextMessage ?? currentMessage),
+    update: renderUpdate,
+    cancel: (nextMessage) => plainLine(chrome.Symbols.cancel, nextMessage ?? currentMessage),
+    error: (nextMessage) => plainLine(chrome.Symbols.error, nextMessage ?? currentMessage),
+    clear: () => Effect.void,
+    advance: (step, nextMessage) => {
+      current = Math.min(current + (step ?? 1), max);
+      return renderUpdate(nextMessage);
+    },
+  };
+
+  return currentMessage.length === 0
+    ? Effect.succeed(handle)
+    : plainLine(chrome.Symbols.step, currentMessage).pipe(Effect.as(handle));
+};
+
+const indentedMessage = (depth: number, message: string): string =>
+  `${" ".repeat(depth)}${message}`;
+
+const plainTaskLogGroup = (depth: number): TaskLogGroupHandle => ({
+  message: (message: string) => writeStderrLine(indentedMessage(depth, message)),
+  error: (message: string) =>
+    writeStderrLine(indentedMessage(depth, `${chrome.Symbols.error}  ${message}`)),
+  success: (message: string) =>
+    writeStderrLine(indentedMessage(depth, `${chrome.Symbols.success}  ${message}`)),
+});
+
+const plainTaskLog = (config: TaskLogConfig): Effect.Effect<TaskLogHandle> =>
+  plainLine(chrome.Symbols.step, config.title).pipe(
+    Effect.as({
+      message: (message: string) => writeStderrLine(indentedMessage(2, message)),
+      group: (name: string) =>
+        plainLine(chrome.Symbols.step, name).pipe(Effect.as(plainTaskLogGroup(4))),
+      error: (message: string) =>
+        writeStderrLine(indentedMessage(2, `${chrome.Symbols.error}  ${message}`)),
+      success: (message: string) =>
+        writeStderrLine(indentedMessage(2, `${chrome.Symbols.success}  ${message}`)),
+    } satisfies TaskLogHandle),
+  );
+
 const normalizeBreadcrumbs = (
   crumbs: ReadonlyArray<Breadcrumb> | undefined,
   options?: BreadcrumbOptions,
@@ -299,6 +389,7 @@ const normalizeBreadcrumbs = (
 
 const renderBreadcrumbs = (
   crumbs: ReadonlyArray<Breadcrumb>,
+  outputPolicy: CliOutputPolicy,
   options?: BreadcrumbOptions,
 ): Effect.Effect<void> => {
   const visible = normalizeBreadcrumbs(crumbs, options);
@@ -307,10 +398,10 @@ const renderBreadcrumbs = (
   }
 
   const lines = [
-    `${ANSI_DIM}Next:${ANSI_RESET}`,
+    dim("Next:", outputPolicy),
     ...visible.map((crumb) => {
       const formatted = formatBreadcrumbCommand(crumb);
-      const command = formatted.length === 0 ? "" : `${ANSI_DIM} · ${formatted}${ANSI_RESET}`;
+      const command = formatted.length === 0 ? "" : dim(` · ${formatted}`, outputPolicy);
       return `  ${crumb.description}${command}`;
     }),
   ];
@@ -318,7 +409,14 @@ const renderBreadcrumbs = (
   return writeStderrLine(lines.join("\n"));
 };
 
-export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
+export const InteractiveRenderer = (options?: {
+  readonly outputPolicy?: CliOutputPolicy;
+}): Layer.Layer<CliRenderer> => {
+  const outputPolicy = options?.outputPolicy ?? resolveCliOutputPolicy();
+  const renderSpinner = outputPolicy.interactiveActivity ? chrome.spinner : plainSpinner;
+  const renderProgress = outputPolicy.interactiveActivity ? chrome.progress : plainProgress;
+  const renderTaskLog = outputPolicy.colors ? chrome.taskLog : plainTaskLog;
+
   const liveWithSpinner = <A, E, R>(
     message: string,
     f: (handle: SpinnerHandle) => Effect.Effect<A, E, R>,
@@ -331,7 +429,7 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
         typeof options?.successMessage === "function" ? options.successMessage : undefined;
       const failureMessage = options?.failureMessage;
 
-      return chrome.spinner(message).pipe(
+      return renderSpinner(message).pipe(
         Effect.flatMap((handle) =>
           Effect.interruptible(f(handle)).pipe(
             Effect.matchCauseEffect({
@@ -359,7 +457,7 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
     stopMessage?: string,
   ): Effect.Effect<A, E, R> =>
     Effect.suspend(() =>
-      chrome.progress(config, message).pipe(
+      renderProgress(config, message).pipe(
         Effect.flatMap((handle) =>
           Effect.interruptible(f(handle)).pipe(
             Effect.matchCauseEffect({
@@ -379,33 +477,45 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
 
   return Layer.succeed(CliRenderer, {
     // Chrome (stderr)
-    intro: chrome.intro,
-    outro: chrome.outro,
-    message: (message) => chrome.logLine("message", message),
-    info: (message) => chrome.logLine("info", message),
+    intro: (title) =>
+      outputPolicy.colors ? chrome.intro(title) : plainLine(chrome.Symbols.intro, title),
+    outro: (message) =>
+      outputPolicy.colors ? chrome.outro(message) : plainLine(chrome.Symbols.outro, message),
+    message: (message) => renderLogLine(outputPolicy, "message", message),
+    info: (message) => renderLogLine(outputPolicy, "info", message),
     success: (message, options?: SuccessOptions) =>
-      chrome
-        .logLine("success", message)
-        .pipe(Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], options))),
-    step: (message) => chrome.logLine("step", message),
-    warn: (message) => chrome.logLine("warn", message),
+      renderLogLine(outputPolicy, "success", message).pipe(
+        Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], outputPolicy, options)),
+      ),
+    step: (message) => renderLogLine(outputPolicy, "step", message),
+    warn: (message) => renderLogLine(outputPolicy, "warn", message),
     error: (message, options?: BreadcrumbOptions) =>
-      chrome
-        .logLine("error", message)
-        .pipe(Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], options))),
-    breadcrumbs: renderBreadcrumbs,
-    cancel: (message) => chrome.cancel(message ?? "Cancelled"),
+      renderLogLine(outputPolicy, "error", message).pipe(
+        Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], outputPolicy, options)),
+      ),
+    breadcrumbs: (crumbs, options) => renderBreadcrumbs(crumbs, outputPolicy, options),
+    cancel: (message) =>
+      outputPolicy.colors
+        ? chrome.cancel(message ?? "Cancelled")
+        : plainLine(chrome.Symbols.cancel, message ?? "Cancelled"),
     note: chrome.note,
     box: chrome.box,
-    streamLog: chrome.streamLog,
+    streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) =>
+      outputPolicy.colors
+        ? chrome.streamLog(level, stream)
+        : Stream.runCollect(stream).pipe(
+            Effect.flatMap((chunks) =>
+              renderLogLine(outputPolicy, level, Array.from(chunks).join("")),
+            ),
+          ),
 
     // Activity
-    spinner: chrome.spinner,
+    spinner: renderSpinner,
     withSpinner: liveWithSpinner,
-    progress: chrome.progress,
+    progress: renderProgress,
     withProgress: liveWithProgress,
-    taskLog: chrome.taskLog,
-    withTaskLog: (config, f) => chrome.taskLog(config).pipe(Effect.flatMap((handle) => f(handle))),
+    taskLog: renderTaskLog,
+    withTaskLog: (config, f) => renderTaskLog(config).pipe(Effect.flatMap((handle) => f(handle))),
     runTasks: <E, R>(
       tasks: ReadonlyArray<{
         readonly title: string;
@@ -442,7 +552,7 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
         view === undefined ? makeGenericTableView(payload.items) : { columns: view.columns };
       const output = formatTable(payload.items, resolveTableColumns(tableView));
       return (output ? writeStdoutLine(output) : Effect.void).pipe(
-        Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], payload)),
+        Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], outputPolicy, payload)),
         Effect.as(false),
       );
     },
@@ -462,7 +572,7 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
         const title = options?.title ?? view?.title?.(item);
         const output = formatDetail(item, resolveDetailFields(detailView), title);
         return (output ? writeStdoutLine(output) : Effect.void).pipe(
-          Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], options)),
+          Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], outputPolicy, options)),
           Effect.as(false),
         );
       }
@@ -491,7 +601,7 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
         }
         const output = formatTree(payload.roots, view);
         return (output ? writeStdoutLine(output) : Effect.void).pipe(
-          Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], payload)),
+          Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], outputPolicy, payload)),
           Effect.as(false),
         );
       }

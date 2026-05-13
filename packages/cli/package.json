@@ -59,7 +59,7 @@
     "includedScripts": []
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.19.0"
   },
   "dependencies": {
     "@agentxm/client-core": "workspace:^",

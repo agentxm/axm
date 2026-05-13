@@ -77,19 +77,21 @@ it later.** Frame the choice that way, then ask the user to pick one:
 2. **Homebrew** — `brew upgrade agentxm/tap/axm`, alongside other brew
    packages. Pick this if most CLIs are managed with brew.
 3. **npm** — `npm install -g axm.sh`, alongside other global npm packages.
-   Pick this if AXM is part of a Node.js-heavy environment. Requires Node.js.
+   Pick this if AXM is part of a Node.js-heavy environment. Requires Node.js
+   ≥22.19.0. If `node --version` reports an older release, upgrade Node first
+   or pick option 1 or 2 instead.
 
 Wait for the user's choice before running an installer.
 
 ### Run the installer
 
-| Option | Platform      | Command                                                               |
-| ------ | ------------- | --------------------------------------------------------------------- |
-| A      | macOS / Linux | `curl -fsSL https://axm.sh/install.sh \| sh`                          |
-| B      | Windows (PS)  | `irm https://axm.sh/install.ps1 \| iex`                               |
-| C      | Windows (CMD) | `curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd` |
-| D      | Homebrew      | `brew install agentxm/tap/axm`                                        |
-| E      | npm (any OS)  | `npm install -g axm.sh`                                               |
+| Option | Platform                  | Command                                                               |
+| ------ | ------------------------- | --------------------------------------------------------------------- |
+| A      | macOS / Linux             | `curl -fsSL https://axm.sh/install.sh \| sh`                          |
+| B      | Windows (PS)              | `irm https://axm.sh/install.ps1 \| iex`                               |
+| C      | Windows (CMD)             | `curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd` |
+| D      | Homebrew                  | `brew install agentxm/tap/axm`                                        |
+| E      | npm (any OS, Node ≥22.19) | `npm install -g axm.sh`                                               |
 
 Install locations: `~/.axm/bin/axm` (script, macOS/Linux);
 `%USERPROFILE%\.axm\bin\axm.exe` (script, Windows).

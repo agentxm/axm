@@ -260,8 +260,9 @@ const renderRootHelpDoc = (doc: HelpDoc): string => {
  */
 export const makeAxmFormatter = (options?: {
   readonly json?: boolean | undefined;
+  readonly colors?: boolean | undefined;
 }): CliOutput.Formatter => {
-  const base = CliOutput.defaultFormatter();
+  const base = CliOutput.defaultFormatter({ colors: options?.colors ?? true });
   const json = options?.json === true;
 
   return {

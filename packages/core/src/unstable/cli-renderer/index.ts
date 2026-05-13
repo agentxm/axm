@@ -32,6 +32,11 @@ export { getEntityView, registerEntity, type EntityView } from "./entity-registr
 export { InteractiveRenderer } from "./cli-renderer-interactive.js";
 export { MachineRenderer } from "./cli-renderer-machine.js";
 export {
+  resolveCliOutputPolicy,
+  type CliOutputEnvironment,
+  type CliOutputPolicy,
+} from "./output-policy.js";
+export {
   TestRenderer,
   TestMachineRenderer,
   logsByTag,

@@ -6,7 +6,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 
-import { InteractiveRenderer, MachineRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  InteractiveRenderer,
+  MachineRenderer,
+  resolveCliOutputPolicy,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
 import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheckLive } from "@agentxm/client-core/unstable/update-check";
@@ -113,8 +117,9 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
     (argv) => {
       const isJson = hasExplicitJsonFlag(argv);
       const commandProgram = Command.runWith(rootCommand, { version })(argv);
+      const outputPolicy = resolveCliOutputPolicy();
 
-      const rendererLayer = isJson ? MachineRenderer() : InteractiveRenderer();
+      const rendererLayer = isJson ? MachineRenderer() : InteractiveRenderer({ outputPolicy });
 
       return withUpdateCheck(commandProgram, {
         localVersion: version,
@@ -131,7 +136,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             baseLayer,
             updateCheckServicesLayer,
             rendererLayer,
-            CliOutput.layer(makeAxmFormatter({ json: isJson })),
+            CliOutput.layer(makeAxmFormatter({ json: isJson, colors: outputPolicy.colors })),
           ),
         ),
       );

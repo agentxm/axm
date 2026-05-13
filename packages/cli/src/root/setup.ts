@@ -42,6 +42,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import { scopeFlag } from "../cli-flags.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { withRuntime, withWorkspace } from "../runtime.js";
+import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
 import { AXM_SKILL_JSON, AXM_SKILL_MD, AXM_SKILL_VERSION } from "./setup/bundled-axm-skill.js";
 
 const SubagentFileSchema = Schema.Struct({
@@ -213,6 +214,7 @@ export const SetupSkillInstallerLive = Layer.effect(
  */
 const renderSubagentSummary = (
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+  path: Path.Path,
   summaries: ReadonlyArray<AgentSubagentSummary>,
 ) =>
   Effect.gen(function* () {
@@ -221,7 +223,7 @@ const renderSubagentSummary = (
     for (const summary of summaries) {
       if (summary.files.length > 0) {
         yield* renderer.info(
-          `${summary.agentName}: ${String(summary.files.length)} existing subagent file(s) in ${summary.subagentDir}`,
+          `${summary.agentName}: ${String(summary.files.length)} existing subagent file(s) in ${formatDisplayPath(path, summary.subagentDir)}`,
         );
       }
     }
@@ -234,6 +236,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   readonly preview?: boolean;
 }) {
   const renderer = yield* CliRenderer;
+  const path = yield* Path.Path;
   const { settings, location, initialized } = yield* bootstrapWorkspace(
     args.agents !== undefined && args.agents.length > 0
       ? ({ scope: args.scope, agents: args.agents } satisfies WorkspaceMutationsOptions)
@@ -267,7 +270,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const allAgents = [...agents, ...unknownAgents];
   const agentNames = allAgents.map((agent) => agent.name).join(", ");
   const telemetryEnabled = telemetryMode !== "off";
-  const settingsPath = `${location.path}/settings.json`;
+  const settingsPath = joinDisplayPath(path, location.path, "settings.json");
 
   // Scan subagent directories for existing files
   const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
@@ -301,7 +304,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   yield* renderer.info(`Settings: ${settingsPath}`);
 
   // Show subagent file summary
-  yield* renderSubagentSummary(renderer, subagentSummaries);
+  yield* renderSubagentSummary(renderer, path, subagentSummaries);
 
   yield* renderer.success(
     allAgents.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",

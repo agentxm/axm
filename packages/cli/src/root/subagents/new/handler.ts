@@ -28,6 +28,7 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../../json-output.js";
+import { joinDisplayPath } from "../../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -262,7 +263,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   const breadcrumbs = [
     {
-      description: `Edit \`.axm/extensions/${owner}/subagents/${args.name}/src/${args.name}.md\` to fill in instructions`,
+      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "subagents", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
     },
     {
       description: "Apply changes to your workspace",

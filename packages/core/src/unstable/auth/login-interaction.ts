@@ -67,12 +67,20 @@ const tryCommands = (invocations: ReadonlyArray<CommandInvocation>) =>
     return false;
   });
 
-const browserCommands = (url: string): ReadonlyArray<CommandInvocation> => {
-  switch (process.platform) {
+export const browserCommands = (
+  url: string,
+  platform: NodeJS.Platform = process.platform,
+): ReadonlyArray<CommandInvocation> => {
+  switch (platform) {
     case "darwin":
       return [{ command: "open", args: [url] }];
     case "win32":
-      return [{ command: "cmd", args: ["/c", "start", "", url] }];
+      return [
+        {
+          command: "rundll32",
+          args: ["url.dll,FileProtocolHandler", url],
+        },
+      ];
     default:
       return [{ command: "xdg-open", args: [url] }];
   }

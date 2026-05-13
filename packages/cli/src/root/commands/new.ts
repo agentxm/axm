@@ -25,6 +25,7 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { joinDisplayPath } from "../shared/display-path.js";
 import { toJobStepResult } from "./job-step-result.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -132,7 +133,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
 
   const breadcrumbs = [
     {
-      description: `Edit \`.axm/extensions/${owner}/commands/${args.name}/src/${args.name}.md\` to fill in instructions`,
+      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "commands", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
     },
     {
       description: "Apply changes to your workspace",

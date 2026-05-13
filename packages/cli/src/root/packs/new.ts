@@ -24,6 +24,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 
 export interface PacksNewHandlerArgs {
@@ -120,7 +121,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   const breadcrumbs = [
     {
-      description: `Edit \`.axm/extensions/${owner}/packs/${args.name}/pack.json\` to fill in pack contents`,
+      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "packs", args.name, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
     },
     {
       description: "Apply changes to your workspace",

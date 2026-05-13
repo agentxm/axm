@@ -16,6 +16,7 @@ function assertDefined<T>(value: T | undefined, message: string): asserts value 
 }
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`, "g");
+const controlPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`);
 
 const stripAnsi = (value: string): string => value.replace(ansiPattern, "");
 
@@ -50,9 +51,16 @@ afterEach(() => {
   stderrWriteSpy.mockRestore();
 });
 
-const layer = InteractiveRenderer();
+const layer = InteractiveRenderer({
+  outputPolicy: { colors: true, interactiveActivity: true },
+});
+const plainLayer = InteractiveRenderer({
+  outputPolicy: { colors: false, interactiveActivity: false },
+});
 
 const run = <A, E>(effect: Effect.Effect<A, E, CliRenderer>) => Effect.provide(effect, layer);
+const runPlain = <A, E>(effect: Effect.Effect<A, E, CliRenderer>) =>
+  Effect.provide(effect, plainLayer);
 
 describe("InteractiveRenderer", () => {
   describe("chrome methods", () => {
@@ -288,6 +296,36 @@ describe("InteractiveRenderer", () => {
         expect(output).toContain("✔  Lint: No issues");
         expect(output).toContain("✔  Test: All passed");
         expect(order).toEqual(["first", "second"]);
+      }),
+    );
+
+    it.effect("plain output renders activity as line-per-step text without ANSI controls", () =>
+      Effect.gen(function* () {
+        yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.info("Telemetry is enabled");
+            const spinner = yield* renderer.spinner("Validating extensions...");
+            yield* spinner.update("Validated 1 extension(s)");
+            yield* spinner.stop("Validated 1 extension(s)");
+            const progress = yield* renderer.progress(
+              { max: 2, style: "block" },
+              "Syncing workspace...",
+            );
+            yield* progress.advance(1, "Writing files...");
+            yield* progress.stop("Synced workspace");
+          }),
+        );
+
+        const output = stderrWrites.join("");
+        expect(output).not.toMatch(controlPattern);
+        expect(output).toContain("●  Telemetry is enabled\n");
+        expect(output).toContain("◆  Validating extensions...\n");
+        expect(output).toContain("◆  Validated 1 extension(s)\n");
+        expect(output).toContain("✔  Validated 1 extension(s)\n");
+        expect(output).toContain("◆  Syncing workspace...\n");
+        expect(output).toContain("◆  50% Writing files...\n");
+        expect(output).toContain("✔  Synced workspace\n");
       }),
     );
   });

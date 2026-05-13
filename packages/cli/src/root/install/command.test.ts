@@ -7,6 +7,10 @@ import { rootCommand } from "../../app.js";
 import { baseLayer } from "../../runtime.js";
 
 const TEST_VERSION = "0.0.0-test";
+const ANSI_ESCAPE = String.fromCharCode(27);
+const ANSI_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-?]*[ -/]*[@-~]`, "g");
+
+const stripAnsi = (value: string): string => value.replace(ANSI_PATTERN, "");
 
 const captureHelpOutput = (path: ReadonlyArray<string>): Effect.Effect<string, unknown, never> =>
   Effect.gen(function* () {
@@ -30,7 +34,7 @@ const captureHelpOutput = (path: ReadonlyArray<string>): Effect.Effect<string, u
 
 describe("root install command help", () => {
   it("documents the no-arg and FQN install contract", async () => {
-    const output = await Effect.runPromise(captureHelpOutput(["install"]));
+    const output = stripAnsi(await Effect.runPromise(captureHelpOutput(["install"])));
 
     expect(output).toContain(
       "Install a registry extension, or reinstall all configured extensions from their sources",

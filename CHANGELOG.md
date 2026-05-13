@@ -1,3 +1,13 @@
+## 0.7.4 (2026-05-13)
+
+### 🩹 Fixes
+
+- Improve AXM interactive output, login handling, and Node runtime compatibility. ([72eb1046](https://github.com/agentxm/axm/commit/72eb1046))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.7.3 (2026-05-12)
 
 ### 🩹 Fixes

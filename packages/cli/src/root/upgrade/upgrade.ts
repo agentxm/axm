@@ -13,9 +13,7 @@ import { SubprocessLive } from "./subprocess.js";
 const upgradeLayer = Layer.mergeAll(InstallMethodLive, InstallMetaLive, SubprocessLive);
 
 const upgradeConfig = {
-  force: forceFlag.pipe(
-    Flag.withDescription("Re-download even if already up to date (script installs only)"),
-  ),
+  force: forceFlag.pipe(Flag.withDescription("Reinstall even if already up to date")),
 } as const;
 
 export const upgradeCommand = Command.make("upgrade", upgradeConfig, ({ force }) =>
@@ -25,6 +23,6 @@ export const upgradeCommand = Command.make("upgrade", upgradeConfig, ({ force })
   Command.withDescription("Update axm to the latest version"),
   Command.withExamples([
     { command: "axm upgrade", description: "Download and install the latest version" },
-    { command: "axm upgrade --force", description: "Re-download even if already up to date" },
+    { command: "axm upgrade --force", description: "Reinstall even if already up to date" },
   ]),
 );

@@ -29,6 +29,9 @@ import { InstallMeta, type InstallMetaData } from "@agentxm/client-core/unstable
 
 import { handleUpgrade, resolvePlatformBinary, makeDownloadUrl } from "./handler.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
+import { loadVersion } from "../../version.js";
+
+const LOCAL_VERSION = loadVersion();
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -306,21 +309,48 @@ describe("handleUpgrade", () => {
       );
     });
 
-    it.effect("notes that --force has no effect", () => {
+    it.effect("short-circuits when already up to date and force is not set", () => {
+      const subprocess = makeMockSubprocess();
+      const { provide, logs, rendererState } = makeTestLayers({
+        method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        httpHandler: makeSuccessHandler(LOCAL_VERSION),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.info).toContain("Installed via Homebrew");
+          expect(logs.info).toContain(`Already up to date (${LOCAL_VERSION})`);
+          expect(rendererState.spinnerMessages).not.toContain("Upgrading via Homebrew...");
+          expect(subprocess.calls.some((call) => call.command === "brew")).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("reinstalls when --force and already up to date", () => {
       const subprocess = makeMockSubprocess((invocation) => {
         if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
           return commandResult({ stdout: "agentxm/tap\n" });
         }
-        return commandResult();
+        return commandResult({ stdout: `${LOCAL_VERSION}\n` });
       });
-      const { provide, logs } = makeTestLayers({
+      const { provide, logs, rendererState } = makeTestLayers({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        httpHandler: makeSuccessHandler(LOCAL_VERSION),
         subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
-          expect(logs.info).toContain("--force has no effect for Homebrew installs.");
+          expect(logs.info).not.toContain(`Already up to date (${LOCAL_VERSION})`);
+          expect(rendererState.spinnerMessages).toContain("Reinstalling via Homebrew...");
+          expect(rendererState.spinnerMessages).toContain(`Reinstalled ${LOCAL_VERSION}`);
+          expect(
+            subprocess.calls.some(
+              (call) =>
+                call.command === "brew" && call.args.join(" ") === "reinstall agentxm/tap/axm",
+            ),
+          ).toBe(true);
         }),
       );
     });
@@ -382,14 +412,48 @@ describe("handleUpgrade", () => {
       );
     });
 
-    it.effect("notes that --force has no effect", () => {
-      const { provide, logs } = makeTestLayers({
+    it.effect("short-circuits when already up to date and force is not set", () => {
+      const subprocess = makeMockSubprocess();
+      const { provide, logs, rendererState } = makeTestLayers({
         method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
+        httpHandler: makeSuccessHandler(LOCAL_VERSION),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.info).toContain("Installed via npm");
+          expect(logs.info).toContain(`Already up to date (${LOCAL_VERSION})`);
+          expect(rendererState.spinnerMessages).not.toContain("Upgrading via npm...");
+          expect(subprocess.calls.some((call) => call.command === "npm")).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("reinstalls when --force and already up to date", () => {
+      const subprocess = makeMockSubprocess((invocation) =>
+        invocation.command === "npm"
+          ? commandResult()
+          : commandResult({ stdout: `${LOCAL_VERSION}\n` }),
+      );
+      const { provide, logs, rendererState } = makeTestLayers({
+        method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
+        httpHandler: makeSuccessHandler(LOCAL_VERSION),
+        subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
-          expect(logs.info).toContain("--force has no effect for npm installs.");
+          expect(logs.info).not.toContain(`Already up to date (${LOCAL_VERSION})`);
+          expect(rendererState.spinnerMessages).toContain("Reinstalling via npm...");
+          expect(rendererState.spinnerMessages).toContain(`Reinstalled ${LOCAL_VERSION}`);
+          expect(
+            subprocess.calls.some(
+              (call) =>
+                call.command === "npm" &&
+                call.args.join(" ") === `install -g axm.sh@${LOCAL_VERSION}`,
+            ),
+          ).toBe(true);
         }),
       );
     });
@@ -404,9 +468,9 @@ describe("handleUpgrade", () => {
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
           expect(logs.info).toContain("Install method could not be determined.");
-          expect(logs.info.some((msg) => msg.includes("curl -fsSL https://get.agentxm.ai"))).toBe(
-            true,
-          );
+          expect(
+            logs.info.some((msg) => msg.includes("curl -fsSL https://axm.sh/install.sh")),
+          ).toBe(true);
         }),
       );
     });
@@ -542,39 +606,8 @@ describe("handleUpgrade", () => {
   // Force flag on non-script installs
   // ===========================================================================
 
-  describe("--force on non-script installs", () => {
-    it.effect("force flag is noted but does not error for homebrew", () => {
-      const subprocess = makeMockSubprocess((invocation) => {
-        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
-          return commandResult({ stdout: "agentxm/tap\n" });
-        }
-        return commandResult();
-      });
-      const { provide, logs } = makeTestLayers({
-        method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
-        subprocess,
-      });
-      return provide(
-        Effect.gen(function* () {
-          yield* handleUpgrade({ force: true });
-          expect(logs.info).toContain("--force has no effect for Homebrew installs.");
-        }),
-      );
-    });
-
-    it.effect("force flag is noted but does not error for npm", () => {
-      const { provide, logs } = makeTestLayers({
-        method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
-      });
-      return provide(
-        Effect.gen(function* () {
-          yield* handleUpgrade({ force: true });
-          expect(logs.info).toContain("--force has no effect for npm installs.");
-        }),
-      );
-    });
-
-    it.effect("force flag is noted but does not error for unknown", () => {
+  describe("--force on unknown install method", () => {
+    it.effect("force flag is noted but does not error", () => {
       const { provide, logs } = makeTestLayers({
         method: new Unknown(),
       });

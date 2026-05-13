@@ -38,6 +38,7 @@ const UpgradeDocumentFields = {
 } satisfies Schema.Struct.Fields;
 
 const BREW_UPGRADE_COMMAND = "brew upgrade agentxm/tap/axm";
+const BREW_REINSTALL_COMMAND = "brew reinstall agentxm/tap/axm";
 const NPM_PACKAGE = "axm.sh";
 const HOMEBREW_ENV = { HOMEBREW_NO_AUTO_UPDATE: "1" } as const;
 
@@ -226,14 +227,6 @@ const verifyBinary = (binaryPath: string) =>
     return result.stdout.trim();
   });
 
-const resolveTargetVersion = (localVersion: string) =>
-  Effect.gen(function* () {
-    const httpClient = yield* HttpClient.HttpClient;
-    const repo = yield* resolveGithubRepo();
-    const resolution = yield* resolveLatestVersion(httpClient, localVersion, repo);
-    return resolution.remoteVersion;
-  });
-
 const commandOutput = (result: CommandResult): string =>
   [result.stdout.trim(), result.stderr.trim()].filter((part) => part.length > 0).join("\n");
 
@@ -304,15 +297,35 @@ const cleanupWindowsOld = (targetPath: string) =>
 const handleHomebrew = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const httpClient = yield* HttpClient.HttpClient;
     const subprocess = yield* Subprocess;
     const localVersion = loadVersion();
-    const targetVersion = yield* resolveTargetVersion(localVersion);
-    const delegatedCommand = BREW_UPGRADE_COMMAND;
+    const repo = yield* resolveGithubRepo();
+    const resolution = yield* resolveLatestVersion(httpClient, localVersion, repo);
+    const targetVersion = resolution.remoteVersion;
 
-    if (force) {
-      yield* renderer.info("--force has no effect for Homebrew installs.");
-    }
     yield* renderer.info("Installed via Homebrew");
+
+    if (!resolution.isStale && !force) {
+      yield* renderer.info(`Already up to date (${localVersion})`);
+      return {
+        status: "already-up-to-date",
+        installMethod: "homebrew",
+        localVersion,
+        targetVersion,
+        force,
+      } satisfies UpgradeResult;
+    }
+
+    const isReinstall = force && !resolution.isStale;
+    const brewSubcommand = isReinstall ? "reinstall" : "upgrade";
+    const delegatedCommand = isReinstall ? BREW_REINSTALL_COMMAND : BREW_UPGRADE_COMMAND;
+    const spinnerMessage = isReinstall
+      ? "Reinstalling via Homebrew..."
+      : "Upgrading via Homebrew...";
+    const successMessage = isReinstall
+      ? `Reinstalled ${targetVersion}`
+      : `Upgraded to ${targetVersion}`;
 
     const tapList = yield* subprocess.run("brew", ["tap"], { env: HOMEBREW_ENV });
     if (tapList.exitCode !== 0) {
@@ -339,22 +352,22 @@ const handleHomebrew = (force: boolean) =>
     }
 
     yield* renderer.withSpinner(
-      "Upgrading via Homebrew...",
+      spinnerMessage,
       () =>
         subprocess
-          .run("brew", ["upgrade", "agentxm/tap/axm"], { env: HOMEBREW_ENV })
+          .run("brew", [brewSubcommand, "agentxm/tap/axm"], { env: HOMEBREW_ENV })
           .pipe(
             Effect.flatMap((result) =>
               failOnCommandError({ manager: "Homebrew", command: delegatedCommand, result }),
             ),
           ),
-      { successMessage: `Upgraded to ${targetVersion}` },
+      { successMessage },
     );
 
     yield* verifyUpgradedVersion(targetVersion);
 
     return {
-      status: "upgraded",
+      status: isReinstall ? "reinstalled" : "upgraded",
       installMethod: "homebrew",
       localVersion,
       targetVersion,
@@ -366,18 +379,35 @@ const handleHomebrew = (force: boolean) =>
 const handleNpm = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const httpClient = yield* HttpClient.HttpClient;
     const subprocess = yield* Subprocess;
     const localVersion = loadVersion();
-    const targetVersion = yield* resolveTargetVersion(localVersion);
+    const repo = yield* resolveGithubRepo();
+    const resolution = yield* resolveLatestVersion(httpClient, localVersion, repo);
+    const targetVersion = resolution.remoteVersion;
     const delegatedCommand = `npm install -g ${NPM_PACKAGE}@${targetVersion}`;
 
-    if (force) {
-      yield* renderer.info("--force has no effect for npm installs.");
-    }
     yield* renderer.info("Installed via npm");
 
+    if (!resolution.isStale && !force) {
+      yield* renderer.info(`Already up to date (${localVersion})`);
+      return {
+        status: "already-up-to-date",
+        installMethod: "npm",
+        localVersion,
+        targetVersion,
+        force,
+      } satisfies UpgradeResult;
+    }
+
+    const isReinstall = force && !resolution.isStale;
+    const spinnerMessage = isReinstall ? "Reinstalling via npm..." : "Upgrading via npm...";
+    const successMessage = isReinstall
+      ? `Reinstalled ${targetVersion}`
+      : `Upgraded to ${targetVersion}`;
+
     yield* renderer.withSpinner(
-      "Upgrading via npm...",
+      spinnerMessage,
       () =>
         subprocess
           .run("npm", ["install", "-g", `${NPM_PACKAGE}@${targetVersion}`])
@@ -386,13 +416,13 @@ const handleNpm = (force: boolean) =>
               failOnCommandError({ manager: "npm", command: delegatedCommand, result }),
             ),
           ),
-      { successMessage: `Upgraded to ${targetVersion}` },
+      { successMessage },
     );
 
     yield* verifyUpgradedVersion(targetVersion);
 
     return {
-      status: "upgraded",
+      status: isReinstall ? "reinstalled" : "upgraded",
       installMethod: "npm",
       localVersion,
       targetVersion,
@@ -410,12 +440,12 @@ const handleUnknown = (force: boolean) =>
     }
     yield* renderer.info("Install method could not be determined.");
     yield* renderer.info("To install or update, run:");
-    yield* renderer.info("  curl -fsSL https://get.agentxm.ai | sh");
+    yield* renderer.info("  curl -fsSL https://axm.sh/install.sh | sh");
     return {
       status: "delegated",
       installMethod: "unknown",
       localVersion,
-      delegatedCommand: "curl -fsSL https://get.agentxm.ai | sh",
+      delegatedCommand: "curl -fsSL https://axm.sh/install.sh | sh",
       force,
     } satisfies UpgradeResult;
   });

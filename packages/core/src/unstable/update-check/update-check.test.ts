@@ -2,7 +2,7 @@
  * Unit tests for UpdateCheck service.
  *
  * Covers: cache read (fresh, stale, missing, invalid), cache write,
- * skip conditions, and install-method-aware notification messages.
+ * skip conditions, and notification messages.
  */
 
 import * as os from "node:os";
@@ -13,8 +13,6 @@ import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-
-import { Homebrew, Npm, Script, Unknown } from "../install-method/install-method.js";
 
 import {
   type SkipCheckContext,
@@ -143,52 +141,16 @@ describe("shouldSkip", () => {
 // =============================================================================
 
 describe("notificationMessage", () => {
-  it("returns script message for Script method", () => {
-    const msg = notificationMessage(new Script({ execPath: "/bin/axm" }), "0.1.0", "0.2.0");
-    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
-  });
-
-  it("returns axm upgrade message for Homebrew method", () => {
-    const msg = notificationMessage(
-      new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
-      "0.1.0",
-      "0.2.0",
+  it("returns human-readable message", () => {
+    expect(notificationMessage("0.1.0", "0.2.0")).toBe(
+      "Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade",
     );
-    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
   });
 
-  it("returns axm upgrade message for Npm method", () => {
-    const msg = notificationMessage(
-      new Npm({ importUrl: "file:///lib/node_modules/axm" }),
-      "0.1.0",
-      "0.2.0",
+  it("returns compact agent message", () => {
+    expect(notificationMessage("0.1.0", "0.2.0", "agent")).toBe(
+      'AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="axm upgrade"',
     );
-    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
-  });
-
-  it("returns script message for Unknown method", () => {
-    const msg = notificationMessage(new Unknown(), "0.1.0", "0.2.0");
-    expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
-  });
-
-  it("returns compact agent message for Script method", () => {
-    const msg = notificationMessage(
-      new Script({ execPath: "/bin/axm" }),
-      "0.1.0",
-      "0.2.0",
-      "agent",
-    );
-    expect(msg).toBe('AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="axm upgrade"');
-  });
-
-  it("returns compact agent message for Npm method", () => {
-    const msg = notificationMessage(
-      new Npm({ importUrl: "file:///lib/node_modules/axm" }),
-      "0.1.0",
-      "0.2.0",
-      "agent",
-    );
-    expect(msg).toBe('AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="axm upgrade"');
   });
 });
 
@@ -487,11 +449,7 @@ describe("UpdateCheck service via UpdateCheckTest layer", () => {
   it.effect("notificationMessage delegates to pure function", () =>
     Effect.gen(function* () {
       const service = yield* UpdateCheck;
-      const msg = service.notificationMessage(
-        new Script({ execPath: "/bin/axm" }),
-        "0.1.0",
-        "0.2.0",
-      );
+      const msg = service.notificationMessage("0.1.0", "0.2.0");
       expect(msg).toContain("axm upgrade");
     }).pipe(
       Effect.provide(

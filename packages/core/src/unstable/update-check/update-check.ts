@@ -2,8 +2,7 @@
  * UpdateCheck service — manages cached version checks and notifications.
  *
  * Reads/writes a `~/.axm/update-check.json` cache file, determines whether
- * the check should be skipped, and produces install-method-aware notification
- * messages.
+ * the check should be skipped, and produces notification messages.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -18,7 +17,6 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 
-import type { InstallMethodType } from "../install-method/install-method.js";
 import { resolveAxmDataDir } from "../utils/index.js";
 
 // -----------------------------------------------------------------------------
@@ -79,9 +77,8 @@ export interface UpdateCheckService {
   ) => Effect.Effect<Option.Option<{ readonly current: string; readonly latest: string }>>;
   /** Determine if the update check should be skipped entirely. */
   readonly shouldSkip: (context: SkipCheckContext) => boolean;
-  /** Build an install-method-aware notification message. */
+  /** Build a notification message. */
   readonly notificationMessage: (
-    method: InstallMethodType,
     current: string,
     latest: string,
     audience?: NotificationAudience,
@@ -111,25 +108,21 @@ export const shouldSkip = (context: SkipCheckContext): boolean =>
   (context.isNonInteractive && !context.isAgentSession) ||
   (!context.isStderrTTY && !context.isAgentSession);
 
-const notificationCommand = (_method: InstallMethodType): string => "axm upgrade";
+const UPGRADE_COMMAND = "axm upgrade";
 
 /**
- * Build an install-method-aware notification message.
+ * Build a notification message.
  */
 export const notificationMessage = (
-  method: InstallMethodType,
   current: string,
   latest: string,
   audience: NotificationAudience = "human",
 ): string => {
-  const command = notificationCommand(method);
-
   if (audience === "agent") {
-    return `AXM_UPDATE_AVAILABLE current=${current} latest=${latest} command="${command}"`;
+    return `AXM_UPDATE_AVAILABLE current=${current} latest=${latest} command="${UPGRADE_COMMAND}"`;
   }
 
-  const header = `Update available: ${current} \u2192 ${latest}`;
-  return `${header}\nRun: ${command}`;
+  return `Update available: ${current} \u2192 ${latest}\nRun: ${UPGRADE_COMMAND}`;
 };
 
 /**

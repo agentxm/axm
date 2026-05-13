@@ -88,34 +88,13 @@ The entire update check (both compare and refresh phases) SHALL be skipped under
 - **WHEN** stderr is not a TTY (e.g., output is being captured)
 - **THEN** the update check SHALL be skipped entirely
 
-### Requirement: Update notification is install-method-aware
+### Requirement: Update notification recommends `axm upgrade`
 
-The notification message SHALL show the appropriate update command for the detected installation method.
+The notification message SHALL direct the user to run `axm upgrade`, regardless of installation method. The `axm upgrade` command itself detects the install method and delegates to the underlying package manager (Homebrew, npm) when appropriate.
 
-#### Scenario: Script install notification
+#### Scenario: Update notification
 
-- **WHEN** the detected method is `script`
-- **THEN** the notification SHALL display the title `Update Available`
-- **AND** the notification body SHALL include `{current} → {latest}`
-- **AND** the notification body SHALL include `Run: axm upgrade`
-
-#### Scenario: Homebrew install notification
-
-- **WHEN** the detected method is `homebrew`
-- **THEN** the notification SHALL display the title `Update Available`
-- **AND** the notification body SHALL include `{current} → {latest}`
-- **AND** the notification body SHALL include `Run: brew upgrade agentxm/tap/axm`
-
-#### Scenario: npm install notification
-
-- **WHEN** the detected method is `npm`
-- **THEN** the notification SHALL display the title `Update Available`
-- **AND** the notification body SHALL include `{current} → {latest}`
-- **AND** the notification body SHALL include `Run: npm update -g axm.sh`
-
-#### Scenario: Unknown install notification
-
-- **WHEN** the detected method is `unknown`
+- **WHEN** an update is available
 - **THEN** the notification SHALL display the title `Update Available`
 - **AND** the notification body SHALL include `{current} → {latest}`
 - **AND** the notification body SHALL include `Run: axm upgrade`

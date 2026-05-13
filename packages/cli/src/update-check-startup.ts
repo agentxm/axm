@@ -16,7 +16,6 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { InstallMethod } from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheck, isCacheStale } from "@agentxm/client-core/unstable/update-check";
 import {
   resolveLatestVersion,
@@ -173,11 +172,8 @@ export const withUpdateCheck = <A, E, R>(
       if (Option.isNone(cache)) return Option.none<string>();
       const updateAvailable = yield* updateCheck.isUpdateAvailable(options.localVersion);
       if (Option.isNone(updateAvailable)) return Option.none<string>();
-      const installMethod = yield* InstallMethod;
-      const method = yield* installMethod.detect();
       return Option.some(
         updateCheck.notificationMessage(
-          method,
           updateAvailable.value.current,
           updateAvailable.value.latest,
           skipContext.isAgentSession ? "agent" : "human",

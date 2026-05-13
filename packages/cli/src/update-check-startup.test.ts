@@ -17,14 +17,6 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  InstallMethod,
-  Unknown,
-  Script,
-  Homebrew,
-  Npm,
-  type InstallMethodType,
-} from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheck, UpdateCheckTest } from "@agentxm/client-core/unstable/update-check";
 
 import {
@@ -54,11 +46,6 @@ const baseInputs: UpdateCheckContextInputs = {
   isAgentSession: false,
   noUpdateCheckEnv: false,
 };
-
-const makeMockInstallMethod = (method: InstallMethodType) =>
-  Layer.succeed(InstallMethod, {
-    detect: () => Effect.succeed(method),
-  });
 
 const makeMockHttpClient = (handler: (url: string) => Response) =>
   Layer.succeed(
@@ -96,7 +83,6 @@ const makeTestPrinter = (): {
 interface TestLayerOptions {
   readonly tempDir: string;
   readonly cacheData?: { latestVersion: string; checkedAt: string } | undefined;
-  readonly method?: InstallMethodType;
   readonly remoteVersion?: string;
 }
 
@@ -107,17 +93,10 @@ const makeTestLayers = (opts: TestLayerOptions) => {
   }
 
   const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
-  const installMethodLayer = makeMockInstallMethod(opts.method ?? new Unknown());
   const httpClientLayer = makeSuccessHttpClient(opts.remoteVersion ?? REMOTE_VERSION);
   const { layer: rendererLayer } = TestRenderer.make();
 
-  return Layer.mergeAll(
-    updateCheckLayer,
-    installMethodLayer,
-    httpClientLayer,
-    rendererLayer,
-    NodeServices.layer,
-  );
+  return Layer.mergeAll(updateCheckLayer, httpClientLayer, rendererLayer, NodeServices.layer);
 };
 
 /**
@@ -166,7 +145,7 @@ const makeTrackingUpdateCheck = (opts: {
       ctx.isUpgradeCommand ||
       (ctx.isNonInteractive && !ctx.isAgentSession) ||
       (!ctx.isStderrTTY && !ctx.isAgentSession),
-    notificationMessage: (_method, current, latest, audience = "human") =>
+    notificationMessage: (current, latest, audience = "human") =>
       audience === "agent"
         ? `AXM_UPDATE_AVAILABLE current=${current} latest=${latest} command="axm upgrade"`
         : `Update available: ${current} \u2192 ${latest}\nRun: axm upgrade`,
@@ -308,12 +287,10 @@ describe("withUpdateCheck", () => {
     );
 
     const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
-    const installMethodLayer = makeMockInstallMethod(new Unknown());
     const httpClientLayer = makeSuccessHttpClient();
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
     const layer = Layer.mergeAll(
       updateCheckLayer,
-      installMethodLayer,
       httpClientLayer,
       rendererLayer,
       NodeServices.layer,
@@ -380,64 +357,13 @@ describe("withUpdateCheck", () => {
     );
   });
 
-  it.effect("notification includes method-aware install command for Script", () => {
+  it.effect("notification recommends axm upgrade", () => {
     const { printer, messages } = makeTestPrinter();
     const commandProgram = Effect.void;
 
     const layer = makeTestLayers({
       tempDir,
       cacheData: { latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() },
-      method: new Script({ execPath: "/usr/local/bin/axm" }),
-    });
-
-    return withUpdateCheck(commandProgram, {
-      localVersion: LOCAL_VERSION,
-      inputs: baseInputs,
-      printNotification: printer,
-    }).pipe(
-      Effect.tap(() =>
-        Effect.sync(() => {
-          expect(messages.length).toBe(1);
-          expect(messages[0]).toContain("axm upgrade");
-        }),
-      ),
-      Effect.provide(layer),
-    );
-  });
-
-  it.effect("notification recommends axm upgrade for Homebrew", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    const layer = makeTestLayers({
-      tempDir,
-      cacheData: { latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() },
-      method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
-    });
-
-    return withUpdateCheck(commandProgram, {
-      localVersion: LOCAL_VERSION,
-      inputs: baseInputs,
-      printNotification: printer,
-    }).pipe(
-      Effect.tap(() =>
-        Effect.sync(() => {
-          expect(messages.length).toBe(1);
-          expect(messages[0]).toContain("axm upgrade");
-        }),
-      ),
-      Effect.provide(layer),
-    );
-  });
-
-  it.effect("notification recommends axm upgrade for Npm", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    const layer = makeTestLayers({
-      tempDir,
-      cacheData: { latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() },
-      method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
     });
 
     return withUpdateCheck(commandProgram, {
@@ -612,16 +538,9 @@ describe("withUpdateCheck", () => {
       cacheResult: "none",
       updateAvailable: false,
     });
-    const installMethodLayer = makeMockInstallMethod(new Unknown());
     const httpClientLayer = makeSuccessHttpClient();
     const { layer: rendererLayer } = TestRenderer.make();
-    const layer = Layer.mergeAll(
-      trackingLayer,
-      installMethodLayer,
-      httpClientLayer,
-      rendererLayer,
-      NodeServices.layer,
-    );
+    const layer = Layer.mergeAll(trackingLayer, httpClientLayer, rendererLayer, NodeServices.layer);
 
     return withUpdateCheck(commandProgram, {
       localVersion: LOCAL_VERSION,
@@ -651,16 +570,9 @@ describe("withUpdateCheck", () => {
       cacheResult: "fresh",
       updateAvailable: true,
     });
-    const installMethodLayer = makeMockInstallMethod(new Unknown());
     const httpClientLayer = makeSuccessHttpClient();
     const { layer: rendererLayer } = TestRenderer.make();
-    const layer = Layer.mergeAll(
-      trackingLayer,
-      installMethodLayer,
-      httpClientLayer,
-      rendererLayer,
-      NodeServices.layer,
-    );
+    const layer = Layer.mergeAll(trackingLayer, httpClientLayer, rendererLayer, NodeServices.layer);
 
     return withUpdateCheck(commandProgram, {
       localVersion: LOCAL_VERSION,

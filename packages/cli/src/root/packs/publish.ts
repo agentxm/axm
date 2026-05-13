@@ -36,6 +36,10 @@ import {
   publishMcpServer,
   type PublishMcpServerOperation,
 } from "@agentxm/client-core/unstable/mcp-servers";
+import {
+  publishSubagent,
+  type PublishSubagentOperation,
+} from "@agentxm/client-core/unstable/subagents";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
@@ -63,7 +67,8 @@ export type PackPublishOp =
   | PublishPackOperation
   | PublishSkillOperation
   | PublishCommandOperation
-  | PublishMcpServerOperation;
+  | PublishMcpServerOperation
+  | PublishSubagentOperation;
 
 interface TargetRegistry {
   readonly registryName: string;
@@ -441,6 +446,17 @@ const makeDependencyStep = (
         run: provideServices(publishMcpServer(op)).pipe(Effect.map(toJobStepResult)),
       } satisfies PlannedJobStep);
     }
+    case "subagent": {
+      const op: PublishSubagentOperation = {
+        name: "publish-subagent",
+        args: { name: depFqn, registryName },
+      };
+      return Effect.succeed({
+        readiness: "ready",
+        label,
+        run: provideServices(publishSubagent(op)).pipe(Effect.map(toJobStepResult)),
+      } satisfies PlannedJobStep);
+    }
     case "pack":
       return Effect.fail(
         makeAppError({
@@ -448,7 +464,6 @@ const makeDependencyStep = (
           message: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
         }),
       );
-    case "subagent":
     case "file":
     case "rule":
       return Effect.fail(

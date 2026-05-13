@@ -95,6 +95,28 @@ const createManagedExtension = (
   return extDir;
 };
 
+/** Create a managed subagent (manifest + src/<name>.md with name frontmatter). */
+const createManagedSubagent = (
+  tempDir: string,
+  owner: string,
+  name: string,
+  manifest: Record<string, unknown>,
+) => {
+  const extDir = path.join(tempDir, ".axm", "extensions", owner, "subagents", name);
+  const srcDir = path.join(extDir, "src");
+  fs.mkdirSync(srcDir, { recursive: true });
+  const normalizedManifest = {
+    ...manifest,
+    owner,
+    type: "subagent",
+    name,
+    version: manifest["version"] ?? "0.0.1",
+  };
+  fs.writeFileSync(path.join(extDir, "subagent.json"), JSON.stringify(normalizedManifest));
+  fs.writeFileSync(path.join(srcDir, `${name}.md`), `---\nname: ${name}\n---\n\nBody.\n`);
+  return extDir;
+};
+
 const defaultArgs = (
   pack: string,
   overrides: Partial<PublishPackHandlerArgs> = {},
@@ -639,6 +661,57 @@ describe("packs publish.handler", () => {
             "@test",
             "packs",
             "mixed-deps-pack",
+            "index.json",
+          );
+          expect(fs.existsSync(packIndex)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("publishes local subagent dependency when includeDependencies is true", () => {
+      const { provide, logs } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "agent-pack", {
+        name: "@test/packs/agent-pack",
+        version: "1.0.0",
+        dependencies: { "@test/subagents/reviewer": "^1.0.0" },
+      });
+
+      createManagedSubagent(tempDir, "@test", "reviewer", {
+        name: "@test/subagents/reviewer",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/agent-pack", {
+              registry: Option.some("local"),
+              includeDependencies: true,
+            }),
+          );
+
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          const subagentIndex = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "subagents",
+            "reviewer",
+            "index.json",
+          );
+          expect(fs.existsSync(subagentIndex)).toBe(true);
+
+          const packIndex = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "packs",
+            "agent-pack",
             "index.json",
           );
           expect(fs.existsSync(packIndex)).toBe(true);

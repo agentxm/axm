@@ -8,6 +8,9 @@
   "scripts": {
     "axm": "bun packages/cli/src/main.ts",
     "axm:local": "./scripts/axm-local",
+    "axm:link": "./scripts/axm-link link",
+    "axm:link:status": "./scripts/axm-link status",
+    "axm:unlink": "./scripts/axm-link unlink",
     "spike": "bun packages/cli-spike/src/main.ts",
     "release-prepare": "bun scripts/release-prepare.ts",
     "release-publish": "bun scripts/release-publish.ts",

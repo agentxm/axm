@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Manage a symlink that exposes the local `axm-local` dev wrapper as `axm`
+# on PATH. Lets you iterate on the CLI source without rebuilding or
+# publishing — every invocation runs packages/cli/src/main.ts via bun.
+#
+# Subcommands:
+#   link     create the symlink (refuses to clobber a non-matching file)
+#   unlink   remove the symlink if it points at our wrapper
+#   status   print current state and `which -a axm` resolution
+#
+# Env:
+#   AXM_DEV_BIN   target directory for the symlink (default: $HOME/.local/bin)
+#   AXM_DEV_NAME  symlink basename (default: axm)
+#
+# Flags:
+#   --force    overwrite an existing entry even if it isn't our symlink
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+target_script="${script_dir}/axm-local"
+
+bin_dir="${AXM_DEV_BIN:-$HOME/.local/bin}"
+link_name="${AXM_DEV_NAME:-axm}"
+link_path="${bin_dir}/${link_name}"
+
+force=0
+subcommand=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --force) force=1 ;;
+    -h|--help)
+      sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    link|unlink|status) subcommand="$arg" ;;
+    *)
+      echo "axm-link: unknown argument: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "$subcommand" ]]; then
+  echo "axm-link: missing subcommand (link | unlink | status)" >&2
+  exit 2
+fi
+
+print_resolution() {
+  if command -v which >/dev/null 2>&1; then
+    echo "PATH resolution:"
+    which -a "$link_name" 2>/dev/null | sed 's/^/  /' || true
+  fi
+}
+
+case "$subcommand" in
+  link)
+    if [[ ! -x "$target_script" ]]; then
+      echo "axm-link: target script not executable: $target_script" >&2
+      exit 1
+    fi
+    mkdir -p "$bin_dir"
+    if [[ -L "$link_path" ]]; then
+      current="$(readlink "$link_path")"
+      if [[ "$current" == "$target_script" ]]; then
+        echo "Already linked: $link_path -> $current"
+        print_resolution
+        exit 0
+      fi
+      if [[ $force -eq 0 ]]; then
+        echo "axm-link: $link_path is a symlink to $current; pass --force to replace" >&2
+        exit 1
+      fi
+      rm "$link_path"
+    elif [[ -e "$link_path" ]]; then
+      if [[ $force -eq 0 ]]; then
+        echo "axm-link: $link_path exists and is not a symlink; pass --force to replace" >&2
+        exit 1
+      fi
+      rm "$link_path"
+    fi
+    ln -s "$target_script" "$link_path"
+    echo "Linked: $link_path -> $target_script"
+    case ":$PATH:" in
+      *":$bin_dir:"*) ;;
+      *) echo "Warning: $bin_dir is not on PATH" >&2 ;;
+    esac
+    print_resolution
+    ;;
+  unlink)
+    if [[ ! -L "$link_path" ]]; then
+      echo "Not linked: $link_path"
+      exit 0
+    fi
+    current="$(readlink "$link_path")"
+    if [[ "$current" != "$target_script" && $force -eq 0 ]]; then
+      echo "axm-link: $link_path -> $current is not our symlink; pass --force to remove" >&2
+      exit 1
+    fi
+    rm "$link_path"
+    echo "Unlinked: $link_path"
+    print_resolution
+    ;;
+  status)
+    echo "Target script: $target_script"
+    echo "Link path:     $link_path"
+    if [[ -L "$link_path" ]]; then
+      current="$(readlink "$link_path")"
+      if [[ "$current" == "$target_script" ]]; then
+        echo "State:         linked (ours)"
+      else
+        echo "State:         linked to $current (not ours)"
+      fi
+    elif [[ -e "$link_path" ]]; then
+      echo "State:         exists, not a symlink"
+    else
+      echo "State:         absent"
+    fi
+    print_resolution
+    ;;
+esac

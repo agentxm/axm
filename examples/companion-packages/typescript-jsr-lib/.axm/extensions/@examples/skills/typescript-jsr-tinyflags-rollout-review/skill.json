@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "typescript-jsr-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Audit a TinyFlags flag's TypeScript callsites and rollout state before advancing the gate.",
+  "keywords": ["jsr", "deno", "typescript", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:generic/jsr/%40agentxm/example-tinyflags@0.1.0"],
+  "recommendedPacks": ["@examples/packs/typescript-jsr-tinyflags"],
+  "standalone": false
+}

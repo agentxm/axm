@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "typescript-jsr-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Retire a rolled-out TinyFlags flag from TypeScript code, keeping the live branch and pruning dead tests.",
+  "keywords": ["jsr", "deno", "typescript", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:generic/jsr/%40agentxm/example-tinyflags@0.1.0"],
+  "recommendedPacks": ["@examples/packs/typescript-jsr-tinyflags"],
+  "standalone": false
+}

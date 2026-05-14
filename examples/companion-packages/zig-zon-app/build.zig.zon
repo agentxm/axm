@@ -1,0 +1,21 @@
+.{
+    .name = "agentxm_example_pawmatch",
+    .version = "0.1.0",
+    .minimum_zig_version = "0.13.0",
+    .dependencies = .{
+        // The TinyFlags library lives in the sibling `zig-zon-lib` directory.
+        // Real Zig packages would normally publish to a URL+hash; we use a
+        // `.path` dependency here because the example library has no archive
+        // to fetch. The AXM Zig detector still picks up the dependency name
+        // from this `.dependencies` block.
+        .agentxm_example_tinyflags = .{
+            .path = "../zig-zon-lib",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}

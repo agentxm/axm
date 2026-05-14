@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "zig-zon-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Triage TinyFlags feature flags across a Zig codebase and recommend cleanup or rollout follow-ups.",
+  "keywords": ["zig", "zon", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:generic/zig/agentxm_example_tinyflags"],
+  "recommendedPacks": ["@examples/packs/zig-zon-tinyflags"],
+  "standalone": false
+}

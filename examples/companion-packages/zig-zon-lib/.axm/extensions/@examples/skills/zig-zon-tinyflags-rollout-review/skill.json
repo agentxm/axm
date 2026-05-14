@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "zig-zon-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Audit a TinyFlags flag's Zig callsites and rollout state before advancing the gate.",
+  "keywords": ["zig", "zon", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:generic/zig/agentxm_example_tinyflags"],
+  "recommendedPacks": ["@examples/packs/zig-zon-tinyflags"],
+  "standalone": false
+}

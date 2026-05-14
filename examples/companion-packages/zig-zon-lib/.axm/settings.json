@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "zig-zon-tinyflags-add-flag": {
+      "source": "@examples/skills/zig-zon-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "zig-zon-tinyflags-rollout-review": {
+      "source": "@examples/skills/zig-zon-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "zig-zon-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/zig-zon-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "zig-zon-tinyflags-maintainer": {
+      "source": "@examples/subagents/zig-zon-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "zig-zon-tinyflags": {
+      "source": "@examples/packs/zig-zon-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

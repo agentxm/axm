@@ -1,8 +1,9 @@
 # Companion Package Examples
 
-This directory demonstrates how a library or framework can publish companion
-AXM extensions for its users. Each ecosystem example pairs a small library
-(`*-lib`) with a tiny consumer application (`*-app`) that uses it.
+This directory demonstrates how libraries and applications can publish
+companion AXM extensions for their users. Each ecosystem example pairs a small
+library (`*-lib`) with a tiny consumer application (`*-app`) that uses it, and
+both publish their own companion AXM extension set.
 
 The example extensions are published under the AgentXM.ai `@examples` owner
 namespace. The ecosystem packages they support are published under the
@@ -138,9 +139,20 @@ includes a footer reminder to verify ratings independently before giving.
 Pawmatch does not process payments; it shows information and links to each
 organization's official donation page.
 
-## Extension Set
+## Extension Sets
 
-Each ecosystem example includes these extension roles:
+Each ecosystem example ships two companion extension sets — one for the
+library and one for the app — to demonstrate that both packages and
+applications can publish AXM extensions for their users.
+
+All example extensions use owner `@examples`. Extension names are prefixed by
+ecosystem and target, for example `dotnet-csharp-tinyflags-add-flag` and
+`dotnet-csharp-pawmatch-find-a-pet`.
+
+### Library extensions — TinyFlags
+
+Companion extensions for developers using the library. Each ecosystem example
+includes these extension roles:
 
 - Add flag skill: guides users through adding a TinyFlags flag with tests.
 - Rollout review skill: reviews rollout safety and ecosystem package details.
@@ -149,9 +161,23 @@ Each ecosystem example includes these extension roles:
   review.
 - Companion pack: installs the skills and subagent together.
 
-All example extensions use owner `@examples`. Extension names are prefixed by
-ecosystem, for example `dotnet-csharp-tinyflags-add-flag`.
+The TinyFlags package embeds a recommendation for the companion pack, and each
+of these extensions declares a `companionPackages` Package URL pointing back
+to the TinyFlags ecosystem package.
 
-Each package embeds a recommendation for its companion pack, and each extension
-manifest declares a `companionPackages` Package URL for the ecosystem package
-it supports.
+### App extension — PawMatch
+
+A single companion skill for end users driving the CLI in agentic workflows.
+Demonstrates the minimum viable companion extension for an application — one
+focused skill, no subagent, no pack:
+
+- `find-a-pet` skill: walks an agent through `pawmatch browse`, `match`,
+  `show`, and `apply` to help an end user identify candidate pets and start
+  an adoption application. Reads the user's stated preferences, runs the
+  questionnaire, surfaces long-stay animals when relevant, and explains
+  adoption fees and the meet-and-greet / hold period before applying.
+
+PawMatch itself is not publishable (see [Layout](#layout)), so the skill is
+not wired to a `companionPackages` Package URL. It demonstrates the shape an
+app maintainer would ship if their CLI were published — a single, focused
+end-user skill that drives the app's commands.

@@ -1,23 +1,22 @@
-using TUnit.Assertions.AssertConditions.Throws;
+using Xunit;
 
 namespace AgentXM.Examples.TinyFlags.CSharp.Tests;
 
 public class TinyFlagsTests
 {
-    [Test]
-    public async Task BooleanFlagsUseDefaults()
+    [Fact]
+    public void BooleanFlagsUseDefaults()
     {
         var flags = TinyFlags.Create(new Dictionary<string, FlagDefinition>
         {
             ["checkoutRedesign"] = TinyFlag.Boolean(defaultValue: true),
         });
 
-        await Assert.That(flags.Enabled("checkoutRedesign", new EvaluationContext(UserId: "user-1")))
-            .IsTrue();
+        Assert.True(flags.Enabled("checkoutRedesign", new EvaluationContext(UserId: "user-1")));
     }
 
-    [Test]
-    public async Task BooleanRolloutBoundariesAreDeterministic()
+    [Fact]
+    public void BooleanRolloutBoundariesAreDeterministic()
     {
         var flags = TinyFlags.Create(new Dictionary<string, FlagDefinition>
         {
@@ -26,14 +25,13 @@ public class TinyFlagsTests
         });
         var ctx = new EvaluationContext(UserId: "user-1");
 
-        await Assert.That(flags.Enabled("disabledExperiment", ctx)).IsFalse();
-        await Assert.That(flags.Enabled("enabledExperiment", ctx)).IsTrue();
-        await Assert.That(flags.Enabled("enabledExperiment", ctx))
-            .IsEqualTo(flags.Enabled("enabledExperiment", ctx));
+        Assert.False(flags.Enabled("disabledExperiment", ctx));
+        Assert.True(flags.Enabled("enabledExperiment", ctx));
+        Assert.Equal(flags.Enabled("enabledExperiment", ctx), flags.Enabled("enabledExperiment", ctx));
     }
 
-    [Test]
-    public async Task VariantFlagsReturnDefaultsOutsideRolloutAllocations()
+    [Fact]
+    public void VariantFlagsReturnDefaultsOutsideRolloutAllocations()
     {
         var flags = TinyFlags.Create(new Dictionary<string, FlagDefinition>
         {
@@ -43,12 +41,11 @@ public class TinyFlagsTests
                 rollout: new Dictionary<string, int> { ["semantic"] = 0 }),
         });
 
-        await Assert.That(flags.Variant("searchRanking", new EvaluationContext(UserId: "user-1")))
-            .IsEqualTo("classic");
+        Assert.Equal("classic", flags.Variant("searchRanking", new EvaluationContext(UserId: "user-1")));
     }
 
-    [Test]
-    public async Task VariantFlagsCanAllocateAllTrafficToAVariant()
+    [Fact]
+    public void VariantFlagsCanAllocateAllTrafficToAVariant()
     {
         var flags = TinyFlags.Create(new Dictionary<string, FlagDefinition>
         {
@@ -58,12 +55,11 @@ public class TinyFlagsTests
                 rollout: new Dictionary<string, int> { ["semantic"] = 100 }),
         });
 
-        await Assert.That(flags.Variant("searchRanking", new EvaluationContext(UserId: "user-1")))
-            .IsEqualTo("semantic");
+        Assert.Equal("semantic", flags.Variant("searchRanking", new EvaluationContext(UserId: "user-1")));
     }
 
-    [Test]
-    public async Task VariantRolloutAllocatesInDeclaredOrder()
+    [Fact]
+    public void VariantRolloutAllocatesInDeclaredOrder()
     {
         // Each variant's bucket allocation depends on the order it was declared
         // in, not on the order of the rollout dictionary.
@@ -78,38 +74,32 @@ public class TinyFlagsTests
         for (var i = 0; i < 50; i++)
         {
             var resolved = flags.Variant("split", new EvaluationContext(UserId: $"user-{i}"));
-            await Assert.That(resolved is "first" or "second").IsTrue();
+            Assert.True(resolved is "first" or "second");
         }
     }
 
-    [Test]
-    public async Task InvalidBooleanRolloutThrows()
+    [Fact]
+    public void InvalidBooleanRolloutThrows()
     {
-        Action act = () => _ = TinyFlag.Boolean(rollout: 101);
-
-        await Assert.That(act).Throws<ArgumentOutOfRangeException>();
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = TinyFlag.Boolean(rollout: 101));
     }
 
-    [Test]
-    public async Task InvalidVariantDefaultThrows()
+    [Fact]
+    public void InvalidVariantDefaultThrows()
     {
-        Action act = () => _ = TinyFlag.Variant(["classic", "semantic"], defaultValue: "personalized");
-
-        await Assert.That(act).Throws<ArgumentException>();
+        Assert.Throws<ArgumentException>(() => _ = TinyFlag.Variant(["classic", "semantic"], defaultValue: "personalized"));
     }
 
-    [Test]
-    public async Task VariantRolloutExceedingHundredThrows()
+    [Fact]
+    public void VariantRolloutExceedingHundredThrows()
     {
-        Action act = () => _ = TinyFlag.Variant(
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = TinyFlag.Variant(
             ["classic", "semantic"],
-            rollout: new Dictionary<string, int> { ["semantic"] = 80, ["classic"] = 30 });
-
-        await Assert.That(act).Throws<ArgumentOutOfRangeException>();
+            rollout: new Dictionary<string, int> { ["semantic"] = 80, ["classic"] = 30 }));
     }
 
-    [Test]
-    public async Task EvaluateReturnsTypedResultForEachFlagKind()
+    [Fact]
+    public void EvaluateReturnsTypedResultForEachFlagKind()
     {
         var flags = TinyFlags.Create(new Dictionary<string, FlagDefinition>
         {
@@ -121,35 +111,33 @@ public class TinyFlagsTests
         });
         var ctx = new EvaluationContext(UserId: "user-1");
 
-        await Assert.That(flags.Evaluate("onboarding", ctx))
-            .IsEqualTo(new FlagValue.Bool(true));
-        await Assert.That(flags.Evaluate("searchRanking", ctx))
-            .IsEqualTo(new FlagValue.Variant("semantic"));
+        Assert.Equal(new FlagValue.Bool(true), flags.Evaluate("onboarding", ctx));
+        Assert.Equal(new FlagValue.Variant("semantic"), flags.Evaluate("searchRanking", ctx));
     }
 
-    [Test]
-    public async Task FlagValueExposesTryGetAccessors()
+    [Fact]
+    public void FlagValueExposesTryGetAccessors()
     {
         FlagValue boolValue = new FlagValue.Bool(true);
         FlagValue variantValue = new FlagValue.Variant("semantic");
 
-        await Assert.That(boolValue.TryGetBool(out var b)).IsTrue();
-        await Assert.That(b).IsTrue();
-        await Assert.That(boolValue.TryGetVariant(out _)).IsFalse();
+        Assert.True(boolValue.TryGetBool(out var b));
+        Assert.True(b);
+        Assert.False(boolValue.TryGetVariant(out _));
 
-        await Assert.That(variantValue.TryGetVariant(out var v)).IsTrue();
-        await Assert.That(v).IsEqualTo("semantic");
-        await Assert.That(variantValue.TryGetBool(out _)).IsFalse();
+        Assert.True(variantValue.TryGetVariant(out var v));
+        Assert.Equal("semantic", v);
+        Assert.False(variantValue.TryGetBool(out _));
     }
 
-    [Test]
-    public async Task ParamsOverloadBuildsVariantFromInlineValues()
+    [Fact]
+    public void ParamsOverloadBuildsVariantFromInlineValues()
     {
         var flag = TinyFlag.Variant("classic", "semantic");
 
-        await Assert.That(flag.Variants.Length).IsEqualTo(2);
-        await Assert.That(flag.Variants[0]).IsEqualTo("classic");
-        await Assert.That(flag.Variants[1]).IsEqualTo("semantic");
-        await Assert.That(flag.Default).IsEqualTo("classic");
+        Assert.Equal(2, flag.Variants.Length);
+        Assert.Equal("classic", flag.Variants[0]);
+        Assert.Equal("semantic", flag.Variants[1]);
+        Assert.Equal("classic", flag.Default);
     }
 }

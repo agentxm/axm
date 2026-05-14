@@ -8,6 +8,12 @@ library — exactly the codebase the companion AXM skills and subagent in
 `pawmatch` is not packable — it exists to demonstrate consumption, not to
 publish.
 
+The app also ships its own companion AXM skill,
+[`dotnet-csharp-pawmatch-find-a-pet`](./.axm/extensions/@examples/skills/dotnet-csharp-pawmatch-find-a-pet/src/SKILL.md),
+which guides an agent through using `pawmatch` to help an end user find and
+apply for an adoptable pet. See the
+[parent README](../README.md#app-extension--pawmatch) for the spec.
+
 ## Run
 
 ```bash

@@ -30,7 +30,7 @@ the companion pack as a package-author recommendation.
 ├── .editorconfig               F# formatting conventions
 ├── *.slnx                      XML solution file (replaces legacy .sln)
 ├── axm.json                    Companion-extension recommendations
-└── src/, test/                 Library and xUnit test project
+└── src/, test/                 Library and Expecto test project
 ```
 
 ## Build & test
@@ -40,8 +40,10 @@ dotnet build
 dotnet test
 ```
 
-`dotnet test` runs the xUnit suite in
-`test/AgentXM.Example.TinyFlags.FSharp.Tests`.
+`dotnet test` runs the Expecto suite in
+`test/AgentXM.Example.TinyFlags.FSharp.Tests` via the
+[YoloDev.Expecto.TestSdk](https://www.nuget.org/packages/YoloDev.Expecto.TestSdk)
+adapter.
 
 ## Library
 

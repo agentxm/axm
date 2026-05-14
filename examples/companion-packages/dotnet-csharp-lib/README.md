@@ -39,7 +39,7 @@ The library lives in `src/AgentXM.Examples.TinyFlags.CSharp/TinyFlags.cs` and ex
 - `TinyFlags.Create(...)`
 - `TinyFlags.Evaluate(...)` — returns a `FlagValue` discriminated union (`Bool` / `Variant`)
 
-Tests use [TUnit](https://tunit.dev) on Microsoft.Testing.Platform.
+Tests use [xUnit v3](https://xunit.net) on Microsoft.Testing.Platform.
 
 ## Companion Extensions
 

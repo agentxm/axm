@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "julia-general-tinyflags",
+  "version": "0.1.0",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Julia (General registry).",
+  "keywords": ["julia", "general", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:julia/AgentXMExampleTinyFlags"],
+  "dependencies": {
+    "@examples/skills/julia-general-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/julia-general-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/julia-general-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/julia-general-tinyflags-maintainer": "^0.1.0"
+  }
+}

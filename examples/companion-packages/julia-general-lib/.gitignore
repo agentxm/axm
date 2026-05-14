@@ -1,0 +1,7 @@
+Manifest.toml
+/docs/build/
+/deps/deps.jl
+*.cov
+*.jl.cov
+*.jl.mem
+.julia/

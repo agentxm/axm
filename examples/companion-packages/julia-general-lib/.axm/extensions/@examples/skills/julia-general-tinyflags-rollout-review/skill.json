@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "julia-general-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Audit a TinyFlags flag's Julia callsites and rollout state before advancing the gate.",
+  "keywords": ["julia", "general", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:julia/AgentXMExampleTinyFlags"],
+  "recommendedPacks": ["@examples/packs/julia-general-tinyflags"],
+  "standalone": false
+}

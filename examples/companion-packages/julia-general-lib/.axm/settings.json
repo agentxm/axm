@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "julia-general-tinyflags-add-flag": {
+      "source": "@examples/skills/julia-general-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "julia-general-tinyflags-rollout-review": {
+      "source": "@examples/skills/julia-general-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "julia-general-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/julia-general-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "julia-general-tinyflags-maintainer": {
+      "source": "@examples/subagents/julia-general-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "julia-general-tinyflags": {
+      "source": "@examples/packs/julia-general-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

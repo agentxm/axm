@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "dotnet-csharp-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Review and maintain TinyFlags usage in .NET C# projects.",
+  "keywords": ["nuget", "dotnet", "csharp", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:nuget/agentxm.examples.tinyflags.csharp@0.1.0"],
+  "recommendedPacks": ["@examples/packs/dotnet-csharp-tinyflags"],
+  "standalone": false
+}

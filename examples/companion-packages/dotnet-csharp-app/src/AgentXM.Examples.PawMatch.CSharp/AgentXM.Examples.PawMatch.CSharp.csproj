@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AgentXM.Examples.PawMatch.CSharp</RootNamespace>
+    <AssemblyName>pawmatch</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../dotnet-csharp-lib/src/AgentXM.Examples.TinyFlags.CSharp/AgentXM.Examples.TinyFlags.CSharp.csproj" />
+  </ItemGroup>
+</Project>

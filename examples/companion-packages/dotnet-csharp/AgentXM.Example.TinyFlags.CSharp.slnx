@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="src/AgentXM.Example.TinyFlags.CSharp/AgentXM.Example.TinyFlags.CSharp.csproj" />
-  <Project Path="test/AgentXM.Example.TinyFlags.CSharp.Tests/AgentXM.Example.TinyFlags.CSharp.Tests.csproj" />
-</Solution>

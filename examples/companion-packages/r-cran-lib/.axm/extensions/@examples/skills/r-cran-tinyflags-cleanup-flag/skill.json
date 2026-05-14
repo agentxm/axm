@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "r-cran-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Retire a rolled-out TinyFlags flag from R code, keeping the live branch and pruning dead tests.",
+  "keywords": ["r", "cran", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:cran/tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/r-cran-tinyflags"],
+  "standalone": false
+}

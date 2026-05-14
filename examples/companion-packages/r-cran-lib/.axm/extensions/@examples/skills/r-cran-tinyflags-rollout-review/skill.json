@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "r-cran-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Audit a TinyFlags flag's R callsites and rollout state before advancing the gate.",
+  "keywords": ["r", "cran", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:cran/tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/r-cran-tinyflags"],
+  "standalone": false
+}

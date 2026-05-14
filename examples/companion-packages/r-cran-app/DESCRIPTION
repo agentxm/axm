@@ -1,0 +1,14 @@
+Package: pawmatch
+Title: PawMatch Pet Adoption CLI (Example Consumer)
+Version: 0.1.0
+Authors@R: person("AgentXM", email = "noreply@agentxm.ai", role = c("aut", "cre"))
+Description: A tiny example CLI for a fictional community pet adoption center.
+    Reference consumer of the tinyflags package, demonstrating how an R
+    application can ship companion AXM extensions. Not intended for CRAN.
+License: MIT + file LICENSE
+URL: https://github.com/agentxm/axm
+Encoding: UTF-8
+Depends: R (>= 4.0)
+Imports: tinyflags
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3

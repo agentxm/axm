@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "r-cran-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Triage TinyFlags feature flags across an R codebase and recommend cleanup or rollout follow-ups.",
+  "keywords": ["r", "cran", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:cran/tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/r-cran-tinyflags"],
+  "standalone": false
+}

@@ -1,0 +1,11 @@
+# Generated for pawmatch
+export(pawmatch_run)
+export(pawmatch_pets)
+export(pawmatch_charities)
+export(pawmatch_flags)
+importFrom(tinyflags, tf_bool)
+importFrom(tinyflags, tf_variant)
+importFrom(tinyflags, tf_registry)
+importFrom(tinyflags, tf_enabled)
+importFrom(tinyflags, tf_variant_value)
+importFrom(tinyflags, tf_with_context)

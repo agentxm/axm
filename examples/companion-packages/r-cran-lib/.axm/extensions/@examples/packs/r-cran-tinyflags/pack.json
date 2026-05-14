@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "r-cran-tinyflags",
+  "version": "0.1.0",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on R (CRAN).",
+  "keywords": ["r", "cran", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:cran/tinyflags@^0.1.0"],
+  "dependencies": {
+    "@examples/skills/r-cran-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/r-cran-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/r-cran-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/r-cran-tinyflags-maintainer": "^0.1.0"
+  }
+}

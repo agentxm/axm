@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  r-cran-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: r-cran-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  r-cran-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: r-cran-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  r-cran-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: r-cran-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  r-cran-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: r-cran-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  r-cran-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: r-cran-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/r-cran-tinyflags-add-flag": 0.1.0
+      "@examples/skills/r-cran-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/r-cran-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/r-cran-tinyflags-maintainer": 0.1.0

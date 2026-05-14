@@ -246,7 +246,7 @@ describe("commands-publish.handler", () => {
           ).pipe(Effect.flip);
 
           const error = getAppError(result);
-          expect(error.message).toContain("local version 1.0.0 is not greater");
+          expect(error.detail).toContain("local version 1.0.0 is not greater");
           expect(error.breadcrumbs?.[0]?.description ?? "").toContain(
             "axm commands version @test/commands/stale-cmd patch",
           );
@@ -307,7 +307,7 @@ describe("commands-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("internal");
-          expect(error.message).toContain("Failed to publish");
+          expect(error.detail).toContain("Failed to publish");
         }),
       );
     });
@@ -374,7 +374,7 @@ describe("commands-publish.handler", () => {
           const result = yield* handleCommandsPublish(
             defaultArgs(["@test/commands/no-manifest"]),
           ).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.detail })),
           );
           expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
@@ -406,7 +406,7 @@ describe("commands-publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleCommandsPublish(defaultArgs(["@test/commands/no-md"])).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.detail })),
           );
           expect(getErrorResult(result).message).toContain("Missing no-md.md");
         }),
@@ -429,7 +429,7 @@ describe("commands-publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                message: e.message,
+                message: e.detail,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),

@@ -57,17 +57,24 @@ with structured fields for rendering:
 ```ts
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: AppErrorCode;
-  readonly message: string;
+  readonly title: string;
+  readonly detail: string;
+  readonly metadata?: AppErrorMetadata;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause: unknown;
 }> {}
 ```
 
-`code` is one of the ten CLI error categories: `issues`, `usage`, `not_found`,
-`auth`, `forbidden`, `conflict`, `rate_limit`, `network`, `validation`, or
-`internal`. AppError exit codes are a pure function of `code` — see
+`code` is one of the twelve CLI error categories: `issues`, `usage`,
+`not_found`, `auth`, `forbidden`, `conflict`, `rate_limit`, `network`,
+`validation`, `internal`, `unavailable`, or `quota`. AppError exit codes are a
+pure function of `code` — see
 [`ExitCode`](../../packages/core/src/unstable/app-error/app-error.ts) for the
 1:1 numeric mapping.
+
+`title` is the stable summary, `detail` is the occurrence-specific message, and
+`metadata.response` carries opaque RFC 9457 response data when the error came
+from the registry. Do not read `error.message` for user-facing content.
 
 All next-step guidance belongs in `breadcrumbs`; there is no separate guidance
 string.
@@ -99,7 +106,7 @@ Use `makeAppError` for convenience construction:
 ```ts
 const error = makeAppError({
   code: "not_found",
-  message: "Installation failed",
+  detail: "Installation failed",
   recover: "Check the package name and try again",
   cause: originalError,
 });
@@ -111,11 +118,26 @@ breadcrumb and can be combined with explicit `breadcrumbs`:
 ```ts
 const error = makeAppError({
   code: "not_found",
-  message: "Skill is not installed",
+  detail: "Skill is not installed",
   recover: "List installed skills",
   cmd: "axm skills list",
 });
 ```
+
+### Registry HTTP errors
+
+Registry responses use RFC 9457 Problem Details. Translate generated registry
+client errors with `registryClientErrorToAppError` or `registryErrorToAppError`
+from `packages/core/src/unstable/registry/translate.ts`; do not add
+operation-local status-code switches. The translator maps HTTP status to the
+closed `AppErrorCode` union, preserves `{ status, body }` in
+`metadata.response`, and adds breadcrumbs for retry, scope, publish lint, and
+identity-mismatch details when those fields are present.
+
+Use-case code that needs typed access to response fields defines a focused
+schema next to that use case and decodes `error.metadata?.response?.body`.
+Keep the body opaque in `AppErrorMetadata`; do not hoist registry-specific
+fields into `AppError`.
 
 ### PromptCancelled
 
@@ -133,7 +155,7 @@ stack trace.
 
 - [ ] **AppError at the boundary** — command handlers translate all errors to
       `AppError` before calling the runtime
-- [ ] **Category code** — `AppError.code` is one of the ten CLI error
+- [ ] **Category code** — `AppError.code` is one of the twelve CLI error
       categories
 - [ ] **Cause preserved** — `makeAppError` wraps the original error in `cause`
       for debugging
@@ -163,7 +185,7 @@ when it earns its keep.
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Every caller recovers the same way**       | If all `catchTag("FooError")` handlers do the same thing, use a result value instead (see [Prefer result values](#prefer-result-values-over-uniform-recovery-errors)) |
 | **The error is only produced in one place**  | A single `mapError` to `makeAppError` is simpler than defining + translating a typed error                                                                            |
-| **The metadata fits AppError's shape**       | `code`, `message`, `breadcrumbs`, and `cause` already carry the information callers need                                                                              |
+| **The metadata fits AppError's shape**       | `code`, `title`, `detail`, `metadata`, `breadcrumbs`, and `cause` already carry the information callers need                                                          |
 | **Callers only need the category to decide** | `catchIf(e => e.code === "not_found", ...)` works without a new type                                                                                                  |
 
 ### When you introduce a typed service error
@@ -190,7 +212,7 @@ const program = manifestService.load(path).pipe(
     Effect.fail(
       makeAppError({
         code: "validation",
-        message: `Could not load manifest: ${e.reason}`,
+        detail: `Could not load manifest: ${e.reason}`,
         breadcrumbs: [{ description: `Check ${e.path}` }],
         cause: e,
       })
@@ -245,7 +267,7 @@ yield * new ManifestError({ reason: "missing", path });
 yield *
   makeAppError({
     code: "internal",
-    message: "Installation failed",
+    detail: "Installation failed",
   });
 ```
 
@@ -330,7 +352,7 @@ manifestService
   .load(path)
   .pipe(
     Effect.catchTag("ManifestError", (e) =>
-      Effect.fail(makeAppError({ code: "validation", message: e.reason })),
+      Effect.fail(makeAppError({ code: "validation", detail: e.reason })),
     ),
   );
 
@@ -338,7 +360,7 @@ manifestService
 program.pipe(
   Effect.catchIf(
     (e) => e.code === "auth",
-    () => Effect.fail(makeAppError({ code: "auth", message: "Please log in" })),
+    () => Effect.fail(makeAppError({ code: "auth", detail: "Please log in" })),
   ),
 );
 
@@ -346,7 +368,7 @@ program.pipe(
 httpClient
   .get(url)
   .pipe(
-    Effect.mapError((e) => makeAppError({ code: "network", message: "Request failed", cause: e })),
+    Effect.mapError((e) => makeAppError({ code: "network", detail: "Request failed", cause: e })),
   );
 ```
 
@@ -366,9 +388,7 @@ which request triggered it, what recovery was attempted.
 const getManifest = (path: string) =>
   storage.read(path).pipe(
     Effect.tapError(() => Effect.logWarning("storage read failed")),
-    Effect.mapError((e) =>
-      makeAppError({ code: "MANIFEST_MISSING", message: "Manifest not found" }),
-    ),
+    Effect.mapError((e) => makeAppError({ code: "not_found", detail: "Manifest not found" })),
   );
 
 // handler logs again
@@ -382,9 +402,7 @@ const getManifest = (path: string) =>
   storage
     .read(path)
     .pipe(
-      Effect.mapError((e) =>
-        makeAppError({ code: "MANIFEST_MISSING", message: "Manifest not found" }),
-      ),
+      Effect.mapError((e) => makeAppError({ code: "not_found", detail: "Manifest not found" })),
     );
 
 // handler — single log at the point of recovery
@@ -464,7 +482,7 @@ const program = Effect.gen(function* () {
     Effect.fail(
       makeAppError({
         code: "validation",
-        message: "Could not load manifest",
+        detail: "Could not load manifest",
         cause: e,
       }),
     ),
@@ -506,7 +524,7 @@ const update = (id: string) =>
     if (!result) {
       return yield* makeAppError({
         code: "not_found",
-        message: "Resource not found",
+        detail: "Resource not found",
       });
     }
     return result;
@@ -646,7 +664,7 @@ const get = (id: string) =>
     Effect.mapError((e) =>
       makeAppError({
         code: "not_found",
-        message: "Could not load manifest",
+        detail: "Could not load manifest",
         cause: e,
       }),
     ),
@@ -661,7 +679,7 @@ const getWithLogging = (id: string) =>
           Effect.fail(
             makeAppError({
               code: "not_found",
-              message: "Could not load manifest",
+              detail: "Could not load manifest",
               cause: e,
             }),
           ),

@@ -82,7 +82,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to get registry sources: ${e._tag}`,
+          detail: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
       ),
@@ -92,7 +92,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "usage",
-        message: "No registry sources configured",
+        detail: "No registry sources configured",
         breadcrumbs: [{ description: "Run the registry guard first." }],
       });
     }
@@ -108,7 +108,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to lookup registry source "${registry.value}"`,
+          detail: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
       ),
@@ -117,7 +117,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
         code: "not_found",
-        message: `Registry source "${registry.value}" not found or not a registry source`,
+        detail: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
 
@@ -182,7 +182,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       if (entry === undefined) {
         return yield* makeAppError({
           code: "not_found",
-          message: `Pack "${args.pack}" is not installed in this workspace`,
+          detail: `Pack "${args.pack}" is not installed in this workspace`,
           breadcrumbs: [
             {
               description:
@@ -195,7 +195,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       if (parts === undefined || parts.owner === undefined) {
         return yield* makeAppError({
           code: "not_found",
-          message: `Pack "${args.pack}" cannot be published from a non-registry source`,
+          detail: `Pack "${args.pack}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
               description:
@@ -226,7 +226,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         if (!packDirExists) {
           return yield* makeAppError({
             code: "not_found",
-            message: `Managed pack not found: ${packName}`,
+            detail: `Managed pack not found: ${packName}`,
             breadcrumbs: [
               {
                 description:
@@ -245,7 +245,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         if (!manifestExists) {
           return yield* makeAppError({
             code: "not_found",
-            message: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
+            detail: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
             breadcrumbs: [
               {
                 description: `Ensure the pack has a valid ${PACK_MANIFEST_FILENAME} manifest.`,
@@ -267,7 +267,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read pack manifest: ${manifestPath}`,
+          detail: `Failed to read pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -281,7 +281,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       catch: (e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid JSON in pack manifest: ${manifestPath}`,
+          detail: `Invalid JSON in pack manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -290,7 +290,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid pack manifest: ${manifestPath}`,
+          detail: `Invalid pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -367,18 +367,23 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   });
 
   if (resolvedPlan._tag === "ExecutedPlan") {
-    const failedStepDetails = resolvedPlan.jobs
+    const failedStepErrors = resolvedPlan.jobs
       .flatMap((job) => job.steps)
-      .flatMap((step) =>
-        step.result.result === "error"
-          ? [`${step.label}: ${step.result.error.message} (${step.result.error.code})`]
-          : [],
-      );
+      .flatMap((step) => (step.result.result === "error" ? [step.result] : []));
 
-    if (failedStepDetails.length > 0) {
+    if (failedStepErrors.length > 0) {
+      const [singleFailure] = failedStepErrors;
+      if (
+        failedStepErrors.length === 1 &&
+        singleFailure !== undefined &&
+        singleFailure.error.metadata?.response !== undefined
+      ) {
+        return yield* singleFailure.error;
+      }
+
       return yield* makeAppError({
         code: "internal",
-        message: `Failed to publish ${failedStepDetails.length} pack item${failedStepDetails.length === 1 ? "" : "s"}`,
+        detail: `Failed to publish ${failedStepErrors.length} pack item${failedStepErrors.length === 1 ? "" : "s"}`,
       });
     }
   }
@@ -461,7 +466,7 @@ const makeDependencyStep = (
       return Effect.fail(
         makeAppError({
           code: "internal",
-          message: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
+          detail: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
         }),
       );
     case "file":
@@ -469,7 +474,7 @@ const makeDependencyStep = (
       return Effect.fail(
         makeAppError({
           code: "internal",
-          message: `Publishing ${parsed.type} from pack dependencies is not supported: ${depFqn}`,
+          detail: `Publishing ${parsed.type} from pack dependencies is not supported: ${depFqn}`,
         }),
       );
   }

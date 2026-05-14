@@ -1,6 +1,11 @@
 import * as Schema from "effect/Schema";
 
-import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
+import {
+  AppErrorCodeSchema,
+  type AppError,
+  type AppErrorCode,
+  type AppErrorMetadata,
+} from "../app-error/index.js";
 import { BreadcrumbSchema, type Breadcrumb } from "./breadcrumb.js";
 
 const ReservedSuccessEnvelopeKeys = new Set(["ok", "summary", "breadcrumbs"]);
@@ -8,7 +13,18 @@ const ReservedSuccessEnvelopeKeys = new Set(["ok", "summary", "breadcrumbs"]);
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
   code: AppErrorCodeSchema,
-  message: Schema.String,
+  title: Schema.String,
+  detail: Schema.String,
+  metadata: Schema.optional(
+    Schema.Struct({
+      response: Schema.optional(
+        Schema.Struct({
+          status: Schema.Number,
+          body: Schema.Unknown,
+        }),
+      ),
+    }),
+  ),
   breadcrumbs: Schema.optional(Schema.Array(BreadcrumbSchema)),
 }).annotate({
   identifier: "JsonErrorEnvelope",
@@ -78,12 +94,16 @@ export const makeJsonSuccessEnvelope = (args?: {
 
 export const makeJsonErrorEnvelope = (args: {
   readonly code: AppErrorCode;
-  readonly message: string;
+  readonly title: string;
+  readonly detail: string;
+  readonly metadata?: AppErrorMetadata;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
 }): JsonErrorEnvelope => ({
   ok: false,
   code: args.code,
-  message: args.message,
+  title: args.title,
+  detail: args.detail,
+  ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
   ...(args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
     ? { breadcrumbs: [...args.breadcrumbs] }
     : {}),
@@ -92,6 +112,8 @@ export const makeJsonErrorEnvelope = (args: {
 export const makeJsonErrorEnvelopeFromAppError = (error: AppError): JsonErrorEnvelope =>
   makeJsonErrorEnvelope({
     code: error.code,
-    message: error.message,
+    title: error.title,
+    detail: error.detail,
+    ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
     breadcrumbs: error.breadcrumbs ?? [],
   });

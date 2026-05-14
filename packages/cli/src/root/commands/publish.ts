@@ -91,7 +91,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to get registry sources: ${e._tag}`,
+          detail: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
       ),
@@ -101,7 +101,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "usage",
-        message: "No registry sources configured",
+        detail: "No registry sources configured",
         breadcrumbs: [{ description: "Run the registry guard first." }],
       });
     }
@@ -117,7 +117,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to lookup registry source "${registry.value}"`,
+          detail: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
       ),
@@ -126,7 +126,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
         code: "not_found",
-        message: `Registry source "${registry.value}" not found or not a registry source`,
+        detail: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
 
@@ -187,7 +187,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          message: `Command "${name}" is not installed in this workspace`,
+          detail: `Command "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
               description:
@@ -202,7 +202,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          message: `Command "${name}" cannot be published from a non-registry source`,
+          detail: `Command "${name}" cannot be published from a non-registry source`,
           breadcrumbs: [
             {
               description:
@@ -231,7 +231,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             return Effect.fail(
               makeAppError({
                 code: "not_found",
-                message: `Missing extension name for parsed FQN ${fqn.owner}/commands/${fqn.name}`,
+                detail: `Missing extension name for parsed FQN ${fqn.owner}/commands/${fqn.name}`,
               }),
             );
           }
@@ -251,7 +251,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             if (!extensionDirExists) {
               return yield* makeAppError({
                 code: "not_found",
-                message: `Managed extension not found: ${extName}`,
+                detail: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
                     description:
@@ -269,7 +269,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             if (!manifestExists) {
               return yield* makeAppError({
                 code: "not_found",
-                message: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
+                detail: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
                 breadcrumbs: [
                   {
                     description: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
@@ -287,7 +287,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
             if (!commandMdExists) {
               return yield* makeAppError({
                 code: "not_found",
-                message: `Missing ${contentFilename}`,
+                detail: `Missing ${contentFilename}`,
                 breadcrumbs: [
                   {
                     description: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
@@ -356,21 +356,26 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     preview: args.preview,
   });
 
-  const failedStepDetails =
+  const failedStepErrors =
     resolvedPlan._tag === "ExecutedPlan"
       ? resolvedPlan.jobs
           .flatMap((job) => job.steps)
-          .flatMap((step) =>
-            step.result.result === "error"
-              ? [`${step.label}: ${step.result.error.message} (${step.result.error.code})`]
-              : [],
-          )
+          .flatMap((step) => (step.result.result === "error" ? [step.result] : []))
       : [];
 
-  if (failedStepDetails.length > 0) {
+  if (failedStepErrors.length > 0) {
+    const [singleFailure] = failedStepErrors;
+    if (
+      failedStepErrors.length === 1 &&
+      singleFailure !== undefined &&
+      singleFailure.error.metadata?.response !== undefined
+    ) {
+      return yield* singleFailure.error;
+    }
+
     return yield* makeAppError({
       code: "internal",
-      message: `Failed to publish ${failedStepDetails.length} command${failedStepDetails.length === 1 ? "" : "s"}`,
+      detail: `Failed to publish ${failedStepErrors.length} command${failedStepErrors.length === 1 ? "" : "s"}`,
     });
   }
 

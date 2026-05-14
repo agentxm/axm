@@ -46,7 +46,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         if (Option.isNone(lockedPack)) {
           return yield* makeAppError({
             code: "internal",
-            message: `Pack "${args.name}" is not installed`,
+            detail: `Pack "${args.name}" is not installed`,
             breadcrumbs: [
               {
                 description: "Install the pack first with `axm packs install`.",
@@ -61,7 +61,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         if (entry.type !== "registry") {
           return yield* makeAppError({
             code: "internal",
-            message: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
+            detail: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
           });
         }
 

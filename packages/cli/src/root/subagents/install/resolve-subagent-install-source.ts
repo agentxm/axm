@@ -37,12 +37,12 @@ const isAppError = (error: unknown): error is AppError =>
   error !== null &&
   "_tag" in error &&
   error._tag === "AppError" &&
-  "message" in error &&
+  "detail" in error &&
   "code" in error;
 
 const summarizeLookupError = (error: unknown): string => {
   if (isAppError(error)) {
-    return `${error.message} (${error.code})`;
+    return `${error.detail} (${error.code})`;
   }
   if (error instanceof Error) {
     return error.message;
@@ -104,7 +104,7 @@ const resolveRegistrySource = (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read configured registry sources for owner "${owner}"`,
+          detail: `Failed to read configured registry sources for owner "${owner}"`,
           breadcrumbs: [
             {
               description: "Check that your workspace settings file is valid and accessible",
@@ -118,7 +118,7 @@ const resolveRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeAppError({
         code: "internal",
-        message: `No registry source is configured for owner "${owner}"`,
+        detail: `No registry source is configured for owner "${owner}"`,
         breadcrumbs: [
           {
             description: `Add a registry source for owner "${owner}" using "axm sources add"`,
@@ -179,7 +179,7 @@ const resolveRegistrySource = (
       const subagentName = options.subagentName.value;
       return yield* makeAppError({
         code: "not_found",
-        message: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
+        detail: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
         breadcrumbs: [
           {
             description: registryLookupHowToFix({
@@ -194,7 +194,7 @@ const resolveRegistrySource = (
 
     return yield* makeAppError({
       code: "not_found",
-      message: `None of the configured registry sources contain owner "${owner}"`,
+      detail: `None of the configured registry sources contain owner "${owner}"`,
       breadcrumbs: [
         {
           description: registryLookupHowToFix({
@@ -218,7 +218,7 @@ const resolveSubagentRegistrySourceByName = (
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Subagent "${name}" could not be looked up (no registry sources)`,
+        detail: `Subagent "${name}" could not be looked up (no registry sources)`,
         breadcrumbs: [
           {
             description:
@@ -244,7 +244,7 @@ const resolveSubagentRegistrySourceByName = (
         });
         return makeAppError({
           code: "not_found",
-          message: Option.isNone(maybeProfile)
+          detail: Option.isNone(maybeProfile)
             ? `Subagent "${name}" could not be looked up (no default owner)`
             : `Subagent "${label}" was not found in configured registries`,
           breadcrumbs: [
@@ -261,7 +261,7 @@ const resolveSubagentRegistrySourceByName = (
     if (resolvedOwner === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Subagent "${name}" was not found in configured registries`,
+        detail: `Subagent "${name}" was not found in configured registries`,
         breadcrumbs: [
           {
             description:
@@ -275,7 +275,7 @@ const resolveSubagentRegistrySourceByName = (
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Subagent "${name}" could not be looked up (no registry sources)`,
+        detail: `Subagent "${name}" could not be looked up (no registry sources)`,
       });
     }
 
@@ -306,7 +306,7 @@ const resolveSubagentRegistrySource = (
     if (Option.isSome(pattern.type) && pattern.type.value !== "subagents") {
       return yield* makeAppError({
         code: "internal",
-        message: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
+        detail: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
         breadcrumbs: [
           {
             description: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a subagent`,
@@ -359,7 +359,7 @@ export const resolveSubagentInstallSource = (
       case "glob-input":
         return yield* makeAppError({
           code: "internal",
-          message: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
+          detail: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
           breadcrumbs: [
             {
               description:

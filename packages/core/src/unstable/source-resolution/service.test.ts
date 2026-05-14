@@ -317,7 +317,7 @@ describe("SourceHostProviders dispatch", () => {
         // Git provider is a stub that always fails
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.message).toContain("not yet supported");
+          expect(result.failure.detail).toContain("not yet supported");
         }
       }),
     ),

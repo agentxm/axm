@@ -119,19 +119,19 @@ describe("git", () => {
     it("is a tagged error with correct tag", () => {
       const error = makeAppError({
         code: "internal",
-        message: "Failed to clone repository",
+        detail: "Failed to clone repository",
       });
 
       expect(error._tag).toBe("AppError");
       expect(error.code).toBe("internal");
-      expect(error.message).toBe("Failed to clone repository");
+      expect(error.detail).toBe("Failed to clone repository");
     });
 
     it("can include a cause", () => {
       const cause = new Error("Original error");
       const error = makeAppError({
         code: "internal",
-        message: "Failed to clone repository",
+        detail: "Failed to clone repository",
         cause,
       });
 

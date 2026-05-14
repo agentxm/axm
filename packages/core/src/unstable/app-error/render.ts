@@ -10,8 +10,28 @@ const isAppError = (cause: unknown): cause is AppError =>
   cause !== null &&
   "_tag" in cause &&
   cause._tag === "AppError" &&
-  "message" in cause &&
+  "detail" in cause &&
   "code" in cause;
+
+const getStringField = (value: unknown, field: string): string | undefined => {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return undefined;
+  }
+
+  const fieldValue: unknown = Reflect.get(value, field);
+  return typeof fieldValue === "string" ? fieldValue : undefined;
+};
+
+const getRequestId = (error: AppError): string | undefined =>
+  getStringField(error.metadata?.response?.body, "requestId");
+
+const formatResponseBody = (body: unknown): ReadonlyArray<string> => {
+  try {
+    return JSON.stringify(body, null, 2).split("\n");
+  } catch {
+    return ["[unserializable response body]"];
+  }
+};
 
 const formatCause = (
   cause: unknown,
@@ -20,7 +40,7 @@ const formatCause = (
   if (cause === undefined || cause === null) return [];
 
   if (isAppError(cause)) {
-    const causeHeadline = `${cause.message} (${cause.code})`;
+    const causeHeadline = `${cause.detail} (${cause.code})`;
     return [`Cause: ${causeHeadline}`];
   }
 
@@ -53,7 +73,31 @@ export const renderAppError = (
 ): string => {
   const lines: Array<string> = [];
 
-  lines.push(`\u2717 ${error.message} (${error.code})`);
+  lines.push(`\u2717 ${error.detail} (${error.code})`);
+
+  const requestId = getRequestId(error);
+
+  if (options.verbose || options.debug) {
+    lines.push(`  Title: ${error.title}`);
+
+    if (requestId !== undefined) {
+      lines.push(`  Request ID: ${requestId}`);
+    }
+
+    const responseBody = error.metadata?.response?.body;
+    if (responseBody !== undefined) {
+      lines.push("  Response:");
+      for (const line of formatResponseBody(responseBody)) {
+        lines.push(`    ${line}`);
+      }
+    }
+  } else if (error.code === "internal" && requestId !== undefined) {
+    lines.push(`  Request ID: ${requestId}`);
+  }
+
+  if (error.code === "internal") {
+    lines.push("  This is likely a bug. Please report it with the request ID if available.");
+  }
 
   if (options.verbose || options.debug) {
     for (const line of formatCause(error.cause, options)) {

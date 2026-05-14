@@ -156,7 +156,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             return Effect.fail(
               makeAppError({
                 code: "not_found",
-                message: `Pack "${name}" is not installed`,
+                detail: `Pack "${name}" is not installed`,
                 breadcrumbs: [
                   {
                     description: `Use the fully-qualified \`@owner/packs/${name}\` form, or check \`axm packs list\`.`,

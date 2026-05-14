@@ -97,7 +97,7 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
         Effect.mapError((error) =>
           makeAppError({
             code: "auth",
-            message: `Failed to create credentials directory: ${dir}`,
+            detail: `Failed to create credentials directory: ${dir}`,
             breadcrumbs: [{ description: `Ensure you have write access to ~/.config/` }],
             cause: error,
           }),
@@ -130,7 +130,7 @@ const withCredentialFileLock = <A, E, R>(
       catch: (error) =>
         makeAppError({
           code: "auth",
-          message: "Could not lock credential storage",
+          detail: "Could not lock credential storage",
           cause: error,
         }),
     });
@@ -164,7 +164,7 @@ const readCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "auth",
-          message: "Credential file could not be read",
+          detail: "Credential file could not be read",
           cause: error,
         }),
       ),
@@ -175,7 +175,7 @@ const readCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "auth",
-          message: "Failed to parse credential file",
+          detail: "Failed to parse credential file",
           breadcrumbs: [
             {
               description:
@@ -215,7 +215,7 @@ const writeCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "auth",
-          message: "Failed to encode credential file",
+          detail: "Failed to encode credential file",
           cause: error,
         }),
       ),
@@ -225,7 +225,7 @@ const writeCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "auth",
-          message: "Failed to write credential file",
+          detail: "Failed to write credential file",
           cause: error,
         }),
       ),
@@ -251,7 +251,7 @@ const readKeychainCredentialFile = (
     catch: (error) =>
       makeAppError({
         code: "auth",
-        message: "OS keychain could not be read",
+        detail: "OS keychain could not be read",
         cause: error,
       }),
   }).pipe(
@@ -262,7 +262,7 @@ const readKeychainCredentialFile = (
         Effect.mapError((error) =>
           makeAppError({
             code: "auth",
-            message: "Failed to parse OS keychain credentials",
+            detail: "Failed to parse OS keychain credentials",
             cause: error,
           }),
         ),
@@ -279,7 +279,7 @@ const writeKeychainCredentialFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "auth",
-          message: "Failed to encode credential file",
+          detail: "Failed to encode credential file",
           cause: error,
         }),
       ),
@@ -293,7 +293,7 @@ const writeKeychainCredentialFile = (
       catch: (error) =>
         makeAppError({
           code: "auth",
-          message: "OS keychain could not be written",
+          detail: "OS keychain could not be written",
           cause: error,
         }),
     });
@@ -308,7 +308,7 @@ const deleteKeychainCredentialFile = (registryUrl: string): Effect.Effect<void, 
     catch: (error) =>
       makeAppError({
         code: "auth",
-        message: "OS keychain credential could not be deleted",
+        detail: "OS keychain credential could not be deleted",
         cause: error,
       }),
   }).pipe(Effect.catch(() => Effect.void));

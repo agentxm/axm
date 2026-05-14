@@ -130,8 +130,8 @@ describe("resolveIdentifier", () => {
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
         expect(result.failure.code).toBe("internal");
-        expect(result.failure.message).toContain("@acme/skills/code-review");
-        expect(result.failure.message).toContain("@other/skills/code-review");
+        expect(result.failure.detail).toContain("@acme/skills/code-review");
+        expect(result.failure.detail).toContain("@other/skills/code-review");
       }
     }),
   );

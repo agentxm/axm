@@ -329,7 +329,7 @@ describe("pollOnce", () => {
     return Effect.gen(function* () {
       const error = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip);
       expect(error.code).toBe("auth");
-      expect(error.message).toBe("Lost connection to the registry during login");
+      expect(error.detail).toBe("Lost connection to the registry during login");
     });
   });
 
@@ -348,7 +348,7 @@ describe("pollOnce", () => {
     return Effect.gen(function* () {
       const error = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip);
       expect(error.code).toBe("auth");
-      expect(error.message).toBe("Device token exchange failed with an unexpected error");
+      expect(error.detail).toBe("Device token exchange failed with an unexpected error");
     });
   });
 });
@@ -457,7 +457,7 @@ describe("AuthClient.pollDeviceToken", () => {
       const error = yield* Fiber.join(fiber);
 
       expect(error.code).toBe("auth");
-      expect(error.message).toBe("Lost connection to the registry during login");
+      expect(error.detail).toBe("Lost connection to the registry during login");
       expect(callCount).toBe(3);
     }).pipe(Effect.provide(layer));
   });

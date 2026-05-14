@@ -67,7 +67,7 @@ const parseBump = (bump: string) => {
     default:
       return makeAppError({
         code: "validation",
-        message: `Invalid version bump: ${bump}`,
+        detail: `Invalid version bump: ${bump}`,
       });
   }
 };
@@ -79,7 +79,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
     if (bump === "set" && Option.isNone(args.targetVersion)) {
       return yield* makeAppError({
         code: "not_found",
-        message: "`set` requires an exact semver version",
+        detail: "`set` requires an exact semver version",
         breadcrumbs: [
           {
             description: `Run \`axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3\`.`,
@@ -92,7 +92,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
     if (bump !== "set" && Option.isSome(args.targetVersion)) {
       return yield* makeAppError({
         code: "internal",
-        message: `Version target is only valid with "set", got ${bump}`,
+        detail: `Version target is only valid with "set", got ${bump}`,
       });
     }
 
@@ -185,7 +185,7 @@ const inferVersionableType = (handle: string) =>
     if (!isVersionableType(fqn.type)) {
       return yield* makeAppError({
         code: "validation",
-        message: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
+        detail: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
         breadcrumbs: [{ description: `Use a handle like ${supportedHandleHints}.` }],
       });
     }

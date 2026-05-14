@@ -95,7 +95,7 @@ const isAppError = (
 ): error is {
   readonly _tag: "AppError";
   readonly code: string;
-  readonly message: string;
+  readonly detail: string;
 } =>
   typeof error === "object" &&
   error !== null &&
@@ -103,12 +103,12 @@ const isAppError = (
   error._tag === "AppError" &&
   "code" in error &&
   typeof error.code === "string" &&
-  "message" in error &&
-  typeof error.message === "string";
+  "detail" in error &&
+  typeof error.detail === "string";
 
 const summarizeLookupError = (error: unknown): string => {
   if (isAppError(error)) {
-    return `${error.message} (${error.code})`;
+    return `${error.detail} (${error.code})`;
   }
   if (error instanceof Error && error.message.length > 0) {
     return error.message;
@@ -118,7 +118,7 @@ const summarizeLookupError = (error: unknown): string => {
 
 const isRemoteReadNotImplemented = (error: unknown): boolean =>
   isAppError(error) &&
-  (error.message.includes("not implemented") || error.message.includes("not yet supported"));
+  (error.detail.includes("not implemented") || error.detail.includes("not yet supported"));
 
 interface RegistryLookupProbe {
   readonly location: string;
@@ -344,7 +344,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     Effect.fail(
                       makeAppError({
                         code: "internal",
-                        message: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
+                        detail: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
                         breadcrumbs: [
                           {
                             description:
@@ -381,7 +381,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             case "wrong-type":
               return yield* makeAppError({
                 code: "validation",
-                message: "Pack source must include /packs/ segment",
+                detail: "Pack source must include /packs/ segment",
                 breadcrumbs: [
                   {
                     description:
@@ -392,13 +392,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             case "missing-name":
               return yield* makeAppError({
                 code: "not_found",
-                message: "Pack source must include a pack name",
+                detail: "Pack source must include a pack name",
                 breadcrumbs: [{ description: "Use @owner/packs/pack-name format." }],
               });
             default:
               return yield* makeAppError({
                 code: "usage",
-                message: "Packs can only be installed from a registry",
+                detail: "Packs can only be installed from a registry",
                 breadcrumbs: [
                   {
                     description:
@@ -420,7 +420,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 Effect.mapError((error) =>
                   makeAppError({
                     code: "validation",
-                    message: `Invalid source: ${error.message}`,
+                    detail: `Invalid source: ${error.message}`,
                     breadcrumbs: [
                       {
                         description: "Use @owner/packs/pack-name or just pack-name.",
@@ -436,7 +436,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (source.type !== "registry") {
             return yield* makeAppError({
               code: "usage",
-              message: "Packs can only be installed from a registry",
+              detail: "Packs can only be installed from a registry",
               breadcrumbs: [{ description: "Use a registry source: @owner/packs/pack-name" }],
             });
           }
@@ -461,7 +461,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             if (!req) {
               return yield* makeAppError({
                 code: "usage",
-                message: "No source request provided",
+                detail: "No source request provided",
               });
             }
 
@@ -548,7 +548,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     if (!resolvedRefs) {
                       return yield* makeAppError({
                         code: "network",
-                        message: "Pack could not be fetched from registry",
+                        detail: "Pack could not be fetched from registry",
                         breadcrumbs: [
                           {
                             description:
@@ -560,7 +560,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   } else if (initialResult._tag === "Failure") {
                     return yield* makeAppError({
                       code: "network",
-                      message: "Pack could not be fetched from registry",
+                      detail: "Pack could not be fetched from registry",
                       breadcrumbs: [
                         {
                           description: "Verify the pack name and registry configuration.",
@@ -585,7 +585,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   if (!resolvedRefs || resolvedRefs.length === 0) {
                     return yield* makeAppError({
                       code: "not_found",
-                      message: `Pack "${req.packName}" not found in registry`,
+                      detail: `Pack "${req.packName}" not found in registry`,
                       breadcrumbs: [
                         {
                           description: "Verify the pack name and check available packs.",
@@ -610,14 +610,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         if (!packRef) {
           return yield* makeAppError({
             code: "not_found",
-            message: "No pack reference found",
+            detail: "No pack reference found",
           });
         }
 
         if (packRef.type !== "pack") {
           return yield* makeAppError({
             code: "network",
-            message: "Registry did not return a valid pack reference",
+            detail: "Registry did not return a valid pack reference",
           });
         }
 

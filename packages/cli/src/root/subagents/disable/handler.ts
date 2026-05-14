@@ -44,7 +44,7 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
   if (installedEntry === undefined) {
     return yield* makeAppError({
       code: "not_found",
-      message: `Subagent '${args.name}' is not installed`,
+      detail: `Subagent '${args.name}' is not installed`,
       breadcrumbs: [
         {
           description: "Run `axm subagents list` to see available subagents",

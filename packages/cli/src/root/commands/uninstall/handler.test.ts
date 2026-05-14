@@ -144,7 +144,7 @@ describe("commands uninstall.handler", () => {
             defaultFlags({ preview: true }),
           ).pipe(Effect.flip);
 
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });

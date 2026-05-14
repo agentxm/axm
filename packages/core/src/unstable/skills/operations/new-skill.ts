@@ -97,7 +97,7 @@ export const newSkill: OperationHandler<
     if (name in configuredSkills) {
       return yield* makeAppError({
         code: "conflict",
-        message: `Skill '${name}' already exists in settings`,
+        detail: `Skill '${name}' already exists in settings`,
         breadcrumbs: [
           {
             description: "Choose a different name or remove the existing skill first",
@@ -119,7 +119,7 @@ export const newSkill: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Failed to create skill directory: ${skillSrcPath}`,
+          detail: `Failed to create skill directory: ${skillSrcPath}`,
           cause: e,
         }),
       ),
@@ -143,7 +143,7 @@ export const newSkill: OperationHandler<
         Effect.mapError((e) =>
           makeAppError({
             code: "validation",
-            message: `Skill manifest could not be written`,
+            detail: `Skill manifest could not be written`,
             cause: e,
           }),
         ),
@@ -154,7 +154,7 @@ export const newSkill: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Failed to write SKILL.md`,
+          detail: `Failed to write SKILL.md`,
           cause: e,
         }),
       ),

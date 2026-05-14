@@ -6,32 +6,45 @@ describe("renderAppError", () => {
   it("formats error with all fields", () => {
     const error = new AppError({
       code: "internal",
-      message: "WorkspaceMutations not initialized",
+      title: "Internal Error",
+      detail: "WorkspaceMutations not initialized",
       breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
       cause: undefined,
     });
 
     const result = renderAppError(error);
 
-    expect(result).toBe("\u2717 WorkspaceMutations not initialized (internal)");
+    expect(result).toBe(
+      [
+        "\u2717 WorkspaceMutations not initialized (internal)",
+        "  This is likely a bug. Please report it with the request ID if available.",
+      ].join("\n"),
+    );
   });
 
   it("formats error with no breadcrumbs", () => {
     const error = new AppError({
       code: "internal",
-      message: "Installation failed",
+      title: "Internal Error",
+      detail: "Installation failed",
       cause: undefined,
     });
 
     const result = renderAppError(error);
 
-    expect(result).toBe("\u2717 Installation failed (internal)");
+    expect(result).toBe(
+      [
+        "\u2717 Installation failed (internal)",
+        "  This is likely a bug. Please report it with the request ID if available.",
+      ].join("\n"),
+    );
   });
 
   it("formats error with no optional fields", () => {
     const error = new AppError({
       code: "not_found",
-      message: "Something went wrong",
+      title: "Not Found",
+      detail: "Something went wrong",
       cause: undefined,
     });
 
@@ -43,7 +56,8 @@ describe("renderAppError", () => {
   it("formats error with multiple detail lines", () => {
     const error = new AppError({
       code: "validation",
-      message: "Could not resolve source",
+      title: "Invalid Request",
+      detail: "Could not resolve source",
       breadcrumbs: [{ description: "Try a local path or GitHub shorthand." }],
       cause: undefined,
     });
@@ -56,14 +70,20 @@ describe("renderAppError", () => {
   it("includes cause message in verbose mode", () => {
     const error = new AppError({
       code: "internal",
-      message: "Installation failed",
+      title: "Internal Error",
+      detail: "Installation failed",
       cause: new Error("permission denied"),
     });
 
     const result = renderAppError(error, { verbose: true, debug: false });
 
     expect(result).toBe(
-      ["\u2717 Installation failed (internal)", "  Cause: permission denied"].join("\n"),
+      [
+        "\u2717 Installation failed (internal)",
+        "  Title: Internal Error",
+        "  This is likely a bug. Please report it with the request ID if available.",
+        "  Cause: permission denied",
+      ].join("\n"),
     );
   });
 
@@ -72,7 +92,8 @@ describe("renderAppError", () => {
     cause.stack = "Error: permission denied\n at test";
     const error = new AppError({
       code: "internal",
-      message: "Installation failed",
+      title: "Internal Error",
+      detail: "Installation failed",
       cause,
     });
 
@@ -86,13 +107,15 @@ describe("renderAppError", () => {
   it("renders nested AppError cause in verbose mode", () => {
     const nested = new AppError({
       code: "network",
-      message: "Remote registry is unreachable",
+      title: "Network Error",
+      detail: "Remote registry is unreachable",
       cause: undefined,
     });
 
     const error = new AppError({
       code: "network",
-      message: 'Failed to publish to registry "local-registry"',
+      title: "Network Error",
+      detail: 'Failed to publish to registry "local-registry"',
       cause: nested,
     });
 

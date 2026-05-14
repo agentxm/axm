@@ -143,7 +143,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "not implemented",
+        detail: "not implemented",
       }),
     ),
   publishExtension: () => Effect.succeed({ published: true } as const),
@@ -157,49 +157,49 @@ const createFailingClient = (): RegistryClient => ({
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "remote registry not yet supported",
+        detail: "remote registry not yet supported",
       }),
     ),
   ownerExists: () =>
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "remote registry not yet supported",
+        detail: "remote registry not yet supported",
       }),
     ),
   getExtensionIndex: () =>
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "remote registry not yet supported",
+        detail: "remote registry not yet supported",
       }),
     ),
   getExtensionPackage: () =>
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "remote registry not yet supported",
+        detail: "remote registry not yet supported",
       }),
     ),
   publishExtension: () =>
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "remote registry not yet supported",
+        detail: "remote registry not yet supported",
       }),
     ),
   extensionExists: () =>
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "remote registry not yet supported",
+        detail: "remote registry not yet supported",
       }),
     ),
   discoverExtensions: () =>
     Effect.fail(
       makeAppError({
         code: "internal",
-        message: "remote registry not yet supported",
+        detail: "remote registry not yet supported",
       }),
     ),
 });
@@ -638,7 +638,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // it should be a SOURCE_FETCH_FAILED from extractZip, not integrity
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("network");
-          expect(result.failure.message).not.toContain("Integrity mismatch");
+          expect(result.failure.detail).not.toContain("Integrity mismatch");
         }
       }),
     );
@@ -675,7 +675,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("network");
-          expect(result.failure.message).toContain("Integrity mismatch");
+          expect(result.failure.detail).toContain("Integrity mismatch");
         }
       }),
     );

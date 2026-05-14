@@ -109,7 +109,7 @@ const makeWorkspaceMock = (
             catch: (error) =>
               makeAppError({
                 code: "internal",
-                message: "Mock write failed",
+                detail: "Mock write failed",
                 cause: error,
               }),
           }),
@@ -129,7 +129,7 @@ const makeWorkspaceMock = (
             catch: (error) =>
               makeAppError({
                 code: "internal",
-                message: "Mock write failed",
+                detail: "Mock write failed",
                 cause: error,
               }),
           }),
@@ -454,7 +454,7 @@ describe("installSkill", () => {
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: "write failed",
+              detail: "write failed",
               cause: new Error("write failed"),
             }),
           ),
@@ -529,7 +529,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
           Effect.provide(withServices(axmDir)),
           // AppError is in the E channel — catch it as applyPlan would
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
         expect(result.result).toBe("error");
@@ -547,7 +547,7 @@ describe("installSkill", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
         expect(result.result).toBe("error");
@@ -612,7 +612,7 @@ describe("installSkill", () => {
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: "write failed",
+              detail: "write failed",
               cause: new Error("write failed"),
             }),
           ),

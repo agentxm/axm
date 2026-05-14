@@ -22,7 +22,7 @@ const resolveNonInteractive = Effect.gen(function* () {
 const promptRequired = (options: InteractiveGuardOptions) =>
   makeAppError({
     code: "usage",
-    message: `Interactive prompt required: ${options.message}`,
+    detail: `Interactive prompt required: ${options.message}`,
     breadcrumbs: [{ description: options.guidance ?? defaultHowToFix }],
   });
 

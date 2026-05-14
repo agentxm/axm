@@ -111,7 +111,7 @@ const contextReadErrorToAppError = (
 ): AppError =>
   makeAppError({
     code: error._tag === "LockfileParseError" ? "validation" : "internal",
-    message: `Failed to read workspace ${source}`,
+    detail: `Failed to read workspace ${source}`,
     cause: error,
   });
 
@@ -161,7 +161,7 @@ const requireInitializedWorkspace = (
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: `Workspace settings not found: ${settingsPath}`,
+              detail: `Workspace settings not found: ${settingsPath}`,
               breadcrumbs: [
                 { description: "Run `axm setup` to create the workspace.", cmd: "axm setup" },
               ],
@@ -254,7 +254,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     ): Effect.Effect<T, AppError> =>
       key in record && record[key] !== undefined
         ? Effect.succeed(record[key])
-        : Effect.fail(makeAppError({ code, message }));
+        : Effect.fail(makeAppError({ code, detail: message }));
 
     /**
      * Probe lockfile state without mutating disk.
@@ -266,7 +266,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `Failed to check if lockfile exists at ${lockfilePath}`,
+              detail: `Failed to check if lockfile exists at ${lockfilePath}`,
               cause: error,
             }),
           ),
@@ -473,7 +473,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           if (Option.isNone(lockEntry)) {
             return yield* makeAppError({
               code: "conflict",
-              message: `Skill "${name}" not found in lockfile`,
+              detail: `Skill "${name}" not found in lockfile`,
               breadcrumbs: [
                 {
                   description: "Install the skill first with `axm skills install`",
@@ -657,7 +657,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               Effect.mapError((error) =>
                 makeAppError({
                   code: "validation",
-                  message: `Invalid agent ID: ${agentId}`,
+                  detail: `Invalid agent ID: ${agentId}`,
                   cause: error,
                 }),
               ),

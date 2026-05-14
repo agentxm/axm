@@ -114,7 +114,7 @@ describe("withAuthGuard", () => {
     const failingEffect = Effect.fail(
       makeAppError({
         code: "internal",
-        message: "Publish failed",
+        detail: "Publish failed",
       }),
     );
     return withAuthGuard(failingEffect).pipe(

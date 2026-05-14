@@ -20,7 +20,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_SSH_HOSTNAM
     return Effect.fail(
       makeAppError({
         code: "validation",
-        message: "Invalid Azure Repos SSH URL format",
+        detail: "Invalid Azure Repos SSH URL format",
       }),
     );
   }
@@ -35,7 +35,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_SSH_HOSTNAM
     : Effect.fail(
         makeAppError({
           code: "validation",
-          message: "Invalid Azure Repos SSH URL format",
+          detail: "Invalid Azure Repos SSH URL format",
         }),
       );
 };

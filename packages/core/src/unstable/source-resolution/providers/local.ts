@@ -44,7 +44,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         Effect.mapError((error) =>
           makeAppError({
             code: "network",
-            message: `Failed to discover skills`,
+            detail: `Failed to discover skills`,
             cause: error,
           }),
         ),
@@ -73,7 +73,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
       return Effect.fail(
         makeAppError({
           code: "network",
-          message: "Expected ref with location for local source, but none was provided",
+          detail: "Expected ref with location for local source, but none was provided",
         }),
       );
     }

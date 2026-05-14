@@ -94,7 +94,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
       catch: (e) =>
         makeAppError({
           code: "network",
-          message: "Failed to decompress zip archive",
+          detail: "Failed to decompress zip archive",
           cause: e,
         }),
     });
@@ -112,7 +112,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
               Effect.mapError((e) =>
                 makeAppError({
                   code: "network",
-                  message: `Failed to create directory: ${name}`,
+                  detail: `Failed to create directory: ${name}`,
                   cause: e,
                 }),
               ),
@@ -124,7 +124,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
               Effect.mapError((e) =>
                 makeAppError({
                   code: "network",
-                  message: `Failed to create parent directory for: ${name}`,
+                  detail: `Failed to create parent directory for: ${name}`,
                   cause: e,
                 }),
               ),
@@ -134,7 +134,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
               Effect.mapError((e) =>
                 makeAppError({
                   code: "network",
-                  message: `Failed to write file: ${name}`,
+                  detail: `Failed to write file: ${name}`,
                   cause: e,
                 }),
               ),

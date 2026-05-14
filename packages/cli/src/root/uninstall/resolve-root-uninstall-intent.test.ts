@@ -29,7 +29,7 @@ describe("resolveRootUninstallIntent", () => {
       const appError = getAppError(error);
 
       expect(appError.code).toBe("usage");
-      expect(appError.message).toContain("only accepts registry FQNs");
+      expect(appError.detail).toContain("only accepts registry FQNs");
       expect(
         (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
       ).toContain("axm skills uninstall review");

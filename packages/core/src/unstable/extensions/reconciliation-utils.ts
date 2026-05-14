@@ -36,7 +36,7 @@ export const readAndDecodeManifest = <A>(
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to check ${extensionLabel} path: ${canonicalPath}`,
+          detail: `Failed to check ${extensionLabel} path: ${canonicalPath}`,
           cause: error,
         }),
       ),

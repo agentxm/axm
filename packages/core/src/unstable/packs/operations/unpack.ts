@@ -64,7 +64,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     if (Option.isNone(lockedPack)) {
       return yield* makeAppError({
         code: "internal",
-        message: `Pack "${op.args.name}" is not installed`,
+        detail: `Pack "${op.args.name}" is not installed`,
         breadcrumbs: [
           {
             description: "Install the pack first with `axm packs install`.",
@@ -79,7 +79,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     if (entry.type !== "registry") {
       return yield* makeAppError({
         code: "internal",
-        message: `Cannot unpack "${op.args.name}" — only registry packs can be unpacked`,
+        detail: `Cannot unpack "${op.args.name}" — only registry packs can be unpacked`,
       });
     }
 

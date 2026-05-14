@@ -23,6 +23,7 @@ import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/wo
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
   getErrorResult,
+  getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
@@ -319,7 +320,7 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublishPack(defaultArgs("@test/packs/no-manifest")).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.detail })),
           );
           expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
@@ -455,7 +456,7 @@ describe("packs publish.handler", () => {
             defaultArgs("@test/packs/empty-pack", { registry: Option.some("local") }),
           ).pipe(Effect.flip);
 
-          expect(error.message).toContain("Failed to publish");
+          expect(getAppError(error).detail).toContain("Failed to publish");
         }),
       );
     });
@@ -474,7 +475,7 @@ describe("packs publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                message: e.message,
+                message: e.detail,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),
@@ -740,7 +741,7 @@ describe("packs publish.handler", () => {
             }),
           ).pipe(Effect.flip);
 
-          expect(error.message).toContain("Failed to publish");
+          expect(getAppError(error).detail).toContain("Failed to publish");
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
         }),
       );

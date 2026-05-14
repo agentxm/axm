@@ -31,14 +31,15 @@ describe("AppError", () => {
   it("constructs with all fields", () => {
     const error = new AppError({
       code: "internal",
-      message: "WorkspaceMutations not initialized",
+      title: "Internal Error",
+      detail: "WorkspaceMutations not initialized",
       breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
 
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("internal");
-    expect(error.message).toBe("WorkspaceMutations not initialized");
+    expect(error.detail).toBe("WorkspaceMutations not initialized");
     expect(error.breadcrumbs?.[0]?.description).toBe("Run 'axm setup' to create one.");
     expect(error.cause).toBeInstanceOf(Error);
   });
@@ -46,7 +47,8 @@ describe("AppError", () => {
   it("constructs with no breadcrumbs", () => {
     const error = new AppError({
       code: "internal",
-      message: "Installation failed",
+      title: "Internal Error",
+      detail: "Installation failed",
       cause: undefined,
     });
 
@@ -58,7 +60,7 @@ describe("makeAppError", () => {
   it("converts convenience args to AppError", () => {
     const error = makeAppError({
       code: "internal",
-      message: "WorkspaceMutations not initialized",
+      detail: "WorkspaceMutations not initialized",
       breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
@@ -71,7 +73,7 @@ describe("makeAppError", () => {
   it("defaults optional fields", () => {
     const error = makeAppError({
       code: "internal",
-      message: "Test error",
+      detail: "Test error",
     });
 
     expect(error.breadcrumbs).toBeUndefined();
@@ -81,7 +83,7 @@ describe("makeAppError", () => {
   it("omits empty breadcrumbs", () => {
     const error = makeAppError({
       code: "internal",
-      message: "Test error",
+      detail: "Test error",
     });
 
     expect(error.breadcrumbs).toBeUndefined();
@@ -90,7 +92,7 @@ describe("makeAppError", () => {
   it("prepends recover breadcrumb", () => {
     const error = makeAppError({
       code: "not_found",
-      message: "Skill is not installed",
+      detail: "Skill is not installed",
       recover: "List installed skills",
       cmd: "axm skills list",
       breadcrumbs: [{ description: "Install from a source", cmd: "axm skills install <source>" }],

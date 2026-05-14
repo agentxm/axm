@@ -83,7 +83,7 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
         Effect.mapError((cause) =>
           makeAppError({
             code: "network",
-            message: "GitHub API is unreachable",
+            detail: "GitHub API is unreachable",
             breadcrumbs: [{ description: "Check your network connection and try again." }],
             cause,
           }),
@@ -93,7 +93,7 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
     if (response.status !== 200) {
       return yield* makeAppError({
         code: "internal",
-        message: `GitHub API returned status ${String(response.status)}`,
+        detail: `GitHub API returned status ${String(response.status)}`,
         breadcrumbs: [
           {
             description:
@@ -107,7 +107,7 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          message: "GitHub API response was not valid JSON",
+          detail: "GitHub API response was not valid JSON",
           breadcrumbs: [
             {
               description:
@@ -127,7 +127,7 @@ const mapDecodeError = (_url: string) =>
   Effect.mapError((cause: Schema.SchemaError) =>
     makeAppError({
       code: "validation",
-      message: "GitHub API returned an unexpected response shape",
+      detail: "GitHub API returned an unexpected response shape",
       breadcrumbs: [
         {
           description:
@@ -182,7 +182,7 @@ const resolveRemoteVersion = (httpClient: HttpClient.HttpClient, repo: string) =
     }
     return yield* makeAppError({
       code: "not_found",
-      message: "No CLI release found on GitHub",
+      detail: "No CLI release found on GitHub",
       breadcrumbs: [
         {
           description:

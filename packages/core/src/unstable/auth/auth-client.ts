@@ -189,7 +189,7 @@ const deriveAuthorizationOrigin = (registryUrl: string): string => {
 const mapAuthCodeExchangeError = (error: unknown) =>
   makeAppError({
     code: "auth",
-    message: "Authorization code exchange failed",
+    detail: "Authorization code exchange failed",
     breadcrumbs: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
     cause: error,
   });
@@ -204,7 +204,7 @@ const isRetryableDevicePollError = (
 const makeTransientDevicePollAppError = (cause: unknown) =>
   makeAppError({
     code: "auth",
-    message: "Lost connection to the registry during login",
+    detail: "Lost connection to the registry during login",
     breadcrumbs: [
       {
         description: "Verify the registry is running and reachable, then try `axm login` again.",
@@ -310,7 +310,7 @@ const pollOnceInternal = (
       return Effect.fail(
         makeAppError({
           code: "auth",
-          message: "Device token exchange failed with an unexpected error",
+          detail: "Device token exchange failed with an unexpected error",
           breadcrumbs: [{ description: "Try running `axm login` again.", cmd: "axm login" }],
           cause: error,
         }),
@@ -398,7 +398,7 @@ export const AuthClientLive = Layer.effect(
           Effect.mapError((error) =>
             makeAppError({
               code: "auth",
-              message: "Could not connect to the registry",
+              detail: "Could not connect to the registry",
               breadcrumbs: [
                 {
                   description: "Verify the registry is running and reachable, then try again.",
@@ -441,13 +441,13 @@ export const AuthClientLive = Layer.effect(
           case "AccessDenied":
             return yield* makeAppError({
               code: "auth",
-              message: "Login was denied or cancelled",
+              detail: "Login was denied or cancelled",
               breadcrumbs: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
             });
           case "ExpiredToken":
             return yield* makeAppError({
               code: "auth",
-              message: "Login code expired",
+              detail: "Login code expired",
               breadcrumbs: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
             });
         }
@@ -464,7 +464,7 @@ export const AuthClientLive = Layer.effect(
           Effect.mapError((error) =>
             makeAppError({
               code: "auth",
-              message: "Token refresh request failed",
+              detail: "Token refresh request failed",
               breadcrumbs: [
                 { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
               ],
@@ -518,7 +518,7 @@ export const AuthClientLive = Layer.effect(
             if (isRegistryClientError("AuthGetMe401")(error)) {
               return makeAppError({
                 code: "auth",
-                message: "Not authenticated or token is invalid",
+                detail: "Not authenticated or token is invalid",
                 breadcrumbs: [
                   { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
                 ],
@@ -528,7 +528,7 @@ export const AuthClientLive = Layer.effect(
             if (isRegistryClientError("AuthGetMe400")(error)) {
               return makeAppError({
                 code: "auth",
-                message: "Not authenticated or token is invalid",
+                detail: "Not authenticated or token is invalid",
                 breadcrumbs: [
                   { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
                 ],
@@ -541,7 +541,7 @@ export const AuthClientLive = Layer.effect(
             if (isAnyRegistryClientError(error) && hasTagSuffix(error, "5xx")) {
               return makeAppError({
                 code: "network",
-                message: "Registry returned server error",
+                detail: "Registry returned server error",
                 breadcrumbs: [
                   {
                     description: "The registry may be temporarily unavailable. Try again later.",
@@ -552,7 +552,7 @@ export const AuthClientLive = Layer.effect(
             }
             return makeAppError({
               code: "auth",
-              message: "Could not connect to the registry",
+              detail: "Could not connect to the registry",
               breadcrumbs: [
                 {
                   description: "Verify the registry is running and reachable, then try again.",
@@ -600,28 +600,28 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
       Effect.fail(
         makeAppError({
           code: "auth",
-          message: "Not implemented in test",
+          detail: "Not implemented in test",
         }),
       ),
     initiateDeviceFlow: () =>
       Effect.fail(
         makeAppError({
           code: "auth",
-          message: "Not implemented in test",
+          detail: "Not implemented in test",
         }),
       ),
     pollDeviceToken: () =>
       Effect.fail(
         makeAppError({
           code: "auth",
-          message: "Not implemented in test",
+          detail: "Not implemented in test",
         }),
       ),
     refreshToken: () =>
       Effect.fail(
         makeAppError({
           code: "auth",
-          message: "Not implemented in test",
+          detail: "Not implemented in test",
         }),
       ),
     revokeToken: () => Effect.void,
@@ -629,7 +629,7 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
       Effect.fail(
         makeAppError({
           code: "auth",
-          message: "Not implemented in test",
+          detail: "Not implemented in test",
         }),
       ),
     ...overrides,

@@ -126,7 +126,7 @@ describe("view handler", () => {
           field: Option.some("bad-field"),
           registry: Option.some("local"),
         }).pipe(Effect.flip);
-        expect(getAppError(result).message).toContain("Unknown view field");
+        expect(getAppError(result).detail).toContain("Unknown view field");
       }),
     );
   });

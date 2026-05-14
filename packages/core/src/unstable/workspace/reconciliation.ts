@@ -185,7 +185,7 @@ export const buildReconciliationSnapshot = (
           return Effect.fail(
             makeAppError({
               code: "not_found",
-              message: `No reconciliation adapter for ${declaration.type}`,
+              detail: `No reconciliation adapter for ${declaration.type}`,
             }),
           );
         }
@@ -236,7 +236,7 @@ const backupInvalidLockfile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: "Failed to create temporary directory for invalid lockfile backup",
+          detail: "Failed to create temporary directory for invalid lockfile backup",
           cause: error,
         }),
       ),
@@ -248,7 +248,7 @@ const backupInvalidLockfile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to back up invalid lockfile to ${backupPath}`,
+          detail: `Failed to back up invalid lockfile to ${backupPath}`,
           cause: error,
         }),
       ),
@@ -258,7 +258,7 @@ const backupInvalidLockfile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to remove invalid lockfile after backing up to ${backupPath}`,
+          detail: `Failed to remove invalid lockfile after backing up to ${backupPath}`,
           cause: error,
         }),
       ),
@@ -294,7 +294,7 @@ export const runReconcileMaterializeOperation = (
         message: "Reconciliation requires unresolved source resolution",
         error: makeAppError({
           code: "network",
-          message: "Required declaration sources are unreachable during reconciliation",
+          detail: "Required declaration sources are unreachable during reconciliation",
         }),
       } satisfies JobStepResult;
     }
@@ -306,7 +306,7 @@ export const runReconcileMaterializeOperation = (
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
-            message: `Failed to check invalid lockfile at ${lockfilePath}`,
+            detail: `Failed to check invalid lockfile at ${lockfilePath}`,
             cause: error,
           }),
         ),

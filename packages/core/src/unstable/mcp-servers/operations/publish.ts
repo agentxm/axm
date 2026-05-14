@@ -97,7 +97,7 @@ export const publishMcpServer: (
     if (!extensionDirExists) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Managed extension not found: ${extensionDir}`,
+        detail: `Managed extension not found: ${extensionDir}`,
       });
     }
 
@@ -107,7 +107,7 @@ export const publishMcpServer: (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read manifest: ${manifestPath}`,
+          detail: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -121,7 +121,7 @@ export const publishMcpServer: (
       catch: (e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid JSON in manifest: ${manifestPath}`,
+          detail: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -132,7 +132,7 @@ export const publishMcpServer: (
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid manifest schema: ${manifestPath}`,
+          detail: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -149,7 +149,7 @@ export const publishMcpServer: (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to lookup registry source "${op.args.registryName}"`,
+          detail: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
       ),
@@ -158,7 +158,7 @@ export const publishMcpServer: (
     if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
       return yield* makeAppError({
         code: "not_found",
-        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        detail: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -175,24 +175,14 @@ export const publishMcpServer: (
     };
 
     // Publish to registry (idempotent)
-    yield* client
-      .publishExtension({
-        owner: fqn.owner,
-        type: "mcp-server",
-        name: fqn.name,
-        version: manifest.version,
-        archive,
-        metadata: versionEntry,
-      })
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "network",
-            message: "Registry publish did not complete",
-            cause: e,
-          }),
-        ),
-      );
+    yield* client.publishExtension({
+      owner: fqn.owner,
+      type: "mcp-server",
+      name: fqn.name,
+      version: manifest.version,
+      archive,
+      metadata: versionEntry,
+    });
 
     return {
       result: "success",

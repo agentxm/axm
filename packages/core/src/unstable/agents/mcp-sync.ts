@@ -169,7 +169,7 @@ export const runCliInvocation = (
     catch: (error) =>
       makeAppError({
         code: "internal",
-        message: `Failed to execute MCP CLI command: ${invocation.command}`,
+        detail: `Failed to execute MCP CLI command: ${invocation.command}`,
         cause: error,
       }),
   });
@@ -182,7 +182,7 @@ const decodeJsonConfig = (
     Effect.mapError((error) =>
       makeAppError({
         code: "validation",
-        message: `Invalid MCP config format: ${configPath}`,
+        detail: `Invalid MCP config format: ${configPath}`,
         cause: error,
       }),
     ),
@@ -201,7 +201,7 @@ const upsertJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create config directory: ${dir}`,
+          detail: `Failed to create config directory: ${dir}`,
           cause: error,
         }),
       ),
@@ -213,7 +213,7 @@ const upsertJsonConfigServer = (
           Effect.mapError((error) =>
             makeAppError({
               code: "internal",
-              message: `Failed to read MCP config: ${configPath}`,
+              detail: `Failed to read MCP config: ${configPath}`,
               cause: error,
             }),
           ),
@@ -232,7 +232,7 @@ const upsertJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write MCP config: ${configPath}`,
+          detail: `Failed to write MCP config: ${configPath}`,
           cause: error,
         }),
       ),
@@ -254,7 +254,7 @@ const removeJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read MCP config: ${configPath}`,
+          detail: `Failed to read MCP config: ${configPath}`,
           cause: error,
         }),
       ),
@@ -271,7 +271,7 @@ const removeJsonConfigServer = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write MCP config: ${configPath}`,
+          detail: `Failed to write MCP config: ${configPath}`,
           cause: error,
         }),
       ),

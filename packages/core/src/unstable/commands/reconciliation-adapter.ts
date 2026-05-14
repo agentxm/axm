@@ -112,7 +112,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
-            message: `Failed to check command path: ${canonicalPath}`,
+            detail: `Failed to check command path: ${canonicalPath}`,
             cause: error,
           }),
         ),

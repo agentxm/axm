@@ -102,7 +102,7 @@ export const McpServerManagerLive = Layer.effect(
         if (ref.refType !== "registry") {
           return yield* makeAppError({
             code: "internal",
-            message: `Unsupported ref type for MCP server install: ${ref.refType}`,
+            detail: `Unsupported ref type for MCP server install: ${ref.refType}`,
           });
         }
 
@@ -118,7 +118,7 @@ export const McpServerManagerLive = Layer.effect(
         if (!isPathSafe(baseDir, canonicalPath)) {
           return yield* makeAppError({
             code: "internal",
-            message: `Path traversal detected: ${canonicalPath}`,
+            detail: `Path traversal detected: ${canonicalPath}`,
           });
         }
 
@@ -126,7 +126,7 @@ export const McpServerManagerLive = Layer.effect(
           Effect.mapError((e) =>
             makeAppError({
               code: "internal",
-              message: `Failed to check if canonical path exists: ${canonicalPath}`,
+              detail: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
           ),
@@ -151,7 +151,7 @@ export const McpServerManagerLive = Layer.effect(
             if (actualIntegrity !== registryRef.integrity.value) {
               return yield* makeAppError({
                 code: "internal",
-                message: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
+                detail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
               });
             }
           }
@@ -160,7 +160,7 @@ export const McpServerManagerLive = Layer.effect(
             Effect.mapError((e) =>
               makeAppError({
                 code: "validation",
-                message: `Temporary directory for registry install could not be created`,
+                detail: `Temporary directory for registry install could not be created`,
                 cause: e,
               }),
             ),
@@ -173,7 +173,7 @@ export const McpServerManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "validation",
-                    message: `Failed to create canonical directory: ${canonicalPath}`,
+                    detail: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
                   }),
                 ),
@@ -182,7 +182,7 @@ export const McpServerManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "validation",
-                    message: `Extracted directory could not be read`,
+                    detail: `Extracted directory could not be read`,
                     cause: e,
                   }),
                 ),

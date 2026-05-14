@@ -95,7 +95,7 @@ describe("determineSkillsToInstall", () => {
           );
 
           expect(error._tag).toBe("AppError");
-          expect(error.message).toContain("No skills matched");
+          expect(error.detail).toContain("No skills matched");
         }),
       ),
     );
@@ -167,7 +167,7 @@ describe("determineSkillsToInstall", () => {
           );
 
           expect(error._tag).toBe("AppError");
-          expect(error.message).toContain("effect-*");
+          expect(error.detail).toContain("effect-*");
         }),
       ),
     );

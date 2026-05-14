@@ -79,7 +79,7 @@ export const readCommandContent = (
         Effect.mapError((e) =>
           makeAppError({
             code: "internal",
-            message: `Failed to read ${contentFilename} at ${commandMdPath}`,
+            detail: `Failed to read ${contentFilename} at ${commandMdPath}`,
             cause: e,
           }),
         ),
@@ -101,7 +101,7 @@ export const readCommandContent = (
         Effect.mapError((e) =>
           makeAppError({
             code: "internal",
-            message: `Failed to read ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
+            detail: `Failed to read ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: e,
           }),
         ),
@@ -114,7 +114,7 @@ export const readCommandContent = (
         catch: (error) =>
           makeAppError({
             code: "internal",
-            message: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
+            detail: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: error,
           }),
       });
@@ -125,7 +125,7 @@ export const readCommandContent = (
       if (Result.isFailure(agentOverridesFieldValidation)) {
         return yield* makeAppError({
           code: "validation",
-          message: agentOverridesFieldValidation.failure.detail,
+          detail: agentOverridesFieldValidation.failure.detail,
         });
       }
       manifest = yield* Effect.try({
@@ -133,7 +133,7 @@ export const readCommandContent = (
         catch: (error) =>
           makeAppError({
             code: "internal",
-            message: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
+            detail: `Invalid ${COMMAND_MANIFEST_FILENAME} at ${manifestPath}`,
             cause: error,
           }),
       });

@@ -18,7 +18,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          message: `Invalid skill source for ${name}: ${cause.message}`,
+          detail: `Invalid skill source for ${name}: ${cause.message}`,
           cause,
         }),
       ),
@@ -50,7 +50,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            message: `Failed to resolve configured skill "${name}"`,
+            detail: `Failed to resolve configured skill "${name}"`,
             breadcrumbs: [
               {
                 description: `Verify the configured source is reachable and still contains the skill.`,
@@ -65,7 +65,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Configured skill "${name}" could not be found in its source`,
+        detail: `Configured skill "${name}" could not be found in its source`,
         breadcrumbs: [
           {
             description: `Verify the configured source still contains the skill or update settings.json.`,
@@ -87,7 +87,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          message: `Invalid subagent source for ${name}: ${cause.message}`,
+          detail: `Invalid subagent source for ${name}: ${cause.message}`,
           cause,
         }),
       ),
@@ -119,7 +119,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            message: `Failed to resolve configured subagent "${name}"`,
+            detail: `Failed to resolve configured subagent "${name}"`,
             breadcrumbs: [
               {
                 description: `Verify the configured source is reachable and still contains the subagent.`,
@@ -134,7 +134,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Configured subagent "${name}" could not be found in its source`,
+        detail: `Configured subagent "${name}" could not be found in its source`,
         breadcrumbs: [
           {
             description: `Verify the configured source still contains the subagent or update settings.json.`,
@@ -156,7 +156,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
     if (parsed === undefined || parsed.type !== "commands" || parsed.name !== name) {
       return yield* makeAppError({
         code: "validation",
-        message: `The configured command entry "${name}" is invalid.`,
+        detail: `The configured command entry "${name}" is invalid.`,
         breadcrumbs: [{ description: `Use a name like "@owner/commands/name".` }],
       });
     }
@@ -167,7 +167,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          message: `Invalid command source for ${name}: ${cause.message}`,
+          detail: `Invalid command source for ${name}: ${cause.message}`,
           cause,
         }),
       ),
@@ -187,7 +187,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            message: `Failed to resolve configured command "${name}"`,
+            detail: `Failed to resolve configured command "${name}"`,
             breadcrumbs: [
               {
                 description: `Verify the configured registry source is reachable and still contains the command.`,
@@ -202,7 +202,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Configured command "${name}" could not be found in its source`,
+        detail: `Configured command "${name}" could not be found in its source`,
         breadcrumbs: [
           {
             description: `Verify the configured source still contains the command or update settings.json.`,
@@ -224,7 +224,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
     if (parsed === undefined || parsed.type !== "mcp-servers" || parsed.name !== name) {
       return yield* makeAppError({
         code: "validation",
-        message: `The configured MCP server entry "${name}" is invalid.`,
+        detail: `The configured MCP server entry "${name}" is invalid.`,
         breadcrumbs: [{ description: `Use a name like "@owner/mcp-servers/name".` }],
       });
     }
@@ -235,7 +235,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          message: `Invalid MCP server source for ${name}: ${cause.message}`,
+          detail: `Invalid MCP server source for ${name}: ${cause.message}`,
           cause,
         }),
       ),
@@ -255,7 +255,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            message: `Failed to resolve configured MCP server "${name}"`,
+            detail: `Failed to resolve configured MCP server "${name}"`,
             breadcrumbs: [
               {
                 description: `Verify the configured registry source is reachable and still contains the MCP server.`,
@@ -270,7 +270,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Configured MCP server "${name}" could not be found in its source`,
+        detail: `Configured MCP server "${name}" could not be found in its source`,
         breadcrumbs: [
           {
             description: `Verify the configured source still contains the MCP server or update settings.json.`,
@@ -292,7 +292,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
     if (parsed === undefined || parsed.type !== "packs" || parsed.name !== name) {
       return yield* makeAppError({
         code: "validation",
-        message: `The configured pack entry "${name}" is invalid.`,
+        detail: `The configured pack entry "${name}" is invalid.`,
         breadcrumbs: [{ description: `Use a name like "@owner/packs/name".` }],
       });
     }
@@ -303,7 +303,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          message: `Invalid pack source for ${name}: ${cause.message}`,
+          detail: `Invalid pack source for ${name}: ${cause.message}`,
           cause,
         }),
       ),
@@ -352,7 +352,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
-          message: `Failed to resolve configured pack "${name}"`,
+          detail: `Failed to resolve configured pack "${name}"`,
           breadcrumbs: [
             {
               description:
@@ -368,7 +368,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Configured pack "${name}" could not be found in its source`,
+        detail: `Configured pack "${name}" could not be found in its source`,
         breadcrumbs: [
           {
             description:

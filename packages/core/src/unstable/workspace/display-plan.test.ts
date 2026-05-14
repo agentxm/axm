@@ -343,7 +343,7 @@ describe("displayPlan", () => {
                       message: "failed to apply",
                       error: makeAppError({
                         code: "internal",
-                        message: "failed to apply",
+                        detail: "failed to apply",
                       }),
                     },
                   },
@@ -382,7 +382,7 @@ describe("displayPlan", () => {
                         message: "failed to publish",
                         error: makeAppError({
                           code: "internal",
-                          message: "Failed to publish",
+                          detail: "Failed to publish",
                           cause: new Error("connection refused"),
                         }),
                       },
@@ -421,7 +421,7 @@ describe("displayPlan", () => {
                       message: "failed",
                       error: makeAppError({
                         code: "internal",
-                        message: "failed",
+                        detail: "failed",
                       }),
                     },
                   },

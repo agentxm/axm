@@ -69,7 +69,7 @@ export const createGitHostingSourceHostProvider = <
           Effect.mapError((error) =>
             makeAppError({
               code: "network",
-              message: "Temporary source directory could not be created",
+              detail: "Temporary source directory could not be created",
               cause: error,
             }),
           ),
@@ -89,7 +89,7 @@ export const createGitHostingSourceHostProvider = <
         Effect.mapError((error) =>
           makeAppError({
             code: "network",
-            message: "Failed to discover skills",
+            detail: "Failed to discover skills",
             cause: error,
           }),
         ),
@@ -133,7 +133,7 @@ export const createGitHostingSourceHostProvider = <
       return Effect.fail(
         makeAppError({
           code: "network",
-          message: `Expected ref with location for ${host.type} source, but none was provided`,
+          detail: `Expected ref with location for ${host.type} source, but none was provided`,
         }),
       );
     }

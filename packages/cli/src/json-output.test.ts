@@ -119,7 +119,7 @@ describe("toPlanResolutionResult", () => {
                 message: "Version already exists",
                 error: makeAppError({
                   code: "conflict",
-                  message: "Version already exists",
+                  detail: "Version already exists",
                 }),
               },
             },
@@ -135,7 +135,7 @@ describe("toPlanResolutionResult", () => {
                 message: "blocked by earlier job failure",
                 error: makeAppError({
                   code: "conflict",
-                  message: "blocked by earlier job failure",
+                  detail: "blocked by earlier job failure",
                 }),
               },
             },
@@ -275,7 +275,7 @@ describe("planResolutionToSummary", () => {
               result: {
                 result: "error",
                 message: "failed",
-                error: makeAppError({ code: "internal", message: "failed" }),
+                error: makeAppError({ code: "internal", detail: "failed" }),
               },
             },
             {
@@ -285,7 +285,7 @@ describe("planResolutionToSummary", () => {
                 message: "blocked",
                 error: makeAppError({
                   code: "conflict",
-                  message: "blocked",
+                  detail: "blocked",
                 }),
               },
             },

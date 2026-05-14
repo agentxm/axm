@@ -18,7 +18,7 @@ export const checkAzureReposRepoExists = (
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: `Failed to check Azure Repos: ${error instanceof Error ? error.message : String(error)}`,
+          detail: `Failed to check Azure Repos: ${error instanceof Error ? error.message : String(error)}`,
           cause: error,
         }),
       ),
@@ -27,7 +27,7 @@ export const checkAzureReposRepoExists = (
     if (response.status < 200 || response.status >= 300) {
       return yield* makeAppError({
         code: "validation",
-        message: `Not found on Azure Repos`,
+        detail: `Not found on Azure Repos`,
       });
     }
   });

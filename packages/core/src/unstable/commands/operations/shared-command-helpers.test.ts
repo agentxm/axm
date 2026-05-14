@@ -28,7 +28,7 @@ const makeRepo = (agents: ReadonlyArray<CodingAgent>): CodingAgentRepositoryServ
     return Effect.fail(
       makeAppError({
         code: "not_found",
-        message: `Agent ${id} not found`,
+        detail: `Agent ${id} not found`,
       }),
     );
   },
@@ -177,7 +177,7 @@ describe("readCommandContent", () => {
             Effect.flip,
           );
 
-          expect(error.message).toContain("command content file frontmatter");
+          expect(error.detail).toContain("command content file frontmatter");
         }),
       (commandDir) => Effect.sync(() => fs.rmSync(commandDir, { recursive: true, force: true })),
     ),

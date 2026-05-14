@@ -38,12 +38,12 @@ const isAppError = (error: unknown): error is AppError =>
   error !== null &&
   "_tag" in error &&
   error._tag === "AppError" &&
-  "message" in error &&
+  "detail" in error &&
   "code" in error;
 
 const summarizeLookupError = (error: unknown): string => {
   if (isAppError(error)) {
-    return `${error.message} (${error.code})`;
+    return `${error.detail} (${error.code})`;
   }
   if (error instanceof Error) {
     return error.message;
@@ -105,7 +105,7 @@ const resolveRegistrySource = (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read configured registry sources for owner "${owner}"`,
+          detail: `Failed to read configured registry sources for owner "${owner}"`,
           recover: "Check that your workspace settings file is valid and accessible",
           cause: e,
         }),
@@ -115,7 +115,7 @@ const resolveRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeAppError({
         code: "internal",
-        message: `No registry source is configured for owner "${owner}"`,
+        detail: `No registry source is configured for owner "${owner}"`,
         recover: `Add a registry source for owner "${owner}"`,
         cmd: ADD_REGISTRY_SOURCE.cmd,
       });
@@ -174,7 +174,7 @@ const resolveRegistrySource = (
       const skillName = options.skillName.value;
       return yield* makeAppError({
         code: "not_found",
-        message: `Skill "${owner}/${skillName}" was not found in configured registries`,
+        detail: `Skill "${owner}/${skillName}" was not found in configured registries`,
         recover: registryLookupHowToFix({
           issues,
           fallback:
@@ -186,7 +186,7 @@ const resolveRegistrySource = (
 
     return yield* makeAppError({
       code: "not_found",
-      message: `None of the configured registry sources contain owner "${owner}"`,
+      detail: `None of the configured registry sources contain owner "${owner}"`,
       recover: registryLookupHowToFix({
         issues,
         fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
@@ -206,7 +206,7 @@ const resolveSkillRegistrySourceByName = (
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Skill "${name}" could not be looked up (no registry sources)`,
+        detail: `Skill "${name}" could not be looked up (no registry sources)`,
         breadcrumbs: [ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY],
       });
     }
@@ -227,7 +227,7 @@ const resolveSkillRegistrySourceByName = (
         });
         return makeAppError({
           code: "not_found",
-          message: Option.isNone(maybeProfile)
+          detail: Option.isNone(maybeProfile)
             ? `Skill "${name}" could not be looked up (no default owner)`
             : `Skill "${label}" was not found in configured registries`,
           breadcrumbs: [
@@ -244,7 +244,7 @@ const resolveSkillRegistrySourceByName = (
     if (resolvedOwner === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Skill "${name}" was not found in configured registries`,
+        detail: `Skill "${name}" was not found in configured registries`,
         breadcrumbs: [{ description: "Verify the skill name" }, INSTALL_SKILL_FROM_REGISTRY],
       });
     }
@@ -252,7 +252,7 @@ const resolveSkillRegistrySourceByName = (
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Skill "${name}" could not be looked up (no registry sources)`,
+        detail: `Skill "${name}" could not be looked up (no registry sources)`,
       });
     }
 
@@ -283,7 +283,7 @@ const resolveSkillRegistrySource = (
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
       return yield* makeAppError({
         code: "internal",
-        message: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
+        detail: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
         recover: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
     }
@@ -332,7 +332,7 @@ export const resolveSkillInstallSource = (
       case "glob-input":
         return yield* makeAppError({
           code: "internal",
-          message: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
+          detail: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
           recover:
             "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",
         });

@@ -151,7 +151,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   if (resolvedEntries.length === 0) {
     return yield* makeAppError({
       code: "network",
-      message: "All source re-resolutions failed. Nothing to update.",
+      detail: "All source re-resolutions failed. Nothing to update.",
       breadcrumbs: [{ description: "Verify the original source paths are still accessible." }],
     });
   }

@@ -178,7 +178,7 @@ describe("publishCommand", () => {
         makeOp({ name: "@community/commands/nonexistent", registryName: "local" }),
       ).pipe(
         Effect.provide(withServices(axmDir, registryRoot)),
-        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
       );
 
       expect(result.result).toBe("error");
@@ -198,7 +198,7 @@ describe("publishCommand", () => {
         makeOp({ name: "@community/commands/old-overrides", registryName: "local" }),
       ).pipe(
         Effect.provide(withServices(axmDir, registryRoot)),
-        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
       );
 
       expect(result.result).toBe("error");

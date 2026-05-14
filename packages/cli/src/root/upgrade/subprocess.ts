@@ -81,7 +81,7 @@ const makeRunCommand =
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
-          message: `Failed to execute ${command}`,
+          detail: `Failed to execute ${command}`,
           breadcrumbs: [{ description: "Check that the command is installed and on PATH." }],
           cause,
         }),
@@ -92,7 +92,7 @@ const makeRunCommand =
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: `Timed out executing ${command}`,
+              detail: `Timed out executing ${command}`,
               breadcrumbs: [{ description: "Check the package manager state and try again." }],
             }),
           ),

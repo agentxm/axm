@@ -64,7 +64,7 @@ describe("requireInteractive", () => {
       }
 
       expect(exit.code).toBe("usage");
-      expect(exit.message).toContain("Prompt value");
+      expect(exit.detail).toContain("Prompt value");
     }),
   );
 

@@ -70,7 +70,8 @@ const writeMachineError = (error: AppError): void => {
     JSON.stringify({
       type: "error",
       code: error.code,
-      message: error.message,
+      title: error.title,
+      detail: error.detail,
     }),
   );
 };
@@ -96,9 +97,24 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): 
     return;
   }
 
-  writeStderr(JSON.stringify({ type: "error", code: "internal", message }));
+  writeStderr(
+    JSON.stringify({
+      type: "error",
+      code: "internal",
+      title: "Internal Error",
+      detail: message,
+    }),
+  );
   process.stdout.write(
-    JSON.stringify(makeJsonErrorEnvelope({ code: "internal", message }), null, 2) + "\n",
+    JSON.stringify(
+      makeJsonErrorEnvelope({
+        code: "internal",
+        title: "Internal Error",
+        detail: message,
+      }),
+      null,
+      2,
+    ) + "\n",
   );
 };
 

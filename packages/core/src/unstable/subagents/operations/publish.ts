@@ -94,7 +94,7 @@ export const publishSubagent: OperationHandler<
     if (!extensionDirExists) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Managed subagent not found: ${extensionDir}`,
+        detail: `Managed subagent not found: ${extensionDir}`,
       });
     }
 
@@ -104,7 +104,7 @@ export const publishSubagent: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read manifest: ${manifestPath}`,
+          detail: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -118,7 +118,7 @@ export const publishSubagent: OperationHandler<
       catch: (e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid JSON in manifest: ${manifestPath}`,
+          detail: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -127,7 +127,7 @@ export const publishSubagent: OperationHandler<
     if (Result.isFailure(agentsFieldValidation)) {
       return yield* makeAppError({
         code: "validation",
-        message: agentsFieldValidation.failure.detail,
+        detail: agentsFieldValidation.failure.detail,
       });
     }
 
@@ -137,7 +137,7 @@ export const publishSubagent: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid manifest schema: ${manifestPath}`,
+          detail: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -154,7 +154,7 @@ export const publishSubagent: OperationHandler<
     if (!contentExists) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Missing subagent content file: expected ${expectedFilename}`,
+        detail: `Missing subagent content file: expected ${expectedFilename}`,
         breadcrumbs: [
           {
             description: `Rename the subagent content file to ${expectedFilename} and ensure its frontmatter name is ${manifest.name}.`,
@@ -167,7 +167,7 @@ export const publishSubagent: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read ${expectedFilename}: ${contentPath}`,
+          detail: `Failed to read ${expectedFilename}: ${contentPath}`,
           cause: e,
         }),
       ),
@@ -185,7 +185,7 @@ export const publishSubagent: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to lookup registry source "${op.args.registryName}"`,
+          detail: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
       ),
@@ -194,7 +194,7 @@ export const publishSubagent: OperationHandler<
     if (Option.isNone(registrySource)) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        detail: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -202,7 +202,7 @@ export const publishSubagent: OperationHandler<
     if (source.type !== "registry") {
       return yield* makeAppError({
         code: "not_found",
-        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        detail: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -221,25 +221,14 @@ export const publishSubagent: OperationHandler<
     };
 
     // Publish to registry (idempotent)
-    yield* client
-      .publishExtension({
-        owner: fqn.owner,
-        type: "subagent",
-        name: fqn.name,
-        version: manifest.version,
-        archive,
-        metadata: versionEntry,
-      })
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "network",
-            message: `Registry publish did not complete "${op.args.registryName}"`,
-            breadcrumbs: e.breadcrumbs ?? [],
-            cause: e,
-          }),
-        ),
-      );
+    yield* client.publishExtension({
+      owner: fqn.owner,
+      type: "subagent",
+      name: fqn.name,
+      version: manifest.version,
+      archive,
+      metadata: versionEntry,
+    });
 
     return {
       result: "success",

@@ -104,7 +104,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             Effect.mapError((error) =>
               makeAppError({
                 code: "validation",
-                message: `Invalid source: ${error.message}`,
+                detail: `Invalid source: ${error.message}`,
                 cause: error,
               }),
             ),
@@ -239,7 +239,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       if (latestVersion === undefined) {
         return yield* makeAppError({
           code: "internal",
-          message: `Registry skill "${skillFqn}" has no published versions`,
+          detail: `Registry skill "${skillFqn}" has no published versions`,
           recover: "Publish a version before running `axm skills update`",
           cmd: "axm skills publish",
         });
@@ -253,7 +253,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         });
         return yield* makeAppError({
           code: "internal",
-          message: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
+          detail: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
           recover: "Relax the version constraint or update the dependent pack constraints",
         });
       }
@@ -272,7 +272,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       if (exactRef === undefined) {
         return yield* makeAppError({
           code: "internal",
-          message: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
+          detail: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
           recover: "Re-fetch with `axm skills install --force <source>`",
           cmd: "axm skills install --force <source>",
         });
@@ -299,7 +299,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       catch: () =>
         makeAppError({
           code: "validation",
-          message: `Configured skill name "${name}" is invalid`,
+          detail: `Configured skill name "${name}" is invalid`,
           recover: SKILL_NAME_RULES,
         }),
     });
@@ -379,7 +379,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   if (resolved.length === 0) {
     return yield* makeAppError({
       code: "network",
-      message: "All source re-resolutions failed. Nothing to update.",
+      detail: "All source re-resolutions failed. Nothing to update.",
       recover: "List configured sources",
       cmd: "axm sources list",
     });

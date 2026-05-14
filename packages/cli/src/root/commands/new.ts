@@ -62,7 +62,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   ) {
     return yield* makeAppError({
       code: "validation",
-      message: `Invalid command name: "${args.name}"`,
+      detail: `Invalid command name: "${args.name}"`,
       breadcrumbs: [
         {
           description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
@@ -88,7 +88,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   if (dirExists) {
     return yield* makeAppError({
       code: "conflict",
-      message: `Managed command directory already exists: ${targetDir}`,
+      detail: `Managed command directory already exists: ${targetDir}`,
       breadcrumbs: [
         {
           description: "Choose a different name or remove the existing directory first",

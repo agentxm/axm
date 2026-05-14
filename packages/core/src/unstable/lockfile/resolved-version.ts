@@ -9,7 +9,7 @@ const decodeVersion = Schema.decodeUnknownEffect(VersionSchema);
 const makeResolvedVersionError = (field: string, value: string, cause: unknown): AppError =>
   makeAppError({
     code: "validation",
-    message: "Lockfile resolved versions must be exact semver values",
+    detail: "Lockfile resolved versions must be exact semver values",
     breadcrumbs: [
       {
         description:

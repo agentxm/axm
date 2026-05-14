@@ -175,7 +175,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             if (owner === undefined) {
               return yield* makeAppError({
                 code: "not_found",
-                message: `Command "${parsed.success.name}" not found in registry`,
+                detail: `Command "${parsed.success.name}" not found in registry`,
                 breadcrumbs: [
                   {
                     description: "Verify the command name, or use @owner/commands/command-name.",
@@ -196,19 +196,19 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             case "wrong-type":
               return yield* makeAppError({
                 code: "validation",
-                message: "Command source must include /commands/ segment",
+                detail: "Command source must include /commands/ segment",
                 breadcrumbs: [{ description: "Use @owner/commands/command-name format." }],
               });
             case "missing-name":
               return yield* makeAppError({
                 code: "not_found",
-                message: "Command source must include a command name",
+                detail: "Command source must include a command name",
                 breadcrumbs: [{ description: "Use @owner/commands/command-name format." }],
               });
             default:
               return yield* makeAppError({
                 code: "usage",
-                message: "Commands can only be installed from a registry",
+                detail: "Commands can only be installed from a registry",
                 breadcrumbs: [
                   {
                     description: "Use @owner/commands/command-name or just command-name.",
@@ -228,7 +228,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             Effect.mapError((error) =>
               makeAppError({
                 code: "validation",
-                message: `Invalid source: ${error.message}`,
+                detail: `Invalid source: ${error.message}`,
                 breadcrumbs: [
                   {
                     description: "Use @owner/commands/command-name or just command-name.",
@@ -242,7 +242,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           if (source.type !== "registry") {
             return yield* makeAppError({
               code: "usage",
-              message: "Commands can only be installed from a registry",
+              detail: "Commands can only be installed from a registry",
               breadcrumbs: [
                 {
                   description: "Use a registry source: @owner/commands/command-name",
@@ -281,7 +281,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                   Effect.mapError((error) =>
                     makeAppError({
                       code: "network",
-                      message: "Command could not be fetched from registry",
+                      detail: "Command could not be fetched from registry",
                       breadcrumbs: [
                         {
                           description: "Verify the command name and registry configuration.",
@@ -305,7 +305,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         if (refs.length === 0) {
           return yield* makeAppError({
             code: "not_found",
-            message: `Command "${parsed.commandName}" not found in registry`,
+            detail: `Command "${parsed.commandName}" not found in registry`,
             breadcrumbs: [
               {
                 description: "Verify the command name and check available commands.",
@@ -317,7 +317,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         if (ref === undefined) {
           return yield* makeAppError({
             code: "not_found",
-            message: `Command "${parsed.commandName}" not found in registry`,
+            detail: `Command "${parsed.commandName}" not found in registry`,
             breadcrumbs: [
               {
                 description: "Verify the command name and check available commands.",

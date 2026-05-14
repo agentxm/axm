@@ -92,7 +92,7 @@ const makeLayers = (opts?: {
           Effect.fail(
             makeAppError({
               code: "auth",
-              message: "Token invalid",
+              detail: "Token invalid",
             }),
           )
       : () => Effect.succeed(meData),
@@ -291,7 +291,7 @@ describe("auth login handler", () => {
         Effect.fail(
           makeAppError({
             code: "auth",
-            message: "Not authenticated or token is invalid",
+            detail: "Not authenticated or token is invalid",
           }),
         ),
     });

@@ -358,7 +358,7 @@ describe("uninstallSkill", () => {
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: "write failed",
+              detail: "write failed",
               cause: new Error("write failed"),
             }),
           ),
@@ -582,7 +582,7 @@ describe("uninstallSkill", () => {
                   Effect.fail(
                     makeAppError({
                       code: "validation",
-                      message: "corrupt lockfile",
+                      detail: "corrupt lockfile",
                     }),
                   ),
               },
@@ -611,7 +611,7 @@ describe("uninstallSkill", () => {
         };
         const writeError = makeAppError({
           code: "internal",
-          message: "write failed",
+          detail: "write failed",
         });
 
         const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
@@ -624,7 +624,7 @@ describe("uninstallSkill", () => {
         );
 
         const error = getAppError(result);
-        expect(error.message).toContain("Failed to update lockfile");
+        expect(error.detail).toContain("Failed to update lockfile");
       }),
     );
 
@@ -638,7 +638,7 @@ describe("uninstallSkill", () => {
         };
         const writeError = makeAppError({
           code: "internal",
-          message: "write failed",
+          detail: "write failed",
         });
 
         // Full uninstall now swallows removeSkill errors (catchAll in the handler)

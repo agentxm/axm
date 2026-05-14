@@ -242,7 +242,7 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("internal");
-          expect(error.message).toContain("Failed to publish");
+          expect(error.detail).toContain("Failed to publish");
         }),
       );
     });
@@ -381,7 +381,7 @@ describe("subagents-publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs(["@test/subagents/no-manifest"])).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.detail })),
           );
           expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
@@ -402,7 +402,7 @@ describe("subagents-publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                message: e.message,
+                message: e.detail,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) => breadcrumb.description)
                   .join("\n"),

@@ -93,7 +93,7 @@ describe("classifyError — AppError", () => {
   it("maps code to exit code and JSON envelope fields", () => {
     const error = makeAppError({
       code: "auth",
-      message: "Authentication required",
+      detail: "Authentication required",
     });
 
     const result = classifyError(error, "json");
@@ -103,7 +103,8 @@ describe("classifyError — AppError", () => {
     expect(parsed).toMatchObject({
       ok: false,
       code: "auth",
-      message: "Authentication required",
+      title: "Unauthorized",
+      detail: "Authentication required",
     });
   });
 });
@@ -128,7 +129,8 @@ describe("classifyError — generic errors", () => {
     expect(parsed).toMatchObject({
       ok: false,
       code: "internal",
-      message: "boom",
+      title: "Internal Error",
+      detail: "boom",
     });
   });
 });

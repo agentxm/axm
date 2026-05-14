@@ -13,7 +13,7 @@ const headRequest = (url: string, _input: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: `Failed to check GitLab: ${error instanceof Error ? error.message : String(error)}`,
+          detail: `Failed to check GitLab: ${error instanceof Error ? error.message : String(error)}`,
           cause: error,
         }),
       ),

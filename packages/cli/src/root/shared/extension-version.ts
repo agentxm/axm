@@ -65,7 +65,7 @@ const decodeExactVersion = (value: unknown, manifestPath: string) =>
     Effect.mapError((e) =>
       makeAppError({
         code: "validation",
-        message: `Invalid version in manifest: ${manifestPath}`,
+        detail: `Invalid version in manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -80,7 +80,7 @@ const parseManifestJson = (content: string, manifestPath: string) =>
     catch: (e) =>
       makeAppError({
         code: "validation",
-        message: `Invalid JSON in manifest: ${manifestPath}`,
+        detail: `Invalid JSON in manifest: ${manifestPath}`,
         cause: e,
       }),
   });
@@ -92,7 +92,7 @@ const readManifestRecord = (manifestPath: string) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read manifest: ${manifestPath}`,
+          detail: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -101,7 +101,7 @@ const readManifestRecord = (manifestPath: string) =>
     if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
       return yield* makeAppError({
         code: "validation",
-        message: `Manifest must be a JSON object: ${manifestPath}`,
+        detail: `Manifest must be a JSON object: ${manifestPath}`,
       });
     }
     return { content, manifest: Object.fromEntries(Object.entries(manifest)) };
@@ -120,7 +120,7 @@ export const resolveManifestVersionInfo = (
     if (!isVersionableType(fqn.type) || fqn.type !== expectedType) {
       return yield* makeAppError({
         code: "validation",
-        message: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
+        detail: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
       });
     }
 
@@ -137,7 +137,7 @@ export const resolveManifestVersionInfo = (
     if (!exists) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Manifest not found: ${manifestPath}`,
+        detail: `Manifest not found: ${manifestPath}`,
         breadcrumbs: [
           {
             description: `Create the managed extension with \`axm ${extensionTypeToPlural[expectedType]} new\` before running \`axm ${extensionTypeToPlural[expectedType]} version\`.`,
@@ -164,7 +164,7 @@ const bumpVersion = (from: Version, bump: VersionBump, manifestPath: string) =>
     if (next === null) {
       return yield* makeAppError({
         code: "validation",
-        message: `Could not bump version "${from}" in ${manifestPath}`,
+        detail: `Could not bump version "${from}" in ${manifestPath}`,
       });
     }
     return yield* decodeExactVersion(next, manifestPath);
@@ -194,7 +194,7 @@ export const bumpManifestVersion = (args: {
         Effect.mapError((e) =>
           makeAppError({
             code: "internal",
-            message: `Failed to write manifest: ${info.manifestPath}`,
+            detail: `Failed to write manifest: ${info.manifestPath}`,
             cause: e,
           }),
         ),

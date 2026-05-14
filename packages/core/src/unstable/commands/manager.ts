@@ -202,7 +202,7 @@ export const CommandManagerLive = Layer.effect(
         if (!isPathSafe(baseDir, canonicalPath)) {
           return yield* makeAppError({
             code: "internal",
-            message: `Path traversal detected: ${canonicalPath}`,
+            detail: `Path traversal detected: ${canonicalPath}`,
           });
         }
 
@@ -210,7 +210,7 @@ export const CommandManagerLive = Layer.effect(
           Effect.mapError((e) =>
             makeAppError({
               code: "internal",
-              message: `Failed to check if canonical path exists: ${canonicalPath}`,
+              detail: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
           ),
@@ -235,7 +235,7 @@ export const CommandManagerLive = Layer.effect(
             if (actualIntegrity !== ref.integrity.value) {
               return yield* makeAppError({
                 code: "internal",
-                message: `Integrity mismatch for ${ref.name}@${ref.version}`,
+                detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
               });
             }
           }
@@ -244,7 +244,7 @@ export const CommandManagerLive = Layer.effect(
             Effect.mapError((e) =>
               makeAppError({
                 code: "validation",
-                message: `Temporary directory for registry install could not be created`,
+                detail: `Temporary directory for registry install could not be created`,
                 cause: e,
               }),
             ),
@@ -257,7 +257,7 @@ export const CommandManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "validation",
-                    message: `Failed to create canonical directory: ${canonicalPath}`,
+                    detail: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
                   }),
                 ),
@@ -266,7 +266,7 @@ export const CommandManagerLive = Layer.effect(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "validation",
-                    message: `Extracted directory could not be read`,
+                    detail: `Extracted directory could not be read`,
                     cause: e,
                   }),
                 ),
@@ -308,7 +308,7 @@ export const CommandManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "validation",
-                  message: `Failed to copy command files to ${canonicalPath}`,
+                  detail: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
               ),
@@ -339,7 +339,7 @@ export const CommandManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "validation",
-                  message: `Failed to copy command files to ${canonicalPath}`,
+                  detail: `Failed to copy command files to ${canonicalPath}`,
                   cause: e,
                 }),
               ),
@@ -377,7 +377,7 @@ export const CommandManagerLive = Layer.effect(
                       Effect.fail(
                         makeAppError({
                           code: "internal",
-                          message: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
+                          detail: `Cannot sync non-registry command "${ref.command.name}" without a configured owner`,
                           breadcrumbs: [
                             {
                               description:

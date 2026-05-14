@@ -147,7 +147,7 @@ export const installPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "network",
-              message: `Failed to fetch pack archive: ${error.message}`,
+              detail: `Failed to fetch pack archive: ${error.message}`,
               cause: error,
             }),
           ),
@@ -158,7 +158,7 @@ export const installPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "internal",
-              message: `Failed to read fetched pack manifest: ${manifestPath}`,
+              detail: `Failed to read fetched pack manifest: ${manifestPath}`,
               cause: error,
             }),
           ),
@@ -171,7 +171,7 @@ export const installPack: OperationHandler<
           catch: (error) =>
             makeAppError({
               code: "validation",
-              message: `Invalid JSON in fetched pack manifest: ${manifestPath}`,
+              detail: `Invalid JSON in fetched pack manifest: ${manifestPath}`,
               cause: error,
             }),
         });
@@ -179,7 +179,7 @@ export const installPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `Invalid fetched pack manifest: ${manifestPath}`,
+              detail: `Invalid fetched pack manifest: ${manifestPath}`,
               cause: error,
             }),
           ),
@@ -189,7 +189,7 @@ export const installPack: OperationHandler<
         if (missingDependencies.length > 0) {
           return yield* makeAppError({
             code: "internal",
-            message: `Pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
+            detail: `Pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
             breadcrumbs: [
               {
                 description:
@@ -203,7 +203,7 @@ export const installPack: OperationHandler<
           Effect.mapError((e) =>
             makeAppError({
               code: "internal",
-              message: `Failed to extract pack to ${packDir}`,
+              detail: `Failed to extract pack to ${packDir}`,
               cause: e,
             }),
           ),

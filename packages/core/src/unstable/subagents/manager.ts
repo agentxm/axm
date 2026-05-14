@@ -98,7 +98,7 @@ export const SubagentManagerLive = Layer.effect(
           Effect.mapError((error) =>
             makeAppError({
               code: "internal",
-              message: `Failed to read ${expectedFilename} from ${subagentSrcPath}`,
+              detail: `Failed to read ${expectedFilename} from ${subagentSrcPath}`,
               breadcrumbs: [
                 {
                   description: `Ensure the subagent content file exists at ${contentPath}.`,
@@ -119,7 +119,7 @@ export const SubagentManagerLive = Layer.effect(
           Effect.mapError((error) =>
             makeAppError({
               code: "internal",
-              message: `Failed to create directory for subagent: ${targetPath}`,
+              detail: `Failed to create directory for subagent: ${targetPath}`,
               cause: error,
             }),
           ),
@@ -129,7 +129,7 @@ export const SubagentManagerLive = Layer.effect(
             Effect.mapError((e) =>
               makeAppError({
                 code: "internal",
-                message: `Failed to copy subagent files to ${targetPath}`,
+                detail: `Failed to copy subagent files to ${targetPath}`,
                 cause: e,
               }),
             ),
@@ -144,7 +144,7 @@ export const SubagentManagerLive = Layer.effect(
           Effect.mapError((e) =>
             makeAppError({
               code: "internal",
-              message: `Failed to check if canonical path exists: ${canonicalPath}`,
+              detail: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
             }),
           ),
@@ -169,7 +169,7 @@ export const SubagentManagerLive = Layer.effect(
             if (actualIntegrity !== ref.integrity.value) {
               return yield* makeAppError({
                 code: "internal",
-                message: `Integrity mismatch for ${ref.name}@${ref.version}`,
+                detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
               });
             }
           }
@@ -178,7 +178,7 @@ export const SubagentManagerLive = Layer.effect(
             Effect.mapError((e) =>
               makeAppError({
                 code: "validation",
-                message: `Temporary directory for registry install could not be created`,
+                detail: `Temporary directory for registry install could not be created`,
                 cause: e,
               }),
             ),
@@ -192,7 +192,7 @@ export const SubagentManagerLive = Layer.effect(
                   Effect.mapError((e) =>
                     makeAppError({
                       code: "internal",
-                      message: `Failed to copy subagent files to ${canonicalPath}`,
+                      detail: `Failed to copy subagent files to ${canonicalPath}`,
                       cause: e,
                     }),
                   ),

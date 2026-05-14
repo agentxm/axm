@@ -85,7 +85,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
             Effect.mapError((error) =>
               makeAppError({
                 code: "validation",
-                message: `Invalid source: ${error.message}`,
+                detail: `Invalid source: ${error.message}`,
                 cause: error,
               }),
             ),
@@ -219,7 +219,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   if (resolved.length === 0) {
     return yield* makeAppError({
       code: "network",
-      message: "All source re-resolutions failed. Nothing to update.",
+      detail: "All source re-resolutions failed. Nothing to update.",
       breadcrumbs: [{ description: "Verify the original source paths are still accessible." }],
     });
   }
@@ -236,7 +236,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
       return Effect.fail(
         makeAppError({
           code: "conflict",
-          message: step.errorMessage,
+          detail: step.errorMessage,
         }),
       );
     }

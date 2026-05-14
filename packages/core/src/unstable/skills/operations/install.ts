@@ -209,7 +209,7 @@ const installFromRegistry = (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to check if canonical path exists: ${canonicalPath}`,
+          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
       ),
@@ -234,7 +234,7 @@ const installFromRegistry = (
         if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
             code: "internal",
-            message: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
       }
@@ -399,7 +399,7 @@ export const installSkill: OperationHandler<
         message,
         error: makeAppError({
           code: "not_found",
-          message: message,
+          detail: message,
         }),
       } satisfies JobStepResult;
     }
@@ -430,7 +430,7 @@ export const installSkill: OperationHandler<
         message,
         error: makeAppError({
           code: "validation",
-          message: message,
+          detail: message,
         }),
       } satisfies JobStepResult;
     }
@@ -543,7 +543,7 @@ export const installSkill: OperationHandler<
         message,
         error: makeAppError({
           code: "internal",
-          message: message,
+          detail: message,
         }),
       } satisfies JobStepResult;
     }

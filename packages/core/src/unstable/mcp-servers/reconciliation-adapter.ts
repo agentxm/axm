@@ -112,7 +112,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
-            message: `Failed to check MCP server path: ${canonicalPath}`,
+            detail: `Failed to check MCP server path: ${canonicalPath}`,
             cause: error,
           }),
         ),

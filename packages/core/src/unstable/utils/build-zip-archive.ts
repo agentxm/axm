@@ -51,7 +51,7 @@ export const buildZipArchive = (dir: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
-          message: "Failed to read source directory for zip archive",
+          detail: "Failed to read source directory for zip archive",
           cause,
         }),
       ),
@@ -65,7 +65,7 @@ export const buildZipArchive = (dir: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
-          message: "Failed to read file for zip archive",
+          detail: "Failed to read file for zip archive",
           cause,
         }),
       ),
@@ -81,7 +81,7 @@ export const buildZipArchive = (dir: string) =>
       catch: (cause) =>
         makeAppError({
           code: "internal",
-          message: "Failed to build zip archive",
+          detail: "Failed to build zip archive",
           cause,
         }),
     });

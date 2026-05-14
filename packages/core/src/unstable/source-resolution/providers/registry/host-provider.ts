@@ -300,7 +300,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     if (ref.refType !== "registry") {
       return yield* makeAppError({
         code: "network",
-        message: "Ref missing registry details (owner, version, integrity)",
+        detail: "Ref missing registry details (owner, version, integrity)",
       });
     }
 
@@ -320,7 +320,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       if (actualIntegrity !== expectedIntegrity.value) {
         return yield* makeAppError({
           code: "network",
-          message: `Integrity mismatch for ${type}:${name}@${version}`,
+          detail: `Integrity mismatch for ${type}:${name}@${version}`,
         });
       }
     }
@@ -331,7 +331,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
         Effect.mapError((e) =>
           makeAppError({
             code: "network",
-            message: "Temporary source directory could not be created",
+            detail: "Temporary source directory could not be created",
             cause: e,
           }),
         ),

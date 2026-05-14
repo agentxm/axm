@@ -93,7 +93,7 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });
@@ -105,7 +105,7 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });
@@ -163,7 +163,7 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("code-review")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });

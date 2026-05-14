@@ -125,7 +125,7 @@ describe("installPack", () => {
         expect(result.result).toBe("error");
         if (result.result === "error") {
           expect(result.error.code).toBe("internal");
-          expect(result.error.message).toContain("declares dependencies");
+          expect(result.error.detail).toContain("declares dependencies");
         }
       }).pipe(Effect.provide(withServices(projectDir, packSourceDir)));
     },

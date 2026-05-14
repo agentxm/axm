@@ -66,7 +66,7 @@ const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string)
     Effect.mapError((error) =>
       makeAppError({
         code: "internal",
-        message: `Failed to scan subagent files for ${agent.name}`,
+        detail: `Failed to scan subagent files for ${agent.name}`,
         cause: error,
       }),
     ),

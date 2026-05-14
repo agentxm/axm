@@ -92,7 +92,7 @@ export class SetupSkillInstaller extends ServiceMap.Service<
 const mapBundledSkillWriteError = (filePath: string) => (cause: unknown) =>
   makeAppError({
     code: "internal",
-    message: `Failed to write bundled AXM skill file: ${filePath}`,
+    detail: `Failed to write bundled AXM skill file: ${filePath}`,
     cause,
   });
 
@@ -142,7 +142,7 @@ const installBundledAxmSkill = Effect.gen(function* () {
   if (misconfigured.length > 0) {
     return yield* makeAppError({
       code: "validation",
-      message: "One or more configured agents have invalid skills directory settings",
+      detail: "One or more configured agents have invalid skills directory settings",
     });
   }
 

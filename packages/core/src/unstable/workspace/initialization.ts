@@ -35,7 +35,7 @@ import { type WorkspaceLocation, getAxmDir } from "./paths.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "usage",
-  message: "Interactive prompt required: Select agents to configure",
+  detail: "Interactive prompt required: Select agents to configure",
   breadcrumbs: [{ description: "Provide WorkspaceInitializationInteraction in the runtime." }],
 });
 
@@ -74,7 +74,7 @@ const readSettingsFromReadModel = (
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: "Workspace settings could not be read",
+          detail: "Workspace settings could not be read",
           cause: error,
         }),
       ),
@@ -115,7 +115,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
-            message: `Failed to detect agents: ${error.message}`,
+            detail: `Failed to detect agents: ${error.message}`,
             cause: error,
           }),
         ),
@@ -174,7 +174,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: `Failed to check if settings file exists: ${settingsPath}`,
+          detail: `Failed to check if settings file exists: ${settingsPath}`,
           cause: error,
         }),
       ),
@@ -183,7 +183,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: `Failed to check if lockfile exists: ${lockfilePath}`,
+          detail: `Failed to check if lockfile exists: ${lockfilePath}`,
           cause: error,
         }),
       ),

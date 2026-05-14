@@ -84,7 +84,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
     if (!isPathSafe(ws.baseDir, canonicalPath)) {
       return yield* makeAppError({
         code: "internal",
-        message: `Path traversal detected: ${canonicalPath}`,
+        detail: `Path traversal detected: ${canonicalPath}`,
       });
     }
 
@@ -93,7 +93,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to check if canonical path exists: ${canonicalPath}`,
+          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
       ),
@@ -118,7 +118,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
         if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
             code: "internal",
-            message: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
       }
@@ -191,7 +191,7 @@ const installFromGitHosted = (ref: GitHostedCommandRef) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Failed to copy command files to ${canonicalPath}`,
+          detail: `Failed to copy command files to ${canonicalPath}`,
           cause: e,
         }),
       ),
@@ -223,7 +223,7 @@ const installFromLocal = (ref: LocalCommandRef) =>
         Effect.mapError((e) =>
           makeAppError({
             code: "validation",
-            message: `Failed to copy command files to ${canonicalPath}`,
+            detail: `Failed to copy command files to ${canonicalPath}`,
             cause: e,
           }),
         ),
@@ -291,7 +291,7 @@ export const installCommand: (
                   Effect.fail(
                     makeAppError({
                       code: "internal",
-                      message: `Cannot install non-registry command "${ref.command.name}" without a configured owner`,
+                      detail: `Cannot install non-registry command "${ref.command.name}" without a configured owner`,
                       breadcrumbs: [
                         {
                           description:
@@ -385,7 +385,7 @@ export const installCommand: (
         message: `Installed ${ref.command.name} but failed to write workspace state`,
         error: makeAppError({
           code: "internal",
-          message: `Installed ${ref.command.name} but failed to persist lockfile/settings`,
+          detail: `Installed ${ref.command.name} but failed to persist lockfile/settings`,
           breadcrumbs: [{ description: "Try running the install again" }],
         }),
       } satisfies JobStepResult;

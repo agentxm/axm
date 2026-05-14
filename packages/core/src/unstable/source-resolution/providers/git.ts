@@ -32,7 +32,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<GitSource> => 
     Effect.fail(
       makeAppError({
         code: "network",
-        message: "Generic git sources are not yet supported",
+        detail: "Generic git sources are not yet supported",
       }),
     ),
 
@@ -40,7 +40,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<GitSource> => 
     Effect.fail(
       makeAppError({
         code: "network",
-        message: "Generic git sources are not yet supported",
+        detail: "Generic git sources are not yet supported",
       }),
     ),
 });

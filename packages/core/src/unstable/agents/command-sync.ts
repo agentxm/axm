@@ -90,7 +90,7 @@ export const writeCommandFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create commands directory: ${parentDir}`,
+          detail: `Failed to create commands directory: ${parentDir}`,
           cause: error,
         }),
       ),
@@ -101,7 +101,7 @@ export const writeCommandFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write command file: ${filePath}`,
+          detail: `Failed to write command file: ${filePath}`,
           cause: error,
         }),
       ),
@@ -165,7 +165,7 @@ export const removeCommandFile = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to remove command file: ${filePath}`,
+          detail: `Failed to remove command file: ${filePath}`,
           cause: error,
         }),
       ),

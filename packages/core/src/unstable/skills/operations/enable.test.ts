@@ -91,7 +91,7 @@ const makeWorkspaceMock = (
         return Effect.fail(
           makeAppError({
             code: "conflict",
-            message: `Skill "${name}" not found in lockfile`,
+            detail: `Skill "${name}" not found in lockfile`,
           }),
         );
       }
@@ -305,7 +305,7 @@ describe("enableSkill", () => {
               updateLockEntryAgentsFn,
             }),
           ),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
         expect(result.result).toBe("error");
@@ -416,7 +416,7 @@ describe("enableSkill", () => {
               },
             }),
           ),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
         expect(result.result).toBe("error");

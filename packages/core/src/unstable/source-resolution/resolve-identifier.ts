@@ -66,7 +66,7 @@ const decodeName = (input: string) =>
     catch: () =>
       makeAppError({
         code: "not_found",
-        message: `No ${input} identifier could be resolved`,
+        detail: `No ${input} identifier could be resolved`,
         breadcrumbs: [
           {
             description:
@@ -324,7 +324,7 @@ const notFound = (
 ) =>
   makeAppError({
     code: "not_found",
-    message: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
+    detail: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
     breadcrumbs: [{ description: "Check the name, or re-run with a fully-qualified name." }],
   });
 
@@ -336,7 +336,7 @@ const ambiguous = (
 ) =>
   makeAppError({
     code: "internal",
-    message: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
+    detail: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
     breadcrumbs: [{ description: "Re-run with the fully-qualified name." }],
   });
 
@@ -377,7 +377,7 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({
           code: "not_found",
-          message: `"${trimmed}" is not a ${args.resourceType} identifier`,
+          detail: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
               description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
@@ -439,7 +439,7 @@ export const resolveInstalledIdentifier = (args: {
       if (!isIdentifierResourceType(parsed.type) || parsed.type !== args.resourceType) {
         return yield* makeAppError({
           code: "not_found",
-          message: `"${trimmed}" is not a ${args.resourceType} identifier`,
+          detail: `"${trimmed}" is not a ${args.resourceType} identifier`,
           breadcrumbs: [
             {
               description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,

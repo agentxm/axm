@@ -83,7 +83,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
       Effect.mapError((cause) =>
         makeAppError({
           code: "network",
-          message: "Update download did not complete",
+          detail: "Update download did not complete",
           breadcrumbs: [{ description: "Check your network connection and try again." }],
           cause,
         }),
@@ -94,7 +94,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
           Effect.fail(
             makeAppError({
               code: "network",
-              message: "Download timed out",
+              detail: "Download timed out",
               breadcrumbs: [{ description: "Check your network connection and try again." }],
             }),
           ),
@@ -110,7 +110,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     if (response.status !== 200) {
       return yield* makeAppError({
         code: "network",
-        message: `Download failed with status ${String(response.status)}`,
+        detail: `Download failed with status ${String(response.status)}`,
         breadcrumbs: [{ description: "Check your network connection and try again." }],
       });
     }
@@ -119,7 +119,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       Effect.mapError((cause) =>
         makeAppError({
           code: "network",
-          message: "Failed to read downloaded data",
+          detail: "Failed to read downloaded data",
           breadcrumbs: [{ description: "Check your network connection and try again." }],
           cause,
         }),
@@ -130,7 +130,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
     if (bytes.length === 0) {
       return yield* makeAppError({
         code: "validation",
-        message: "Downloaded file is empty",
+        detail: "Downloaded file is empty",
         breadcrumbs: [
           {
             description: "Try again. If the problem persists, download manually.",
@@ -143,7 +143,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
-          message: `Permission denied writing to ${destPath}`,
+          detail: `Permission denied writing to ${destPath}`,
           breadcrumbs: [
             {
               description:
@@ -175,7 +175,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            message: `Permission denied replacing ${targetPath}`,
+            detail: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
                 description:
@@ -192,7 +192,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            message: `Permission denied replacing ${targetPath}`,
+            detail: `Permission denied replacing ${targetPath}`,
             breadcrumbs: [
               {
                 description:
@@ -214,7 +214,7 @@ const verifyBinary = (binaryPath: string) =>
     if (result.exitCode !== 0) {
       return yield* makeAppError({
         code: "validation",
-        message: "Downloaded binary could not be verified",
+        detail: "Downloaded binary could not be verified",
         breadcrumbs: [
           {
             description: "The upgrade may have succeeded. Try running `axm --version` to check.",
@@ -242,7 +242,7 @@ const commandFailedError = (args: {
 
   return makeAppError({
     code: "internal",
-    message: `${args.manager} upgrade failed.${permissionHint}`,
+    detail: `${args.manager} upgrade failed.${permissionHint}`,
     breadcrumbs: [
       {
         description:
@@ -483,7 +483,7 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     if (Option.isNone(binaryInfoOpt)) {
       return yield* makeAppError({
         code: "internal",
-        message: `Unsupported platform: ${platform}-${arch}`,
+        detail: `Unsupported platform: ${platform}-${arch}`,
         breadcrumbs: [{ description: "Build from source or use a supported platform." }],
       });
     }

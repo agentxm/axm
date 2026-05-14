@@ -370,7 +370,7 @@ describe("resolveSource", () => {
           resolveSource("github:owner/repo").pipe(Effect.provide(makeWorkspaceLayer(sources))),
         );
         expect(error).toBeInstanceOf(AppError);
-        expect(error.message).toContain("No source config");
+        expect(error.detail).toContain("No source config");
       }),
     );
   });

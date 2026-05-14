@@ -24,7 +24,7 @@ const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
     if (args.all) {
       return yield* makeAppError({
         code: "usage",
-        message: "The --all flag requires a source for skills install",
+        detail: "The --all flag requires a source for skills install",
         recover: "Run `axm skills install <source> --all` or omit `--all`",
         cmd: "axm skills install <source> --all",
       });
@@ -33,7 +33,7 @@ const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
     if (args.skills.length > 0) {
       return yield* makeAppError({
         code: "usage",
-        message: "The --skill flag requires a source for skills install",
+        detail: "The --skill flag requires a source for skills install",
         recover: "Run `axm skills install <source> --skill <name>` or omit `--skill`",
         cmd: "axm skills install <source> --skill <name>",
       });

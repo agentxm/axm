@@ -16,7 +16,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     return Effect.fail(
       makeAppError({
         code: "validation",
-        message: "Invalid Bitbucket URL format",
+        detail: "Invalid Bitbucket URL format",
       }),
     );
   }
@@ -25,7 +25,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     return Effect.fail(
       makeAppError({
         code: "validation",
-        message: "Invalid Bitbucket URL format",
+        detail: "Invalid Bitbucket URL format",
       }),
     );
   }
@@ -41,7 +41,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     : Effect.fail(
         makeAppError({
           code: "validation",
-          message: "Invalid Bitbucket URL format",
+          detail: "Invalid Bitbucket URL format",
         }),
       );
 };

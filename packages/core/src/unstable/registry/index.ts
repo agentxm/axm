@@ -50,14 +50,9 @@ export {
   isRegistryClientError,
   isHttpClientError,
   isSchemaError,
-  mapAuthUnauthenticated,
-  mapAuthUnauthorized,
   mapNetworkError,
   mapSchemaError,
   mapUnexpectedStatusError,
-  getErrorCode,
-  buildErrorDetails,
-  getRetryAfterSeconds,
 } from "./error-mapping.js";
 
 // Utilities

@@ -244,7 +244,7 @@ describe("uninstallMcpServer", () => {
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: "write failed",
+              detail: "write failed",
               cause: new Error("write failed"),
             }),
           ),

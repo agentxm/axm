@@ -60,7 +60,7 @@ const makeInstallWorkspaceMock = (
           catch: (error) =>
             makeAppError({
               code: "internal",
-              message: "Mock write failed",
+              detail: "Mock write failed",
               cause: error,
             }),
         });
@@ -367,7 +367,7 @@ describe("installCommand", () => {
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: "write failed",
+              detail: "write failed",
               cause: new Error("write failed"),
             }),
           ),
@@ -417,7 +417,7 @@ describe("installCommand", () => {
         expect(setCommandFn).not.toHaveBeenCalled();
         if (result.result === "error") {
           expect(result.error.code).toBe("validation");
-          expect(result.error.message).toContain("exact semver");
+          expect(result.error.detail).toContain("exact semver");
         }
       }),
     );
@@ -436,7 +436,7 @@ describe("installCommand", () => {
 
         const result = yield* installCommand(makeOp({ ref })).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
         expect(result.result).toBe("error");

@@ -88,7 +88,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to get registry sources: ${e._tag}`,
+          detail: `Failed to get registry sources: ${e._tag}`,
           cause: e,
         }),
       ),
@@ -98,7 +98,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (defaultRegistry === undefined) {
       return yield* makeAppError({
         code: "usage",
-        message: "No registry sources configured",
+        detail: "No registry sources configured",
         recover: "Add a registry source: `axm sources add <name> <url>`",
         cmd: ADD_REGISTRY_SOURCE.cmd,
       });
@@ -115,7 +115,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to lookup registry source "${registry.value}"`,
+          detail: `Failed to lookup registry source "${registry.value}"`,
           cause: e,
         }),
       ),
@@ -124,7 +124,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
       return yield* makeAppError({
         code: "not_found",
-        message: `Registry source "${registry.value}" not found or not a registry source`,
+        detail: `Registry source "${registry.value}" not found or not a registry source`,
       });
     }
 
@@ -183,7 +183,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          message: `Skill "${name}" is not installed in this workspace`,
+          detail: `Skill "${name}" is not installed in this workspace`,
           breadcrumbs: [
             {
               description: "Use the fully-qualified name `@owner/skills/name`",
@@ -199,7 +199,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          message: `Skill "${name}" cannot be published from a non-registry source`,
+          detail: `Skill "${name}" cannot be published from a non-registry source`,
           recover:
             "Only skills sourced from a registry namespace (`@owner/skills/name`) can be published",
         }),
@@ -224,7 +224,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
             return Effect.fail(
               makeAppError({
                 code: "not_found",
-                message: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
+                detail: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
               }),
             );
           }
@@ -244,7 +244,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
             if (!extensionDirExists) {
               return yield* makeAppError({
                 code: "not_found",
-                message: `Managed extension not found: ${extName}`,
+                detail: `Managed extension not found: ${extName}`,
                 breadcrumbs: [
                   {
                     description: "Only managed extensions in `.axm/extensions/` can be published",
@@ -262,7 +262,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
             if (!manifestExists) {
               return yield* makeAppError({
                 code: "not_found",
-                message: `Missing manifest: ${MANIFEST_FILENAME}`,
+                detail: `Missing manifest: ${MANIFEST_FILENAME}`,
                 recover: `Ensure the extension has a valid \`${MANIFEST_FILENAME}\` manifest`,
               });
             }
@@ -336,21 +336,26 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     preview: args.preview,
   });
 
-  const failedStepDetails =
+  const failedStepErrors =
     resolvedPlan._tag === "ExecutedPlan"
       ? resolvedPlan.jobs
           .flatMap((job) => job.steps)
-          .flatMap((step) =>
-            step.result.result === "error"
-              ? [`${step.label}: ${step.result.error.message} (${step.result.error.code})`]
-              : [],
-          )
+          .flatMap((step) => (step.result.result === "error" ? [step.result] : []))
       : [];
 
-  if (failedStepDetails.length > 0) {
+  if (failedStepErrors.length > 0) {
+    const [singleFailure] = failedStepErrors;
+    if (
+      failedStepErrors.length === 1 &&
+      singleFailure !== undefined &&
+      singleFailure.error.metadata?.response !== undefined
+    ) {
+      return yield* singleFailure.error;
+    }
+
     return yield* makeAppError({
       code: "internal",
-      message: `Failed to publish ${failedStepDetails.length} skill${failedStepDetails.length === 1 ? "" : "s"}`,
+      detail: `Failed to publish ${failedStepErrors.length} skill${failedStepErrors.length === 1 ? "" : "s"}`,
     });
   }
 

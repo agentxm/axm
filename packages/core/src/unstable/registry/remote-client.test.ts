@@ -305,7 +305,7 @@ describe("getExtensionIndex", () => {
 
         const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs()));
 
-        expect(error.code).toBe("validation");
+        expect(error.code).toBe("internal");
       }),
   );
 
@@ -329,7 +329,7 @@ describe("getExtensionIndex", () => {
 
       const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs()));
 
-      expect(error.code).toBe("internal");
+      expect(error.code).toBe("validation");
     }),
   );
 });
@@ -470,7 +470,7 @@ describe("ownerExists", () => {
 
       const error = yield* runFailure(client.ownerExists(registryOwner));
 
-      expect(error.code).toBe("validation");
+      expect(error.code).toBe("internal");
     }),
   );
 });
@@ -541,7 +541,7 @@ describe("getExtensionPackage", () => {
       const httpClient = makeMockHttpClient((request) => {
         const url = request.url;
         if (url.endsWith("/archive")) {
-          return typedErrorResponse(404, "archive_not_found", "Archive not found");
+          return typedErrorResponse(404, "version_not_found", "Archive not found");
         }
         return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
       });
@@ -862,7 +862,7 @@ describe("publishExtension", () => {
   it.effect("fails with AUTH_UNAUTHENTICATED on 401", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>
-        typedErrorResponse(401, "token_expired", "Token expired"),
+        typedErrorResponse(401, "unauthorized", "Token expired"),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
@@ -883,7 +883,7 @@ describe("publishExtension", () => {
               title: "Forbidden",
               status: 403,
               detail: "Insufficient permissions",
-              code: "insufficient_permissions",
+              code: "insufficient_scope",
               details: {
                 requiredScope: "extensions:write",
                 tokenScopes: ["extensions:read"],
@@ -911,7 +911,7 @@ describe("publishExtension", () => {
               title: "Forbidden",
               status: 403,
               detail: "Storage quota exceeded",
-              code: "quota_exceeded",
+              code: "publish/quota-exceeded",
               details: {
                 retryable: false,
               },
@@ -923,7 +923,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("conflict");
+      expect(error.code).toBe("quota");
     }),
   );
 
@@ -938,7 +938,7 @@ describe("publishExtension", () => {
               title: "Conflict",
               status: 409,
               detail: "Version already exists",
-              code: "publish_conflict",
+              code: "publish/publish-conflict",
             }),
             { status: 409 },
           ),
@@ -954,7 +954,7 @@ describe("publishExtension", () => {
   it.effect("fails with REGISTRY_PUBLISH_REJECTED on 400 with malformed_archive", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>
-        typedErrorResponse(400, "malformed_archive", "Archive is malformed"),
+        typedErrorResponse(400, "publish/ingest-malformed-archive", "Archive is malformed"),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
@@ -967,7 +967,7 @@ describe("publishExtension", () => {
   it.effect("fails with REGISTRY_PUBLISH_REJECTED on 400 with empty_archive", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>
-        typedErrorResponse(400, "empty_archive", "Archive is empty"),
+        typedErrorResponse(400, "publish/empty-archive", "Archive is empty"),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
@@ -988,7 +988,7 @@ describe("publishExtension", () => {
               title: "Payload Too Large",
               status: 413,
               detail: "Archive too large",
-              code: "ingest_archive_too_large",
+              code: "publish/ingest-archive-too-large",
             }),
             { status: 413 },
           ),
@@ -1012,7 +1012,7 @@ describe("publishExtension", () => {
               title: "Unsupported Media Type",
               status: 415,
               detail: "Unsupported content type",
-              code: "ingest_unsupported_content_type",
+              code: "publish/ingest-unsupported-content-type",
             }),
             { status: 415 },
           ),
@@ -1036,7 +1036,7 @@ describe("publishExtension", () => {
               title: "Unprocessable Entity",
               status: 422,
               detail: "Integrity mismatch",
-              code: "integrity_mismatch",
+              code: "publish/integrity-mismatch",
             }),
             { status: 422 },
           ),
@@ -1060,7 +1060,7 @@ describe("publishExtension", () => {
               title: "Unprocessable Entity",
               status: 422,
               detail: "Manifest name is invalid",
-              code: "manifest_invalid_name",
+              code: "publish/manifest-invalid-json",
             }),
             { status: 422 },
           ),
@@ -1084,7 +1084,7 @@ describe("publishExtension", () => {
               title: "Too Many Requests",
               status: 429,
               detail: "Rate limited",
-              code: "throttled",
+              code: "publish/throttled",
               details: {
                 retryable: true,
                 retryAfterSeconds: 30,
@@ -1113,7 +1113,7 @@ describe("publishExtension", () => {
               title: "Service Unavailable",
               status: 503,
               detail: "Publishing disabled",
-              code: "publish_disabled",
+              code: "publish/publish-disabled",
             }),
             { status: 503 },
           ),
@@ -1122,7 +1122,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("network");
+      expect(error.code).toBe("unavailable");
     }),
   );
 
@@ -1157,7 +1157,7 @@ describe("publishExtension", () => {
 
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
-      expect(error.code).toBe("validation");
+      expect(error.code).toBe("internal");
     }),
   );
 });

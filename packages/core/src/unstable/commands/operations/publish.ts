@@ -92,7 +92,7 @@ export const publishCommand: (
     if (!extensionDirExists) {
       return yield* makeAppError({
         code: "not_found",
-        message: `Managed extension not found: ${extensionDir}`,
+        detail: `Managed extension not found: ${extensionDir}`,
       });
     }
 
@@ -102,7 +102,7 @@ export const publishCommand: (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read manifest: ${manifestPath}`,
+          detail: `Failed to read manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -116,7 +116,7 @@ export const publishCommand: (
       catch: (e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid JSON in manifest: ${manifestPath}`,
+          detail: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -128,7 +128,7 @@ export const publishCommand: (
     if (Result.isFailure(agentsFieldValidation)) {
       return yield* makeAppError({
         code: "validation",
-        message: agentsFieldValidation.failure.detail,
+        detail: agentsFieldValidation.failure.detail,
       });
     }
     const agentOverridesFieldValidation = validateCommandManifestHasNoAgentOverridesField(
@@ -138,7 +138,7 @@ export const publishCommand: (
     if (Result.isFailure(agentOverridesFieldValidation)) {
       return yield* makeAppError({
         code: "validation",
-        message: agentOverridesFieldValidation.failure.detail,
+        detail: agentOverridesFieldValidation.failure.detail,
       });
     }
 
@@ -148,7 +148,7 @@ export const publishCommand: (
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid manifest schema: ${manifestPath}`,
+          detail: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -165,7 +165,7 @@ export const publishCommand: (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to lookup registry source "${op.args.registryName}"`,
+          detail: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
         }),
       ),
@@ -174,7 +174,7 @@ export const publishCommand: (
     if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
       return yield* makeAppError({
         code: "not_found",
-        message: `Registry source "${op.args.registryName}" not found or not a registry source`,
+        detail: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
@@ -191,24 +191,14 @@ export const publishCommand: (
     };
 
     // Publish to registry (idempotent)
-    yield* client
-      .publishExtension({
-        owner: fqn.owner,
-        type: "command",
-        name: fqn.name,
-        version: manifest.version,
-        archive,
-        metadata: versionEntry,
-      })
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "network",
-            message: "Registry publish did not complete",
-            cause: e,
-          }),
-        ),
-      );
+    yield* client.publishExtension({
+      owner: fqn.owner,
+      type: "command",
+      name: fqn.name,
+      version: manifest.version,
+      archive,
+      metadata: versionEntry,
+    });
 
     return {
       result: "success",

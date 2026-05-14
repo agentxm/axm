@@ -77,7 +77,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   ) {
     return yield* makeAppError({
       code: "validation",
-      message: `Invalid subagent name: "${args.name}"`,
+      detail: `Invalid subagent name: "${args.name}"`,
       breadcrumbs: [
         {
           description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
@@ -91,7 +91,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   if (Option.isSome(existingSubagent) && !args.force) {
     return yield* makeAppError({
       code: "conflict",
-      message: `Subagent '${args.name}' already exists`,
+      detail: `Subagent '${args.name}' already exists`,
       breadcrumbs: [
         {
           description:
@@ -127,7 +127,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         Effect.mapError((e) =>
           makeAppError({
             code: "validation",
-            message: `Failed to create subagent directory: ${subagentSrcPath}`,
+            detail: `Failed to create subagent directory: ${subagentSrcPath}`,
             cause: e,
           }),
         ),
@@ -151,7 +151,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
           Effect.mapError((e) =>
             makeAppError({
               code: "validation",
-              message: `Subagent manifest could not be written`,
+              detail: `Subagent manifest could not be written`,
               cause: e,
             }),
           ),
@@ -170,7 +170,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
           Effect.mapError((e) =>
             makeAppError({
               code: "validation",
-              message: `Failed to write ${contentFilename}`,
+              detail: `Failed to write ${contentFilename}`,
               cause: e,
             }),
           ),

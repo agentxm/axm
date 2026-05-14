@@ -86,7 +86,8 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
             JSON.stringify(
               makeJsonErrorEnvelope({
                 code: "usage",
-                message,
+                title: "Usage Error",
+                detail: message,
               }),
               null,
               2,
@@ -121,7 +122,8 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
         JSON.stringify(
           makeJsonErrorEnvelope({
             code,
-            message,
+            title: "Internal Error",
+            detail: message,
           }),
           null,
           2,

@@ -122,7 +122,7 @@ describe("version command handler", () => {
           targetVersion: Option.some("^2.0.0"),
           preview: false,
         }).pipe(Effect.flip);
-        expect(getAppError(result).message).toContain("Invalid version");
+        expect(getAppError(result).detail).toContain("Invalid version");
       }),
     );
   });

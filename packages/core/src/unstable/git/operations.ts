@@ -43,7 +43,7 @@ const mapGitError =
 
     return makeAppError({
       code: "internal",
-      message: baseMessage,
+      detail: baseMessage,
       cause: error,
     });
   };

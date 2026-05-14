@@ -9,13 +9,13 @@
  */
 
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
-import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
 import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import { isLoopbackAddress } from "../utils/index.js";
 import type { RegistryClientError } from "./__generated__/registry-client.js";
+import { registryClientErrorToAppError } from "./translate.js";
 
 // -----------------------------------------------------------------------------
 // Safe Field Access
@@ -28,33 +28,6 @@ export const getString = (obj: unknown, field: string): string | undefined => {
   if (obj === null || obj === undefined || typeof obj !== "object") return undefined;
   const value: unknown = Reflect.get(obj, field);
   return typeof value === "string" ? value : undefined;
-};
-
-/**
- * Safely read a number field from an unknown object.
- */
-const getNumber = (obj: unknown, field: string): number | undefined => {
-  if (obj === null || obj === undefined || typeof obj !== "object") return undefined;
-  const value: unknown = Reflect.get(obj, field);
-  return typeof value === "number" ? value : undefined;
-};
-
-/**
- * Safely read an object field from an unknown object.
- */
-const getObject = (obj: unknown, field: string): object | undefined => {
-  if (obj === null || obj === undefined || typeof obj !== "object") return undefined;
-  const value: unknown = Reflect.get(obj, field);
-  return value !== null && value !== undefined && typeof value === "object" ? value : undefined;
-};
-
-/**
- * Safely read an array of strings from an unknown object field.
- */
-const getStringArray = (obj: unknown, field: string): ReadonlyArray<string> | undefined => {
-  if (obj === null || obj === undefined || typeof obj !== "object") return undefined;
-  const value: unknown = Reflect.get(obj, field);
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : undefined;
 };
 
 // -----------------------------------------------------------------------------
@@ -191,80 +164,6 @@ export const hasTagSuffix = (e: unknown, suffix: string): boolean => {
 };
 
 // -----------------------------------------------------------------------------
-// Auth Error Mapping
-// -----------------------------------------------------------------------------
-
-/**
- * Map a 401 RegistryClientError to an AUTH_UNAUTHENTICATED AppError.
- * Extracts details from the typed cause when available.
- */
-export const mapAuthUnauthenticated = (
-  error: RegistryClientError<string, unknown>,
-  guidance?: string,
-): AppError => {
-  const details: Array<string> = [];
-  const detail = getString(error.cause, "detail");
-  if (detail !== undefined) {
-    details.push(detail);
-  }
-  return makeAppError({
-    code: "auth",
-    message: "Authentication required",
-    breadcrumbs: [
-      {
-        description: guidance ?? "Run axm login",
-        ...(guidance === undefined ? { cmd: "axm login" } : {}),
-      },
-    ],
-    cause: error,
-  });
-};
-
-/**
- * Map a 403 RegistryClientError to an AUTH_UNAUTHORIZED AppError.
- * Extracts required_scope, token_scopes, required_role from typed cause details.
- */
-export const mapAuthUnauthorized = (error: RegistryClientError<string, unknown>): AppError => {
-  const details: Array<string> = [];
-  const cause = error.cause;
-  const detail = getString(cause, "detail");
-  if (detail !== undefined) {
-    details.push(detail);
-  }
-  const causeDetails = getObject(cause, "details");
-  if (causeDetails !== undefined) {
-    const requiredScope = getString(causeDetails, "requiredScope");
-    if (requiredScope !== undefined) {
-      details.push(`Required scope: ${requiredScope}`);
-    }
-    const tokenScopes = getStringArray(causeDetails, "tokenScopes");
-    if (tokenScopes !== undefined) {
-      details.push(`Token scopes: ${tokenScopes.join(", ")}`);
-    }
-    const grantedScopes = getStringArray(causeDetails, "grantedScopes");
-    if (grantedScopes !== undefined) {
-      details.push(`Granted scopes: ${grantedScopes.join(", ")}`);
-    }
-    const requiredRole = getString(causeDetails, "requiredRole");
-    if (requiredRole !== undefined) {
-      details.push(`Required role: ${requiredRole}`);
-    }
-  }
-
-  return makeAppError({
-    code: "forbidden",
-    message: "Insufficient permissions",
-    breadcrumbs: [
-      {
-        description:
-          "You do not have permission for this operation. Check your account permissions.",
-      },
-    ],
-    cause: error,
-  });
-};
-
-// -----------------------------------------------------------------------------
 // Network Error Mapping
 // -----------------------------------------------------------------------------
 
@@ -278,7 +177,7 @@ export const mapNetworkError = (
 ): AppError =>
   makeAppError({
     code: "network",
-    message,
+    detail: message,
     breadcrumbs: buildNetworkBreadcrumbs(baseUrl),
     cause: error,
   });
@@ -288,14 +187,26 @@ export const mapNetworkError = (
 // -----------------------------------------------------------------------------
 
 /**
- * Map a Schema decode error to an AppError.
+ * Map an input Schema encode error to an AppError.
  */
-export const mapSchemaError = (error: unknown, message: string): AppError =>
+export const mapInputSchemaError = (error: unknown, message: string): AppError =>
   makeAppError({
     code: "validation",
-    message,
+    detail: message,
     cause: error,
   });
+
+/**
+ * Map a response Schema decode error to an AppError.
+ */
+export const mapResponseSchemaError = (error: unknown, message: string): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: message,
+    cause: error,
+  });
+
+export const mapSchemaError = mapResponseSchemaError;
 
 // -----------------------------------------------------------------------------
 // Generic Error Mapping
@@ -306,70 +217,5 @@ export const mapSchemaError = (error: unknown, message: string): AppError =>
  */
 export const mapUnexpectedStatusError = (
   error: RegistryClientError<string, unknown>,
-  message: string,
-): AppError => {
-  const details: Array<string> = [];
-  const cause = error.cause;
-  const detail = getString(cause, "detail");
-  if (detail !== undefined) {
-    details.push(detail);
-  }
-  const errorCode = getString(cause, "code");
-  if (errorCode !== undefined) {
-    details.push(`Error code: ${errorCode}`);
-  }
-  return makeAppError({
-    code: "internal",
-    message,
-    cause: error,
-  });
-};
-
-// -----------------------------------------------------------------------------
-// Publish Error Mapping
-// -----------------------------------------------------------------------------
-
-/**
- * Extract the `code` field from a RegistryClientError cause.
- */
-export const getErrorCode = (
-  error: RegistryClientError<string, unknown>,
-): Option.Option<string> => {
-  const code = getString(error.cause, "code");
-  return Option.fromUndefinedOr(code);
-};
-
-/**
- * Build details array from a RegistryClientError cause.
- */
-export const buildErrorDetails = (
-  error: RegistryClientError<string, unknown>,
-): ReadonlyArray<string> => {
-  const details: Array<string> = [];
-  const cause = error.cause;
-  const detail = getString(cause, "detail");
-  if (detail !== undefined) {
-    details.push(detail);
-  }
-  const requestId = getString(cause, "requestId");
-  if (requestId !== undefined) {
-    details.push(`Request ID: ${requestId}`);
-  }
-  return details;
-};
-
-/**
- * Extract retryAfterSeconds from a RegistryClientError cause details.
- */
-export const getRetryAfterSeconds = (
-  error: RegistryClientError<string, unknown>,
-): Option.Option<number> => {
-  const causeDetails = getObject(error.cause, "details");
-  if (causeDetails !== undefined) {
-    const retryAfter = getNumber(causeDetails, "retryAfterSeconds");
-    if (retryAfter !== undefined) {
-      return Option.some(retryAfter);
-    }
-  }
-  return Option.none();
-};
+  _message: string,
+): AppError => registryClientErrorToAppError(error);

@@ -155,7 +155,8 @@ describe("writeDefect", () => {
     expect(stdoutDoc).toMatchObject({
       ok: false,
       code: "internal",
-      message: "boom",
+      title: "Internal Error",
+      detail: "boom",
     });
 
     expect(stderrWrites).toHaveLength(1);
@@ -164,7 +165,8 @@ describe("writeDefect", () => {
       expect(event).toMatchObject({
         type: "error",
         code: "internal",
-        message: "boom",
+        title: "Internal Error",
+        detail: "boom",
       });
     }
   });
@@ -177,7 +179,8 @@ describe("writeDefect", () => {
     expect(stdoutDoc).toMatchObject({
       ok: false,
       code: "internal",
-      message: "kaboom",
+      title: "Internal Error",
+      detail: "kaboom",
     });
   });
 });

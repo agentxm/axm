@@ -40,19 +40,19 @@ const fileHref = (path: string): string => pathToFileURL(path).href;
 const missingSource = (entryType: string, sourceName: string) =>
   makeAppError({
     code: "internal",
-    message: `Lockfile ${entryType} entry references source "${sourceName}", but that source is not configured`,
+    detail: `Lockfile ${entryType} entry references source "${sourceName}", but that source is not configured`,
   });
 
 const invalidUrl = (value: string) =>
   makeAppError({
     code: "validation",
-    message: `Lockfile source URL is invalid: ${value}`,
+    detail: `Lockfile source URL is invalid: ${value}`,
   });
 
 const invalidName = (name: string) =>
   makeAppError({
     code: "validation",
-    message: `Lockfile extension name is invalid: ${name}`,
+    detail: `Lockfile extension name is invalid: ${name}`,
   });
 
 const decodeLockEntryName = (name: string): Effect.Effect<ExtensionName, AppError> =>
@@ -108,7 +108,7 @@ function findSourceConfig(
     if (source === undefined) {
       return yield* makeAppError({
         code: "internal",
-        message: `Lockfile ${sourceType} entry requires a configured ${sourceType} source`,
+        detail: `Lockfile ${sourceType} entry requires a configured ${sourceType} source`,
       });
     }
     return source;

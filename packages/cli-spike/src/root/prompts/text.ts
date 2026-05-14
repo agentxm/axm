@@ -56,7 +56,7 @@ const handleText = (args: {
     if (args.validate && Option.isSome(args.value) && name.length < 1) {
       return yield* makeAppError({
         code: "validation",
-        message: "Pet name must be at least 1 character",
+        detail: "Pet name must be at least 1 character",
         breadcrumbs: [
           {
             description: "Pass a non-empty `--value` or provide a non-empty prompt response.",

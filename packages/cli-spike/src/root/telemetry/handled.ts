@@ -10,7 +10,7 @@ const handledConfig = {} as const;
 const handleHandledTelemetry = Effect.fail(
   makeAppError({
     code: "internal",
-    message: "Simulated handled telemetry failure",
+    detail: "Simulated handled telemetry failure",
     breadcrumbs: [
       {
         description: "Run `axm-spike telemetry defect` to exercise defect telemetry.",

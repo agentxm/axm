@@ -78,7 +78,7 @@ export const newPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to check if pack exists: ${manifestPath}`,
+          detail: `Failed to check if pack exists: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -87,7 +87,7 @@ export const newPack: OperationHandler<
     if (exists) {
       return yield* makeAppError({
         code: "conflict",
-        message: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
+        detail: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
         breadcrumbs: [
           {
             description: "Choose a different name or remove the existing pack first",
@@ -101,7 +101,7 @@ export const newPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create pack directory: ${packDir.canonicalPath}`,
+          detail: `Failed to create pack directory: ${packDir.canonicalPath}`,
           cause: e,
         }),
       ),
@@ -121,7 +121,7 @@ export const newPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write pack manifest: ${manifestPath}`,
+          detail: `Failed to write pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),

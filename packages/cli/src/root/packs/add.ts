@@ -58,7 +58,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   if (packEntry === undefined) {
     return yield* makeAppError({
       code: "not_found",
-      message: `Pack '${args.pack}' not found`,
+      detail: `Pack '${args.pack}' not found`,
       breadcrumbs: [
         {
           description: "Run `axm packs new <name>` to create a pack first",
@@ -83,7 +83,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
                 Effect.fail(
                   makeAppError({
                     code: "internal",
-                    message: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
+                    detail: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
                     breadcrumbs: [
                       {
                         description:
@@ -106,7 +106,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     Effect.mapError((e) =>
       makeAppError({
         code: "not_found",
-        message: `Pack manifest not found at ${manifestPath}`,
+        detail: `Pack manifest not found at ${manifestPath}`,
         breadcrumbs: [{ description: "Ensure the pack exists on disk" }],
         cause: e,
       }),
@@ -123,7 +123,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     catch: (e) =>
       makeAppError({
         code: "validation",
-        message: `Failed to parse pack manifest: ${manifestPath}`,
+        detail: `Failed to parse pack manifest: ${manifestPath}`,
         cause: e,
       }),
   });
@@ -132,7 +132,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     Effect.mapError((e) =>
       makeAppError({
         code: "validation",
-        message: `Invalid pack manifest: ${manifestPath}`,
+        detail: `Invalid pack manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -157,7 +157,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     if (isGlob) {
       return yield* makeAppError({
         code: "internal",
-        message: `No managed, registry-sourced extensions match '${args.extension}'`,
+        detail: `No managed, registry-sourced extensions match '${args.extension}'`,
         breadcrumbs: [
           {
             description: "Check installed extensions with `axm skills list`",
@@ -171,7 +171,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     if (args.extension in lockedSkills) {
       return yield* makeAppError({
         code: "internal",
-        message: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
+        detail: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
         breadcrumbs: [
           {
             description: "Only managed, registry-sourced extensions can be added to packs",
@@ -182,7 +182,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     return yield* makeAppError({
       code: "not_found",
-      message: `Extension '${args.extension}' not found in workspace`,
+      detail: `Extension '${args.extension}' not found in workspace`,
       breadcrumbs: [
         {
           description: "Install the extension first with `axm skills install`",

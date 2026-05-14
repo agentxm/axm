@@ -47,7 +47,7 @@ export const parseFqn = (input: string): Result.Result<ExtensionFqnParts, FqnInv
 export const fqnInvalidErrorToAppError = (error: FqnInvalidError): AppError =>
   makeAppError({
     code: "validation",
-    message: `Invalid fully qualified name: ${error.input}`,
+    detail: `Invalid fully qualified name: ${error.input}`,
     breadcrumbs: [
       {
         description:

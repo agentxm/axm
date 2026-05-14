@@ -232,7 +232,7 @@ describe("subagents-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSubagentsNew(defaultArgs("my-subagent")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("No owner configured");
+          expect(getAppError(error).detail).toContain("No owner configured");
         }),
       );
     });
@@ -305,7 +305,7 @@ describe("subagents-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSubagentsNew(defaultArgs("my-subagent")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("already exists");
+          expect(getAppError(error).detail).toContain("already exists");
         }),
       );
     });

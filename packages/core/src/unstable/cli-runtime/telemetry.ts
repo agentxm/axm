@@ -97,7 +97,7 @@ export const reportCliError = (
         const telemetry = yield* TelemetryClient;
         yield* telemetry.reportError({
           name: error.code,
-          message: error.message,
+          message: error.detail,
           category: error.code,
           level: "error",
           handled: true,

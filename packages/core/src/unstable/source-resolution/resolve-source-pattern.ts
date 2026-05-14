@@ -148,7 +148,7 @@ export const resolveSourcePattern = (
         if (matchedNames.length === 0) {
           return yield* makeAppError({
             code: "not_found",
-            message: "No skills matched the given pattern",
+            detail: "No skills matched the given pattern",
             breadcrumbs: [
               {
                 description: "Check installed skill names with `axm skills list`.",

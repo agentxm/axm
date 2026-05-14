@@ -24,7 +24,7 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
     if (args.all) {
       return yield* makeAppError({
         code: "usage",
-        message: "The --all flag requires a source for subagents install",
+        detail: "The --all flag requires a source for subagents install",
         breadcrumbs: [
           {
             description:
@@ -37,7 +37,7 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
     if (args.subagents.length > 0) {
       return yield* makeAppError({
         code: "usage",
-        message: "The --subagent flag requires a source for subagents install",
+        detail: "The --subagent flag requires a source for subagents install",
         breadcrumbs: [
           {
             description:

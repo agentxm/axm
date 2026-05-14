@@ -9,7 +9,9 @@
 | 4    | Credentials are missing, expired, or invalid. Sign in again.                                                                                                                            |
 | 5    | Signed in, but not authorized for this action.                                                                                                                                          |
 | 6    | Conflicts with current state (already exists, version mismatch, concurrent update). Reconcile and retry.                                                                                |
-| 7    | Rate or quota exceeded. Retry after a backoff.                                                                                                                                          |
+| 7    | Rate limited. Retry after a backoff.                                                                                                                                                    |
 | 8    | Couldn't reach the remote service (DNS, TCP, TLS, timeout). Usually retryable.                                                                                                          |
 | 9    | Input parsed but failed validation. Correct it and retry.                                                                                                                               |
 | 10   | Unexpected internal error. Likely a bug — please report it.                                                                                                                             |
+| 11   | Service is responsive but temporarily unable to serve.                                                                                                                                  |
+| 12   | Quota, storage, or plan limit exhausted.                                                                                                                                                |

@@ -80,7 +80,7 @@ const getPetByName = (name: string) =>
     Effect.mapError(() =>
       makeAppError({
         code: "not_found",
-        message: `No sample pet named '${name}' exists`,
+        detail: `No sample pet named '${name}' exists`,
         breadcrumbs: [
           {
             description: "Use `axm-spike pets list` to inspect the available sample pets.",
@@ -145,7 +145,7 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
             : Effect.fail(
                 makeAppError({
                   code: "not_found",
-                  message: `No ${request.habitat} sample pet named '${petName}' exists`,
+                  detail: `No ${request.habitat} sample pet named '${petName}' exists`,
                   breadcrumbs: [
                     {
                       description: "Choose one of the pets returned by `axm-spike pets list`.",
@@ -175,7 +175,7 @@ export const FakePetStoreLive = Layer.succeed(FakePetStore, {
       if (Option.isSome(plan.blocker) && !force) {
         return yield* makeAppError({
           code: "conflict",
-          message: plan.blocker.value,
+          detail: plan.blocker.value,
           breadcrumbs: [
             {
               description:

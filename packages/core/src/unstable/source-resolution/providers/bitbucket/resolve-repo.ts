@@ -13,7 +13,7 @@ const headRequest = (url: string, _input: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: `Failed to check Bitbucket: ${error instanceof Error ? error.message : String(error)}`,
+          detail: `Failed to check Bitbucket: ${error instanceof Error ? error.message : String(error)}`,
           cause: error,
         }),
       ),

@@ -77,7 +77,7 @@ describe("cli telemetry helpers", () => {
       yield* reportCliError(
         makeAppError({
           code: "not_found",
-          message: "WorkspaceMutations not initialized",
+          detail: "WorkspaceMutations not initialized",
           breadcrumbs: [{ description: "Run axm setup" }],
         }),
         "setup",

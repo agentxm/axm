@@ -137,7 +137,7 @@ describe("resolveRepo", () => {
 
         expect(error).toBeInstanceOf(AppError);
         expect(error.code).toBe("validation");
-        expect(error.message).toContain("Failed to check Bitbucket");
+        expect(error.detail).toContain("Failed to check Bitbucket");
       }),
     );
   });

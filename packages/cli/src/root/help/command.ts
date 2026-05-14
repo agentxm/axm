@@ -99,7 +99,7 @@ const handleHelpTopic = (topic: Option.Option<string>) =>
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          message: `Unknown help topic '${name}'`,
+          detail: `Unknown help topic '${name}'`,
           breadcrumbs: [
             {
               description: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",

@@ -69,7 +69,7 @@ export const uninstallCommand: (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read lockfile: ${e.message}`,
+          detail: `Failed to read lockfile: ${e.message}`,
           cause: e,
         }),
       ),

@@ -43,7 +43,7 @@ const registrySourceForDependency = (
     return Effect.fail(
       makeAppError({
         code: "usage",
-        message: `Cannot resolve pack dependencies from non-registry source`,
+        detail: `Cannot resolve pack dependencies from non-registry source`,
       }),
     );
   }
@@ -66,7 +66,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
     if (parsed.type !== expectedType) {
       return yield* makeAppError({
         code: "usage",
-        message: `Pack dependency type mismatch for expected ${expectedType}`,
+        detail: `Pack dependency type mismatch for expected ${expectedType}`,
       });
     }
 
@@ -93,7 +93,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
     if (matchingRef === undefined) {
       return yield* makeAppError({
         code: "usage",
-        message: `Unable to resolve pack dependency ${fqn}@${constraint}`,
+        detail: `Unable to resolve pack dependency ${fqn}@${constraint}`,
       });
     }
 
@@ -170,7 +170,7 @@ export const resolvePackDependencies = (
     if (dependencies.unsupported.length > 0) {
       return yield* makeAppError({
         code: "usage",
-        message: `Pack declares unsupported dependency type(s): ${dependencies.unsupported.join(", ")}`,
+        detail: `Pack declares unsupported dependency type(s): ${dependencies.unsupported.join(", ")}`,
       });
     }
 

@@ -54,7 +54,7 @@ const readExtensionIndex = (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read index: ${idxPath}`,
+          detail: `Failed to read index: ${idxPath}`,
           cause: e,
         }),
       ),
@@ -63,7 +63,7 @@ const readExtensionIndex = (
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Invalid index schema: ${idxPath}`,
+          detail: `Invalid index schema: ${idxPath}`,
           cause: e,
         }),
       ),
@@ -328,7 +328,7 @@ export const createLocalRegistryClient = (
             if (Option.isNone(selected)) {
               return yield* makeAppError({
                 code: "internal",
-                message: `No versions found for ${owner}/${args.type}/${args.name}`,
+                detail: `No versions found for ${owner}/${args.type}/${args.name}`,
               });
             }
             return selected.value.version;
@@ -353,7 +353,7 @@ export const createLocalRegistryClient = (
             if (Option.isNone(selected)) {
               return yield* makeAppError({
                 code: "internal",
-                message: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
+                detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
               });
             }
             return selected.value.version;
@@ -366,7 +366,7 @@ export const createLocalRegistryClient = (
       if (!exists) {
         return yield* makeAppError({
           code: "internal",
-          message: `Archive not found: ${archivePath}`,
+          detail: `Archive not found: ${archivePath}`,
         });
       }
 
@@ -374,7 +374,7 @@ export const createLocalRegistryClient = (
         Effect.mapError((e) =>
           makeAppError({
             code: "internal",
-            message: `Failed to read archive: ${archivePath}`,
+            detail: `Failed to read archive: ${archivePath}`,
             cause: e,
           }),
         ),

@@ -212,7 +212,7 @@ describe("newSkill", () => {
               configuredSkills: { "my-skill": "@myorg/skills/my-skill" },
             }),
           ),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.message })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
         // Should fail because skill already exists in settings

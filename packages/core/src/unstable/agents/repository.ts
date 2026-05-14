@@ -115,7 +115,7 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
         : Effect.fail(
             makeAppError({
               code: "internal",
-              message: `Unsupported coding agent: ${id}`,
+              detail: `Unsupported coding agent: ${id}`,
             }),
           );
   }

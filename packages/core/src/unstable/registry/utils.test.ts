@@ -197,7 +197,7 @@ describe("extractZip", () => {
         const result = yield* extractZip(invalidData, tmpDir).pipe(Effect.flip);
 
         expect(result.code).toBe("network");
-        expect(result.message).toContain("decompress");
+        expect(result.detail).toContain("decompress");
       }),
     ),
   );

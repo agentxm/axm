@@ -33,7 +33,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to resolve target path`,
+          detail: `Failed to resolve target path`,
           cause: e,
         }),
       ),
@@ -62,7 +62,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
         Effect.mapError((e) =>
           makeAppError({
             code: "internal",
-            message: `Failed to remove existing path at ${opts.link}`,
+            detail: `Failed to remove existing path at ${opts.link}`,
             cause: e,
           }),
         ),
@@ -75,7 +75,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create parent directory ${linkParent}`,
+          detail: `Failed to create parent directory ${linkParent}`,
           cause: e,
         }),
       ),
@@ -86,7 +86,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create symlink at ${opts.link}`,
+          detail: `Failed to create symlink at ${opts.link}`,
           cause: e,
         }),
       ),

@@ -10,8 +10,8 @@ import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
  *
  * Reserved ranges:
  * - `0` — success
- * - `1`–`10` — AXM application errors (this enum)
- * - `11`–`127` — reserved for future AXM application errors; do not reuse
+ * - `1`–`12` — AXM application errors (this enum)
+ * - `13`–`127` — reserved for future AXM application errors; do not reuse
  * - `128`+ — POSIX signal convention (e.g., 130 SIGINT, 143 SIGTERM); set
  *   by the runtime's signal handlers, not by `AppError`
  *
@@ -39,7 +39,7 @@ export const ExitCode = {
   Forbidden: 5,
   /** Conflicts with current state (already exists, version mismatch, concurrent update). Reconcile and retry. Pairs with `AppErrorCode` `conflict`. */
   Conflict: 6,
-  /** Rate or quota exceeded. Retry after a backoff. Pairs with `AppErrorCode` `rate_limit`. */
+  /** Rate limited. Retry after a backoff. Pairs with `AppErrorCode` `rate_limit`. */
   RateLimit: 7,
   /** Couldn't reach the remote service (DNS, TCP, TLS, timeout). Usually retryable. Pairs with `AppErrorCode` `network`. */
   Network: 8,
@@ -47,6 +47,10 @@ export const ExitCode = {
   Validation: 9,
   /** Unexpected internal error. Likely a bug — please report it. Pairs with `AppErrorCode` `internal`. */
   Internal: 10,
+  /** Service is responsive but temporarily unable to serve. Pairs with `AppErrorCode` `unavailable`. */
+  Unavailable: 11,
+  /** Quota, storage, or plan limit exhausted. Pairs with `AppErrorCode` `quota`. */
+  Quota: 12,
 } as const;
 
 export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode];
@@ -73,6 +77,8 @@ const AppErrorCodeByExitName = {
   Network: "network",
   Validation: "validation",
   Internal: "internal",
+  Unavailable: "unavailable",
+  Quota: "quota",
 } as const satisfies Record<ErrorExitName, string>;
 
 export type AppErrorCode = (typeof AppErrorCodeByExitName)[ErrorExitName];
@@ -92,6 +98,8 @@ export const AppErrorCodes = [
   AppErrorCodeByExitName.Network,
   AppErrorCodeByExitName.Validation,
   AppErrorCodeByExitName.Internal,
+  AppErrorCodeByExitName.Unavailable,
+  AppErrorCodeByExitName.Quota,
 ] as const;
 
 export const AppErrorCodeSchema = Schema.Literals(AppErrorCodes).annotate({
@@ -111,20 +119,67 @@ const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
   network: ExitCode.Network,
   validation: ExitCode.Validation,
   internal: ExitCode.Internal,
+  unavailable: ExitCode.Unavailable,
+  quota: ExitCode.Quota,
 };
 
 export const exitCodeFor = (code: AppErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
 
+export type AppErrorMetadata = {
+  readonly response?: {
+    readonly status: number;
+    readonly body: unknown;
+  };
+};
+
+const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
+  auth: "Unauthorized",
+  forbidden: "Forbidden",
+  not_found: "Not Found",
+  conflict: "Conflict",
+  rate_limit: "Too Many Requests",
+  validation: "Invalid Request",
+  network: "Network Error",
+  unavailable: "Service Unavailable",
+  quota: "Quota Exceeded",
+  internal: "Internal Error",
+  usage: "Usage Error",
+  issues: "Issues Found",
+};
+
+const DefaultDetailByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
+  auth: "Credentials are missing, expired, or invalid.",
+  forbidden: "You do not have permission to perform this operation.",
+  not_found: "The requested resource was not found.",
+  conflict: "The request conflicts with the current state.",
+  rate_limit: "The request was rate limited.",
+  validation: "The request is invalid.",
+  network: "The remote service could not be reached.",
+  unavailable: "The service is temporarily unavailable.",
+  quota: "A quota, storage, or plan limit has been exhausted.",
+  internal: "An internal error occurred.",
+  usage: "The command invocation is invalid.",
+  issues: "The command found issues.",
+};
+
+export const defaultTitleFor = (code: AppErrorCode): string => DefaultTitleByAppErrorCode[code];
+
+export const defaultDetailFor = (code: AppErrorCode): string => DefaultDetailByAppErrorCode[code];
+
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: AppErrorCode;
-  readonly message: string;
+  readonly title: string;
+  readonly detail: string;
+  readonly metadata?: AppErrorMetadata;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
   readonly cause: unknown;
 }> {}
 
 export const makeAppError = (args: {
   readonly code: AppErrorCode;
-  readonly message: string;
+  readonly title?: string;
+  readonly detail?: string;
+  readonly metadata?: AppErrorMetadata;
   readonly recover?: string;
   readonly cmd?: string;
   readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
@@ -143,7 +198,9 @@ export const makeAppError = (args: {
 
   return new AppError({
     code: args.code,
-    message: args.message,
+    title: args.title ?? defaultTitleFor(args.code),
+    detail: args.detail ?? defaultDetailFor(args.code),
+    ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
     ...(breadcrumbs.length > 0 ? { breadcrumbs } : {}),
     cause: args.cause,
   });

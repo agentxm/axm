@@ -94,7 +94,7 @@ describe("disable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleDisable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });
@@ -106,7 +106,7 @@ describe("disable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleDisable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });
@@ -164,7 +164,7 @@ describe("disable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleDisable(defaultArgs("code-review")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });
@@ -283,7 +283,7 @@ describe("disable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleDisable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(getAppError(error).message).toContain("is not installed");
+          expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
     });

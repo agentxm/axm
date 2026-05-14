@@ -48,7 +48,7 @@ describe("JsonEnvelopeSchema", () => {
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({
         code: "auth",
-        message: "Authentication required",
+        detail: "Authentication required",
         breadcrumbs: [
           {
             description: "Sign in, then retry.",
@@ -60,7 +60,8 @@ describe("JsonEnvelopeSchema", () => {
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
       ok: false,
       code: "auth",
-      message: "Authentication required",
+      title: "Unauthorized",
+      detail: "Authentication required",
       breadcrumbs: [
         {
           description: "Sign in, then retry.",

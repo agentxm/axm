@@ -295,7 +295,7 @@ describe("handleUpgrade", () => {
               Effect.succeed({
                 error: true,
                 code: e.code,
-                message: e.message,
+                message: e.detail,
                 cmd: e.breadcrumbs?.[1]?.cmd,
               }),
             ),
@@ -397,7 +397,7 @@ describe("handleUpgrade", () => {
               Effect.succeed({
                 error: true,
                 code: e.code,
-                message: e.message,
+                message: e.detail,
                 cmd: e.breadcrumbs?.[1]?.cmd,
               }),
             ),

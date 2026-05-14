@@ -29,8 +29,7 @@ import type * as Scope from "effect/Scope";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -193,7 +192,7 @@ const loadLintConfig = (
     }
     const parsed = Effect.try({
       try: (): unknown => JSON.parse(raw),
-      catch: () => makeAppError({ code: "validation", message: "" }),
+      catch: () => makeAppError({ code: "validation", detail: "" }),
     });
     const parsedOpt = yield* parsed.pipe(
       Effect.map(Option.some),
@@ -711,7 +710,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       Effect.fail(
         makeAppError({
           code: "validation",
-          message: `Workspace root '${e.workspaceRoot}' escapes allowed root '${e.allowedRoot}'`,
+          detail: `Workspace root '${e.workspaceRoot}' escapes allowed root '${e.allowedRoot}'`,
         }),
       ),
     ),

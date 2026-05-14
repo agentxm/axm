@@ -14,7 +14,7 @@ const headRequest = (url: string, _input: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: `Failed to check GitHub: ${error.reason._tag === "TransportError" ? String(error.reason.cause) : `HTTP error`}`,
+          detail: `Failed to check GitHub: ${error.reason._tag === "TransportError" ? String(error.reason.cause) : `HTTP error`}`,
           cause: error,
         }),
       ),

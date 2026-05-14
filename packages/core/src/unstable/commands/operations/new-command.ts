@@ -116,7 +116,7 @@ export const newCommand: OperationHandler<
     if (dirExists) {
       return yield* makeAppError({
         code: "conflict",
-        message: `Directory "${name}" already exists`,
+        detail: `Directory "${name}" already exists`,
         breadcrumbs: [
           {
             description: "Choose a different name or remove the existing directory first",
@@ -130,7 +130,7 @@ export const newCommand: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Failed to create command directory: ${targetDir}`,
+          detail: `Failed to create command directory: ${targetDir}`,
           cause: e,
         }),
       ),
@@ -155,7 +155,7 @@ export const newCommand: OperationHandler<
         Effect.mapError((e) =>
           makeAppError({
             code: "validation",
-            message: `Command manifest could not be written`,
+            detail: `Command manifest could not be written`,
             cause: e,
           }),
         ),
@@ -168,7 +168,7 @@ export const newCommand: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Failed to write ${contentFilename}`,
+          detail: `Failed to write ${contentFilename}`,
           cause: e,
         }),
       ),

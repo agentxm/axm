@@ -3,8 +3,11 @@ export {
   AppErrorCodeSchema,
   AppErrorCodes,
   ExitCode,
+  defaultDetailFor,
+  defaultTitleFor,
   exitCodeFor,
   makeAppError,
+  type AppErrorMetadata,
   type AppErrorCode,
 } from "./app-error.js";
 export {

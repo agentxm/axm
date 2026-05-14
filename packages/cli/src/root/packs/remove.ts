@@ -52,7 +52,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   if (packEntry === undefined) {
     return yield* makeAppError({
       code: "not_found",
-      message: `Pack '${args.pack}' not found`,
+      detail: `Pack '${args.pack}' not found`,
       breadcrumbs: [
         {
           description: "Check available packs or create one with `axm packs new`",
@@ -77,7 +77,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
                 Effect.fail(
                   makeAppError({
                     code: "internal",
-                    message: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
+                    detail: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
                     breadcrumbs: [
                       {
                         description:
@@ -100,7 +100,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     Effect.mapError((e) =>
       makeAppError({
         code: "not_found",
-        message: `Pack manifest not found at ${manifestPath}`,
+        detail: `Pack manifest not found at ${manifestPath}`,
         breadcrumbs: [{ description: "Ensure the pack exists on disk" }],
         cause: e,
       }),
@@ -117,7 +117,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     catch: (e) =>
       makeAppError({
         code: "validation",
-        message: `Failed to parse pack manifest: ${manifestPath}`,
+        detail: `Failed to parse pack manifest: ${manifestPath}`,
         cause: e,
       }),
   });
@@ -126,7 +126,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     Effect.mapError((e) =>
       makeAppError({
         code: "validation",
-        message: `Invalid pack manifest: ${manifestPath}`,
+        detail: `Invalid pack manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -147,14 +147,14 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     if (isGlob) {
       return yield* makeAppError({
         code: "internal",
-        message: `No extensions in pack match '${args.extension}'`,
+        detail: `No extensions in pack match '${args.extension}'`,
         breadcrumbs: [{ description: "Check pack contents" }],
       });
     }
 
     return yield* makeAppError({
       code: "internal",
-      message: `Extension '${args.extension}' is not in the pack`,
+      detail: `Extension '${args.extension}' is not in the pack`,
       breadcrumbs: [
         {
           description: "Check the pack manifest for available extensions",

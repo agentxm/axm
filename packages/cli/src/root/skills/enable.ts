@@ -46,7 +46,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   if (entry === undefined) {
     return yield* makeAppError({
       code: "not_found",
-      message: `Skill '${args.name}' is not installed`,
+      detail: `Skill '${args.name}' is not installed`,
       breadcrumbs: [LIST_INSTALLED_SKILLS, INSTALL_SKILL_FROM_REGISTRY],
     });
   }

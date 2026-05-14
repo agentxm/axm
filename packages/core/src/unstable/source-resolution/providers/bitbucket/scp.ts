@@ -16,7 +16,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
     return Effect.fail(
       makeAppError({
         code: "validation",
-        message: "Invalid Bitbucket SSH URL format",
+        detail: "Invalid Bitbucket SSH URL format",
       }),
     );
   }
@@ -30,7 +30,7 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
     : Effect.fail(
         makeAppError({
           code: "validation",
-          message: "Invalid Bitbucket SSH URL format",
+          detail: "Invalid Bitbucket SSH URL format",
         }),
       );
 };

@@ -198,7 +198,7 @@ export const resolveSkillUninstallTargetsFromLockfile = (
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          message: `Skill "${entry.skillName}" is not installed`,
+          detail: `Skill "${entry.skillName}" is not installed`,
           breadcrumbs: [{ description: "Check the skill name and try again" }],
         }),
       );

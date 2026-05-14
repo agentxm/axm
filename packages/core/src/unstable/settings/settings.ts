@@ -104,7 +104,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create directory: ${axmDir}`,
+          detail: `Failed to create directory: ${axmDir}`,
           cause: error,
         }),
       ),
@@ -115,7 +115,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to encode settings: ${error.message}`,
+          detail: `Failed to encode settings: ${error.message}`,
           cause: error,
         }),
       ),
@@ -129,7 +129,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write settings file: ${settingsPath}`,
+          detail: `Failed to write settings file: ${settingsPath}`,
           cause: error,
         }),
       ),

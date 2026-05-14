@@ -101,7 +101,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to read manifest at ${manifestPath}`,
+          detail: `Failed to read manifest at ${manifestPath}`,
           cause: error,
         }),
       ),
@@ -110,7 +110,7 @@ const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
-          message: `Manifest at ${manifestPath} is not valid JSON`,
+          detail: `Manifest at ${manifestPath} is not valid JSON`,
           cause: error,
         }),
       ),
@@ -142,7 +142,7 @@ export const configuredSkillsToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `Skill manifest at ${manifestPath} is invalid`,
+              detail: `Skill manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -191,7 +191,7 @@ export const configuredCommandsToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `Command manifest at ${manifestPath} is invalid`,
+              detail: `Command manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -236,7 +236,7 @@ export const configuredMcpServersToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `MCP server manifest at ${manifestPath} is invalid`,
+              detail: `MCP server manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -281,7 +281,7 @@ export const configuredSubagentsToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `Subagent manifest at ${manifestPath} is invalid`,
+              detail: `Subagent manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),
@@ -371,7 +371,7 @@ export const configuredPacksToDiskRefs = (
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              message: `Extension pack manifest at ${manifestPath} is invalid`,
+              detail: `Extension pack manifest at ${manifestPath} is invalid`,
               cause: error,
             }),
           ),

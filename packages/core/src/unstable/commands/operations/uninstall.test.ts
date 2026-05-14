@@ -8,9 +8,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { AppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
-import { makeAppError } from "../../app-error/index.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { handle, renderedFilePath } from "../../test-helpers.js";
@@ -250,7 +249,7 @@ describe("uninstallCommand", () => {
           Effect.fail(
             makeAppError({
               code: "internal",
-              message: "write failed",
+              detail: "write failed",
               cause: new Error("write failed"),
             }),
           ),

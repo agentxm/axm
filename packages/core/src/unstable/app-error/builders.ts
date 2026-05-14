@@ -14,7 +14,7 @@ export const BC = {
 export const errAuthRequired = (message = "Authentication required", cause?: unknown) =>
   makeAppError({
     code: "auth",
-    message,
+    detail: message,
     breadcrumbs: [
       BC.run("axm login", "Run `axm login` to sign in, or set the AXM_TOKEN environment variable."),
     ],
@@ -24,7 +24,7 @@ export const errAuthRequired = (message = "Authentication required", cause?: unk
 export const errAuthTokenRequired = (cause?: unknown) =>
   makeAppError({
     code: "auth",
-    message: "No authentication token is available.",
+    detail: "No authentication token is available.",
     breadcrumbs: [BC.do("Set the AXM_TOKEN environment variable instead of running `axm login`.")],
     cause,
   });
@@ -32,7 +32,7 @@ export const errAuthTokenRequired = (cause?: unknown) =>
 export const errPublishConflict = (args: { readonly version?: string; readonly cause?: unknown }) =>
   makeAppError({
     code: "conflict",
-    message:
+    detail:
       args.version === undefined
         ? "Version already exists with different content."
         : `Version ${args.version} already exists with different content.`,
@@ -43,7 +43,7 @@ export const errPublishConflict = (args: { readonly version?: string; readonly c
 export const errInstallFailed = (args: { readonly message: string; readonly cause?: unknown }) =>
   makeAppError({
     code: "validation",
-    message: args.message,
+    detail: args.message,
     breadcrumbs: [BC.do("Check the extension package and try again.")],
     cause: args.cause,
   });
@@ -55,7 +55,7 @@ export const errRegistryPublishRejected = (args: {
 }) =>
   makeAppError({
     code: "validation",
-    message: args.message,
+    detail: args.message,
     breadcrumbs: args.breadcrumbs ?? [BC.do("Check the extension package and try again.")],
     cause: args.cause,
   });

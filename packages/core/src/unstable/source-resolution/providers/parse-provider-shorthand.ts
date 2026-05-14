@@ -11,8 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import type { AppError } from "../../app-error/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
   GitHostedSourceParamPartsSchema,
   type GitHostedSourceParamParts,
@@ -37,7 +36,7 @@ export const parseProviderShorthand = (
     if (!match || !match[1] || !match[2]) {
       return yield* makeAppError({
         code: "validation",
-        message: "Invalid shorthand format",
+        detail: "Invalid shorthand format",
       });
     }
 
@@ -51,7 +50,7 @@ export const parseProviderShorthand = (
     if (Result.isFailure(decoded)) {
       return yield* makeAppError({
         code: "validation",
-        message: "Invalid shorthand format",
+        detail: "Invalid shorthand format",
       });
     }
 

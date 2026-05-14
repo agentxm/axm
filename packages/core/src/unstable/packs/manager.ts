@@ -142,7 +142,7 @@ export const PackManagerLive = Layer.effect(
             Effect.mapError((e: Error) =>
               makeAppError({
                 code: "network",
-                message: `Failed to fetch pack archive: ${e.message}`,
+                detail: `Failed to fetch pack archive: ${e.message}`,
                 cause: e,
               }),
             ),
@@ -152,7 +152,7 @@ export const PackManagerLive = Layer.effect(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "internal",
-                  message: `Failed to extract pack to ${packDir}`,
+                  detail: `Failed to extract pack to ${packDir}`,
                   cause: e,
                 }),
               ),

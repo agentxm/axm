@@ -13,7 +13,7 @@ export const withConfiguredEntryResolutionTimeout =
           Effect.fail(
             makeAppError({
               code: "network",
-              message: "Timed out while resolving a configured extension source",
+              detail: "Timed out while resolving a configured extension source",
             }),
           ),
       }),

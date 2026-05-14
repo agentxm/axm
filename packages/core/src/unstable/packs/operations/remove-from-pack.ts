@@ -83,7 +83,7 @@ export const removeFromPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "not_found",
-          message: `Pack manifest not found at ${manifestPath}`,
+          detail: `Pack manifest not found at ${manifestPath}`,
           breadcrumbs: [{ description: "Ensure the pack exists on disk" }],
           cause: e,
         }),
@@ -95,7 +95,7 @@ export const removeFromPack: OperationHandler<
     if (currentHash !== manifestHash) {
       return yield* makeAppError({
         code: "conflict",
-        message: `Pack manifest is stale — it was modified since the plan was created`,
+        detail: `Pack manifest is stale — it was modified since the plan was created`,
         breadcrumbs: [{ description: "Re-run the command to create a fresh plan" }],
       });
     }
@@ -109,7 +109,7 @@ export const removeFromPack: OperationHandler<
       catch: (e) =>
         makeAppError({
           code: "validation",
-          message: `Failed to parse pack manifest: ${manifestPath}`,
+          detail: `Failed to parse pack manifest: ${manifestPath}`,
           cause: e,
         }),
     });
@@ -118,7 +118,7 @@ export const removeFromPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
-          message: `Invalid pack manifest: ${manifestPath}`,
+          detail: `Invalid pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -142,7 +142,7 @@ export const removeFromPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write pack manifest: ${manifestPath}`,
+          detail: `Failed to write pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),

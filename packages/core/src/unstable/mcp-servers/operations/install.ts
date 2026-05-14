@@ -91,7 +91,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
     if (!isPathSafe(ws.baseDir, canonicalPath)) {
       return yield* makeAppError({
         code: "internal",
-        message: `Path traversal detected: ${canonicalPath}`,
+        detail: `Path traversal detected: ${canonicalPath}`,
       });
     }
 
@@ -100,7 +100,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          message: `Failed to check if canonical path exists: ${canonicalPath}`,
+          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
         }),
       ),
@@ -125,7 +125,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
         if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
             code: "internal",
-            message: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
           });
         }
       }
@@ -134,7 +134,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
         Effect.mapError((e) =>
           makeAppError({
             code: "validation",
-            message: `Temporary directory for registry install could not be created`,
+            detail: `Temporary directory for registry install could not be created`,
             cause: e,
           }),
         ),
@@ -148,7 +148,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             Effect.mapError((e) =>
               makeAppError({
                 code: "validation",
-                message: `Failed to create canonical directory: ${canonicalPath}`,
+                detail: `Failed to create canonical directory: ${canonicalPath}`,
                 cause: e,
               }),
             ),
@@ -158,7 +158,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             Effect.mapError((e) =>
               makeAppError({
                 code: "validation",
-                message: `Extracted directory could not be read`,
+                detail: `Extracted directory could not be read`,
                 cause: e,
               }),
             ),
@@ -234,7 +234,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
       return yield* makeAppError({
         code: "not_found",
-        message: message,
+        detail: message,
       });
     }
 
@@ -265,7 +265,7 @@ const syncConfiguredAgentsOnInstall = (args: {
     if (misconfigured.length > 0) {
       return yield* makeAppError({
         code: "internal",
-        message: `MCP server ${args.serverName} could not be synced to configured agents`,
+        detail: `MCP server ${args.serverName} could not be synced to configured agents`,
       });
     }
 
@@ -273,7 +273,7 @@ const syncConfiguredAgentsOnInstall = (args: {
     if (args.strict && failed.length > 0) {
       return yield* makeAppError({
         code: "internal",
-        message: `MCP server ${args.serverName} sync failed in strict mode`,
+        detail: `MCP server ${args.serverName} sync failed in strict mode`,
       });
     }
 
@@ -288,7 +288,7 @@ const syncConfiguredAgentsOnInstall = (args: {
     if (strictDisabledFailures.length > 0) {
       return yield* makeAppError({
         code: "internal",
-        message: `MCP server ${args.serverName} sync disabled for required configured agents`,
+        detail: `MCP server ${args.serverName} sync disabled for required configured agents`,
       });
     }
 
@@ -341,7 +341,7 @@ export const installMcpServer: (
     if (ref.refType !== "registry") {
       return yield* makeAppError({
         code: "internal",
-        message: `Unsupported ref type for MCP server install: ${ref.refType}`,
+        detail: `Unsupported ref type for MCP server install: ${ref.refType}`,
       });
     }
 

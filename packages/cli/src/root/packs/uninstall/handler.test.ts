@@ -209,7 +209,7 @@ describe("packs uninstall handler", () => {
             preview: false,
           }).pipe(
             Effect.catchTag("AppError", (e) =>
-              Effect.succeed({ error: true, code: e.code, message: e.message }),
+              Effect.succeed({ error: true, code: e.code, message: e.detail }),
             ),
           );
 

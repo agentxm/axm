@@ -234,7 +234,7 @@ describe("publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("internal");
-          expect(error.message).toContain("Failed to publish");
+          expect(error.detail).toContain("Failed to publish");
         }),
       );
     });
@@ -377,7 +377,7 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs(["@test/skills/no-manifest"])).pipe(
-            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.message })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, message: e.detail })),
           );
           expect(getErrorResult(result).message).toContain("Missing manifest");
         }),
@@ -398,7 +398,7 @@ describe("publish.handler", () => {
             Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
-                message: e.message,
+                message: e.detail,
                 guidance: (e.breadcrumbs ?? [])
                   .map((breadcrumb) =>
                     [breadcrumb.description, breadcrumb.cmd].filter(Boolean).join(" · "),
@@ -712,7 +712,7 @@ describe("publish.handler", () => {
               Effect.succeed({
                 error: true as const,
                 code: e.code,
-                message: e.message,
+                message: e.detail,
                 cause: e.cause,
               }),
             ),

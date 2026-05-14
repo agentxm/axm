@@ -59,7 +59,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     Effect.mapError((e) =>
       makeAppError({
         code: "internal",
-        message: `Failed to check if pack exists: ${manifestPath}`,
+        detail: `Failed to check if pack exists: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -68,7 +68,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   if (exists) {
     return yield* makeAppError({
       code: "conflict",
-      message: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
+      detail: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
       breadcrumbs: [
         {
           description: "Choose a different name or remove the existing pack first",

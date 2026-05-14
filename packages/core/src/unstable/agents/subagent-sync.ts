@@ -87,7 +87,7 @@ export const writeSubagentFiles = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create subagents directory: ${subagentsDir}`,
+          detail: `Failed to create subagents directory: ${subagentsDir}`,
           cause: error,
         }),
       ),
@@ -101,7 +101,7 @@ export const writeSubagentFiles = (
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
-            message: `Failed to create directory: ${parentDir}`,
+            detail: `Failed to create directory: ${parentDir}`,
             cause: error,
           }),
         ),
@@ -111,7 +111,7 @@ export const writeSubagentFiles = (
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
-            message: `Failed to write subagent file: ${filePath}`,
+            detail: `Failed to write subagent file: ${filePath}`,
             cause: error,
           }),
         ),
@@ -148,7 +148,7 @@ export const removeSubagentFiles = (
           Effect.mapError((error) =>
             makeAppError({
               code: "internal",
-              message: `Failed to remove subagent file: ${filePath}`,
+              detail: `Failed to remove subagent file: ${filePath}`,
               cause: error,
             }),
           ),
@@ -248,7 +248,7 @@ export const addRooSubagent = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to create directory: ${parentDir}`,
+          detail: `Failed to create directory: ${parentDir}`,
           cause: error,
         }),
       ),
@@ -258,7 +258,7 @@ export const addRooSubagent = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write roomodes file: ${roomodesPath}`,
+          detail: `Failed to write roomodes file: ${roomodesPath}`,
           cause: error,
         }),
       ),
@@ -303,7 +303,7 @@ export const removeRooSubagent = (
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          message: `Failed to write roomodes file: ${roomodesPath}`,
+          detail: `Failed to write roomodes file: ${roomodesPath}`,
           cause: error,
         }),
       ),

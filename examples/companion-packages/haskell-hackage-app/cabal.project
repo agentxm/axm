@@ -1,6 +1,0 @@
--- Until agentxm-example-tinyflags is published to Hackage, depend on the
--- sibling library directly. Once published, remove this `packages:` entry
--- and the dependency will resolve from the public Hackage index.
-packages:
-  .
-  ../haskell-hackage-lib

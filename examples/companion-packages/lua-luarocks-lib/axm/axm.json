@@ -1,4 +1,0 @@
-{
-  "$schema": "https://axm.sh/schemas/axm-package-meta.schema.json",
-  "recommendedExtensions": ["@examples/packs/lua-luarocks-tinyflags@^0.1.0"]
-}

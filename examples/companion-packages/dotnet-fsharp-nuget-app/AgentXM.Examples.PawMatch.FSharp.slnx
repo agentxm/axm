@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="src/AgentXM.Examples.PawMatch.FSharp/AgentXM.Examples.PawMatch.FSharp.fsproj" />
-  <Project Path="test/AgentXM.Examples.PawMatch.FSharp.Tests/AgentXM.Examples.PawMatch.FSharp.Tests.fsproj" />
-</Solution>

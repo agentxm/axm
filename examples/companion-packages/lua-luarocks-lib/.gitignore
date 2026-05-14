@@ -1,7 +1,0 @@
-*.rock
-*.src.rock
-*.tar.gz
-lua_modules/
-.luarocks/
-luacov.stats.out
-luacov.report.out

@@ -1,9 +1,0 @@
-[requires]
-agentxm-example-tinyflags/0.1.0
-
-[test_requires]
-catch2/3.5.2
-
-[generators]
-CMakeDeps
-CMakeToolchain

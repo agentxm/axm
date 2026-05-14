@@ -1,3 +1,0 @@
-(library
- (name tinyflags)
- (public_name agentxm-example-tinyflags))

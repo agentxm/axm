@@ -1,4 +1,0 @@
-axm:
-  $schema: "https://axm.sh/schemas/axm-package-meta.schema.json"
-  recommendedExtensions:
-    - "@examples/packs/cpp-conan-tinyflags@^0.1.0"

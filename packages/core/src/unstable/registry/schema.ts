@@ -8,6 +8,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as Option from "effect/Option";
 import { IsoDateTimeStringSchema } from "../date-time.js";
 import {
   AuthorSchema,
@@ -16,7 +17,8 @@ import {
 } from "../extensions/index.js";
 import { BugsSchema, ExtensionNameSchema, RepositorySchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
-import { PackageUrlSchema } from "../packaging/package-url.js";
+import { CompanionPackageSchema } from "../package-urls/index.js";
+import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 
 // =============================================================================
@@ -38,7 +40,7 @@ export const VersionEntrySchema = Schema.Struct({
   version: VersionSchema,
   published: IsoDateTimeStringSchema,
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
-  companionPackages: Schema.optional(Schema.Array(PackageUrlSchema)),
+  companionPackages: Schema.optional(Schema.Array(CompanionPackageSchema)),
   integrity: Schema.String,
 }).annotate({
   identifier: "VersionEntry",
@@ -52,6 +54,27 @@ export const VersionEntrySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export type VersionEntry = Schema.Schema.Type<typeof VersionEntrySchema>;
+
+const decodePackageUrlOption = Schema.decodeUnknownOption(PackageUrlSchema);
+
+export const companionPackageToPackageUrlParts = (
+  companionPackage: NonNullable<VersionEntry["companionPackages"]>[number],
+): Option.Option<PackageUrlParts> => decodePackageUrlOption(companionPackage.purl);
+
+export const companionPackagesToPackageUrlParts = (
+  companionPackages: VersionEntry["companionPackages"],
+): ReadonlyArray<PackageUrlParts> => {
+  if (companionPackages === undefined) {
+    return [];
+  }
+
+  return companionPackages.flatMap((companionPackage) =>
+    Option.match(companionPackageToPackageUrlParts(companionPackage), {
+      onNone: (): ReadonlyArray<PackageUrlParts> => [],
+      onSome: (packageUrl) => [packageUrl],
+    }),
+  );
+};
 
 // =============================================================================
 // Extension Index

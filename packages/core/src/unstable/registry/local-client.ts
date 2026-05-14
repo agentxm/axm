@@ -32,12 +32,19 @@ import type {
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
 import { isExtensionTypePlural, parseExtensionSpecParts } from "../extensions/common.js";
-import { ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
+import {
+  companionPackagesToPackageUrlParts,
+  ExtensionIndexSchema,
+  type ExtensionIndex,
+} from "./schema.js";
 import type { DiscoverExtensionEntry, DiscoverExtensionsResponse } from "./discover-schema.js";
 import { purlMatch } from "../packaging/purl-match.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
 
 const decodeExtensionIndexFromJsonString = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(ExtensionIndexSchema),
+);
+const encodeExtensionIndexToJsonString = Schema.encodeSync(
   Schema.fromJsonString(ExtensionIndexSchema),
 );
 
@@ -93,7 +100,7 @@ const indexToManifest = (
     dependencies: ver.dependencies ?? {},
     version: ver.version,
     integrity: ver.integrity,
-    companionPackages: ver.companionPackages ?? [],
+    companionPackages: companionPackagesToPackageUrlParts(ver.companionPackages),
   } satisfies RegistryExtensionManifest);
 };
 
@@ -437,14 +444,16 @@ export const createLocalRegistryClient = (
           ...existingIndex,
           versions: [args.metadata, ...existingIndex.versions],
         };
-        yield* fs.writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n").pipe(
-          Effect.mapError((e) =>
-            errRegistryPublishRejected({
-              message: `Registry index could not be written: ${indexPath}`,
-              cause: e,
-            }),
-          ),
-        );
+        yield* fs
+          .writeFileString(indexPath, `${encodeExtensionIndexToJsonString(updatedIndex)}\n`)
+          .pipe(
+            Effect.mapError((e) =>
+              errRegistryPublishRejected({
+                message: `Registry index could not be written: ${indexPath}`,
+                cause: e,
+              }),
+            ),
+          );
       } else {
         // Create new index
         const newIndex: ExtensionIndex = {
@@ -453,14 +462,16 @@ export const createLocalRegistryClient = (
           type: args.type,
           versions: [args.metadata],
         };
-        yield* fs.writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n").pipe(
-          Effect.mapError((e) =>
-            errRegistryPublishRejected({
-              message: `Registry index could not be written: ${indexPath}`,
-              cause: e,
-            }),
-          ),
-        );
+        yield* fs
+          .writeFileString(indexPath, `${encodeExtensionIndexToJsonString(newIndex)}\n`)
+          .pipe(
+            Effect.mapError((e) =>
+              errRegistryPublishRejected({
+                message: `Registry index could not be written: ${indexPath}`,
+                cause: e,
+              }),
+            ),
+          );
       }
 
       // Write archive
@@ -501,8 +512,8 @@ export const createLocalRegistryClient = (
         const matching = allExtensions.filter((ext) => {
           const latestVersion = ext.versions[0];
           if (latestVersion === undefined) return false;
-          return (latestVersion.companionPackages ?? []).some((declared) =>
-            purlMatch(detectedPurl, declared),
+          return companionPackagesToPackageUrlParts(latestVersion.companionPackages).some(
+            (declared) => purlMatch(detectedPurl, declared),
           );
         });
         if (matching.length === 0) return [];

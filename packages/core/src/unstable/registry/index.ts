@@ -10,7 +10,11 @@
 
 // Schema types and schemas
 export type { ExtensionIndex, VersionEntry } from "./schema.js";
-export { ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
+export {
+  companionPackagesToPackageUrlParts,
+  ExtensionIndexSchema,
+  VersionEntrySchema,
+} from "./schema.js";
 
 // Discover schemas
 export type { DiscoverExtensionEntry, DiscoverExtensionsResponse } from "./discover-schema.js";

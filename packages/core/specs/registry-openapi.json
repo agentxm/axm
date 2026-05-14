@@ -1387,8 +1387,18 @@
                           "type": { "$ref": "#/components/schemas/ExtensionType" },
                           "latestVersion": { "$ref": "#/components/schemas/Version" },
                           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "repository": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/Repository" },
+                              { "type": "null" }
+                            ]
+                          },
+                          "license": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/LicenseExpression" },
+                              { "type": "null" }
+                            ]
+                          },
                           "authors": {
                             "anyOf": [
                               {
@@ -1471,8 +1481,18 @@
                           "type": { "$ref": "#/components/schemas/ExtensionType" },
                           "latestVersion": { "$ref": "#/components/schemas/Version" },
                           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "repository": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/Repository" },
+                              { "type": "null" }
+                            ]
+                          },
+                          "license": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/LicenseExpression" },
+                              { "type": "null" }
+                            ]
+                          },
                           "authors": {
                             "anyOf": [
                               {
@@ -1587,8 +1607,18 @@
                     "owner": { "$ref": "#/components/schemas/Handle" },
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "repository": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
+                    },
+                    "bugs": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }]
+                    },
+                    "license": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/LicenseExpression" },
+                        { "type": "null" }
+                      ]
+                    },
                     "authors": {
                       "anyOf": [
                         { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
@@ -1616,7 +1646,10 @@
                           },
                           "companionPackages": {
                             "anyOf": [
-                              { "type": "array", "items": { "type": "string" } },
+                              {
+                                "type": "array",
+                                "items": { "$ref": "#/components/schemas/CompanionPackage" }
+                              },
                               { "type": "null" }
                             ]
                           },
@@ -1844,8 +1877,18 @@
                     "published": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "integrity": { "type": "string", "readOnly": true },
                     "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "repository": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
+                    },
+                    "bugs": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }]
+                    },
+                    "license": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/LicenseExpression" },
+                        { "type": "null" }
+                      ]
+                    },
                     "authors": {
                       "anyOf": [
                         { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
@@ -1863,7 +1906,10 @@
                     },
                     "companionPackages": {
                       "anyOf": [
-                        { "type": "array", "items": { "type": "string" } },
+                        {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/CompanionPackage" }
+                        },
                         { "type": "null" }
                       ]
                     },
@@ -4139,6 +4185,42 @@
           }
         ]
       },
+      "Repository": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Canonical repository URL for the extension source.",
+            "format": "uri"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Repository type from the manifest, such as git."
+              },
+              { "type": "null" }
+            ]
+          },
+          "directory": {
+            "anyOf": [
+              { "type": "string", "description": "Subdirectory containing the extension source." },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["url"],
+        "additionalProperties": false,
+        "title": "Repository",
+        "description": "Repository details for an extension manifest."
+      },
+      "LicenseExpression": {
+        "type": "string",
+        "title": "License Expression",
+        "description": "SPDX license expression, or `UNLICENSED` for proprietary code.",
+        "examples": ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
+        "format": "spdx-expression"
+      },
       "Author": {
         "type": "object",
         "properties": {
@@ -4179,6 +4261,34 @@
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs)."
       },
+      "Bugs": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Issue tracker URL for the extension.",
+                "format": "uri"
+              },
+              { "type": "null" }
+            ]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Contact email for reporting extension issues.",
+                "format": "email"
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "title": "Bugs",
+        "description": "Bug reporting details for an extension manifest."
+      },
       "VersionRange": {
         "type": "string",
         "allOf": [
@@ -4190,6 +4300,46 @@
             "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
           }
         ]
+      },
+      "PackageIdentityPurl": {
+        "type": "string",
+        "allOf": [
+          { "minLength": 1 },
+          {
+            "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+            "title": "Package Identity Purl",
+            "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+            "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
+          }
+        ]
+      },
+      "CompanionPackage": {
+        "type": "object",
+        "properties": {
+          "purl": { "$ref": "#/components/schemas/PackageIdentityPurl" },
+          "versionRange": {
+            "anyOf": [
+              {
+                "type": "string",
+                "allOf": [
+                  {
+                    "minLength": 1,
+                    "examples": [
+                      "vers:npm/>=18.0.0|<19.0.0",
+                      "vers:pypi/>=2.31.0",
+                      "vers:cargo/>=1.0.0"
+                    ]
+                  }
+                ]
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["purl"],
+        "additionalProperties": false,
+        "title": "Companion Package",
+        "description": "A companion package purl identity with an optional VERS compatibility range."
       },
       "PatchVisibilityBody": {
         "type": "object",
@@ -4467,8 +4617,12 @@
           "type": { "$ref": "#/components/schemas/ExtensionType" },
           "latestVersion": { "$ref": "#/components/schemas/Version" },
           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "repository": {
+            "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
+          },
+          "license": {
+            "anyOf": [{ "$ref": "#/components/schemas/LicenseExpression" }, { "type": "null" }]
+          },
           "authors": {
             "anyOf": [
               { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },

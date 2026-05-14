@@ -83,7 +83,7 @@ const extensionIndexResponse = {
   owner: "@acme",
   type: "skill",
   description: "A test skill",
-  repository: "https://github.com/acme/test-skill",
+  repository: { url: "https://github.com/acme/test-skill" },
   license: "MIT",
   authors: [{ name: "Test Author", email: "test@acme.com" }],
   versions: [
@@ -92,7 +92,7 @@ const extensionIndexResponse = {
       published: "2025-01-01T00:00:00Z",
       integrity: "sha512-abc123",
       dependencies: {},
-      companionPackages: ["pkg:npm/react"],
+      companionPackages: [{ purl: "pkg:npm/react" }],
     },
     {
       version: "0.9.0",
@@ -107,7 +107,7 @@ const makeExtensionIndexResponse = (overrides?: {
   readonly owner?: string;
   readonly type?: string;
   readonly description?: string;
-  readonly companionPackages?: ReadonlyArray<string>;
+  readonly companionPackages?: ReadonlyArray<{ readonly purl: string }>;
 }) => ({
   ...extensionIndexResponse,
   ...(overrides?.name === undefined ? {} : { name: overrides.name }),
@@ -264,10 +264,7 @@ describe("getExtensionIndex", () => {
       expect(index.type).toBe("skill");
       expect(index.versions).toHaveLength(2);
       expect(index.versions[0]?.version).toBe("1.0.0");
-      expect(index.versions[0]?.companionPackages?.[0]).toMatchObject({
-        type: "npm",
-        name: "react",
-      });
+      expect(index.versions[0]?.companionPackages?.[0]).toEqual({ purl: "pkg:npm/react" });
     }),
   );
 
@@ -681,7 +678,7 @@ describe("discoverExtensions", () => {
                 name: "test-skill",
                 type: "skill",
                 description: "Skill result",
-                companionPackages: ["pkg:npm/react"],
+                companionPackages: [{ purl: "pkg:npm/react" }],
               }),
             ),
             { status: 200 },
@@ -695,7 +692,7 @@ describe("discoverExtensions", () => {
                 name: "test-command",
                 type: "command",
                 description: "Command result",
-                companionPackages: ["pkg:npm/react"],
+                companionPackages: [{ purl: "pkg:npm/react" }],
               }),
             ),
             { status: 200 },
@@ -709,7 +706,7 @@ describe("discoverExtensions", () => {
                 name: "test-mcp",
                 type: "mcp-server",
                 description: "MCP result",
-                companionPackages: ["pkg:npm/react"],
+                companionPackages: [{ purl: "pkg:npm/react" }],
               }),
             ),
             { status: 200 },
@@ -723,7 +720,7 @@ describe("discoverExtensions", () => {
                 name: "test-subagent",
                 type: "subagent",
                 description: "Subagent result",
-                companionPackages: ["pkg:npm/react"],
+                companionPackages: [{ purl: "pkg:npm/react" }],
               }),
             ),
             { status: 200 },
@@ -737,7 +734,7 @@ describe("discoverExtensions", () => {
                 name: "recommended-skill",
                 type: "skill",
                 description: "Recommended result",
-                companionPackages: ["pkg:npm/react"],
+                companionPackages: [{ purl: "pkg:npm/react" }],
               }),
             ),
             { status: 200 },

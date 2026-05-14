@@ -425,7 +425,13 @@ describe("common schemas", () => {
         owner: "@wayne",
         name: "grappling-hook",
         version: "1.0.0",
-        companionPackages: ["pkg:npm/react", "pkg:npm/%40angular/core"],
+        companionPackages: [
+          { purl: "pkg:npm/react" },
+          {
+            purl: "pkg:npm/%40angular/core",
+            versionRange: "vers:npm/>=17.0.0|<18.0.0",
+          },
+        ],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);
@@ -433,10 +439,11 @@ describe("common schemas", () => {
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
         expect(result.success.companionPackages).toHaveLength(2);
-        expect(result.success.companionPackages?.[0]?.type).toBe("npm");
-        expect(result.success.companionPackages?.[0]?.name).toBe("react");
-        expect(result.success.companionPackages?.[1]?.namespace).toBe("@angular");
-        expect(result.success.companionPackages?.[1]?.name).toBe("core");
+        expect(result.success.companionPackages?.[0]?.purl).toBe("pkg:npm/react");
+        expect(result.success.companionPackages?.[1]?.purl).toBe("pkg:npm/%40angular/core");
+        expect(result.success.companionPackages?.[1]?.versionRange?.raw).toBe(
+          "vers:npm/>=17.0.0|<18.0.0",
+        );
       }
     });
 
@@ -471,12 +478,25 @@ describe("common schemas", () => {
       }
     });
 
-    it("rejects manifest with invalid purl strings in companionPackages", () => {
+    it("rejects manifest with legacy string companionPackages entries", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
         version: "0.1.0",
-        companionPackages: ["not-a-purl"],
+        companionPackages: ["pkg:npm/react"],
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects versioned companion purls", () => {
+      const input = {
+        owner: "@wayne",
+        name: "hook",
+        version: "0.1.0",
+        companionPackages: [{ purl: "pkg:npm/react@18.2.0" }],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);

@@ -89,7 +89,7 @@ describe("publishPack", () => {
     it.effect("does not include companionPackages in VersionEntry even when manifest has it", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup("@community", "compat-pack", {
-          companionPackages: ["pkg:npm/claude-code"],
+          companionPackages: [{ purl: "pkg:npm/claude-code" }],
         });
 
         yield* publishPack(

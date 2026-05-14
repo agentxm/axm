@@ -413,6 +413,36 @@ export const Version = Schema.String.check(
     },
   ),
 );
+export type Repository = {
+  readonly url: string;
+  readonly type?: string | null;
+  readonly directory?: string | null;
+};
+export const Repository = Schema.Struct({
+  url: Schema.String.annotate({
+    description: "Canonical repository URL for the extension source.",
+    format: "uri",
+  }),
+  type: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Repository type from the manifest, such as git." }),
+      Schema.Null,
+    ]),
+  ),
+  directory: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Subdirectory containing the extension source." }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({ title: "Repository", description: "Repository details for an extension manifest." });
+export type LicenseExpression = string;
+export const LicenseExpression = Schema.String.annotate({
+  title: "License Expression",
+  description: "SPDX license expression, or `UNLICENSED` for proprietary code.",
+  examples: ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
+  format: "spdx-expression",
+});
 export type Author = {
   readonly name?: string | null;
   readonly email?: string | null;
@@ -444,6 +474,27 @@ export const Author = Schema.Struct({
     ]),
   ),
 }).annotate({ title: "Author", description: "Author details: name, email, and homepage URL." });
+export type Bugs = { readonly url?: string | null; readonly email?: string | null };
+export const Bugs = Schema.Struct({
+  url: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Issue tracker URL for the extension.",
+        format: "uri",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  email: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Contact email for reporting extension issues.",
+        format: "email",
+      }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({ title: "Bugs", description: "Bug reporting details for an extension manifest." });
 export type VersionRange = string;
 export const VersionRange = Schema.String.check(Schema.isMinLength(1)).check(
   Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z| .-]+$"), {
@@ -451,6 +502,15 @@ export const VersionRange = Schema.String.check(Schema.isMinLength(1)).check(
     description:
       'A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use "*" to always resolve to the latest available version.',
     examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"],
+  }),
+);
+export type PackageIdentityPurl = string;
+export const PackageIdentityPurl = Schema.String.check(Schema.isMinLength(1)).check(
+  Schema.isPattern(new RegExp("^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$"), {
+    title: "Package Identity Purl",
+    description:
+      "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+    examples: ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"],
   }),
 );
 export type PatchVisibilityBody = {
@@ -863,8 +923,8 @@ export type SearchHit = {
   readonly type: ExtensionType;
   readonly latestVersion: Version;
   readonly description?: string | null;
-  readonly repository?: string | null;
-  readonly license?: string | null;
+  readonly repository?: Repository | null;
+  readonly license?: LicenseExpression | null;
   readonly authors?: ReadonlyArray<Author> | null;
   readonly deprecated_at?: IsoDateTimeString | null;
   readonly deprecation_notice?: string | null;
@@ -875,14 +935,34 @@ export const SearchHit = Schema.Struct({
   type: ExtensionType,
   latestVersion: Version,
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  repository: Schema.optionalKey(Schema.Union([Repository, Schema.Null])),
+  license: Schema.optionalKey(Schema.Union([LicenseExpression, Schema.Null])),
   authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   deprecated_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
   deprecation_notice: Schema.optionalKey(
     Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
   ),
 }).annotate({ title: "Search Hit", description: "A single extension matched by a search query." });
+export type CompanionPackage = {
+  readonly purl: PackageIdentityPurl;
+  readonly versionRange?: string | null;
+};
+export const CompanionPackage = Schema.Struct({
+  purl: PackageIdentityPurl,
+  versionRange: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.check(
+        Schema.isMinLength(1, {
+          examples: ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"],
+        }),
+      ),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({
+  title: "Companion Package",
+  description: "A companion package purl identity with an optional VERS compatibility range.",
+});
 export type PublishLintFinding = {
   readonly kind: "advisory" | "autofixable";
   readonly ruleId: string;
@@ -1430,8 +1510,8 @@ export type ExtensionsListByOwner200 = {
     readonly type: ExtensionType;
     readonly latestVersion: Version;
     readonly description?: string | null;
-    readonly repository?: string | null;
-    readonly license?: string | null;
+    readonly repository?: Repository | null;
+    readonly license?: LicenseExpression | null;
     readonly authors?: ReadonlyArray<Author> | null;
     readonly visibility?: string | null;
     readonly deprecated_at?: IsoDateTimeString | null;
@@ -1446,8 +1526,8 @@ export const ExtensionsListByOwner200 = Schema.Struct({
       type: ExtensionType,
       latestVersion: Version,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      repository: Schema.optionalKey(Schema.Union([Repository, Schema.Null])),
+      license: Schema.optionalKey(Schema.Union([LicenseExpression, Schema.Null])),
       authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
       visibility: Schema.optionalKey(
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
@@ -1468,8 +1548,8 @@ export type ExtensionsListByType200 = {
     readonly type: ExtensionType;
     readonly latestVersion: Version;
     readonly description?: string | null;
-    readonly repository?: string | null;
-    readonly license?: string | null;
+    readonly repository?: Repository | null;
+    readonly license?: LicenseExpression | null;
     readonly authors?: ReadonlyArray<Author> | null;
     readonly visibility?: string | null;
     readonly deprecated_at?: IsoDateTimeString | null;
@@ -1484,8 +1564,8 @@ export const ExtensionsListByType200 = Schema.Struct({
       type: ExtensionType,
       latestVersion: Version,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      repository: Schema.optionalKey(Schema.Union([Repository, Schema.Null])),
+      license: Schema.optionalKey(Schema.Union([LicenseExpression, Schema.Null])),
       authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
       visibility: Schema.optionalKey(
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
@@ -1504,15 +1584,16 @@ export type ExtensionsGet200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly description?: string | null;
-  readonly repository?: string | null;
-  readonly license?: string | null;
+  readonly repository?: Repository | null;
+  readonly bugs?: Bugs | null;
+  readonly license?: LicenseExpression | null;
   readonly authors?: ReadonlyArray<Author> | null;
   readonly versions: ReadonlyArray<{
     readonly version: Version;
     readonly published: IsoDateTimeString;
     readonly integrity: string;
     readonly dependencies?: { readonly [x: string]: VersionRange } | null;
-    readonly companionPackages?: ReadonlyArray<string> | null;
+    readonly companionPackages?: ReadonlyArray<CompanionPackage> | null;
     readonly yanked_at?: IsoDateTimeString | null;
   }>;
   readonly visibility?: "public" | "internal" | "private" | null;
@@ -1524,8 +1605,9 @@ export const ExtensionsGet200 = Schema.Struct({
   owner: Handle,
   type: ExtensionType,
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  repository: Schema.optionalKey(Schema.Union([Repository, Schema.Null])),
+  bugs: Schema.optionalKey(Schema.Union([Bugs, Schema.Null])),
+  license: Schema.optionalKey(Schema.Union([LicenseExpression, Schema.Null])),
   authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   versions: Schema.Array(
     Schema.Struct({
@@ -1536,7 +1618,7 @@ export const ExtensionsGet200 = Schema.Struct({
         Schema.Union([Schema.Record(Schema.String, VersionRange), Schema.Null]),
       ),
       companionPackages: Schema.optionalKey(
-        Schema.Union([Schema.Array(Schema.String), Schema.Null]),
+        Schema.Union([Schema.Array(CompanionPackage), Schema.Null]),
       ),
       yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
     }),
@@ -1597,11 +1679,12 @@ export type ExtensionsGetVersion200 = {
   readonly published: IsoDateTimeString;
   readonly integrity: string;
   readonly description?: string | null;
-  readonly repository?: string | null;
-  readonly license?: string | null;
+  readonly repository?: Repository | null;
+  readonly bugs?: Bugs | null;
+  readonly license?: LicenseExpression | null;
   readonly authors?: ReadonlyArray<Author> | null;
   readonly dependencies?: { readonly [x: string]: VersionRange } | null;
-  readonly companionPackages?: ReadonlyArray<string> | null;
+  readonly companionPackages?: ReadonlyArray<CompanionPackage> | null;
   readonly yanked_at?: IsoDateTimeString | null;
   readonly deleted_at?: IsoDateTimeString | null;
 };
@@ -1614,13 +1697,16 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   published: IsoDateTimeString,
   integrity: Schema.String.annotate({ readOnly: true }),
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  repository: Schema.optionalKey(Schema.Union([Repository, Schema.Null])),
+  bugs: Schema.optionalKey(Schema.Union([Bugs, Schema.Null])),
+  license: Schema.optionalKey(Schema.Union([LicenseExpression, Schema.Null])),
   authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   dependencies: Schema.optionalKey(
     Schema.Union([Schema.Record(Schema.String, VersionRange), Schema.Null]),
   ),
-  companionPackages: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
+  companionPackages: Schema.optionalKey(
+    Schema.Union([Schema.Array(CompanionPackage), Schema.Null]),
+  ),
   yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
   deleted_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
 });

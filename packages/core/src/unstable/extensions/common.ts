@@ -10,7 +10,7 @@ import * as Result from "effect/Result";
 import { AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
-import { PackageUrlSchema } from "../packaging/package-url.js";
+import { CompanionPackageSchema } from "../package-urls/index.js";
 import { VersionSchema, VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
 /**
@@ -707,10 +707,10 @@ export const CommonManifestBaseFields = {
   bugs: Schema.optional(BugsSchema),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   companionPackages: Schema.optional(
-    Schema.Array(PackageUrlSchema).pipe(
+    Schema.Array(CompanionPackageSchema).pipe(
       Schema.annotate({
         description:
-          "External ecosystem packages this extension is designed to work with (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
+          "External ecosystem packages this extension is designed to work with, declared as identity Package URLs with optional VERS compatibility ranges.",
       }),
     ),
   ),

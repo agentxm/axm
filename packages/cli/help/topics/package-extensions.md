@@ -4,23 +4,36 @@ AXM links extensions and packages in two directions. Extension authors declare *
 
 ## Companion packages
 
-Any extension author may declare one or more `companionPackages` on an extension manifest (`skill.json`, `subagent.json`, `pack.json`, etc.) to signal that the extension is designed to work with those packages. Companion packages are identified by [Package URL](https://github.com/package-url/purl-spec).
+Any extension author may declare one or more `companionPackages` on an extension manifest (`skill.json`, `subagent.json`, `pack.json`, etc.) to signal that the extension is designed to work with those packages. Companion packages use [Package URL](https://github.com/package-url/purl-spec) identities, with an optional [VERS](https://github.com/package-url/vers-spec) range when the extension truly depends on a bounded package-version span.
 
-**Always omit the version.** The declaration means "this extension targets this package," not "this extension is tied to a specific release":
+Default to identity-only. The declaration usually means "this extension targets this package," not "this extension is tied to a specific release":
 
 ```jsonc
 {
-  "companionPackages": ["pkg:npm/example-tinyflags"],
+  "companionPackages": [{ "purl": "pkg:npm/example-tinyflags" }],
 }
 ```
 
-A versioned purl like `pkg:npm/example-tinyflags@0.1.0` is a strict claim about a single release, with real downsides:
+Use `versionRange` only when the extension has a real compatibility constraint. The `versionRange` value is a VERS expression whose scheme matches the purl ecosystem:
+
+```jsonc
+{
+  "companionPackages": [
+    {
+      "purl": "pkg:npm/example-tinyflags",
+      "versionRange": "vers:npm/>=1.0.0|<2.0.0",
+    },
+  ],
+}
+```
+
+Do not put `@version` on the purl. A versioned purl like `pkg:npm/example-tinyflags@0.1.0` is an exact pin, with real downsides:
 
 - The declaration goes stale on every new package release.
 - Users on any other version see no signal that the extension applies to them.
 - The extension author must republish to track upstream package releases.
 
-Version constraints belong on the package-metadata side via `recommendedExtensions` — the package author knows their own release and can express which extension version pairs with it, while the extension's companion declaration stays a stable identity edge. See [Recommended extensions](#recommended-extensions) below.
+When the package author recommends an extension from package metadata, they still use `recommendedExtensions` to express which extension version pairs with their package release. `companionPackages.versionRange` is for the extension author's side of the relationship: use it only when the extension itself depends on package APIs introduced or removed in a known range.
 
 ## Recommended extensions
 

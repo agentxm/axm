@@ -25,7 +25,11 @@ import {
 } from "../extensions/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { purlMatch } from "../packaging/purl-match.js";
-import { ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
+import {
+  companionPackagesToPackageUrlParts,
+  ExtensionIndexSchema,
+  type ExtensionIndex,
+} from "./schema.js";
 import type { DiscoverExtensionEntry } from "./discover-schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
@@ -133,7 +137,7 @@ const toRegistryManifest = (
     dependencies: latest.dependencies ?? {},
     version: latest.version,
     integrity: latest.integrity,
-    companionPackages: latest.companionPackages ?? [],
+    companionPackages: companionPackagesToPackageUrlParts(latest.companionPackages),
   });
 };
 
@@ -746,7 +750,9 @@ export const createRemoteRegistryClient = (
             return [];
           }
 
-          const companionPackages = latestVersion.companionPackages ?? [];
+          const companionPackages = companionPackagesToPackageUrlParts(
+            latestVersion.companionPackages,
+          );
           if (!companionPackages.some((declared) => purlMatch(detectedPackage, declared))) {
             return [];
           }

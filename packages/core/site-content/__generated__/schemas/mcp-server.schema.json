@@ -144,16 +144,37 @@
       "title": "Author",
       "description": "A person credited as a creator or maintainer of this extension."
     },
-    "PackageUrl": {
+    "PackageIdentityPurl": {
+      "type": "string",
+      "allOf": [
+        { "minLength": 1 },
+        {
+          "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+          "title": "Package Identity Purl",
+          "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+          "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
+        }
+      ]
+    },
+    "VersRange": {
       "type": "string",
       "allOf": [
         {
-          "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
-          "title": "Package URL",
-          "description": "A Package URL (purl) string identifying a package across ecosystems (e.g. pkg:npm/react@18.2.0).",
-          "examples": ["pkg:npm/react@18.2.0", "pkg:pypi/requests@2.31.0", "pkg:cargo/serde@1.0"]
+          "minLength": 1,
+          "examples": ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"]
         }
       ]
+    },
+    "CompanionPackage": {
+      "type": "object",
+      "properties": {
+        "purl": { "$ref": "#/definitions/PackageIdentityPurl" },
+        "versionRange": { "anyOf": [{ "$ref": "#/definitions/VersRange" }, { "type": "null" }] }
+      },
+      "required": ["purl"],
+      "additionalProperties": false,
+      "title": "Companion Package",
+      "description": "A companion package purl identity with an optional VERS compatibility range."
     },
     "PackSpec": {
       "type": "string",
@@ -234,8 +255,8 @@
           "anyOf": [
             {
               "type": "array",
-              "description": "External ecosystem packages this extension is designed to work with (e.g. the npm or PyPI package an MCP server wraps), identified by Package URL (purl).",
-              "items": { "$ref": "#/definitions/PackageUrl" }
+              "description": "External ecosystem packages this extension is designed to work with, declared as identity Package URLs with optional VERS compatibility ranges.",
+              "items": { "$ref": "#/definitions/CompanionPackage" }
             },
             { "type": "null" }
           ]

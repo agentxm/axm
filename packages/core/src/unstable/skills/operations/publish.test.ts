@@ -275,7 +275,7 @@ describe("publishSkill", () => {
     it.effect("propagates companionPackages from manifest to VersionEntry", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup("@community", "compat-skill", {
-          companionPackages: ["pkg:npm/claude-code", "pkg:npm/%40openai/codex"],
+          companionPackages: [{ purl: "pkg:npm/claude-code" }, { purl: "pkg:npm/%40openai/codex" }],
         });
 
         yield* publishSkill(
@@ -292,8 +292,8 @@ describe("publishSkill", () => {
         );
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.versions[0].companionPackages).toEqual([
-          { type: "npm", name: "claude-code" },
-          { type: "npm", namespace: "@openai", name: "codex" },
+          { purl: "pkg:npm/claude-code" },
+          { purl: "pkg:npm/%40openai/codex" },
         ]);
       }),
     );

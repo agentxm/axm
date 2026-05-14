@@ -33,6 +33,9 @@ export class ManifestError extends Data.TaggedError("ManifestError")<{
     | "manifest_multiple"
     | "manifest_invalid_json"
     | "manifest_schema_invalid"
+    | "companion_package_purl_has_version"
+    | "companion_package_scheme_mismatch"
+    | "companion_package_invalid"
     | "declared_manifest_mismatch";
   readonly detail: string;
   readonly details?: unknown;
@@ -110,6 +113,87 @@ const hasOwnField = (value: unknown, field: string): boolean =>
   value !== null &&
   !Array.isArray(value) &&
   Object.hasOwn(value, field);
+
+const purlHasVersion = (value: string): boolean => {
+  const queryStart = value.search(/[?#]/);
+  const comparable = queryStart === -1 ? value : value.slice(0, queryStart);
+  const lastSlash = comparable.lastIndexOf("/");
+  return lastSlash >= 0 && comparable.indexOf("@", lastSlash + 1) !== -1;
+};
+
+const purlType = (value: string): string | undefined => {
+  const match = /^pkg:([^/]+)\//i.exec(value);
+  return match?.[1]?.toLowerCase();
+};
+
+const versScheme = (value: string): string | undefined => {
+  const match = /^vers:([^/]+)\//i.exec(value);
+  return match?.[1]?.toLowerCase();
+};
+
+const classifyCompanionPackageManifestError = (
+  raw: unknown,
+): { readonly code: ManifestError["code"]; readonly detail: string } | undefined => {
+  if (typeof raw !== "object" || raw === null || !("companionPackages" in raw)) {
+    return undefined;
+  }
+
+  const companionPackages = Reflect.get(raw, "companionPackages");
+  if (!Array.isArray(companionPackages)) {
+    return {
+      code: "companion_package_invalid",
+      detail: "Manifest companionPackages must be an array of companion package objects.",
+    };
+  }
+
+  for (const entry of companionPackages) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      return {
+        code: "companion_package_invalid",
+        detail:
+          "Manifest companionPackages entries must be objects with purl and optional versionRange fields.",
+      };
+    }
+
+    const purl = Reflect.get(entry, "purl");
+    if (typeof purl !== "string") {
+      return {
+        code: "companion_package_invalid",
+        detail: "Manifest companionPackages entries must include a purl string.",
+      };
+    }
+
+    if (purlHasVersion(purl)) {
+      return {
+        code: "companion_package_purl_has_version",
+        detail:
+          "Companion package purls are identities, not pins. Move versions into versionRange.",
+      };
+    }
+
+    const versionRange = Reflect.get(entry, "versionRange");
+    if (versionRange !== undefined && typeof versionRange !== "string") {
+      return {
+        code: "companion_package_invalid",
+        detail: "Manifest companionPackages versionRange must be a VERS string.",
+      };
+    }
+
+    const packageType = purlType(purl);
+    const rangeScheme = typeof versionRange === "string" ? versScheme(versionRange) : undefined;
+    if (packageType !== undefined && rangeScheme !== undefined && packageType !== rangeScheme) {
+      return {
+        code: "companion_package_scheme_mismatch",
+        detail: "Companion package purl ecosystem must match the versionRange VERS scheme.",
+      };
+    }
+  }
+
+  return {
+    code: "companion_package_invalid",
+    detail: "Manifest companionPackages contains an invalid companion package declaration.",
+  };
+};
 
 export const validateManifestHasNoAgentsField = (
   fileName: string,
@@ -195,14 +279,16 @@ export const resolveManifest = (
     const schema = manifestSchemaForType(input.type);
     if (schema !== undefined) {
       yield* Schema.decodeUnknownEffect(schema)(parsed).pipe(
-        Effect.mapError(
-          (error) =>
-            new ManifestError({
-              code: "manifest_schema_invalid",
-              detail: `Manifest file "${manifestEntry.fileName}" does not conform to the ${input.type} manifest schema.`,
-              details: SchemaIssue.makeFormatterDefault()(error.issue),
-            }),
-        ),
+        Effect.mapError((error) => {
+          const companionPackageError = classifyCompanionPackageManifestError(parsed);
+          return new ManifestError({
+            code: companionPackageError?.code ?? "manifest_schema_invalid",
+            detail:
+              companionPackageError?.detail ??
+              `Manifest file "${manifestEntry.fileName}" does not conform to the ${input.type} manifest schema.`,
+            details: SchemaIssue.makeFormatterDefault()(error.issue),
+          });
+        }),
       );
     }
 

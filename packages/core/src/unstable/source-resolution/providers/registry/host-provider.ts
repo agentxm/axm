@@ -22,7 +22,12 @@ import type {
   RegistryExtensionManifest,
   GetExtensionsByOwnerArgs,
 } from "../../../registry/index.js";
-import { createRegistryClient, extractZip, resolveVersionEntry } from "../../../registry/index.js";
+import {
+  companionPackagesToPackageUrlParts,
+  createRegistryClient,
+  extractZip,
+  resolveVersionEntry,
+} from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
 import {
   decodeExtensionNameSync,
@@ -114,7 +119,7 @@ const manifestFromIndex = (
     dependencies: version.dependencies ?? {},
     version: version.version,
     integrity: version.integrity,
-    companionPackages: version.companionPackages ?? [],
+    companionPackages: companionPackagesToPackageUrlParts(version.companionPackages),
   } satisfies RegistryExtensionManifest);
 };
 

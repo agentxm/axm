@@ -17,6 +17,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { computeIntegrity } from "../utils/index.js";
@@ -25,6 +26,7 @@ import type { GetExtensionsByOwnerArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
+import { CompanionPackageSchema, type CompanionPackage } from "../package-urls/index.js";
 import {
   at,
   dependencyConstraints,
@@ -44,6 +46,10 @@ const makeLocalClient = (registryRoot: string) =>
     return createLocalRegistryClient(registryRoot, fs, path);
   });
 
+const decodeCompanionPackage = Schema.decodeUnknownSync(CompanionPackageSchema);
+
+const companionPackage = (purl: string): CompanionPackage => decodeCompanionPackage({ purl });
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -53,7 +59,7 @@ interface TestVersionEntryOverrides {
   readonly published?: string;
   readonly integrity?: string;
   readonly dependencies?: Record<string, string>;
-  readonly companionPackages?: ReadonlyArray<string>;
+  readonly companionPackages?: ReadonlyArray<CompanionPackage>;
 }
 
 const makeVersionEntry = (overrides?: TestVersionEntryOverrides): VersionEntry => ({
@@ -67,12 +73,7 @@ const makeVersionEntry = (overrides?: TestVersionEntryOverrides): VersionEntry =
     : { dependencies: dependencyConstraints(overrides.dependencies) }),
   ...(overrides?.companionPackages === undefined
     ? {}
-    : {
-        // Assertion needed: local index.json fixtures must stay encoded as purl strings so
-        // schema decoding happens when the client reads them from disk.
-        companionPackages:
-          overrides.companionPackages as unknown as VersionEntry["companionPackages"],
-      }),
+    : { companionPackages: overrides.companionPackages }),
 });
 
 interface TestIndexOverrides {
@@ -777,7 +778,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
   /** Helper to create an index with companionPackages on the latest version. */
   const makeCompatibleIndex = (
     overrides: TestIndexOverrides & {
-      companionPackages?: ReadonlyArray<string>;
+      companionPackages?: ReadonlyArray<CompanionPackage>;
     },
   ): ExtensionIndex => {
     const { companionPackages, ...rest } = overrides;
@@ -804,7 +805,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
           makeCompatibleIndex({
             name: "react-skill",
             description: "React support",
-            companionPackages: ["pkg:npm/react"],
+            companionPackages: [companionPackage("pkg:npm/react")],
           }),
         ),
       );
@@ -841,7 +842,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
             owner: "@vercel",
             name: "nextjs",
             description: "Next.js support",
-            companionPackages: ["pkg:npm/next"],
+            companionPackages: [companionPackage("pkg:npm/next")],
           }),
         ),
       );
@@ -878,7 +879,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
             owner: "@vercel",
             name: "nextjs",
             description: "Next.js support",
-            companionPackages: ["pkg:npm/next"],
+            companionPackages: [companionPackage("pkg:npm/next")],
           }),
         ),
       );
@@ -914,7 +915,10 @@ describe("LocalRegistryClient.discoverExtensions", () => {
             owner: "@acme",
             name: "fullstack",
             description: "Full stack support",
-            companionPackages: ["pkg:npm/react", "pkg:npm/next"],
+            companionPackages: [
+              companionPackage("pkg:npm/react"),
+              companionPackage("pkg:npm/next"),
+            ],
           }),
         ),
       );
@@ -957,7 +961,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
           makeCompatibleIndex({
             name: "react-skill",
             description: "React support",
-            companionPackages: ["pkg:npm/react"],
+            companionPackages: [companionPackage("pkg:npm/react")],
           }),
         ),
       );
@@ -1072,7 +1076,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
             makeCompatibleIndex({
               name: "my-skill",
               description: "A test skill",
-              companionPackages: ["pkg:npm/react"],
+              companionPackages: [companionPackage("pkg:npm/react")],
             }),
           ),
         );
@@ -1122,7 +1126,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
               owner: "@acme",
               name: "react-testing",
               description: "React testing support",
-              companionPackages: ["pkg:npm/react"],
+              companionPackages: [companionPackage("pkg:npm/react")],
             }),
           ),
         );
@@ -1181,7 +1185,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
           makeCompatibleIndex({
             name: "my-skill",
             description: "A test skill",
-            companionPackages: ["pkg:npm/react"],
+            companionPackages: [companionPackage("pkg:npm/react")],
           }),
         ),
       );

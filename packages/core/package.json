@@ -27,6 +27,10 @@
       "types": "./dist/src/unstable/version-constraints/version-constraints.d.ts",
       "default": "./dist/src/unstable/version-constraints/version-constraints.js"
     },
+    "./unstable/package-urls": {
+      "types": "./dist/src/unstable/package-urls/index.d.ts",
+      "default": "./dist/src/unstable/package-urls/index.js"
+    },
     "./unstable/branding": {
       "types": "./dist/src/unstable/branding.d.ts",
       "default": "./dist/src/unstable/branding.js"

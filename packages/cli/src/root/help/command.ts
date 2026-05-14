@@ -76,7 +76,7 @@ const writeHelpTopicIndex = () =>
       HelpIndexResultSchema,
     );
     if (emitted) return;
-    yield* renderer.raw(content);
+    yield* renderer.markdown(content);
   });
 
 const writeHelpTopic = (name: HelpTopicName) =>
@@ -86,10 +86,10 @@ const writeHelpTopic = (name: HelpTopicName) =>
     const content = raw.endsWith("\n") ? raw : `${raw}\n`;
     const emitted = yield* renderer.result({ topic: name, content }, HelpTopicResultSchema);
     if (emitted) return;
-    yield* renderer.raw(content);
+    yield* renderer.markdown(content);
   });
 
-const handleHelpTopic = (topic: Option.Option<string>) =>
+export const handleHelpTopic = (topic: Option.Option<string>) =>
   Option.match(topic, {
     onNone: () => writeHelpTopicIndex(),
     onSome: (name) => {

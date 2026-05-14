@@ -13,7 +13,6 @@ import {
   type ResolvedDetailField,
   type ProgressConfig,
   type ProgressHandle,
-  type ResolvedTableColumn,
   type SpinnerHandle,
   type SpinnerOptions,
   type SuccessOptions,
@@ -29,7 +28,9 @@ import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
 import * as chrome from "./ansi-chrome.js";
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 import { getEntityView } from "./entity-registry.js";
+import { formatMarkdown } from "./markdown-formatter.js";
 import { resolveCliOutputPolicy, type CliOutputPolicy } from "./output-policy.js";
+import { formatTable, getTerminalWidth, pad } from "./table-formatter.js";
 
 const ANSI_DIM = "\u001b[2m";
 const ANSI_RESET = "\u001b[0m";
@@ -52,113 +53,6 @@ const writeStderrLine = (content: string) =>
   Effect.sync(() => {
     process.stderr.write(content + "\n");
   });
-
-// ---------------------------------------------------------------------------
-// Table formatter
-// ---------------------------------------------------------------------------
-
-const getTerminalWidth = (): number => process.stdout.columns ?? 80;
-
-const truncate = (str: string, maxWidth: number): string => {
-  if (str.length <= maxWidth) return str;
-  if (maxWidth <= 1) return ".";
-  return str.slice(0, maxWidth - 1) + "\u2026";
-};
-
-const pad = (str: string, width: number, align: "left" | "right"): string => {
-  if (str.length >= width) return str;
-  const padding = " ".repeat(width - str.length);
-  return align === "right" ? padding + str : str + padding;
-};
-
-const getWidthAt = (widths: ReadonlyArray<number>, index: number, fallback: number): number =>
-  widths[index] ?? fallback;
-
-const formatTable = <T extends object>(
-  items: ReadonlyArray<T>,
-  columns: ReadonlyArray<ResolvedTableColumn<T>>,
-  caption?: string,
-): string => {
-  if (items.length === 0 || columns.length === 0) return "";
-
-  const termWidth = getTerminalWidth();
-  const colGap = 2;
-  const availableWidth = termWidth;
-
-  // Compute content widths
-  const contentWidths: Array<number> = columns.map((col) => {
-    let maxW = col.header.length;
-    for (const item of items) {
-      const val = col.render(item);
-      if (val.length > maxW) maxW = val.length;
-    }
-    return maxW;
-  });
-
-  // Resolve column widths
-  const colWidths: Array<number> = [];
-  let usedWidth = 0;
-  let fillCount = 0;
-
-  for (let i = 0; i < columns.length; i++) {
-    const col = columns[i];
-    if (col === undefined) {
-      continue;
-    }
-    if (col.width === "fill") {
-      fillCount++;
-      colWidths.push(0); // placeholder
-    } else if (typeof col.width === "number") {
-      colWidths.push(col.width);
-      usedWidth += col.width;
-    } else {
-      // "auto" — use content width
-      const w = contentWidths[i] ?? col.header.length;
-      colWidths.push(w);
-      usedWidth += w;
-    }
-    if (i < columns.length - 1) usedWidth += colGap;
-  }
-
-  // Distribute remaining width to fill columns
-  if (fillCount > 0) {
-    const remaining = Math.max(0, availableWidth - usedWidth);
-    const perFill = Math.max(4, Math.floor(remaining / fillCount));
-    for (let i = 0; i < columns.length; i++) {
-      if (columns[i]?.width === "fill") {
-        colWidths[i] = perFill;
-      }
-    }
-  }
-
-  const lines: Array<string> = [];
-
-  if (caption) {
-    lines.push(caption);
-  }
-
-  const headerCells = columns.map((col, i) => {
-    const width = getWidthAt(colWidths, i, col.header.length);
-    return pad(truncate(col.header, width), width, col.align);
-  });
-  lines.push(headerCells.join(" ".repeat(colGap)));
-
-  const sepCells = columns.map((col, i) =>
-    "\u2500".repeat(getWidthAt(colWidths, i, col.header.length)),
-  );
-  lines.push(sepCells.join(" ".repeat(colGap)));
-
-  for (const item of items) {
-    const cells = columns.map((col, i) => {
-      const val = col.render(item);
-      const width = getWidthAt(colWidths, i, col.header.length);
-      return pad(truncate(val, width), width, col.align);
-    });
-    lines.push(cells.join(" ".repeat(colGap)));
-  }
-
-  return lines.join("\n");
-};
 
 // ---------------------------------------------------------------------------
 // Detail formatter
@@ -635,5 +529,9 @@ export const InteractiveRenderer = (options?: {
     // Both modes
     json: (data) => writeStdoutLine(JSON.stringify(data, null, 2)),
     raw: (content) => writeStdout(content),
+    markdown: (content) =>
+      outputPolicy.colors
+        ? writeStdout(formatMarkdown(content, getTerminalWidth(), true))
+        : writeStdout(content),
   });
 };

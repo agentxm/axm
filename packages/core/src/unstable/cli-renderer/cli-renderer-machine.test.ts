@@ -613,6 +613,22 @@ describe("MachineRenderer", () => {
     );
   });
 
+  describe("markdown()", () => {
+    it.effect("writes raw markdown to stdout", () =>
+      Effect.gen(function* () {
+        const content = "# Title\n\nUse **AXM**.\n";
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.markdown(content);
+          }),
+        );
+        expect(stdoutWrites).toHaveLength(1);
+        expect(stdoutWrites[0]).toBe(content);
+      }),
+    );
+  });
+
   describe("streamLog", () => {
     it.effect("collects stream and emits as log event on stderr", () =>
       Effect.gen(function* () {

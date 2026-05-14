@@ -6,11 +6,21 @@ AXM links extensions and packages in two directions. Extension authors declare *
 
 Any extension author may declare one or more `companionPackages` on an extension manifest (`skill.json`, `subagent.json`, `pack.json`, etc.) to signal that the extension is designed to work with those packages. Companion packages are identified by [Package URL](https://github.com/package-url/purl-spec).
 
+**Always omit the version.** The declaration means "this extension targets this package," not "this extension is tied to a specific release":
+
 ```jsonc
 {
-  "companionPackages": ["pkg:npm/example-tinyflags@0.1.0"],
+  "companionPackages": ["pkg:npm/example-tinyflags"],
 }
 ```
+
+A versioned purl like `pkg:npm/example-tinyflags@0.1.0` is a strict claim about a single release, with real downsides:
+
+- The declaration goes stale on every new package release.
+- Users on any other version see no signal that the extension applies to them.
+- The extension author must republish to track upstream package releases.
+
+Version constraints belong on the package-metadata side via `recommendedExtensions` — the package author knows their own release and can express which extension version pairs with it, while the extension's companion declaration stays a stable identity edge. See [Recommended extensions](#recommended-extensions) below.
 
 ## Recommended extensions
 

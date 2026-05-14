@@ -500,7 +500,7 @@ describe("TestRenderer", () => {
     );
   });
 
-  describe("json() and raw()", () => {
+  describe("json(), raw(), and markdown()", () => {
     it.effect("json() captures data in results", () =>
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
@@ -527,6 +527,21 @@ describe("TestRenderer", () => {
           layer,
         );
         expect(state.logs).toEqual([{ _tag: "message", message: "plain text" }]);
+      }),
+    );
+
+    it.effect("markdown() captures content in the markdown bucket", () =>
+      Effect.gen(function* () {
+        const { layer, state } = TestRenderer.make();
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.markdown("# Title\n");
+          }),
+          layer,
+        );
+        expect(state.markdown).toEqual(["# Title\n"]);
+        expect(state.logs).toEqual([]);
       }),
     );
   });

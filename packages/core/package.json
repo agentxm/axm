@@ -207,11 +207,12 @@
     "fflate": "catalog:",
     "gray-matter": "catalog:",
     "jsonc-parser": "catalog:",
+    "marked": "^18.0.3",
     "packageurl-js": "catalog:",
-    "semver": "catalog:",
-    "spdx-expression-parse": "3.0.1",
     "proper-lockfile": "^4.1.2",
-    "simple-git": "catalog:"
+    "semver": "catalog:",
+    "simple-git": "catalog:",
+    "spdx-expression-parse": "3.0.1"
   },
   "devDependencies": {
     "@agentxm/client-utils": "workspace:^",

@@ -431,5 +431,6 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     // Both modes (stdout)
     json: (data) => writeStdoutLine(JSON.stringify(data, null, 2)),
     raw: (content) => writeStdout(content),
+    markdown: (content) => writeStdout(content),
   });
 };

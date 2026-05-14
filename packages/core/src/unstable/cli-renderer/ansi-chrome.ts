@@ -15,13 +15,13 @@ import {
 } from "./cli-renderer.js";
 
 const ESC = "\u001b[";
-const ANSI_RESET = `${ESC}0m`;
-const ANSI_BOLD = `${ESC}1m`;
-const ANSI_DIM = `${ESC}2m`;
-const ANSI_RED = `${ESC}31m`;
-const ANSI_GREEN = `${ESC}32m`;
-const ANSI_YELLOW = `${ESC}33m`;
-const ANSI_CYAN = `${ESC}36m`;
+export const ANSI_RESET = `${ESC}0m`;
+export const ANSI_BOLD = `${ESC}1m`;
+export const ANSI_DIM = `${ESC}2m`;
+export const ANSI_RED = `${ESC}31m`;
+export const ANSI_GREEN = `${ESC}32m`;
+export const ANSI_YELLOW = `${ESC}33m`;
+export const ANSI_CYAN = `${ESC}36m`;
 const ANSI_CURSOR_SHOW = `${ESC}?25h`;
 const ANSI_CURSOR_HIDE = `${ESC}?25l`;
 const ANSI_CURSOR_LEFT = `${ESC}G`;

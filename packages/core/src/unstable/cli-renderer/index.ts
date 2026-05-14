@@ -31,6 +31,7 @@ export { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 export { getEntityView, registerEntity, type EntityView } from "./entity-registry.js";
 export { InteractiveRenderer } from "./cli-renderer-interactive.js";
 export { MachineRenderer } from "./cli-renderer-machine.js";
+export { formatMarkdown } from "./markdown-formatter.js";
 export {
   resolveCliOutputPolicy,
   type CliOutputEnvironment,

@@ -48,6 +48,7 @@ export interface TestRendererState {
     title?: string;
   }>;
   readonly results: Array<{ data: unknown; schema: Option.Option<Schema.Top> }>;
+  readonly markdown: Array<string>;
   readonly spinnerMessages: Array<string>;
   readonly notes: Array<{ message: string; title?: string }>;
   readonly boxes: Array<{ message: string; title?: string; opts?: BoxOptions }>;
@@ -67,6 +68,7 @@ const makeEmptyState = (): TestRendererState => ({
   details: [],
   trees: [],
   results: [],
+  markdown: [],
   spinnerMessages: [],
   notes: [],
   boxes: [],
@@ -512,6 +514,10 @@ const makeTestRendererService = (
     raw: (content: string) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "message", message: content });
+      }),
+    markdown: (content: string) =>
+      Effect.sync(() => {
+        state.markdown.push(content);
       }),
   };
 

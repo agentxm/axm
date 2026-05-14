@@ -535,5 +535,35 @@ describe("InteractiveRenderer", () => {
         expect(stdoutWrites[0]).toBe("plain text");
       }),
     );
+
+    it.effect("markdown() writes ANSI-rendered markdown when colors are enabled", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.markdown("# Title\n\nUse **AXM** and `axm setup`.\n");
+          }),
+        );
+
+        const output = stdoutWrites.join("");
+        expect(output).toContain("\u001b[1m\u001b[36m◇  Title\u001b[0m");
+        expect(output).toContain("\u001b[1mAXM\u001b[0m");
+        expect(output).toContain("\u001b[2maxm setup\u001b[0m");
+      }),
+    );
+
+    it.effect("markdown() writes raw markdown when colors are disabled", () =>
+      Effect.gen(function* () {
+        const content = "# Title\n\nUse **AXM**.\n";
+        yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.markdown(content);
+          }),
+        );
+
+        expect(stdoutWrites[0]).toBe(content);
+      }),
+    );
   });
 });

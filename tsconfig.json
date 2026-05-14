@@ -28,7 +28,7 @@
       "path": "./scripts/tsconfig.json"
     },
     {
-      "path": "./examples/companion-packages/npm-javascript/tsconfig.json"
+      "path": "./examples/companion-packages/npm-javascript-lib/tsconfig.json"
     }
   ]
 }

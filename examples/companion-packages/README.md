@@ -24,12 +24,12 @@ For each ecosystem, two sibling directories at this level:
 - `<ecosystem>-app/` — a tiny consumer CLI that imports the library and is the
   exact codebase the companion skills are designed to operate on
 
-| Status | Library                            | Consumer app          |
-| ------ | ---------------------------------- | --------------------- |
-| ✅     | `dotnet-csharp-lib/`               | `dotnet-csharp-app/`  |
-| ⏳     | `npm-javascript/` (rename pending) | `npm-javascript-app/` |
-| ⏳     | `dotnet-fsharp/` (rename pending)  | `dotnet-fsharp-app/`  |
-| ⏳     | `pypi-python/` (rename pending)    | `pypi-python-app/`    |
+| Status | Library               | Consumer app          |
+| ------ | --------------------- | --------------------- |
+| ✅     | `dotnet-csharp-lib/`  | `dotnet-csharp-app/`  |
+| ✅     | `dotnet-fsharp-lib/`  | `dotnet-fsharp-app/`  |
+| ✅     | `npm-javascript-lib/` | `npm-javascript-app/` |
+| ✅     | `pypi-python-lib/`    | `pypi-python-app/`    |
 
 ## Package Naming
 

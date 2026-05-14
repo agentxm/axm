@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "dotnet-fsharp-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Remove a stale TinyFlags flag from a .NET F# project.",
+  "keywords": ["nuget", "dotnet", "fsharp", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:nuget/agentxm.examples.tinyflags.fsharp@0.2.0"],
+  "recommendedPacks": ["@examples/packs/dotnet-fsharp-tinyflags"],
+  "standalone": false
+}

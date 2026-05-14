@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AgentXM.Examples.PawMatch.FSharp</RootNamespace>
+    <AssemblyName>pawmatch</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Variants.fs" />
+    <Compile Include="Flags.fs" />
+    <Compile Include="MatchPreferences.fs" />
+    <Compile Include="Pets.fs" />
+    <Compile Include="Charities.fs" />
+    <Compile Include="PawMatchCli.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AgentXM.Examples.TinyFlags.FSharp" />
+    <PackageReference Include="Argu" />
+    <PackageReference Include="FSharp.Core" />
+  </ItemGroup>
+</Project>

@@ -204,24 +204,6 @@ export const ResourceRestrictions = Schema.Struct({
   title: "Resource Restrictions",
   description: "What this token is allowed to access.",
 });
-export type UnauthorizedError = {
-  readonly kind: "UnauthorizedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-};
-export const UnauthorizedError = Schema.Struct({
-  kind: Schema.Literal("UnauthorizedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-});
 export type TokenId = string;
 export const TokenId = Schema.String.check(
   Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -615,8 +597,7 @@ export const PutCollaboratorBody = Schema.Struct({
   title: "Put Collaborator Body",
   description: "Request body for assigning a collaborator role on an extension.",
 });
-export type InternalError = {
-  readonly kind: "InternalError";
+export type ProblemDetails = {
   readonly type: string;
   readonly title: string;
   readonly status: number;
@@ -625,8 +606,7 @@ export type InternalError = {
   readonly code: string;
   readonly details?: PublishDetails;
 };
-export const InternalError = Schema.Struct({
-  kind: Schema.Literal("InternalError"),
+export const ProblemDetails = Schema.Struct({
   type: Schema.String,
   title: Schema.String,
   status: Schema.Number.check(Schema.isInt()),
@@ -634,186 +614,9 @@ export const InternalError = Schema.Struct({
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
   details: Schema.optionalKey(PublishDetails),
-});
-export type InvalidRequestError = {
-  readonly kind: "InvalidRequestError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const InvalidRequestError = Schema.Struct({
-  kind: Schema.Literal("InvalidRequestError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type NotImplementedError = {
-  readonly kind: "NotImplementedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const NotImplementedError = Schema.Struct({
-  kind: Schema.Literal("NotImplementedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type UnprocessableEntityError = {
-  readonly kind: "UnprocessableEntityError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const UnprocessableEntityError = Schema.Struct({
-  kind: Schema.Literal("UnprocessableEntityError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type NotFoundError = {
-  readonly kind: "NotFoundError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const NotFoundError = Schema.Struct({
-  kind: Schema.Literal("NotFoundError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type ConflictError = {
-  readonly kind: "ConflictError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const ConflictError = Schema.Struct({
-  kind: Schema.Literal("ConflictError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type PayloadTooLargeError = {
-  readonly kind: "PayloadTooLargeError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const PayloadTooLargeError = Schema.Struct({
-  kind: Schema.Literal("PayloadTooLargeError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type UnsupportedMediaTypeError = {
-  readonly kind: "UnsupportedMediaTypeError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const UnsupportedMediaTypeError = Schema.Struct({
-  kind: Schema.Literal("UnsupportedMediaTypeError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type TooManyRequestsError = {
-  readonly kind: "TooManyRequestsError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const TooManyRequestsError = Schema.Struct({
-  kind: Schema.Literal("TooManyRequestsError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
-});
-export type ServiceUnavailableError = {
-  readonly kind: "ServiceUnavailableError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: string;
-  readonly details?: PublishDetails;
-};
-export const ServiceUnavailableError = Schema.Struct({
-  kind: Schema.Literal("ServiceUnavailableError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  details: Schema.optionalKey(PublishDetails),
+}).annotate({
+  title: "Problem Details",
+  description: "RFC 9457 Problem Details payload for AgentXM Registry errors.",
 });
 export type AuthMeUser = {
   readonly id: UserId;
@@ -926,7 +729,24 @@ export type ForbiddenError = {
   readonly status: number;
   readonly detail: string;
   readonly instance?: string;
-  readonly code: string;
+  readonly code:
+    | "forbidden"
+    | "insufficient_scope"
+    | "resource_restriction"
+    | "scope_escalation"
+    | "team_create_not_authorized"
+    | "team_delete_not_authorized"
+    | "team_update_not_authorized"
+    | "add_team_member_not_authorized"
+    | "remove_team_member_not_authorized"
+    | "change_team_member_role_not_authorized"
+    | "team_extension_grant_delete_not_authorized"
+    | "team_extension_grant_not_authorized"
+    | "publish/quota-exceeded"
+    | "publish/insufficient-scope"
+    | "publish/resource-restriction"
+    | "publish/handle-not-owned"
+    | "publish/publish-forbidden";
   readonly details?: ScopeCheckDetails | AuthorizationDenyDetails | PublishDetails;
 };
 export const ForbiddenError = Schema.Struct({
@@ -936,7 +756,25 @@ export const ForbiddenError = Schema.Struct({
   status: Schema.Number.check(Schema.isInt()),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
+  code: Schema.Literals([
+    "forbidden",
+    "insufficient_scope",
+    "resource_restriction",
+    "scope_escalation",
+    "team_create_not_authorized",
+    "team_delete_not_authorized",
+    "team_update_not_authorized",
+    "add_team_member_not_authorized",
+    "remove_team_member_not_authorized",
+    "change_team_member_role_not_authorized",
+    "team_extension_grant_delete_not_authorized",
+    "team_extension_grant_not_authorized",
+    "publish/quota-exceeded",
+    "publish/insufficient-scope",
+    "publish/resource-restriction",
+    "publish/handle-not-owned",
+    "publish/publish-forbidden",
+  ]),
   details: Schema.optionalKey(
     Schema.Union([ScopeCheckDetails, AuthorizationDenyDetails, PublishDetails]),
   ),
@@ -1111,7 +949,7 @@ export type ExtensionIdentityMismatchError = {
   readonly status: number;
   readonly detail: string;
   readonly instance?: string;
-  readonly code: string;
+  readonly code: "extension_identity_mismatch";
   readonly error: "extension_identity_mismatch";
   readonly identity: PublishIdentity;
   readonly mismatches: ReadonlyArray<PublishIdentityMismatchEntry>;
@@ -1123,7 +961,7 @@ export const ExtensionIdentityMismatchError = Schema.Struct({
   status: Schema.Number.check(Schema.isInt()),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
+  code: Schema.Literal("extension_identity_mismatch"),
   error: Schema.Literal("extension_identity_mismatch"),
   identity: PublishIdentity,
   mismatches: Schema.Array(PublishIdentityMismatchEntry),
@@ -1155,7 +993,7 @@ export type ExtensionLintFailedError = {
   readonly status: number;
   readonly detail: string;
   readonly instance?: string;
-  readonly code: string;
+  readonly code: "extension_lint_failed";
   readonly error: "extension_lint_failed";
   readonly identity: PublishIdentity;
   readonly displayRoot: string;
@@ -1168,7 +1006,7 @@ export const ExtensionLintFailedError = Schema.Struct({
   status: Schema.Number.check(Schema.isInt()),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
+  code: Schema.Literal("extension_lint_failed"),
   error: Schema.Literal("extension_lint_failed"),
   identity: PublishIdentity,
   displayRoot: Schema.String,
@@ -1193,8 +1031,8 @@ export type AuthIssueDeviceCode200 = DeviceCodeResponse;
 export const AuthIssueDeviceCode200 = DeviceCodeResponse;
 export type AuthIssueDeviceCode400 = DecodeErrorResponse;
 export const AuthIssueDeviceCode400 = DecodeErrorResponse;
-export type AuthIssueDeviceCode500 = InternalError;
-export const AuthIssueDeviceCode500 = InternalError;
+export type AuthIssueDeviceCode500 = ProblemDetails;
+export const AuthIssueDeviceCode500 = ProblemDetails;
 export type AuthExchangeTokenRequestFormUrlEncoded = {
   readonly grant_type: string;
   readonly code?: string | null;
@@ -1267,9 +1105,9 @@ export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
 });
 export type AuthExchangeToken200 = SessionTokenResponse;
 export const AuthExchangeToken200 = SessionTokenResponse;
-export type AuthExchangeToken400 = InvalidRequestError | DecodeErrorResponse | TokenOAuthError;
+export type AuthExchangeToken400 = ProblemDetails | DecodeErrorResponse | TokenOAuthError;
 export const AuthExchangeToken400 = Schema.Union([
-  Schema.Union([InvalidRequestError, DecodeErrorResponse]),
+  Schema.Union([ProblemDetails, DecodeErrorResponse]),
   TokenOAuthError,
 ]);
 export type AuthExchangeDeviceCodeRequestFormUrlEncoded = {
@@ -1415,12 +1253,12 @@ export type AuthGetMe200 = AuthMeResponse;
 export const AuthGetMe200 = AuthMeResponse;
 export type AuthGetMe400 = DecodeErrorResponse;
 export const AuthGetMe400 = DecodeErrorResponse;
-export type AuthGetMe401 = UnauthorizedError;
-export const AuthGetMe401 = UnauthorizedError;
+export type AuthGetMe401 = ProblemDetails;
+export const AuthGetMe401 = ProblemDetails;
 export type AuthExchangeOidcToken400 = DecodeErrorResponse;
 export const AuthExchangeOidcToken400 = DecodeErrorResponse;
-export type AuthExchangeOidcToken501 = NotImplementedError;
-export const AuthExchangeOidcToken501 = NotImplementedError;
+export type AuthExchangeOidcToken501 = ProblemDetails;
+export const AuthExchangeOidcToken501 = ProblemDetails;
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
 export const TokensListParams = Schema.Struct({
   cursor: Schema.optionalKey(
@@ -1444,8 +1282,8 @@ export type TokensList200 = TokenListResponse;
 export const TokensList200 = TokenListResponse;
 export type TokensList400 = DecodeErrorResponse;
 export const TokensList400 = DecodeErrorResponse;
-export type TokensList401 = UnauthorizedError;
-export const TokensList401 = UnauthorizedError;
+export type TokensList401 = ProblemDetails;
+export const TokensList401 = ProblemDetails;
 export type TokensList403 = ForbiddenError;
 export const TokensList403 = ForbiddenError;
 export type TokensCreateRequestJson = CreateTokenRequest;
@@ -1454,24 +1292,24 @@ export type TokensCreate201 = CreateTokenResponse;
 export const TokensCreate201 = CreateTokenResponse;
 export type TokensCreate400 = DecodeErrorResponse;
 export const TokensCreate400 = DecodeErrorResponse;
-export type TokensCreate401 = UnauthorizedError;
-export const TokensCreate401 = UnauthorizedError;
-export type TokensCreate403 = ForbiddenError;
-export const TokensCreate403 = ForbiddenError;
-export type TokensCreate422 = UnprocessableEntityError;
-export const TokensCreate422 = UnprocessableEntityError;
+export type TokensCreate401 = ProblemDetails;
+export const TokensCreate401 = ProblemDetails;
+export type TokensCreate403 = ForbiddenError | ForbiddenError;
+export const TokensCreate403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type TokensCreate422 = ProblemDetails;
+export const TokensCreate422 = ProblemDetails;
 export type TokensDelete400 = DecodeErrorResponse;
 export const TokensDelete400 = DecodeErrorResponse;
-export type TokensDelete401 = UnauthorizedError;
-export const TokensDelete401 = UnauthorizedError;
+export type TokensDelete401 = ProblemDetails;
+export const TokensDelete401 = ProblemDetails;
 export type TokensDelete403 = ForbiddenError;
 export const TokensDelete403 = ForbiddenError;
 export type OwnersGetOwner200 = OwnerResponse;
 export const OwnersGetOwner200 = OwnerResponse;
 export type OwnersGetOwner400 = DecodeErrorResponse;
 export const OwnersGetOwner400 = DecodeErrorResponse;
-export type OwnersGetOwner404 = NotFoundError;
-export const OwnersGetOwner404 = NotFoundError;
+export type OwnersGetOwner404 = ProblemDetails;
+export const OwnersGetOwner404 = ProblemDetails;
 export type OrgsTeamsListTeamsParams = {
   readonly cursor?: string | null;
   readonly limit?: string | null;
@@ -1484,50 +1322,50 @@ export type OrgsTeamsListTeams200 = TeamList;
 export const OrgsTeamsListTeams200 = TeamList;
 export type OrgsTeamsListTeams400 = DecodeErrorResponse;
 export const OrgsTeamsListTeams400 = DecodeErrorResponse;
-export type OrgsTeamsListTeams401 = UnauthorizedError;
-export const OrgsTeamsListTeams401 = UnauthorizedError;
-export type OrgsTeamsListTeams404 = NotFoundError;
-export const OrgsTeamsListTeams404 = NotFoundError;
+export type OrgsTeamsListTeams401 = ProblemDetails;
+export const OrgsTeamsListTeams401 = ProblemDetails;
+export type OrgsTeamsListTeams404 = ProblemDetails;
+export const OrgsTeamsListTeams404 = ProblemDetails;
 export type OrgsTeamsCreateTeamRequestJson = CreateTeamBody;
 export const OrgsTeamsCreateTeamRequestJson = CreateTeamBody;
 export type OrgsTeamsCreateTeam200 = Team;
 export const OrgsTeamsCreateTeam200 = Team;
-export type OrgsTeamsCreateTeam400 = InvalidRequestError | DecodeErrorResponse;
-export const OrgsTeamsCreateTeam400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
-export type OrgsTeamsCreateTeam401 = UnauthorizedError;
-export const OrgsTeamsCreateTeam401 = UnauthorizedError;
+export type OrgsTeamsCreateTeam400 = ProblemDetails | DecodeErrorResponse;
+export const OrgsTeamsCreateTeam400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type OrgsTeamsCreateTeam401 = ProblemDetails;
+export const OrgsTeamsCreateTeam401 = ProblemDetails;
 export type OrgsTeamsCreateTeam403 = ForbiddenError;
 export const OrgsTeamsCreateTeam403 = ForbiddenError;
-export type OrgsTeamsCreateTeam404 = NotFoundError;
-export const OrgsTeamsCreateTeam404 = NotFoundError;
+export type OrgsTeamsCreateTeam404 = ProblemDetails;
+export const OrgsTeamsCreateTeam404 = ProblemDetails;
 export type OrgsTeamsGetTeam200 = Team;
 export const OrgsTeamsGetTeam200 = Team;
 export type OrgsTeamsGetTeam400 = DecodeErrorResponse;
 export const OrgsTeamsGetTeam400 = DecodeErrorResponse;
-export type OrgsTeamsGetTeam401 = UnauthorizedError;
-export const OrgsTeamsGetTeam401 = UnauthorizedError;
-export type OrgsTeamsGetTeam404 = NotFoundError;
-export const OrgsTeamsGetTeam404 = NotFoundError;
+export type OrgsTeamsGetTeam401 = ProblemDetails;
+export const OrgsTeamsGetTeam401 = ProblemDetails;
+export type OrgsTeamsGetTeam404 = ProblemDetails;
+export const OrgsTeamsGetTeam404 = ProblemDetails;
 export type OrgsTeamsDeleteTeam400 = DecodeErrorResponse;
 export const OrgsTeamsDeleteTeam400 = DecodeErrorResponse;
-export type OrgsTeamsDeleteTeam401 = UnauthorizedError;
-export const OrgsTeamsDeleteTeam401 = UnauthorizedError;
+export type OrgsTeamsDeleteTeam401 = ProblemDetails;
+export const OrgsTeamsDeleteTeam401 = ProblemDetails;
 export type OrgsTeamsDeleteTeam403 = ForbiddenError;
 export const OrgsTeamsDeleteTeam403 = ForbiddenError;
-export type OrgsTeamsDeleteTeam404 = NotFoundError;
-export const OrgsTeamsDeleteTeam404 = NotFoundError;
+export type OrgsTeamsDeleteTeam404 = ProblemDetails;
+export const OrgsTeamsDeleteTeam404 = ProblemDetails;
 export type OrgsTeamsUpdateTeamRequestJson = UpdateTeamBody;
 export const OrgsTeamsUpdateTeamRequestJson = UpdateTeamBody;
 export type OrgsTeamsUpdateTeam200 = Team;
 export const OrgsTeamsUpdateTeam200 = Team;
-export type OrgsTeamsUpdateTeam400 = InvalidRequestError | DecodeErrorResponse;
-export const OrgsTeamsUpdateTeam400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
-export type OrgsTeamsUpdateTeam401 = UnauthorizedError;
-export const OrgsTeamsUpdateTeam401 = UnauthorizedError;
+export type OrgsTeamsUpdateTeam400 = ProblemDetails | DecodeErrorResponse;
+export const OrgsTeamsUpdateTeam400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type OrgsTeamsUpdateTeam401 = ProblemDetails;
+export const OrgsTeamsUpdateTeam401 = ProblemDetails;
 export type OrgsTeamsUpdateTeam403 = ForbiddenError;
 export const OrgsTeamsUpdateTeam403 = ForbiddenError;
-export type OrgsTeamsUpdateTeam404 = NotFoundError;
-export const OrgsTeamsUpdateTeam404 = NotFoundError;
+export type OrgsTeamsUpdateTeam404 = ProblemDetails;
+export const OrgsTeamsUpdateTeam404 = ProblemDetails;
 export type OrgsTeamsListTeamMembersParams = {
   readonly cursor?: string | null;
   readonly limit?: string | null;
@@ -1540,44 +1378,44 @@ export type OrgsTeamsListTeamMembers200 = TeamMembershipList;
 export const OrgsTeamsListTeamMembers200 = TeamMembershipList;
 export type OrgsTeamsListTeamMembers400 = DecodeErrorResponse;
 export const OrgsTeamsListTeamMembers400 = DecodeErrorResponse;
-export type OrgsTeamsListTeamMembers401 = UnauthorizedError;
-export const OrgsTeamsListTeamMembers401 = UnauthorizedError;
-export type OrgsTeamsListTeamMembers404 = NotFoundError;
-export const OrgsTeamsListTeamMembers404 = NotFoundError;
+export type OrgsTeamsListTeamMembers401 = ProblemDetails;
+export const OrgsTeamsListTeamMembers401 = ProblemDetails;
+export type OrgsTeamsListTeamMembers404 = ProblemDetails;
+export const OrgsTeamsListTeamMembers404 = ProblemDetails;
 export type OrgsTeamsAddTeamMemberRequestJson = AddTeamMemberBody;
 export const OrgsTeamsAddTeamMemberRequestJson = AddTeamMemberBody;
 export type OrgsTeamsAddTeamMember200 = TeamMembership;
 export const OrgsTeamsAddTeamMember200 = TeamMembership;
 export type OrgsTeamsAddTeamMember400 = DecodeErrorResponse;
 export const OrgsTeamsAddTeamMember400 = DecodeErrorResponse;
-export type OrgsTeamsAddTeamMember401 = UnauthorizedError;
-export const OrgsTeamsAddTeamMember401 = UnauthorizedError;
+export type OrgsTeamsAddTeamMember401 = ProblemDetails;
+export const OrgsTeamsAddTeamMember401 = ProblemDetails;
 export type OrgsTeamsAddTeamMember403 = ForbiddenError;
 export const OrgsTeamsAddTeamMember403 = ForbiddenError;
-export type OrgsTeamsAddTeamMember404 = NotFoundError;
-export const OrgsTeamsAddTeamMember404 = NotFoundError;
-export type OrgsTeamsAddTeamMember422 = UnprocessableEntityError;
-export const OrgsTeamsAddTeamMember422 = UnprocessableEntityError;
+export type OrgsTeamsAddTeamMember404 = ProblemDetails;
+export const OrgsTeamsAddTeamMember404 = ProblemDetails;
+export type OrgsTeamsAddTeamMember422 = ProblemDetails;
+export const OrgsTeamsAddTeamMember422 = ProblemDetails;
 export type OrgsTeamsRemoveTeamMember400 = DecodeErrorResponse;
 export const OrgsTeamsRemoveTeamMember400 = DecodeErrorResponse;
-export type OrgsTeamsRemoveTeamMember401 = UnauthorizedError;
-export const OrgsTeamsRemoveTeamMember401 = UnauthorizedError;
+export type OrgsTeamsRemoveTeamMember401 = ProblemDetails;
+export const OrgsTeamsRemoveTeamMember401 = ProblemDetails;
 export type OrgsTeamsRemoveTeamMember403 = ForbiddenError;
 export const OrgsTeamsRemoveTeamMember403 = ForbiddenError;
-export type OrgsTeamsRemoveTeamMember404 = NotFoundError;
-export const OrgsTeamsRemoveTeamMember404 = NotFoundError;
+export type OrgsTeamsRemoveTeamMember404 = ProblemDetails;
+export const OrgsTeamsRemoveTeamMember404 = ProblemDetails;
 export type OrgsTeamsChangeTeamMemberRoleRequestJson = ChangeTeamMemberRoleBody;
 export const OrgsTeamsChangeTeamMemberRoleRequestJson = ChangeTeamMemberRoleBody;
 export type OrgsTeamsChangeTeamMemberRole200 = TeamMembership;
 export const OrgsTeamsChangeTeamMemberRole200 = TeamMembership;
 export type OrgsTeamsChangeTeamMemberRole400 = DecodeErrorResponse;
 export const OrgsTeamsChangeTeamMemberRole400 = DecodeErrorResponse;
-export type OrgsTeamsChangeTeamMemberRole401 = UnauthorizedError;
-export const OrgsTeamsChangeTeamMemberRole401 = UnauthorizedError;
+export type OrgsTeamsChangeTeamMemberRole401 = ProblemDetails;
+export const OrgsTeamsChangeTeamMemberRole401 = ProblemDetails;
 export type OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
 export const OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
-export type OrgsTeamsChangeTeamMemberRole404 = NotFoundError;
-export const OrgsTeamsChangeTeamMemberRole404 = NotFoundError;
+export type OrgsTeamsChangeTeamMemberRole404 = ProblemDetails;
+export const OrgsTeamsChangeTeamMemberRole404 = ProblemDetails;
 export type ExtensionsListByOwner200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: ExtensionName;
@@ -1709,8 +1547,8 @@ export const ExtensionsGet200 = Schema.Struct({
 });
 export type ExtensionsGet400 = DecodeErrorResponse;
 export const ExtensionsGet400 = DecodeErrorResponse;
-export type ExtensionsGet404 = NotFoundError;
-export const ExtensionsGet404 = NotFoundError;
+export type ExtensionsGet404 = ProblemDetails;
+export const ExtensionsGet404 = ProblemDetails;
 export type ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export const ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export type ExtensionsUpdateVisibility200 = {
@@ -1731,19 +1569,16 @@ export const ExtensionsUpdateVisibility200 = Schema.Struct({
   listed: Schema.Boolean,
   updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
-export type ExtensionsUpdateVisibility400 = InvalidRequestError | DecodeErrorResponse;
-export const ExtensionsUpdateVisibility400 = Schema.Union([
-  InvalidRequestError,
-  DecodeErrorResponse,
-]);
-export type ExtensionsUpdateVisibility401 = UnauthorizedError;
-export const ExtensionsUpdateVisibility401 = UnauthorizedError;
-export type ExtensionsUpdateVisibility403 = ForbiddenError;
-export const ExtensionsUpdateVisibility403 = ForbiddenError;
-export type ExtensionsUpdateVisibility404 = NotFoundError;
-export const ExtensionsUpdateVisibility404 = NotFoundError;
-export type ExtensionsUpdateVisibility422 = UnprocessableEntityError;
-export const ExtensionsUpdateVisibility422 = UnprocessableEntityError;
+export type ExtensionsUpdateVisibility400 = ProblemDetails | DecodeErrorResponse;
+export const ExtensionsUpdateVisibility400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ExtensionsUpdateVisibility401 = ProblemDetails;
+export const ExtensionsUpdateVisibility401 = ProblemDetails;
+export type ExtensionsUpdateVisibility403 = ForbiddenError | ForbiddenError;
+export const ExtensionsUpdateVisibility403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type ExtensionsUpdateVisibility404 = ProblemDetails;
+export const ExtensionsUpdateVisibility404 = ProblemDetails;
+export type ExtensionsUpdateVisibility422 = ProblemDetails;
+export const ExtensionsUpdateVisibility422 = ProblemDetails;
 export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -1782,8 +1617,8 @@ export const ExtensionsGetVersion200 = Schema.Struct({
 });
 export type ExtensionsGetVersion400 = DecodeErrorResponse;
 export const ExtensionsGetVersion400 = DecodeErrorResponse;
-export type ExtensionsGetVersion404 = NotFoundError;
-export const ExtensionsGetVersion404 = NotFoundError;
+export type ExtensionsGetVersion404 = ProblemDetails;
+export const ExtensionsGetVersion404 = ProblemDetails;
 export type ExtensionsPublishVersionRequestFormData = {
   readonly archive: string;
   readonly integrity?: string | null;
@@ -1832,49 +1667,49 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
   published_at: IsoDateTimeString,
   publish_status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
 });
-export type ExtensionsPublishVersion400 = InvalidRequestError | DecodeErrorResponse;
-export const ExtensionsPublishVersion400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
-export type ExtensionsPublishVersion401 = UnauthorizedError;
-export const ExtensionsPublishVersion401 = UnauthorizedError;
-export type ExtensionsPublishVersion403 = ForbiddenError;
-export const ExtensionsPublishVersion403 = ForbiddenError;
-export type ExtensionsPublishVersion404 = NotFoundError;
-export const ExtensionsPublishVersion404 = NotFoundError;
-export type ExtensionsPublishVersion409 = ConflictError;
-export const ExtensionsPublishVersion409 = ConflictError;
-export type ExtensionsPublishVersion413 = PayloadTooLargeError;
-export const ExtensionsPublishVersion413 = PayloadTooLargeError;
-export type ExtensionsPublishVersion415 = UnsupportedMediaTypeError;
-export const ExtensionsPublishVersion415 = UnsupportedMediaTypeError;
+export type ExtensionsPublishVersion400 = ProblemDetails | DecodeErrorResponse;
+export const ExtensionsPublishVersion400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ExtensionsPublishVersion401 = ProblemDetails;
+export const ExtensionsPublishVersion401 = ProblemDetails;
+export type ExtensionsPublishVersion403 = ForbiddenError | ForbiddenError;
+export const ExtensionsPublishVersion403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type ExtensionsPublishVersion404 = ProblemDetails;
+export const ExtensionsPublishVersion404 = ProblemDetails;
+export type ExtensionsPublishVersion409 = ProblemDetails;
+export const ExtensionsPublishVersion409 = ProblemDetails;
+export type ExtensionsPublishVersion413 = ProblemDetails;
+export const ExtensionsPublishVersion413 = ProblemDetails;
+export type ExtensionsPublishVersion415 = ProblemDetails;
+export const ExtensionsPublishVersion415 = ProblemDetails;
 export type ExtensionsPublishVersion422 =
-  | UnprocessableEntityError
+  | ProblemDetails
   | ExtensionLintFailedError
   | ExtensionIdentityMismatchError;
 export const ExtensionsPublishVersion422 = Schema.Union([
-  UnprocessableEntityError,
+  ProblemDetails,
   ExtensionLintFailedError,
   ExtensionIdentityMismatchError,
 ]);
-export type ExtensionsPublishVersion429 = TooManyRequestsError;
-export const ExtensionsPublishVersion429 = TooManyRequestsError;
-export type ExtensionsPublishVersion500 = InternalError;
-export const ExtensionsPublishVersion500 = InternalError;
-export type ExtensionsPublishVersion503 = ServiceUnavailableError;
-export const ExtensionsPublishVersion503 = ServiceUnavailableError;
+export type ExtensionsPublishVersion429 = ProblemDetails;
+export const ExtensionsPublishVersion429 = ProblemDetails;
+export type ExtensionsPublishVersion500 = ProblemDetails;
+export const ExtensionsPublishVersion500 = ProblemDetails;
+export type ExtensionsPublishVersion503 = ProblemDetails;
+export const ExtensionsPublishVersion503 = ProblemDetails;
 export type ExtensionsDeleteVersion400 = DecodeErrorResponse;
 export const ExtensionsDeleteVersion400 = DecodeErrorResponse;
-export type ExtensionsDeleteVersion401 = UnauthorizedError;
-export const ExtensionsDeleteVersion401 = UnauthorizedError;
+export type ExtensionsDeleteVersion401 = ProblemDetails;
+export const ExtensionsDeleteVersion401 = ProblemDetails;
 export type ExtensionsDeleteVersion403 = ForbiddenError;
 export const ExtensionsDeleteVersion403 = ForbiddenError;
-export type ExtensionsDeleteVersion404 = NotFoundError;
-export const ExtensionsDeleteVersion404 = NotFoundError;
+export type ExtensionsDeleteVersion404 = ProblemDetails;
+export const ExtensionsDeleteVersion404 = ProblemDetails;
 export type ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponse;
-export type ExtensionsDownloadArchive404 = NotFoundError;
-export const ExtensionsDownloadArchive404 = NotFoundError;
-export type ExtensionsDownloadArchive500 = InternalError;
-export const ExtensionsDownloadArchive500 = InternalError;
+export type ExtensionsDownloadArchive404 = ProblemDetails;
+export const ExtensionsDownloadArchive404 = ProblemDetails;
+export type ExtensionsDownloadArchive500 = ProblemDetails;
+export const ExtensionsDownloadArchive500 = ProblemDetails;
 export type ExtensionsDeprecateRequestJson = DeprecateBody;
 export const ExtensionsDeprecateRequestJson = DeprecateBody;
 export type ExtensionsDeprecate200 = {
@@ -1896,12 +1731,12 @@ export const ExtensionsDeprecate200 = Schema.Struct({
 });
 export type ExtensionsDeprecate400 = DecodeErrorResponse;
 export const ExtensionsDeprecate400 = DecodeErrorResponse;
-export type ExtensionsDeprecate401 = UnauthorizedError;
-export const ExtensionsDeprecate401 = UnauthorizedError;
+export type ExtensionsDeprecate401 = ProblemDetails;
+export const ExtensionsDeprecate401 = ProblemDetails;
 export type ExtensionsDeprecate403 = ForbiddenError;
 export const ExtensionsDeprecate403 = ForbiddenError;
-export type ExtensionsDeprecate404 = NotFoundError;
-export const ExtensionsDeprecate404 = NotFoundError;
+export type ExtensionsDeprecate404 = ProblemDetails;
+export const ExtensionsDeprecate404 = ProblemDetails;
 export type ExtensionsUndeprecate200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1918,12 +1753,12 @@ export const ExtensionsUndeprecate200 = Schema.Struct({
 });
 export type ExtensionsUndeprecate400 = DecodeErrorResponse;
 export const ExtensionsUndeprecate400 = DecodeErrorResponse;
-export type ExtensionsUndeprecate401 = UnauthorizedError;
-export const ExtensionsUndeprecate401 = UnauthorizedError;
+export type ExtensionsUndeprecate401 = ProblemDetails;
+export const ExtensionsUndeprecate401 = ProblemDetails;
 export type ExtensionsUndeprecate403 = ForbiddenError;
 export const ExtensionsUndeprecate403 = ForbiddenError;
-export type ExtensionsUndeprecate404 = NotFoundError;
-export const ExtensionsUndeprecate404 = NotFoundError;
+export type ExtensionsUndeprecate404 = ProblemDetails;
+export const ExtensionsUndeprecate404 = ProblemDetails;
 export type ExtensionsYankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1940,12 +1775,12 @@ export const ExtensionsYankVersion200 = Schema.Struct({
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
 export const ExtensionsYankVersion400 = DecodeErrorResponse;
-export type ExtensionsYankVersion401 = UnauthorizedError;
-export const ExtensionsYankVersion401 = UnauthorizedError;
+export type ExtensionsYankVersion401 = ProblemDetails;
+export const ExtensionsYankVersion401 = ProblemDetails;
 export type ExtensionsYankVersion403 = ForbiddenError;
 export const ExtensionsYankVersion403 = ForbiddenError;
-export type ExtensionsYankVersion404 = NotFoundError;
-export const ExtensionsYankVersion404 = NotFoundError;
+export type ExtensionsYankVersion404 = ProblemDetails;
+export const ExtensionsYankVersion404 = ProblemDetails;
 export type ExtensionsUnyankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1962,12 +1797,12 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
 export const ExtensionsUnyankVersion400 = DecodeErrorResponse;
-export type ExtensionsUnyankVersion401 = UnauthorizedError;
-export const ExtensionsUnyankVersion401 = UnauthorizedError;
+export type ExtensionsUnyankVersion401 = ProblemDetails;
+export const ExtensionsUnyankVersion401 = ProblemDetails;
 export type ExtensionsUnyankVersion403 = ForbiddenError;
 export const ExtensionsUnyankVersion403 = ForbiddenError;
-export type ExtensionsUnyankVersion404 = NotFoundError;
-export const ExtensionsUnyankVersion404 = NotFoundError;
+export type ExtensionsUnyankVersion404 = ProblemDetails;
+export const ExtensionsUnyankVersion404 = ProblemDetails;
 export type CollaboratorsListCollaborators200 = {
   readonly collaborators: ReadonlyArray<{
     readonly userId: UserId;
@@ -1988,12 +1823,12 @@ export const CollaboratorsListCollaborators200 = Schema.Struct({
 });
 export type CollaboratorsListCollaborators400 = DecodeErrorResponse;
 export const CollaboratorsListCollaborators400 = DecodeErrorResponse;
-export type CollaboratorsListCollaborators401 = UnauthorizedError;
-export const CollaboratorsListCollaborators401 = UnauthorizedError;
-export type CollaboratorsListCollaborators403 = ForbiddenError;
-export const CollaboratorsListCollaborators403 = ForbiddenError;
-export type CollaboratorsListCollaborators404 = NotFoundError;
-export const CollaboratorsListCollaborators404 = NotFoundError;
+export type CollaboratorsListCollaborators401 = ProblemDetails;
+export const CollaboratorsListCollaborators401 = ProblemDetails;
+export type CollaboratorsListCollaborators403 = ForbiddenError | ForbiddenError;
+export const CollaboratorsListCollaborators403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type CollaboratorsListCollaborators404 = ProblemDetails;
+export const CollaboratorsListCollaborators404 = ProblemDetails;
 export type CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
 export const CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
 export type CollaboratorsUpsertCollaborator200 = {
@@ -2008,49 +1843,49 @@ export const CollaboratorsUpsertCollaborator200 = Schema.Struct({
   grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
   createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
-export type CollaboratorsUpsertCollaborator400 = InvalidRequestError | DecodeErrorResponse;
+export type CollaboratorsUpsertCollaborator400 = ProblemDetails | DecodeErrorResponse;
 export const CollaboratorsUpsertCollaborator400 = Schema.Union([
-  InvalidRequestError,
+  ProblemDetails,
   DecodeErrorResponse,
 ]);
-export type CollaboratorsUpsertCollaborator401 = UnauthorizedError;
-export const CollaboratorsUpsertCollaborator401 = UnauthorizedError;
-export type CollaboratorsUpsertCollaborator403 = ForbiddenError;
-export const CollaboratorsUpsertCollaborator403 = ForbiddenError;
-export type CollaboratorsUpsertCollaborator404 = NotFoundError;
-export const CollaboratorsUpsertCollaborator404 = NotFoundError;
+export type CollaboratorsUpsertCollaborator401 = ProblemDetails;
+export const CollaboratorsUpsertCollaborator401 = ProblemDetails;
+export type CollaboratorsUpsertCollaborator403 = ForbiddenError | ForbiddenError;
+export const CollaboratorsUpsertCollaborator403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type CollaboratorsUpsertCollaborator404 = ProblemDetails;
+export const CollaboratorsUpsertCollaborator404 = ProblemDetails;
 export type CollaboratorsDeleteCollaborator400 = DecodeErrorResponse;
 export const CollaboratorsDeleteCollaborator400 = DecodeErrorResponse;
-export type CollaboratorsDeleteCollaborator401 = UnauthorizedError;
-export const CollaboratorsDeleteCollaborator401 = UnauthorizedError;
-export type CollaboratorsDeleteCollaborator403 = ForbiddenError;
-export const CollaboratorsDeleteCollaborator403 = ForbiddenError;
-export type CollaboratorsDeleteCollaborator404 = NotFoundError;
-export const CollaboratorsDeleteCollaborator404 = NotFoundError;
-export type CollaboratorsDeleteCollaborator409 = ConflictError;
-export const CollaboratorsDeleteCollaborator409 = ConflictError;
+export type CollaboratorsDeleteCollaborator401 = ProblemDetails;
+export const CollaboratorsDeleteCollaborator401 = ProblemDetails;
+export type CollaboratorsDeleteCollaborator403 = ForbiddenError | ForbiddenError;
+export const CollaboratorsDeleteCollaborator403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type CollaboratorsDeleteCollaborator404 = ProblemDetails;
+export const CollaboratorsDeleteCollaborator404 = ProblemDetails;
+export type CollaboratorsDeleteCollaborator409 = ProblemDetails;
+export const CollaboratorsDeleteCollaborator409 = ProblemDetails;
 export type TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
 export const TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
 export type TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
 export const TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
 export type TeamGrantsUpsertTeamExtensionGrant400 = DecodeErrorResponse;
 export const TeamGrantsUpsertTeamExtensionGrant400 = DecodeErrorResponse;
-export type TeamGrantsUpsertTeamExtensionGrant401 = UnauthorizedError;
-export const TeamGrantsUpsertTeamExtensionGrant401 = UnauthorizedError;
+export type TeamGrantsUpsertTeamExtensionGrant401 = ProblemDetails;
+export const TeamGrantsUpsertTeamExtensionGrant401 = ProblemDetails;
 export type TeamGrantsUpsertTeamExtensionGrant403 = ForbiddenError | ForbiddenError;
 export const TeamGrantsUpsertTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type TeamGrantsUpsertTeamExtensionGrant404 = NotFoundError;
-export const TeamGrantsUpsertTeamExtensionGrant404 = NotFoundError;
-export type TeamGrantsUpsertTeamExtensionGrant422 = UnprocessableEntityError;
-export const TeamGrantsUpsertTeamExtensionGrant422 = UnprocessableEntityError;
+export type TeamGrantsUpsertTeamExtensionGrant404 = ProblemDetails;
+export const TeamGrantsUpsertTeamExtensionGrant404 = ProblemDetails;
+export type TeamGrantsUpsertTeamExtensionGrant422 = ProblemDetails;
+export const TeamGrantsUpsertTeamExtensionGrant422 = ProblemDetails;
 export type TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
 export const TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
-export type TeamGrantsDeleteTeamExtensionGrant401 = UnauthorizedError;
-export const TeamGrantsDeleteTeamExtensionGrant401 = UnauthorizedError;
+export type TeamGrantsDeleteTeamExtensionGrant401 = ProblemDetails;
+export const TeamGrantsDeleteTeamExtensionGrant401 = ProblemDetails;
 export type TeamGrantsDeleteTeamExtensionGrant403 = ForbiddenError | ForbiddenError;
 export const TeamGrantsDeleteTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type TeamGrantsDeleteTeamExtensionGrant404 = NotFoundError;
-export const TeamGrantsDeleteTeamExtensionGrant404 = NotFoundError;
+export type TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
+export const TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),

@@ -1,3 +1,13 @@
+## 0.9.0 (2026-05-14)
+
+### 🚀 Features
+
+- Add npm-style repository and bugs manifest metadata support. ([340981b8](https://github.com/agentxm/axm/commit/340981b8))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.8.0 (2026-05-14)
 
 ### 🚀 Features

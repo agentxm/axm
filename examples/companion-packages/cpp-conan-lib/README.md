@@ -89,13 +89,13 @@ and across ports.
 
 The authored extension sources live under `.axm/extensions/@examples/`.
 
-| Type     | FQN                                                    |
-| -------- | ------------------------------------------------------ |
-| Skill    | `@examples/skills/cpp-conan-tinyflags-add-flag`        |
-| Skill    | `@examples/skills/cpp-conan-tinyflags-rollout-review`  |
-| Skill    | `@examples/skills/cpp-conan-tinyflags-cleanup-flag`    |
-| Subagent | `@examples/subagents/cpp-conan-tinyflags-maintainer`   |
-| Pack     | `@examples/packs/cpp-conan-tinyflags`                  |
+| Type     | FQN                                                   |
+| -------- | ----------------------------------------------------- |
+| Skill    | `@examples/skills/cpp-conan-tinyflags-add-flag`       |
+| Skill    | `@examples/skills/cpp-conan-tinyflags-rollout-review` |
+| Skill    | `@examples/skills/cpp-conan-tinyflags-cleanup-flag`   |
+| Subagent | `@examples/subagents/cpp-conan-tinyflags-maintainer`  |
+| Pack     | `@examples/packs/cpp-conan-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each manifest
 declares `pkg:conan/agentxm-example-tinyflags` as its companion package.

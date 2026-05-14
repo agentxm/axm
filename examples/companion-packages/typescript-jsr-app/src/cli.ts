@@ -39,13 +39,7 @@ const ALL_FACTORS: ReadonlyArray<{ flag: string; tags: readonly string[] }> = Ob
   { flag: "small-home", tags: ["lap-cat", "solo", "low-energy"] },
 ]);
 
-const POPULARITY_TAGS = new Set([
-  "social",
-  "good-with-kids",
-  "calm",
-  "mellow",
-  "gentle",
-]);
+const POPULARITY_TAGS = new Set(["social", "good-with-kids", "calm", "mellow", "gentle"]);
 
 export interface PawMatchCliOptions {
   readonly flags?: TinyFlagsClient;
@@ -118,14 +112,7 @@ export class PawMatchCli {
 
   private runMatch(args: readonly string[]): number {
     const parsed = parseArgs(args as string[], {
-      boolean: [
-        "has-kids",
-        "quiet-home",
-        "active",
-        "first-time",
-        "multiple-pets",
-        "small-home",
-      ],
+      boolean: ["has-kids", "quiet-home", "active", "first-time", "multiple-pets", "small-home"],
     });
     return this.match({
       hasKids: parsed["has-kids"] === true,
@@ -170,10 +157,7 @@ export class PawMatchCli {
         .filter(isLongStay)
         .sort((a, b) => b.daysInShelter - a.daysInShelter)[0];
       if (longStay !== undefined) {
-        this.writeLine(
-          this.out,
-          `★ Featured long-stay friend — please consider ${longStay.name}!`,
-        );
+        this.writeLine(this.out, `★ Featured long-stay friend — please consider ${longStay.name}!`);
         this.writeLine(this.out, "");
       }
     }
@@ -329,10 +313,7 @@ export class PawMatchCli {
     this.writeLine(this.out, "");
     this.writeLine(this.out, "If your adoption isn't working out, we're here to help.");
     this.writeLine(this.out, "  • Free behavior consultation with our trainers.");
-    this.writeLine(
-      this.out,
-      "  • No-judgment returns at any time — your pet stays in our care.",
-    );
+    this.writeLine(this.out, "  • No-judgment returns at any time — your pet stays in our care.");
     this.writeLine(this.out, "  • Connections to low-cost vet and food assistance programs.");
     this.writeLine(this.out, "");
     this.writeLine(
@@ -342,7 +323,11 @@ export class PawMatchCli {
     return 0;
   }
 
-  donate(charitySlug: string | undefined, focusOverride: string | undefined, open: boolean): number {
+  donate(
+    charitySlug: string | undefined,
+    focusOverride: string | undefined,
+    open: boolean,
+  ): number {
     const defaultFocus = parseDonateFocus(
       this.flags.variant(FLAG_DONATE_FOCUS_DEFAULT, this.context),
     );
@@ -374,10 +359,7 @@ export class PawMatchCli {
 
     this.writeLine(this.out, CHARITIES_DISCLAIMER);
     if (!showRatings) {
-      this.writeLine(
-        this.out,
-        "Ratings hidden — set show-charity-ratings to surface them inline.",
-      );
+      this.writeLine(this.out, "Ratings hidden — set show-charity-ratings to surface them inline.");
     }
     return 0;
   }
@@ -450,9 +432,7 @@ function padRight(value: string, width: number): string {
 }
 
 function defaultSessionId(): string {
-  return (
-    Deno.env.get("USER") ?? Deno.env.get("USERNAME") ?? Deno.env.get("LOGNAME") ?? "anonymous"
-  );
+  return Deno.env.get("USER") ?? Deno.env.get("USERNAME") ?? Deno.env.get("LOGNAME") ?? "anonymous";
 }
 
 function defaultOpenUrl(url: string): number {

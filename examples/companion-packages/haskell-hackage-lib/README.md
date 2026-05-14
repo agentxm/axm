@@ -78,13 +78,13 @@ variant flags "search-ranking" ctx      -- Right "semantic"
 
 The authored extension sources live under `.axm/extensions/@examples/`.
 
-| Type     | FQN                                                           |
-| -------- | ------------------------------------------------------------- |
-| Skill    | `@examples/skills/haskell-hackage-tinyflags-add-flag`         |
-| Skill    | `@examples/skills/haskell-hackage-tinyflags-rollout-review`   |
-| Skill    | `@examples/skills/haskell-hackage-tinyflags-cleanup-flag`     |
-| Subagent | `@examples/subagents/haskell-hackage-tinyflags-maintainer`    |
-| Pack     | `@examples/packs/haskell-hackage-tinyflags`                   |
+| Type     | FQN                                                         |
+| -------- | ----------------------------------------------------------- |
+| Skill    | `@examples/skills/haskell-hackage-tinyflags-add-flag`       |
+| Skill    | `@examples/skills/haskell-hackage-tinyflags-rollout-review` |
+| Skill    | `@examples/skills/haskell-hackage-tinyflags-cleanup-flag`   |
+| Subagent | `@examples/subagents/haskell-hackage-tinyflags-maintainer`  |
+| Pack     | `@examples/packs/haskell-hackage-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each
 manifest declares `pkg:hackage/agentxm-example-tinyflags@^0.1.0` as its

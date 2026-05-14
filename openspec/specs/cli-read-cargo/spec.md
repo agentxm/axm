@@ -1,67 +1,46 @@
 ## ADDED Requirements
 
-### Requirement: Read axm recommendation metadata from Rust crate metadata
+### Requirement: Read axm recommendation metadata from `[package.metadata.axm]` in cached Cargo.toml
 
-The Cargo reader SHALL inspect Rust crate metadata for axm recommendation data. For each detected cargo package, the reader SHALL use `cargo metadata` JSON output to locate the `[package.metadata.axm]` section and extract the `recommendedExtensions` array when present and valid. The `[package.metadata]` table is the standard Rust extensibility mechanism used by docs.rs, cargo-deb, cargo-bundle, and other ecosystem tools.
+The Cargo reader SHALL inspect each detected Rust crate's cached `Cargo.toml` for axm recommendation data. For each detected crate, the reader SHALL parse the `[package.metadata.axm]` table from `$CARGO_HOME/registry/src/<index>/<crate>-<version>/Cargo.toml` and extract the `recommendedExtensions` array when present and valid. The `[package.metadata]` table is the standard Rust extensibility mechanism used by docs.rs, cargo-deb, cargo-bundle, and other ecosystem tools.
 
-#### Scenario: Crate with valid axm metadata section
+#### Scenario: Crate with valid `[package.metadata.axm]`
 
-- **WHEN** `cargo metadata` output for crate `serde` includes `"metadata": { "axm": { "recommendedExtensions": ["@serde/skills/serde@^1.0.0"] } }`
+- **WHEN** the cached `Cargo.toml` for `serde@1.0.193` contains `[package.metadata.axm]\nrecommendedExtensions = ["@serde/skills/serde@^1.0.0"]`
 - **THEN** the reader SHALL return the extension refs `["@serde/skills/serde@^1.0.0"]`
 
-#### Scenario: Crate without axm metadata section
+#### Scenario: Crate without `[package.metadata.axm]`
 
-- **WHEN** `cargo metadata` output for crate `tokio` has no `"axm"` key in its `"metadata"` field
-- **THEN** the reader SHALL return no recommendations (Option.none)
-
-#### Scenario: Crate with no metadata field at all
-
-- **WHEN** `cargo metadata` output for crate `rand` has `"metadata": null`
+- **WHEN** the cached `Cargo.toml` for `tokio` has no `[package.metadata.axm]` table
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
 #### Scenario: Crate with empty recommendedExtensions
 
-- **WHEN** `cargo metadata` output for a crate includes `"metadata": { "axm": { "recommendedExtensions": [] } }`
+- **WHEN** the cached `Cargo.toml` contains `[package.metadata.axm]\nrecommendedExtensions = []`
 - **THEN** the reader SHALL return an empty array of recommendations
 
-### Requirement: Use cargo metadata subprocess to locate package metadata
+#### Scenario: Section parsing stops at the next table header
 
-The reader SHALL invoke `cargo metadata --format-version 1` as a subprocess to obtain package metadata. The reader SHALL extract the `axm` key from the `metadata` field of the matching package in the JSON output.
+- **WHEN** `[package.metadata.axm]` is followed by another section such as `[package.metadata.docs.rs]`
+- **THEN** the reader SHALL only read keys between the two headers and SHALL NOT treat keys under sibling `[package.metadata.*]` tables as part of `axm`
 
-#### Scenario: cargo metadata returns valid JSON
+### Requirement: Locate cached Cargo.toml under `$CARGO_HOME`
 
-- **WHEN** `cargo metadata --format-version 1` succeeds
-- **THEN** the reader SHALL parse the JSON output and locate the detected crate in the `packages` array
+The reader SHALL resolve `CARGO_HOME` (defaulting to `~/.cargo`) and read the crate's cached `Cargo.toml` at `<CARGO_HOME>/registry/src/<index>/<crate>-<version>/Cargo.toml`. When the detected purl has no version, the reader SHALL scan registry index directories for any directory whose name equals the crate name or begins with `<crate>-`.
 
-#### Scenario: cargo metadata invoked for workspace context
+#### Scenario: Exact-version purl
 
-- **WHEN** the detected crate is a dependency in the current Cargo workspace
-- **THEN** the reader SHALL use the `cargo metadata` output to locate metadata for that specific crate
+- **WHEN** the detected purl is `pkg:cargo/serde@1.0.193`
+- **THEN** the reader SHALL look for `<CARGO_HOME>/registry/src/<index>/serde-1.0.193/Cargo.toml` across all index directories
 
-### Requirement: Handle cargo unavailability gracefully
+#### Scenario: Versionless purl
 
-When the `cargo` binary is not available on PATH, the reader SHALL return no recommendations with a warning. This is the normal case for systems without the Rust toolchain installed.
+- **WHEN** the detected purl is `pkg:cargo/serde` (no version)
+- **THEN** the reader SHALL scan each index directory for an entry equal to `serde` or beginning with `serde-` and read its `Cargo.toml`
 
-#### Scenario: cargo not on PATH
+#### Scenario: Missing registry cache
 
-- **WHEN** the `cargo` binary is not found on PATH
-- **THEN** the reader SHALL log a warning that cargo is unavailable
-- **AND** return no recommendations (Option.none)
-- **AND** no error SHALL be raised
-
-#### Scenario: cargo metadata command fails
-
-- **WHEN** `cargo metadata` exits with a non-zero status
-- **THEN** the reader SHALL return no recommendations (Option.none)
-- **AND** no error SHALL be raised
-
-### Requirement: Missing metadata section handled gracefully
-
-When the package exists in `cargo metadata` output but has no `metadata` field or no `axm` key within metadata, the reader SHALL return no recommendations without raising an error.
-
-#### Scenario: Package found but no metadata section
-
-- **WHEN** the crate appears in `cargo metadata` output with no `metadata` field
+- **WHEN** `<CARGO_HOME>/registry/src` does not exist
 - **THEN** the reader SHALL return no recommendations (Option.none)
 - **AND** no error SHALL be raised
 
@@ -71,11 +50,11 @@ The reader SHALL validate the extracted `axm` metadata object against the `AxmPa
 
 #### Scenario: Malformed axm metadata warned and skipped
 
-- **WHEN** the `axm` metadata contains `{ "recommendedExtensions": "not-an-array" }`
+- **WHEN** `[package.metadata.axm]` contains `recommendedExtensions = 42`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** the `axm` metadata contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
+- **WHEN** `[package.metadata.axm]` contains `recommendedExtensions = ["@acme/skills/foo@^1.0.0"]` and an additional unrecognized key
 - **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields

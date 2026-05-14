@@ -63,13 +63,13 @@ deterministic by `user_id`, `account_id`, or `session_id` from the evaluation
 
 The authored extension sources live under `.axm/extensions/@examples/`.
 
-| Type     | FQN                                                         |
-| -------- | ----------------------------------------------------------- |
-| Skill    | `@examples/skills/julia-general-tinyflags-add-flag`         |
-| Skill    | `@examples/skills/julia-general-tinyflags-rollout-review`   |
-| Skill    | `@examples/skills/julia-general-tinyflags-cleanup-flag`     |
-| Subagent | `@examples/subagents/julia-general-tinyflags-maintainer`    |
-| Pack     | `@examples/packs/julia-general-tinyflags`                   |
+| Type     | FQN                                                       |
+| -------- | --------------------------------------------------------- |
+| Skill    | `@examples/skills/julia-general-tinyflags-add-flag`       |
+| Skill    | `@examples/skills/julia-general-tinyflags-rollout-review` |
+| Skill    | `@examples/skills/julia-general-tinyflags-cleanup-flag`   |
+| Subagent | `@examples/subagents/julia-general-tinyflags-maintainer`  |
+| Pack     | `@examples/packs/julia-general-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each manifest
 declares `pkg:julia/AgentXMExampleTinyFlags` (versionless — Julia purls do

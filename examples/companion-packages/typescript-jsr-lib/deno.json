@@ -15,8 +15,6 @@
     "check": "deno check src/index.ts"
   },
   "axm": {
-    "recommendedExtensions": [
-      "@examples/packs/typescript-jsr-tinyflags@^0.1.0"
-    ]
+    "recommendedExtensions": ["@examples/packs/typescript-jsr-tinyflags@^0.1.0"]
   }
 }

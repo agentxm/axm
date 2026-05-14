@@ -67,10 +67,7 @@ export function variantFlag(
   }
 
   const uniqueVariants = [...new Set(variants)];
-  if (
-    uniqueVariants.length !== variants.length ||
-    uniqueVariants.some((value) => value === "")
-  ) {
+  if (uniqueVariants.length !== variants.length || uniqueVariants.some((value) => value === "")) {
     throw new TypeError("variantFlag variants must be unique non-empty strings");
   }
 
@@ -99,11 +96,7 @@ export interface TinyFlagsClient {
 
 /** Build a TinyFlags client from a map of flag definitions. */
 export function tinyFlags(definitions: Readonly<Record<string, Flag>>): TinyFlagsClient {
-  if (
-    definitions === null ||
-    typeof definitions !== "object" ||
-    Array.isArray(definitions)
-  ) {
+  if (definitions === null || typeof definitions !== "object" || Array.isArray(definitions)) {
     throw new TypeError("tinyFlags requires a flag definition object");
   }
 

@@ -268,10 +268,17 @@ describe("cargoDetector", () => {
 // cargo Reader tests
 // ──────────────────────────────────────────────────────────────────
 
-/** Helper to set up a temp CARGO_HOME with registry cache for reader tests. */
+/**
+ * Helper to set up a temp CARGO_HOME with registry cache for reader tests.
+ *
+ * `cargoTomlContent`, when provided, is written to
+ * `<CARGO_HOME>/registry/src/index.crates.io-mock/<crate>-<version>/Cargo.toml`.
+ * Pass a full Cargo.toml (or just the `[package.metadata.axm]` table) — the
+ * reader scans for the section header.
+ */
 const readInTempCargoHome = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  cargoTomlContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -281,7 +288,7 @@ const readInTempCargoHome = (
     // Set up a fake CARGO_HOME structure
     const cargoHome = path.join(tmpDir, "cargo-home");
 
-    if (axmJsonContent !== undefined) {
+    if (cargoTomlContent !== undefined) {
       // Reconstruct the crate directory path
       const crateName = pkgPurl.name;
       const version = pkgPurl.version ?? "0.0.0";
@@ -293,7 +300,7 @@ const readInTempCargoHome = (
         `${crateName}-${version}`,
       );
       yield* fs.makeDirectory(crateDir, { recursive: true });
-      yield* fs.writeFileString(path.join(crateDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(path.join(crateDir, "Cargo.toml"), cargoTomlContent);
     }
 
     // Create a source file so the detector source path exists
@@ -331,16 +338,21 @@ describe("cargoReader", () => {
     expect(cargoReader.type).toBe(cargoType);
   });
 
-  describe("valid axm.json sidecar", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+  describe("valid [package.metadata.axm] in Cargo.toml", () => {
+    it.effect("extracts recommendedExtensions from [package.metadata.axm]", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.193" });
           const result = yield* readInTempCargoHome(
             purl,
-            JSON.stringify({
-              recommendedExtensions: ["@serde/skills/serde@^1.0.0"],
-            }),
+            [
+              "[package]",
+              'name = "serde"',
+              'version = "1.0.193"',
+              "",
+              "[package.metadata.axm]",
+              'recommendedExtensions = ["@serde/skills/serde@^1.0.0"]',
+            ].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -356,7 +368,7 @@ describe("cargoReader", () => {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
-            JSON.stringify({ recommendedExtensions: [] }),
+            ["[package.metadata.axm]", "recommendedExtensions = []"].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -365,10 +377,45 @@ describe("cargoReader", () => {
         }),
       ),
     );
+
+    it.effect("stops parsing at the next section header", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
+          const result = yield* readInTempCargoHome(
+            purl,
+            [
+              "[package.metadata.axm]",
+              'recommendedExtensions = ["@serde/skills/serde@^1.0.0"]',
+              "",
+              "[package.metadata.other-tool]",
+              'recommendedExtensions = ["should-be-ignored"]',
+            ].join("\n"),
+          );
+          expect(Option.isSome(result)).toBe(true);
+          if (Option.isSome(result)) {
+            expect(result.value).toEqual(["@serde/skills/serde@^1.0.0"]);
+          }
+        }),
+      ),
+    );
   });
 
-  describe("missing axm.json", () => {
-    it.effect("returns Option.none when axm.json does not exist", () =>
+  describe("missing [package.metadata.axm]", () => {
+    it.effect("returns Option.none when Cargo.toml has no axm section", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const purl = makePurl({ type: "cargo", name: "tokio", version: "1.0.0" });
+          const result = yield* readInTempCargoHome(
+            purl,
+            ["[package]", 'name = "tokio"', 'version = "1.0.0"'].join("\n"),
+          );
+          expect(Option.isNone(result)).toBe(true);
+        }),
+      ),
+    );
+
+    it.effect("returns Option.none when Cargo.toml does not exist", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "tokio", version: "1.0.0" });
@@ -379,14 +426,14 @@ describe("cargoReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
-    it.effect("returns Option.none and warns on malformed metadata", () =>
+  describe("malformed axm metadata", () => {
+    it.effect("returns Option.none and warns on schema validation failure", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
-            JSON.stringify({ recommendedExtensions: 42 }),
+            ["[package.metadata.axm]", "recommendedExtensions = 42"].join("\n"),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -395,16 +442,17 @@ describe("cargoReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores unknown keys in [package.metadata.axm]", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
-            JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
-              futureField: true,
-            }),
+            [
+              "[package.metadata.axm]",
+              'recommendedExtensions = ["@acme/skills/foo@^1.0.0"]',
+              "futureField = true",
+            ].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -421,18 +469,6 @@ describe("cargoReader", () => {
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "nonexistent", version: "1.0.0" });
           const result = yield* readInTempCargoHome(purl);
-          expect(Option.isNone(result)).toBe(true);
-        }),
-      ),
-    );
-  });
-
-  describe("malformed JSON in axm.json", () => {
-    it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
-          const result = yield* readInTempCargoHome(purl, "{ not valid json }");
           expect(Option.isNone(result)).toBe(true);
         }),
       ),

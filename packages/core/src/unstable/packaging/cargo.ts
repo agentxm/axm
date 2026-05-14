@@ -35,24 +35,6 @@ const readFileOptional = (filePath: string) =>
   });
 
 /**
- * Parse JSON string, returning Option.none and logging a warning on failure.
- */
-const parseJsonOptional = (content: string, context: string) =>
-  Effect.gen(function* () {
-    const result = yield* Effect.try({
-      try: (): unknown => JSON.parse(content),
-      catch: () => ({ _tag: "JsonParseError" as const }),
-    }).pipe(Effect.option);
-
-    if (Option.isNone(result)) {
-      yield* Effect.logWarning(`Malformed JSON in ${context}, skipping`);
-      return Option.none<unknown>();
-    }
-
-    return Option.some(result.value);
-  });
-
-/**
  * Returns true if the version specifier is an exact pin (starts with `=`).
  * In Cargo, `=1.0.193` means exact; bare `1.0` is a caret range.
  */
@@ -214,10 +196,76 @@ export const cargoDetector: PackageDetector = {
 const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.cargo`);
 
 /**
+ * Parse the `[package.metadata.axm]` table from a Cargo.toml string.
+ *
+ * Returns `undefined` when the section is absent. `Cargo.toml` is TOML; we
+ * scan section headers line-by-line rather than depending on a full TOML
+ * parser, mirroring `julia.ts`/`parseAxmSection`. Supported forms:
+ *
+ *   [package.metadata.axm]
+ *   recommendedExtensions = ["@owner/pack@^1.0.0"]
+ *
+ *   [package.metadata.axm.recommendedExtensions]  # not supported; arrays are
+ *                                                 # always inline below the
+ *                                                 # `[package.metadata.axm]`
+ *                                                 # header.
+ */
+const parsePackageMetadataAxm = (content: string): Record<string, unknown> | undefined => {
+  const lines = content.split("\n");
+  let inAxmSection = false;
+  let found = false;
+  const fields: Record<string, unknown> = {};
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip empty lines and comments
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+
+    // Section headers (`[section.path]` or `[[array.of.tables]]`)
+    if (trimmed.startsWith("[")) {
+      if (inAxmSection) break; // leaving the [package.metadata.axm] table
+      inAxmSection = trimmed === "[package.metadata.axm]";
+      if (inAxmSection) found = true;
+      continue;
+    }
+
+    if (!inAxmSection) continue;
+
+    const match = /^([^=\s]+)\s*=\s*(.+)$/.exec(trimmed);
+    if (match === null) continue;
+
+    const key = match[1];
+    const rawValue = match[2]?.trim();
+    if (key === undefined || rawValue === undefined) continue;
+
+    if (rawValue.startsWith("[")) {
+      // TOML arrays of strings are JSON-compatible
+      try {
+        fields[key] = JSON.parse(rawValue);
+      } catch {
+        fields[key] = rawValue;
+      }
+    } else if (rawValue.startsWith('"')) {
+      fields[key] = rawValue.slice(1, -1);
+    } else if (rawValue === "true" || rawValue === "false") {
+      fields[key] = rawValue === "true";
+    } else {
+      fields[key] = rawValue;
+    }
+  }
+
+  return found ? fields : undefined;
+};
+
+/**
  * Cargo package reader.
  *
- * Reads `axm.json` from `$CARGO_HOME/registry/src/<index>/<crate>-<version>/`
- * for each detected cargo crate and extracts recommendation metadata.
+ * Reads `[package.metadata.axm]` from
+ * `$CARGO_HOME/registry/src/<index>/<crate>-<version>/Cargo.toml` for each
+ * detected cargo crate. `[package.metadata.*]` is Cargo's standard
+ * extensibility mechanism for third-party tools (used by docs.rs, cargo-deb,
+ * cargo-bundle, etc.).
  *
  * When the crate version is unknown, scans the registry source directory
  * for any matching crate directory.
@@ -235,66 +283,42 @@ export const cargoReader: PackageReader = {
       const crateName = pkg.purl.name;
       const version = pkg.purl.version;
 
-      // Cargo stores downloaded crate sources in
-      // $CARGO_HOME/registry/src/<index-hash>/<crate>-<version>/
       const registrySrcDir = path.join(cargoHome, "registry", "src");
 
-      // Scan index directories inside registry/src/
       const indexDirs = yield* fs.readDirectory(registrySrcDir).pipe(Effect.option);
       if (Option.isNone(indexDirs)) return Option.none();
 
-      // Search across index directories for the matching crate
       for (const indexDir of indexDirs.value) {
         const indexPath = path.join(registrySrcDir, indexDir);
 
-        if (version !== undefined) {
-          // Exact version: look for <crate>-<version>/axm.json
-          const axmJsonPath = path.join(indexPath, `${crateName}-${version}`, "axm.json");
-          const content = yield* readFileOptional(axmJsonPath);
-          if (Option.isSome(content)) {
-            const parsed = yield* parseJsonOptional(
-              content.value,
-              `${crateName}-${version}/axm.json`,
-            );
-            if (Option.isNone(parsed)) return Option.none();
+        const crateDir =
+          version !== undefined
+            ? `${crateName}-${version}`
+            : yield* findMatchingCrateDir(fs, indexPath, crateName);
+        if (crateDir === undefined) continue;
 
-            const metaResult = decodeAxmMeta(parsed.value);
-            if (Result.isFailure(metaResult)) {
-              yield* Effect.logWarning(
-                `Invalid axm metadata in ${crateName}-${version}: schema validation failed`,
-              );
-              return Option.none();
-            }
-
-            return Option.some(metaResult.success.recommendedExtensions);
-          }
-        } else {
-          // No version: find any matching crate directory
-          const entries = yield* fs.readDirectory(indexPath).pipe(Effect.option);
-          if (Option.isNone(entries)) continue;
-
-          const matchingDir = entries.value.find(
-            (entry) => entry === crateName || entry.startsWith(`${crateName}-`),
-          );
-          if (matchingDir === undefined) continue;
-
-          const axmJsonPath = path.join(indexPath, matchingDir, "axm.json");
-          const content = yield* readFileOptional(axmJsonPath);
-          if (Option.isNone(content)) continue;
-
-          const parsed = yield* parseJsonOptional(content.value, `${matchingDir}/axm.json`);
-          if (Option.isNone(parsed)) return Option.none();
-
-          const metaResult = decodeAxmMeta(parsed.value);
-          if (Result.isFailure(metaResult)) {
-            yield* Effect.logWarning(
-              `Invalid axm metadata in ${matchingDir}: schema validation failed`,
-            );
-            return Option.none();
-          }
-
-          return Option.some(metaResult.success.recommendedExtensions);
+        const cargoTomlPath = path.join(indexPath, crateDir, "Cargo.toml");
+        const content = yield* readFileOptional(cargoTomlPath);
+        if (Option.isNone(content)) {
+          if (version !== undefined) return Option.none();
+          continue;
         }
+
+        const axmFields = parsePackageMetadataAxm(content.value);
+        if (axmFields === undefined) {
+          if (version !== undefined) return Option.none();
+          continue;
+        }
+
+        const metaResult = decodeAxmMeta(axmFields);
+        if (Result.isFailure(metaResult)) {
+          yield* Effect.logWarning(
+            `Invalid axm metadata in ${crateDir}/Cargo.toml: schema validation failed`,
+          );
+          return Option.none();
+        }
+
+        return Option.some(metaResult.success.recommendedExtensions);
       }
 
       return Option.none();
@@ -303,3 +327,10 @@ export const cargoReader: PackageReader = {
     Effect.withSpan("read.cargo"),
   ),
 };
+
+const findMatchingCrateDir = (fs: FileSystem.FileSystem, indexPath: string, crateName: string) =>
+  Effect.gen(function* () {
+    const entries = yield* fs.readDirectory(indexPath).pipe(Effect.option);
+    if (Option.isNone(entries)) return undefined;
+    return entries.value.find((entry) => entry === crateName || entry.startsWith(`${crateName}-`));
+  });

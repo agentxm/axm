@@ -90,13 +90,13 @@ const v  = try registry.variant("search-ranking", ctx);    // "semantic"
 
 The authored extension sources live under `.axm/extensions/@examples/`.
 
-| Type     | FQN                                                |
-| -------- | -------------------------------------------------- |
-| Skill    | `@examples/skills/zig-zon-tinyflags-add-flag`      |
-| Skill    | `@examples/skills/zig-zon-tinyflags-rollout-review`|
-| Skill    | `@examples/skills/zig-zon-tinyflags-cleanup-flag`  |
-| Subagent | `@examples/subagents/zig-zon-tinyflags-maintainer` |
-| Pack     | `@examples/packs/zig-zon-tinyflags`                |
+| Type     | FQN                                                 |
+| -------- | --------------------------------------------------- |
+| Skill    | `@examples/skills/zig-zon-tinyflags-add-flag`       |
+| Skill    | `@examples/skills/zig-zon-tinyflags-rollout-review` |
+| Skill    | `@examples/skills/zig-zon-tinyflags-cleanup-flag`   |
+| Subagent | `@examples/subagents/zig-zon-tinyflags-maintainer`  |
+| Pack     | `@examples/packs/zig-zon-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each manifest
 declares `pkg:generic/zig/agentxm_example_tinyflags` as its companion

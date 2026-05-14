@@ -22,13 +22,10 @@ export function createPawMatchFlags(): TinyFlagsClient {
     [FLAG_LONG_STAY_HIGHLIGHT]: booleanFlag({ default: true }),
     [FLAG_SUGGEST_DONATE_AFTER_ADOPTION]: booleanFlag({ default: false, rollout: 50 }),
     [FLAG_SHOW_CHARITY_RATINGS]: booleanFlag({ default: true }),
-    [FLAG_RECOMMENDATION_STRATEGY]: variantFlag(
-      ["popularity", "match-quiz", "longest-stay"],
-      {
-        default: "match-quiz",
-        rollout: { "longest-stay": 20 },
-      },
-    ),
+    [FLAG_RECOMMENDATION_STRATEGY]: variantFlag(["popularity", "match-quiz", "longest-stay"], {
+      default: "match-quiz",
+      rollout: { "longest-stay": 20 },
+    }),
     [FLAG_MATCH_QUIZ_DEPTH]: variantFlag(["short", "standard", "thorough"], {
       default: "standard",
     }),

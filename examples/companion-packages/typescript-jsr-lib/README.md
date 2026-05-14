@@ -46,13 +46,13 @@ Types are first-class TypeScript. Bucketing is deterministic by `userId`,
 
 The authored extension sources live under `.axm/extensions/@examples/`.
 
-| Type     | FQN                                                       |
-| -------- | --------------------------------------------------------- |
-| Skill    | `@examples/skills/typescript-jsr-tinyflags-add-flag`      |
-| Skill    | `@examples/skills/typescript-jsr-tinyflags-rollout-review`|
-| Skill    | `@examples/skills/typescript-jsr-tinyflags-cleanup-flag`  |
-| Subagent | `@examples/subagents/typescript-jsr-tinyflags-maintainer` |
-| Pack     | `@examples/packs/typescript-jsr-tinyflags`                |
+| Type     | FQN                                                        |
+| -------- | ---------------------------------------------------------- |
+| Skill    | `@examples/skills/typescript-jsr-tinyflags-add-flag`       |
+| Skill    | `@examples/skills/typescript-jsr-tinyflags-rollout-review` |
+| Skill    | `@examples/skills/typescript-jsr-tinyflags-cleanup-flag`   |
+| Subagent | `@examples/subagents/typescript-jsr-tinyflags-maintainer`  |
+| Pack     | `@examples/packs/typescript-jsr-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each manifest
 declares `pkg:generic/jsr/@agentxm/example-tinyflags` as its companion package.

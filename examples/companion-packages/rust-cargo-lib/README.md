@@ -7,18 +7,20 @@ users. The crate is a small feature flag library named
 The AXM extensions are published to AgentXM.ai under `@examples`. The Cargo
 crate uses the `agentxm-example-*` distribution-name prefix.
 
-The crate ships AXM recommendations in an `axm.json` sidecar at the crate
-root:
+The crate ships AXM recommendations in the `[package.metadata.axm]` table of
+`Cargo.toml`. Cargo reserves `[package.metadata.*]` as the standard
+extensibility mechanism for third-party tools (also used by docs.rs,
+cargo-deb, cargo-bundle, and others):
 
-```json
-{
-  "recommendedExtensions": ["@examples/packs/rust-cargo-tinyflags@^0.1.0"]
-}
+```toml
+[package.metadata.axm]
+recommendedExtensions = ["@examples/packs/rust-cargo-tinyflags@^0.1.0"]
 ```
 
-When this crate is added as a dependency, `axm discover` can read
-`$CARGO_HOME/registry/src/<index>/agentxm-example-tinyflags-<version>/axm.json`
-and surface the companion pack as a package-author recommendation.
+When this crate is added as a dependency, `axm discover` reads
+`[package.metadata.axm]` from
+`$CARGO_HOME/registry/src/<index>/agentxm-example-tinyflags-<version>/Cargo.toml`
+and surfaces the companion pack as a package-author recommendation.
 
 A working consumer is in `../rust-cargo-app/` (the `pawmatch` CLI).
 
@@ -26,8 +28,7 @@ A working consumer is in `../rust-cargo-app/` (the `pawmatch` CLI).
 
 ```text
 .
-├── Cargo.toml                  Cargo manifest
-├── axm.json                    Companion-extension recommendations
+├── Cargo.toml                  Cargo manifest (includes [package.metadata.axm])
 └── src/                        Library sources with inline `#[cfg(test)] mod tests`
     ├── lib.rs
     ├── error.rs
@@ -103,8 +104,8 @@ declares `pkg:cargo/agentxm-example-tinyflags` as its companion package.
 A framework or library author can use this layout as a model:
 
 1. Implement the Cargo crate as usual.
-2. Ship an `axm.json` sidecar at the crate root recommending the companion
-   pack.
+2. Add a `[package.metadata.axm]` table to `Cargo.toml` recommending the
+   companion pack.
 3. Add AXM extension sources in `.axm/extensions/<owner>/`.
 4. Mark the extensions as authored in `.axm/settings.json`.
 5. Publish the extensions independently or as a companion pack.

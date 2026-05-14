@@ -14,9 +14,7 @@ shape the AXM CPAN reader expects:
 ```json
 {
   "x_axm": {
-    "recommendedExtensions": [
-      "@examples/packs/perl-cpan-tinyflags@^0.1.0"
-    ]
+    "recommendedExtensions": ["@examples/packs/perl-cpan-tinyflags@^0.1.0"]
   }
 }
 ```
@@ -74,13 +72,13 @@ or `session_id` keys (in that order) of the evaluation context hashref.
 
 The authored extension sources live under `.axm/extensions/@examples/`.
 
-| Type     | FQN                                                      |
-| -------- | -------------------------------------------------------- |
-| Skill    | `@examples/skills/perl-cpan-tinyflags-add-flag`          |
-| Skill    | `@examples/skills/perl-cpan-tinyflags-rollout-review`    |
-| Skill    | `@examples/skills/perl-cpan-tinyflags-cleanup-flag`      |
-| Subagent | `@examples/subagents/perl-cpan-tinyflags-maintainer`     |
-| Pack     | `@examples/packs/perl-cpan-tinyflags`                    |
+| Type     | FQN                                                   |
+| -------- | ----------------------------------------------------- |
+| Skill    | `@examples/skills/perl-cpan-tinyflags-add-flag`       |
+| Skill    | `@examples/skills/perl-cpan-tinyflags-rollout-review` |
+| Skill    | `@examples/skills/perl-cpan-tinyflags-cleanup-flag`   |
+| Subagent | `@examples/subagents/perl-cpan-tinyflags-maintainer`  |
+| Pack     | `@examples/packs/perl-cpan-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each manifest
 declares `pkg:cpan/AgentXM-Examples-TinyFlags@^0.1.0` as its companion

@@ -23,7 +23,7 @@ modifies the codebase.
    the listing), surface it as a real option, not an upsell — long-stay
    animals are hardest to place.
 4. For each candidate the user is interested in, run `pawmatch show
-   <slug>` and share personality, needs, and time-in-shelter.
+<slug>` and share personality, needs, and time-in-shelter.
 5. Before encouraging an application, run `pawmatch fees` so the user
    knows what the fee covers (spay/neuter, vaccines, microchip).
 6. When the user is ready, run `pawmatch apply <slug>` and walk them
@@ -37,7 +37,7 @@ modifies the codebase.
 - Be honest about constraints (no-cats, training needs, bonded pairs).
   Do not hide them.
 - "No-judgment returns" are first-class — mention `pawmatch
-  return-support` if the user is anxious about commitment.
+return-support` if the user is anxious about commitment.
 
 ## Done Criteria
 

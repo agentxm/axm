@@ -43,8 +43,6 @@
   },
   "x_axm": {
     "$schema": "https://axm.sh/schemas/axm-package-meta.schema.json",
-    "recommendedExtensions": [
-      "@examples/skills/perl-cpan-pawmatch-find-a-pet@^0.1.0"
-    ]
+    "recommendedExtensions": ["@examples/skills/perl-cpan-pawmatch-find-a-pet@^0.1.0"]
   }
 }

@@ -57,13 +57,13 @@ external dependencies.
 
 The authored extension sources live under `.axm/extensions/@examples/`.
 
-| Type     | FQN                                                       |
-| -------- | --------------------------------------------------------- |
-| Skill    | `@examples/skills/lua-luarocks-tinyflags-add-flag`        |
-| Skill    | `@examples/skills/lua-luarocks-tinyflags-rollout-review`  |
-| Skill    | `@examples/skills/lua-luarocks-tinyflags-cleanup-flag`    |
-| Subagent | `@examples/subagents/lua-luarocks-tinyflags-maintainer`   |
-| Pack     | `@examples/packs/lua-luarocks-tinyflags`                  |
+| Type     | FQN                                                      |
+| -------- | -------------------------------------------------------- |
+| Skill    | `@examples/skills/lua-luarocks-tinyflags-add-flag`       |
+| Skill    | `@examples/skills/lua-luarocks-tinyflags-rollout-review` |
+| Skill    | `@examples/skills/lua-luarocks-tinyflags-cleanup-flag`   |
+| Subagent | `@examples/subagents/lua-luarocks-tinyflags-maintainer`  |
+| Pack     | `@examples/packs/lua-luarocks-tinyflags`                 |
 
 The pack bundles the three skills and the maintainer subagent. Each manifest
 declares `pkg:luarocks/agentxm-example-tinyflags@^0.1.0` as its companion

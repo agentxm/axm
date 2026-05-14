@@ -87,7 +87,10 @@ Conventions:
 
 - **Cargo / crates.io** uses the `agentxm-example-` crate-name prefix (kebab-
   case is conventional). The library's `lib` target is named `tinyflags` so
-  consumers `use tinyflags::...`.
+  consumers `use tinyflags::...`. The AXM recommendation is embedded as a
+  `[package.metadata.axm]` table in `Cargo.toml`. `[package.metadata.*]` is
+  Cargo's standard extensibility mechanism for third-party tools (also used
+  by docs.rs, cargo-deb, and cargo-bundle).
 - **CocoaPods** uses a PascalCase pod name (no namespace — CocoaPods Specs is a
   flat global registry). The consumer is a minimal Swift command-line target
   that links the pod; a real consumer would typically be an iOS/macOS app with

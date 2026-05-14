@@ -9,6 +9,9 @@ repository = "https://github.com/agentxm/axm-b"
 keywords = ["feature-flags", "tinyflags", "axm"]
 categories = ["config"]
 
+[package.metadata.axm]
+recommendedExtensions = ["@examples/packs/rust-cargo-tinyflags@^0.1.0"]
+
 [lib]
 name = "tinyflags"
 path = "src/lib.rs"

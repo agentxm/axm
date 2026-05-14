@@ -48,10 +48,7 @@ Deno.test("variant flags can allocate all traffic to a variant", () => {
 
 Deno.test("invalid flag definitions fail at construction time", () => {
   assertThrows(() => booleanFlag({ rollout: 101 }), RangeError);
-  assertThrows(
-    () => variantFlag(["classic", "semantic"], { default: "personalized" }),
-    TypeError,
-  );
+  assertThrows(() => variantFlag(["classic", "semantic"], { default: "personalized" }), TypeError);
   assertThrows(
     () =>
       variantFlag(["classic", "semantic"], {

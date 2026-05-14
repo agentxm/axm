@@ -26,11 +26,7 @@ Check imports from `@agentxm/example-tinyflags`. JSR imports must use the
 versioned purl:
 
 ```ts
-import {
-  booleanFlag,
-  tinyFlags,
-  variantFlag,
-} from "jsr:@agentxm/example-tinyflags@0.1.0";
+import { booleanFlag, tinyFlags, variantFlag } from "jsr:@agentxm/example-tinyflags@0.1.0";
 ```
 
 Range specifiers (`^`, `~`, `>=`) degrade to a versionless purl and lose the

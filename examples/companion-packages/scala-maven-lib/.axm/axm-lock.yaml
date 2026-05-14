@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  scala-maven-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: scala-maven-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  scala-maven-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: scala-maven-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  scala-maven-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: scala-maven-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  scala-maven-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: scala-maven-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  scala-maven-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: scala-maven-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/scala-maven-tinyflags-add-flag": 0.1.0
+      "@examples/skills/scala-maven-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/scala-maven-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/scala-maven-tinyflags-maintainer": 0.1.0

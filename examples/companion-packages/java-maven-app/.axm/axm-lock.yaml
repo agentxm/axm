@@ -1,0 +1,12 @@
+lockfileVersion: 1
+skills:
+  java-maven-pawmatch-find-a-pet:
+    type: registry
+    owner: "@examples"
+    name: java-maven-pawmatch-find-a-pet
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"

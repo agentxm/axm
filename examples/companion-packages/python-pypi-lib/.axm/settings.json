@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "python-pypi-tinyflags-add-flag": {
+      "source": "@examples/skills/python-pypi-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "python-pypi-tinyflags-rollout-review": {
+      "source": "@examples/skills/python-pypi-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "python-pypi-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/python-pypi-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "python-pypi-tinyflags-maintainer": {
+      "source": "@examples/subagents/python-pypi-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "python-pypi-tinyflags": {
+      "source": "@examples/packs/python-pypi-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

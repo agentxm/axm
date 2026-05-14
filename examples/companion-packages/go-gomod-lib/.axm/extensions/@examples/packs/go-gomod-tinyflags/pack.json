@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "go-gomod-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the Go TinyFlags package.",
+  "keywords": ["go", "golang", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:golang/github.com/agentxm/example-tinyflags@0.1.0"],
+  "dependencies": {
+    "@examples/skills/go-gomod-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/go-gomod-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/go-gomod-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/go-gomod-tinyflags-maintainer": "^0.1.0"
+  }
+}

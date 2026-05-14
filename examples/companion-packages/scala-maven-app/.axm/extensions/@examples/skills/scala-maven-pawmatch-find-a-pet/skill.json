@@ -1,0 +1,10 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "scala-maven-pawmatch-find-a-pet",
+  "version": "0.1.0",
+  "description": "Help an end user identify and apply for an adoptable pet using the PawMatch CLI.",
+  "keywords": ["maven", "scala", "pawmatch", "adoption", "cli"],
+  "standalone": true
+}

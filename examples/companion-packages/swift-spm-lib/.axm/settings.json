@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "swift-spm-tinyflags-add-flag": {
+      "source": "@examples/skills/swift-spm-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "swift-spm-tinyflags-rollout-review": {
+      "source": "@examples/skills/swift-spm-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "swift-spm-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/swift-spm-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "swift-spm-tinyflags-maintainer": {
+      "source": "@examples/subagents/swift-spm-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "swift-spm-tinyflags": {
+      "source": "@examples/packs/swift-spm-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

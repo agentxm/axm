@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  dotnet-fsharp-nuget-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: dotnet-fsharp-nuget-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+  dotnet-fsharp-nuget-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: dotnet-fsharp-nuget-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+  dotnet-fsharp-nuget-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: dotnet-fsharp-nuget-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+subagents:
+  dotnet-fsharp-nuget-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: dotnet-fsharp-nuget-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+packs:
+  dotnet-fsharp-nuget-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: dotnet-fsharp-nuget-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/dotnet-fsharp-nuget-tinyflags-add-flag": 0.1.0
+      "@examples/skills/dotnet-fsharp-nuget-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/dotnet-fsharp-nuget-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/dotnet-fsharp-nuget-tinyflags-maintainer": 0.1.0

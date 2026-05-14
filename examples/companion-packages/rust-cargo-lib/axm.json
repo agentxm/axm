@@ -1,0 +1,4 @@
+{
+  "$schema": "https://axm.sh/schemas/axm-package-meta.schema.json",
+  "recommendedExtensions": ["@examples/packs/rust-cargo-tinyflags@^0.1.0"]
+}

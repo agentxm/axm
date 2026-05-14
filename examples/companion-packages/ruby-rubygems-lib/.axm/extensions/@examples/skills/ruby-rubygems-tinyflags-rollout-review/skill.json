@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "ruby-rubygems-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Review TinyFlags rollout safety in a Ruby gem project.",
+  "keywords": ["gem", "ruby", "rubygems", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:gem/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/ruby-rubygems-tinyflags"],
+  "standalone": false
+}

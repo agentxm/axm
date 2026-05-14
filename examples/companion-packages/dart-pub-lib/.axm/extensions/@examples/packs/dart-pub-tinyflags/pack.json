@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "dart-pub-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the Pub Dart TinyFlags package.",
+  "keywords": ["pub", "dart", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:pub/agentxm_example_tinyflags@^0.1.0"],
+  "dependencies": {
+    "@examples/skills/dart-pub-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/dart-pub-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/dart-pub-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/dart-pub-tinyflags-maintainer": "^0.1.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "php-composer-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Review and maintain TinyFlags usage in Composer PHP projects.",
+  "keywords": ["composer", "php", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:composer/agentxm/example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/php-composer-tinyflags"],
+  "standalone": false
+}

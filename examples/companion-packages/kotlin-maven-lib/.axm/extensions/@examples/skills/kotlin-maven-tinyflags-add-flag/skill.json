@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "kotlin-maven-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a Maven Kotlin project with tests.",
+  "keywords": ["maven", "kotlin", "jvm", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:maven/ai.agentxm.examples/tinyflags-kotlin"],
+  "recommendedPacks": ["@examples/packs/kotlin-maven-tinyflags"],
+  "standalone": false
+}

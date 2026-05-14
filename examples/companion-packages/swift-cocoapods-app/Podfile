@@ -1,0 +1,23 @@
+# PawMatch — CocoaPods consumer app for AgentXMExampleTinyFlags.
+#
+# This Podfile is the AXM detection seam: when CocoaPods is installed and a
+# developer runs `pod install` in this directory, the detector at
+# `packages/core/src/unstable/packaging/cocoapods.ts` reads this file and
+# resolves the AgentXMExampleTinyFlags pod's `axm.json` from
+# `Pods/AgentXMExampleTinyFlags/axm.json`.
+#
+# The pod is consumed by path from the sibling library so the example is
+# reproducible without needing a published version on Trunk.
+
+platform :osx, '14.0'
+workspace 'PawMatch'
+
+target 'PawMatch' do
+  use_frameworks!
+
+  pod 'AgentXMExampleTinyFlags', :path => '../swift-cocoapods-lib'
+
+  target 'PawMatchTests' do
+    inherit! :search_paths
+  end
+end

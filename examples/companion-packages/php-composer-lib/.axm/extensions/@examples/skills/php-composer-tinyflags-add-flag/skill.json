@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "php-composer-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a Composer PHP project with tests.",
+  "keywords": ["composer", "php", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:composer/agentxm/example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/php-composer-tinyflags"],
+  "standalone": false
+}

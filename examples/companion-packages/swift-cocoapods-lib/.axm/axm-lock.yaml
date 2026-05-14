@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  swift-cocoapods-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: swift-cocoapods-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  swift-cocoapods-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: swift-cocoapods-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  swift-cocoapods-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: swift-cocoapods-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  swift-cocoapods-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: swift-cocoapods-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  swift-cocoapods-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: swift-cocoapods-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/swift-cocoapods-tinyflags-add-flag": 0.1.0
+      "@examples/skills/swift-cocoapods-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/swift-cocoapods-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/swift-cocoapods-tinyflags-maintainer": 0.1.0

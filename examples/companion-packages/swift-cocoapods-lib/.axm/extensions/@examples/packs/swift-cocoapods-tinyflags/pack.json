@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "swift-cocoapods-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the CocoaPods TinyFlags package.",
+  "keywords": ["cocoapods", "swift", "ios", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:cocoapods/AgentXMExampleTinyFlags@^0.1.0"],
+  "dependencies": {
+    "@examples/skills/swift-cocoapods-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/swift-cocoapods-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/swift-cocoapods-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/swift-cocoapods-tinyflags-maintainer": "^0.1.0"
+  }
+}

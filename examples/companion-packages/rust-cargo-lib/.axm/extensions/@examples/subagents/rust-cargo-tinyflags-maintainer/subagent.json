@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "rust-cargo-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Review and maintain TinyFlags usage in Rust projects.",
+  "keywords": ["rust", "cargo", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:cargo/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/rust-cargo-tinyflags"],
+  "standalone": false
+}

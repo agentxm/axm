@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  php-composer-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: php-composer-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  php-composer-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: php-composer-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  php-composer-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: php-composer-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  php-composer-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: php-composer-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  php-composer-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: php-composer-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/php-composer-tinyflags-add-flag": 0.1.0
+      "@examples/skills/php-composer-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/php-composer-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/php-composer-tinyflags-maintainer": 0.1.0

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "javascript-npm-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the npm JavaScript TinyFlags package.",
+  "keywords": ["npm", "javascript", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:npm/%40agentxm/example-tinyflags@0.1.0"],
+  "dependencies": {
+    "@examples/skills/javascript-npm-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/javascript-npm-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/javascript-npm-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/javascript-npm-tinyflags-maintainer": "^0.1.0"
+  }
+}

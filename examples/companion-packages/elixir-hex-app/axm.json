@@ -1,0 +1,4 @@
+{
+  "$schema": "https://axm.sh/schemas/axm-package-meta.schema.json",
+  "recommendedExtensions": ["@examples/skills/elixir-hex-pawmatch-find-a-pet@^0.1.0"]
+}

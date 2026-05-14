@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  python-pypi-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: python-pypi-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+  python-pypi-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: python-pypi-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+  python-pypi-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: python-pypi-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+subagents:
+  python-pypi-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: python-pypi-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+packs:
+  python-pypi-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: python-pypi-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-12T00:00:00.000Z"
+    updatedAt: "2026-05-12T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/python-pypi-tinyflags-add-flag": 0.1.0
+      "@examples/skills/python-pypi-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/python-pypi-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/python-pypi-tinyflags-maintainer": 0.1.0

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "go-gomod-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Review and maintain TinyFlags usage in Go projects.",
+  "keywords": ["go", "golang", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:golang/github.com/agentxm/example-tinyflags@0.1.0"],
+  "recommendedPacks": ["@examples/packs/go-gomod-tinyflags"],
+  "standalone": false
+}

@@ -1,0 +1,16 @@
+[package]
+name = "agentxm-example-tinyflags"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Tiny feature-flag library used by AXM companion package examples."
+license = "MIT"
+repository = "https://github.com/agentxm/axm-b"
+keywords = ["feature-flags", "tinyflags", "axm"]
+categories = ["config"]
+
+[lib]
+name = "tinyflags"
+path = "src/lib.rs"
+
+[dependencies]

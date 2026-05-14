@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "scala-maven-tinyflags-add-flag": {
+      "source": "@examples/skills/scala-maven-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "scala-maven-tinyflags-rollout-review": {
+      "source": "@examples/skills/scala-maven-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "scala-maven-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/scala-maven-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "scala-maven-tinyflags-maintainer": {
+      "source": "@examples/subagents/scala-maven-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "scala-maven-tinyflags": {
+      "source": "@examples/packs/scala-maven-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

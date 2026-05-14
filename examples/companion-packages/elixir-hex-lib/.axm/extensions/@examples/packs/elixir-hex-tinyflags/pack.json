@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "elixir-hex-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the Elixir / Hex TinyFlags package.",
+  "keywords": ["elixir", "hex", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:hex/agentxm_example_tinyflags@^0.1.0"],
+  "dependencies": {
+    "@examples/skills/elixir-hex-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/elixir-hex-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/elixir-hex-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/elixir-hex-tinyflags-maintainer": "^0.1.0"
+  }
+}

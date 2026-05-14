@@ -20,50 +20,50 @@ recommends the companion pack, while the extension-side manifests use
 
 For each ecosystem, two sibling directories at this level:
 
-- `<ecosystem>-lib/` — the library package and its authored AXM extensions
-- `<ecosystem>-app/` — a tiny consumer CLI that imports the library and is the
+- `<language>-<registry>-lib/` — the library package and its authored AXM extensions
+- `<language>-<registry>-app/` — a tiny consumer CLI that imports the library and is the
   exact codebase the companion skills are designed to operate on
 
-| Status | Library               | Consumer app          |
-| ------ | --------------------- | --------------------- |
-| ✅     | `cargo-lib/`          | `cargo-app/`          |
-| ✅     | `cocoapods-lib/`      | `cocoapods-app/`      |
-| ✅     | `composer-lib/`       | `composer-app/`       |
-| ✅     | `dotnet-csharp-lib/`  | `dotnet-csharp-app/`  |
-| ✅     | `dotnet-fsharp-lib/`  | `dotnet-fsharp-app/`  |
-| ✅     | `gem-lib/`            | `gem-app/`            |
-| ✅     | `golang-lib/`         | `golang-app/`         |
-| ✅     | `hex-lib/`            | `hex-app/`            |
-| ✅     | `maven-java-lib/`     | `maven-java-app/`     |
-| ✅     | `maven-kotlin-lib/`   | `maven-kotlin-app/`   |
-| ✅     | `maven-scala-lib/`    | `maven-scala-app/`    |
-| ✅     | `npm-javascript-lib/` | `npm-javascript-app/` |
-| ✅     | `pub-lib/`            | `pub-app/`            |
-| ✅     | `pypi-python-lib/`    | `pypi-python-app/`    |
-| ✅     | `swift-lib/`          | `swift-app/`          |
+| Status | Library                    | Consumer app               |
+| ------ | -------------------------- | -------------------------- |
+| ✅     | `dart-pub-lib/`            | `dart-pub-app/`            |
+| ✅     | `dotnet-csharp-nuget-lib/` | `dotnet-csharp-nuget-app/` |
+| ✅     | `dotnet-fsharp-nuget-lib/` | `dotnet-fsharp-nuget-app/` |
+| ✅     | `elixir-hex-lib/`          | `elixir-hex-app/`          |
+| ✅     | `go-gomod-lib/`            | `go-gomod-app/`            |
+| ✅     | `java-maven-lib/`          | `java-maven-app/`          |
+| ✅     | `javascript-npm-lib/`      | `javascript-npm-app/`      |
+| ✅     | `kotlin-maven-lib/`        | `kotlin-maven-app/`        |
+| ✅     | `php-composer-lib/`        | `php-composer-app/`        |
+| ✅     | `python-pypi-lib/`         | `python-pypi-app/`         |
+| ✅     | `ruby-rubygems-lib/`       | `ruby-rubygems-app/`       |
+| ✅     | `rust-cargo-lib/`          | `rust-cargo-app/`          |
+| ✅     | `scala-maven-lib/`         | `scala-maven-app/`         |
+| ✅     | `swift-cocoapods-lib/`     | `swift-cocoapods-app/`     |
+| ✅     | `swift-spm-lib/`           | `swift-spm-app/`           |
 
 ## Package Naming
 
 Pick the most idiomatic name in each ecosystem rather than forcing
 cross-ecosystem uniformity.
 
-| Ecosystem        | Library                                  | App                                     |
-| ---------------- | ---------------------------------------- | --------------------------------------- |
-| Cargo / crates.io| `agentxm-example-tinyflags`              | `agentxm-example-pawmatch`              |
-| CocoaPods        | `AgentXMExampleTinyFlags`                | `AgentXMExamplePawMatch`                |
-| Composer / PHP   | `agentxm/example-tinyflags`              | `agentxm/example-pawmatch`              |
-| .NET / NuGet     | `AgentXM.Examples.TinyFlags.CSharp`      | `AgentXM.Examples.PawMatch.CSharp`      |
-| .NET / NuGet     | `AgentXM.Examples.TinyFlags.FSharp`      | `AgentXM.Examples.PawMatch.FSharp`      |
-| Go modules       | `github.com/agentxm/example-tinyflags`   | `github.com/agentxm/example-pawmatch`   |
-| Hex / Elixir     | `agentxm_example_tinyflags`              | `agentxm_example_pawmatch`              |
-| Maven / Java     | `ai.agentxm.examples:tinyflags-java`     | `ai.agentxm.examples:pawmatch-java`     |
-| Maven / Kotlin   | `ai.agentxm.examples:tinyflags-kotlin`   | `ai.agentxm.examples:pawmatch-kotlin`   |
-| Maven / Scala    | `ai.agentxm.examples:tinyflags-scala_3`  | `ai.agentxm.examples:pawmatch-scala_3`  |
-| npm              | `@agentxm/example-tinyflags`             | `@agentxm/example-pawmatch`             |
-| Pub / Dart       | `agentxm_example_tinyflags`              | `agentxm_example_pawmatch`              |
-| PyPI             | `agentxm-example-tinyflags`              | `agentxm-example-pawmatch`              |
-| RubyGems         | `agentxm-example-tinyflags`              | `agentxm-example-pawmatch`              |
-| Swift / SwiftPM  | `AgentXMExampleTinyFlags`                | `AgentXMExamplePawMatch`                |
+| Ecosystem         | Library                                 | App                                    |
+| ----------------- | --------------------------------------- | -------------------------------------- |
+| Cargo / crates.io | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
+| CocoaPods         | `AgentXMExampleTinyFlags`               | `AgentXMExamplePawMatch`               |
+| Composer / PHP    | `agentxm/example-tinyflags`             | `agentxm/example-pawmatch`             |
+| .NET / NuGet      | `AgentXM.Examples.TinyFlags.CSharp`     | `AgentXM.Examples.PawMatch.CSharp`     |
+| .NET / NuGet      | `AgentXM.Examples.TinyFlags.FSharp`     | `AgentXM.Examples.PawMatch.FSharp`     |
+| Go modules        | `github.com/agentxm/example-tinyflags`  | `github.com/agentxm/example-pawmatch`  |
+| Hex / Elixir      | `agentxm_example_tinyflags`             | `agentxm_example_pawmatch`             |
+| Maven / Java      | `ai.agentxm.examples:tinyflags-java`    | `ai.agentxm.examples:pawmatch-java`    |
+| Maven / Kotlin    | `ai.agentxm.examples:tinyflags-kotlin`  | `ai.agentxm.examples:pawmatch-kotlin`  |
+| Maven / Scala     | `ai.agentxm.examples:tinyflags-scala_3` | `ai.agentxm.examples:pawmatch-scala_3` |
+| npm               | `@agentxm/example-tinyflags`            | `@agentxm/example-pawmatch`            |
+| Pub / Dart        | `agentxm_example_tinyflags`             | `agentxm_example_pawmatch`             |
+| PyPI              | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
+| RubyGems          | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
+| Swift / SwiftPM   | `AgentXMExampleTinyFlags`               | `AgentXMExamplePawMatch`               |
 
 Conventions:
 
@@ -99,8 +99,8 @@ Conventions:
 - **npm** uses the `@agentxm` scope with a singular `example-` prefix, matching
   the convention used by Vercel, Storybook, Babel, and Microsoft scoped sample
   packages.
-- **Pub / Dart** uses lowercase snake_case package names per Pub's
-  `[a-z0-9_]+` naming rule.
+- **Pub / Dart** uses lowercase snake*case package names per Pub's
+  `[a-z0-9*]+` naming rule.
 - **PyPI** uses an `agentxm-example-` distribution-name prefix while keeping
   the import name clean (`import tinyflags`).
 - **RubyGems** uses an `agentxm-example-` gem-name prefix (kebab-case). The
@@ -203,8 +203,9 @@ library and one for the app — to demonstrate that both packages and
 applications can publish AXM extensions for their users.
 
 All example extensions use owner `@examples`. Extension names are prefixed by
-ecosystem and target, for example `dotnet-csharp-tinyflags-add-flag` and
-`dotnet-csharp-pawmatch-find-a-pet`.
+language, registry, and target, for example
+`dotnet-csharp-nuget-tinyflags-add-flag` and
+`dotnet-csharp-nuget-pawmatch-find-a-pet`.
 
 ### Library extensions — TinyFlags
 

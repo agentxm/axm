@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "ruby-rubygems-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the RubyGems TinyFlags package.",
+  "keywords": ["gem", "ruby", "rubygems", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:gem/agentxm-example-tinyflags@^0.1.0"],
+  "dependencies": {
+    "@examples/skills/ruby-rubygems-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/ruby-rubygems-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/ruby-rubygems-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/ruby-rubygems-tinyflags-maintainer": "^0.1.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "elixir-hex-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to an Elixir project with ExUnit tests.",
+  "keywords": ["elixir", "hex", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:hex/agentxm_example_tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/elixir-hex-tinyflags"],
+  "standalone": false
+}

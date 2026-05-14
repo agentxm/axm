@@ -16,4 +16,4 @@ name = "pawmatch"
 path = "src/main.rs"
 
 [dependencies]
-agentxm-example-tinyflags = { path = "../rust-cargo-lib", version = "0.1.0" }
+agentxm-example-tinyflags = "0.1.0"

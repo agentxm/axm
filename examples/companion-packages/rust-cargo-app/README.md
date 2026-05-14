@@ -46,18 +46,16 @@ in-memory `Vec<u8>` writers and a stub `OpenUrl` closure.
 
 ## Library dependency
 
-The library `agentxm-example-tinyflags` has not yet been published to
-crates.io, so the app references the sibling library directly via a `path`
-dependency in `Cargo.toml`:
+The app consumes `agentxm-example-tinyflags` from crates.io:
 
 ```toml
 [dependencies]
-agentxm-example-tinyflags = { path = "../rust-cargo-lib", version = "0.1.0" }
+agentxm-example-tinyflags = "0.1.0"
 ```
 
-The Cargo detector filters path dependencies out of the discovery graph, so
-this `path` reference does not produce a purl. Once the library is published,
-drop the `path = ".."` portion and keep the version.
+This lets Cargo install the library into `$CARGO_HOME/registry/src/...`, where
+`axm discover` can read `[package.metadata.axm]` from the published manifest and
+surface the companion pack recommendation.
 
 ## Flag seams
 

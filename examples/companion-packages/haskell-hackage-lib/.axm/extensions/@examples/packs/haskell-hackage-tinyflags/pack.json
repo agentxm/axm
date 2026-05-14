@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "haskell-hackage-tinyflags",
+  "version": "0.1.0",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Haskell (Hackage).",
+  "keywords": ["haskell", "hackage", "cabal", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:hackage/agentxm-example-tinyflags@^0.1.0"],
+  "dependencies": {
+    "@examples/skills/haskell-hackage-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/haskell-hackage-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/haskell-hackage-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/haskell-hackage-tinyflags-maintainer": "^0.1.0"
+  }
+}

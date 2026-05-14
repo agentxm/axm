@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "haskell-hackage-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Wrap a Haskell code path in a TinyFlags feature flag and scaffold its Hspec coverage.",
+  "keywords": ["haskell", "hackage", "cabal", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:hackage/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/haskell-hackage-tinyflags"],
+  "standalone": false
+}

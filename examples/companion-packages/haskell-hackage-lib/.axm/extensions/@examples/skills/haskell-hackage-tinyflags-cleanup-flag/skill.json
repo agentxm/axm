@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "haskell-hackage-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Retire a rolled-out TinyFlags flag from Haskell code, keeping the live branch and pruning dead tests.",
+  "keywords": ["haskell", "hackage", "cabal", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:hackage/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/haskell-hackage-tinyflags"],
+  "standalone": false
+}

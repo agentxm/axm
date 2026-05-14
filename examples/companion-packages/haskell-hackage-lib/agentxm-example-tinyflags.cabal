@@ -1,0 +1,56 @@
+cabal-version:      2.4
+name:               agentxm-example-tinyflags
+version:            0.1.0.0
+synopsis:           Tiny feature-flag library used by AXM companion package examples.
+description:
+  A minimal feature-flags library demonstrating boolean and variant flags with
+  deterministic rollout bucketing. Used by the AXM companion-package examples.
+
+license:            MIT
+license-file:       LICENSE
+author:             AgentXM
+maintainer:         noreply@agentxm.ai
+homepage:           https://github.com/agentxm/axm
+bug-reports:        https://github.com/agentxm/axm/issues
+copyright:          2026 AgentXM
+category:           Development
+build-type:         Simple
+tested-with:        GHC ==9.6.3
+extra-source-files: README.md
+
+-- AXM package-author metadata. The Hackage reader parses `x-axm-<field>`
+-- entries and JSON-decodes each value. `x-axm-recommendedExtensions` maps to
+-- `recommendedExtensions` on the AxmPackageMeta schema and must be a JSON
+-- array of extension spec strings.
+x-axm-recommendedExtensions: ["@examples/packs/haskell-hackage-tinyflags@^0.1.0"]
+
+source-repository head
+    type:     git
+    location: https://github.com/agentxm/axm
+
+library
+    exposed-modules:  AgentXM.Example.TinyFlags
+    hs-source-dirs:   src
+    default-language: Haskell2010
+    ghc-options:      -Wall -Wcompat -Wincomplete-uni-patterns
+                      -Wincomplete-record-updates -Wmissing-export-lists
+                      -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+    build-depends:
+        base               >= 4.14   && < 5
+      , bytestring         >= 0.10   && < 0.13
+      , base16-bytestring  >= 1.0    && < 2.0
+      , containers         >= 0.6    && < 0.8
+      , cryptohash-sha1    >= 0.11.1 && < 0.12
+      , text               >= 1.2    && < 3.0
+
+test-suite tinyflags-test
+    type:             exitcode-stdio-1.0
+    main-is:          Spec.hs
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    ghc-options:      -Wall -threaded -rtsopts -with-rtsopts=-N
+    build-depends:
+        base                     >= 4.14   && < 5
+      , agentxm-example-tinyflags
+      , hspec                    >= 2.7    && < 3.0
+      , text                     >= 1.2    && < 3.0

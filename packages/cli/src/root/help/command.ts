@@ -32,6 +32,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "subagents",
   "commands",
   "packs",
+  "package-extensions",
   "exit-codes",
 ];
 

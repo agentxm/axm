@@ -1,26 +1,43 @@
-# Package Extensions
+# Packages and extensions
 
-AXM links extensions and packages in two directions: extension authors declare the packages an extension is designed for, and package authors declare the extensions they recommend. When both sides agree, the extension is considered official for that package.
+AXM links extensions and packages in two directions. Extension authors declare **companion packages**; package authors declare **recommended extensions**; when both sides agree, the extension is **official** for that package.
 
 ## Companion packages
 
 Any extension author may declare one or more `companionPackages` on an extension manifest (`skill.json`, `subagent.json`, `pack.json`, etc.) to signal that the extension is designed to work with those packages. Companion packages are identified by [Package URL](https://github.com/package-url/purl-spec).
 
-```
+```jsonc
 {
-  "companionPackages": [
-    "pkg:npm/%40agentxm/example-tinyflags@0.1.0"
-  ]
+  "companionPackages": ["pkg:npm/example-tinyflags@0.1.0"],
 }
 ```
 
-There is no gatekeeping — any extension author may name any package as a companion. The declaration is a unilateral claim from the extension side.
-
 ## Recommended extensions
 
-Any package author may declare `recommendedExtensions` in their package's native metadata to signal that those extensions are recommended for working with the package. Each ecosystem has its own slot — pick the location that is idiomatic for the registry's tooling and survives publish:
+Any package author may declare `recommendedExtensions` in their package's native metadata to signal that those extensions are recommended for working with the package. For npm, that field lives in `package.json`:
 
-| Ecosystem                     | Where to define AXM metadata                                       |
+```jsonc
+// package.json
+{
+  "axm": {
+    "recommendedExtensions": ["@acme/packs/widget-kit@^1.0.0"],
+  },
+}
+```
+
+A recommendation can target any extension type — skill, subagent, command, MCP server, or pack. When recommending more than one extension, prefer a pack: one stable reference for the package author, with evolvable contents over time.
+
+For the equivalent location in other package formats, see [Specifying recommended extensions in package metadata](#specifying-recommended-extensions-in-package-metadata) below.
+
+## Official extensions
+
+Both declarations are unilateral — any extension author may name any package as a companion, and any package author may recommend any extension. **Official** status is the only signal in this system that both sides agree, and it is derived: when an extension declares a package as a companion **and** that package recommends the same extension, the extension is official for that package.
+
+## Specifying recommended extensions in package metadata
+
+The location depends on the package format.
+
+| Package format                | Metadata location                                                  |
 | ----------------------------- | ------------------------------------------------------------------ |
 | Cargo (Rust)                  | `[package.metadata.axm]` table in `Cargo.toml`                     |
 | CocoaPods (Swift)             | `axm.json` sidecar at the pod root (retained via `preserve_paths`) |
@@ -44,26 +61,10 @@ Any package author may declare `recommendedExtensions` in their package's native
 | SwiftPM (Swift)               | `axm.json` sidecar at the package root                             |
 | Zig                           | `axm.json` sidecar at the package root (listed in `.paths`)        |
 
-For a complete, working example in every ecosystem above — including paired library and consumer-app fixtures and the exact file shapes AXM reads — see [agentxm/polyglot-examples](https://github.com/agentxm/polyglot-examples).
-
-Any extension type is acceptable. When a package author wants to recommend more than one extension, **prefer recommending a pack** — it gives the package author one stable reference and lets the pack evolve its contents over time. A common good practice is to publish a companion extension pack alongside the package and recommend that single pack.
-
-```jsonc
-// package.json
-{
-  "axm": {
-    "recommendedExtensions": ["@acme/packs/widget-kit@^1.0.0"],
-  },
-}
-```
-
-As with companion packages, the declaration is unilateral — any package author may recommend any extension.
-
-## Official extensions
-
-When an extension declares a package as a companion **and** that package recommends the same extension, the extension is considered an **official** extension for that package. Official status is the only signal in this system that both sides agree, and it is derived — not separately declared.
+For a complete, working example for every package format above — including paired library and consumer-app fixtures and the exact file shapes AXM reads — see [agentxm/polyglot-examples](https://github.com/agentxm/polyglot-examples).
 
 ## Where to go next
 
 - `axm help packs` — bundling multiple extensions into a single recommendable pack
-- `axm help skills` · `axm help subagents` — per-type manifest details
+- `axm help skills` — skill manifest details
+- `axm help subagents` — subagent manifest details

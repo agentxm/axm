@@ -1,3 +1,5 @@
+using TUnit.Assertions.AssertConditions.Throws;
+
 namespace AgentXM.Examples.TinyFlags.CSharp.Tests;
 
 public class TinyFlagsTests
@@ -61,23 +63,49 @@ public class TinyFlagsTests
     }
 
     [Test]
-    public void InvalidBooleanRolloutThrows()
+    public async Task VariantRolloutAllocatesInDeclaredOrder()
     {
-        Throws<ArgumentOutOfRangeException>(() => TinyFlag.Boolean(rollout: 101));
+        // Each variant's bucket allocation depends on the order it was declared
+        // in, not on the order of the rollout dictionary.
+        var flags = TinyFlags.Create(new Dictionary<string, FlagDefinition>
+        {
+            ["split"] = TinyFlag.Variant(
+                ["first", "second"],
+                defaultValue: "first",
+                rollout: new Dictionary<string, int> { ["second"] = 50, ["first"] = 50 }),
+        });
+
+        for (var i = 0; i < 50; i++)
+        {
+            var resolved = flags.Variant("split", new EvaluationContext(UserId: $"user-{i}"));
+            await Assert.That(resolved is "first" or "second").IsTrue();
+        }
     }
 
     [Test]
-    public void InvalidVariantDefaultThrows()
+    public async Task InvalidBooleanRolloutThrows()
     {
-        Throws<ArgumentException>(() => TinyFlag.Variant(["classic", "semantic"], defaultValue: "personalized"));
+        Action act = () => _ = TinyFlag.Boolean(rollout: 101);
+
+        await Assert.That(act).Throws<ArgumentOutOfRangeException>();
     }
 
     [Test]
-    public void VariantRolloutExceedingHundredThrows()
+    public async Task InvalidVariantDefaultThrows()
     {
-        Throws<ArgumentOutOfRangeException>(() => TinyFlag.Variant(
-                ["classic", "semantic"],
-                rollout: new Dictionary<string, int> { ["semantic"] = 80, ["classic"] = 30 }));
+        Action act = () => _ = TinyFlag.Variant(["classic", "semantic"], defaultValue: "personalized");
+
+        await Assert.That(act).Throws<ArgumentException>();
+    }
+
+    [Test]
+    public async Task VariantRolloutExceedingHundredThrows()
+    {
+        Action act = () => _ = TinyFlag.Variant(
+            ["classic", "semantic"],
+            rollout: new Dictionary<string, int> { ["semantic"] = 80, ["classic"] = 30 });
+
+        await Assert.That(act).Throws<ArgumentOutOfRangeException>();
     }
 
     [Test]
@@ -99,24 +127,29 @@ public class TinyFlagsTests
             .IsEqualTo(new FlagValue.Variant("semantic"));
     }
 
-    private static void Throws<TException>(Action action)
-        where TException : Exception
+    [Test]
+    public async Task FlagValueExposesTryGetAccessors()
     {
-        try
-        {
-            action();
-        }
-        catch (TException)
-        {
-            return;
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException(
-                $"Expected {typeof(TException).Name}, received {ex.GetType().Name}.",
-                ex);
-        }
+        FlagValue boolValue = new FlagValue.Bool(true);
+        FlagValue variantValue = new FlagValue.Variant("semantic");
 
-        throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
+        await Assert.That(boolValue.TryGetBool(out var b)).IsTrue();
+        await Assert.That(b).IsTrue();
+        await Assert.That(boolValue.TryGetVariant(out _)).IsFalse();
+
+        await Assert.That(variantValue.TryGetVariant(out var v)).IsTrue();
+        await Assert.That(v).IsEqualTo("semantic");
+        await Assert.That(variantValue.TryGetBool(out _)).IsFalse();
+    }
+
+    [Test]
+    public async Task ParamsOverloadBuildsVariantFromInlineValues()
+    {
+        var flag = TinyFlag.Variant("classic", "semantic");
+
+        await Assert.That(flag.Variants.Length).IsEqualTo(2);
+        await Assert.That(flag.Variants[0]).IsEqualTo("classic");
+        await Assert.That(flag.Variants[1]).IsEqualTo("semantic");
+        await Assert.That(flag.Default).IsEqualTo("classic");
     }
 }

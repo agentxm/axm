@@ -1,9 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>AgentXM.Examples.TinyFlags.CSharp</PackageId>
+    <Title>AgentXM TinyFlags (C#)</Title>
     <Version>0.1.0</Version>
     <Authors>AgentXM</Authors>
     <Description>Tiny feature flags library used by AXM companion package examples.</Description>
+    <PackageTags>feature-flags;experimentation;agentxm;example</PackageTags>
+    <PackageProjectUrl>https://github.com/agentxm/axm</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/agentxm/axm</RepositoryUrl>
@@ -12,6 +15,8 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IsAotCompatible>true</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

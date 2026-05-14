@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 
 namespace AgentXM.Examples.PawMatch.CSharp;
@@ -45,8 +46,11 @@ internal static class Pets
             "Must adopt together — bonded for life."),
     ];
 
+    private static readonly FrozenDictionary<string, Pet> BySlug =
+        All.ToFrozenDictionary(p => p.Slug, StringComparer.OrdinalIgnoreCase);
+
     public static Pet? FindBySlug(string slug) =>
-        All.FirstOrDefault(p => string.Equals(p.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        BySlug.TryGetValue(slug, out var pet) ? pet : null;
 
     public static IEnumerable<Pet> FilterBySpecies(string? species) =>
         species is null

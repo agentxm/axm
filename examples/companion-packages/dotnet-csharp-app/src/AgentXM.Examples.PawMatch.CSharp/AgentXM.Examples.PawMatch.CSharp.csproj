@@ -5,7 +5,12 @@
     <AssemblyName>pawmatch</AssemblyName>
     <IsPackable>false</IsPackable>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../../dotnet-csharp-lib/src/AgentXM.Examples.TinyFlags.CSharp/AgentXM.Examples.TinyFlags.CSharp.csproj" />

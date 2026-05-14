@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 
 namespace AgentXM.Examples.PawMatch.CSharp;
@@ -39,8 +40,11 @@ internal static class Charities
     public const string Disclaimer =
         "Curated example list — verify current ratings on Charity Navigator or GuideStar before giving.";
 
+    private static readonly FrozenDictionary<string, Charity> BySlug =
+        All.ToFrozenDictionary(c => c.Slug, StringComparer.OrdinalIgnoreCase);
+
     public static Charity? FindBySlug(string slug) =>
-        All.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        BySlug.TryGetValue(slug, out var charity) ? charity : null;
 
     public static IEnumerable<Charity> FilterByFocus(string focus) =>
         string.Equals(focus, "all", StringComparison.OrdinalIgnoreCase)

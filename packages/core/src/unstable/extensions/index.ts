@@ -18,6 +18,7 @@ export {
   FQN_PATTERN,
   ExtensionFqnPartsSchema,
   ExtensionFqnSchema,
+  LicenseSchema,
   ExtensionSpecSchema,
   NON_PACK_FQN_PATTERN,
   NonPackExtensionDependencyConstraintMapSchema,
@@ -57,6 +58,8 @@ export {
   type PackFqn,
   type PackSpec,
 } from "./common.js";
+
+export { parseLicenseExpression } from "./license.js";
 
 export {
   RegistrySourcePatternPartsSchema,

@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
+import { parseLicenseExpression } from "./license.js";
 import { PackageUrlSchema } from "../packaging/package-url.js";
 import { VersionSchema, VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
@@ -135,6 +136,28 @@ export const BugsSchema = Schema.Union([
  * @experimental This API is unstable and may change without notice.
  */
 export type Bugs = Schema.Schema.Type<typeof BugsSchema>;
+
+/**
+ * License field for extension manifests.
+ *
+ * Accepts valid SPDX license expressions plus the npm-compatible
+ * `UNLICENSED` literal for proprietary code that grants no license.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const LicenseSchema = Schema.String.annotate({
+  identifier: "License",
+  title: "License",
+  description: "SPDX license expression, or `UNLICENSED` for proprietary code.",
+  examples: ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
+  format: "spdx-expression",
+}).check(
+  Schema.makeFilter((value) =>
+    Result.isSuccess(parseLicenseExpression(value))
+      ? true
+      : "Expected a valid SPDX license expression or UNLICENSED",
+  ),
+);
 
 export const extensionTypes = [
   "skill",
@@ -680,11 +703,7 @@ export const CommonManifestBaseFields = {
       format: "uri",
     }),
   ),
-  license: Schema.optional(
-    Schema.NonEmptyString.annotate({
-      examples: ["MIT", "Apache-2.0"],
-    }),
-  ),
+  license: Schema.optional(LicenseSchema),
   bugs: Schema.optional(BugsSchema),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   companionPackages: Schema.optional(

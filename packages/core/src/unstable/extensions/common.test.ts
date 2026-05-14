@@ -20,6 +20,7 @@ import {
   extensionTypeSentenceLabels,
   ExtensionFqnSchema,
   ExtensionSpecSchema,
+  LicenseSchema,
   PackFqnSchema,
   PackSpecSchema,
 } from "./common.js";
@@ -567,6 +568,28 @@ describe("common schemas", () => {
 
     it("rejects owner without @", () => {
       const result = Schema.decodeUnknownResult(HandleSchema)("wayne");
+      expect(Result.isFailure(result)).toBe(true);
+    });
+  });
+
+  describe("LicenseSchema", () => {
+    const decode = Schema.decodeUnknownResult(LicenseSchema);
+
+    it.each([
+      "MIT",
+      "Apache-2.0",
+      "MIT OR Apache-2.0",
+      "GPL-2.0-or-later WITH Classpath-exception-2.0",
+      "UNLICENSED",
+    ])("accepts %s", (license) => {
+      const result = decode(license);
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it.each(["mit", "MIT or Apache 2", "TBD", "", "  "])("rejects %s", (license) => {
+      const result = decode(license);
+
       expect(Result.isFailure(result)).toBe(true);
     });
   });

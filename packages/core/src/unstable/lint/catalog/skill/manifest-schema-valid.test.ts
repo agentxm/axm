@@ -113,6 +113,18 @@ describe("skill/manifest-schema-valid", () => {
     }),
   );
 
+  it.effect("flags an invalid license expression", () =>
+    Effect.gen(function* () {
+      const findings = yield* manifestSchemaValidRule.check(
+        makeContext({ isNative: true, skillJson: { ...validManifest, license: "TBD" } }),
+      );
+      expect(findings.length).toBeGreaterThanOrEqual(1);
+      expect(findings[0]?.ruleId).toBe("skill/manifest-schema-valid");
+      expect(findings[0]?.severity).toBe("error");
+      expect(findings[0]?.message).toContain("SPDX license expression");
+    }),
+  );
+
   it.effect("ignores excess top-level keys (keys-recognized owns them)", () =>
     Effect.gen(function* () {
       const findings = yield* manifestSchemaValidRule.check(

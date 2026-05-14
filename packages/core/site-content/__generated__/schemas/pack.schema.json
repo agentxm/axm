@@ -224,7 +224,13 @@
         },
         "license": {
           "anyOf": [
-            { "type": "string", "allOf": [{ "minLength": 1, "examples": ["MIT", "Apache-2.0"] }] },
+            {
+              "type": "string",
+              "title": "License",
+              "description": "SPDX license expression, or `UNLICENSED` for proprietary code.",
+              "examples": ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
+              "format": "spdx-expression"
+            },
             { "type": "null" }
           ]
         },

@@ -29,13 +29,15 @@ dotnet run --project src/AgentXM.Examples.PawMatch.CSharp -- donate brother-wolf
 
 ## Library dependency
 
-For development, the app uses a `<ProjectReference>` to the sibling
-`../dotnet-csharp-lib/` library. In a real consumer scenario this would be a
-NuGet `<PackageReference>`:
+The app consumes the `AgentXM.Examples.TinyFlags.CSharp` library from NuGet
+via a `<PackageReference>`:
 
 ```xml
 <PackageReference Include="AgentXM.Examples.TinyFlags.CSharp" Version="0.1.0" />
 ```
+
+The sibling `../dotnet-csharp-lib/` is the source of that package but is not
+referenced directly.
 
 ## Flag seams
 

@@ -3,6 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="AgentXM.Examples.TinyFlags.CSharp" Version="0.1.0" />
     <PackageVersion Include="System.CommandLine" Version="2.0.8" />
   </ItemGroup>
 </Project>

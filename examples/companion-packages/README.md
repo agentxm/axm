@@ -26,35 +26,64 @@ For each ecosystem, two sibling directories at this level:
 
 | Status | Library               | Consumer app          |
 | ------ | --------------------- | --------------------- |
+| ✅     | `cargo-lib/`          | `cargo-app/`          |
+| ✅     | `cocoapods-lib/`      | `cocoapods-app/`      |
+| ✅     | `composer-lib/`       | `composer-app/`       |
 | ✅     | `dotnet-csharp-lib/`  | `dotnet-csharp-app/`  |
 | ✅     | `dotnet-fsharp-lib/`  | `dotnet-fsharp-app/`  |
+| ✅     | `gem-lib/`            | `gem-app/`            |
 | ✅     | `golang-lib/`         | `golang-app/`         |
+| ✅     | `hex-lib/`            | `hex-app/`            |
 | ✅     | `maven-java-lib/`     | `maven-java-app/`     |
 | ✅     | `maven-kotlin-lib/`   | `maven-kotlin-app/`   |
+| ✅     | `maven-scala-lib/`    | `maven-scala-app/`    |
 | ✅     | `npm-javascript-lib/` | `npm-javascript-app/` |
+| ✅     | `pub-lib/`            | `pub-app/`            |
 | ✅     | `pypi-python-lib/`    | `pypi-python-app/`    |
+| ✅     | `swift-lib/`          | `swift-app/`          |
 
 ## Package Naming
 
 Pick the most idiomatic name in each ecosystem rather than forcing
 cross-ecosystem uniformity.
 
-| Ecosystem      | Library                                | App                                   |
-| -------------- | -------------------------------------- | ------------------------------------- |
-| .NET / NuGet   | `AgentXM.Examples.TinyFlags.CSharp`    | `AgentXM.Examples.PawMatch.CSharp`    |
-| .NET / NuGet   | `AgentXM.Examples.TinyFlags.FSharp`    | `AgentXM.Examples.PawMatch.FSharp`    |
-| Go modules     | `github.com/agentxm/example-tinyflags` | `github.com/agentxm/example-pawmatch` |
-| Maven / Java   | `ai.agentxm.examples:tinyflags-java`   | `ai.agentxm.examples:pawmatch-java`   |
-| Maven / Kotlin | `ai.agentxm.examples:tinyflags-kotlin` | `ai.agentxm.examples:pawmatch-kotlin` |
-| npm            | `@agentxm/example-tinyflags`           | `@agentxm/example-pawmatch`           |
-| PyPI           | `agentxm-example-tinyflags`            | `agentxm-example-pawmatch`            |
+| Ecosystem        | Library                                  | App                                     |
+| ---------------- | ---------------------------------------- | --------------------------------------- |
+| Cargo / crates.io| `agentxm-example-tinyflags`              | `agentxm-example-pawmatch`              |
+| CocoaPods        | `AgentXMExampleTinyFlags`                | `AgentXMExamplePawMatch`                |
+| Composer / PHP   | `agentxm/example-tinyflags`              | `agentxm/example-pawmatch`              |
+| .NET / NuGet     | `AgentXM.Examples.TinyFlags.CSharp`      | `AgentXM.Examples.PawMatch.CSharp`      |
+| .NET / NuGet     | `AgentXM.Examples.TinyFlags.FSharp`      | `AgentXM.Examples.PawMatch.FSharp`      |
+| Go modules       | `github.com/agentxm/example-tinyflags`   | `github.com/agentxm/example-pawmatch`   |
+| Hex / Elixir     | `agentxm_example_tinyflags`              | `agentxm_example_pawmatch`              |
+| Maven / Java     | `ai.agentxm.examples:tinyflags-java`     | `ai.agentxm.examples:pawmatch-java`     |
+| Maven / Kotlin   | `ai.agentxm.examples:tinyflags-kotlin`   | `ai.agentxm.examples:pawmatch-kotlin`   |
+| Maven / Scala    | `ai.agentxm.examples:tinyflags-scala_3`  | `ai.agentxm.examples:pawmatch-scala_3`  |
+| npm              | `@agentxm/example-tinyflags`             | `@agentxm/example-pawmatch`             |
+| Pub / Dart       | `agentxm_example_tinyflags`              | `agentxm_example_pawmatch`              |
+| PyPI             | `agentxm-example-tinyflags`              | `agentxm-example-pawmatch`              |
+| RubyGems         | `agentxm-example-tinyflags`              | `agentxm-example-pawmatch`              |
+| Swift / SwiftPM  | `AgentXMExampleTinyFlags`                | `AgentXMExamplePawMatch`                |
 
 Conventions:
 
+- **Cargo / crates.io** uses the `agentxm-example-` crate-name prefix (kebab-
+  case is conventional). The library's `lib` target is named `tinyflags` so
+  consumers `use tinyflags::...`.
+- **CocoaPods** uses a PascalCase pod name (no namespace — CocoaPods Specs is a
+  flat global registry). The consumer is a minimal Swift command-line target
+  that links the pod; a real consumer would typically be an iOS/macOS app with
+  an `xcodeproj` integration.
+- **Composer / PHP** uses the `agentxm/example-tinyflags` vendor/package
+  format. The PSR-4 autoload namespace is `AgentXM\Examples\TinyFlags\`.
 - **.NET** uses the `AgentXM.Examples.*` PascalCase hierarchy. Plural
   `Examples` follows the Framework Design Guidelines ("DO use plural namespace
   names where appropriate") and aligns with the `@examples` AXM owner. The
   `.CSharp` / `.FSharp` suffix distinguishes the two language ports.
+- **Hex / Elixir** uses lowercase snake_case package names
+  (`agentxm_example_tinyflags`) per Hex conventions. The AXM recommendation
+  ships as an `axm.json` sidecar; the Hex reader's `extra.axm` fallback in
+  `hex_metadata.config` is an idiomatic alternative but not exercised here.
 - **Maven / Java** uses the reverse-DNS group id `ai.agentxm.examples` with
   short, lowercase artifact ids (`tinyflags-java`, `pawmatch-java`). The
   `-java` suffix distinguishes the language port from the Kotlin and Scala
@@ -63,11 +92,25 @@ Conventions:
   short, lowercase artifact ids (`tinyflags-kotlin`, `pawmatch-kotlin`). The
   `-kotlin` suffix distinguishes the language port from the Java and Scala
   siblings on the same group id.
+- **Maven / Scala** uses the reverse-DNS group id with the Scala 3 binary-
+  compat suffix `_3` (`tinyflags-scala_3`, `pawmatch-scala_3`). The example
+  uses `pom.xml` rather than `build.sbt` so it actually exercises the AXM
+  Maven detector; production Scala projects typically use sbt.
 - **npm** uses the `@agentxm` scope with a singular `example-` prefix, matching
   the convention used by Vercel, Storybook, Babel, and Microsoft scoped sample
   packages.
+- **Pub / Dart** uses lowercase snake_case package names per Pub's
+  `[a-z0-9_]+` naming rule.
 - **PyPI** uses an `agentxm-example-` distribution-name prefix while keeping
   the import name clean (`import tinyflags`).
+- **RubyGems** uses an `agentxm-example-` gem-name prefix (kebab-case). The
+  AXM recommendation is embedded as a stringified array in
+  `spec.metadata["axm_recommended_extensions"]`.
+- **Swift / SwiftPM** uses PascalCase product names. Because SwiftPM
+  identifies packages by URL, the example uses a placeholder host
+  `example.com/agentxm/example-tinyflags-swift` rather than a real GitHub
+  URL — the resulting purl is
+  `pkg:swift/example.com/agentxm/example-tinyflags-swift`.
 - **AXM extensions** are always owned by `@examples` regardless of ecosystem.
 
 Apps are not packable / not publishable — they are reference consumers, not

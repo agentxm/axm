@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "swift-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a Swift project with tests.",
+  "keywords": ["swift", "swiftpm", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:swift/example.com/agentxm/example-tinyflags-swift@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/swift-tinyflags"],
+  "standalone": false
+}

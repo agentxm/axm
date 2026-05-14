@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  pub-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: pub-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  pub-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: pub-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  pub-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: pub-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  pub-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: pub-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  pub-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: pub-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/pub-tinyflags-add-flag": 0.1.0
+      "@examples/skills/pub-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/pub-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/pub-tinyflags-maintainer": 0.1.0

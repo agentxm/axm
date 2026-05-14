@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "gem-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Review and maintain TinyFlags usage in Ruby gem projects.",
+  "keywords": ["gem", "ruby", "rubygems", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:gem/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/gem-tinyflags"],
+  "standalone": false
+}

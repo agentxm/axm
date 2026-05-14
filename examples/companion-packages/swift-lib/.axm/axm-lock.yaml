@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  swift-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: swift-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  swift-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: swift-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  swift-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: swift-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  swift-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: swift-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  swift-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: swift-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/swift-tinyflags-add-flag": 0.1.0
+      "@examples/skills/swift-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/swift-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/swift-tinyflags-maintainer": 0.1.0

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "hex-tinyflags-add-flag": {
+      "source": "@examples/skills/hex-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "hex-tinyflags-rollout-review": {
+      "source": "@examples/skills/hex-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "hex-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/hex-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "hex-tinyflags-maintainer": {
+      "source": "@examples/subagents/hex-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "hex-tinyflags": {
+      "source": "@examples/packs/hex-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

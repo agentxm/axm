@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  hex-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: hex-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  hex-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: hex-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  hex-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: hex-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  hex-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: hex-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  hex-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: hex-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/hex-tinyflags-add-flag": 0.1.0
+      "@examples/skills/hex-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/hex-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/hex-tinyflags-maintainer": 0.1.0

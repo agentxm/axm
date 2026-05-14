@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "gem-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a Ruby gem project with tests.",
+  "keywords": ["gem", "ruby", "rubygems", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:gem/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/gem-tinyflags"],
+  "standalone": false
+}

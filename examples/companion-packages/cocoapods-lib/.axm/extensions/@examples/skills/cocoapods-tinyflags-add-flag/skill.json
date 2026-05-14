@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "cocoapods-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a CocoaPods Swift project with tests.",
+  "keywords": ["cocoapods", "swift", "ios", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:cocoapods/AgentXMExampleTinyFlags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/cocoapods-tinyflags"],
+  "standalone": false
+}

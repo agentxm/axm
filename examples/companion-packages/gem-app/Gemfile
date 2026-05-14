@@ -1,0 +1,8 @@
+source "https://rubygems.org"
+
+# Until agentxm-example-tinyflags is published to RubyGems, depend on the
+# sibling library directly. Once published, remove this `path:` override and
+# the gem will resolve from rubygems.org.
+gem "agentxm-example-tinyflags", path: "../gem-lib"
+
+gemspec

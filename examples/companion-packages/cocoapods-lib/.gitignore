@@ -1,0 +1,16 @@
+# Xcode / Swift / CocoaPods
+.DS_Store
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+Pods/
+*.xcworkspace
+xcuserdata/
+
+# Swift Package Manager (in case anyone tries it locally)
+.build/
+.swiftpm/
+
+# Generated podspec lint cache
+.cocoapods/

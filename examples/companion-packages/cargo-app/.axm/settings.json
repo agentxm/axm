@@ -1,0 +1,15 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "cargo-pawmatch-find-a-pet": {
+      "source": "@examples/skills/cargo-pawmatch-find-a-pet@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {},
+  "packs": {}
+}

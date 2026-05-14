@@ -1,0 +1,16 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@examples",
+  "type": "pack",
+  "name": "maven-scala-tinyflags",
+  "version": "0.1.0",
+  "description": "Companion AXM extensions for the Maven Scala TinyFlags package.",
+  "keywords": ["maven", "scala", "scala3", "jvm", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:maven/ai.agentxm.examples/tinyflags-scala_3@^0.1.0"],
+  "dependencies": {
+    "@examples/skills/maven-scala-tinyflags-add-flag": "^0.1.0",
+    "@examples/skills/maven-scala-tinyflags-rollout-review": "^0.1.0",
+    "@examples/skills/maven-scala-tinyflags-cleanup-flag": "^0.1.0",
+    "@examples/subagents/maven-scala-tinyflags-maintainer": "^0.1.0"
+  }
+}

@@ -1,0 +1,32 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Bootstraps Composer autoload whether the project is run directly or invoked
+// from a parent project that installs it via "bin".
+$candidates = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+];
+
+$autoload = null;
+foreach ($candidates as $candidate) {
+    if (is_file($candidate)) {
+        $autoload = $candidate;
+        break;
+    }
+}
+
+if ($autoload === null) {
+    fwrite(STDERR, "Composer autoload not found. Run 'composer install' first.\n");
+    exit(1);
+}
+
+require $autoload;
+
+use AgentXM\Examples\PawMatch\PawMatchCli;
+
+$argv = $_SERVER['argv'] ?? [];
+$cli = new PawMatchCli();
+exit($cli->run(array_slice($argv, 1)));

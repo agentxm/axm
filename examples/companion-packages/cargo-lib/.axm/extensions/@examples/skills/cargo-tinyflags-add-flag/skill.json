@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "cargo-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a Rust project with tests.",
+  "keywords": ["rust", "cargo", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:cargo/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/cargo-tinyflags"],
+  "standalone": false
+}

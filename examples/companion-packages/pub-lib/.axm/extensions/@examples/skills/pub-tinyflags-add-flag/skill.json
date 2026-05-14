@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "pub-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a Pub Dart project with tests.",
+  "keywords": ["pub", "dart", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:pub/agentxm_example_tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/pub-tinyflags"],
+  "standalone": false
+}

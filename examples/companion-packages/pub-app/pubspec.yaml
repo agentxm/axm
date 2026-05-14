@@ -1,0 +1,18 @@
+name: agentxm_example_pawmatch
+description: Tiny community pet-adoption CLI demonstrating consumption of agentxm_example_tinyflags.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.0.0
+
+executables:
+  pawmatch:
+
+dependencies:
+  agentxm_example_tinyflags:
+    path: ../pub-lib
+  args: ^2.5.0
+
+dev_dependencies:
+  test: ^1.25.0

@@ -1,0 +1,14 @@
+name: agentxm_example_tinyflags
+description: Tiny feature flags library used by AXM companion package examples.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.0.0
+
+axm:
+  recommendedExtensions:
+    - "@examples/packs/pub-tinyflags@^0.1.0"
+
+dev_dependencies:
+  test: ^1.25.0

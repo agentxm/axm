@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "composer-tinyflags-add-flag": {
+      "source": "@examples/skills/composer-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "composer-tinyflags-rollout-review": {
+      "source": "@examples/skills/composer-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "composer-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/composer-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "composer-tinyflags-maintainer": {
+      "source": "@examples/subagents/composer-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "composer-tinyflags": {
+      "source": "@examples/packs/composer-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

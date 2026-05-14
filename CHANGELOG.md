@@ -1,3 +1,13 @@
+## 0.8.0 (2026-05-14)
+
+### 🚀 Features
+
+- Add companion package examples, axm-link dev tooling, subagent dependency publishing, and CLI error handling refinements. ([ede2520f](https://github.com/agentxm/axm/commit/ede2520f))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.7.4 (2026-05-13)
 
 ### 🩹 Fixes

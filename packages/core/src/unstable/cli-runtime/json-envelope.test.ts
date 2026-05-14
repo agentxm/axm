@@ -28,6 +28,18 @@ describe("BreadcrumbSchema", () => {
       description: "Edit the file",
     });
   });
+
+  it("decodes URL breadcrumbs", () => {
+    expect(
+      Schema.decodeUnknownSync(BreadcrumbSchema)({
+        description: "View in browser",
+        url: "https://agentxm.ai/acme/skills/review",
+      }),
+    ).toEqual({
+      description: "View in browser",
+      url: "https://agentxm.ai/acme/skills/review",
+    });
+  });
 });
 
 describe("JsonEnvelopeSchema", () => {

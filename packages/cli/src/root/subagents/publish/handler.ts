@@ -28,6 +28,7 @@ import {
   emitPlanResolutionResult,
   planResolutionToSummary,
 } from "../../../json-output.js";
+import { publishSuccessRender } from "../../shared/publish-success.js";
 
 export interface PublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
@@ -276,10 +277,15 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     readonly result: string;
     readonly message: string;
     readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
+    readonly links?: { readonly html: string };
   }): JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }
-      : { result: "success", message: result.message };
+      : {
+          result: "success",
+          message: result.message,
+          ...(result.links !== undefined ? { links: result.links } : {}),
+        };
 
   const steps: PlannedJobStep[] = extensionNames.map((extName): PlannedJobStep => {
     const op = {
@@ -357,5 +363,8 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     ),
   );
   yield* emitPlanResolutionResult("subagents.publish", resolvedPlan);
-  yield* renderer.success("Done");
+  const success = publishSuccessRender(resolvedPlan);
+  yield* renderer.success(success.message, {
+    ...(success.breadcrumbs !== undefined ? { breadcrumbs: success.breadcrumbs } : {}),
+  });
 });

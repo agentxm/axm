@@ -181,6 +181,7 @@ const publishSuccessResponse = {
   sha256_hex: "abc123",
   published_at: "2025-01-01T00:00:00Z",
   publish_status: "available",
+  links: { html: "https://agentxm.ai/acme/skills/test-skill" },
 };
 
 /**
@@ -843,6 +844,7 @@ describe("publishExtension", () => {
       const result = yield* client.publishExtension(publishArgs);
 
       expect(result.published).toBe(true);
+      expect(result.links).toEqual({ html: "https://agentxm.ai/acme/skills/test-skill" });
     }),
   );
 
@@ -856,6 +858,7 @@ describe("publishExtension", () => {
       const result = yield* client.publishExtension(publishArgs);
 
       expect(result.published).toBe(true);
+      expect(result.links).toEqual({ html: "https://agentxm.ai/acme/skills/test-skill" });
     }),
   );
 

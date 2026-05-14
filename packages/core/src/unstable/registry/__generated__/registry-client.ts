@@ -491,6 +491,13 @@ export const ExtensionId = Schema.String.check(
     examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
+export type ExtensionLinks = { readonly html: string };
+export const ExtensionLinks = Schema.Struct({
+  html: Schema.String.annotate({ format: "uri" }),
+}).annotate({
+  title: "Extension Links",
+  description: "Hyperlinks for an extension resource. `html` is the canonical web page URL.",
+});
 export type DeprecateBody = { readonly notice?: string | null };
 export const DeprecateBody = Schema.Struct({
   notice: Schema.optionalKey(
@@ -1559,6 +1566,7 @@ export type ExtensionsUpdateVisibility200 = {
   readonly visibility: string;
   readonly listed: boolean;
   readonly updatedAt: string;
+  readonly links: ExtensionLinks;
 };
 export const ExtensionsUpdateVisibility200 = Schema.Struct({
   id: ExtensionId,
@@ -1568,6 +1576,7 @@ export const ExtensionsUpdateVisibility200 = Schema.Struct({
   visibility: Schema.String,
   listed: Schema.Boolean,
   updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  links: ExtensionLinks,
 });
 export type ExtensionsUpdateVisibility400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsUpdateVisibility400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
@@ -1636,6 +1645,7 @@ export type ExtensionsPublishVersion200 = {
   readonly sha256_hex: string;
   readonly published_at: IsoDateTimeString;
   readonly publish_status: "pending" | "available" | "failed";
+  readonly links: ExtensionLinks;
 };
 export const ExtensionsPublishVersion200 = Schema.Struct({
   owner: Handle,
@@ -1646,6 +1656,7 @@ export const ExtensionsPublishVersion200 = Schema.Struct({
   sha256_hex: Schema.String.annotate({ readOnly: true }),
   published_at: IsoDateTimeString,
   publish_status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
+  links: ExtensionLinks,
 });
 export type ExtensionsPublishVersion201 = {
   readonly owner: Handle;
@@ -1656,6 +1667,7 @@ export type ExtensionsPublishVersion201 = {
   readonly sha256_hex: string;
   readonly published_at: IsoDateTimeString;
   readonly publish_status: "pending" | "available" | "failed";
+  readonly links: ExtensionLinks;
 };
 export const ExtensionsPublishVersion201 = Schema.Struct({
   owner: Handle,
@@ -1666,6 +1678,7 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
   sha256_hex: Schema.String.annotate({ readOnly: true }),
   published_at: IsoDateTimeString,
   publish_status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
+  links: ExtensionLinks,
 });
 export type ExtensionsPublishVersion400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsPublishVersion400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
@@ -1765,6 +1778,7 @@ export type ExtensionsYankVersion200 = {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly yankedAt: IsoDateTimeString | null;
+  readonly links: ExtensionLinks;
 };
 export const ExtensionsYankVersion200 = Schema.Struct({
   owner: Handle,
@@ -1772,6 +1786,7 @@ export const ExtensionsYankVersion200 = Schema.Struct({
   name: ExtensionName,
   version: Version,
   yankedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
+  links: ExtensionLinks,
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
 export const ExtensionsYankVersion400 = DecodeErrorResponse;
@@ -1787,6 +1802,7 @@ export type ExtensionsUnyankVersion200 = {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly yankedAt: null;
+  readonly links: ExtensionLinks;
 };
 export const ExtensionsUnyankVersion200 = Schema.Struct({
   owner: Handle,
@@ -1794,6 +1810,7 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
   name: ExtensionName,
   version: Version,
   yankedAt: Schema.Null,
+  links: ExtensionLinks,
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
 export const ExtensionsUnyankVersion400 = DecodeErrorResponse;

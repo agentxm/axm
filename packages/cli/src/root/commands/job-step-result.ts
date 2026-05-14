@@ -12,14 +12,19 @@ import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
  *
  * Operation functions return `{ result: string; message: string; error?: AppError }`.
  * Plan steps expect `JobStepResult` which is either
- * `{ result: "success"; message: string }` or
+ * `{ result: "success"; message: string; links?: { html: string } }` or
  * `{ result: "error"; message: string; error: AppError }`.
  */
 export const toJobStepResult = (result: {
   readonly result: "success" | "error";
   readonly message: string;
   readonly error?: AppError;
+  readonly links?: { readonly html: string };
 }): JobStepResult =>
   result.result === "error" && result.error != null
     ? { result: "error", message: result.message, error: result.error }
-    : { result: "success", message: result.message };
+    : {
+        result: "success",
+        message: result.message,
+        ...(result.links !== undefined ? { links: result.links } : {}),
+      };

@@ -159,8 +159,13 @@ export interface GetExtensionPackageResponse {
 /**
  * Response from publishing an extension version.
  */
+export interface ExtensionLinks {
+  readonly html: string;
+}
+
 export interface PublishExtensionResponse {
   readonly published: true;
+  readonly links?: ExtensionLinks;
 }
 
 // -----------------------------------------------------------------------------

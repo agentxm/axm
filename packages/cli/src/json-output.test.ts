@@ -171,6 +171,38 @@ describe("toPlanResolutionResult", () => {
       ],
     });
   });
+
+  it("includes links on successful executed steps", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Publish skill",
+      description: Option.some("Publish @acme/skills/review"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "Publish @acme/skills/review",
+              result: {
+                result: "success",
+                message: "Published @acme/skills/review@1.0.0",
+                links: { html: "https://agentxm.ai/acme/skills/review" },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution).steps).toEqual([
+      {
+        label: "Publish @acme/skills/review",
+        status: "applied",
+        message: "Published @acme/skills/review@1.0.0",
+        links: { html: "https://agentxm.ai/acme/skills/review" },
+      },
+    ]);
+  });
 });
 
 describe("planResolutionToSummary", () => {

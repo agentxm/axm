@@ -35,6 +35,11 @@ const StepSchema = Schema.Struct({
   status: StepStatusSchema,
   message: Schema.optional(Schema.String),
   code: Schema.optional(Schema.String),
+  links: Schema.optional(
+    Schema.Struct({
+      html: Schema.String,
+    }),
+  ),
 }).annotate({
   identifier: "Step",
   title: "Plan Step",
@@ -97,6 +102,7 @@ const completedStepToStep = (step: CompletedJobStep): Step => {
       label: step.label,
       status: "applied",
       ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
+      ...(step.result.links !== undefined ? { links: step.result.links } : {}),
     };
   }
 

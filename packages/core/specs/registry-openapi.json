@@ -1715,9 +1715,19 @@
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "visibility": { "type": "string" },
                     "listed": { "type": "boolean" },
-                    "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+                    "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
-                  "required": ["id", "owner", "type", "name", "visibility", "listed", "updatedAt"],
+                  "required": [
+                    "id",
+                    "owner",
+                    "type",
+                    "name",
+                    "visibility",
+                    "listed",
+                    "updatedAt",
+                    "links"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2019,7 +2029,8 @@
                       "type": "string",
                       "enum": ["pending", "available", "failed"],
                       "readOnly": true
-                    }
+                    },
+                    "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
                   "required": [
                     "owner",
@@ -2029,7 +2040,8 @@
                     "integrity",
                     "sha256_hex",
                     "published_at",
-                    "publish_status"
+                    "publish_status",
+                    "links"
                   ],
                   "additionalProperties": false
                 }
@@ -2054,7 +2066,8 @@
                       "type": "string",
                       "enum": ["pending", "available", "failed"],
                       "readOnly": true
-                    }
+                    },
+                    "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
                   "required": [
                     "owner",
@@ -2064,7 +2077,8 @@
                     "integrity",
                     "sha256_hex",
                     "published_at",
-                    "publish_status"
+                    "publish_status",
+                    "links"
                   ],
                   "additionalProperties": false
                 }
@@ -2490,9 +2504,10 @@
                         { "$ref": "#/components/schemas/IsoDateTimeString" },
                         { "type": "null" }
                       ]
-                    }
+                    },
+                    "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
-                  "required": ["owner", "type", "name", "version", "yankedAt"],
+                  "required": ["owner", "type", "name", "version", "yankedAt", "links"],
                   "additionalProperties": false
                 }
               }
@@ -2575,9 +2590,10 @@
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "version": { "$ref": "#/components/schemas/Version" },
-                    "yankedAt": { "type": "null" }
+                    "yankedAt": { "type": "null" },
+                    "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
-                  "required": ["owner", "type", "name", "version", "yankedAt"],
+                  "required": ["owner", "type", "name", "version", "yankedAt", "links"],
                   "additionalProperties": false
                 }
               }
@@ -4214,6 +4230,14 @@
             "examples": ["ext_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
+      },
+      "ExtensionLinks": {
+        "type": "object",
+        "properties": { "html": { "type": "string", "format": "uri" } },
+        "required": ["html"],
+        "additionalProperties": false,
+        "title": "Extension Links",
+        "description": "Hyperlinks for an extension resource. `html` is the canonical web page URL."
       },
       "DeprecateBody": {
         "type": "object",

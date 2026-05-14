@@ -191,7 +191,7 @@ export const publishCommand: (
     };
 
     // Publish to registry (idempotent)
-    yield* client.publishExtension({
+    const response = yield* client.publishExtension({
       owner: fqn.owner,
       type: "command",
       name: fqn.name,
@@ -203,5 +203,6 @@ export const publishCommand: (
     return {
       result: "success",
       message: `Published ${op.args.name}@${manifest.version}`,
+      ...(response.links !== undefined ? { links: response.links } : {}),
     } satisfies JobStepResult;
   });

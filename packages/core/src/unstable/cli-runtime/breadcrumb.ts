@@ -5,6 +5,7 @@ const RunnableAxmCommandPattern = /`?axm\s/;
 export const BreadcrumbSchema = Schema.Struct({
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.String),
 })
   .check(
     Schema.makeFilter((breadcrumb) =>
@@ -16,7 +17,7 @@ export const BreadcrumbSchema = Schema.Struct({
   .annotate({
     identifier: "Breadcrumb",
     title: "Breadcrumb",
-    description: "Suggested follow-up. Optional shell command, may be a template.",
+    description: "Suggested follow-up. Optional shell command or URL.",
   });
 
 export type Breadcrumb = typeof BreadcrumbSchema.Type;

@@ -295,7 +295,18 @@ const taskCompletionMessage = (title: string, result: string | void): string => 
   return `${title}: ${result}`;
 };
 
-const formatBreadcrumbCommand = (crumb: Breadcrumb): string => crumb.cmd ?? "";
+const formatTerminalLink = (url: string, outputPolicy: CliOutputPolicy): string =>
+  outputPolicy.colors ? `\u001b]8;;${url}\u001b\\${url}\u001b]8;;\u001b\\` : url;
+
+const formatBreadcrumbAction = (crumb: Breadcrumb, outputPolicy: CliOutputPolicy): string => {
+  if (crumb.cmd !== undefined) {
+    return crumb.cmd;
+  }
+  if (crumb.url !== undefined) {
+    return formatTerminalLink(crumb.url, outputPolicy);
+  }
+  return "";
+};
 
 const dim = (message: string, outputPolicy: CliOutputPolicy): string =>
   outputPolicy.colors ? `${ANSI_DIM}${message}${ANSI_RESET}` : message;
@@ -400,7 +411,7 @@ const renderBreadcrumbs = (
   const lines = [
     dim("Next:", outputPolicy),
     ...visible.map((crumb) => {
-      const formatted = formatBreadcrumbCommand(crumb);
+      const formatted = formatBreadcrumbAction(crumb, outputPolicy);
       const command = formatted.length === 0 ? "" : dim(` · ${formatted}`, outputPolicy);
       return `  ${crumb.description}${command}`;
     }),

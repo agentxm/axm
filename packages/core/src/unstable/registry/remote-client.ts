@@ -683,7 +683,7 @@ export const createRemoteRegistryClient = (
         config: undefined,
       })
       .pipe(
-        Effect.map(() => ({ published: true as const })),
+        Effect.map((response) => ({ published: true as const, links: response.links })),
         // Single mapError handler for all error types to avoid error channel narrowing issues
         Effect.mapError((e) => mapPublishError(e, networkBreadcrumbs, networkDiagnosisDetails)),
       );

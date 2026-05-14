@@ -62,6 +62,7 @@ export const BreadcrumbEventSchema = Schema.Struct({
   type: Schema.Literal("breadcrumb"),
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.String),
 }).annotate({
   identifier: "BreadcrumbEvent",
   title: "Breadcrumb Event",

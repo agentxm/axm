@@ -37,6 +37,7 @@ import {
   planResolutionToSummary,
 } from "../../json-output.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
+import { publishSuccessRender } from "../shared/publish-success.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { toJobStepResult } from "./job-step-result.js";
 
@@ -390,7 +391,10 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
   yield* emitPlanResolutionResult("commands.publish", resolvedPlan);
 
   if (resolvedPlan._tag === "ExecutedPlan") {
-    yield* renderer.success("Done");
+    const success = publishSuccessRender(resolvedPlan);
+    yield* renderer.success(success.message, {
+      ...(success.breadcrumbs !== undefined ? { breadcrumbs: success.breadcrumbs } : {}),
+    });
   }
 });
 

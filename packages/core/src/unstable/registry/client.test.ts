@@ -1314,6 +1314,7 @@ describe("RemoteRegistryClient", () => {
                 sha256_hex: "aaaa",
                 published_at: "2025-01-01T00:00:00Z",
                 publish_status: "available",
+                links: { html: "https://agentxm.ai/test/skills/my-skill" },
               }),
               { status: 201 },
             ),
@@ -1327,7 +1328,10 @@ describe("RemoteRegistryClient", () => {
       const result = yield* publishClient.publishExtension(
         makePublishArgs(new Uint8Array([0x50, 0x4b]), makeVersionEntry()),
       );
-      expect(result).toEqual({ published: true });
+      expect(result).toEqual({
+        published: true,
+        links: { html: "https://agentxm.ai/test/skills/my-skill" },
+      });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -1421,6 +1425,7 @@ describe("createRegistryClient", () => {
                 sha256_hex: "aaaa",
                 published_at: "2025-01-01T00:00:00Z",
                 publish_status: "available",
+                links: { html: "https://agentxm.ai/test/skills/my-skill" },
               }),
               { status: 201 },
             ),

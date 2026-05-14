@@ -50,6 +50,7 @@ import {
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { publishSuccessRender } from "../shared/publish-success.js";
 
 export interface PublishPackHandlerArgs {
   readonly pack: string;
@@ -165,10 +166,15 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     readonly result: string;
     readonly message: string;
     readonly error?: AppError;
+    readonly links?: { readonly html: string };
   }): JobStepResult =>
     result.result === "error" && result.error !== undefined
       ? { result: "error", message: result.message, error: result.error }
-      : { result: "success", message: result.message };
+      : {
+          result: "success",
+          message: result.message,
+          ...(result.links !== undefined ? { links: result.links } : {}),
+        };
 
   // Step 1: Resolve pack name. Bare names look up the configured pack entry
   // and parse its `source` to derive the owner.
@@ -398,7 +404,10 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   );
   yield* emitPlanResolutionResult("packs.publish", resolvedPlan);
 
-  yield* renderer.success("Done");
+  const success = publishSuccessRender(resolvedPlan);
+  yield* renderer.success(success.message, {
+    ...(success.breadcrumbs !== undefined ? { breadcrumbs: success.breadcrumbs } : {}),
+  });
 });
 
 /** Create a per-type publish dependency step from a parsed FQN. */
@@ -413,6 +422,7 @@ const makeDependencyStep = (
     readonly result: string;
     readonly message: string;
     readonly error?: AppError;
+    readonly links?: { readonly html: string };
   }) => JobStepResult,
 ): Effect.Effect<PlannedJobStep, AppError> => {
   const label = `Publish dependency ${depFqn}`;

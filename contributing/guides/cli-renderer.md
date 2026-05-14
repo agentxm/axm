@@ -206,6 +206,12 @@ Include:
 - warnings that affect automation
 - identifiers needed for follow-up commands
 
+Publish and extension-mutation commands that receive `links.html` from the
+registry must surface it twice: include the URL in the human success message,
+and add a breadcrumb with `{ "description": "View in browser", "url": "..." }`.
+For plan-based commands, keep `links` on the successful step result so `--json`
+emits `result.steps[].links.html` instead of inventing a top-level primary URL.
+
 ### Raw Scalar Commands
 
 Some commands are intentionally pipe-friendly in text mode, like `auth token`.
@@ -277,10 +283,11 @@ them to the same flat envelope:
 }
 ```
 
-Breadcrumbs use `{ description, cmd? }`. Use imperative voice, no trailing
+Breadcrumbs use `{ description, cmd?, url? }`. Use imperative voice, no trailing
 period, backtick literal commands and paths, and one task per breadcrumb. Set
-`cmd` whenever `description` suggests a runnable `axm` command. `cmd` replaces
-the older `command: string[]` form; do not emit both.
+`cmd` whenever `description` suggests a runnable `axm` command. Set `url` for a
+browser destination; do not encode URLs as shell commands. `cmd` replaces the
+older `command: string[]` form; do not emit both.
 
 ---
 

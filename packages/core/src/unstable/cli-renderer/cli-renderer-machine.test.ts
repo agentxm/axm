@@ -121,6 +121,33 @@ describe("MachineRenderer", () => {
       }),
     );
 
+    it.effect("success emits URL breadcrumb events", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.success("Published", {
+              breadcrumbs: [
+                {
+                  description: "View in browser",
+                  url: "https://agentxm.ai/acme/skills/review",
+                },
+              ],
+            });
+          }),
+        );
+        const events = parseStderrEvents();
+        expect(events).toEqual([
+          {
+            type: "breadcrumb",
+            description: "View in browser",
+            url: "https://agentxm.ai/acme/skills/review",
+          },
+        ]);
+        expect(stdoutWrites).toHaveLength(0);
+      }),
+    );
+
     it.effect("step is silent", () =>
       Effect.gen(function* () {
         yield* run(

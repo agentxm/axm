@@ -168,6 +168,50 @@ describe("InteractiveRenderer", () => {
         expect(output).toContain("  Apply changes to your workspace · axm sync\n");
       }),
     );
+
+    it.effect("renders URL breadcrumbs as OSC 8 hyperlinks when colors are enabled", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.success("Published", {
+              breadcrumbs: [
+                {
+                  description: "View in browser",
+                  url: "https://agentxm.ai/acme/skills/review",
+                },
+              ],
+            });
+          }),
+        );
+
+        const output = stderrWrites.join("");
+        expect(output).toContain("\u001b]8;;https://agentxm.ai/acme/skills/review\u001b\\");
+        expect(output).toContain("https://agentxm.ai/acme/skills/review");
+      }),
+    );
+
+    it.effect("renders URL breadcrumbs as plain URLs when colors are disabled", () =>
+      Effect.gen(function* () {
+        yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.success("Published", {
+              breadcrumbs: [
+                {
+                  description: "View in browser",
+                  url: "https://agentxm.ai/acme/skills/review",
+                },
+              ],
+            });
+          }),
+        );
+
+        const output = stderrWrites.join("");
+        expect(output).toContain("  View in browser · https://agentxm.ai/acme/skills/review\n");
+        expect(output).not.toContain("\u001b]8;;");
+      }),
+    );
   });
 
   describe("activity methods", () => {

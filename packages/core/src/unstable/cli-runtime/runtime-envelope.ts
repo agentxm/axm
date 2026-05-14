@@ -35,6 +35,9 @@ const formatBreadcrumbAction = (crumb: Breadcrumb): string => {
   if (crumb.cmd !== undefined) {
     return ` · ${crumb.cmd}`;
   }
+  if (crumb.url !== undefined) {
+    return ` · ${crumb.url}`;
+  }
   return "";
 };
 
@@ -60,6 +63,7 @@ const writeMachineBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void =
         type: "breadcrumb",
         description: crumb.description,
         ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
+        ...(crumb.url !== undefined ? { url: crumb.url } : {}),
       }),
     );
   }

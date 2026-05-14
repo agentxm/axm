@@ -59,6 +59,7 @@ const emitBreadcrumbs = (
         type: "breadcrumb",
         description: crumb.description,
         ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
+        ...(crumb.url !== undefined ? { url: crumb.url } : {}),
       }),
     { concurrency: 1 },
   ).pipe(Effect.asVoid);

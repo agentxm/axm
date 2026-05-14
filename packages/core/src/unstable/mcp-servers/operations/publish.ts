@@ -175,7 +175,7 @@ export const publishMcpServer: (
     };
 
     // Publish to registry (idempotent)
-    yield* client.publishExtension({
+    const response = yield* client.publishExtension({
       owner: fqn.owner,
       type: "mcp-server",
       name: fqn.name,
@@ -187,5 +187,6 @@ export const publishMcpServer: (
     return {
       result: "success",
       message: `Published ${op.args.name}@${manifest.version}`,
+      ...(response.links !== undefined ? { links: response.links } : {}),
     } satisfies JobStepResult;
   });

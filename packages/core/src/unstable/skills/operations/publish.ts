@@ -183,7 +183,7 @@ export const publishSkill: OperationHandler<
     };
 
     // Publish to registry (idempotent)
-    yield* client.publishExtension({
+    const response = yield* client.publishExtension({
       owner: fqn.owner,
       type: "skill",
       name: fqn.name,
@@ -195,5 +195,6 @@ export const publishSkill: OperationHandler<
     return {
       result: "success",
       message: `Published ${op.args.name}@${manifest.version}`,
+      ...(response.links !== undefined ? { links: response.links } : {}),
     } satisfies JobStepResult;
   });

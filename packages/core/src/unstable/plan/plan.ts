@@ -40,6 +40,7 @@ export type JobStepResult =
   | {
       readonly result: "success";
       readonly message: string;
+      readonly links?: { readonly html: string };
     }
   | {
       readonly result: "error";

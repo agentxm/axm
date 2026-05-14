@@ -164,7 +164,7 @@ export const publishPack: OperationHandler<
     };
 
     // Publish to registry (idempotent)
-    yield* client.publishExtension({
+    const response = yield* client.publishExtension({
       owner: fqn.owner,
       type: "pack",
       name: fqn.name,
@@ -176,5 +176,6 @@ export const publishPack: OperationHandler<
     return {
       result: "success",
       message: `Published ${op.args.name}@${manifest.version}`,
+      ...(response.links !== undefined ? { links: response.links } : {}),
     } satisfies JobStepResult;
   });

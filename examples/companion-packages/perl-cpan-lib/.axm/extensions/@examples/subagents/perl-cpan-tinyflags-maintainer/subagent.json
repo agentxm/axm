@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "perl-cpan-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Triage TinyFlags feature flags across a Perl codebase and recommend cleanup or rollout follow-ups.",
+  "keywords": ["cpan", "perl", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:cpan/AgentXM-Examples-TinyFlags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/perl-cpan-tinyflags"],
+  "standalone": false
+}

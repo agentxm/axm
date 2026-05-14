@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "perl-cpan-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Audit a TinyFlags flag's Perl callsites and rollout state before advancing the gate.",
+  "keywords": ["cpan", "perl", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:cpan/AgentXM-Examples-TinyFlags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/perl-cpan-tinyflags"],
+  "standalone": false
+}

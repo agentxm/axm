@@ -1,0 +1,48 @@
+{
+  "abstract": "Tiny feature flags library used by AXM companion package examples.",
+  "author": ["AgentXM <noreply@agentxm.ai>"],
+  "dynamic_config": 0,
+  "generated_by": "AgentXM, AXM companion-package example",
+  "license": ["mit"],
+  "meta-spec": {
+    "url": "https://metacpan.org/pod/CPAN::Meta::Spec",
+    "version": "2"
+  },
+  "name": "AgentXM-Examples-TinyFlags",
+  "release_status": "stable",
+  "version": "0.1.0",
+  "resources": {
+    "homepage": "https://github.com/agentxm/axm",
+    "license": ["https://opensource.org/licenses/MIT"],
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/agentxm/axm.git",
+      "web": "https://github.com/agentxm/axm"
+    }
+  },
+  "prereqs": {
+    "runtime": {
+      "requires": {
+        "perl": "5.030",
+        "Digest::SHA": "0",
+        "Scalar::Util": "0"
+      }
+    },
+    "test": {
+      "requires": {
+        "Test::More": "0.98"
+      }
+    },
+    "configure": {
+      "requires": {
+        "ExtUtils::MakeMaker": "0"
+      }
+    }
+  },
+  "x_axm": {
+    "$schema": "https://axm.sh/schemas/axm-package-meta.schema.json",
+    "recommendedExtensions": [
+      "@examples/packs/perl-cpan-tinyflags@^0.1.0"
+    ]
+  }
+}

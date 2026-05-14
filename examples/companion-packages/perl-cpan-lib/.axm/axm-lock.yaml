@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  perl-cpan-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: perl-cpan-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  perl-cpan-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: perl-cpan-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  perl-cpan-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: perl-cpan-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  perl-cpan-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: perl-cpan-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  perl-cpan-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: perl-cpan-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/perl-cpan-tinyflags-add-flag": 0.1.0
+      "@examples/skills/perl-cpan-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/perl-cpan-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/perl-cpan-tinyflags-maintainer": 0.1.0

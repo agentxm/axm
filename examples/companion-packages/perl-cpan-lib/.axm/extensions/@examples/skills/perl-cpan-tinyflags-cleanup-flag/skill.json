@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "perl-cpan-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Retire a rolled-out TinyFlags flag from Perl code, keeping the live branch and pruning dead tests.",
+  "keywords": ["cpan", "perl", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:cpan/AgentXM-Examples-TinyFlags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/perl-cpan-tinyflags"],
+  "standalone": false
+}

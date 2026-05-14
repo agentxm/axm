@@ -1,0 +1,19 @@
+# cpanfile for AgentXM-Examples-PawMatch.
+#
+# Declares runtime, test, and configure prereqs so the AXM CPAN detector can
+# read this file alongside Makefile.PL, and so cpanm / Carton can install the
+# sibling TinyFlags library at the pinned version.
+
+requires 'perl', '5.030';
+requires 'AgentXM::Examples::TinyFlags', '0.1.0';
+requires 'Getopt::Long';
+requires 'Config';
+requires 'File::Spec';
+
+on 'test' => sub {
+    requires 'Test::More', '0.98';
+};
+
+on 'configure' => sub {
+    requires 'ExtUtils::MakeMaker';
+};

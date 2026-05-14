@@ -7,7 +7,6 @@ DerivedData/
 Pods/
 *.xcworkspace
 xcuserdata/
-Podfile.lock
 
 # Swift Package Manager artifacts
 .build/

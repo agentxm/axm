@@ -1,4 +1,3 @@
-Manifest.toml
 /docs/build/
 /deps/deps.jl
 *.cov

@@ -26,21 +26,30 @@ For each ecosystem, two sibling directories at this level:
 
 | Status | Library                    | Consumer app               |
 | ------ | -------------------------- | -------------------------- |
+| ✅     | `cpp-conan-lib/`           | `cpp-conan-app/`           |
 | ✅     | `dart-pub-lib/`            | `dart-pub-app/`            |
 | ✅     | `dotnet-csharp-nuget-lib/` | `dotnet-csharp-nuget-app/` |
 | ✅     | `dotnet-fsharp-nuget-lib/` | `dotnet-fsharp-nuget-app/` |
 | ✅     | `elixir-hex-lib/`          | `elixir-hex-app/`          |
 | ✅     | `go-gomod-lib/`            | `go-gomod-app/`            |
+| ✅     | `haskell-hackage-lib/`     | `haskell-hackage-app/`     |
 | ✅     | `java-maven-lib/`          | `java-maven-app/`          |
 | ✅     | `javascript-npm-lib/`      | `javascript-npm-app/`      |
+| ✅     | `julia-general-lib/`       | `julia-general-app/`       |
 | ✅     | `kotlin-maven-lib/`        | `kotlin-maven-app/`        |
+| ✅     | `lua-luarocks-lib/`        | `lua-luarocks-app/`        |
+| ✅     | `ocaml-opam-lib/`          | `ocaml-opam-app/`          |
+| ✅     | `perl-cpan-lib/`           | `perl-cpan-app/`           |
 | ✅     | `php-composer-lib/`        | `php-composer-app/`        |
 | ✅     | `python-pypi-lib/`         | `python-pypi-app/`         |
+| ✅     | `r-cran-lib/`              | `r-cran-app/`              |
 | ✅     | `ruby-rubygems-lib/`       | `ruby-rubygems-app/`       |
 | ✅     | `rust-cargo-lib/`          | `rust-cargo-app/`          |
 | ✅     | `scala-maven-lib/`         | `scala-maven-app/`         |
 | ✅     | `swift-cocoapods-lib/`     | `swift-cocoapods-app/`     |
 | ✅     | `swift-spm-lib/`           | `swift-spm-app/`           |
+| ✅     | `typescript-jsr-lib/`      | `typescript-jsr-app/`      |
+| ✅     | `zig-zon-lib/`             | `zig-zon-app/`             |
 
 ## Package Naming
 
@@ -52,18 +61,27 @@ cross-ecosystem uniformity.
 | Cargo / crates.io | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
 | CocoaPods         | `AgentXMExampleTinyFlags`               | `AgentXMExamplePawMatch`               |
 | Composer / PHP    | `agentxm/example-tinyflags`             | `agentxm/example-pawmatch`             |
+| Conan / C++       | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
+| CPAN / Perl       | `AgentXM::Examples::TinyFlags`          | `AgentXM::Examples::PawMatch`          |
+| CRAN / R          | `tinyflags`                             | `pawmatch`                             |
 | .NET / NuGet      | `AgentXM.Examples.TinyFlags.CSharp`     | `AgentXM.Examples.PawMatch.CSharp`     |
 | .NET / NuGet      | `AgentXM.Examples.TinyFlags.FSharp`     | `AgentXM.Examples.PawMatch.FSharp`     |
 | Go modules        | `github.com/agentxm/example-tinyflags`  | `github.com/agentxm/example-pawmatch`  |
+| Hackage / Haskell | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
 | Hex / Elixir      | `agentxm_example_tinyflags`             | `agentxm_example_pawmatch`             |
+| JSR / Deno        | `@agentxm/example-tinyflags`            | `@agentxm/example-pawmatch`            |
+| Julia (General)   | `AgentXMExampleTinyFlags`               | `AgentXMExamplePawMatch`               |
+| LuaRocks / Lua    | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
 | Maven / Java      | `ai.agentxm.examples:tinyflags-java`    | `ai.agentxm.examples:pawmatch-java`    |
 | Maven / Kotlin    | `ai.agentxm.examples:tinyflags-kotlin`  | `ai.agentxm.examples:pawmatch-kotlin`  |
 | Maven / Scala     | `ai.agentxm.examples:tinyflags-scala_3` | `ai.agentxm.examples:pawmatch-scala_3` |
 | npm               | `@agentxm/example-tinyflags`            | `@agentxm/example-pawmatch`            |
+| opam / OCaml      | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
 | Pub / Dart        | `agentxm_example_tinyflags`             | `agentxm_example_pawmatch`             |
 | PyPI              | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
 | RubyGems          | `agentxm-example-tinyflags`             | `agentxm-example-pawmatch`             |
 | Swift / SwiftPM   | `AgentXMExampleTinyFlags`               | `AgentXMExamplePawMatch`               |
+| Zig               | `agentxm_example_tinyflags`             | `agentxm_example_pawmatch`             |
 
 Conventions:
 
@@ -76,14 +94,49 @@ Conventions:
   an `xcodeproj` integration.
 - **Composer / PHP** uses the `agentxm/example-tinyflags` vendor/package
   format. The PSR-4 autoload namespace is `AgentXM\Examples\TinyFlags\`.
+- **Conan / C++** uses the `agentxm-example-` package-name prefix (kebab-case
+  is conventional on Conan Center). The AXM recommendation is embedded as the
+  top-level `axm:` key in `conandata.yml`, which Conan exports into
+  `<cache>/p/<pkg>/<ver>/export/conandata.yml` at install. The build system is
+  CMake; Catch2 is the test framework.
+- **CPAN / Perl** uses the `AgentXM::Examples::TinyFlags` module name; CPAN
+  tooling maps this to the distribution name `AgentXM-Examples-TinyFlags` for
+  purls (`::` → `-`). The AXM recommendation is embedded as the top-level
+  `x_axm` field in `META.json` so it propagates to `MYMETA.json` at install
+  via EU::MM `META_MERGE`. `cpanfile` is also shipped for the detector.
+- **CRAN / R** uses unscoped lowercase package names (`tinyflags`, `pawmatch`)
+  per CRAN conventions. The AXM recommendation is embedded as the `Config/axm`
+  field in `DESCRIPTION` as a JSON-encoded string on a single line.
 - **.NET** uses the `AgentXM.Examples.*` PascalCase hierarchy. Plural
   `Examples` follows the Framework Design Guidelines ("DO use plural namespace
   names where appropriate") and aligns with the `@examples` AXM owner. The
   `.CSharp` / `.FSharp` suffix distinguishes the two language ports.
+- **Hackage / Haskell** uses the `agentxm-example-` prefix (kebab-case is
+  conventional on Hackage). The AXM recommendation is embedded as flat
+  `x-axm-<field>:` custom fields in the `.cabal` file, each value JSON-decoded
+  (e.g. `x-axm-recommendedExtensions: [...]`). The example uses cabal-install
+  with `cabal.project`, not Stack.
 - **Hex / Elixir** uses lowercase snake_case package names
   (`agentxm_example_tinyflags`) per Hex conventions. The AXM recommendation
   ships as an `axm.json` sidecar; the Hex reader's `extra.axm` fallback in
   `hex_metadata.config` is an idiomatic alternative but not exercised here.
+- **JSR / Deno** uses the `@agentxm` scope with the same `example-` singular
+  prefix as npm. The AXM recommendation is the top-level `"axm"` field in
+  `deno.json`. Purls use `pkg:generic/jsr/@scope/name` since no spec-registered
+  purl type exists yet; the app's `jsr:` import specifier pins an exact
+  version so the detector emits a versioned purl rather than degrading to
+  versionless.
+- **Julia (General)** uses PascalCase package names per Julia conventions;
+  packages are identified by UUID rather than version in the General registry.
+  The AXM recommendation is an `[axm]` section in `Project.toml`, kept last in
+  the file so the reader does not accidentally truncate other tables. The
+  detector emits versionless purls, so each library extension's
+  `companionPackages` purl is `pkg:julia/AgentXMExampleTinyFlags` with no
+  version.
+- **LuaRocks / Lua** uses the `agentxm-example-` rock-name prefix (kebab-case
+  is conventional on LuaRocks). The AXM recommendation is an `axm.json`
+  sidecar; the example uses `build.copy_directories = { "axm" }` in the
+  rockspec to land the file in the installed rocks tree.
 - **Maven / Java** uses the reverse-DNS group id `ai.agentxm.examples` with
   short, lowercase artifact ids (`tinyflags-java`, `pawmatch-java`). The
   `-java` suffix distinguishes the language port from the Kotlin and Scala
@@ -99,6 +152,12 @@ Conventions:
 - **npm** uses the `@agentxm` scope with a singular `example-` prefix, matching
   the convention used by Vercel, Storybook, Babel, and Microsoft scoped sample
   packages.
+- **opam / OCaml** uses the `agentxm-example-` package-name prefix (kebab-case
+  is conventional on opam). The AXM recommendation is embedded directly as
+  `x-axm-<field>:` custom fields in the `.opam` file — there is no sidecar.
+  Because the AXM opam detector skips `dune` and `ocaml`, the lib declares at
+  least one additional dependency (`alcotest`) so dependency detection has
+  signal.
 - **Pub / Dart** uses lowercase snake*case package names per Pub's
   `[a-z0-9*]+` naming rule.
 - **PyPI** uses an `agentxm-example-` distribution-name prefix while keeping
@@ -111,6 +170,14 @@ Conventions:
   `example.com/agentxm/example-tinyflags-swift` rather than a real GitHub
   URL — the resulting purl is
   `pkg:swift/example.com/agentxm/example-tinyflags-swift`.
+- **Zig** uses the underscore-separated package name
+  (`agentxm_example_tinyflags`) so the `.dependencies = .{ ... }` block in
+  `build.zig.zon` does not require `.@"name-with-dashes"` quoting. The AXM
+  recommendation is an `axm.json` sidecar at the package root, listed in the
+  `.paths` array so it ships with the published archive and lands at
+  `~/.cache/zig/p/<hash>/axm.json` for the AXM Zig reader. Purls use
+  `pkg:generic/zig/<name>` (no spec-registered purl type yet) and are
+  versionless (Zig manifests carry URL+hash, not exact versions).
 - **AXM extensions** are always owned by `@examples` regardless of ecosystem.
 
 Apps are not packable / not publishable — they are reference consumers, not

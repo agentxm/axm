@@ -28,6 +28,9 @@ For each ecosystem, two sibling directories at this level:
 | ------ | --------------------- | --------------------- |
 | ✅     | `dotnet-csharp-lib/`  | `dotnet-csharp-app/`  |
 | ✅     | `dotnet-fsharp-lib/`  | `dotnet-fsharp-app/`  |
+| ✅     | `golang-lib/`         | `golang-app/`         |
+| ✅     | `maven-java-lib/`     | `maven-java-app/`     |
+| ✅     | `maven-kotlin-lib/`   | `maven-kotlin-app/`   |
 | ✅     | `npm-javascript-lib/` | `npm-javascript-app/` |
 | ✅     | `pypi-python-lib/`    | `pypi-python-app/`    |
 
@@ -36,12 +39,15 @@ For each ecosystem, two sibling directories at this level:
 Pick the most idiomatic name in each ecosystem rather than forcing
 cross-ecosystem uniformity.
 
-| Ecosystem    | Library                             | App                                |
-| ------------ | ----------------------------------- | ---------------------------------- |
-| .NET / NuGet | `AgentXM.Examples.TinyFlags.CSharp` | `AgentXM.Examples.PawMatch.CSharp` |
-| .NET / NuGet | `AgentXM.Examples.TinyFlags.FSharp` | `AgentXM.Examples.PawMatch.FSharp` |
-| npm          | `@agentxm/example-tinyflags`        | `@agentxm/example-pawmatch`        |
-| PyPI         | `agentxm-example-tinyflags`         | `agentxm-example-pawmatch`         |
+| Ecosystem      | Library                                | App                                   |
+| -------------- | -------------------------------------- | ------------------------------------- |
+| .NET / NuGet   | `AgentXM.Examples.TinyFlags.CSharp`    | `AgentXM.Examples.PawMatch.CSharp`    |
+| .NET / NuGet   | `AgentXM.Examples.TinyFlags.FSharp`    | `AgentXM.Examples.PawMatch.FSharp`    |
+| Go modules     | `github.com/agentxm/example-tinyflags` | `github.com/agentxm/example-pawmatch` |
+| Maven / Java   | `ai.agentxm.examples:tinyflags-java`   | `ai.agentxm.examples:pawmatch-java`   |
+| Maven / Kotlin | `ai.agentxm.examples:tinyflags-kotlin` | `ai.agentxm.examples:pawmatch-kotlin` |
+| npm            | `@agentxm/example-tinyflags`           | `@agentxm/example-pawmatch`           |
+| PyPI           | `agentxm-example-tinyflags`            | `agentxm-example-pawmatch`            |
 
 Conventions:
 
@@ -49,6 +55,14 @@ Conventions:
   `Examples` follows the Framework Design Guidelines ("DO use plural namespace
   names where appropriate") and aligns with the `@examples` AXM owner. The
   `.CSharp` / `.FSharp` suffix distinguishes the two language ports.
+- **Maven / Java** uses the reverse-DNS group id `ai.agentxm.examples` with
+  short, lowercase artifact ids (`tinyflags-java`, `pawmatch-java`). The
+  `-java` suffix distinguishes the language port from the Kotlin and Scala
+  siblings on the same group id.
+- **Maven / Kotlin** uses the reverse-DNS group id `ai.agentxm.examples` with
+  short, lowercase artifact ids (`tinyflags-kotlin`, `pawmatch-kotlin`). The
+  `-kotlin` suffix distinguishes the language port from the Java and Scala
+  siblings on the same group id.
 - **npm** uses the `@agentxm` scope with a singular `example-` prefix, matching
   the convention used by Vercel, Storybook, Babel, and Microsoft scoped sample
   packages.

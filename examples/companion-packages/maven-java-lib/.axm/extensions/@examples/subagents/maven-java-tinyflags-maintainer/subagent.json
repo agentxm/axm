@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "maven-java-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Review and maintain TinyFlags usage in Maven Java projects.",
+  "keywords": ["maven", "java", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:maven/ai.agentxm.examples/tinyflags-java@0.1.0"],
+  "recommendedPacks": ["@examples/packs/maven-java-tinyflags"],
+  "standalone": false
+}

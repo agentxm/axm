@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  golang-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: golang-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  golang-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: golang-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  golang-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: golang-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  golang-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: golang-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  golang-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: golang-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/golang-tinyflags-add-flag": 0.1.0
+      "@examples/skills/golang-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/golang-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/golang-tinyflags-maintainer": 0.1.0

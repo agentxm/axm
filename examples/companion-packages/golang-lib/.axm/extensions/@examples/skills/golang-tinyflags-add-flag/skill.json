@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "golang-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Add a TinyFlags flag to a Go project with tests.",
+  "keywords": ["go", "golang", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:golang/github.com/agentxm/example-tinyflags@0.1.0"],
+  "recommendedPacks": ["@examples/packs/golang-tinyflags"],
+  "standalone": false
+}

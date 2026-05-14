@@ -1,0 +1,5 @@
+/vendor/
+/pawmatch
+*.test
+*.out
+coverage.out

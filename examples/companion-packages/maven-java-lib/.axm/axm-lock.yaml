@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  maven-java-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: maven-java-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  maven-java-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: maven-java-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  maven-java-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: maven-java-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  maven-java-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: maven-java-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  maven-java-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: maven-java-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/maven-java-tinyflags-add-flag": 0.1.0
+      "@examples/skills/maven-java-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/maven-java-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/maven-java-tinyflags-maintainer": 0.1.0

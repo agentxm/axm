@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "maven-kotlin-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Remove a stale TinyFlags flag from a Maven Kotlin project.",
+  "keywords": ["maven", "kotlin", "jvm", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:maven/ai.agentxm.examples/tinyflags-kotlin"],
+  "recommendedPacks": ["@examples/packs/maven-kotlin-tinyflags"],
+  "standalone": false
+}

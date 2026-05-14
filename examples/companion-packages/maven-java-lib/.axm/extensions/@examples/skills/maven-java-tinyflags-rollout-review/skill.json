@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "maven-java-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Review TinyFlags rollout safety in a Maven Java project.",
+  "keywords": ["maven", "java", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:maven/ai.agentxm.examples/tinyflags-java@0.1.0"],
+  "recommendedPacks": ["@examples/packs/maven-java-tinyflags"],
+  "standalone": false
+}

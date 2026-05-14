@@ -25,6 +25,7 @@ import type {
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
+import type { Bugs, Repository } from "../extensions/common.js";
 import type { DiscoverExtensionsResponse } from "./discover-schema.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import { createLocalRegistryClient } from "./local-client.js";
@@ -214,7 +215,8 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly type: T;
   readonly name: ExtensionName;
   readonly description: Option.Option<string>;
-  readonly repository: Option.Option<string>;
+  readonly repository: Option.Option<Repository>;
+  readonly bugs: Option.Option<Bugs>;
   readonly license: Option.Option<string>;
   readonly authors: ReadonlyArray<Author>;
   readonly dependencies: ExtensionDependencyConstraintMap;

@@ -14,7 +14,7 @@ import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionTypeSchema,
 } from "../extensions/index.js";
-import { ExtensionNameSchema } from "../extensions/common.js";
+import { BugsSchema, ExtensionNameSchema, RepositorySchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { PackageUrlSchema } from "../packaging/package-url.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
@@ -65,7 +65,8 @@ export type VersionEntry = Schema.Schema.Type<typeof VersionEntrySchema>;
  * - owner: Owner namespace including `@` prefix (e.g., "@acme")
  * - type: Extension type ("skill", "mcp-server", or "pack")
  * - description: Optional human-readable description
- * - repository: Optional repository URL
+ * - repository: Optional repository URL or object (`{ type?, url, directory? }`)
+ * - bugs: Optional bug-tracker URL or object (`{ url?, email? }`)
  * - license: Optional SPDX license identifier
  * - authors: Optional list of authors
  * - versions: Array of version entries, newest first
@@ -77,7 +78,8 @@ export const ExtensionIndexSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   description: Schema.optional(Schema.String),
-  repository: Schema.optional(Schema.String),
+  repository: Schema.optional(RepositorySchema),
+  bugs: Schema.optional(BugsSchema),
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   versions: Schema.Array(VersionEntrySchema),

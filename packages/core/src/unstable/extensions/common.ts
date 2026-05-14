@@ -45,6 +45,97 @@ export const toAuthor = (author: Schema.Schema.Type<typeof AuthorSchema>): Autho
   url: Option.fromUndefinedOr(author.url),
 });
 
+/**
+ * Repository field for extension manifests. Accepts either a URL string
+ * (or shorthand like `github:owner/repo`) or an npm-style object with
+ * optional `type` and `directory` for monorepo subpaths.
+ *
+ * Matches the shape accepted by npm's `package.json` `repository` field.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RepositorySchema = Schema.Union([
+  Schema.String.annotate({
+    examples: ["https://github.com/acme/code-review", "github:acme/code-review"],
+    format: "uri-reference",
+  }),
+  Schema.Struct({
+    type: Schema.optional(
+      Schema.NonEmptyString.annotate({
+        description: "Version control system (e.g., `git`).",
+        examples: ["git"],
+      }),
+    ),
+    url: Schema.NonEmptyString.pipe(
+      Schema.annotateKey({ messageMissingKey: "repository url is required" }),
+      Schema.annotate({
+        description: "Repository URL.",
+        examples: ["https://github.com/acme/code-review"],
+        format: "uri",
+      }),
+    ),
+    directory: Schema.optional(
+      Schema.NonEmptyString.annotate({
+        description: "Subdirectory within the repository, for monorepo publishers.",
+        examples: ["packages/code-review"],
+      }),
+    ),
+  }),
+]).annotate({
+  identifier: "Repository",
+  title: "Repository",
+  description:
+    "Source repository for this extension. Accepts a URL string (or `host:owner/repo` shorthand) or an object with `type`, `url`, and optional `directory`.",
+});
+
+/**
+ * Inferred type for {@link RepositorySchema}.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type Repository = Schema.Schema.Type<typeof RepositorySchema>;
+
+/**
+ * Bugs field for extension manifests. Accepts either a URL string or an
+ * npm-style object with optional `url` and `email`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const BugsSchema = Schema.Union([
+  Schema.String.annotate({
+    examples: ["https://github.com/acme/code-review/issues"],
+    format: "uri",
+  }),
+  Schema.Struct({
+    url: Schema.optional(
+      Schema.NonEmptyString.annotate({
+        description: "Issue tracker URL.",
+        examples: ["https://github.com/acme/code-review/issues"],
+        format: "uri",
+      }),
+    ),
+    email: Schema.optional(
+      Schema.NonEmptyString.annotate({
+        description: "Contact email for bug reports.",
+        examples: ["bugs@acme.dev"],
+        format: "email",
+      }),
+    ),
+  }),
+]).annotate({
+  identifier: "Bugs",
+  title: "Bugs",
+  description:
+    "Where to report bugs against this extension. Accepts a URL string or an object with optional `url` and `email`.",
+});
+
+/**
+ * Inferred type for {@link BugsSchema}.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type Bugs = Schema.Schema.Type<typeof BugsSchema>;
+
 export const extensionTypes = [
   "skill",
   "command",
@@ -582,12 +673,7 @@ export const CommonManifestBaseFields = {
       examples: [["lint", "typescript", "review"]],
     }),
   ),
-  repository: Schema.optional(
-    Schema.String.annotate({
-      examples: ["https://github.com/acme/code-review"],
-      format: "uri",
-    }),
-  ),
+  repository: Schema.optional(RepositorySchema),
   homepage: Schema.optional(
     Schema.String.annotate({
       examples: ["https://acme.dev/code-review"],
@@ -599,12 +685,7 @@ export const CommonManifestBaseFields = {
       examples: ["MIT", "Apache-2.0"],
     }),
   ),
-  bugs: Schema.optional(
-    Schema.String.annotate({
-      examples: ["https://github.com/acme/code-review/issues"],
-      format: "uri",
-    }),
-  ),
+  bugs: Schema.optional(BugsSchema),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   companionPackages: Schema.optional(
     Schema.Array(PackageUrlSchema).pipe(

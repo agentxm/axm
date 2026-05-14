@@ -127,6 +127,7 @@ const toRegistryManifest = (
     name: index.name,
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
+    bugs: Option.fromUndefinedOr(index.bugs),
     license: Option.fromUndefinedOr(index.license),
     authors: index.authors === undefined ? [] : index.authors.map((author) => toAuthor(author)),
     dependencies: latest.dependencies ?? {},

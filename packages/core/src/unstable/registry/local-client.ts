@@ -84,6 +84,7 @@ const indexToManifest = (
     name: index.name,
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
+    bugs: Option.fromUndefinedOr(index.bugs),
     license: Option.fromUndefinedOr(index.license),
     authors: Option.match(Option.fromUndefinedOr(index.authors), {
       onNone: (): ReadonlyArray<Author> => [],

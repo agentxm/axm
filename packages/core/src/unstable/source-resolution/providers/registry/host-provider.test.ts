@@ -114,7 +114,8 @@ const makeManifest = (overrides?: {
   readonly type?: RegistryExtensionManifest["type"];
   readonly name?: string;
   readonly description?: Option.Option<string>;
-  readonly repository?: Option.Option<string>;
+  readonly repository?: RegistryExtensionManifest["repository"];
+  readonly bugs?: RegistryExtensionManifest["bugs"];
   readonly license?: Option.Option<string>;
   readonly authors?: RegistryExtensionManifest["authors"];
   readonly dependencies?: Record<string, string>;
@@ -126,6 +127,7 @@ const makeManifest = (overrides?: {
   name: extensionName(overrides?.name ?? "my-skill"),
   description: overrides?.description ?? Option.none(),
   repository: overrides?.repository ?? Option.none(),
+  bugs: overrides?.bugs ?? Option.none(),
   license: overrides?.license ?? Option.none(),
   authors: overrides?.authors ?? [],
   dependencies: dependencyConstraints(overrides?.dependencies ?? {}),

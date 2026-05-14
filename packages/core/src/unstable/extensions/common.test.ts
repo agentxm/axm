@@ -482,6 +482,81 @@ describe("common schemas", () => {
 
       expect(Result.isFailure(result)).toBe(true);
     });
+
+    it("accepts repository as an object with type, url, and directory", () => {
+      const input = {
+        owner: "@wayne",
+        name: "grappling-hook",
+        version: "1.0.0",
+        repository: {
+          type: "git",
+          url: "https://github.com/wayne/tools",
+          directory: "packages/grappling-hook",
+        },
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        const repo = result.success.repository;
+        expect(typeof repo === "object" && repo !== null && "url" in repo).toBe(true);
+        if (typeof repo === "object" && repo !== null) {
+          expect(repo.url).toBe("https://github.com/wayne/tools");
+          expect(repo.directory).toBe("packages/grappling-hook");
+        }
+      }
+    });
+
+    it("rejects repository object missing url", () => {
+      const input = {
+        owner: "@wayne",
+        name: "grappling-hook",
+        version: "1.0.0",
+        repository: { type: "git", directory: "packages/grappling-hook" },
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("accepts bugs as an object with url and email", () => {
+      const input = {
+        owner: "@wayne",
+        name: "grappling-hook",
+        version: "1.0.0",
+        bugs: {
+          url: "https://github.com/wayne/grappling-hook/issues",
+          email: "bugs@wayne.dev",
+        },
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        const bugs = result.success.bugs;
+        expect(typeof bugs === "object" && bugs !== null && "url" in bugs).toBe(true);
+        if (typeof bugs === "object" && bugs !== null) {
+          expect(bugs.url).toBe("https://github.com/wayne/grappling-hook/issues");
+          expect(bugs.email).toBe("bugs@wayne.dev");
+        }
+      }
+    });
+
+    it("accepts bugs as an object with only email", () => {
+      const input = {
+        owner: "@wayne",
+        name: "grappling-hook",
+        version: "1.0.0",
+        bugs: { email: "bugs@wayne.dev" },
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
   });
 
   describe("Handle", () => {

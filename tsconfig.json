@@ -2,33 +2,5 @@
   "extends": "./tsconfig.base.json",
   "files": [],
   "include": [],
-  "references": [
-    {
-      "path": "./packages/cli-spike-e2e/tsconfig.json"
-    },
-    {
-      "path": "./packages/cli-spike/tsconfig.json"
-    },
-    {
-      "path": "./packages/e2e-utils/tsconfig.json"
-    },
-    {
-      "path": "./packages/cli-e2e/tsconfig.json"
-    },
-    {
-      "path": "./packages/utils/tsconfig.json"
-    },
-    {
-      "path": "./packages/core/tsconfig.json"
-    },
-    {
-      "path": "./packages/cli/tsconfig.json"
-    },
-    {
-      "path": "./scripts/tsconfig.json"
-    },
-    {
-      "path": "./examples/companion-packages/javascript-npm-lib/tsconfig.json"
-    }
-  ]
+  "references": []
 }

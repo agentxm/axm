@@ -62,20 +62,55 @@ const getAnnotatedAllOfRecord = (schema: Record<string, unknown>): Record<string
   return annotated;
 };
 
-const getOptionalFieldExamplesRecord = (
-  schema: Record<string, unknown>,
-): Record<string, unknown> => {
-  const fieldSchema = getFirstAnyOfRecord(schema);
-  if (Array.isArray(fieldSchema["examples"])) {
-    return fieldSchema;
+const resolveRef = (rootSchema: Record<string, unknown>, ref: string): Record<string, unknown> => {
+  const prefix = "#/definitions/";
+  if (!ref.startsWith(prefix)) {
+    throw new Error(`Unsupported $ref: ${ref}`);
   }
-  const allOf = fieldSchema["allOf"];
+  return getDefinition(rootSchema, ref.slice(prefix.length));
+};
+
+const resolveRefIfPresent = (
+  rootSchema: Record<string, unknown>,
+  schema: Record<string, unknown>,
+): Record<string, unknown> =>
+  typeof schema["$ref"] === "string" ? resolveRef(rootSchema, schema["$ref"]) : schema;
+
+const findExamplesAnnotation = (
+  rootSchema: Record<string, unknown>,
+  schema: Record<string, unknown>,
+): Record<string, unknown> | undefined => {
+  if (Array.isArray(schema["examples"])) {
+    return schema;
+  }
+  if (typeof schema["$ref"] === "string") {
+    return findExamplesAnnotation(rootSchema, resolveRef(rootSchema, schema["$ref"]));
+  }
+  const allOf = schema["allOf"];
   if (Array.isArray(allOf)) {
     const annotated = allOf.find((entry) => isRecord(entry) && Array.isArray(entry["examples"]));
     if (isRecord(annotated)) {
       return annotated;
     }
   }
+  const anyOf = schema["anyOf"];
+  if (Array.isArray(anyOf)) {
+    for (const branch of anyOf) {
+      if (!isRecord(branch)) continue;
+      const found = findExamplesAnnotation(rootSchema, branch);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+};
+
+const getOptionalFieldExamplesRecord = (
+  rootSchema: Record<string, unknown>,
+  schema: Record<string, unknown>,
+): Record<string, unknown> => {
+  const fieldSchema = getFirstAnyOfRecord(schema);
+  const found = findExamplesAnnotation(rootSchema, fieldSchema);
+  if (found !== undefined) return found;
   throw new Error("Expected an examples annotation on the optional field.");
 };
 
@@ -141,11 +176,19 @@ describe("generated schemas", () => {
     const manifest = getDefinition(commandSchema, "CommandManifest");
 
     for (const field of ["license", "bugs", "repository", "homepage", "keywords"]) {
-      const fieldSchema = getOptionalFieldExamplesRecord(getProperty(manifest, field));
+      const fieldSchema = getOptionalFieldExamplesRecord(
+        commandSchema,
+        getProperty(manifest, field),
+      );
       expect(fieldSchema["examples"]).toEqual(expect.any(Array));
     }
 
-    expect(getFirstAnyOfRecord(getProperty(manifest, "repository"))["format"]).toBe("uri");
+    const repositoryDefinition = resolveRefIfPresent(
+      commandSchema,
+      getFirstAnyOfRecord(getProperty(manifest, "repository")),
+    );
+    const repositoryStringBranch = getFirstAnyOfRecord(repositoryDefinition);
+    expect(repositoryStringBranch["format"]).toBe("uri-reference");
     expect(getFirstAnyOfRecord(getProperty(manifest, "homepage"))["format"]).toBe("uri");
   });
 

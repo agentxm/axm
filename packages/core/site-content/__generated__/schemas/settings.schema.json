@@ -486,6 +486,11 @@
     "AxmSettings": {
       "type": "object",
       "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "URL to the AXM settings JSON Schema. Editors use this to provide autocomplete and validation.",
+          "examples": ["https://axm.sh/schemas/settings.schema.json"]
+        },
         "telemetry": {
           "anyOf": [{ "$ref": "#/definitions/TelemetryMode" }],
           "description": "Workspace telemetry mode: full, errors-only, or disabled."

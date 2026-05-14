@@ -838,6 +838,7 @@ export type PacksConfig = Schema.Schema.Type<typeof PacksConfigSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
+  "$schema",
   "telemetry",
   "owner",
   "sources",
@@ -876,6 +877,13 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * @experimental This API is unstable and may change without notice.
  */
 export const SettingsSchema = Schema.Struct({
+  $schema: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "URL to the AXM settings JSON Schema. Editors use this to provide autocomplete and validation.",
+      examples: ["https://axm.sh/schemas/settings.schema.json"],
+    }),
+  ),
   telemetry: Schema.optionalKey(
     Schema.Union([TelemetryModeSchema]).annotate({
       description: "Workspace telemetry mode: full, errors-only, or disabled.",

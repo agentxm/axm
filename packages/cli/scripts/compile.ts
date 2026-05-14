@@ -5,12 +5,25 @@ import * as path from "node:path";
 const packageDir = path.join(import.meta.dirname, "..");
 const distDir = path.join(packageDir, "dist");
 const entrypoint = path.join(distDir, "src", "main.js");
-const outputDir = path.join(distDir, "bin");
+const releaseOutputDir = path.join(distDir, "bin");
+const devOutputDir = path.join(distDir, "dev-bin");
 const packageJsonPath = path.join(packageDir, "package.json");
 const args = process.argv.slice(2);
 const hostOnly = args.includes("--host-only");
-const unknownFlags = args.filter((arg) => arg.startsWith("--") && arg !== "--host-only");
+const devBuild = args.includes("--dev-build");
+const knownFlags = new Set(["--host-only", "--dev-build"]);
+const unknownFlags = args.filter((arg) => arg.startsWith("--") && !knownFlags.has(arg));
 const positionalArgs = args.filter((arg) => !arg.startsWith("--"));
+
+if (unknownFlags.length > 0 || positionalArgs.length > 0) {
+  throw new Error("Usage: bun scripts/compile.ts [--host-only] [--dev-build]");
+}
+
+if (devBuild && !hostOnly) {
+  throw new Error("Usage: --dev-build requires --host-only");
+}
+
+const outputDir = devBuild ? devOutputDir : releaseOutputDir;
 
 const targets = [
   { target: "bun-darwin-arm64", output: "axm-darwin-arm64" },
@@ -19,10 +32,6 @@ const targets = [
   { target: "bun-linux-x64", output: "axm-linux-x64" },
   { target: "bun-windows-x64", output: "axm-windows-x64.exe" },
 ] as const;
-
-if (unknownFlags.length > 0 || positionalArgs.length > 0) {
-  throw new Error("Usage: bun scripts/compile.ts [--host-only]");
-}
 
 const requireCompileTarget = (targetName: (typeof targets)[number]["target"]) => {
   const compileTarget = targets.find(({ target }) => target === targetName);
@@ -72,7 +81,7 @@ const resolveHostTarget = () => {
 const requestedTargets = hostOnly ? [resolveHostTarget()] : targets;
 
 const packageJson: unknown = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-const version =
+const baseVersion =
   typeof packageJson === "object" &&
   packageJson !== null &&
   "version" in packageJson &&
@@ -81,9 +90,30 @@ const version =
     ? packageJson.version
     : undefined;
 
-if (version === undefined) {
+if (baseVersion === undefined) {
   throw new Error(`Expected string version in ${packageJsonPath}`);
 }
+
+const tryGit = (gitArgs: ReadonlyArray<string>): string | undefined => {
+  const result = Bun.spawnSync(["git", ...gitArgs], {
+    cwd: packageDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (result.exitCode !== 0) return undefined;
+  const out = result.stdout?.toString().trim();
+  return out !== undefined && out.length > 0 ? out : "";
+};
+
+const resolveDevSuffix = (): string => {
+  const sha = tryGit(["rev-parse", "--short", "HEAD"]);
+  if (sha === undefined) return "-dev";
+  const dirty = tryGit(["status", "--porcelain"]);
+  const dirtySuffix = dirty !== undefined && dirty.length > 0 ? ".dirty" : "";
+  return sha.length > 0 ? `-dev+${sha}${dirtySuffix}` : "-dev";
+};
+
+const version = devBuild ? `${baseVersion}${resolveDevSuffix()}` : baseVersion;
 
 if (!fs.existsSync(entrypoint)) {
   throw new Error(`Build output missing: ${entrypoint}. Run cli:build first.`);
@@ -120,5 +150,5 @@ for (const { target, output } of requestedTargets) {
 }
 
 console.log(
-  `Compiled ${requestedTargets.length} ${requestedTargets.length === 1 ? "binary" : "binaries"} to ${path.relative(packageDir, outputDir)}`,
+  `Compiled ${requestedTargets.length} ${requestedTargets.length === 1 ? "binary" : "binaries"} (version ${version}) to ${path.relative(packageDir, outputDir)}`,
 );

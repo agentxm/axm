@@ -92,6 +92,16 @@
         "cwd": "packages/cli"
       }
     },
+    "compile-host-dev": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist/dev-bin"],
+      "options": {
+        "command": ["bun", "scripts/compile.ts", "--host-only", "--dev-build"],
+        "cwd": "packages/cli"
+      }
+    },
     "release-verify": {
       "cache": false,
       "dependsOn": ["cli-e2e:e2e", "cli-spike-e2e:e2e"],

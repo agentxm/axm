@@ -1,24 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Manage a symlink that exposes the local `axm-local` dev wrapper as `axm`
-# on PATH. Lets you iterate on the CLI source without rebuilding or
-# publishing — every invocation runs packages/cli/src/main.ts via bun.
+# Manage a symlink that exposes a local axm dev build as `axm` on PATH.
+# Two modes:
+#   link:local  symlink -> scripts/axm-local (bun wrapper, hot reload,
+#               registry forced to http://localhost:4300, telemetry off)
+#   link        compile a host-only dev binary via nx and symlink to it
+#               (uses prod registry defaults; version is suffixed
+#                `-dev+<sha>[.dirty]` so telemetry can filter dev builds)
 #
 # Subcommands:
-#   link     create the symlink (refuses to clobber a non-matching file)
-#   unlink   remove the symlink if it points at our wrapper
-#   status   print current state and `which -a axm` resolution
+#   link        compile dev binary and link to it
+#   link:local  link to the local bun wrapper
+#   unlink      remove the symlink if it points at one of our targets
+#   status      print current state and `which -a axm` resolution
 #
 # Env:
 #   AXM_DEV_BIN   target directory for the symlink (default: $HOME/.local/bin)
 #   AXM_DEV_NAME  symlink basename (default: axm)
 #
 # Flags:
-#   --force    overwrite an existing entry even if it isn't our symlink
+#   --force    overwrite an existing entry even if it isn't ours
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-target_script="${script_dir}/axm-local"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+local_target="${script_dir}/axm-local"
+dev_bin_dir="${repo_root}/packages/cli/dist/dev-bin"
 
 bin_dir="${AXM_DEV_BIN:-$HOME/.local/bin}"
 link_name="${AXM_DEV_NAME:-axm}"
@@ -31,10 +38,10 @@ for arg in "$@"; do
   case "$arg" in
     --force) force=1 ;;
     -h|--help)
-      sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
-    link|unlink|status) subcommand="$arg" ;;
+    link|link:local|unlink|status) subcommand="$arg" ;;
     *)
       echo "axm-link: unknown argument: $arg" >&2
       exit 2
@@ -43,9 +50,31 @@ for arg in "$@"; do
 done
 
 if [[ -z "$subcommand" ]]; then
-  echo "axm-link: missing subcommand (link | unlink | status)" >&2
+  echo "axm-link: missing subcommand (link | link:local | unlink | status)" >&2
   exit 2
 fi
+
+resolve_dev_binary_name() {
+  local os arch
+  case "$(uname -s)" in
+    Darwin) os=darwin ;;
+    Linux) os=linux ;;
+    MINGW*|MSYS*|CYGWIN*) os=windows ;;
+    *) echo "axm-link: unsupported OS: $(uname -s)" >&2; exit 1 ;;
+  esac
+  case "$(uname -m)" in
+    arm64|aarch64) arch=arm64 ;;
+    x86_64|amd64) arch=x64 ;;
+    *) echo "axm-link: unsupported arch: $(uname -m)" >&2; exit 1 ;;
+  esac
+  if [[ "$os" == "windows" ]]; then
+    echo "axm-${os}-${arch}.exe"
+  else
+    echo "axm-${os}-${arch}"
+  fi
+}
+
+dev_target="${dev_bin_dir}/$(resolve_dev_binary_name)"
 
 print_resolution() {
   if command -v which >/dev/null 2>&1; then
@@ -54,39 +83,71 @@ print_resolution() {
   fi
 }
 
-case "$subcommand" in
-  link)
-    if [[ ! -x "$target_script" ]]; then
-      echo "axm-link: target script not executable: $target_script" >&2
+is_ours() {
+  local target="$1"
+  [[ "$target" == "$local_target" || "$target" == "$dev_target" ]]
+}
+
+mode_label() {
+  local target="$1"
+  if [[ "$target" == "$local_target" ]]; then
+    echo "local (hot)"
+  elif [[ "$target" == "$dev_target" ]]; then
+    echo "dev-build"
+  else
+    echo "other ($target)"
+  fi
+}
+
+create_link() {
+  local target="$1"
+  mkdir -p "$bin_dir"
+  if [[ -L "$link_path" ]]; then
+    local current
+    current="$(readlink "$link_path")"
+    if [[ "$current" == "$target" ]]; then
+      echo "Already linked: $link_path -> $current"
+      print_resolution
+      return 0
+    fi
+    if is_ours "$current" || [[ $force -ne 0 ]]; then
+      rm "$link_path"
+    else
+      echo "axm-link: $link_path is a symlink to $current; pass --force to replace" >&2
       exit 1
     fi
-    mkdir -p "$bin_dir"
-    if [[ -L "$link_path" ]]; then
-      current="$(readlink "$link_path")"
-      if [[ "$current" == "$target_script" ]]; then
-        echo "Already linked: $link_path -> $current"
-        print_resolution
-        exit 0
-      fi
-      if [[ $force -eq 0 ]]; then
-        echo "axm-link: $link_path is a symlink to $current; pass --force to replace" >&2
-        exit 1
-      fi
-      rm "$link_path"
-    elif [[ -e "$link_path" ]]; then
-      if [[ $force -eq 0 ]]; then
-        echo "axm-link: $link_path exists and is not a symlink; pass --force to replace" >&2
-        exit 1
-      fi
-      rm "$link_path"
+  elif [[ -e "$link_path" ]]; then
+    if [[ $force -eq 0 ]]; then
+      echo "axm-link: $link_path exists and is not a symlink; pass --force to replace" >&2
+      exit 1
     fi
-    ln -s "$target_script" "$link_path"
-    echo "Linked: $link_path -> $target_script"
-    case ":$PATH:" in
-      *":$bin_dir:"*) ;;
-      *) echo "Warning: $bin_dir is not on PATH" >&2 ;;
-    esac
-    print_resolution
+    rm "$link_path"
+  fi
+  ln -s "$target" "$link_path"
+  echo "Linked [$(mode_label "$target")]: $link_path -> $target"
+  case ":$PATH:" in
+    *":$bin_dir:"*) ;;
+    *) echo "Warning: $bin_dir is not on PATH" >&2 ;;
+  esac
+  print_resolution
+}
+
+case "$subcommand" in
+  link)
+    echo "Compiling dev binary via nx..."
+    (cd "$repo_root" && pnpm exec nx run cli:compile-host-dev)
+    if [[ ! -x "$dev_target" ]]; then
+      echo "axm-link: expected dev binary not found or not executable: $dev_target" >&2
+      exit 1
+    fi
+    create_link "$dev_target"
+    ;;
+  link:local)
+    if [[ ! -x "$local_target" ]]; then
+      echo "axm-link: local wrapper not executable: $local_target" >&2
+      exit 1
+    fi
+    create_link "$local_target"
     ;;
   unlink)
     if [[ ! -L "$link_path" ]]; then
@@ -94,7 +155,7 @@ case "$subcommand" in
       exit 0
     fi
     current="$(readlink "$link_path")"
-    if [[ "$current" != "$target_script" && $force -eq 0 ]]; then
+    if ! is_ours "$current" && [[ $force -eq 0 ]]; then
       echo "axm-link: $link_path -> $current is not our symlink; pass --force to remove" >&2
       exit 1
     fi
@@ -103,15 +164,12 @@ case "$subcommand" in
     print_resolution
     ;;
   status)
-    echo "Target script: $target_script"
+    echo "Local target:  $local_target"
+    echo "Dev target:    $dev_target"
     echo "Link path:     $link_path"
     if [[ -L "$link_path" ]]; then
       current="$(readlink "$link_path")"
-      if [[ "$current" == "$target_script" ]]; then
-        echo "State:         linked (ours)"
-      else
-        echo "State:         linked to $current (not ours)"
-      fi
+      echo "State:         linked [$(mode_label "$current")]"
     elif [[ -e "$link_path" ]]; then
       echo "State:         exists, not a symlink"
     else

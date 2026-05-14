@@ -1,0 +1,6 @@
+build/
+build-*/
+cmake-build-*/
+CMakeUserPresets.json
+.cache/
+test_package/build/

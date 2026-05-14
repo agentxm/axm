@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "cpp-conan-tinyflags-cleanup-flag",
+  "version": "0.1.0",
+  "description": "Retire a rolled-out TinyFlags flag from C++ code, keeping the live branch and pruning dead tests.",
+  "keywords": ["cpp", "c++", "conan", "cmake", "feature-flags", "cleanup"],
+  "companionPackages": ["pkg:conan/agentxm-example-tinyflags"],
+  "recommendedPacks": ["@examples/packs/cpp-conan-tinyflags"],
+  "standalone": false
+}

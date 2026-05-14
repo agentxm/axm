@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "dotnet-fsharp-nuget-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from a .NET F# project.",
+  "description": "Retire a rolled-out TinyFlags flag from F# code, keeping the live branch and pruning dead tests.",
   "keywords": ["nuget", "dotnet", "fsharp", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:nuget/agentxm.examples.tinyflags.fsharp@0.2.0"],
   "recommendedPacks": ["@examples/packs/dotnet-fsharp-nuget-tinyflags"],

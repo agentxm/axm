@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "go-gomod-tinyflags-add-flag",
   "version": "0.1.0",
-  "description": "Add a TinyFlags flag to a Go project with tests.",
+  "description": "Wrap a Go code path in a TinyFlags feature flag and scaffold its unit tests.",
   "keywords": ["go", "golang", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:golang/github.com/agentxm/example-tinyflags@0.1.0"],
   "recommendedPacks": ["@examples/packs/go-gomod-tinyflags"],

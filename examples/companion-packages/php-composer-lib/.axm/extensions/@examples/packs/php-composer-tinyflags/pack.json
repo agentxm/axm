@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "php-composer-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the Composer PHP TinyFlags package.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on PHP (Composer).",
   "keywords": ["composer", "php", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:composer/agentxm/example-tinyflags@^0.1.0"],
   "dependencies": {

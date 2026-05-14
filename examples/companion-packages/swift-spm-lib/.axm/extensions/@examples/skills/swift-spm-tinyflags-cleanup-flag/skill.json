@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "swift-spm-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from a Swift project.",
+  "description": "Retire a rolled-out TinyFlags flag from Swift (SwiftPM) code, keeping the live branch and pruning dead tests.",
   "keywords": ["swift", "swiftpm", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:swift/example.com/agentxm/example-tinyflags-swift@^0.1.0"],
   "recommendedPacks": ["@examples/packs/swift-spm-tinyflags"],

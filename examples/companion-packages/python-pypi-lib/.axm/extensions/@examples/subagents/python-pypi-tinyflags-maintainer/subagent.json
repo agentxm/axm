@@ -4,7 +4,7 @@
   "type": "subagent",
   "name": "python-pypi-tinyflags-maintainer",
   "version": "0.1.0",
-  "description": "Review and maintain TinyFlags usage in PyPI Python projects.",
+  "description": "Triage TinyFlags feature flags across a Python codebase and recommend cleanup or rollout follow-ups.",
   "keywords": ["pypi", "python", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:pypi/agentxm-example-tinyflags@0.1.0"],
   "recommendedPacks": ["@examples/packs/python-pypi-tinyflags"],

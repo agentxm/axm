@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "rust-cargo-tinyflags-rollout-review",
   "version": "0.1.0",
-  "description": "Review TinyFlags rollout safety in a Rust project.",
+  "description": "Audit a TinyFlags flag's Rust callsites and rollout state before advancing the gate.",
   "keywords": ["rust", "cargo", "feature-flags", "rollout", "review"],
   "companionPackages": ["pkg:cargo/agentxm-example-tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/rust-cargo-tinyflags"],

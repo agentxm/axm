@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "dotnet-fsharp-nuget-tinyflags-add-flag",
   "version": "0.1.0",
-  "description": "Add a TinyFlags flag to a .NET F# project with tests.",
+  "description": "Wrap an F# code path in a TinyFlags feature flag and scaffold its unit tests.",
   "keywords": ["nuget", "dotnet", "fsharp", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:nuget/agentxm.examples.tinyflags.fsharp@0.2.0"],
   "recommendedPacks": ["@examples/packs/dotnet-fsharp-nuget-tinyflags"],

@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "dotnet-fsharp-nuget-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the .NET F# TinyFlags package.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on F# (NuGet).",
   "keywords": ["nuget", "dotnet", "fsharp", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:nuget/agentxm.examples.tinyflags.fsharp@0.2.0"],
   "dependencies": {

@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "elixir-hex-tinyflags-rollout-review",
   "version": "0.1.0",
-  "description": "Review TinyFlags rollout safety in an Elixir project.",
+  "description": "Audit a TinyFlags flag's Elixir callsites and rollout state before advancing the gate.",
   "keywords": ["elixir", "hex", "feature-flags", "rollout", "review"],
   "companionPackages": ["pkg:hex/agentxm_example_tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/elixir-hex-tinyflags"],

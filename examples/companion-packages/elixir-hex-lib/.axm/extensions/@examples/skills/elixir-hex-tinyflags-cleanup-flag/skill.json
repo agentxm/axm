@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "elixir-hex-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from an Elixir project.",
+  "description": "Retire a rolled-out TinyFlags flag from Elixir code, keeping the live branch and pruning dead tests.",
   "keywords": ["elixir", "hex", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:hex/agentxm_example_tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/elixir-hex-tinyflags"],

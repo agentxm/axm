@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "dart-pub-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from a Pub Dart project.",
+  "description": "Retire a rolled-out TinyFlags flag from Dart code, keeping the live branch and pruning dead tests.",
   "keywords": ["pub", "dart", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:pub/agentxm_example_tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/dart-pub-tinyflags"],

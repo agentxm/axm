@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "swift-spm-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the Swift TinyFlags package.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Swift (SwiftPM).",
   "keywords": ["swift", "swiftpm", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:swift/example.com/agentxm/example-tinyflags-swift@^0.1.0"],
   "dependencies": {

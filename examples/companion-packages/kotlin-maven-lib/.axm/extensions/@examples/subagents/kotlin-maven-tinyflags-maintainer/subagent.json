@@ -4,7 +4,7 @@
   "type": "subagent",
   "name": "kotlin-maven-tinyflags-maintainer",
   "version": "0.1.0",
-  "description": "Review and maintain TinyFlags usage in Maven Kotlin projects.",
+  "description": "Triage TinyFlags feature flags across a Kotlin codebase and recommend cleanup or rollout follow-ups.",
   "keywords": ["maven", "kotlin", "jvm", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:maven/ai.agentxm.examples/tinyflags-kotlin"],
   "recommendedPacks": ["@examples/packs/kotlin-maven-tinyflags"],

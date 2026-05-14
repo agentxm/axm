@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "swift-cocoapods-tinyflags-add-flag",
   "version": "0.1.0",
-  "description": "Add a TinyFlags flag to a CocoaPods Swift project with tests.",
+  "description": "Wrap a Swift (CocoaPods) code path in a TinyFlags feature flag and scaffold its unit tests.",
   "keywords": ["cocoapods", "swift", "ios", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:cocoapods/AgentXMExampleTinyFlags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/swift-cocoapods-tinyflags"],

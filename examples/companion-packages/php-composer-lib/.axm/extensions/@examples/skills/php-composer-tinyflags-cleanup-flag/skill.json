@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "php-composer-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from a Composer PHP project.",
+  "description": "Retire a rolled-out TinyFlags flag from PHP code, keeping the live branch and pruning dead tests.",
   "keywords": ["composer", "php", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:composer/agentxm/example-tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/php-composer-tinyflags"],

@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "elixir-hex-tinyflags-add-flag",
   "version": "0.1.0",
-  "description": "Add a TinyFlags flag to an Elixir project with ExUnit tests.",
+  "description": "Wrap an Elixir code path in a TinyFlags feature flag and scaffold its unit tests.",
   "keywords": ["elixir", "hex", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:hex/agentxm_example_tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/elixir-hex-tinyflags"],

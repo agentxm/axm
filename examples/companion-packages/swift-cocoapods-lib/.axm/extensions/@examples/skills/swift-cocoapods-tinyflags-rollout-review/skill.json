@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "swift-cocoapods-tinyflags-rollout-review",
   "version": "0.1.0",
-  "description": "Review TinyFlags rollout safety in a CocoaPods Swift project.",
+  "description": "Audit a TinyFlags flag's Swift (CocoaPods) callsites and rollout state before advancing the gate.",
   "keywords": ["cocoapods", "swift", "ios", "feature-flags", "rollout", "review"],
   "companionPackages": ["pkg:cocoapods/AgentXMExampleTinyFlags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/swift-cocoapods-tinyflags"],

@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "swift-spm-tinyflags-rollout-review",
   "version": "0.1.0",
-  "description": "Review TinyFlags rollout safety in a Swift project.",
+  "description": "Audit a TinyFlags flag's Swift (SwiftPM) callsites and rollout state before advancing the gate.",
   "keywords": ["swift", "swiftpm", "feature-flags", "rollout", "review"],
   "companionPackages": ["pkg:swift/example.com/agentxm/example-tinyflags-swift@^0.1.0"],
   "recommendedPacks": ["@examples/packs/swift-spm-tinyflags"],

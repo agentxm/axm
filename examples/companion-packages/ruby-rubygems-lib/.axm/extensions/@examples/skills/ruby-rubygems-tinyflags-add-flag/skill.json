@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "ruby-rubygems-tinyflags-add-flag",
   "version": "0.1.0",
-  "description": "Add a TinyFlags flag to a Ruby gem project with tests.",
+  "description": "Wrap a Ruby code path in a TinyFlags feature flag and scaffold its unit tests.",
   "keywords": ["gem", "ruby", "rubygems", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:gem/agentxm-example-tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/ruby-rubygems-tinyflags"],

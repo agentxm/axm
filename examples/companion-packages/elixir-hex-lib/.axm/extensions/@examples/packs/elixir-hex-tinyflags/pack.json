@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "elixir-hex-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the Elixir / Hex TinyFlags package.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Elixir (Hex).",
   "keywords": ["elixir", "hex", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:hex/agentxm_example_tinyflags@^0.1.0"],
   "dependencies": {

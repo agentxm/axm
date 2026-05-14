@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "javascript-npm-tinyflags-add-flag",
   "version": "0.1.0",
-  "description": "Add a TinyFlags flag to an npm JavaScript project with tests.",
+  "description": "Wrap a JavaScript code path in a TinyFlags feature flag and scaffold its unit tests.",
   "keywords": ["npm", "javascript", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:npm/%40agentxm/example-tinyflags@0.1.0"],
   "recommendedPacks": ["@examples/packs/javascript-npm-tinyflags"],

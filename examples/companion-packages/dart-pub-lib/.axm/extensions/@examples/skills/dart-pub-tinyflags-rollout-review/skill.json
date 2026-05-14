@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "dart-pub-tinyflags-rollout-review",
   "version": "0.1.0",
-  "description": "Review TinyFlags rollout safety in a Pub Dart project.",
+  "description": "Audit a TinyFlags flag's Dart callsites and rollout state before advancing the gate.",
   "keywords": ["pub", "dart", "feature-flags", "rollout", "review"],
   "companionPackages": ["pkg:pub/agentxm_example_tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/dart-pub-tinyflags"],

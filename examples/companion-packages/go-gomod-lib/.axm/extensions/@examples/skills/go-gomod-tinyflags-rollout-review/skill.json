@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "go-gomod-tinyflags-rollout-review",
   "version": "0.1.0",
-  "description": "Review TinyFlags rollout safety in a Go project.",
+  "description": "Audit a TinyFlags flag's Go callsites and rollout state before advancing the gate.",
   "keywords": ["go", "golang", "feature-flags", "rollout", "review"],
   "companionPackages": ["pkg:golang/github.com/agentxm/example-tinyflags@0.1.0"],
   "recommendedPacks": ["@examples/packs/go-gomod-tinyflags"],

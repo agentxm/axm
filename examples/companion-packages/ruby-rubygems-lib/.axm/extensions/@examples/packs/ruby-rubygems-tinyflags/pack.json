@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "ruby-rubygems-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the RubyGems TinyFlags package.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Ruby (RubyGems).",
   "keywords": ["gem", "ruby", "rubygems", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:gem/agentxm-example-tinyflags@^0.1.0"],
   "dependencies": {

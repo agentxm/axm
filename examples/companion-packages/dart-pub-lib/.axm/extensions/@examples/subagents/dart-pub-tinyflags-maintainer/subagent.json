@@ -4,7 +4,7 @@
   "type": "subagent",
   "name": "dart-pub-tinyflags-maintainer",
   "version": "0.1.0",
-  "description": "Review and maintain TinyFlags usage in Pub Dart projects.",
+  "description": "Triage TinyFlags feature flags across a Dart codebase and recommend cleanup or rollout follow-ups.",
   "keywords": ["pub", "dart", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:pub/agentxm_example_tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/dart-pub-tinyflags"],

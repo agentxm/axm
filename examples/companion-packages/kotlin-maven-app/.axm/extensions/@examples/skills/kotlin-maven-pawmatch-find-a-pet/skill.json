@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "kotlin-maven-pawmatch-find-a-pet",
   "version": "0.1.0",
-  "description": "Help an end user identify and apply for an adoptable pet using the PawMatch CLI.",
+  "description": "Guide a user through the PawMatch pet-adoption CLI to shortlist and apply for an adoptable pet.",
   "keywords": ["maven", "kotlin", "pawmatch", "adoption", "cli"],
   "standalone": true
 }

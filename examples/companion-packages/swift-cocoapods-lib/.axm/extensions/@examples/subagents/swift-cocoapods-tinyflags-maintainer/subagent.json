@@ -4,7 +4,7 @@
   "type": "subagent",
   "name": "swift-cocoapods-tinyflags-maintainer",
   "version": "0.1.0",
-  "description": "Review and maintain TinyFlags usage in CocoaPods Swift projects.",
+  "description": "Triage TinyFlags feature flags across a Swift (CocoaPods) codebase and recommend cleanup or rollout follow-ups.",
   "keywords": ["cocoapods", "swift", "ios", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:cocoapods/AgentXMExampleTinyFlags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/swift-cocoapods-tinyflags"],

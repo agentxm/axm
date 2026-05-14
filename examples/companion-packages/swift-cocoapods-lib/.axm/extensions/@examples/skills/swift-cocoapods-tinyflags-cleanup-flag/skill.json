@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "swift-cocoapods-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from a CocoaPods Swift project.",
+  "description": "Retire a rolled-out TinyFlags flag from Swift (CocoaPods) code, keeping the live branch and pruning dead tests.",
   "keywords": ["cocoapods", "swift", "ios", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:cocoapods/AgentXMExampleTinyFlags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/swift-cocoapods-tinyflags"],

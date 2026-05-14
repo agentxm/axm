@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "rust-cargo-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from a Rust project.",
+  "description": "Retire a rolled-out TinyFlags flag from Rust code, keeping the live branch and pruning dead tests.",
   "keywords": ["rust", "cargo", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:cargo/agentxm-example-tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/rust-cargo-tinyflags"],

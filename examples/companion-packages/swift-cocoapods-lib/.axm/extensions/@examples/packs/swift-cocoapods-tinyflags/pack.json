@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "swift-cocoapods-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the CocoaPods TinyFlags package.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Swift (CocoaPods).",
   "keywords": ["cocoapods", "swift", "ios", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:cocoapods/AgentXMExampleTinyFlags@^0.1.0"],
   "dependencies": {

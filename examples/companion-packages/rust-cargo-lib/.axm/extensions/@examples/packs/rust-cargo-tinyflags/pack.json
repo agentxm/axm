@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "rust-cargo-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the Rust TinyFlags crate.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Rust (Cargo).",
   "keywords": ["rust", "cargo", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:cargo/agentxm-example-tinyflags@^0.1.0"],
   "dependencies": {

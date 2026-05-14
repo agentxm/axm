@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "dart-pub-tinyflags-add-flag",
   "version": "0.1.0",
-  "description": "Add a TinyFlags flag to a Pub Dart project with tests.",
+  "description": "Wrap a Dart code path in a TinyFlags feature flag and scaffold its unit tests.",
   "keywords": ["pub", "dart", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:pub/agentxm_example_tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/dart-pub-tinyflags"],

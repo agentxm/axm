@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "scala-maven-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from a Maven Scala project.",
+  "description": "Retire a rolled-out TinyFlags flag from Scala code, keeping the live branch and pruning dead tests.",
   "keywords": ["maven", "scala", "scala3", "jvm", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:maven/ai.agentxm.examples/tinyflags-scala_3@^0.1.0"],
   "recommendedPacks": ["@examples/packs/scala-maven-tinyflags"],

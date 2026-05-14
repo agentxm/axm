@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "javascript-npm-tinyflags-rollout-review",
   "version": "0.1.0",
-  "description": "Review TinyFlags rollout safety in an npm JavaScript project.",
+  "description": "Audit a TinyFlags flag's JavaScript callsites and rollout state before advancing the gate.",
   "keywords": ["npm", "javascript", "feature-flags", "rollout", "review"],
   "companionPackages": ["pkg:npm/%40agentxm/example-tinyflags@0.1.0"],
   "recommendedPacks": ["@examples/packs/javascript-npm-tinyflags"],

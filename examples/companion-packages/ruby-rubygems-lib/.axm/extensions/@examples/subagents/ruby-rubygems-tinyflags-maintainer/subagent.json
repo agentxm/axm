@@ -4,7 +4,7 @@
   "type": "subagent",
   "name": "ruby-rubygems-tinyflags-maintainer",
   "version": "0.1.0",
-  "description": "Review and maintain TinyFlags usage in Ruby gem projects.",
+  "description": "Triage TinyFlags feature flags across a Ruby codebase and recommend cleanup or rollout follow-ups.",
   "keywords": ["gem", "ruby", "rubygems", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:gem/agentxm-example-tinyflags@^0.1.0"],
   "recommendedPacks": ["@examples/packs/ruby-rubygems-tinyflags"],

@@ -4,7 +4,7 @@
   "type": "subagent",
   "name": "swift-spm-tinyflags-maintainer",
   "version": "0.1.0",
-  "description": "Review and maintain TinyFlags usage in Swift projects.",
+  "description": "Triage TinyFlags feature flags across a Swift (SwiftPM) codebase and recommend cleanup or rollout follow-ups.",
   "keywords": ["swift", "swiftpm", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:swift/example.com/agentxm/example-tinyflags-swift@^0.1.0"],
   "recommendedPacks": ["@examples/packs/swift-spm-tinyflags"],

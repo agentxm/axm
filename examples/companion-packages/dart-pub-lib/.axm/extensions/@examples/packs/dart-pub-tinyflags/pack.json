@@ -4,7 +4,7 @@
   "type": "pack",
   "name": "dart-pub-tinyflags",
   "version": "0.1.0",
-  "description": "Companion AXM extensions for the Pub Dart TinyFlags package.",
+  "description": "Skills and a maintainer subagent for the TinyFlags feature-flag library on Dart (Pub).",
   "keywords": ["pub", "dart", "feature-flags", "tinyflags"],
   "companionPackages": ["pkg:pub/agentxm_example_tinyflags@^0.1.0"],
   "dependencies": {

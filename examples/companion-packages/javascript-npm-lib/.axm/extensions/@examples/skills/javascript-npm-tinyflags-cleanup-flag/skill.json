@@ -4,7 +4,7 @@
   "type": "skill",
   "name": "javascript-npm-tinyflags-cleanup-flag",
   "version": "0.1.0",
-  "description": "Remove a stale TinyFlags flag from an npm JavaScript project.",
+  "description": "Retire a rolled-out TinyFlags flag from JavaScript code, keeping the live branch and pruning dead tests.",
   "keywords": ["npm", "javascript", "feature-flags", "cleanup"],
   "companionPackages": ["pkg:npm/%40agentxm/example-tinyflags@0.1.0"],
   "recommendedPacks": ["@examples/packs/javascript-npm-tinyflags"],

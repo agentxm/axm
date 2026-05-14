@@ -1,0 +1,9 @@
+#!/usr/bin/env lua
+
+-- Collect command-line arguments into a 1-indexed Lua array.
+local argv = {}
+for i = 1, #arg do
+  argv[i] = arg[i]
+end
+
+os.exit(require("pawmatch.cli").run(argv))

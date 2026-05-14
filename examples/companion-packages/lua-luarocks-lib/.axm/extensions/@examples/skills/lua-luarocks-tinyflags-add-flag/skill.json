@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "lua-luarocks-tinyflags-add-flag",
+  "version": "0.1.0",
+  "description": "Wrap a Lua code path in a TinyFlags feature flag and scaffold its busted spec.",
+  "keywords": ["lua", "luarocks", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:luarocks/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/lua-luarocks-tinyflags"],
+  "standalone": false
+}

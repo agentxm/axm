@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@examples",
+  "type": "subagent",
+  "name": "lua-luarocks-tinyflags-maintainer",
+  "version": "0.1.0",
+  "description": "Triage TinyFlags feature flags across a Lua codebase and recommend cleanup or rollout follow-ups.",
+  "keywords": ["lua", "luarocks", "feature-flags", "tinyflags"],
+  "companionPackages": ["pkg:luarocks/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/lua-luarocks-tinyflags"],
+  "standalone": false
+}

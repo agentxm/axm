@@ -1,0 +1,7 @@
+return {
+  default = {
+    lpath = "./src/?.lua;./src/?/init.lua;../lua-luarocks-lib/src/?.lua",
+    pattern = "_spec",
+    verbose = true,
+  },
+}

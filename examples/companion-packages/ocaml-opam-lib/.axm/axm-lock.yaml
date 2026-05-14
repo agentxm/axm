@@ -1,0 +1,61 @@
+lockfileVersion: 1
+skills:
+  ocaml-opam-tinyflags-add-flag:
+    type: registry
+    owner: "@examples"
+    name: ocaml-opam-tinyflags-add-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  ocaml-opam-tinyflags-rollout-review:
+    type: registry
+    owner: "@examples"
+    name: ocaml-opam-tinyflags-rollout-review
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+  ocaml-opam-tinyflags-cleanup-flag:
+    type: registry
+    owner: "@examples"
+    name: ocaml-opam-tinyflags-cleanup-flag
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+subagents:
+  ocaml-opam-tinyflags-maintainer:
+    type: registry
+    owner: "@examples"
+    name: ocaml-opam-tinyflags-maintainer
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    agents: []
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+packs:
+  ocaml-opam-tinyflags:
+    type: registry
+    owner: "@examples"
+    name: ocaml-opam-tinyflags
+    resolvedVersion: 0.1.0
+    integrity: sha512-example
+    sourceName: default
+    installedAt: "2026-05-14T00:00:00.000Z"
+    updatedAt: "2026-05-14T00:00:00.000Z"
+    resolvedSkills:
+      "@examples/skills/ocaml-opam-tinyflags-add-flag": 0.1.0
+      "@examples/skills/ocaml-opam-tinyflags-rollout-review": 0.1.0
+      "@examples/skills/ocaml-opam-tinyflags-cleanup-flag": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+    resolvedSubagents:
+      "@examples/subagents/ocaml-opam-tinyflags-maintainer": 0.1.0

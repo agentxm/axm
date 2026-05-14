@@ -1,0 +1,3 @@
+(library
+ (name pawmatch)
+ (libraries tinyflags unix))

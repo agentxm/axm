@@ -1,0 +1,4 @@
+(executable
+ (name pawmatch)
+ (public_name pawmatch)
+ (libraries pawmatch))

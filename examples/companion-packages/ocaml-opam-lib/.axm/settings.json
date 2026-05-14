@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "telemetry": false,
+  "owner": "@examples",
+  "agents": [],
+  "skills": {
+    "ocaml-opam-tinyflags-add-flag": {
+      "source": "@examples/skills/ocaml-opam-tinyflags-add-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "ocaml-opam-tinyflags-rollout-review": {
+      "source": "@examples/skills/ocaml-opam-tinyflags-rollout-review@0.1.0",
+      "enabled": true,
+      "authored": true
+    },
+    "ocaml-opam-tinyflags-cleanup-flag": {
+      "source": "@examples/skills/ocaml-opam-tinyflags-cleanup-flag@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "subagents": {
+    "ocaml-opam-tinyflags-maintainer": {
+      "source": "@examples/subagents/ocaml-opam-tinyflags-maintainer@0.1.0",
+      "enabled": true,
+      "authored": true
+    }
+  },
+  "packs": {
+    "ocaml-opam-tinyflags": {
+      "source": "@examples/packs/ocaml-opam-tinyflags@0.1.0",
+      "authored": true
+    }
+  }
+}

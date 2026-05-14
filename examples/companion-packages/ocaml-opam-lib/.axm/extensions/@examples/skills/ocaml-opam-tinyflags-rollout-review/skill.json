@@ -1,0 +1,12 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@examples",
+  "type": "skill",
+  "name": "ocaml-opam-tinyflags-rollout-review",
+  "version": "0.1.0",
+  "description": "Audit a TinyFlags flag's OCaml callsites and rollout state before advancing the gate.",
+  "keywords": ["opam", "ocaml", "feature-flags", "rollout", "review"],
+  "companionPackages": ["pkg:opam/agentxm-example-tinyflags@^0.1.0"],
+  "recommendedPacks": ["@examples/packs/ocaml-opam-tinyflags"],
+  "standalone": false
+}

@@ -37,13 +37,13 @@ When the package author recommends an extension from package metadata, they stil
 
 ## Recommended extensions
 
-Any package author may declare `recommendedExtensions` in their package's native metadata to signal that those extensions are recommended for working with the package. For npm, that field lives in `package.json`:
+Any package author may declare `recommendedExtensions` in their package's native metadata to signal that those extensions are recommended for working with the package. Each entry is an extension reference (`@owner/<type>/<name>`) with an optional semver range. For npm, that field lives in `package.json`:
 
 ```jsonc
 // package.json
 {
   "axm": {
-    "recommendedExtensions": ["@acme/packs/widget-kit@^1.0.0"],
+    "recommendedExtensions": ["@acme/packs/widget-kit"],
   },
 }
 ```
@@ -51,6 +51,20 @@ Any package author may declare `recommendedExtensions` in their package's native
 A recommendation can target any extension type — skill, subagent, command, MCP server, or pack. When recommending more than one extension, prefer a pack: one stable reference for the package author, with evolvable contents over time.
 
 For the equivalent location in other package formats, see [Specifying recommended extensions in package metadata](#specifying-recommended-extensions-in-package-metadata) below.
+
+Default to identity-only — omit the `@<range>` suffix. A recommendation is a discovery signal: AXM resolves it to the newest matching extension version and pins that exact version in `.axm/axm-lock.yaml`, so the range never controls what the user ends up installing. An identity-only recommendation never goes stale and always points at the current extension.
+
+Append a semver range only when your package genuinely pairs with a bounded major line of the extension — for example, when a later major release of the extension drops an API your package relies on:
+
+```jsonc
+{
+  "axm": {
+    "recommendedExtensions": ["@acme/packs/widget-kit@^1.0.0"],
+  },
+}
+```
+
+A `^major` range still lets the extension author ship minor and patch releases without you republishing; it goes stale only on a major bump. Do not exact-pin (`@1.2.3`): like a versioned companion-package purl, an exact pin goes stale on every extension release and forces you to republish to track it. Writing `@*` is equivalent to omitting the suffix — omit it. For pre-1.0 extensions, prefer identity-only: a caret range on a `0.x` version (`^0.1.0` resolves to `>=0.1.0 <0.2.0`) behaves almost like an exact pin and goes stale on every minor release.
 
 ## Official extensions
 

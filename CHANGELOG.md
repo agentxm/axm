@@ -1,3 +1,13 @@
+## 0.10.0 (2026-05-15)
+
+### 🚀 Features
+
+- Add package extension help, publish links, companion version ranges, and universal skill artifact handling ([3e55c4eb](https://github.com/agentxm/axm/commit/3e55c4eb))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.9.0 (2026-05-14)
 
 ### 🚀 Features

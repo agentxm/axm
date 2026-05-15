@@ -1098,7 +1098,7 @@ describe("publishExtension", () => {
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
       expect(error.code).toBe("rate_limit");
-      expect(error.breadcrumbs?.[0]?.description).toContain("30");
+      expect(error.suggestions?.[0]?.description).toContain("30");
     }),
   );
 
@@ -1167,7 +1167,7 @@ describe("publishExtension", () => {
 // =============================================================================
 
 describe("network diagnostics", () => {
-  it.effect("detects localhost+HTTPS mismatch in breadcrumbs", () =>
+  it.effect("detects localhost+HTTPS mismatch in suggestions", () =>
     Effect.gen(function* () {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient("https://localhost:3000", httpClient);
@@ -1175,7 +1175,7 @@ describe("network diagnostics", () => {
       const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs("test")));
 
       expect(error.code).toBe("network");
-      expect(error.breadcrumbs?.[0]?.description).toContain("http://localhost");
+      expect(error.suggestions?.[0]?.description).toContain("http://localhost");
     }),
   );
 
@@ -1187,7 +1187,7 @@ describe("network diagnostics", () => {
       const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs("test")));
 
       expect(error.code).toBe("network");
-      expect(error.breadcrumbs?.[0]?.description).toContain("Check registry URL");
+      expect(error.suggestions?.[0]?.description).toContain("Check registry URL");
     }),
   );
 });

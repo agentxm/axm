@@ -22,7 +22,7 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { SKILL_NAME_RULES } from "../breadcrumbs.js";
+import { SKILL_NAME_RULES } from "../suggested-actions.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -123,7 +123,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     preview: args.preview,
   });
 
-  const breadcrumbs = [
+  const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name, "src", "SKILL.md")}\` to fill in instructions`,
     },
@@ -137,12 +137,12 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     "skills.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created skill ${fqn}`, breadcrumbs }
+      ? { summary: `Created skill ${fqn}`, suggestions }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created skill ${fqn}`, { breadcrumbs, withoutBreadcrumbs: emitted });
+    yield* renderer.success(`Created skill ${fqn}`, { suggestions, withoutSuggestions: emitted });
   }
 });
 

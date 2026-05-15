@@ -63,7 +63,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     return yield* makeAppError({
       code: "validation",
       detail: `Invalid command name: "${args.name}"`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
         },
@@ -89,7 +89,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     return yield* makeAppError({
       code: "conflict",
       detail: `Managed command directory already exists: ${targetDir}`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: "Choose a different name or remove the existing directory first",
         },
@@ -131,7 +131,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     preview: args.preview,
   });
 
-  const breadcrumbs = [
+  const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "commands", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
     },
@@ -145,12 +145,12 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     "commands.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created command ${fqn}`, breadcrumbs }
+      ? { summary: `Created command ${fqn}`, suggestions }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created command ${fqn}`, { breadcrumbs, withoutBreadcrumbs: emitted });
+    yield* renderer.success(`Created command ${fqn}`, { suggestions, withoutSuggestions: emitted });
   }
 });
 

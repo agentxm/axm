@@ -3,7 +3,7 @@ import * as ServiceMap from "effect/Context";
 import type * as Schema from "effect/Schema";
 import type * as Stream from "effect/Stream";
 
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
 // ---------------------------------------------------------------------------
 // Supporting types
@@ -129,7 +129,7 @@ export interface ListPayload<T extends object> extends SuccessOptions {
   readonly count?: number;
 }
 
-export interface DetailOptions extends BreadcrumbOptions {
+export interface DetailOptions extends SuggestionOptions {
   readonly title?: string;
 }
 
@@ -145,12 +145,12 @@ export interface BoxOptions {
   readonly rounded?: boolean;
 }
 
-export interface BreadcrumbOptions {
-  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
-  readonly withoutBreadcrumbs?: boolean;
+export interface SuggestionOptions {
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly withoutSuggestions?: boolean;
 }
 
-export interface SuccessOptions extends BreadcrumbOptions {
+export interface SuccessOptions extends SuggestionOptions {
   readonly summary?: string;
 }
 
@@ -169,10 +169,10 @@ export class CliRenderer extends ServiceMap.Service<
     readonly success: (message: string, options?: SuccessOptions) => Effect.Effect<void>;
     readonly step: (message: string) => Effect.Effect<void>;
     readonly warn: (message: string) => Effect.Effect<void>;
-    readonly error: (message: string, options?: BreadcrumbOptions) => Effect.Effect<void>;
-    readonly breadcrumbs: (
-      crumbs: ReadonlyArray<Breadcrumb>,
-      options?: BreadcrumbOptions,
+    readonly error: (message: string, options?: SuggestionOptions) => Effect.Effect<void>;
+    readonly suggestions: (
+      suggestions: ReadonlyArray<SuggestedAction>,
+      options?: SuggestionOptions,
     ) => Effect.Effect<void>;
     readonly cancel: (message?: string) => Effect.Effect<void>;
     readonly note: (message: string, title?: string) => Effect.Effect<void>;

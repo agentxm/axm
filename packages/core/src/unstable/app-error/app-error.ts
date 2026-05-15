@@ -1,7 +1,7 @@
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
 /**
  * Named exit codes for the CLI. `Success` is the only exit code without an
@@ -168,54 +168,53 @@ export const defaultDetailFor = (code: AppErrorCode): string => DefaultDetailByA
 
 /**
  * Baseline suggested next actions per error category, used when a caller
- * attaches no error-specific breadcrumbs of its own. Codes without a sensible
+ * attaches no error-specific suggestions of its own. Codes without a sensible
  * generic follow-up map to an empty list.
  */
-const DefaultBreadcrumbsByAppErrorCode: Readonly<Record<AppErrorCode, ReadonlyArray<Breadcrumb>>> =
-  {
-    internal: [
-      {
-        description:
-          "This looks like a bug. Please report it, including the request ID if one is shown.",
-        url: "https://github.com/agentxm/axm/issues",
-      },
-    ],
-    network: [{ description: "Check your network connection and the registry URL, then retry." }],
-    unavailable: [
-      { description: "The service is temporarily unavailable. Retry in a few moments." },
-    ],
-    auth: [],
-    forbidden: [],
-    not_found: [],
-    conflict: [],
-    rate_limit: [],
-    validation: [],
-    usage: [],
-    issues: [],
-    quota: [],
-  };
+const DefaultSuggestionsByAppErrorCode: Readonly<
+  Record<AppErrorCode, ReadonlyArray<SuggestedAction>>
+> = {
+  internal: [
+    {
+      description:
+        "This looks like a bug. Please report it, including the request ID if one is shown.",
+      url: "https://github.com/agentxm/axm/issues",
+    },
+  ],
+  network: [{ description: "Check your network connection and the registry URL, then retry." }],
+  unavailable: [{ description: "The service is temporarily unavailable. Retry in a few moments." }],
+  auth: [],
+  forbidden: [],
+  not_found: [],
+  conflict: [],
+  rate_limit: [],
+  validation: [],
+  usage: [],
+  issues: [],
+  quota: [],
+};
 
 /** Baseline suggested next actions for an error category. */
-export const defaultBreadcrumbsFor = (code: AppErrorCode): ReadonlyArray<Breadcrumb> =>
-  DefaultBreadcrumbsByAppErrorCode[code];
+export const defaultSuggestionsFor = (code: AppErrorCode): ReadonlyArray<SuggestedAction> =>
+  DefaultSuggestionsByAppErrorCode[code];
 
 /**
- * Resolve the breadcrumbs to surface for an error: the caller's own
- * breadcrumbs when present, otherwise the baseline set for the error code.
+ * Resolve the suggestions to surface for an error: the caller's own
+ * suggestions when present, otherwise the baseline set for the error code.
  * Used by both human (`renderAppError`) and JSON (`makeJsonErrorEnvelope`)
  * output so the two surfaces stay consistent.
  */
-export const effectiveBreadcrumbsFor = (error: AppError): ReadonlyArray<Breadcrumb> =>
-  error.breadcrumbs !== undefined && error.breadcrumbs.length > 0
-    ? error.breadcrumbs
-    : defaultBreadcrumbsFor(error.code);
+export const effectiveSuggestionsFor = (error: AppError): ReadonlyArray<SuggestedAction> =>
+  error.suggestions !== undefined && error.suggestions.length > 0
+    ? error.suggestions
+    : defaultSuggestionsFor(error.code);
 
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: AppErrorCode;
   readonly title: string;
   readonly detail: string;
   readonly metadata?: AppErrorMetadata;
-  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause: unknown;
 }> {}
 
@@ -226,7 +225,7 @@ export const makeAppError = (args: {
   readonly metadata?: AppErrorMetadata;
   readonly recover?: string;
   readonly cmd?: string;
-  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause?: unknown;
 }): AppError => {
   const recover =
@@ -238,14 +237,14 @@ export const makeAppError = (args: {
             ...(args.cmd !== undefined ? { cmd: args.cmd } : {}),
           },
         ];
-  const breadcrumbs = [...recover, ...(args.breadcrumbs ?? [])];
+  const suggestions = [...recover, ...(args.suggestions ?? [])];
 
   return new AppError({
     code: args.code,
     title: args.title ?? defaultTitleFor(args.code),
     detail: args.detail ?? defaultDetailFor(args.code),
     ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
-    ...(breadcrumbs.length > 0 ? { breadcrumbs } : {}),
+    ...(suggestions.length > 0 ? { suggestions } : {}),
     cause: args.cause,
   });
 };

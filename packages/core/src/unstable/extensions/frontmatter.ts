@@ -92,7 +92,7 @@ export const parseFrontmatterEffect = (
       makeAppError({
         code: "validation",
         detail: "YAML frontmatter could not be parsed",
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Ensure the frontmatter block contains valid YAML between --- delimiters.",
           },

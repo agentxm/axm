@@ -88,7 +88,7 @@ export const newPack: OperationHandler<
       return yield* makeAppError({
         code: "conflict",
         detail: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Choose a different name or remove the existing pack first",
           },

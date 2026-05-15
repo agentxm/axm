@@ -15,7 +15,7 @@ import {
   routeUrlInput,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY } from "../../breadcrumbs.js";
+import { ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY } from "../../suggested-actions.js";
 
 export type RegistryLookupProbe = {
   readonly location: string;
@@ -207,7 +207,7 @@ const resolveSkillRegistrySourceByName = (
       return yield* makeAppError({
         code: "not_found",
         detail: `Skill "${name}" could not be looked up (no registry sources)`,
-        breadcrumbs: [ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY],
+        suggestions: [ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY],
       });
     }
     const maybeProfile = yield* ws.getConfiguredOwner();
@@ -230,7 +230,7 @@ const resolveSkillRegistrySourceByName = (
           detail: Option.isNone(maybeProfile)
             ? `Skill "${name}" could not be looked up (no default owner)`
             : `Skill "${label}" was not found in configured registries`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: "Verify the skill name",
             },
@@ -245,7 +245,7 @@ const resolveSkillRegistrySourceByName = (
       return yield* makeAppError({
         code: "not_found",
         detail: `Skill "${name}" was not found in configured registries`,
-        breadcrumbs: [{ description: "Verify the skill name" }, INSTALL_SKILL_FROM_REGISTRY],
+        suggestions: [{ description: "Verify the skill name" }, INSTALL_SKILL_FROM_REGISTRY],
       });
     }
     const defaultRegistry = registryHosts[0];

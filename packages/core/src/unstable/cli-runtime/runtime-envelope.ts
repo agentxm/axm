@@ -25,45 +25,45 @@ import { CommandArgv, serializeArgv } from "./command-argv.js";
 import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
-import type { Breadcrumb } from "./breadcrumb.js";
+import type { SuggestedAction } from "./suggested-action.js";
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
 };
 
-const formatBreadcrumbAction = (crumb: Breadcrumb): string => {
-  if (crumb.cmd !== undefined) {
-    return ` · ${crumb.cmd}`;
+const formatSuggestedActionAction = (suggestion: SuggestedAction): string => {
+  if (suggestion.cmd !== undefined) {
+    return ` · ${suggestion.cmd}`;
   }
-  if (crumb.url !== undefined) {
-    return ` · ${crumb.url}`;
+  if (suggestion.url !== undefined) {
+    return ` · ${suggestion.url}`;
   }
   return "";
 };
 
-const writeTextBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void => {
-  if (breadcrumbs.length === 0) {
+const writeTextSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): void => {
+  if (suggestions.length === 0) {
     return;
   }
 
   writeStderr(
     [
       "Next:",
-      ...breadcrumbs.map((crumb) => {
-        return `  ${crumb.description}${formatBreadcrumbAction(crumb)}`;
+      ...suggestions.map((suggestion) => {
+        return `  ${suggestion.description}${formatSuggestedActionAction(suggestion)}`;
       }),
     ].join("\n"),
   );
 };
 
-const writeMachineBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): void => {
-  for (const crumb of breadcrumbs) {
+const writeMachineSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): void => {
+  for (const suggestion of suggestions) {
     writeStderr(
       JSON.stringify({
-        type: "breadcrumb",
-        description: crumb.description,
-        ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
-        ...(crumb.url !== undefined ? { url: crumb.url } : {}),
+        type: "suggestion",
+        description: suggestion.description,
+        ...(suggestion.cmd !== undefined ? { cmd: suggestion.cmd } : {}),
+        ...(suggestion.url !== undefined ? { url: suggestion.url } : {}),
       }),
     );
   }
@@ -145,11 +145,11 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
 
     if (format === "text") {
       writeStderr(renderAppError(error, { verbose, debug }));
-      writeTextBreadcrumbs(error.breadcrumbs ?? []);
+      writeTextSuggestions(error.suggestions ?? []);
       return;
     }
 
-    writeMachineBreadcrumbs(error.breadcrumbs ?? []);
+    writeMachineSuggestions(error.suggestions ?? []);
     writeMachineError(error);
     process.stdout.write(JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n");
   });

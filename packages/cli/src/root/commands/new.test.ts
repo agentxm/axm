@@ -144,7 +144,7 @@ describe("commands-new.handler", () => {
           expect(lockfile).toContain(".claude/commands/my-command.md");
 
           expect(logs.success.some((m) => m.includes("@acme/commands/my-command"))).toBe(true);
-          expect(rendererState.breadcrumbs).toEqual([
+          expect(rendererState.suggestions).toEqual([
             {
               description:
                 "Edit `.axm/extensions/@acme/commands/my-command/src/my-command.md` to fill in instructions",

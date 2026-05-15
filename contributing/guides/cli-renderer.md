@@ -168,12 +168,12 @@ This keeps the published contract and the emitted bytes aligned.
 - `result` and `resultStream` emit command data to stdout
 - `list(entity, ...)`, `detail(entity, ...)`, and `tree(entity, ...)` render
   entity-shaped data through the registry while preserving the same JSON payload
-- `breadcrumbs` emits advisory follow-up tasks; machine mode also emits
-  `breadcrumb` events on stderr
+- `suggestions` emits advisory follow-up tasks; machine mode also emits
+  `suggestion` events on stderr
 - `json` and `raw` are escape hatches; use them sparingly
 - `info`, `message`, and `success` are human narration; machine mode silences
   those messages
-- `warn`, `error`, spinners, progress, task logs, and breadcrumbs are signal
+- `warn`, `error`, spinners, progress, task logs, and suggestions are signal
   diagnostics; machine mode emits them as NDJSON on stderr
 
 Handlers should compute structured data first, then render once. Avoid
@@ -208,7 +208,7 @@ Include:
 
 Publish and extension-mutation commands that receive `links.html` from the
 registry must surface it twice: include the URL in the human success message,
-and add a breadcrumb with `{ "description": "View in browser", "url": "..." }`.
+and add a suggestion with `{ "description": "View in browser", "url": "..." }`.
 For plan-based commands, keep `links` on the successful step result so `--json`
 emits `result.steps[].links.html` instead of inventing a top-level primary URL.
 
@@ -263,12 +263,12 @@ Reserved top-level fields:
 
 - `ok`
 - `summary`
-- `breadcrumbs`
+- `suggestions`
 
 Payload schemas must not define reserved fields. Avoid top-level `type` for
 successful command results unless it adds real domain meaning.
 
-Advisory follow-up tasks use breadcrumbs. When a result needs breadcrumbs, add
+Advisory follow-up tasks use suggestions. When a result needs suggestions, add
 them to the same flat envelope:
 
 ```json
@@ -276,15 +276,15 @@ them to the same flat envelope:
   "ok": true,
   "result": {},
   "summary": "Created command @acme/commands/review",
-  "breadcrumbs": [
+  "suggestions": [
     { "description": "Edit `.axm/extensions/.../review.md`" },
     { "description": "Apply changes", "cmd": "axm sync" }
   ]
 }
 ```
 
-Breadcrumbs use `{ description, cmd?, url? }`. Use imperative voice, no trailing
-period, backtick literal commands and paths, and one task per breadcrumb. Set
+Suggestions use `{ description, cmd?, url? }`. Use imperative voice, no trailing
+period, backtick literal commands and paths, and one task per suggestion. Set
 `cmd` whenever `description` suggests a runnable `axm` command. Set `url` for a
 browser destination; do not encode URLs as shell commands. `cmd` replaces the
 older `command: string[]` form; do not emit both.
@@ -317,7 +317,7 @@ JSON errors use a fixed envelope:
   "ok": false,
   "code": "auth",
   "message": "No authentication token is available",
-  "breadcrumbs": [{ "description": "Authenticate", "cmd": "axm auth login" }]
+  "suggestions": [{ "description": "Authenticate", "cmd": "axm auth login" }]
 }
 ```
 
@@ -326,7 +326,7 @@ Rules:
 - use `ok: false` for error routing
 - include `code`; this is the stable agent-facing discriminator
 - include `message`; it is user-facing prose
-- include `breadcrumbs` for structured follow-up tasks when useful
+- include `suggestions` for structured follow-up tasks when useful
 - emit a matching stderr `error` event in machine mode
 
 The shell already conveys the process exit status, so the envelope does not
@@ -358,7 +358,7 @@ Future-friendly extension:
 Current contract:
 
 - stdout: final JSON result object
-- stderr: signal-only NDJSON diagnostics for warnings, errors, breadcrumbs,
+- stderr: signal-only NDJSON diagnostics for warnings, errors, suggestions,
   progress, and task logs
 
 Keep that split. Do not overload `--json` to mean "mixed result and progress
@@ -422,7 +422,7 @@ Production callers reach this through `withCliErrorHandling`; do not bypass it.
 4. Convert mutating commands next with operation summary schemas
 5. Keep `--json` off commands until their contract passes the shipping gate
 6. Keep JSON error payloads aligned with `ok`, `code`, `message`, and
-   `breadcrumbs`
+   `suggestions`
 7. Add help-level field documentation and machine-mode tests per command
 
 ---

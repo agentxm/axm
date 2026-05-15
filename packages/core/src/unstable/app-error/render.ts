@@ -1,5 +1,5 @@
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
-import { type AppError, effectiveBreadcrumbsFor } from "./app-error.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
+import { type AppError, effectiveSuggestionsFor } from "./app-error.js";
 
 const defaultRenderOptions: { readonly verbose: boolean; readonly debug: boolean } = {
   verbose: false,
@@ -36,19 +36,19 @@ const formatResponseBody = (body: unknown): ReadonlyArray<string> => {
 
 /**
  * Render the suggested next actions as an indented `Next steps:` block. Each
- * breadcrumb is a bullet with its optional `cmd` / `url` on a follow-on line.
+ * suggestion is a bullet with its optional `cmd` / `url` on a follow-on line.
  */
-const formatBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): ReadonlyArray<string> => {
-  if (breadcrumbs.length === 0) return [];
+const formatSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): ReadonlyArray<string> => {
+  if (suggestions.length === 0) return [];
 
   const lines: Array<string> = ["  Next steps:"];
-  for (const crumb of breadcrumbs) {
-    lines.push(`    • ${crumb.description}`);
-    if (crumb.cmd !== undefined) {
-      lines.push(`      ${crumb.cmd}`);
+  for (const suggestion of suggestions) {
+    lines.push(`    • ${suggestion.description}`);
+    if (suggestion.cmd !== undefined) {
+      lines.push(`      ${suggestion.cmd}`);
     }
-    if (crumb.url !== undefined) {
-      lines.push(`      ${crumb.url}`);
+    if (suggestion.url !== undefined) {
+      lines.push(`      ${suggestion.url}`);
     }
   }
   return lines;
@@ -116,7 +116,7 @@ export const renderAppError = (
     lines.push(`  Request ID: ${requestId}`);
   }
 
-  for (const line of formatBreadcrumbs(effectiveBreadcrumbsFor(error))) {
+  for (const line of formatSuggestions(effectiveSuggestionsFor(error))) {
     lines.push(line);
   }
 

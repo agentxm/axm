@@ -5,11 +5,11 @@ import {
   type AppError,
   type AppErrorCode,
   type AppErrorMetadata,
-  effectiveBreadcrumbsFor,
+  effectiveSuggestionsFor,
 } from "../app-error/index.js";
-import { BreadcrumbSchema, type Breadcrumb } from "./breadcrumb.js";
+import { SuggestedActionSchema, type SuggestedAction } from "./suggested-action.js";
 
-const ReservedSuccessEnvelopeKeys = new Set(["ok", "summary", "breadcrumbs"]);
+const ReservedSuccessEnvelopeKeys = new Set(["ok", "summary", "suggestions"]);
 
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
@@ -26,7 +26,7 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
       ),
     }),
   ),
-  breadcrumbs: Schema.optional(Schema.Array(BreadcrumbSchema)),
+  suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
 }).annotate({
   identifier: "JsonErrorEnvelope",
   title: "JSON Error Envelope",
@@ -38,7 +38,7 @@ export const JsonSuccessEnvelopeSchema = Schema.StructWithRest(
   Schema.Struct({
     ok: Schema.Literal(true),
     summary: Schema.optional(Schema.String),
-    breadcrumbs: Schema.optional(Schema.Array(BreadcrumbSchema)),
+    suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)],
 ).annotate({
@@ -79,7 +79,7 @@ const ensureNoReservedPayloadKeys = (payload: Record<string, unknown>): void => 
 export const makeJsonSuccessEnvelope = (args?: {
   readonly payload?: unknown;
   readonly summary?: string;
-  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonSuccessEnvelope => ({
   ok: true,
   ...(() => {
@@ -88,8 +88,8 @@ export const makeJsonSuccessEnvelope = (args?: {
     return payload;
   })(),
   ...(args?.summary !== undefined ? { summary: args.summary } : {}),
-  ...(args?.breadcrumbs !== undefined && args.breadcrumbs.length > 0
-    ? { breadcrumbs: [...args.breadcrumbs] }
+  ...(args?.suggestions !== undefined && args.suggestions.length > 0
+    ? { suggestions: [...args.suggestions] }
     : {}),
 });
 
@@ -98,15 +98,15 @@ export const makeJsonErrorEnvelope = (args: {
   readonly title: string;
   readonly detail: string;
   readonly metadata?: AppErrorMetadata;
-  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonErrorEnvelope => ({
   ok: false,
   code: args.code,
   title: args.title,
   detail: args.detail,
   ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
-  ...(args.breadcrumbs !== undefined && args.breadcrumbs.length > 0
-    ? { breadcrumbs: [...args.breadcrumbs] }
+  ...(args.suggestions !== undefined && args.suggestions.length > 0
+    ? { suggestions: [...args.suggestions] }
     : {}),
 });
 
@@ -116,5 +116,5 @@ export const makeJsonErrorEnvelopeFromAppError = (error: AppError): JsonErrorEnv
     title: error.title,
     detail: error.detail,
     ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
-    breadcrumbs: effectiveBreadcrumbsFor(error),
+    suggestions: effectiveSuggestionsFor(error),
   });

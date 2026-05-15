@@ -247,7 +247,7 @@ describe("commands-publish.handler", () => {
 
           const error = getAppError(result);
           expect(error.detail).toContain("local version 1.0.0 is not greater");
-          expect(error.breadcrumbs?.[0]?.description ?? "").toContain(
+          expect(error.suggestions?.[0]?.description ?? "").toContain(
             "axm commands version @test/commands/stale-cmd patch",
           );
         }),
@@ -430,8 +430,8 @@ describe("commands-publish.handler", () => {
               Effect.succeed({
                 error: true,
                 message: e.detail,
-                guidance: (e.breadcrumbs ?? [])
-                  .map((breadcrumb) => breadcrumb.description)
+                guidance: (e.suggestions ?? [])
+                  .map((suggestion) => suggestion.description)
                   .join("\n"),
               }),
             ),

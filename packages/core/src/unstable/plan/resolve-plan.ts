@@ -42,7 +42,7 @@ import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js
 const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
   code: "usage",
   detail: "Interactive prompt required: Apply changes?",
-  breadcrumbs: [{ description: "Provide ResolvePlanInteraction in the runtime." }],
+  suggestions: [{ description: "Provide ResolvePlanInteraction in the runtime." }],
 });
 
 const reconciliationAdapters = [
@@ -144,7 +144,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       return yield* makeAppError({
         code: "conflict",
         detail: "Plan has errors that prevent execution",
-        breadcrumbs: [
+        suggestions: [
           {
             description: flags.blockedByErrorsHowToFix ?? "Re-run with --force to override",
           },

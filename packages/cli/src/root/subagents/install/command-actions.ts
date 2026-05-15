@@ -209,7 +209,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                   return yield* makeAppError({
                     code: "validation",
                     detail: "Invalid source: Unable to parse source",
-                    breadcrumbs: [
+                    suggestions: [
                       {
                         description:
                           "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
@@ -306,7 +306,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                       return makeAppError({
                         code: "usage",
                         detail: "Failed to discover subagents from source",
-                        breadcrumbs: [{ description: discoverHowToFix(req.source, error) }],
+                        suggestions: [{ description: discoverHowToFix(req.source, error) }],
                         cause: error,
                       });
                     }),
@@ -317,7 +317,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                             makeAppError({
                               code: "not_found",
                               detail: "No subagents found in source",
-                              breadcrumbs: [
+                              suggestions: [
                                 {
                                   description: noSubagentsFoundHowToFix(req.source),
                                 },

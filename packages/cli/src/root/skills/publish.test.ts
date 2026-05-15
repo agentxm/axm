@@ -399,9 +399,9 @@ describe("publish.handler", () => {
               Effect.succeed({
                 error: true,
                 message: e.detail,
-                guidance: (e.breadcrumbs ?? [])
-                  .map((breadcrumb) =>
-                    [breadcrumb.description, breadcrumb.cmd].filter(Boolean).join(" · "),
+                guidance: (e.suggestions ?? [])
+                  .map((suggestion) =>
+                    [suggestion.description, suggestion.cmd].filter(Boolean).join(" · "),
                   )
                   .join("\n"),
               }),

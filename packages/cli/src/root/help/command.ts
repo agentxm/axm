@@ -101,7 +101,7 @@ export const handleHelpTopic = (topic: Option.Option<string>) =>
         makeAppError({
           code: "not_found",
           detail: `Unknown help topic '${name}'`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",
               cmd: "axm help",

@@ -144,13 +144,13 @@ describe("InteractiveRenderer", () => {
       }),
     );
 
-    it.effect("renders breadcrumbs after success output", () =>
+    it.effect("renders suggestions after success output", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
             const renderer = yield* CliRenderer;
             yield* renderer.success("Created", {
-              breadcrumbs: [
+              suggestions: [
                 { description: "Edit `.axm/extensions/example.md`" },
                 {
                   description: "Apply changes to your workspace",
@@ -169,13 +169,13 @@ describe("InteractiveRenderer", () => {
       }),
     );
 
-    it.effect("renders URL breadcrumbs as OSC 8 hyperlinks when colors are enabled", () =>
+    it.effect("renders URL suggestions as OSC 8 hyperlinks when colors are enabled", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
             const renderer = yield* CliRenderer;
             yield* renderer.success("Published", {
-              breadcrumbs: [
+              suggestions: [
                 {
                   description: "View in browser",
                   url: "https://agentxm.ai/acme/skills/review",
@@ -191,13 +191,13 @@ describe("InteractiveRenderer", () => {
       }),
     );
 
-    it.effect("renders URL breadcrumbs as plain URLs when colors are disabled", () =>
+    it.effect("renders URL suggestions as plain URLs when colors are disabled", () =>
       Effect.gen(function* () {
         yield* runPlain(
           Effect.gen(function* () {
             const renderer = yield* CliRenderer;
             yield* renderer.success("Published", {
-              breadcrumbs: [
+              suggestions: [
                 {
                   description: "View in browser",
                   url: "https://agentxm.ai/acme/skills/review",

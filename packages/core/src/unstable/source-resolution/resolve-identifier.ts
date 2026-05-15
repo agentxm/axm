@@ -67,7 +67,7 @@ const decodeName = (input: string) =>
       makeAppError({
         code: "not_found",
         detail: `No ${input} identifier could be resolved`,
-        breadcrumbs: [
+        suggestions: [
           {
             description:
               "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
@@ -325,7 +325,7 @@ const notFound = (
   makeAppError({
     code: "not_found",
     detail: `"${input}" did not match any ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]} in ${scope} scope`,
-    breadcrumbs: [{ description: "Check the name, or re-run with a fully-qualified name." }],
+    suggestions: [{ description: "Check the name, or re-run with a fully-qualified name." }],
   });
 
 const ambiguous = (
@@ -337,7 +337,7 @@ const ambiguous = (
   makeAppError({
     code: "internal",
     detail: `"${input}" matches more than one ${scope} ${extensionTypePluralSentenceLabels[toExtensionTypePlural(resourceType)]}: ${candidates.map((candidate) => candidate.fqn).join(", ")}`,
-    breadcrumbs: [{ description: "Re-run with the fully-qualified name." }],
+    suggestions: [{ description: "Re-run with the fully-qualified name." }],
   });
 
 const resolveFromCandidates = (
@@ -378,7 +378,7 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
         return yield* makeAppError({
           code: "not_found",
           detail: `"${trimmed}" is not a ${args.resourceType} identifier`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
             },
@@ -440,7 +440,7 @@ export const resolveInstalledIdentifier = (args: {
         return yield* makeAppError({
           code: "not_found",
           detail: `"${trimmed}" is not a ${args.resourceType} identifier`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: `Use a ${args.resourceType} identifier like @owner/${toExtensionTypePlural(args.resourceType)}/name.`,
             },

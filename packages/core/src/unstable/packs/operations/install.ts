@@ -190,7 +190,7 @@ export const installPack: OperationHandler<
           return yield* makeAppError({
             code: "internal",
             detail: `Pack ${op.args.packName} declares dependencies that were not resolved from registry metadata`,
-            breadcrumbs: [
+            suggestions: [
               {
                 description:
                   "Republish the pack or repair the registry metadata before installing this pack.",

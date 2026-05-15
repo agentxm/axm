@@ -47,7 +47,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
           return yield* makeAppError({
             code: "internal",
             detail: `Pack "${args.name}" is not installed`,
-            breadcrumbs: [
+            suggestions: [
               {
                 description: "Install the pack first with `axm packs install`.",
                 cmd: "axm packs install <source>",

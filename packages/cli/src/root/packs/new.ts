@@ -69,7 +69,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     return yield* makeAppError({
       code: "conflict",
       detail: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: "Choose a different name or remove the existing pack first",
         },
@@ -119,7 +119,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     preview: args.preview,
   });
 
-  const breadcrumbs = [
+  const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "packs", args.name, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
     },
@@ -133,14 +133,14 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     "packs.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created pack ${fqn}`, breadcrumbs }
+      ? { summary: `Created pack ${fqn}`, suggestions }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
     yield* renderer.success(`Created pack ${fqn}`, {
-      breadcrumbs,
-      withoutBreadcrumbs: emitted,
+      suggestions,
+      withoutSuggestions: emitted,
     });
   }
 });

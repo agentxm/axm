@@ -36,7 +36,7 @@ describe("httpStatusToAppCode", () => {
 });
 
 describe("registryErrorToAppError", () => {
-  it("adds retry-after breadcrumbs from the header before the body", () => {
+  it("adds retry-after suggestions from the header before the body", () => {
     const error = registryErrorToAppError(
       {
         kind: "TooManyRequestsError",
@@ -51,10 +51,10 @@ describe("registryErrorToAppError", () => {
     );
 
     expect(error.code).toBe("rate_limit");
-    expect(error.breadcrumbs?.[0]?.description).toBe("Retry after 30s.");
+    expect(error.suggestions?.[0]?.description).toBe("Retry after 30s.");
   });
 
-  it("adds scope breadcrumbs for insufficient-scope 403 responses", () => {
+  it("adds scope suggestions for insufficient-scope 403 responses", () => {
     const error = registryErrorToAppError(
       {
         kind: "ForbiddenError",
@@ -72,12 +72,12 @@ describe("registryErrorToAppError", () => {
     );
 
     expect(error.code).toBe("forbidden");
-    expect(error.breadcrumbs?.map((breadcrumb) => breadcrumb.description)).toContain(
+    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
       "Re-authenticate with --scope extensions:publish:version.",
     );
   });
 
-  it("adds lint finding breadcrumbs for publish lint responses", () => {
+  it("adds lint finding suggestions for publish lint responses", () => {
     const error = registryErrorToAppError(
       {
         kind: "ExtensionLintFailedError",
@@ -109,15 +109,15 @@ describe("registryErrorToAppError", () => {
     );
 
     expect(error.code).toBe("validation");
-    expect(error.breadcrumbs?.map((breadcrumb) => breadcrumb.description)).toContain(
+    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
       "Publish lint failed with 1 finding.",
     );
-    expect(error.breadcrumbs?.map((breadcrumb) => breadcrumb.description)).toContain(
+    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
       "error: skill/manifest-schema-valid - Manifest is invalid (skill.json)",
     );
   });
 
-  it("adds identity mismatch breadcrumbs for publish identity responses", () => {
+  it("adds identity mismatch suggestions for publish identity responses", () => {
     const error = registryErrorToAppError(
       {
         kind: "ExtensionIdentityMismatchError",
@@ -145,10 +145,10 @@ describe("registryErrorToAppError", () => {
     );
 
     expect(error.code).toBe("validation");
-    expect(error.breadcrumbs?.map((breadcrumb) => breadcrumb.description)).toContain(
+    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
       "Publish identity mismatch on 1 field.",
     );
-    expect(error.breadcrumbs?.map((breadcrumb) => breadcrumb.description)).toContain(
+    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
       "owner: URL has @acme, archive has @other.",
     );
   });

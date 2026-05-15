@@ -33,18 +33,18 @@ describe("AppError", () => {
       code: "internal",
       title: "Internal Error",
       detail: "WorkspaceMutations not initialized",
-      breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
+      suggestions: [{ description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
 
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("internal");
     expect(error.detail).toBe("WorkspaceMutations not initialized");
-    expect(error.breadcrumbs?.[0]?.description).toBe("Run 'axm setup' to create one.");
+    expect(error.suggestions?.[0]?.description).toBe("Run 'axm setup' to create one.");
     expect(error.cause).toBeInstanceOf(Error);
   });
 
-  it("constructs with no breadcrumbs", () => {
+  it("constructs with no suggestions", () => {
     const error = new AppError({
       code: "internal",
       title: "Internal Error",
@@ -52,7 +52,7 @@ describe("AppError", () => {
       cause: undefined,
     });
 
-    expect(error.breadcrumbs).toBeUndefined();
+    expect(error.suggestions).toBeUndefined();
   });
 });
 
@@ -61,13 +61,13 @@ describe("makeAppError", () => {
     const error = makeAppError({
       code: "internal",
       detail: "WorkspaceMutations not initialized",
-      breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
+      suggestions: [{ description: "Run 'axm setup' to create one." }],
       cause: new Error("original"),
     });
 
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("internal");
-    expect(error.breadcrumbs?.[0]?.description).toBe("Run 'axm setup' to create one.");
+    expect(error.suggestions?.[0]?.description).toBe("Run 'axm setup' to create one.");
   });
 
   it("defaults optional fields", () => {
@@ -76,29 +76,29 @@ describe("makeAppError", () => {
       detail: "Test error",
     });
 
-    expect(error.breadcrumbs).toBeUndefined();
+    expect(error.suggestions).toBeUndefined();
     expect(error.cause).toBeUndefined();
   });
 
-  it("omits empty breadcrumbs", () => {
+  it("omits empty suggestions", () => {
     const error = makeAppError({
       code: "internal",
       detail: "Test error",
     });
 
-    expect(error.breadcrumbs).toBeUndefined();
+    expect(error.suggestions).toBeUndefined();
   });
 
-  it("prepends recover breadcrumb", () => {
+  it("prepends recover suggestion", () => {
     const error = makeAppError({
       code: "not_found",
       detail: "Skill is not installed",
       recover: "List installed skills",
       cmd: "axm skills list",
-      breadcrumbs: [{ description: "Install from a source", cmd: "axm skills install <source>" }],
+      suggestions: [{ description: "Install from a source", cmd: "axm skills install <source>" }],
     });
 
-    expect(error.breadcrumbs).toEqual([
+    expect(error.suggestions).toEqual([
       { description: "List installed skills", cmd: "axm skills list" },
       { description: "Install from a source", cmd: "axm skills install <source>" },
     ]);

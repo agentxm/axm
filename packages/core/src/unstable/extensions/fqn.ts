@@ -39,7 +39,7 @@ export const parseFqn = (input: string): Result.Result<ExtensionFqnParts, FqnInv
 
 /**
  * Translate a `FqnInvalidError` into a CLI-facing `AppError` with the canonical
- * format breadcrumb. Use at user-input boundaries (CLI handlers, publish
+ * format suggestion. Use at user-input boundaries (CLI handlers, publish
  * operations) where the parse failure is a user error.
  *
  * @experimental This API is unstable and may change without notice.
@@ -48,7 +48,7 @@ export const fqnInvalidErrorToAppError = (error: FqnInvalidError): AppError =>
   makeAppError({
     code: "validation",
     detail: `Invalid fully qualified name: ${error.input}`,
-    breadcrumbs: [
+    suggestions: [
       {
         description:
           "Use the 3-segment format: @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name",

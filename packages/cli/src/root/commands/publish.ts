@@ -103,7 +103,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         detail: "No registry sources configured",
-        breadcrumbs: [{ description: "Run the registry guard first." }],
+        suggestions: [{ description: "Run the registry guard first." }],
       });
     }
 
@@ -189,7 +189,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
         makeAppError({
           code: "not_found",
           detail: `Command "${name}" is not installed in this workspace`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Use the fully-qualified name `@owner/commands/name`, or run `axm commands new ${name}` to create it first.",
@@ -204,7 +204,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
         makeAppError({
           code: "not_found",
           detail: `Command "${name}" cannot be published from a non-registry source`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Only commands sourced from a registry namespace (`@owner/commands/name`) can be published.",
@@ -253,7 +253,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Managed extension not found: ${extName}`,
-                breadcrumbs: [
+                suggestions: [
                   {
                     description:
                       "Only managed extensions (in .axm/extensions/) can be published. Create with `axm commands new` first.",
@@ -271,7 +271,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
-                breadcrumbs: [
+                suggestions: [
                   {
                     description: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
                   },
@@ -289,7 +289,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Missing ${contentFilename}`,
-                breadcrumbs: [
+                suggestions: [
                   {
                     description: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
                   },
@@ -393,7 +393,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
   if (resolvedPlan._tag === "ExecutedPlan") {
     const success = publishSuccessRender(resolvedPlan);
     yield* renderer.success(success.message, {
-      ...(success.breadcrumbs !== undefined ? { breadcrumbs: success.breadcrumbs } : {}),
+      ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
     });
   }
 });

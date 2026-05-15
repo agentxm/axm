@@ -36,7 +36,7 @@ import {
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
-import { ADD_REGISTRY_SOURCE, SCAFFOLD_MANAGED_SKILL } from "../breadcrumbs.js";
+import { ADD_REGISTRY_SOURCE, SCAFFOLD_MANAGED_SKILL } from "../suggested-actions.js";
 
 export interface PublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
@@ -185,7 +185,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
         makeAppError({
           code: "not_found",
           detail: `Skill "${name}" is not installed in this workspace`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: "Use the fully-qualified name `@owner/skills/name`",
             },
@@ -246,7 +246,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Managed extension not found: ${extName}`,
-                breadcrumbs: [
+                suggestions: [
                   {
                     description: "Only managed extensions in `.axm/extensions/` can be published",
                   },
@@ -376,7 +376,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
   yield* emitPlanResolutionResult("skills.publish", resolvedPlan);
   const success = publishSuccessRender(resolvedPlan);
   yield* renderer.success(success.message, {
-    ...(success.breadcrumbs !== undefined ? { breadcrumbs: success.breadcrumbs } : {}),
+    ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
   });
 });
 

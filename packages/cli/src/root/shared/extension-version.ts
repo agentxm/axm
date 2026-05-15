@@ -138,7 +138,7 @@ export const resolveManifestVersionInfo = (
       return yield* makeAppError({
         code: "not_found",
         detail: `Manifest not found: ${manifestPath}`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: `Create the managed extension with \`axm ${extensionTypeToPlural[expectedType]} new\` before running \`axm ${extensionTypeToPlural[expectedType]} version\`.`,
             cmd: `axm ${extensionTypeToPlural[expectedType]} new`,

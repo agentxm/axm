@@ -29,10 +29,10 @@ describe("resolveRootUpdateIntent", () => {
       expect(appError.code).toBe("usage");
       expect(appError.detail).toContain("only accepts registry FQNs");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm skills update owner/repo");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm subagents update owner/repo");
     }),
   );
@@ -44,10 +44,10 @@ describe("resolveRootUpdateIntent", () => {
 
       expect(appError.code).toBe("usage");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm skills update ./local-path");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm subagents update ./local-path");
     }),
   );
@@ -59,7 +59,7 @@ describe("resolveRootUpdateIntent", () => {
 
       expect(appError.code).toBe("validation");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("@<handle>/<plural-type>/<name>[@<version>]");
     }),
   );
@@ -71,7 +71,7 @@ describe("resolveRootUpdateIntent", () => {
 
       expect(appError.code).toBe("usage");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
@@ -83,7 +83,7 @@ describe("resolveRootUpdateIntent", () => {
 
       expect(appError.code).toBe("not_found");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );

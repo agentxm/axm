@@ -162,7 +162,7 @@ const requireInitializedWorkspace = (
             makeAppError({
               code: "internal",
               detail: `Workspace settings not found: ${settingsPath}`,
-              breadcrumbs: [
+              suggestions: [
                 { description: "Run `axm setup` to create the workspace.", cmd: "axm setup" },
               ],
             }),
@@ -474,7 +474,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             return yield* makeAppError({
               code: "conflict",
               detail: `Skill "${name}" not found in lockfile`,
-              breadcrumbs: [
+              suggestions: [
                 {
                   description: "Install the skill first with `axm skills install`",
                   cmd: "axm skills install <source>",

@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { parseExtensionSpecParts } from "../extensions/common.js";
 import {
   decodeExtensionNameSync,
@@ -57,7 +57,7 @@ import {
   mapNetworkError,
   mapResponseSchemaError,
   mapUnexpectedStatusError,
-  buildNetworkBreadcrumbs,
+  buildNetworkSuggestions,
   buildNetworkDiagnosis,
 } from "./error-mapping.js";
 import { registryClientErrorToAppError } from "./translate.js";
@@ -662,7 +662,7 @@ export const createRemoteRegistryClient = (
   const publishExtension = (
     args: PublishExtensionArgs,
   ): Effect.Effect<PublishExtensionResponse, AppError> => {
-    const networkBreadcrumbs = buildNetworkBreadcrumbs(baseUrl);
+    const networkSuggestions = buildNetworkSuggestions(baseUrl);
     const networkDiagnosisDetails = buildNetworkDiagnosis(baseUrl);
 
     // Build FormData for multipart upload
@@ -689,7 +689,7 @@ export const createRemoteRegistryClient = (
       .pipe(
         Effect.map((response) => ({ published: true as const, links: response.links })),
         // Single mapError handler for all error types to avoid error channel narrowing issues
-        Effect.mapError((e) => mapPublishError(e, networkBreadcrumbs, networkDiagnosisDetails)),
+        Effect.mapError((e) => mapPublishError(e, networkSuggestions, networkDiagnosisDetails)),
       );
   };
 
@@ -699,7 +699,7 @@ export const createRemoteRegistryClient = (
    */
   const mapPublishError = (
     e: unknown,
-    networkBreadcrumbs: ReadonlyArray<Breadcrumb>,
+    networkSuggestions: ReadonlyArray<SuggestedAction>,
     _networkDiagnosisDetails: ReadonlyArray<string>,
   ): AppError => {
     // HttpClientError — network error
@@ -707,7 +707,7 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "network",
         detail: "Remote registry is unreachable",
-        breadcrumbs: networkBreadcrumbs,
+        suggestions: networkSuggestions,
         cause: e,
       });
     }
@@ -716,7 +716,7 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "internal",
         detail: "The registry returned a response the CLI could not parse.",
-        breadcrumbs: [
+        suggestions: [
           {
             description:
               "The registry may be misconfigured or running a version incompatible with this CLI.",

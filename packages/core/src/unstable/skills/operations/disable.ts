@@ -175,7 +175,7 @@ export const disableSkill: OperationHandler<
         return yield* makeAppError({
           code: "internal",
           detail: `Cannot determine source for implicit skill "${op.args.skillName}"`,
-          breadcrumbs: [{ description: "Provide a source when disabling this skill" }],
+          suggestions: [{ description: "Provide a source when disabling this skill" }],
         });
       }
       yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false, authored: false });

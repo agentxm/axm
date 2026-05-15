@@ -7,7 +7,7 @@ import * as Stream from "effect/Stream";
 
 import {
   CliRenderer,
-  type BreadcrumbOptions,
+  type SuggestionOptions,
   type BoxOptions,
   type DetailOptions,
   type ListPayload,
@@ -24,7 +24,7 @@ import {
   type TreeNode,
   type TreePayload,
 } from "./cli-renderer.js";
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all CliRenderer calls
@@ -55,7 +55,7 @@ export interface TestRendererState {
   readonly cancelMessages: Array<string>;
   readonly introTitles: Array<string>;
   readonly outroMessages: Array<string>;
-  readonly breadcrumbs: Array<Breadcrumb>;
+  readonly suggestions: Array<SuggestedAction>;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ const makeEmptyState = (): TestRendererState => ({
   cancelMessages: [],
   introTitles: [],
   outroMessages: [],
-  breadcrumbs: [],
+  suggestions: [],
 });
 
 const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
@@ -202,8 +202,8 @@ const makeTestRendererService = (
     success: (message: string, options?: SuccessOptions) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "success", message });
-        if (options?.withoutBreadcrumbs !== true && options?.breadcrumbs !== undefined) {
-          state.breadcrumbs.push(...options.breadcrumbs);
+        if (options?.withoutSuggestions !== true && options?.suggestions !== undefined) {
+          state.suggestions.push(...options.suggestions);
         }
       }),
     step: (message: string) =>
@@ -214,17 +214,17 @@ const makeTestRendererService = (
       Effect.sync(() => {
         state.logs.push({ _tag: "warn", message });
       }),
-    error: (message: string, options?: BreadcrumbOptions) =>
+    error: (message: string, options?: SuggestionOptions) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "error", message });
-        if (options?.withoutBreadcrumbs !== true && options?.breadcrumbs !== undefined) {
-          state.breadcrumbs.push(...options.breadcrumbs);
+        if (options?.withoutSuggestions !== true && options?.suggestions !== undefined) {
+          state.suggestions.push(...options.suggestions);
         }
       }),
-    breadcrumbs: (crumbs: ReadonlyArray<Breadcrumb>, options?: BreadcrumbOptions) =>
+    suggestions: (suggestions: ReadonlyArray<SuggestedAction>, options?: SuggestionOptions) =>
       Effect.sync(() => {
-        if (options?.withoutBreadcrumbs !== true) {
-          state.breadcrumbs.push(...crumbs);
+        if (options?.withoutSuggestions !== true) {
+          state.suggestions.push(...suggestions);
         }
       }),
     cancel: (message?: string) =>
@@ -398,10 +398,10 @@ const makeTestRendererService = (
       Effect.sync(() => {
         if (
           resultReturnValue &&
-          payload.withoutBreadcrumbs !== true &&
-          payload.breadcrumbs !== undefined
+          payload.withoutSuggestions !== true &&
+          payload.suggestions !== undefined
         ) {
-          state.breadcrumbs.push(...payload.breadcrumbs);
+          state.suggestions.push(...payload.suggestions);
         }
         state.results.push({
           data: payload,
@@ -419,10 +419,10 @@ const makeTestRendererService = (
           const options = third as DetailOptions | undefined;
           if (
             resultReturnValue &&
-            options?.withoutBreadcrumbs !== true &&
-            options?.breadcrumbs !== undefined
+            options?.withoutSuggestions !== true &&
+            options?.suggestions !== undefined
           ) {
-            state.breadcrumbs.push(...options.breadcrumbs);
+            state.suggestions.push(...options.suggestions);
           }
           state.results.push({
             data: second,
@@ -447,10 +447,10 @@ const makeTestRendererService = (
           const payload = second as TreePayload<object>;
           if (
             resultReturnValue &&
-            payload.withoutBreadcrumbs !== true &&
-            payload.breadcrumbs !== undefined
+            payload.withoutSuggestions !== true &&
+            payload.suggestions !== undefined
           ) {
-            state.breadcrumbs.push(...payload.breadcrumbs);
+            state.suggestions.push(...payload.suggestions);
           }
           state.results.push({
             data: payload,
@@ -477,10 +477,10 @@ const makeTestRendererService = (
       Effect.sync(() => {
         if (
           resultReturnValue &&
-          options?.withoutBreadcrumbs !== true &&
-          options?.breadcrumbs !== undefined
+          options?.withoutSuggestions !== true &&
+          options?.suggestions !== undefined
         ) {
-          state.breadcrumbs.push(...options.breadcrumbs);
+          state.suggestions.push(...options.suggestions);
         }
         state.results.push({
           data,

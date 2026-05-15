@@ -124,7 +124,7 @@ export const enableSubagent: OperationHandler<
       return yield* makeAppError({
         code: "not_found",
         detail: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Try reinstalling the subagent with `axm subagents install`",
             cmd: "axm subagents install <source>",
@@ -141,7 +141,7 @@ export const enableSubagent: OperationHandler<
         makeAppError({
           code: "internal",
           detail: `Failed to read ${expectedFilename} from ${paths.subagentSrcPath}`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: `Ensure the subagent content file exists at ${contentPath}.`,
             },

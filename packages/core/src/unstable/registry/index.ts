@@ -49,7 +49,7 @@ export { createRemoteRegistryClient } from "./remote-client.js";
 
 // Error mapping helpers
 export {
-  buildNetworkBreadcrumbs,
+  buildNetworkSuggestions,
   buildNetworkDiagnosis,
   isRegistryClientError,
   isHttpClientError,

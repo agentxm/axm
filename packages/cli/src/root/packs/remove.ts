@@ -53,7 +53,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     return yield* makeAppError({
       code: "not_found",
       detail: `Pack '${args.pack}' not found`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: "Check available packs or create one with `axm packs new`",
           cmd: "axm packs new <name>",
@@ -78,7 +78,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
                   makeAppError({
                     code: "internal",
                     detail: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
-                    breadcrumbs: [
+                    suggestions: [
                       {
                         description:
                           "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
@@ -101,7 +101,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       makeAppError({
         code: "not_found",
         detail: `Pack manifest not found at ${manifestPath}`,
-        breadcrumbs: [{ description: "Ensure the pack exists on disk" }],
+        suggestions: [{ description: "Ensure the pack exists on disk" }],
         cause: e,
       }),
     ),
@@ -148,14 +148,14 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       return yield* makeAppError({
         code: "internal",
         detail: `No extensions in pack match '${args.extension}'`,
-        breadcrumbs: [{ description: "Check pack contents" }],
+        suggestions: [{ description: "Check pack contents" }],
       });
     }
 
     return yield* makeAppError({
       code: "internal",
       detail: `Extension '${args.extension}' is not in the pack`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: "Check the pack manifest for available extensions",
         },

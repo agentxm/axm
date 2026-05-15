@@ -150,7 +150,7 @@ JSON-capable, and handlers build structured results before rendering.
 [CLI Renderer Guide](./cli-renderer.md) for JSON shapes, error payloads,
 and stderr contracts.
 
-Use breadcrumbs for suggestive next steps after scaffold or recovery flows.
+Use suggestions for suggestive next steps after scaffold or recovery flows.
 Keep `task` as a short verb slug (`edit`, `sync`, `login`), put nuance in
 `description`, and set either `command` (argv array) or `cmd` (display string)
 when the step is directly runnable.

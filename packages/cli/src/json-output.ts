@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type {
-  Breadcrumb,
+  SuggestedAction,
   CommandOutcomeSummary,
   SourceKind,
   SubjectType,
@@ -174,8 +174,8 @@ export const emitPlanResolutionResult = <TCommand extends string>(
   resolution: PlanResolution,
   options?: {
     readonly summary?: string;
-    readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
-    readonly withoutBreadcrumbs?: boolean;
+    readonly suggestions?: ReadonlyArray<SuggestedAction>;
+    readonly withoutSuggestions?: boolean;
   },
 ) =>
   Effect.gen(function* () {
@@ -212,14 +212,14 @@ export const emitNoOpResult = <TCommand extends string>(
     readonly planName: string;
     readonly planDescription?: string;
     readonly message: string;
-    readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
-    readonly withoutBreadcrumbs?: boolean;
+    readonly suggestions?: ReadonlyArray<SuggestedAction>;
+    readonly withoutSuggestions?: boolean;
   },
 ) => {
   const options = {
-    ...(args.breadcrumbs !== undefined ? { breadcrumbs: args.breadcrumbs } : {}),
-    ...(args.withoutBreadcrumbs !== undefined
-      ? { withoutBreadcrumbs: args.withoutBreadcrumbs }
+    ...(args.suggestions !== undefined ? { suggestions: args.suggestions } : {}),
+    ...(args.withoutSuggestions !== undefined
+      ? { withoutSuggestions: args.withoutSuggestions }
       : {}),
   };
 

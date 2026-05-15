@@ -144,7 +144,7 @@ describe("skills-new.handler", () => {
           expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
 
           expect(logs.success.some((m) => m.includes("@acme/skills/my-skill"))).toBe(true);
-          expect(rendererState.breadcrumbs).toEqual([
+          expect(rendererState.suggestions).toEqual([
             {
               description:
                 "Edit `.axm/extensions/@acme/skills/my-skill/src/SKILL.md` to fill in instructions",

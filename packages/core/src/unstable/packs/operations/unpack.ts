@@ -65,7 +65,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
       return yield* makeAppError({
         code: "internal",
         detail: `Pack "${op.args.name}" is not installed`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Install the pack first with `axm packs install`.",
             cmd: "axm packs install <source>",

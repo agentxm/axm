@@ -345,7 +345,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       makeAppError({
                         code: "internal",
                         detail: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
-                        breadcrumbs: [
+                        suggestions: [
                           {
                             description:
                               "Use the fully-qualified `@owner/packs/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
@@ -382,7 +382,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "validation",
                 detail: "Pack source must include /packs/ segment",
-                breadcrumbs: [
+                suggestions: [
                   {
                     description:
                       "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
@@ -393,13 +393,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return yield* makeAppError({
                 code: "not_found",
                 detail: "Pack source must include a pack name",
-                breadcrumbs: [{ description: "Use @owner/packs/pack-name format." }],
+                suggestions: [{ description: "Use @owner/packs/pack-name format." }],
               });
             default:
               return yield* makeAppError({
                 code: "usage",
                 detail: "Packs can only be installed from a registry",
-                breadcrumbs: [
+                suggestions: [
                   {
                     description:
                       "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
@@ -421,7 +421,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   makeAppError({
                     code: "validation",
                     detail: `Invalid source: ${error.message}`,
-                    breadcrumbs: [
+                    suggestions: [
                       {
                         description: "Use @owner/packs/pack-name or just pack-name.",
                       },
@@ -437,7 +437,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             return yield* makeAppError({
               code: "usage",
               detail: "Packs can only be installed from a registry",
-              breadcrumbs: [{ description: "Use a registry source: @owner/packs/pack-name" }],
+              suggestions: [{ description: "Use a registry source: @owner/packs/pack-name" }],
             });
           }
 
@@ -549,7 +549,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       return yield* makeAppError({
                         code: "network",
                         detail: "Pack could not be fetched from registry",
-                        breadcrumbs: [
+                        suggestions: [
                           {
                             description:
                               "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
@@ -561,7 +561,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     return yield* makeAppError({
                       code: "network",
                       detail: "Pack could not be fetched from registry",
-                      breadcrumbs: [
+                      suggestions: [
                         {
                           description: "Verify the pack name and registry configuration.",
                         },
@@ -586,7 +586,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     return yield* makeAppError({
                       code: "not_found",
                       detail: `Pack "${req.packName}" not found in registry`,
-                      breadcrumbs: [
+                      suggestions: [
                         {
                           description: "Verify the pack name and check available packs.",
                         },

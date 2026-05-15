@@ -84,7 +84,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
         makeAppError({
           code: "network",
           detail: "Update download did not complete",
-          breadcrumbs: [{ description: "Check your network connection and try again." }],
+          suggestions: [{ description: "Check your network connection and try again." }],
           cause,
         }),
       ),
@@ -95,7 +95,7 @@ const fetchBinaryResponse = (httpClient: HttpClient.HttpClient, url: string) =>
             makeAppError({
               code: "network",
               detail: "Download timed out",
-              breadcrumbs: [{ description: "Check your network connection and try again." }],
+              suggestions: [{ description: "Check your network connection and try again." }],
             }),
           ),
       }),
@@ -111,7 +111,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       return yield* makeAppError({
         code: "network",
         detail: `Download failed with status ${String(response.status)}`,
-        breadcrumbs: [{ description: "Check your network connection and try again." }],
+        suggestions: [{ description: "Check your network connection and try again." }],
       });
     }
 
@@ -120,7 +120,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
         makeAppError({
           code: "network",
           detail: "Failed to read downloaded data",
-          breadcrumbs: [{ description: "Check your network connection and try again." }],
+          suggestions: [{ description: "Check your network connection and try again." }],
           cause,
         }),
       ),
@@ -131,7 +131,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
       return yield* makeAppError({
         code: "validation",
         detail: "Downloaded file is empty",
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Try again. If the problem persists, download manually.",
           },
@@ -144,7 +144,7 @@ const downloadBinary = (httpClient: HttpClient.HttpClient, url: string, destPath
         makeAppError({
           code: "internal",
           detail: `Permission denied writing to ${destPath}`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Re-run the install script to fix permissions, or run with appropriate privileges.",
@@ -176,7 +176,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
           makeAppError({
             code: "internal",
             detail: `Permission denied replacing ${targetPath}`,
-            breadcrumbs: [
+            suggestions: [
               {
                 description:
                   "Re-run the install script to fix permissions, or run with appropriate privileges.",
@@ -193,7 +193,7 @@ const atomicReplace = (sourcePath: string, targetPath: string, platform: string)
           makeAppError({
             code: "internal",
             detail: `Permission denied replacing ${targetPath}`,
-            breadcrumbs: [
+            suggestions: [
               {
                 description:
                   "Re-run the install script to fix permissions, or run with appropriate privileges.",
@@ -215,7 +215,7 @@ const verifyBinary = (binaryPath: string) =>
       return yield* makeAppError({
         code: "validation",
         detail: "Downloaded binary could not be verified",
-        breadcrumbs: [
+        suggestions: [
           {
             description: "The upgrade may have succeeded. Try running `axm --version` to check.",
             cmd: "axm --version",
@@ -243,7 +243,7 @@ const commandFailedError = (args: {
   return makeAppError({
     code: "internal",
     detail: `${args.manager} upgrade failed.${permissionHint}`,
-    breadcrumbs: [
+    suggestions: [
       {
         description:
           output.length > 0
@@ -484,7 +484,7 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
       return yield* makeAppError({
         code: "internal",
         detail: `Unsupported platform: ${platform}-${arch}`,
-        breadcrumbs: [{ description: "Build from source or use a supported platform." }],
+        suggestions: [{ description: "Build from source or use a supported platform." }],
       });
     }
 

@@ -136,7 +136,7 @@ export const disableSubagent: OperationHandler<
         return yield* makeAppError({
           code: "internal",
           detail: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
-          breadcrumbs: [{ description: "Provide a source when disabling this subagent" }],
+          suggestions: [{ description: "Provide a source when disabling this subagent" }],
         });
       }
       yield* ws.setSubagentEntry(op.args.subagentName, {

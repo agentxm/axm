@@ -37,7 +37,7 @@ import {
   type SkillConstraints,
 } from "./constraint-resolution.js";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
-import { LIST_INSTALLED_SKILLS, SKILL_NAME_RULES } from "../../breadcrumbs.js";
+import { LIST_INSTALLED_SKILLS, SKILL_NAME_RULES } from "../../suggested-actions.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -84,14 +84,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         planName: "Update skill(s)",
         planDescription: "Update installed skills",
         message: "No skills installed. Nothing to update.",
-        breadcrumbs: [LIST_INSTALLED_SKILLS],
+        suggestions: [LIST_INSTALLED_SKILLS],
       })
     ) {
       return;
     }
 
     yield* renderer.info("No skills installed. Nothing to update.");
-    yield* renderer.success("Nothing to update", { breadcrumbs: [LIST_INSTALLED_SKILLS] });
+    yield* renderer.success("Nothing to update", { suggestions: [LIST_INSTALLED_SKILLS] });
     return;
   }
 
@@ -150,7 +150,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           planName: "Update skill(s)",
           planDescription: "Update installed skills",
           message: "No installed skills match the --skill filter. Nothing to update.",
-          breadcrumbs: [
+          suggestions: [
             LIST_INSTALLED_SKILLS,
             { description: "Relax the `--skill` filter and try again" },
           ],
@@ -161,7 +161,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
       yield* renderer.warn("No installed skills match the --skill filter. Nothing to update.");
       yield* renderer.success("Nothing to update", {
-        breadcrumbs: [
+        suggestions: [
           LIST_INSTALLED_SKILLS,
           { description: "Relax the `--skill` filter and try again" },
         ],

@@ -37,7 +37,7 @@ const parseOrigin = (url: string) =>
       makeAppError({
         code: "validation",
         detail: `Invalid URL: ${url}`,
-        breadcrumbs: [{ description: "Check the registry URL in your settings." }],
+        suggestions: [{ description: "Check the registry URL in your settings." }],
         cause: error,
       }),
   });

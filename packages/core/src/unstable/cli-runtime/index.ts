@@ -3,17 +3,17 @@ export type {
   ProgressEvent,
   LogEvent,
   ErrorEvent,
-  BreadcrumbEvent,
+  SuggestionEvent,
   StreamEvent,
 } from "./output-mode.js";
 export {
   ProgressEventSchema,
   LogEventSchema,
   ErrorEventSchema,
-  BreadcrumbEventSchema,
+  SuggestionEventSchema,
   emitEvent,
 } from "./output-mode.js";
-export { BreadcrumbSchema, type Breadcrumb } from "./breadcrumb.js";
+export { SuggestedActionSchema, type SuggestedAction } from "./suggested-action.js";
 export {
   JsonEnvelopeSchema,
   JsonSuccessEnvelopeSchema,

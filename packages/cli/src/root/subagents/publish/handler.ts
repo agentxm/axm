@@ -92,7 +92,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         detail: "No registry sources configured",
-        breadcrumbs: [{ description: "Run the registry guard first." }],
+        suggestions: [{ description: "Run the registry guard first." }],
       });
     }
 
@@ -178,7 +178,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
         makeAppError({
           code: "not_found",
           detail: `Subagent "${name}" is not installed in this workspace`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Use the fully-qualified name `@owner/subagents/name`, or run `axm subagents new ${name}` to create it first.",
@@ -193,7 +193,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
         makeAppError({
           code: "not_found",
           detail: `Subagent "${name}" cannot be published from a non-registry source`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Only subagents sourced from a registry namespace (`@owner/subagents/name`) can be published.",
@@ -241,7 +241,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Managed extension not found: ${extName}`,
-                breadcrumbs: [
+                suggestions: [
                   {
                     description:
                       "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed subagent with `axm subagents new` first.",
@@ -259,7 +259,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Missing manifest: ${MANIFEST_FILENAME}`,
-                breadcrumbs: [
+                suggestions: [
                   {
                     description: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
                   },
@@ -343,14 +343,14 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
       return yield* singleFailure.error;
     }
 
-    const breadcrumbs =
+    const suggestions =
       failedStepErrors.length === 1 && singleFailure !== undefined
-        ? (singleFailure.error.breadcrumbs ?? [])
+        ? (singleFailure.error.suggestions ?? [])
         : [];
     return yield* makeAppError({
       code: "internal",
       detail: `Failed to publish ${failedStepDetails.length} subagent${failedStepDetails.length === 1 ? "" : "s"}`,
-      breadcrumbs,
+      suggestions,
     });
   }
 
@@ -365,6 +365,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
   yield* emitPlanResolutionResult("subagents.publish", resolvedPlan);
   const success = publishSuccessRender(resolvedPlan);
   yield* renderer.success(success.message, {
-    ...(success.breadcrumbs !== undefined ? { breadcrumbs: success.breadcrumbs } : {}),
+    ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
   });
 });

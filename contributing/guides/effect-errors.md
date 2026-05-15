@@ -60,7 +60,7 @@ export class AppError extends Data.TaggedError("AppError")<{
   readonly title: string;
   readonly detail: string;
   readonly metadata?: AppErrorMetadata;
-  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause: unknown;
 }> {}
 ```
@@ -76,7 +76,7 @@ pure function of `code` — see
 `metadata.response` carries opaque RFC 9457 response data when the error came
 from the registry. Do not read `error.message` for user-facing content.
 
-All next-step guidance belongs in `breadcrumbs`; there is no separate guidance
+All next-step guidance belongs in `suggestions`; there is no separate guidance
 string.
 
 #### Choosing a code
@@ -113,7 +113,7 @@ const error = makeAppError({
 ```
 
 For one recovery step, prefer `recover` plus optional `cmd`; it prepends a
-breadcrumb and can be combined with explicit `breadcrumbs`:
+suggestion and can be combined with explicit `suggestions`:
 
 ```ts
 const error = makeAppError({
@@ -131,7 +131,7 @@ client errors with `registryClientErrorToAppError` or `registryErrorToAppError`
 from `packages/core/src/unstable/registry/translate.ts`; do not add
 operation-local status-code switches. The translator maps HTTP status to the
 closed `AppErrorCode` union, preserves `{ status, body }` in
-`metadata.response`, and adds breadcrumbs for retry, scope, publish lint, and
+`metadata.response`, and adds suggestions for retry, scope, publish lint, and
 identity-mismatch details when those fields are present.
 
 Use-case code that needs typed access to response fields defines a focused
@@ -167,7 +167,7 @@ stack trace.
 ## When to Use Typed Service Errors
 
 Most of the time, `AppError` with a category code plus a clear message and
-breadcrumbs is sufficient. Introduce a typed `Data.TaggedError` subclass only
+suggestions is sufficient. Introduce a typed `Data.TaggedError` subclass only
 when it earns its keep.
 
 ### Typed errors earn their keep when
@@ -185,7 +185,7 @@ when it earns its keep.
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Every caller recovers the same way**       | If all `catchTag("FooError")` handlers do the same thing, use a result value instead (see [Prefer result values](#prefer-result-values-over-uniform-recovery-errors)) |
 | **The error is only produced in one place**  | A single `mapError` to `makeAppError` is simpler than defining + translating a typed error                                                                            |
-| **The metadata fits AppError's shape**       | `code`, `title`, `detail`, `metadata`, `breadcrumbs`, and `cause` already carry the information callers need                                                          |
+| **The metadata fits AppError's shape**       | `code`, `title`, `detail`, `metadata`, `suggestions`, and `cause` already carry the information callers need                                                          |
 | **Callers only need the category to decide** | `catchIf(e => e.code === "not_found", ...)` works without a new type                                                                                                  |
 
 ### When you introduce a typed service error
@@ -213,7 +213,7 @@ const program = manifestService.load(path).pipe(
       makeAppError({
         code: "validation",
         detail: `Could not load manifest: ${e.reason}`,
-        breadcrumbs: [{ description: `Check ${e.path}` }],
+        suggestions: [{ description: `Check ${e.path}` }],
         cause: e,
       })
     )

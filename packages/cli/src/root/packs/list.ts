@@ -9,7 +9,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { INSTALL_PACK_FROM_REGISTRY } from "../breadcrumbs.js";
+import { INSTALL_PACK_FROM_REGISTRY } from "../suggested-actions.js";
 
 interface PackListItem {
   readonly name: string;
@@ -50,7 +50,7 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
     yield* renderer.list("pack", {
       items,
       count: items.length,
-      breadcrumbs: items.length === 0 ? [INSTALL_PACK_FROM_REGISTRY] : [],
+      suggestions: items.length === 0 ? [INSTALL_PACK_FROM_REGISTRY] : [],
     })
   ) {
     return;
@@ -59,7 +59,7 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
   if (items.length === 0) {
     yield* renderer.info("No packs installed");
     yield* renderer.success("Nothing to show", {
-      breadcrumbs: [INSTALL_PACK_FROM_REGISTRY],
+      suggestions: [INSTALL_PACK_FROM_REGISTRY],
     });
     return;
   }

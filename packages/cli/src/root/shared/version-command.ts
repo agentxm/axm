@@ -80,7 +80,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
       return yield* makeAppError({
         code: "not_found",
         detail: "`set` requires an exact semver version",
-        breadcrumbs: [
+        suggestions: [
           {
             description: `Run \`axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3\`.`,
             cmd: `axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3`,
@@ -186,7 +186,7 @@ const inferVersionableType = (handle: string) =>
       return yield* makeAppError({
         code: "validation",
         detail: `Versioning is not supported for ${extensionTypeToPlural[fqn.type]}, got ${handle}`,
-        breadcrumbs: [{ description: `Use a handle like ${supportedHandleHints}.` }],
+        suggestions: [{ description: `Use a handle like ${supportedHandleHints}.` }],
       });
     }
     return fqn.type;

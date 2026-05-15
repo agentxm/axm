@@ -11,7 +11,7 @@ const handleHandledTelemetry = Effect.fail(
   makeAppError({
     code: "internal",
     detail: "Simulated handled telemetry failure",
-    breadcrumbs: [
+    suggestions: [
       {
         description: "Run `axm-spike telemetry defect` to exercise defect telemetry.",
       },

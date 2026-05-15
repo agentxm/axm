@@ -2,22 +2,22 @@ import * as Schema from "effect/Schema";
 
 const RunnableAxmCommandPattern = /`?axm\s/;
 
-export const BreadcrumbSchema = Schema.Struct({
+export const SuggestedActionSchema = Schema.Struct({
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
   url: Schema.optional(Schema.String),
 })
   .check(
-    Schema.makeFilter((breadcrumb) =>
-      RunnableAxmCommandPattern.test(breadcrumb.description) && breadcrumb.cmd === undefined
+    Schema.makeFilter((suggestion) =>
+      RunnableAxmCommandPattern.test(suggestion.description) && suggestion.cmd === undefined
         ? { path: ["cmd"], issue: "`cmd` is required when description mentions an axm command" }
         : undefined,
     ),
   )
   .annotate({
-    identifier: "Breadcrumb",
-    title: "Breadcrumb",
+    identifier: "SuggestedAction",
+    title: "SuggestedAction",
     description: "Suggested follow-up. Optional shell command or URL.",
   });
 
-export type Breadcrumb = typeof BreadcrumbSchema.Type;
+export type SuggestedAction = typeof SuggestedActionSchema.Type;

@@ -403,8 +403,8 @@ describe("subagents-publish.handler", () => {
               Effect.succeed({
                 error: true,
                 message: e.detail,
-                guidance: (e.breadcrumbs ?? [])
-                  .map((breadcrumb) => breadcrumb.description)
+                guidance: (e.suggestions ?? [])
+                  .map((suggestion) => suggestion.description)
                   .join("\n"),
               }),
             ),
@@ -490,7 +490,7 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("internal");
-          expect(error.breadcrumbs?.[0]?.description ?? "").toContain("identity-check");
+          expect(error.suggestions?.[0]?.description ?? "").toContain("identity-check");
         }),
       );
     });
@@ -525,7 +525,7 @@ describe("subagents-publish.handler", () => {
           const error = getAppError(caught);
 
           expect(error.code).toBe("internal");
-          expect(error.breadcrumbs?.[0]?.description ?? "").toContain("identity-check.md");
+          expect(error.suggestions?.[0]?.description ?? "").toContain("identity-check.md");
         }),
       );
     });

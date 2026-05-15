@@ -84,7 +84,7 @@ export const removeFromPack: OperationHandler<
         makeAppError({
           code: "not_found",
           detail: `Pack manifest not found at ${manifestPath}`,
-          breadcrumbs: [{ description: "Ensure the pack exists on disk" }],
+          suggestions: [{ description: "Ensure the pack exists on disk" }],
           cause: e,
         }),
       ),
@@ -96,7 +96,7 @@ export const removeFromPack: OperationHandler<
       return yield* makeAppError({
         code: "conflict",
         detail: `Pack manifest is stale — it was modified since the plan was created`,
-        breadcrumbs: [{ description: "Re-run the command to create a fresh plan" }],
+        suggestions: [{ description: "Re-run the command to create a fresh plan" }],
       });
     }
 

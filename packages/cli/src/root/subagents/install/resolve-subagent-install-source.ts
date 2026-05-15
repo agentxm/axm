@@ -105,7 +105,7 @@ const resolveRegistrySource = (
         makeAppError({
           code: "internal",
           detail: `Failed to read configured registry sources for owner "${owner}"`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: "Check that your workspace settings file is valid and accessible",
             },
@@ -119,7 +119,7 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "internal",
         detail: `No registry source is configured for owner "${owner}"`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: `Add a registry source for owner "${owner}" using "axm sources add"`,
             cmd: "axm sources add",
@@ -180,7 +180,7 @@ const resolveRegistrySource = (
       return yield* makeAppError({
         code: "not_found",
         detail: `Subagent "${owner}/${subagentName}" was not found in configured registries`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: registryLookupHowToFix({
               issues,
@@ -195,7 +195,7 @@ const resolveRegistrySource = (
     return yield* makeAppError({
       code: "not_found",
       detail: `None of the configured registry sources contain owner "${owner}"`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: registryLookupHowToFix({
             issues,
@@ -219,7 +219,7 @@ const resolveSubagentRegistrySourceByName = (
       return yield* makeAppError({
         code: "not_found",
         detail: `Subagent "${name}" could not be looked up (no registry sources)`,
-        breadcrumbs: [
+        suggestions: [
           {
             description:
               "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
@@ -247,7 +247,7 @@ const resolveSubagentRegistrySourceByName = (
           detail: Option.isNone(maybeProfile)
             ? `Subagent "${name}" could not be looked up (no default owner)`
             : `Subagent "${label}" was not found in configured registries`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
@@ -262,7 +262,7 @@ const resolveSubagentRegistrySourceByName = (
       return yield* makeAppError({
         code: "not_found",
         detail: `Subagent "${name}" was not found in configured registries`,
-        breadcrumbs: [
+        suggestions: [
           {
             description:
               "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
@@ -307,7 +307,7 @@ const resolveSubagentRegistrySource = (
       return yield* makeAppError({
         code: "internal",
         detail: `Cannot install "${pattern.type.value}" extensions with "subagents install"`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a subagent`,
           },
@@ -360,7 +360,7 @@ export const resolveSubagentInstallSource = (
         return yield* makeAppError({
           code: "internal",
           detail: `Input pattern "${pattern.pattern}" is not supported for subagent installation`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Use a registry reference (e.g., @owner/subagents/name), a URL, or a shorthand (owner/repo) instead",

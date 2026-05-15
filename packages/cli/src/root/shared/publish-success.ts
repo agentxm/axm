@@ -1,4 +1,4 @@
-import type { Breadcrumb } from "@agentxm/client-core/unstable/cli-runtime";
+import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
 import type { CompletedJobStep, PlanResolution } from "@agentxm/client-core/unstable/plan";
 
 type LinkedSuccessStep = CompletedJobStep & {
@@ -11,7 +11,7 @@ type LinkedSuccessStep = CompletedJobStep & {
 
 export interface PublishSuccessRender {
   readonly message: string;
-  readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }
 
 const hasLinks = (step: CompletedJobStep): step is LinkedSuccessStep =>
@@ -36,7 +36,7 @@ export const publishSuccessRender = (resolution: PlanResolution): PublishSuccess
     message: linkedSteps
       .flatMap((step) => [step.result.message, `→ ${step.result.links.html}`])
       .join("\n"),
-    breadcrumbs: linkedSteps.map((step) => ({
+    suggestions: linkedSteps.map((step) => ({
       description: "View in browser",
       url: step.result.links.html,
     })),

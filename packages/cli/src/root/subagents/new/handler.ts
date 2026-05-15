@@ -78,7 +78,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     return yield* makeAppError({
       code: "validation",
       detail: `Invalid subagent name: "${args.name}"`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
         },
@@ -92,7 +92,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     return yield* makeAppError({
       code: "conflict",
       detail: `Subagent '${args.name}' already exists`,
-      breadcrumbs: [
+      suggestions: [
         {
           description:
             "Choose a different name, remove the existing subagent first, or use --force",
@@ -261,7 +261,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     preview: args.preview,
   });
 
-  const breadcrumbs = [
+  const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "subagents", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
     },
@@ -275,14 +275,14 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     "subagents.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created subagent ${fqn}`, breadcrumbs }
+      ? { summary: `Created subagent ${fqn}`, suggestions }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
     yield* renderer.success(`Created subagent ${fqn}`, {
-      breadcrumbs,
-      withoutBreadcrumbs: emitted,
+      suggestions,
+      withoutSuggestions: emitted,
     });
   }
 });

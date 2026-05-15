@@ -98,7 +98,7 @@ export const newSkill: OperationHandler<
       return yield* makeAppError({
         code: "conflict",
         detail: `Skill '${name}' already exists in settings`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Choose a different name or remove the existing skill first",
           },

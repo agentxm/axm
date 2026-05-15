@@ -296,7 +296,7 @@ describe("handleUpgrade", () => {
                 error: true,
                 code: e.code,
                 message: e.detail,
-                cmd: e.breadcrumbs?.[1]?.cmd,
+                cmd: e.suggestions?.[1]?.cmd,
               }),
             ),
           );
@@ -398,7 +398,7 @@ describe("handleUpgrade", () => {
                 error: true,
                 code: e.code,
                 message: e.detail,
-                cmd: e.breadcrumbs?.[1]?.cmd,
+                cmd: e.suggestions?.[1]?.cmd,
               }),
             ),
           );

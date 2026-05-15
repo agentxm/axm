@@ -99,7 +99,7 @@ export const SubagentManagerLive = Layer.effect(
             makeAppError({
               code: "internal",
               detail: `Failed to read ${expectedFilename} from ${subagentSrcPath}`,
-              breadcrumbs: [
+              suggestions: [
                 {
                   description: `Ensure the subagent content file exists at ${contentPath}.`,
                 },

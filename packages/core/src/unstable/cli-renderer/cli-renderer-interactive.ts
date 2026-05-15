@@ -5,7 +5,7 @@ import * as Stream from "effect/Stream";
 
 import {
   CliRenderer,
-  type BreadcrumbOptions,
+  type SuggestionOptions,
   type DetailView,
   type DetailOptions,
   type ListPayload,
@@ -24,7 +24,7 @@ import {
   type TreeDef,
   type TreeNode,
 } from "./cli-renderer.js";
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import * as chrome from "./ansi-chrome.js";
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 import { getEntityView } from "./entity-registry.js";
@@ -192,12 +192,15 @@ const taskCompletionMessage = (title: string, result: string | void): string => 
 const formatTerminalLink = (url: string, outputPolicy: CliOutputPolicy): string =>
   outputPolicy.colors ? `\u001b]8;;${url}\u001b\\${url}\u001b]8;;\u001b\\` : url;
 
-const formatBreadcrumbAction = (crumb: Breadcrumb, outputPolicy: CliOutputPolicy): string => {
-  if (crumb.cmd !== undefined) {
-    return crumb.cmd;
+const formatSuggestedActionAction = (
+  suggestion: SuggestedAction,
+  outputPolicy: CliOutputPolicy,
+): string => {
+  if (suggestion.cmd !== undefined) {
+    return suggestion.cmd;
   }
-  if (crumb.url !== undefined) {
-    return formatTerminalLink(crumb.url, outputPolicy);
+  if (suggestion.url !== undefined) {
+    return formatTerminalLink(suggestion.url, outputPolicy);
   }
   return "";
 };
@@ -286,28 +289,30 @@ const plainTaskLog = (config: TaskLogConfig): Effect.Effect<TaskLogHandle> =>
     } satisfies TaskLogHandle),
   );
 
-const normalizeBreadcrumbs = (
-  crumbs: ReadonlyArray<Breadcrumb> | undefined,
-  options?: BreadcrumbOptions,
-): ReadonlyArray<Breadcrumb> =>
-  options?.withoutBreadcrumbs === true || crumbs === undefined || crumbs.length === 0 ? [] : crumbs;
+const normalizeSuggestions = (
+  suggestions: ReadonlyArray<SuggestedAction> | undefined,
+  options?: SuggestionOptions,
+): ReadonlyArray<SuggestedAction> =>
+  options?.withoutSuggestions === true || suggestions === undefined || suggestions.length === 0
+    ? []
+    : suggestions;
 
-const renderBreadcrumbs = (
-  crumbs: ReadonlyArray<Breadcrumb>,
+const renderSuggestions = (
+  suggestions: ReadonlyArray<SuggestedAction>,
   outputPolicy: CliOutputPolicy,
-  options?: BreadcrumbOptions,
+  options?: SuggestionOptions,
 ): Effect.Effect<void> => {
-  const visible = normalizeBreadcrumbs(crumbs, options);
+  const visible = normalizeSuggestions(suggestions, options);
   if (visible.length === 0) {
     return Effect.void;
   }
 
   const lines = [
     dim("Next:", outputPolicy),
-    ...visible.map((crumb) => {
-      const formatted = formatBreadcrumbAction(crumb, outputPolicy);
+    ...visible.map((suggestion) => {
+      const formatted = formatSuggestedActionAction(suggestion, outputPolicy);
       const command = formatted.length === 0 ? "" : dim(` · ${formatted}`, outputPolicy);
-      return `  ${crumb.description}${command}`;
+      return `  ${suggestion.description}${command}`;
     }),
   ];
 
@@ -390,15 +395,15 @@ export const InteractiveRenderer = (options?: {
     info: (message) => renderLogLine(outputPolicy, "info", message),
     success: (message, options?: SuccessOptions) =>
       renderLogLine(outputPolicy, "success", message).pipe(
-        Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], outputPolicy, options)),
+        Effect.andThen(renderSuggestions(options?.suggestions ?? [], outputPolicy, options)),
       ),
     step: (message) => renderLogLine(outputPolicy, "step", message),
     warn: (message) => renderLogLine(outputPolicy, "warn", message),
-    error: (message, options?: BreadcrumbOptions) =>
+    error: (message, options?: SuggestionOptions) =>
       renderLogLine(outputPolicy, "error", message).pipe(
-        Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], outputPolicy, options)),
+        Effect.andThen(renderSuggestions(options?.suggestions ?? [], outputPolicy, options)),
       ),
-    breadcrumbs: (crumbs, options) => renderBreadcrumbs(crumbs, outputPolicy, options),
+    suggestions: (suggestions, options) => renderSuggestions(suggestions, outputPolicy, options),
     cancel: (message) =>
       outputPolicy.colors
         ? chrome.cancel(message ?? "Cancelled")
@@ -457,7 +462,7 @@ export const InteractiveRenderer = (options?: {
         view === undefined ? makeGenericTableView(payload.items) : { columns: view.columns };
       const output = formatTable(payload.items, resolveTableColumns(tableView));
       return (output ? writeStdoutLine(output) : Effect.void).pipe(
-        Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], outputPolicy, payload)),
+        Effect.andThen(renderSuggestions(payload.suggestions ?? [], outputPolicy, payload)),
         Effect.as(false),
       );
     },
@@ -477,7 +482,7 @@ export const InteractiveRenderer = (options?: {
         const title = options?.title ?? view?.title?.(item);
         const output = formatDetail(item, resolveDetailFields(detailView), title);
         return (output ? writeStdoutLine(output) : Effect.void).pipe(
-          Effect.andThen(renderBreadcrumbs(options?.breadcrumbs ?? [], outputPolicy, options)),
+          Effect.andThen(renderSuggestions(options?.suggestions ?? [], outputPolicy, options)),
           Effect.as(false),
         );
       }
@@ -506,7 +511,7 @@ export const InteractiveRenderer = (options?: {
         }
         const output = formatTree(payload.roots, view);
         return (output ? writeStdoutLine(output) : Effect.void).pipe(
-          Effect.andThen(renderBreadcrumbs(payload.breadcrumbs ?? [], outputPolicy, payload)),
+          Effect.andThen(renderSuggestions(payload.suggestions ?? [], outputPolicy, payload)),
           Effect.as(false),
         );
       }

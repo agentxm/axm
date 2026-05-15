@@ -95,13 +95,13 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("success emits breadcrumb events without the message", () =>
+    it.effect("success emits suggestion events without the message", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
             yield* r.success("Done", {
-              breadcrumbs: [
+              suggestions: [
                 { description: "Edit the file" },
                 { description: "Apply changes", cmd: "axm sync" },
               ],
@@ -110,9 +110,9 @@ describe("MachineRenderer", () => {
         );
         const events = parseStderrEvents();
         expect(events).toEqual([
-          { type: "breadcrumb", description: "Edit the file" },
+          { type: "suggestion", description: "Edit the file" },
           {
-            type: "breadcrumb",
+            type: "suggestion",
             description: "Apply changes",
             cmd: "axm sync",
           },
@@ -121,13 +121,13 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("success emits URL breadcrumb events", () =>
+    it.effect("success emits URL suggestion events", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
             yield* r.success("Published", {
-              breadcrumbs: [
+              suggestions: [
                 {
                   description: "View in browser",
                   url: "https://agentxm.ai/acme/skills/review",
@@ -139,7 +139,7 @@ describe("MachineRenderer", () => {
         const events = parseStderrEvents();
         expect(events).toEqual([
           {
-            type: "breadcrumb",
+            type: "suggestion",
             description: "View in browser",
             url: "https://agentxm.ai/acme/skills/review",
           },
@@ -440,7 +440,7 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("includes summary and breadcrumbs in the flat envelope", () =>
+    it.effect("includes summary and suggestions in the flat envelope", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -449,7 +449,7 @@ describe("MachineRenderer", () => {
               items: [{ name: "my-command" }],
               count: 1,
               summary: "Created command @acme/commands/my-command",
-              breadcrumbs: [
+              suggestions: [
                 { description: "Edit the file", cmd: "axm edit" },
                 { description: "Apply changes", cmd: "axm sync" },
               ],
@@ -458,9 +458,9 @@ describe("MachineRenderer", () => {
         );
 
         expect(parseStderrEvents()).toEqual([
-          { type: "breadcrumb", description: "Edit the file", cmd: "axm edit" },
+          { type: "suggestion", description: "Edit the file", cmd: "axm edit" },
           {
-            type: "breadcrumb",
+            type: "suggestion",
             description: "Apply changes",
             cmd: "axm sync",
           },
@@ -470,7 +470,7 @@ describe("MachineRenderer", () => {
           items: [{ name: "my-command" }],
           count: 1,
           summary: "Created command @acme/commands/my-command",
-          breadcrumbs: [
+          suggestions: [
             { description: "Edit the file", cmd: "axm edit" },
             { description: "Apply changes", cmd: "axm sync" },
           ],

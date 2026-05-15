@@ -84,7 +84,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         detail: "No registry sources configured",
-        breadcrumbs: [{ description: "Run `axm setup` first.", cmd: "axm setup" }],
+        suggestions: [{ description: "Run `axm setup` first.", cmd: "axm setup" }],
       });
     }
 
@@ -138,7 +138,7 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
         return yield* makeAppError({
           code: "validation",
           detail: `Extension "${handle}" does not have a registry owner`,
-          breadcrumbs: [
+          suggestions: [
             {
               description: "Use a fully-qualified registry handle like @owner/skills/name.",
             },
@@ -158,7 +158,7 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
       return yield* makeAppError({
         code: "validation",
         detail: `Invalid extension handle: ${handle}`,
-        breadcrumbs: [
+        suggestions: [
           {
             description:
               "Use a fully-qualified handle like @owner/skills/name, or pass --type for a bare name.",
@@ -197,14 +197,14 @@ const resolveBareViewHandle = (handle: string) =>
       return yield* makeAppError({
         code: "internal",
         detail: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
-        breadcrumbs: [{ description: "Re-run with --type or the fully-qualified name." }],
+        suggestions: [{ description: "Re-run with --type or the fully-qualified name." }],
       });
     }
 
     return yield* makeAppError({
       code: "not_found",
       detail: `No extension named "${handle}" was found`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: "Check the name, pass --type, or use a fully-qualified name.",
         },
@@ -274,7 +274,7 @@ export const handleView = (args: ViewHandlerArgs) =>
       return yield* makeAppError({
         code: "not_found",
         detail: `Extension ${args.handle} not found on registry "${targetRegistry.registryName}".`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: `If this extension is private, run "axm login" and try again.`,
             cmd: "axm login",

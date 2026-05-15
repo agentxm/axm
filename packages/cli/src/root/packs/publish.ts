@@ -94,7 +94,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         detail: "No registry sources configured",
-        breadcrumbs: [{ description: "Run the registry guard first." }],
+        suggestions: [{ description: "Run the registry guard first." }],
       });
     }
 
@@ -189,7 +189,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         return yield* makeAppError({
           code: "not_found",
           detail: `Pack "${args.pack}" is not installed in this workspace`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Use the fully-qualified name `@owner/packs/name`, or run `axm packs new ${args.pack}` to create it first.",
@@ -202,7 +202,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         return yield* makeAppError({
           code: "not_found",
           detail: `Pack "${args.pack}" cannot be published from a non-registry source`,
-          breadcrumbs: [
+          suggestions: [
             {
               description:
                 "Only packs sourced from a registry namespace (`@owner/packs/name`) can be published.",
@@ -233,7 +233,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           return yield* makeAppError({
             code: "not_found",
             detail: `Managed pack not found: ${packName}`,
-            breadcrumbs: [
+            suggestions: [
               {
                 description:
                   "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
@@ -252,7 +252,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           return yield* makeAppError({
             code: "not_found",
             detail: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
-            breadcrumbs: [
+            suggestions: [
               {
                 description: `Ensure the pack has a valid ${PACK_MANIFEST_FILENAME} manifest.`,
               },
@@ -380,7 +380,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     if (failedStepErrors.length > 0) {
       const [singleFailure] = failedStepErrors;
       // A single failure already carries a fully-formed AppError from the
-      // registry error mappers (code, detail, breadcrumbs, response
+      // registry error mappers (code, detail, suggestions, response
       // metadata). Surface it directly rather than collapsing it into a
       // generic "Failed to publish" message that drops all of that context.
       if (failedStepErrors.length === 1 && singleFailure !== undefined) {
@@ -406,7 +406,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   const success = publishSuccessRender(resolvedPlan);
   yield* renderer.success(success.message, {
-    ...(success.breadcrumbs !== undefined ? { breadcrumbs: success.breadcrumbs } : {}),
+    ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
   });
 });
 

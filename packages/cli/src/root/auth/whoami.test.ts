@@ -94,7 +94,7 @@ describe("auth whoami handler", () => {
             Effect.succeed({
               error: true,
               code: e.code,
-              guidance: e.breadcrumbs?.[0]?.description,
+              guidance: e.suggestions?.[0]?.description,
             }),
           ),
         );

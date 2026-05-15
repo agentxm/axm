@@ -3,12 +3,12 @@ import { AppError } from "./app-error.js";
 import { renderAppError, renderDefect } from "./render.js";
 
 describe("renderAppError", () => {
-  it("renders caller-supplied breadcrumbs as a Next steps block", () => {
+  it("renders caller-supplied suggestions as a Next steps block", () => {
     const error = new AppError({
       code: "internal",
       title: "Internal Error",
       detail: "WorkspaceMutations not initialized",
-      breadcrumbs: [{ description: "Create a workspace to continue." }],
+      suggestions: [{ description: "Create a workspace to continue." }],
       cause: undefined,
     });
 
@@ -23,12 +23,12 @@ describe("renderAppError", () => {
     );
   });
 
-  it("renders breadcrumb cmd and url on follow-on lines", () => {
+  it("renders suggestion cmd and url on follow-on lines", () => {
     const error = new AppError({
       code: "network",
       title: "Network Error",
       detail: "Remote registry is unreachable",
-      breadcrumbs: [
+      suggestions: [
         { description: "Sign in again.", cmd: "axm login" },
         { description: "See the docs.", url: "https://axm.sh/docs" },
       ],
@@ -49,7 +49,7 @@ describe("renderAppError", () => {
     );
   });
 
-  it("falls back to the default breadcrumbs for the error code when none are supplied", () => {
+  it("falls back to the default suggestions for the error code when none are supplied", () => {
     const error = new AppError({
       code: "internal",
       title: "Internal Error",
@@ -69,7 +69,7 @@ describe("renderAppError", () => {
     );
   });
 
-  it("renders no Next steps block when the error code has no default breadcrumbs", () => {
+  it("renders no Next steps block when the error code has no default suggestions", () => {
     const error = new AppError({
       code: "not_found",
       title: "Not Found",
@@ -100,7 +100,7 @@ describe("renderAppError", () => {
       code: "validation",
       title: "Invalid Request",
       detail: "Could not resolve source",
-      breadcrumbs: [{ description: "Try a local path or GitHub shorthand." }],
+      suggestions: [{ description: "Try a local path or GitHub shorthand." }],
       cause: undefined,
     });
 

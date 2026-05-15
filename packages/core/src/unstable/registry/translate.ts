@@ -8,7 +8,7 @@ import {
   defaultTitleFor,
   makeAppError,
 } from "../app-error/index.js";
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import {
   ExtensionIdentityMismatchError,
   ExtensionLintFailedError,
@@ -99,11 +99,11 @@ const retryAfterFromBody = (status: number, body: unknown): number | undefined =
   return undefined;
 };
 
-const retryAfterBreadcrumb = (
+const retryAfterSuggestedAction = (
   status: number,
   body: unknown,
   response: HttpClientResponse.HttpClientResponse,
-): Breadcrumb | undefined => {
+): SuggestedAction | undefined => {
   const headerSeconds =
     parseRetryAfterHeader(response.headers["retry-after"]) ??
     parseRetryAfterHeader(response.headers["Retry-After"]);
@@ -114,7 +114,7 @@ const retryAfterBreadcrumb = (
     : { description: `Retry after ${String(retryAfterSeconds)}s.` };
 };
 
-const scopeDeniedBreadcrumb = (body: unknown): Breadcrumb | undefined => {
+const scopeDeniedSuggestedAction = (body: unknown): SuggestedAction | undefined => {
   const decoded = tryDecode(decodeForbiddenError, body);
   const requiredScope =
     decoded?.details !== undefined && "requiredScope" in decoded.details
@@ -126,13 +126,13 @@ const scopeDeniedBreadcrumb = (body: unknown): Breadcrumb | undefined => {
     : { description: `Re-authenticate with --scope ${requiredScope}.` };
 };
 
-const lintFailedBreadcrumbs = (body: unknown): ReadonlyArray<Breadcrumb> => {
+const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {
   const decoded = tryDecode(decodeExtensionLintFailedError, body);
   if (decoded === undefined) return [];
 
   const findingCount = decoded.findings.length;
   const findingLabel = findingCount === 1 ? "finding" : "findings";
-  const summary: Breadcrumb = {
+  const summary: SuggestedAction = {
     description: `Publish lint failed with ${String(findingCount)} ${findingLabel}.`,
   };
   const findings = decoded.findings.slice(0, 5).map((finding) => ({
@@ -142,11 +142,11 @@ const lintFailedBreadcrumbs = (body: unknown): ReadonlyArray<Breadcrumb> => {
   return [summary, ...findings];
 };
 
-const identityMismatchBreadcrumbs = (body: unknown): ReadonlyArray<Breadcrumb> => {
+const identityMismatchSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {
   const decoded = tryDecode(decodeExtensionIdentityMismatchError, body);
   if (decoded === undefined) return [];
 
-  const summary: Breadcrumb = {
+  const summary: SuggestedAction = {
     description: `Publish identity mismatch on ${String(decoded.mismatches.length)} field${decoded.mismatches.length === 1 ? "" : "s"}.`,
   };
   const mismatches = decoded.mismatches.map((mismatch) => ({
@@ -156,7 +156,7 @@ const identityMismatchBreadcrumbs = (body: unknown): ReadonlyArray<Breadcrumb> =
   return [summary, ...mismatches];
 };
 
-const serverErrorBreadcrumb = (status: number): Breadcrumb | undefined =>
+const serverErrorSuggestedAction = (status: number): SuggestedAction | undefined =>
   status >= 500
     ? {
         description:
@@ -164,24 +164,24 @@ const serverErrorBreadcrumb = (status: number): Breadcrumb | undefined =>
       }
     : undefined;
 
-const problemBreadcrumbs = (
+const problemSuggestions = (
   status: number,
   problem: ProblemDetails,
   response: HttpClientResponse.HttpClientResponse,
-): ReadonlyArray<Breadcrumb> => {
+): ReadonlyArray<SuggestedAction> => {
   const body = problem;
-  const retry = retryAfterBreadcrumb(status, body, response);
-  const scope = status === 403 ? scopeDeniedBreadcrumb(body) : undefined;
-  const serverError = serverErrorBreadcrumb(status);
+  const retry = retryAfterSuggestedAction(status, body, response);
+  const scope = status === 403 ? scopeDeniedSuggestedAction(body) : undefined;
+  const serverError = serverErrorSuggestedAction(status);
   return [
     ...(retry === undefined ? [] : [retry]),
     ...(scope === undefined ? [] : [scope]),
     ...(serverError === undefined ? [] : [serverError]),
     ...(status === 422 && problem.code === "extension_lint_failed"
-      ? lintFailedBreadcrumbs(body)
+      ? lintFailedSuggestions(body)
       : []),
     ...(status === 422 && problem.code === "extension_identity_mismatch"
-      ? identityMismatchBreadcrumbs(body)
+      ? identityMismatchSuggestions(body)
       : []),
   ];
 };
@@ -190,14 +190,14 @@ export const registryErrorToAppError = (
   problem: ProblemDetails,
   response: HttpClientResponse.HttpClientResponse,
   ctx?: {
-    readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+    readonly suggestions?: ReadonlyArray<SuggestedAction>;
   },
 ): AppError => {
   const status = problem.status ?? response.status;
   const code = httpStatusToAppCode(status, problem.code);
-  const breadcrumbs = [
-    ...problemBreadcrumbs(status, problem, response),
-    ...(ctx?.breadcrumbs ?? []),
+  const suggestions = [
+    ...problemSuggestions(status, problem, response),
+    ...(ctx?.suggestions ?? []),
   ];
 
   return makeAppError({
@@ -205,7 +205,7 @@ export const registryErrorToAppError = (
     title: problem.title ?? defaultTitleFor(code),
     detail: problem.detail ?? defaultDetailFor(code),
     metadata: { response: { status, body: problem } },
-    ...(breadcrumbs.length > 0 ? { breadcrumbs } : {}),
+    ...(suggestions.length > 0 ? { suggestions } : {}),
     cause: problem,
   });
 };
@@ -213,7 +213,7 @@ export const registryErrorToAppError = (
 export const registryClientErrorToAppError = (
   error: RegistryClientError<string, unknown>,
   ctx?: {
-    readonly breadcrumbs?: ReadonlyArray<Breadcrumb>;
+    readonly suggestions?: ReadonlyArray<SuggestedAction>;
   },
 ): AppError =>
   registryErrorToAppError(

@@ -12,7 +12,7 @@ import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as Predicate from "effect/Predicate";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { isLoopbackAddress } from "../utils/index.js";
 import type { RegistryClientError } from "./__generated__/registry-client.js";
 import { registryClientErrorToAppError } from "./translate.js";
@@ -82,10 +82,10 @@ export const isSchemaError = (e: unknown): boolean =>
 // -----------------------------------------------------------------------------
 
 /**
- * Build user-facing breadcrumbs for network errors.
+ * Build user-facing suggestions for network errors.
  * Detects localhost+HTTPS mismatches and provides targeted guidance.
  */
-export const buildNetworkBreadcrumbs = (baseUrl: string): ReadonlyArray<Breadcrumb> => {
+export const buildNetworkSuggestions = (baseUrl: string): ReadonlyArray<SuggestedAction> => {
   const fallback = "Check registry URL/network connectivity and retry.";
 
   try {
@@ -178,7 +178,7 @@ export const mapNetworkError = (
   makeAppError({
     code: "network",
     detail: message,
-    breadcrumbs: buildNetworkBreadcrumbs(baseUrl),
+    suggestions: buildNetworkSuggestions(baseUrl),
     cause: error,
   });
 

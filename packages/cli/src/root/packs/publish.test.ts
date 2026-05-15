@@ -476,8 +476,8 @@ describe("packs publish.handler", () => {
               Effect.succeed({
                 error: true,
                 message: e.detail,
-                guidance: (e.breadcrumbs ?? [])
-                  .map((breadcrumb) => breadcrumb.description)
+                guidance: (e.suggestions ?? [])
+                  .map((suggestion) => suggestion.description)
                   .join("\n"),
               }),
             ),

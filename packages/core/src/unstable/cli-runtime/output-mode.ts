@@ -58,19 +58,19 @@ export const ErrorEventSchema = Schema.Struct({
 });
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 
-export const BreadcrumbEventSchema = Schema.Struct({
-  type: Schema.Literal("breadcrumb"),
+export const SuggestionEventSchema = Schema.Struct({
+  type: Schema.Literal("suggestion"),
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
   url: Schema.optional(Schema.String),
 }).annotate({
-  identifier: "BreadcrumbEvent",
-  title: "Breadcrumb Event",
-  description: "NDJSON breadcrumb event with a suggested follow-up.",
+  identifier: "SuggestionEvent",
+  title: "Suggestion Event",
+  description: "NDJSON suggestion event with a suggested follow-up.",
 });
-export type BreadcrumbEvent = typeof BreadcrumbEventSchema.Type;
+export type SuggestionEvent = typeof SuggestionEventSchema.Type;
 
-export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent | BreadcrumbEvent;
+export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent | SuggestionEvent;
 
 // ---------------------------------------------------------------------------
 // Event emitter — writes a single NDJSON line to stderr

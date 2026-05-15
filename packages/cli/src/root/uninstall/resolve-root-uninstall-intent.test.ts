@@ -31,10 +31,10 @@ describe("resolveRootUninstallIntent", () => {
       expect(appError.code).toBe("usage");
       expect(appError.detail).toContain("only accepts registry FQNs");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm skills uninstall review");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm commands uninstall review");
     }),
   );
@@ -46,10 +46,10 @@ describe("resolveRootUninstallIntent", () => {
 
       expect(appError.code).toBe("usage");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm skills uninstall <name>");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain(rootFqnGrammarSnippet);
     }),
   );
@@ -61,7 +61,7 @@ describe("resolveRootUninstallIntent", () => {
 
       expect(appError.code).toBe("validation");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain(rootFqnGrammarSnippet);
     }),
   );
@@ -73,7 +73,7 @@ describe("resolveRootUninstallIntent", () => {
 
       expect(appError.code).toBe("usage");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );
@@ -85,7 +85,7 @@ describe("resolveRootUninstallIntent", () => {
 
       expect(appError.code).toBe("not_found");
       expect(
-        (appError.breadcrumbs ?? []).map((breadcrumb) => breadcrumb.description).join("\n"),
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("skills, commands, mcp-servers, subagents, packs");
     }),
   );

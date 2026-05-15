@@ -396,7 +396,13 @@ const listTokenConfig = {} as const;
 
 const listTokenCommand = Command.make("list", listTokenConfig, () =>
   handleListTokens().pipe(withAuthRuntime("auth token list")),
-).pipe(withArgvTracking(listTokenConfig), Command.withDescription("List granular access tokens"));
+).pipe(
+  withArgvTracking(listTokenConfig),
+  Command.withDescription("List granular access tokens"),
+  Command.withExamples([
+    { command: "axm token list", description: "List your granular access tokens" },
+  ]),
+);
 
 const revokeTokenConfig = {
   id: Argument.string("id").pipe(Argument.withDescription("Token id to revoke")),
@@ -407,6 +413,9 @@ const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
 ).pipe(
   withArgvTracking(revokeTokenConfig),
   Command.withDescription("Revoke a granular access token"),
+  Command.withExamples([
+    { command: "axm token revoke token_123", description: "Revoke a granular access token" },
+  ]),
 );
 
 export const tokenCommand = Command.make("token", tokenConfig, () =>

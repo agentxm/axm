@@ -25,7 +25,7 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
       return yield* makeAppError({
         code: "usage",
         detail: "The --all flag requires a source for subagents install",
-        breadcrumbs: [
+        suggestions: [
           {
             description:
               "Run `axm subagents install <source> --all` or omit --all to install all configured subagents.",
@@ -38,7 +38,7 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
       return yield* makeAppError({
         code: "usage",
         detail: "The --subagent flag requires a source for subagents install",
-        breadcrumbs: [
+        suggestions: [
           {
             description:
               "Run `axm subagents install <source> --subagent <name>` or omit --subagent to install all configured subagents.",

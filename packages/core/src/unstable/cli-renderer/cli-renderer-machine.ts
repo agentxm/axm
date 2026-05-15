@@ -6,7 +6,7 @@ import * as Stream from "effect/Stream";
 
 import {
   CliRenderer,
-  type BreadcrumbOptions,
+  type SuggestionOptions,
   type DetailOptions,
   type ListPayload,
   type LogLevel,
@@ -21,7 +21,7 @@ import {
   type TaskLogGroupHandle,
   type TaskLogHandle,
 } from "./cli-renderer.js";
-import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
 
 // ---------------------------------------------------------------------------
@@ -42,24 +42,26 @@ const levelToLogLevel = (level: LogLevel): "info" | "warn" | "error" => {
   return "info";
 };
 
-const normalizeBreadcrumbs = (
-  crumbs: ReadonlyArray<Breadcrumb> | undefined,
-  options?: BreadcrumbOptions,
-): ReadonlyArray<Breadcrumb> =>
-  options?.withoutBreadcrumbs === true || crumbs === undefined || crumbs.length === 0 ? [] : crumbs;
+const normalizeSuggestions = (
+  suggestions: ReadonlyArray<SuggestedAction> | undefined,
+  options?: SuggestionOptions,
+): ReadonlyArray<SuggestedAction> =>
+  options?.withoutSuggestions === true || suggestions === undefined || suggestions.length === 0
+    ? []
+    : suggestions;
 
-const emitBreadcrumbs = (
-  crumbs: ReadonlyArray<Breadcrumb> | undefined,
-  options?: BreadcrumbOptions,
+const emitSuggestions = (
+  suggestions: ReadonlyArray<SuggestedAction> | undefined,
+  options?: SuggestionOptions,
 ) =>
   Effect.forEach(
-    normalizeBreadcrumbs(crumbs, options),
-    (crumb) =>
+    normalizeSuggestions(suggestions, options),
+    (suggestion) =>
       emitStderrEvent({
-        type: "breadcrumb",
-        description: crumb.description,
-        ...(crumb.cmd !== undefined ? { cmd: crumb.cmd } : {}),
-        ...(crumb.url !== undefined ? { url: crumb.url } : {}),
+        type: "suggestion",
+        description: suggestion.description,
+        ...(suggestion.cmd !== undefined ? { cmd: suggestion.cmd } : {}),
+        ...(suggestion.url !== undefined ? { url: suggestion.url } : {}),
       }),
     { concurrency: 1 },
   ).pipe(Effect.asVoid);
@@ -69,7 +71,7 @@ const makeSuccessEnvelope = (data: unknown, options: SuccessOptions | undefined)
   return makeJsonSuccessEnvelope({
     payload: data,
     ...(summary !== undefined ? { summary } : {}),
-    breadcrumbs: normalizeBreadcrumbs(options?.breadcrumbs, options),
+    suggestions: normalizeSuggestions(options?.suggestions, options),
   });
 };
 
@@ -243,14 +245,14 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     outro: () => Effect.void,
     message: () => Effect.void,
     info: () => Effect.void,
-    success: (_message, options?: SuccessOptions) => emitBreadcrumbs(options?.breadcrumbs, options),
+    success: (_message, options?: SuccessOptions) => emitSuggestions(options?.suggestions, options),
     step: () => Effect.void,
     warn: (message) => emitLogEvent("warn", message),
-    error: (message, options?: BreadcrumbOptions) =>
+    error: (message, options?: SuggestionOptions) =>
       emitLogEvent("error", message).pipe(
-        Effect.andThen(emitBreadcrumbs(options?.breadcrumbs, options)),
+        Effect.andThen(emitSuggestions(options?.suggestions, options)),
       ),
-    breadcrumbs: emitBreadcrumbs,
+    suggestions: emitSuggestions,
     cancel: (message) => (message ? emitLogEvent("info", message) : Effect.void),
     note: () => Effect.void,
     box: () => Effect.void,
@@ -353,11 +355,11 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       Effect.void,
     list: <T extends object>(_entity: string, payload: ListPayload<T>) =>
       Effect.succeed(payload).pipe(
-        Effect.tap(() => emitBreadcrumbs(payload.breadcrumbs, payload)),
+        Effect.tap(() => emitSuggestions(payload.suggestions, payload)),
         Effect.map(
           ({
-            withoutBreadcrumbs: _withoutBreadcrumbs,
-            breadcrumbs: _breadcrumbs,
+            withoutSuggestions: _withoutSuggestions,
+            suggestions: _suggestions,
             summary: _summary,
             ...data
           }) => makeSuccessEnvelope(data, payload),
@@ -373,7 +375,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         const options = third as DetailOptions | undefined;
         return Effect.succeed(second).pipe(
-          Effect.tap(() => emitBreadcrumbs(options?.breadcrumbs, options)),
+          Effect.tap(() => emitSuggestions(options?.suggestions, options)),
           Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
           Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
           Effect.as(true),
@@ -389,11 +391,11 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         const payload = second as TreePayload<object>;
         return Effect.succeed(payload).pipe(
-          Effect.tap(() => emitBreadcrumbs(payload.breadcrumbs, payload)),
+          Effect.tap(() => emitSuggestions(payload.suggestions, payload)),
           Effect.map(
             ({
-              withoutBreadcrumbs: _withoutBreadcrumbs,
-              breadcrumbs: _breadcrumbs,
+              withoutSuggestions: _withoutSuggestions,
+              suggestions: _suggestions,
               summary: _summary,
               ...data
             }) => makeSuccessEnvelope(data, payload),
@@ -412,7 +414,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       options?: SuccessOptions,
     ) =>
       encodeJson(data, schema).pipe(
-        Effect.tap(() => emitBreadcrumbs(options?.breadcrumbs, options)),
+        Effect.tap(() => emitSuggestions(options?.suggestions, options)),
         Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),

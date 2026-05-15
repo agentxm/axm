@@ -117,7 +117,7 @@ export const newCommand: OperationHandler<
       return yield* makeAppError({
         code: "conflict",
         detail: `Directory "${name}" already exists`,
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Choose a different name or remove the existing directory first",
           },

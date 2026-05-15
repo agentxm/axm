@@ -1,6 +1,6 @@
 export {
   CliRenderer,
-  type BreadcrumbOptions,
+  type SuggestionOptions,
   type BoxOptions,
   type DetailFieldConfig,
   type DetailView,

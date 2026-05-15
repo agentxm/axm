@@ -5,7 +5,7 @@
 - [x] 1.3 Change error JSON to omit `details`.
 - [x] 1.4 Remove `_version` from stderr NDJSON events.
 - [x] 1.5 Emit a machine stderr `error` event when JSON error output is produced.
-- [x] 1.6 Support breadcrumb `command` and `cmd`, requiring at least one.
+- [x] 1.6 Support suggestion `command` and `cmd`, requiring at least one.
 
 ## 2. Renderer API
 

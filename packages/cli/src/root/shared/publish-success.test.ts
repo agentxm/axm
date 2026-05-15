@@ -6,7 +6,7 @@ import type { ExecutedPlan } from "@agentxm/client-core/unstable/plan";
 import { publishSuccessRender } from "./publish-success.js";
 
 describe("publishSuccessRender", () => {
-  it("renders linked publish steps inline and as breadcrumbs", () => {
+  it("renders linked publish steps inline and as suggestions", () => {
     const resolution: ExecutedPlan = {
       _tag: "ExecutedPlan",
       name: "Publish skill",
@@ -43,7 +43,7 @@ describe("publishSuccessRender", () => {
         "Published @acme/skills/lint@1.0.0",
         "→ https://agentxm.ai/acme/skills/lint",
       ].join("\n"),
-      breadcrumbs: [
+      suggestions: [
         {
           description: "View in browser",
           url: "https://agentxm.ai/acme/skills/review",

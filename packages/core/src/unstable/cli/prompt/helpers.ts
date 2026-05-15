@@ -23,7 +23,7 @@ const promptRequired = (options: InteractiveGuardOptions) =>
   makeAppError({
     code: "usage",
     detail: `Interactive prompt required: ${options.message}`,
-    breadcrumbs: [{ description: options.guidance ?? defaultHowToFix }],
+    suggestions: [{ description: options.guidance ?? defaultHowToFix }],
   });
 
 const runPrompt = <A>(prompt: PromptTypes.Prompt<A>) =>

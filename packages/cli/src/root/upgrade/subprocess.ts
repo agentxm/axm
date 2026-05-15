@@ -82,7 +82,7 @@ const makeRunCommand =
         makeAppError({
           code: "internal",
           detail: `Failed to execute ${command}`,
-          breadcrumbs: [{ description: "Check that the command is installed and on PATH." }],
+          suggestions: [{ description: "Check that the command is installed and on PATH." }],
           cause,
         }),
       ),
@@ -93,7 +93,7 @@ const makeRunCommand =
             makeAppError({
               code: "internal",
               detail: `Timed out executing ${command}`,
-              breadcrumbs: [{ description: "Check the package manager state and try again." }],
+              suggestions: [{ description: "Check the package manager state and try again." }],
             }),
           ),
       }),

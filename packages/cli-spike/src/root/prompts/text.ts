@@ -57,7 +57,7 @@ const handleText = (args: {
       return yield* makeAppError({
         code: "validation",
         detail: "Pet name must be at least 1 character",
-        breadcrumbs: [
+        suggestions: [
           {
             description: "Pass a non-empty `--value` or provide a non-empty prompt response.",
           },

@@ -78,7 +78,7 @@ describe("cli telemetry helpers", () => {
         makeAppError({
           code: "not_found",
           detail: "WorkspaceMutations not initialized",
-          breadcrumbs: [{ description: "Run axm setup" }],
+          suggestions: [{ description: "Run axm setup" }],
         }),
         "setup",
       ).pipe(Effect.provide(layer));

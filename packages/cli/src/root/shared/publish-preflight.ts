@@ -41,7 +41,7 @@ export const checkPublishVersionPreflight = (args: {
     return yield* makeAppError({
       code: "internal",
       detail: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
-      breadcrumbs: [
+      suggestions: [
         {
           description: `Bump the version first:\n  axm ${plural} version ${local.fqn} patch\n\nOverride with --force.`,
           cmd: `axm ${plural} version ${local.fqn} patch`,

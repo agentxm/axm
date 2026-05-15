@@ -113,7 +113,7 @@ describe("packs-new.handler", () => {
           });
 
           expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
-          expect(rendererState.breadcrumbs).toEqual([
+          expect(rendererState.suggestions).toEqual([
             {
               description:
                 "Edit `.axm/extensions/@acme/packs/frontend-tools/pack.json` to fill in pack contents",

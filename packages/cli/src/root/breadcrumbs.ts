@@ -10,6 +10,11 @@ export const INSTALL_SKILL_FROM_REGISTRY = {
   cmd: "axm skills install <source>",
 } as const satisfies Breadcrumb;
 
+export const INSTALL_PACK_FROM_REGISTRY = {
+  description: "Install a pack from a registry like @owner/packs/name",
+  cmd: "axm packs install <source>",
+} as const satisfies Breadcrumb;
+
 export const SCAFFOLD_MANAGED_SKILL = {
   description: "Scaffold a managed skill",
   cmd: "axm skills new",

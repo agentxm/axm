@@ -911,3 +911,73 @@ describe("axm packs unpack", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// 9.7: packs list
+// ---------------------------------------------------------------------------
+
+describe("axm packs list", () => {
+  it("shows empty state when no packs are installed", async () => {
+    const temp = createTempDir();
+    try {
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+
+      const result = await runCli(["packs", "list"], { cwd: temp.path });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout + result.stderr).toContain("No packs installed");
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("lists installed packs after install", async () => {
+    const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
+    try {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+
+      await runCli(["packs", "new", "listable-pack", "--yes"], { cwd: temp.path });
+      await publishRegistrySkill(registryDir.path, "listable-pack-skill");
+      updatePackManifest(temp.path, "listable-pack", {
+        version: "0.0.1",
+        dependencies: {
+          "@test/skills/listable-pack-skill": "*",
+        },
+      });
+      const publishResult = await runCli(["packs", "publish", "listable-pack", "--yes"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(publishResult.exitCode).toBe(0);
+
+      const installResult = await runCli(
+        ["packs", "install", "@test/packs/listable-pack", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(installResult.exitCode).toBe(0);
+
+      const listResult = await runCli(["packs", "list"], { cwd: temp.path });
+      expect(listResult.exitCode).toBe(0);
+      const output = listResult.stdout + listResult.stderr;
+      expect(output).toContain("listable-pack");
+      expect(output).toContain("@test");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("works with ls alias", async () => {
+    const temp = createTempDir();
+    try {
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+
+      const result = await runCli(["packs", "ls"], { cwd: temp.path });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout + result.stderr).toContain("No packs installed");
+    } finally {
+      temp.cleanup();
+    }
+  });
+});

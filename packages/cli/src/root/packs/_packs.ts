@@ -3,6 +3,7 @@ import { Command } from "effect/unstable/cli";
 import { packsVersionCommand } from "../shared/version-command.js";
 import { addCommand } from "./add.js";
 import { installCommand } from "./install/command.js";
+import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { publishCommand } from "./publish.js";
 import { removeCommand } from "./remove.js";
@@ -34,6 +35,7 @@ export const packsCommand = Command.make("packs").pipe(
     },
   ]),
   Command.withSubcommands([
+    listCommand,
     installCommand,
     uninstallCommand,
     newCommand,

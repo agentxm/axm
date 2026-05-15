@@ -201,26 +201,25 @@ const resolveGemDir = () => envWithDefault("GEM_HOME", `${os.homedir()}/.gem/rub
 
 /**
  * Parse the `axm_recommended_extensions` value from a gemspec metadata string.
- * The value format is: `"axm_recommended_extensions" => "[@scope/skills/name@^1.0.0]"`
+ * The value format is a JSON-stringified array:
+ * `"axm_recommended_extensions" => "[\"@scope/skills/name@^1.0.0\"]"`
  */
 const parseAxmMetadataFromGemspec = (content: string): unknown | undefined => {
-  // Look for axm_recommended_extensions in the metadata hash
-  const match = /"axm_recommended_extensions"\s*=>\s*"([^"]*)"/.exec(content);
+  // Look for axm_recommended_extensions in the metadata hash.
+  const match = /"axm_recommended_extensions"\s*=>\s*"((?:\\.|[^"\\])*)"/.exec(content);
   if (match === null || match[1] === undefined) return undefined;
 
-  const value = match[1];
+  const rawValue = match[1];
 
-  // Parse the array-like value: [item1, item2]
-  if (!value.startsWith("[") || !value.endsWith("]")) return undefined;
+  try {
+    const decodedValue: unknown = JSON.parse(`"${rawValue}"`);
+    if (typeof decodedValue !== "string") return undefined;
 
-  const inner = value.slice(1, -1).trim();
-  if (inner === "") return { recommendedExtensions: [] };
-
-  const items = inner
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  return { recommendedExtensions: items };
+    const recommendedExtensions: unknown = JSON.parse(decodedValue);
+    return { recommendedExtensions };
+  } catch {
+    return undefined;
+  }
 };
 
 /**

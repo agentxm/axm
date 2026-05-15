@@ -34,7 +34,7 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
+import { disableSkill, enableSkill, SkillManager } from "@agentxm/client-core/unstable/skills";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
@@ -395,16 +395,52 @@ const adaptIntent = (
         });
         return { kind: "step", step };
       }
-      case "enable-skill":
-      case "disable-skill":
+      case "enable-skill": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const ws = yield* WorkspaceMutations;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const skillName = op.args.name;
+        const step: PlannedJobStep = {
+          key: `skill:${skillName}`,
+          readiness: "ready",
+          label: skillName,
+          run: enableSkill({ name: "enable-skill", args: { skillName } }).pipe(
+            Effect.provideService(WorkspaceMutations, ws),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+        };
+        return { kind: "step", step };
+      }
+      case "disable-skill": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const ws = yield* WorkspaceMutations;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const skillName = op.args.name;
+        const step: PlannedJobStep = {
+          key: `skill:${skillName}`,
+          readiness: "ready",
+          label: skillName,
+          run: disableSkill({ name: "disable-skill", args: { skillName } }).pipe(
+            Effect.provideService(WorkspaceMutations, ws),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+        };
+        return { kind: "step", step };
+      }
       case "enable-command":
       case "disable-command":
       case "enable-subagent":
       case "disable-subagent": {
-        // v1 workspaceRules do not emit enable/disable intents for any
-        // autofixing arm, so the adapter reports them as unmapped rather
-        // than wiring a synthetic plan step. Phase 3c explicitly docs that
-        // the subagent install family stays advisory.
+        // These extension families do not have enable/disable lint-fix
+        // adapters yet. Keep them advisory until their handlers are wired.
         return unmapped(
           op.name,
           `enable/disable intents are not wired into --fix; run 'axm ${op.name.replace("-", " ")} ...' manually`,

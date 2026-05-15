@@ -199,10 +199,24 @@ export const gemDetector: PackageDetector = {
  */
 const resolveGemDir = () => envWithDefault("GEM_HOME", `${os.homedir()}/.gem/ruby`);
 
+const parseBracketedExtensionList = (value: string): unknown | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return undefined;
+
+  const body = trimmed.slice(1, -1).trim();
+  if (body === "") return [];
+
+  const items = body.split(",").map((item) => item.trim());
+  if (items.some((item) => item === "")) return undefined;
+
+  return items;
+};
+
 /**
  * Parse the `axm_recommended_extensions` value from a gemspec metadata string.
- * The value format is a JSON-stringified array:
- * `"axm_recommended_extensions" => "[\"@scope/skills/name@^1.0.0\"]"`
+ * The preferred value format is a JSON-stringified array:
+ * `"axm_recommended_extensions" => "[\"@scope/skills/name@^1.0.0\"]"`.
+ * A Ruby-friendly bracket list without inner quotes is also accepted.
  */
 const parseAxmMetadataFromGemspec = (content: string): unknown | undefined => {
   // Look for axm_recommended_extensions in the metadata hash.
@@ -215,10 +229,13 @@ const parseAxmMetadataFromGemspec = (content: string): unknown | undefined => {
     const decodedValue: unknown = JSON.parse(`"${rawValue}"`);
     if (typeof decodedValue !== "string") return undefined;
 
-    const recommendedExtensions: unknown = JSON.parse(decodedValue);
+    const recommendedExtensions: unknown =
+      JSON.parse(decodedValue) ?? parseBracketedExtensionList(decodedValue);
     return { recommendedExtensions };
   } catch {
-    return undefined;
+    const decodedValue = rawValue.replaceAll('\\"', '"');
+    const recommendedExtensions = parseBracketedExtensionList(decodedValue);
+    return recommendedExtensions === undefined ? undefined : { recommendedExtensions };
   }
 };
 

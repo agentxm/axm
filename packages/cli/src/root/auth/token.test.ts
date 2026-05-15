@@ -5,17 +5,26 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import {
   AuthClientTest,
+  AuthLoginInteractionTest,
   CredentialStoreTest,
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { handleToken } from "./token.js";
+import {
+  handleCreateToken,
+  handleListTokens,
+  handleRevokeToken,
+  handleToken,
+  parseExpiresInSeconds,
+} from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
@@ -25,8 +34,12 @@ const makeLayers = (opts?: {
   machine?: boolean;
   json?: boolean;
   allowsPersistedCredentials?: boolean;
+  authOverrides?: Parameters<typeof AuthClientTest>[0];
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const interaction = AuthLoginInteractionTest({
+    openBrowser: () => Effect.succeed(true),
+  });
   const rendererLayer = renderer.layer;
   const rendererState = renderer.state;
   const credStoreLayer = opts?.hasCredentials
@@ -57,7 +70,8 @@ const makeLayers = (opts?: {
     rendererLayer,
     TestFlagsLayer({ ...(opts?.json !== undefined && { json: opts.json }) }),
     credStoreLayer,
-    AuthClientTest(),
+    AuthClientTest(opts?.authOverrides),
+    interaction.layer,
     registryUrlLayer,
   );
 
@@ -65,7 +79,7 @@ const makeLayers = (opts?: {
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(FullLayer));
 
-  return { provide, rendererState };
+  return { provide, rendererState, interactionState: interaction.state };
 };
 
 describe("auth token handler", () => {
@@ -163,6 +177,186 @@ describe("auth token handler", () => {
         expect(rendererState.logs).toContainEqual({
           _tag: "message",
           message: "axm_env_test_token\n",
+        });
+      }),
+    );
+  });
+
+  it.effect("parses relative expiry durations", () =>
+    Effect.gen(function* () {
+      const sevenDays = yield* parseExpiresInSeconds("7d");
+      const oneYear = yield* parseExpiresInSeconds("1y");
+
+      expect(sevenDays).toBe(604800);
+      expect(oneYear).toBe(31536000);
+    }),
+  );
+
+  it.effect("creates a token with structured permissions", () => {
+    const createCalls: Array<unknown> = [];
+    const { provide, rendererState } = makeLayers({
+      hasCredentials: true,
+      authOverrides: {
+        createToken: (_accessToken, params) => {
+          createCalls.push(params);
+          return Effect.succeed({
+            id: "token_123",
+            token: "axmt_created",
+            name: params.name,
+            scopes: ["extensions:read", "extensions:publish:new"],
+            permissions: { kind: "gat" },
+            createdAt: "2026-05-15T00:00:00.000Z",
+            expiresAt: "2026-06-14T00:00:00.000Z",
+          });
+        },
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleCreateToken({
+          name: "ci",
+          expires: "30d",
+          owners: ["@foo"],
+          extensions: [],
+          permission: Option.some("publish"),
+          orgPermission: Option.none(),
+          cidr: ["203.0.113.0/24"],
+          bypassMfa: true,
+        });
+
+        expect(createCalls).toMatchObject([
+          {
+            name: "ci",
+            expiresIn: 2592000,
+            permissions: {
+              owners: ["@foo"],
+              permission: "publish",
+              cidr: ["203.0.113.0/24"],
+              bypass_mfa: true,
+            },
+          },
+        ]);
+        expect(rendererState.details[0]?.item).toMatchObject({
+          id: "token_123",
+          token: "axmt_created",
+        });
+      }),
+    );
+  });
+
+  it.effect("lists tokens", () => {
+    const { provide, rendererState } = makeLayers({
+      hasCredentials: true,
+      authOverrides: {
+        listTokens: () =>
+          Effect.succeed({
+            tokens: [
+              {
+                id: "token_123",
+                name: "ci",
+                type: "pat",
+                scopes: ["extensions:read"],
+                permissions: null,
+                createdAt: "2026-05-15T00:00:00.000Z",
+                expiresAt: "2026-06-15T00:00:00.000Z",
+                lastUsedAt: null,
+              },
+            ],
+            hasMore: false,
+            cursor: null,
+          }),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListTokens();
+        expect(rendererState.tables[0]?.items).toMatchObject([
+          {
+            id: "token_123",
+            name: "ci",
+            lastUsedAt: "never",
+          },
+        ]);
+      }),
+    );
+  });
+
+  it.effect("revokes a token by id", () => {
+    const revoked: string[] = [];
+    const { provide, rendererState } = makeLayers({
+      hasCredentials: true,
+      authOverrides: {
+        deleteToken: (_accessToken, tokenId) => {
+          revoked.push(tokenId);
+          return Effect.void;
+        },
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRevokeToken("token_123");
+        expect(revoked).toEqual(["token_123"]);
+        expect(rendererState.logs).toContainEqual({
+          _tag: "success",
+          message: "Revoked token token_123.",
+        });
+      }),
+    );
+  });
+
+  it.effect("completes step-up before retrying token revoke", () => {
+    const deleteCalls: Array<unknown> = [];
+    const { provide, rendererState, interactionState } = makeLayers({
+      hasCredentials: true,
+      authOverrides: {
+        deleteToken: (_accessToken, tokenId, options) => {
+          deleteCalls.push({ tokenId, options });
+          if (options?.stepUpToken === undefined) {
+            return Effect.fail(
+              makeAppError({
+                code: "auth",
+                detail: "Step-up authentication is required",
+                metadata: {
+                  response: {
+                    status: 401,
+                    body: {
+                      code: "eotp",
+                      authUrl: "https://agentxm.ai/step-up?challenge=123",
+                      doneUrl: "https://registry.agentxm.ai/v1/auth/step-up/challenges/123",
+                    },
+                  },
+                },
+              }),
+            );
+          }
+          return Effect.void;
+        },
+        pollStepUpChallenge: (_accessToken, doneUrl) => Effect.succeed(`proof:${doneUrl}`),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRevokeToken("token_123");
+
+        expect(interactionState.openBrowserCalls).toEqual([
+          "https://agentxm.ai/step-up?challenge=123",
+        ]);
+        expect(deleteCalls).toMatchObject([
+          { tokenId: "token_123", options: undefined },
+          {
+            tokenId: "token_123",
+            options: {
+              stepUpToken: "proof:https://registry.agentxm.ai/v1/auth/step-up/challenges/123",
+            },
+          },
+        ]);
+        expect(rendererState.logs).toContainEqual({
+          _tag: "success",
+          message: "Revoked token token_123.",
         });
       }),
     );

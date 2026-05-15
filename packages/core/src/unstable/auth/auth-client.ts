@@ -69,6 +69,61 @@ export interface MeResponse {
   readonly orgs: ReadonlyArray<{ readonly id: string; readonly handle: Handle }>;
 }
 
+export interface WhoamiResponse {
+  readonly handle: Handle;
+}
+
+export interface TokenPermissionsRequest {
+  readonly owners?: ReadonlyArray<string>;
+  readonly extensions?: ReadonlyArray<string>;
+  readonly permission?: "read" | "publish" | "admin";
+  readonly org_permission?: "read" | "write" | "admin";
+  readonly cidr?: ReadonlyArray<string>;
+  readonly bypass_mfa?: boolean;
+}
+
+export interface CreateTokenParams {
+  readonly name: string;
+  readonly expiresIn: number;
+  readonly permissions: TokenPermissionsRequest;
+}
+
+export interface CreatedTokenResponse {
+  readonly id: string;
+  readonly token: string;
+  readonly name: string;
+  readonly scopes: ReadonlyArray<string>;
+  readonly permissions: unknown;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+}
+
+export interface TokenListItem {
+  readonly id: string;
+  readonly name: string | null;
+  readonly type: string;
+  readonly scopes: ReadonlyArray<string>;
+  readonly permissions: unknown;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly lastUsedAt: string | null;
+}
+
+export interface TokenListResponse {
+  readonly tokens: ReadonlyArray<TokenListItem>;
+  readonly hasMore: boolean;
+  readonly cursor: string | null;
+}
+
+export interface StepUpRequiredResponse {
+  readonly authUrl: string;
+  readonly doneUrl: string;
+}
+
+export interface DeleteTokenOptions {
+  readonly stepUpToken?: string;
+}
+
 export interface BuildAuthorizeUrlParams {
   readonly challenge: string;
   readonly expiresAt?: Date;
@@ -115,6 +170,24 @@ export interface AuthClientService {
   ) => Effect.Effect<NormalizedTokenResponse, AppError>;
   readonly revokeToken: (token: string) => Effect.Effect<void, AppError>;
   readonly getMe: (accessToken: string) => Effect.Effect<MeResponse, AppError>;
+  readonly getWhoami: (accessToken: string) => Effect.Effect<WhoamiResponse, AppError>;
+  readonly createToken: (
+    accessToken: string,
+    params: CreateTokenParams,
+  ) => Effect.Effect<CreatedTokenResponse, AppError>;
+  readonly listTokens: (
+    accessToken: string,
+    params?: { readonly limit?: number; readonly cursor?: string },
+  ) => Effect.Effect<TokenListResponse, AppError>;
+  readonly pollStepUpChallenge: (
+    accessToken: string,
+    doneUrl: string,
+  ) => Effect.Effect<string, AppError>;
+  readonly deleteToken: (
+    accessToken: string,
+    tokenId: string,
+    options?: DeleteTokenOptions,
+  ) => Effect.Effect<void, AppError>;
 }
 
 export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
@@ -150,6 +223,54 @@ const OAuthTokenErrorResponseSchema = Schema.Struct({
   error: Schema.String,
   error_description: Schema.optional(Schema.String),
 });
+
+const WhoamiResponseSchema = Schema.Struct({
+  handle: Schema.String,
+});
+
+const CreatedTokenResponseSchema = Schema.Struct({
+  id: Schema.String,
+  token: Schema.String,
+  name: Schema.String,
+  scopes: Schema.Array(Schema.String),
+  permissions: Schema.Unknown,
+  created_at: Schema.String,
+  expires_at: Schema.String,
+});
+
+const TokenListResponseSchema = Schema.Struct({
+  tokens: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.NullOr(Schema.String),
+      type: Schema.String,
+      scopes: Schema.Array(Schema.String),
+      permissions: Schema.NullOr(Schema.Unknown),
+      created_at: Schema.String,
+      expires_at: Schema.String,
+      last_used_at: Schema.NullOr(Schema.String),
+    }),
+  ),
+  has_more: Schema.Boolean,
+  cursor: Schema.NullOr(Schema.String),
+});
+
+const StepUpRequiredResponseSchema = Schema.Struct({
+  code: Schema.Literal("eotp"),
+  authUrl: Schema.String,
+  doneUrl: Schema.String,
+});
+
+const StepUpChallengeResponseSchema = Schema.Union([
+  Schema.Struct({
+    status: Schema.Literal("pending"),
+  }),
+  Schema.Struct({
+    status: Schema.Literal("completed"),
+    step_up: Schema.String,
+    expires_at: Schema.String,
+  }),
+]);
 
 const unexpectedTokenStatus = (response: HttpClientResponse.HttpClientResponse) =>
   Effect.flatMap(
@@ -212,6 +333,44 @@ const makeTransientDevicePollAppError = (cause: unknown) =>
       },
     ],
     cause,
+  });
+
+const isAppError = (error: unknown): error is AppError => getString(error, "_tag") === "AppError";
+
+const mapRegistryAuthError = (operation: string, error: unknown): AppError =>
+  isAppError(error)
+    ? error
+    : makeAppError({
+        code: "auth",
+        detail: operation,
+        breadcrumbs: [{ description: "Run `axm login` to re-authenticate.", cmd: "axm login" }],
+        cause: error,
+      });
+
+const executeAuthedRequest = (
+  httpClient: HttpClient.HttpClient,
+  registryUrl: string,
+  accessToken: string,
+  request: HttpClientRequest.HttpClientRequest,
+) =>
+  httpClient
+    .pipe(
+      HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
+      HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken)),
+    )
+    .execute(request);
+
+const stepUpRequiredAppError = (response: StepUpRequiredResponse) =>
+  makeAppError({
+    code: "auth",
+    detail: "Step-up authentication is required",
+    metadata: {
+      response: {
+        status: 401,
+        body: { code: "eotp", ...response },
+      },
+    },
+    cause: response,
   });
 
 /**
@@ -574,6 +733,175 @@ export const AuthClientLive = Layer.effect(
       },
     );
 
+    const getWhoami: AuthClientService["getWhoami"] = Effect.fn("AuthClient.getWhoami")(
+      function* (accessToken) {
+        const decoded = yield* executeAuthedRequest(
+          httpClient,
+          registryUrl,
+          accessToken,
+          HttpClientRequest.get("/v1/auth/whoami"),
+        ).pipe(
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "2xx": HttpClientResponse.schemaBodyJson(WhoamiResponseSchema),
+              orElse: unexpectedTokenStatus,
+            }),
+          ),
+          Effect.mapError((error) =>
+            mapRegistryAuthError("Could not read authenticated identity", error),
+          ),
+        );
+
+        return {
+          handle: normalizeHandle(decoded.handle),
+        } satisfies WhoamiResponse;
+      },
+    );
+
+    const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
+      function* (accessToken, params) {
+        const decoded = yield* HttpClientRequest.post("/v1/tokens").pipe(
+          HttpClientRequest.bodyJsonUnsafe({
+            name: params.name,
+            permissions: params.permissions,
+            expires_in: params.expiresIn,
+          }),
+          (request) => executeAuthedRequest(httpClient, registryUrl, accessToken, request),
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "2xx": HttpClientResponse.schemaBodyJson(CreatedTokenResponseSchema),
+              orElse: unexpectedTokenStatus,
+            }),
+          ),
+          Effect.mapError((error) => mapRegistryAuthError("Could not create token", error)),
+        );
+
+        return {
+          id: decoded.id,
+          token: decoded.token,
+          name: decoded.name,
+          scopes: decoded.scopes,
+          permissions: decoded.permissions,
+          createdAt: decoded.created_at,
+          expiresAt: decoded.expires_at,
+        } satisfies CreatedTokenResponse;
+      },
+    );
+
+    const listTokens: AuthClientService["listTokens"] = Effect.fn("AuthClient.listTokens")(
+      function* (accessToken, params) {
+        const search = new URLSearchParams();
+        if (params?.limit !== undefined) {
+          search.set("limit", String(params.limit));
+        }
+        if (params?.cursor !== undefined) {
+          search.set("cursor", params.cursor);
+        }
+        const query = search.toString();
+        const path = query.length > 0 ? `/v1/tokens?${query}` : "/v1/tokens";
+
+        const decoded = yield* executeAuthedRequest(
+          httpClient,
+          registryUrl,
+          accessToken,
+          HttpClientRequest.get(path),
+        ).pipe(
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "2xx": HttpClientResponse.schemaBodyJson(TokenListResponseSchema),
+              orElse: unexpectedTokenStatus,
+            }),
+          ),
+          Effect.mapError((error) => mapRegistryAuthError("Could not list tokens", error)),
+        );
+
+        return {
+          tokens: decoded.tokens.map((token) => ({
+            id: token.id,
+            name: token.name,
+            type: token.type,
+            scopes: token.scopes,
+            permissions: token.permissions,
+            createdAt: token.created_at,
+            expiresAt: token.expires_at,
+            lastUsedAt: token.last_used_at,
+          })),
+          hasMore: decoded.has_more,
+          cursor: decoded.cursor,
+        } satisfies TokenListResponse;
+      },
+    );
+
+    const pollStepUpChallenge: AuthClientService["pollStepUpChallenge"] = Effect.fn(
+      "AuthClient.pollStepUpChallenge",
+    )(function* (accessToken, doneUrl) {
+      const parsedDoneUrl = new URL(doneUrl);
+      const donePath = `${parsedDoneUrl.pathname}${parsedDoneUrl.search}`;
+
+      for (let attempt = 0; attempt < 300; attempt += 1) {
+        const decoded = yield* executeAuthedRequest(
+          httpClient,
+          registryUrl,
+          accessToken,
+          HttpClientRequest.get(donePath),
+        ).pipe(
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "2xx": HttpClientResponse.schemaBodyJson(StepUpChallengeResponseSchema),
+              orElse: unexpectedTokenStatus,
+            }),
+          ),
+          Effect.mapError((error) => mapRegistryAuthError("Could not complete step-up", error)),
+        );
+
+        if (decoded.status === "completed") {
+          return decoded.step_up;
+        }
+
+        yield* Effect.sleep("1 second");
+      }
+
+      return yield* makeAppError({
+        code: "auth",
+        detail: "Step-up challenge expired before completion",
+        cause: { doneUrl },
+      });
+    });
+
+    const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
+      function* (accessToken, tokenId, options) {
+        const baseRequest = HttpClientRequest.delete(`/v1/tokens/${encodeURIComponent(tokenId)}`);
+        const request =
+          options?.stepUpToken === undefined
+            ? baseRequest
+            : HttpClientRequest.setHeaders({
+                "x-axm-step-up": options.stepUpToken,
+              })(baseRequest);
+
+        yield* executeAuthedRequest(httpClient, registryUrl, accessToken, request).pipe(
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "2xx": () => Effect.void,
+              "401": (response) =>
+                HttpClientResponse.schemaBodyJson(StepUpRequiredResponseSchema)(response).pipe(
+                  Effect.flatMap((body) =>
+                    Effect.fail(
+                      stepUpRequiredAppError({
+                        authUrl: body.authUrl,
+                        doneUrl: body.doneUrl,
+                      }),
+                    ),
+                  ),
+                  Effect.catch(() => unexpectedTokenStatus(response)),
+                ),
+              orElse: unexpectedTokenStatus,
+            }),
+          ),
+          Effect.mapError((error) => mapRegistryAuthError("Could not revoke token", error)),
+        );
+      },
+    );
+
     return {
       buildAuthorizeUrl,
       getAuthorizationIssuer,
@@ -583,6 +911,11 @@ export const AuthClientLive = Layer.effect(
       refreshToken,
       revokeToken,
       getMe,
+      getWhoami,
+      createToken,
+      listTokens,
+      pollStepUpChallenge,
+      deleteToken,
     } satisfies AuthClientService;
   }),
 );
@@ -632,5 +965,34 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
           detail: "Not implemented in test",
         }),
       ),
+    getWhoami: () =>
+      Effect.fail(
+        makeAppError({
+          code: "auth",
+          detail: "Not implemented in test",
+        }),
+      ),
+    createToken: () =>
+      Effect.fail(
+        makeAppError({
+          code: "auth",
+          detail: "Not implemented in test",
+        }),
+      ),
+    listTokens: () =>
+      Effect.fail(
+        makeAppError({
+          code: "auth",
+          detail: "Not implemented in test",
+        }),
+      ),
+    pollStepUpChallenge: () =>
+      Effect.fail(
+        makeAppError({
+          code: "auth",
+          detail: "Not implemented in test",
+        }),
+      ),
+    deleteToken: () => Effect.void,
     ...overrides,
   } satisfies AuthClientService);

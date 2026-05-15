@@ -18,16 +18,8 @@ import { handleWhoami } from "./whoami.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
-const ACME = normalizeHandle("@acme");
 
-const defaultMe = {
-  userId: "user-1",
-  userHandle: ALICE,
-  email: "alice@example.com",
-  tokenType: "session",
-  scopes: ["extensions:read", "account:read"],
-  orgs: [{ id: "org-1", handle: ACME }],
-};
+const defaultWhoami = { handle: ALICE };
 
 const makeLayers = (opts?: {
   hasCredentials?: boolean;
@@ -60,7 +52,7 @@ const makeLayers = (opts?: {
     : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
   const authClientLayer = AuthClientTest({
-    getMe: () => Effect.succeed(defaultMe),
+    getWhoami: () => Effect.succeed(defaultWhoami),
   });
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
@@ -124,10 +116,6 @@ describe("auth whoami handler", () => {
         expect(rendererState.details).toHaveLength(1);
         expect(rendererState.details[0]?.item).toMatchObject({
           handle: ALICE,
-          email: "alice@example.com",
-          tokenType: "session",
-          scopes: "extensions:read, account:read",
-          organizations: ACME,
         });
       }),
     );
@@ -142,9 +130,7 @@ describe("auth whoami handler", () => {
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
           data: {
-            userHandle: ALICE,
-            email: "alice@example.com",
-            tokenType: "session",
+            handle: ALICE,
           },
         });
         expect(rendererState.logs).toHaveLength(0);

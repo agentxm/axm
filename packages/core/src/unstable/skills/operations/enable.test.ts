@@ -46,6 +46,7 @@ const makeWorkspaceMock = (
     settingsSkills?: Record<string, SettingsSkillValue>;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
     updateLockEntryAgentsFn?: WorkspaceMutationsService["updateLockEntryAgents"];
+    setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
   } = {},
 ): WorkspaceMutationsService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
@@ -105,6 +106,7 @@ const makeWorkspaceMock = (
     },
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
     updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? ((_name, _agents) => Effect.void),
+    setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
     getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
@@ -231,12 +233,10 @@ describe("enableSkill", () => {
       }),
     );
 
-    it.effect("calls updateLockEntryAgents with configured agents", () =>
+    it.effect("updates lock entry with configured agents and universal artifact", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
-        );
+        const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -246,13 +246,24 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
-              updateLockEntryAgentsFn,
+              setSkillLockFn,
             }),
           ),
         );
 
-        expect(updateLockEntryAgentsFn).toHaveBeenCalledOnce();
-        expect(updateLockEntryAgentsFn).toHaveBeenCalledWith("my-skill", ["claude-code"]);
+        expect(setSkillLockFn).toHaveBeenCalledOnce();
+        expect(setSkillLockFn).toHaveBeenCalledWith({
+          name: "my-skill",
+          lockEntry: expect.objectContaining({
+            type: "local",
+            path: "/tmp/source",
+            agents: ["claude-code"],
+            universalArtifact: expect.objectContaining({
+              path: path.join(path.dirname(axmDir), ".agents", "skills", "my-skill"),
+            }),
+          }),
+          versionRange: Option.none(),
+        });
       }),
     );
 

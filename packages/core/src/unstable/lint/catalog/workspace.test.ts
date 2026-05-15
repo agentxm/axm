@@ -1,7 +1,7 @@
 /**
  * Unit tests for the v1 `workspace/*` rule catalog.
  *
- * The v1 catalog ships exactly 13 rules (foundation 5 + skills-install 5 +
+ * The v1 catalog ships exactly 14 rules (foundation 5 + skills-install 6 +
  * packs-install 3). Rule ids and severities are public API (surfaced in
  * `.axm/settings.json` `lint.rules` and in the registry response bodies) —
  * this test pins both.
@@ -28,6 +28,8 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   // Integrity intact (configured + implicit).
   { id: "workspace/skills-integrity-valid", severity: "error" },
+  // Universal artifact present (configured + implicit).
+  { id: "workspace/skills-universal-artifact-present", severity: "error" },
   // Artifacts correct (configured + implicit).
   { id: "workspace/skills-artifacts-correct", severity: "error" },
   // Managed — unmanaged class must be empty.
@@ -39,7 +41,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
 ];
 
 describe("workspaceRules", () => {
-  it("exports exactly the v1 13-rule set", () => {
+  it("exports exactly the v1 14-rule set", () => {
     expect(workspaceRules.map((r) => r.id)).toEqual(EXPECTED.map((r) => r.id));
   });
 
@@ -62,6 +64,7 @@ describe("workspaceRules", () => {
       "workspace/lockfile-valid",
       "workspace/skills-lockfile-aligned",
       "workspace/skills-integrity-valid",
+      "workspace/skills-universal-artifact-present",
       "workspace/skills-artifacts-correct",
     ]);
   });

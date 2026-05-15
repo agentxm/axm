@@ -21,6 +21,8 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
+import { isUniversalSkillsRelativeDir } from "../../extensions/universal-skills-dir.js";
+import { materializeUniversalSkillArtifact } from "./universal-artifact.js";
 
 // -----------------------------------------------------------------------------
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
@@ -103,6 +105,7 @@ export const enableSkill: OperationHandler<
       (agentId) => {
         if (!isKnownAgentId(agentId)) return Effect.void;
         const agent = AGENTS[agentId];
+        if (isUniversalSkillsRelativeDir(agent.skills.dir)) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return createSymlink({ target: skillSrcPath, link: agentSkillPath }).pipe(
@@ -116,8 +119,21 @@ export const enableSkill: OperationHandler<
       { concurrency: "unbounded" },
     );
 
+    const universal = yield* materializeUniversalSkillArtifact({
+      canonicalSkillSrcPath: skillSrcPath,
+      skillName: op.args.skillName,
+    });
+
     yield* ws
-      .updateLockEntryAgents(op.args.skillName, configuredAgents)
+      .setSkillLock({
+        name: op.args.skillName,
+        lockEntry: {
+          ...lockEntry.value,
+          agents: configuredAgents,
+          universalArtifact: universal.artifact,
+        },
+        versionRange: Option.none(),
+      })
       .pipe(Effect.catch(() => Effect.void));
 
     yield* ws

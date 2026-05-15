@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import * as Schema from "effect/Schema";
 import type { SkillLockEntry } from "../../lockfile/index.js";
-import { RenderedFilePathSchema } from "../../extensions/index.js";
+import { RenderedFilePathSchema, SourceHashSchema } from "../../extensions/index.js";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
@@ -24,6 +24,7 @@ import { handle } from "../../test-helpers.js";
 // -----------------------------------------------------------------------------
 
 const makeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
+const makeSourceHash = Schema.decodeUnknownSync(SourceHashSchema);
 
 /** Creates a workspace mock for disable tests. */
 const makeWorkspaceMock = (
@@ -33,6 +34,7 @@ const makeWorkspaceMock = (
     lockfileSkills?: Record<string, SkillLockEntry>;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
     updateLockEntryAgentsFn?: WorkspaceMutationsService["updateLockEntryAgents"];
+    setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
   } = {},
 ): WorkspaceMutationsService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
@@ -46,6 +48,7 @@ const makeWorkspaceMock = (
     getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
     updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? ((_name, _agents) => Effect.void),
+    setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
     getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
@@ -114,10 +117,13 @@ describe("disableSkill", () => {
     fs.mkdirSync(axmDir, { recursive: true });
 
     // Create canonical skill dir
-    const canonicalPath = path.join(base, ".agents", "skills", skillName);
+    const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", skillName);
     if (createCanonical) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), `# ${skillName}`);
+      const universalPath = path.join(base, ".agents", "skills", skillName);
+      fs.mkdirSync(path.dirname(universalPath), { recursive: true });
+      fs.symlinkSync(canonicalPath, universalPath);
     }
 
     // Create agent symlinks
@@ -188,25 +194,41 @@ describe("disableSkill", () => {
       }),
     );
 
-    it.effect("calls updateLockEntryAgents with empty array", () =>
+    it.effect("updates lock entry with empty agents and no universal artifact", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
-        );
+        const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
 
         yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
-              updateLockEntryAgentsFn,
+              lockfileSkills: {
+                "my-skill": {
+                  ...makeLocalLockEntry(["claude-code"]),
+                  universalArtifact: {
+                    path: makeRenderedFilePath(".agents/skills/my-skill"),
+                    integrity: makeSourceHash("sha"),
+                  },
+                },
+              },
+              setSkillLockFn,
             }),
           ),
         );
 
-        expect(updateLockEntryAgentsFn).toHaveBeenCalledOnce();
-        expect(updateLockEntryAgentsFn).toHaveBeenCalledWith("my-skill", []);
+        expect(setSkillLockFn).toHaveBeenCalledOnce();
+        expect(setSkillLockFn).toHaveBeenCalledWith({
+          name: "my-skill",
+          lockEntry: expect.objectContaining({
+            type: "local",
+            path: "/tmp/source",
+            agents: [],
+          }),
+          versionRange: Option.none(),
+        });
+        const lockArg = setSkillLockFn.mock.calls[0]?.[0].lockEntry;
+        expect(lockArg?.universalArtifact).toBeUndefined();
       }),
     );
 
@@ -236,9 +258,7 @@ describe("disableSkill", () => {
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
         const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
-        );
+        const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
 
         // Normal case: file removal should succeed, then state gets updated
         yield* disableSkill(makeOp()).pipe(
@@ -247,12 +267,12 @@ describe("disableSkill", () => {
               configuredAgents: ["claude-code"],
               lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
               updateSkillEntryFn,
-              updateLockEntryAgentsFn,
+              setSkillLockFn,
             }),
           ),
         );
 
-        expect(updateLockEntryAgentsFn).toHaveBeenCalledOnce();
+        expect(setSkillLockFn).toHaveBeenCalledOnce();
         expect(updateSkillEntryFn).toHaveBeenCalledOnce();
       }),
     );

@@ -20,6 +20,7 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/configured-but-not-installed",
   "workspace/skills-lockfile-aligned",
   "workspace/skills-integrity-valid",
+  "workspace/skills-universal-artifact-present",
   "workspace/skills-artifacts-correct",
   "workspace/skills-managed",
   "workspace/packs-dependencies-resolved",

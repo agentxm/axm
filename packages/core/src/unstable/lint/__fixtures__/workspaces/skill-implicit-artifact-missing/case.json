@@ -20,6 +20,10 @@
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha",
+          "universalArtifact": {
+            "path": ".agents/skills/retained-skill",
+            "integrity": "sha"
+          },
           "retainedByPack": true
         }
       },
@@ -44,9 +48,10 @@
       ".axm",
       ".axm/settings.json",
       ".axm/extensions/@acme/packs/toolbox/pack.json",
-      ".axm/extensions/@acme/skills/retained-skill/src/SKILL.md"
+      ".axm/extensions/@acme/skills/retained-skill/src/SKILL.md",
+      ".agents/skills/retained-skill"
     ],
-    "listings": { ".claude/skills": [] },
+    "listings": { ".agents/skills": ["retained-skill"], ".claude/skills": [] },
     "detectedProjectAgents": []
   },
   "scope": "project",

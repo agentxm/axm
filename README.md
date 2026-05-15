@@ -118,6 +118,9 @@ axm skills enable my-skill
 axm skills publish my-skill                   # Publish to the registry
 ```
 
+Installed and enabled skills are always materialized in `.agents/skills/` for
+the agentskills.io format, plus any declared agent-native skill directories.
+
 `axm packs` adds bundling commands:
 
 ```bash

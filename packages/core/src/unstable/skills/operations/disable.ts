@@ -22,6 +22,8 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
+import { isUniversalSkillsRelativeDir } from "../../extensions/universal-skills-dir.js";
+import { removeUniversalSkillArtifact } from "./universal-artifact.js";
 
 // -----------------------------------------------------------------------------
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
@@ -137,6 +139,7 @@ export const disableSkill: OperationHandler<
           // Fall back to agent descriptor-based path resolution
           if (!isKnownAgentId(agentId)) return Effect.void;
           const agent = AGENTS[agentId];
+          if (isUniversalSkillsRelativeDir(agent.skills.dir)) return Effect.void;
 
           const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
           return fs
@@ -146,8 +149,19 @@ export const disableSkill: OperationHandler<
         { concurrency: "unbounded" },
       );
 
+      yield* removeUniversalSkillArtifact(op.args.skillName);
+
+      const { universalArtifact: _universalArtifact, ...lockEntryWithoutUniversal } = lockEntry;
+      void _universalArtifact;
+
       // Clear lock agents — state updates after files
-      yield* ws.updateLockEntryAgents(op.args.skillName, []).pipe(Effect.catch(() => Effect.void));
+      yield* ws
+        .setSkillLock({
+          name: op.args.skillName,
+          lockEntry: { ...lockEntryWithoutUniversal, agents: [] },
+          versionRange: Option.none(),
+        })
+        .pipe(Effect.catch(() => Effect.void));
     }
 
     // State mutation: implicit promotion or configured toggle

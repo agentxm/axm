@@ -84,6 +84,7 @@ interface RawRegistrySkillEntry {
   readonly installedAt: string;
   readonly updatedAt: string;
   readonly sourceHash?: string;
+  readonly universalArtifact?: RawUniversalArtifact;
   readonly retainedByPack?: boolean;
 }
 
@@ -94,9 +95,15 @@ interface RawLocalSkillEntry {
   readonly installedAt: string;
   readonly updatedAt: string;
   readonly sourceHash?: string;
+  readonly universalArtifact?: RawUniversalArtifact;
 }
 
 type RawSkillEntry = RawRegistrySkillEntry | RawLocalSkillEntry;
+
+interface RawUniversalArtifact {
+  readonly path: string;
+  readonly integrity: string;
+}
 
 interface RawPackEntry {
   readonly type: "registry";
@@ -160,6 +167,8 @@ const declaredAgents = (settings: RawSettings | undefined): ReadonlyArray<AgentD
 const artifactPath = (agent: AgentDescriptor, skillName: string): string =>
   `${agent.skills.dir}/${skillName}`;
 
+const universalArtifactPath = (skillName: string): string => `.agents/skills/${skillName}`;
+
 const registrySkillProbe = (owner: string, name: string): string =>
   `.axm/extensions/${owner}/skills/${name}/src/SKILL.md`;
 
@@ -212,6 +221,10 @@ export const applyInstallSkill = (state: WorkspaceState, intent: InstallSkillInt
       installedAt: FIXED_NOW_ISO,
       updatedAt: FIXED_NOW_ISO,
       sourceHash: "stub-source-hash",
+      universalArtifact: {
+        path: universalArtifactPath(intent.name),
+        integrity: "stub-source-hash",
+      },
     };
     state.existingPaths.add(registrySkillProbe(parsed.owner, parsed.name));
   } else {
@@ -222,12 +235,18 @@ export const applyInstallSkill = (state: WorkspaceState, intent: InstallSkillInt
       installedAt: FIXED_NOW_ISO,
       updatedAt: FIXED_NOW_ISO,
       sourceHash: "stub-source-hash",
+      universalArtifact: {
+        path: universalArtifactPath(intent.name),
+        integrity: "stub-source-hash",
+      },
     };
     state.existingPaths.add(externalSkillProbe(intent.name));
   }
   state.lockfile = { ...lockfile, skills: newSkills };
 
   if (enabled) {
+    state.existingPaths.add(universalArtifactPath(intent.name));
+    pushListing(state, ".agents/skills", intent.name);
     for (const agent of agents) {
       const path = artifactPath(agent, intent.name);
       state.existingPaths.add(path);
@@ -256,9 +275,31 @@ export const applyUninstallSkill = (state: WorkspaceState, intent: UninstallSkil
     state.existingPaths.delete(path);
     removeFromListing(state, agent.skills.dir, intent.name);
   }
+  state.existingPaths.delete(universalArtifactPath(intent.name));
+  removeFromListing(state, ".agents/skills", intent.name);
 };
 
 export const applyEnableSkill = (state: WorkspaceState, intent: EnableSkillIntent): void => {
+  const lockfile = asLockfile(state.lockfile);
+  const entry = lockfile.skills[intent.name];
+  if (entry !== undefined) {
+    state.lockfile = {
+      ...lockfile,
+      skills: {
+        ...lockfile.skills,
+        [intent.name]: {
+          ...entry,
+          universalArtifact: {
+            path: universalArtifactPath(intent.name),
+            integrity: entry.sourceHash ?? "stub-source-hash",
+          },
+        },
+      },
+    };
+  }
+  state.existingPaths.add(universalArtifactPath(intent.name));
+  pushListing(state, ".agents/skills", intent.name);
+
   const agents = declaredAgents(asSettings(state.settings));
   for (const agent of agents) {
     const path = artifactPath(agent, intent.name);
@@ -269,6 +310,22 @@ export const applyEnableSkill = (state: WorkspaceState, intent: EnableSkillInten
 };
 
 export const applyDisableSkill = (state: WorkspaceState, intent: DisableSkillIntent): void => {
+  const lockfile = asLockfile(state.lockfile);
+  const entry = lockfile.skills[intent.name];
+  if (entry !== undefined) {
+    const { universalArtifact: _universalArtifact, ...entryWithoutUniversal } = entry;
+    void _universalArtifact;
+    state.lockfile = {
+      ...lockfile,
+      skills: {
+        ...lockfile.skills,
+        [intent.name]: entryWithoutUniversal,
+      },
+    };
+  }
+  state.existingPaths.delete(universalArtifactPath(intent.name));
+  removeFromListing(state, ".agents/skills", intent.name);
+
   const agents = declaredAgents(asSettings(state.settings));
   for (const agent of agents) {
     const path = artifactPath(agent, intent.name);

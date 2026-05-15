@@ -15,7 +15,6 @@ import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
 import { sourceToLockEntry } from "../../sources/index.js";
 import {
-  computeSourceHash,
   type RenderedFilePath,
   type RenderedFilesMap,
   RenderedFilePathSchema,
@@ -47,6 +46,11 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
+import {
+  buildUniversalSkillArtifact,
+  computeSkillSourceHash,
+  universalSkillsTargetDir,
+} from "./universal-artifact.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -109,28 +113,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
-/**
- * Compute a source hash from the canonical skill directory by reading
- * file names and their contents, then hashing the combined result.
- *
- * @internal Exported for testing only.
- */
-export const computeSkillSourceHash = (canonicalPath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const entries = yield* fs
-      .readDirectory(canonicalPath)
-      .pipe(Effect.catch(() => Effect.succeed([])));
-    const sorted = [...entries].sort();
-    const parts = yield* Effect.forEach(sorted, (entry) =>
-      fs.readFileString(path.join(canonicalPath, entry)).pipe(
-        Effect.map((content) => `${entry}\n${content}`),
-        Effect.catch(() => Effect.succeed(entry)),
-      ),
-    );
-    return computeSourceHash(parts.join("\n"));
-  });
+export { computeSkillSourceHash } from "./universal-artifact.js";
 
 /**
  * Build a RenderedFilesMap from per-agent copy-mode install results.
@@ -459,9 +442,14 @@ export const installSkill: OperationHandler<
         });
       }
     }
+    const universalTargetDir = universalSkillsTargetDir(ws.baseDir, path);
     // Dedup target directories — agents sharing UNIVERSAL_SKILLS_DIR (".agents/skills")
     // resolve to the same path and receive a single symlink rather than duplicates.
-    const distinctDirs = Array.dedupe(installableTargets.map((target) => target.targetDir));
+    // The universal directory is also an always-on workspace-level target.
+    const distinctDirs = Array.dedupe([
+      ...installableTargets.map((target) => target.targetDir),
+      universalTargetDir,
+    ]);
     const perDirectoryResults = yield* Effect.forEach(
       distinctDirs,
       (targetDir) =>
@@ -487,11 +475,47 @@ export const installSkill: OperationHandler<
       }
       return matched.result;
     });
+    const universalResult = perDirectoryResults.find(
+      (item) => item.targetDir === universalTargetDir,
+    )?.result;
+    if (universalResult === undefined) {
+      return {
+        result: "error",
+        message: `Failed to install ${ref.skill.name} in the universal skills directory`,
+        error: makeAppError({
+          code: "internal",
+          detail: `No installation result for universal skills directory ${universalTargetDir}`,
+        }),
+      } satisfies JobStepResult;
+    }
+    const universalArtifact = universalResult.success
+      ? yield* buildUniversalSkillArtifact({
+          artifactPath: universalResult.path,
+          canonicalSkillSrcPath: materialized.skillSrcPath,
+        })
+      : undefined;
+    const trackedTargets = installableTargets.filter(
+      (target) => target.targetDir !== universalTargetDir,
+    );
+    const trackedResults = trackedTargets.map((target) => {
+      const matched = perDirectoryResults.find((item) => item.targetDir === target.targetDir);
+      if (matched === undefined) {
+        return {
+          success: false,
+          mode: "copy",
+          symlinkFailed: true,
+          error: Option.some(`No installation result for target directory ${target.targetDir}`),
+          path: target.targetDir,
+          canonicalPath: materialized.skillSrcPath,
+        } satisfies InstallResult;
+      }
+      return matched.result;
+    });
 
     // ── Shared: compute rendered files tracking for copy-mode ──────
-    const hasCopyResults = agentResults.some((r) => r.mode === "copy" && r.success);
+    const hasCopyResults = trackedResults.some((r) => r.mode === "copy" && r.success);
     const renderedFiles = hasCopyResults
-      ? buildRenderedFilesFromResults(installableTargets, agentResults)
+      ? buildRenderedFilesFromResults(trackedTargets, trackedResults)
       : undefined;
     const sourceHash = hasCopyResults
       ? yield* computeSkillSourceHash(materialized.skillSrcPath)
@@ -509,6 +533,7 @@ export const installSkill: OperationHandler<
       ...baseLockEntry,
       ...(sourceHash !== undefined ? { sourceHash } : {}),
       ...(renderedFiles !== undefined ? { renderedFiles } : {}),
+      ...(universalArtifact !== undefined ? { universalArtifact } : {}),
     };
 
     if (lockEntry.type === "registry") {
@@ -531,10 +556,11 @@ export const installSkill: OperationHandler<
     );
 
     // ── Shared: compute result ──────────────────────────────────────
-    const anyFailed = agentResults.some((r) => !r.success);
+    const allResults = [...agentResults, universalResult];
+    const anyFailed = allResults.some((r) => !r.success);
 
     if (anyFailed) {
-      const failedAgents = agentResults
+      const failedAgents = allResults
         .filter((r) => !r.success)
         .map((r) => Option.getOrElse(r.error, () => "unknown error"));
       const message = `Failed to install ${ref.skill.name} for some agents: ${failedAgents.join(", ")}`;

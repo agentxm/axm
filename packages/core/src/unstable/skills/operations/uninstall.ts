@@ -20,8 +20,10 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
+import { isUniversalSkillsRelativeDir } from "../../extensions/universal-skills-dir.js";
 import { existsInAnyCanonicalLocation } from "../disk-check.js";
 import { getSkillFqn, isReferencedByPack } from "../utils.js";
+import { removeUniversalSkillArtifact } from "./universal-artifact.js";
 
 // -----------------------------------------------------------------------------
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
@@ -117,6 +119,7 @@ export const uninstallSkill: OperationHandler<
         // Fall back to agent descriptor-based path resolution
         if (!isKnownAgentId(agentId)) return Effect.void;
         const agent = AGENTS[agentId];
+        if (isUniversalSkillsRelativeDir(agent.skills.dir)) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return fs.remove(agentSkillPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
@@ -171,6 +174,8 @@ export const uninstallSkill: OperationHandler<
     }
 
     // Full uninstall: remove from all known canonical locations
+    yield* removeUniversalSkillArtifact(op.args.skillName);
+
     if (installedOnDisk) {
       yield* removeFromAllCanonicalLocations(fs, base, "skills", sanitizedName, path);
     }

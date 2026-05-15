@@ -569,6 +569,8 @@ const bucketForFinding = (entry: RenderedFinding, parsed: { readonly title: stri
       return "alignment";
     case "workspace/skills-integrity-valid":
       return "integrity";
+    case "workspace/skills-universal-artifact-present":
+      return "universal-artifact";
     default:
       return entry.finding.ruleId;
   }
@@ -780,6 +782,19 @@ const coalesceFullDiagnostic = (
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };
+    case "workspace/skills-universal-artifact-present:universal-artifact":
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing from the universal .agents/skills directory.`,
+        details: compressDetails(findings.map(summarizeSkillByDetail)),
+        helps: mergedRuleHelps(
+          findings,
+          "Run `axm lint --fix` to materialize the universal skill artifacts.",
+        ),
+        fixable: findings.some((finding) => finding.fixable),
+        paths,
+      };
     default:
       return {
         severity: first.severity,
@@ -912,6 +927,19 @@ const coalesceGroupedDiagnostic = (
         title: "Installed skill sources do not match their lockfile entries.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
+        fixable: findings.some((finding) => finding.fixable),
+        paths,
+      };
+    case "workspace/skills-universal-artifact-present:universal-artifact":
+      return {
+        severity: first.severity,
+        ruleId: first.ruleId,
+        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing from the universal \`.agents/skills\` directory.`,
+        details: compressDetails(findings.map(summarizeSkillByDetail)),
+        helps: mergedRuleHelps(
+          findings,
+          "Run `axm lint --fix` to materialize the universal skill artifacts.",
+        ),
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };

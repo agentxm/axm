@@ -628,7 +628,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("accepts skill lock entry with sourceHash and renderedFiles", () => {
+    it("accepts skill lock entry with sourceHash, renderedFiles, and universalArtifact", () => {
       const input = {
         type: "local",
         path: "./my-skill",
@@ -639,13 +639,21 @@ describe("lockfile schema", () => {
         renderedFiles: {
           "claude-code": [{ path: ".claude/skills/my-skill" }],
         },
+        universalArtifact: {
+          path: ".agents/skills/my-skill",
+          integrity: "abc123def456",
+        },
       };
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
       expect(result.sourceHash).toBe("abc123def456");
       expect(result.renderedFiles).toBeDefined();
+      expect(result.universalArtifact).toEqual({
+        path: ".agents/skills/my-skill",
+        integrity: "abc123def456",
+      });
     });
 
-    it("accepts skill lock entry without optional sourceHash and renderedFiles", () => {
+    it("accepts skill lock entry without optional sourceHash, renderedFiles, and universalArtifact", () => {
       const input = {
         type: "github",
         owner: "example",
@@ -657,9 +665,10 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
       expect(result.sourceHash).toBeUndefined();
       expect(result.renderedFiles).toBeUndefined();
+      expect(result.universalArtifact).toBeUndefined();
     });
 
-    it("roundtrips skill lock entry with sourceHash and renderedFiles", () => {
+    it("roundtrips skill lock entry with sourceHash, renderedFiles, and universalArtifact", () => {
       const decode = Schema.decodeUnknownSync(SkillLockEntrySchema);
       const encode = Schema.encodeUnknownSync(SkillLockEntrySchema);
       const input = {
@@ -671,6 +680,10 @@ describe("lockfile schema", () => {
         sourceHash: "abc123",
         renderedFiles: {
           "claude-code": [{ path: ".claude/skills/my-skill" }],
+        },
+        universalArtifact: {
+          path: ".agents/skills/my-skill",
+          integrity: "abc123",
         },
       };
       const decoded = decode(input);

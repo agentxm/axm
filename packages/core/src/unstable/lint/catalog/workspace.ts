@@ -17,6 +17,7 @@
  * | `workspace/packs-declarations-valid`    | error    | —           |
  * | `workspace/skills-lockfile-aligned`     | error    | autofixing  |
  * | `workspace/skills-integrity-valid`      | error    | autofixing  |
+ * | `workspace/skills-universal-artifact-present` | error | autofixing  |
  * | `workspace/skills-artifacts-correct`    | error    | autofixing  |
  * | `workspace/skills-managed`              | error    | —           |
  * | `workspace/packs-dependencies-resolved` | error    | —           |
@@ -46,6 +47,7 @@ import { agentsDetectedDeclaredRule } from "./workspace/agents-detected-declared
 import { skillsDeclarationsValidRule } from "./workspace/skills-declarations-valid.js";
 import { skillsLockfileAlignedRule } from "./workspace/skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "./workspace/skills-integrity-valid.js";
+import { skillsUniversalArtifactPresentRule } from "./workspace/skills-universal-artifact-present.js";
 import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct.js";
 import { skillsManagedRule } from "./workspace/skills-managed.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
@@ -79,6 +81,8 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsLockfileAlignedRule,
   // Integrity intact (configured + implicit).
   skillsIntegrityValidRule,
+  // Universal workspace-level artifacts present (configured + implicit).
+  skillsUniversalArtifactPresentRule,
   // Artifacts correct (configured + implicit).
   skillsArtifactsCorrectRule,
   // Managed — unmanaged class must be empty.

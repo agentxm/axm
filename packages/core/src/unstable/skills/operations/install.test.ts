@@ -359,6 +359,33 @@ describe("installSkill", () => {
         const linkTarget = fs.readlinkSync(agentSkillDir);
         const resolved = path.resolve(path.dirname(agentSkillDir), linkTarget);
         expect(resolved).toBe(canonical);
+
+        const universalSkillDir = path.join(base, ".agents", "skills", "my-skill");
+        expect(fs.existsSync(universalSkillDir)).toBe(true);
+        expect(fs.lstatSync(universalSkillDir).isSymbolicLink()).toBe(true);
+      }),
+    );
+
+    it.effect("materializes the universal artifact when no agents are configured", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir, base } = setupBase();
+
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: [] })),
+        );
+
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(path.join(base, ".agents", "skills", "my-skill"))).toBe(true);
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+
+        const lockfile = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+        const lockEntry = expectRecord(lockfile.skills["my-skill"]);
+        expect(lockEntry["agents"]).toEqual([]);
+        expect(lockEntry["universalArtifact"]).toEqual({
+          path: path.join(base, ".agents", "skills", "my-skill"),
+          integrity: expect.any(String),
+        });
       }),
     );
 
@@ -998,6 +1025,10 @@ describe("installSkill", () => {
         const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
         expect(lockEntry["renderedFiles"]).toBeUndefined();
         expect(lockEntry["sourceHash"]).toBeUndefined();
+        expect(lockEntry["universalArtifact"]).toEqual({
+          path: path.join(path.dirname(axmDir), ".agents", "skills", "my-skill"),
+          integrity: expect.any(String),
+        });
       }),
     );
 

@@ -13,6 +13,7 @@ import {
   ExtensionFqnSchema,
   HandleSchema,
   RenderedFilesMapSchema,
+  RenderedFilePathSchema,
   SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
@@ -41,6 +42,11 @@ const CommonFields = {
   ...BaseCommonFields,
 };
 
+const UniversalSkillArtifactSchema = Schema.Struct({
+  path: RenderedFilePathSchema,
+  integrity: SourceHashSchema,
+});
+
 /**
  * Common fields for skill lock entries (includes agents + rendered files).
  */
@@ -48,6 +54,7 @@ const SkillCommonFields = {
   ...CommonFields,
   sourceHash: Schema.optional(SourceHashSchema),
   renderedFiles: Schema.optional(RenderedFilesMapSchema),
+  universalArtifact: Schema.optional(UniversalSkillArtifactSchema),
 };
 
 // =============================================================================
@@ -132,6 +139,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
  * - sourceHash: SHA-256 hash of canonical skill source (copy-mode only, optional)
  * - renderedFiles: Map of agent ID to rendered file paths (copy-mode only, optional)
+ * - universalArtifact: Workspace-level `.agents/skills/<name>` artifact, optional for older lockfiles
  *
  * Source-specific fields are at the top level based on source type.
  *

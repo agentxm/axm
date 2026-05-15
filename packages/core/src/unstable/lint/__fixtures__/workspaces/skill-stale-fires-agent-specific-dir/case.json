@@ -18,7 +18,11 @@
           "agents": ["claude-code"],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
-          "sourceHash": "sha"
+          "sourceHash": "sha",
+          "universalArtifact": {
+            "path": ".agents/skills/reviewer",
+            "integrity": "sha"
+          }
         }
       }
     },
@@ -26,10 +30,14 @@
       ".axm",
       ".axm/settings.json",
       ".axm/extensions/@acme/skills/reviewer/src/SKILL.md",
+      ".agents/skills/reviewer",
       ".claude/skills/reviewer",
       ".claude/skills/stale-artifact"
     ],
-    "listings": { ".claude/skills": ["reviewer", "stale-artifact"] },
+    "listings": {
+      ".agents/skills": ["reviewer"],
+      ".claude/skills": ["reviewer", "stale-artifact"]
+    },
     "detectedProjectAgents": ["claude-code"]
   },
   "scope": "project",

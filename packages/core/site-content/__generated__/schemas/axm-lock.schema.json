@@ -152,6 +152,20 @@
                       },
                       { "type": "null" }
                     ]
+                  },
+                  "universalArtifact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "integrity": { "type": "string" }
+                        },
+                        "required": ["path", "integrity"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
                   }
                 },
                 "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
@@ -194,6 +208,20 @@
                             "additionalProperties": false
                           }
                         }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "universalArtifact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "integrity": { "type": "string" }
+                        },
+                        "required": ["path", "integrity"],
+                        "additionalProperties": false
                       },
                       { "type": "null" }
                     ]
@@ -242,6 +270,20 @@
                       },
                       { "type": "null" }
                     ]
+                  },
+                  "universalArtifact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "integrity": { "type": "string" }
+                        },
+                        "required": ["path", "integrity"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
                   }
                 },
                 "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
@@ -285,6 +327,20 @@
                             "additionalProperties": false
                           }
                         }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "universalArtifact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "integrity": { "type": "string" }
+                        },
+                        "required": ["path", "integrity"],
+                        "additionalProperties": false
                       },
                       { "type": "null" }
                     ]
@@ -340,6 +396,20 @@
                       },
                       { "type": "null" }
                     ]
+                  },
+                  "universalArtifact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "integrity": { "type": "string" }
+                        },
+                        "required": ["path", "integrity"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
                   }
                 },
                 "required": ["type", "url", "agents", "installedAt", "updatedAt"],
@@ -369,6 +439,20 @@
                             "additionalProperties": false
                           }
                         }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "universalArtifact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "integrity": { "type": "string" }
+                        },
+                        "required": ["path", "integrity"],
+                        "additionalProperties": false
                       },
                       { "type": "null" }
                     ]
@@ -405,6 +489,20 @@
                             "additionalProperties": false
                           }
                         }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "universalArtifact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "string" },
+                          "integrity": { "type": "string" }
+                        },
+                        "required": ["path", "integrity"],
+                        "additionalProperties": false
                       },
                       { "type": "null" }
                     ]

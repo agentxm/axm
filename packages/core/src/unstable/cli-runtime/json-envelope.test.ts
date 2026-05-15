@@ -81,4 +81,26 @@ describe("JsonEnvelopeSchema", () => {
       ],
     });
   });
+
+  it("falls back to the default breadcrumbs for the error code when none are supplied", () => {
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({ code: "internal", detail: "Something broke" }),
+    );
+
+    expect(envelope.breadcrumbs).toEqual([
+      {
+        description:
+          "This looks like a bug. Please report it, including the request ID if one is shown.",
+        url: "https://github.com/agentxm/axm/issues",
+      },
+    ]);
+  });
+
+  it("omits breadcrumbs when the error code has no defaults and none are supplied", () => {
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({ code: "not_found", detail: "Resource missing" }),
+    );
+
+    expect(envelope.breadcrumbs).toBeUndefined();
+  });
 });

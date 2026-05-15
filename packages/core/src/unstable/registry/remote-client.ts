@@ -715,7 +715,18 @@ export const createRemoteRegistryClient = (
     if (isSchemaError(e)) {
       return makeAppError({
         code: "internal",
-        detail: "Publish response did not match the expected schema",
+        detail: "The registry returned a response the CLI could not parse.",
+        breadcrumbs: [
+          {
+            description:
+              "The registry may be misconfigured or running a version incompatible with this CLI.",
+          },
+          { description: "Re-run with --verbose to inspect the raw response." },
+          {
+            description: "If this persists, report it.",
+            url: "https://github.com/agentxm/axm/issues",
+          },
+        ],
         cause: e,
       });
     }

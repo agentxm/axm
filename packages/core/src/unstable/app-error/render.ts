@@ -1,4 +1,5 @@
-import type { AppError } from "./app-error.js";
+import type { Breadcrumb } from "../cli-runtime/breadcrumb.js";
+import { type AppError, effectiveBreadcrumbsFor } from "./app-error.js";
 
 const defaultRenderOptions: { readonly verbose: boolean; readonly debug: boolean } = {
   verbose: false,
@@ -31,6 +32,26 @@ const formatResponseBody = (body: unknown): ReadonlyArray<string> => {
   } catch {
     return ["[unserializable response body]"];
   }
+};
+
+/**
+ * Render the suggested next actions as an indented `Next steps:` block. Each
+ * breadcrumb is a bullet with its optional `cmd` / `url` on a follow-on line.
+ */
+const formatBreadcrumbs = (breadcrumbs: ReadonlyArray<Breadcrumb>): ReadonlyArray<string> => {
+  if (breadcrumbs.length === 0) return [];
+
+  const lines: Array<string> = ["  Next steps:"];
+  for (const crumb of breadcrumbs) {
+    lines.push(`    • ${crumb.description}`);
+    if (crumb.cmd !== undefined) {
+      lines.push(`      ${crumb.cmd}`);
+    }
+    if (crumb.url !== undefined) {
+      lines.push(`      ${crumb.url}`);
+    }
+  }
+  return lines;
 };
 
 const formatCause = (
@@ -95,8 +116,8 @@ export const renderAppError = (
     lines.push(`  Request ID: ${requestId}`);
   }
 
-  if (error.code === "internal") {
-    lines.push("  This is likely a bug. Please report it with the request ID if available.");
+  for (const line of formatBreadcrumbs(effectiveBreadcrumbsFor(error))) {
+    lines.push(line);
   }
 
   if (options.verbose || options.debug) {

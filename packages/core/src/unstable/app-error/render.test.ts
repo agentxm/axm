@@ -3,12 +3,12 @@ import { AppError } from "./app-error.js";
 import { renderAppError, renderDefect } from "./render.js";
 
 describe("renderAppError", () => {
-  it("formats error with all fields", () => {
+  it("renders caller-supplied breadcrumbs as a Next steps block", () => {
     const error = new AppError({
       code: "internal",
       title: "Internal Error",
       detail: "WorkspaceMutations not initialized",
-      breadcrumbs: [{ description: "Run 'axm setup' to create one." }],
+      breadcrumbs: [{ description: "Create a workspace to continue." }],
       cause: undefined,
     });
 
@@ -17,12 +17,39 @@ describe("renderAppError", () => {
     expect(result).toBe(
       [
         "\u2717 WorkspaceMutations not initialized (internal)",
-        "  This is likely a bug. Please report it with the request ID if available.",
+        "  Next steps:",
+        "    \u2022 Create a workspace to continue.",
       ].join("\n"),
     );
   });
 
-  it("formats error with no breadcrumbs", () => {
+  it("renders breadcrumb cmd and url on follow-on lines", () => {
+    const error = new AppError({
+      code: "network",
+      title: "Network Error",
+      detail: "Remote registry is unreachable",
+      breadcrumbs: [
+        { description: "Sign in again.", cmd: "axm login" },
+        { description: "See the docs.", url: "https://axm.sh/docs" },
+      ],
+      cause: undefined,
+    });
+
+    const result = renderAppError(error);
+
+    expect(result).toBe(
+      [
+        "\u2717 Remote registry is unreachable (network)",
+        "  Next steps:",
+        "    \u2022 Sign in again.",
+        "      axm login",
+        "    \u2022 See the docs.",
+        "      https://axm.sh/docs",
+      ].join("\n"),
+    );
+  });
+
+  it("falls back to the default breadcrumbs for the error code when none are supplied", () => {
     const error = new AppError({
       code: "internal",
       title: "Internal Error",
@@ -35,9 +62,24 @@ describe("renderAppError", () => {
     expect(result).toBe(
       [
         "\u2717 Installation failed (internal)",
-        "  This is likely a bug. Please report it with the request ID if available.",
+        "  Next steps:",
+        "    \u2022 This looks like a bug. Please report it, including the request ID if one is shown.",
+        "      https://github.com/agentxm/axm/issues",
       ].join("\n"),
     );
+  });
+
+  it("renders no Next steps block when the error code has no default breadcrumbs", () => {
+    const error = new AppError({
+      code: "not_found",
+      title: "Not Found",
+      detail: "Resource missing",
+      cause: undefined,
+    });
+
+    const result = renderAppError(error);
+
+    expect(result).toBe("\u2717 Resource missing (not_found)");
   });
 
   it("formats error with no optional fields", () => {
@@ -64,7 +106,13 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error);
 
-    expect(result).toBe("\u2717 Could not resolve source (validation)");
+    expect(result).toBe(
+      [
+        "\u2717 Could not resolve source (validation)",
+        "  Next steps:",
+        "    \u2022 Try a local path or GitHub shorthand.",
+      ].join("\n"),
+    );
   });
 
   it("includes cause message in verbose mode", () => {
@@ -81,7 +129,9 @@ describe("renderAppError", () => {
       [
         "\u2717 Installation failed (internal)",
         "  Title: Internal Error",
-        "  This is likely a bug. Please report it with the request ID if available.",
+        "  Next steps:",
+        "    \u2022 This looks like a bug. Please report it, including the request ID if one is shown.",
+        "      https://github.com/agentxm/axm/issues",
         "  Cause: permission denied",
       ].join("\n"),
     );

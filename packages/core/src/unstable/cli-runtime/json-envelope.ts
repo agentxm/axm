@@ -5,6 +5,7 @@ import {
   type AppError,
   type AppErrorCode,
   type AppErrorMetadata,
+  effectiveBreadcrumbsFor,
 } from "../app-error/index.js";
 import { BreadcrumbSchema, type Breadcrumb } from "./breadcrumb.js";
 
@@ -115,5 +116,5 @@ export const makeJsonErrorEnvelopeFromAppError = (error: AppError): JsonErrorEnv
     title: error.title,
     detail: error.detail,
     ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
-    breadcrumbs: error.breadcrumbs ?? [],
+    breadcrumbs: effectiveBreadcrumbsFor(error),
   });

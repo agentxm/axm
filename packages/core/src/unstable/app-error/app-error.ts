@@ -166,6 +166,50 @@ export const defaultTitleFor = (code: AppErrorCode): string => DefaultTitleByApp
 
 export const defaultDetailFor = (code: AppErrorCode): string => DefaultDetailByAppErrorCode[code];
 
+/**
+ * Baseline suggested next actions per error category, used when a caller
+ * attaches no error-specific breadcrumbs of its own. Codes without a sensible
+ * generic follow-up map to an empty list.
+ */
+const DefaultBreadcrumbsByAppErrorCode: Readonly<Record<AppErrorCode, ReadonlyArray<Breadcrumb>>> =
+  {
+    internal: [
+      {
+        description:
+          "This looks like a bug. Please report it, including the request ID if one is shown.",
+        url: "https://github.com/agentxm/axm/issues",
+      },
+    ],
+    network: [{ description: "Check your network connection and the registry URL, then retry." }],
+    unavailable: [
+      { description: "The service is temporarily unavailable. Retry in a few moments." },
+    ],
+    auth: [],
+    forbidden: [],
+    not_found: [],
+    conflict: [],
+    rate_limit: [],
+    validation: [],
+    usage: [],
+    issues: [],
+    quota: [],
+  };
+
+/** Baseline suggested next actions for an error category. */
+export const defaultBreadcrumbsFor = (code: AppErrorCode): ReadonlyArray<Breadcrumb> =>
+  DefaultBreadcrumbsByAppErrorCode[code];
+
+/**
+ * Resolve the breadcrumbs to surface for an error: the caller's own
+ * breadcrumbs when present, otherwise the baseline set for the error code.
+ * Used by both human (`renderAppError`) and JSON (`makeJsonErrorEnvelope`)
+ * output so the two surfaces stay consistent.
+ */
+export const effectiveBreadcrumbsFor = (error: AppError): ReadonlyArray<Breadcrumb> =>
+  error.breadcrumbs !== undefined && error.breadcrumbs.length > 0
+    ? error.breadcrumbs
+    : defaultBreadcrumbsFor(error.code);
+
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: AppErrorCode;
   readonly title: string;

@@ -379,17 +379,17 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
     if (failedStepErrors.length > 0) {
       const [singleFailure] = failedStepErrors;
-      if (
-        failedStepErrors.length === 1 &&
-        singleFailure !== undefined &&
-        singleFailure.error.metadata?.response !== undefined
-      ) {
+      // A single failure already carries a fully-formed AppError from the
+      // registry error mappers (code, detail, breadcrumbs, response
+      // metadata). Surface it directly rather than collapsing it into a
+      // generic "Failed to publish" message that drops all of that context.
+      if (failedStepErrors.length === 1 && singleFailure !== undefined) {
         return yield* singleFailure.error;
       }
 
       return yield* makeAppError({
         code: "internal",
-        detail: `Failed to publish ${failedStepErrors.length} pack item${failedStepErrors.length === 1 ? "" : "s"}`,
+        detail: `Failed to publish ${failedStepErrors.length} pack items`,
       });
     }
   }

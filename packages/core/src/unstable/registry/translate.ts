@@ -156,6 +156,14 @@ const identityMismatchBreadcrumbs = (body: unknown): ReadonlyArray<Breadcrumb> =
   return [summary, ...mismatches];
 };
 
+const serverErrorBreadcrumb = (status: number): Breadcrumb | undefined =>
+  status >= 500
+    ? {
+        description:
+          "The registry returned a server error. Retry shortly; if it persists, report it with the request ID.",
+      }
+    : undefined;
+
 const problemBreadcrumbs = (
   status: number,
   problem: ProblemDetails,
@@ -164,9 +172,11 @@ const problemBreadcrumbs = (
   const body = problem;
   const retry = retryAfterBreadcrumb(status, body, response);
   const scope = status === 403 ? scopeDeniedBreadcrumb(body) : undefined;
+  const serverError = serverErrorBreadcrumb(status);
   return [
     ...(retry === undefined ? [] : [retry]),
     ...(scope === undefined ? [] : [scope]),
+    ...(serverError === undefined ? [] : [serverError]),
     ...(status === 422 && problem.code === "extension_lint_failed"
       ? lintFailedBreadcrumbs(body)
       : []),

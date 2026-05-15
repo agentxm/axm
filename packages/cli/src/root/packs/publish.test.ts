@@ -456,7 +456,7 @@ describe("packs publish.handler", () => {
             defaultArgs("@test/packs/empty-pack", { registry: Option.some("local") }),
           ).pipe(Effect.flip);
 
-          expect(getAppError(error).detail).toContain("Failed to publish");
+          expect(getAppError(error).detail).toContain("at least one dependency");
         }),
       );
     });
@@ -741,7 +741,7 @@ describe("packs publish.handler", () => {
             }),
           ).pipe(Effect.flip);
 
-          expect(getAppError(error).detail).toContain("Failed to publish");
+          expect(getAppError(error).detail).toContain("at least one dependency");
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
         }),
       );

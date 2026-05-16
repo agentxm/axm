@@ -41,6 +41,7 @@ import {
   isRegistrySkillLockEntry,
   isImplicitRetainedSkill,
 } from "./helpers/retained-skills.js";
+import { versionSatisfiesRange } from "../../../version-constraints/version-constraints.js";
 
 const RULE_ID = "workspace/skills-lockfile-aligned";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
@@ -132,7 +133,7 @@ const collectAlignmentViolations = (
       continue;
     }
     const constraint = parsed.versionRange;
-    if (constraint === undefined || constraint === lockEntry.resolvedVersion) {
+    if (constraint === undefined || versionSatisfiesRange(lockEntry.resolvedVersion, constraint)) {
       continue;
     }
     violations.push({

@@ -14,7 +14,7 @@ const row = (args: {
   activation: args.activation ?? "enabled",
   installationOrigin:
     args.origin === "pack-member"
-      ? { _tag: "pack-member" }
+      ? { _tag: "pack-member", pack: { key: { name: "starter-pack" } } }
       : { _tag: "direct", declared: { entry: { source: `@acme/${args.type}s/${args.name}` } } },
   actual:
     args.actualOrigin === undefined
@@ -71,6 +71,7 @@ describe("workspace/configured-but-not-installed", () => {
 
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("workspace/configured-but-not-installed");
+      expect(findings[0]?.message).toContain("axm packs install starter-pack");
     }),
   );
 

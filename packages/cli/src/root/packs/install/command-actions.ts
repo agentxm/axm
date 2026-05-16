@@ -667,6 +667,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               ref,
               versionRange: Option.none(),
               skipSettings: true,
+              retainedByPack: true,
             });
           }
 

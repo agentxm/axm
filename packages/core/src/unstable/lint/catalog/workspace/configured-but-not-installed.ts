@@ -31,6 +31,11 @@ interface InstalledRow {
       }
     | {
         readonly _tag: "pack-member";
+        readonly pack: {
+          readonly key: {
+            readonly name: string;
+          };
+        };
       };
 }
 
@@ -58,13 +63,20 @@ const hasCanonicalContent = (actual: ReadonlyArray<ActualWithOrigin>): boolean =
       entry.origin._tag.startsWith("external-axm-"),
   );
 
+const remediationCommand = (row: InstalledRow): string => {
+  if (row.installationOrigin._tag === "pack-member") {
+    return `axm packs install ${row.installationOrigin.pack.key.name}`;
+  }
+  return `axm install ${row.key.name}`;
+};
+
 const findingFor = (row: InstalledRow): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message:
     `${extensionLabel(row.key.type)} '${row.key.name}' is configured but its installed content is missing from .axm/extensions. ` +
-    `Run \`axm install ${row.key.name}\` to install it before syncing.`,
+    `Run \`${remediationCommand(row)}\` to install it before syncing.`,
   location: { file: SETTINGS_REL },
 });
 

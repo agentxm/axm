@@ -114,6 +114,8 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly versionRange: Option.Option<string>;
   /** When true, skip writing to settings (e.g. pack dependency installs). */
   readonly skipSettings?: boolean;
+  /** When true, mark the lock entry as retained by an installed pack. */
+  readonly retainedByPack?: boolean;
 }
 
 /**
@@ -125,7 +127,10 @@ const runInstallOperation = <TRef extends ExtensionRef>(
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
     yield* manager.materializeInstall({ ref: args.ref });
-    yield* manager.upsertLockfileEntry({ ref: args.ref });
+    yield* manager.upsertLockfileEntry({
+      ref: args.ref,
+      ...(args.retainedByPack === undefined ? {} : { retainedByPack: args.retainedByPack }),
+    });
     if (!args.skipSettings) {
       yield* manager.upsertSettingsEntry({
         ref: args.ref,

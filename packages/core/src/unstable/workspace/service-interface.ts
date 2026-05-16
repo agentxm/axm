@@ -157,6 +157,7 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<void, AppError, never>;
   readonly upsertLockfileEntry: (args: {
     readonly ref: TRef;
+    readonly retainedByPack?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly removeLockfileEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;

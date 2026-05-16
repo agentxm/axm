@@ -10,13 +10,14 @@
  */
 
 import { parseRegistrySourceRef } from "../../../../extensions/registry-source.js";
+import type { VersionRange } from "../../../../version-constraints/version-constraints.js";
 
 /** @experimental */
 export interface RegistrySourceParts {
   readonly owner: string;
   readonly type: string;
   readonly name: string;
-  readonly versionRange: string | undefined;
+  readonly versionRange: VersionRange | undefined;
 }
 
 /**

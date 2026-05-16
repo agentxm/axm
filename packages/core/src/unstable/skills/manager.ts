@@ -250,8 +250,10 @@ export const SkillManagerLive = Layer.effect(
 
       upsertLockfileEntry: Effect.fn("SkillManager.upsertLockfileEntry")(function* ({
         ref,
+        retainedByPack,
       }: {
         readonly ref: SkillExtensionRef;
+        readonly retainedByPack?: boolean;
       }) {
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
@@ -263,7 +265,9 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath);
+        const baseLockEntry = buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath);
+        const lockEntry =
+          retainedByPack === true ? { ...baseLockEntry, retainedByPack: true } : baseLockEntry;
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,

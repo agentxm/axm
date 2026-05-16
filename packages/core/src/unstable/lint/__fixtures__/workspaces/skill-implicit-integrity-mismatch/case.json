@@ -72,7 +72,7 @@
       "ruleId": "workspace/configured-but-not-installed",
       "severity": "error",
       "file": ".axm/settings.json",
-      "messageIncludes": "axm install retained-skill"
+      "messageIncludes": "axm packs install toolbox"
     },
     {
       "ruleId": "workspace/skills-integrity-valid",

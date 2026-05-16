@@ -471,14 +471,9 @@ const makeRetentionPolicy = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    void ws;
-    // Conservative default: treat as not-required. The v1 workspaceRules
-    // already carve pack-retained entries out of the orphan arm, so a
-    // false negative here just means the uninstall proceeds the same way
-    // `axm uninstall` would under no-pack conditions.
     return {
-      isRequiredByInstalledPack: () => Effect.succeed(false),
-      markDependencyRetainedInLockfile: () => Effect.void,
+      isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
+      markDependencyRetainedInLockfile: (args) => ws.markDependencyRetainedInLockfile(args.target),
     };
   });
 

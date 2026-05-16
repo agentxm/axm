@@ -1,3 +1,13 @@
+## 0.11.2 (2026-05-16)
+
+### 🩹 Fixes
+
+- Add managed file banners to rendered AXM artifacts. ([9f836c4d](https://github.com/agentxm/axm/commit/9f836c4d))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.11.1 (2026-05-16)
 
 ### 🩹 Fixes

@@ -1,9 +1,9 @@
 /**
  * Unit tests for `pack/manifest-keys-recognized`.
  *
- * Emits one warning finding per unrecognized top-level key, including the
- * forbidden `packs:` dependency section (D015 violation surfaces at warning
- * severity in v1 via the unknown-key enumeration).
+ * Emits one error finding per unrecognized top-level key, including the
+ * forbidden `packs:` dependency section (D015 violation surfaces at error
+ * severity via the unknown-key enumeration).
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -46,7 +46,7 @@ describe("pack/manifest-keys-recognized", () => {
     }),
   );
 
-  it.effect("emits one warning finding per unknown top-level key", () =>
+  it.effect("emits one error finding per unknown top-level key", () =>
     Effect.gen(function* () {
       const findings = yield* manifestKeysRecognizedRule.check(
         makeContext({
@@ -55,7 +55,7 @@ describe("pack/manifest-keys-recognized", () => {
       );
       expect(findings).toHaveLength(2);
       expect(findings.every((f) => f.ruleId === "pack/manifest-keys-recognized")).toBe(true);
-      expect(findings.every((f) => f.severity === "warning")).toBe(true);
+      expect(findings.every((f) => f.severity === "error")).toBe(true);
       expect(findings.every((f) => f.location?.file === "pack.json")).toBe(true);
       const messages = findings.map((f) => f.message);
       expect(messages.some((m) => m.includes("made_up"))).toBe(true);
@@ -63,7 +63,7 @@ describe("pack/manifest-keys-recognized", () => {
     }),
   );
 
-  it.effect("flags a forbidden `packs:` dependency section at warning severity", () =>
+  it.effect("flags a forbidden `packs:` dependency section at error severity", () =>
     Effect.gen(function* () {
       const findings = yield* manifestKeysRecognizedRule.check(
         makeContext({
@@ -72,7 +72,7 @@ describe("pack/manifest-keys-recognized", () => {
       );
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("pack/manifest-keys-recognized");
-      expect(findings[0]?.severity).toBe("warning");
+      expect(findings[0]?.severity).toBe("error");
       expect(findings[0]?.message).toContain("packs");
     }),
   );

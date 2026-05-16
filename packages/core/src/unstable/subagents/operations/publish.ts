@@ -33,6 +33,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { validateManifestHasNoAgentsField } from "../../publish/manifest-policy.js";
+import { runPublishLintGate } from "../../publish/lint-gate.js";
 import { parseSubagentMd } from "../subagent-content.js";
 import { subagentContentFilename, subagentContentPath } from "../paths.js";
 
@@ -142,6 +143,13 @@ export const publishSubagent: OperationHandler<
         }),
       ),
     );
+
+    yield* runPublishLintGate({
+      type: "subagent",
+      extensionDir,
+      manifestJson,
+      platform: { fs, path },
+    });
 
     // Validate that the content file exists at the expected path and that its
     // frontmatter `name` matches the manifest. The manifest is the source of

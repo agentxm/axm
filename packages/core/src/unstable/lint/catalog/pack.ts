@@ -8,7 +8,7 @@
  * | ------------------------------- | -------- | ------- |
  * | `pack/manifest-present`         | error    | —       |
  * | `pack/manifest-schema-valid`    | error    | —       |
- * | `pack/manifest-keys-recognized` | warning  | —       |
+ * | `pack/manifest-keys-recognized` | error    | —       |
  *
  * All three ship `kind: "advisory"`. Packs are registry-only at v1 (no
  * non-native arm), so there is no applicability discriminator — every pack

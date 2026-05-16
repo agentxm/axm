@@ -120,10 +120,16 @@ const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown
 
 const describeSchemaDocument = (file: string): string => {
   switch (file) {
+    case "command.json":
+      return "Command manifest";
+    case "mcp-server.json":
+      return "MCP server manifest";
     case "skill.json":
       return "Skill manifest";
     case "pack.json":
       return "Pack manifest";
+    case "subagent.json":
+      return "Subagent manifest";
     default:
       return "Document";
   }

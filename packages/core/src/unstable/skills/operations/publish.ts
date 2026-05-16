@@ -28,6 +28,7 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { validateManifestHasNoAgentsField } from "../../publish/manifest-policy.js";
+import { runPublishLintGate } from "../../publish/lint-gate.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -135,6 +136,13 @@ export const publishSkill: OperationHandler<
         }),
       ),
     );
+
+    yield* runPublishLintGate({
+      type: "skill",
+      extensionDir,
+      manifestJson,
+      platform: { fs, path },
+    });
 
     // Build zip archive from extension directory (includes manifest + src/)
     const archive = yield* buildZipArchive(extensionDir);

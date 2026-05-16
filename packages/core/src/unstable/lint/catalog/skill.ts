@@ -10,7 +10,7 @@
  * | `skill/manifest-present`         | error    | —       |
  * | `skill/frontmatter-parseable`    | error    | —       |
  * | `skill/manifest-schema-valid`    | error    | —       |
- * | `skill/manifest-keys-recognized` | warning  | —       |
+ * | `skill/manifest-keys-recognized` | error    | —       |
  *
  * All five ship `kind: "advisory"`. Native-vs-non-native applicability is
  * expressed via `check` early-return (no separate `applies` predicate); see

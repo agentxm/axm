@@ -32,12 +32,23 @@ import {
 } from "../../../workspace/read-model/service.js";
 import type { WorkspaceRootEscape } from "../../../workspace/read-model/errors.js";
 import type {
+  ActualCommand,
+  ActualMcpServer,
   ActualPack,
   ActualSkill,
+  ActualSubagent,
+  InstalledCommand,
+  InstalledMcpServer,
   InstalledPack,
   InstalledSkill,
+  InstalledSubagent,
 } from "../../../workspace/read-model/extensions/index.js";
-import type { WorkspaceRuleContext } from "../../context.js";
+import type {
+  CommandRuleContext,
+  McpServerRuleContext,
+  SubagentRuleContext,
+  WorkspaceRuleContext,
+} from "../../context.js";
 import type { InstalledSkillInfo } from "../skill-accessor/contexts.js";
 import type { InstalledPackInfo } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
@@ -58,6 +69,9 @@ import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
 export interface LintWorkspaceView {
   readonly installedSkills: ReadonlyArray<InstalledSkillInfo>;
   readonly installedPacks: ReadonlyArray<InstalledPackInfo>;
+  readonly commandContexts: ReadonlyArray<CommandRuleContext>;
+  readonly subagentContexts: ReadonlyArray<SubagentRuleContext>;
+  readonly mcpServerContexts: ReadonlyArray<McpServerRuleContext>;
 }
 
 // -----------------------------------------------------------------------------
@@ -165,8 +179,14 @@ const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
 ): Effect.Effect<LintWorkspaceView> =>
   Effect.gen(function* () {
-    const [skills, packs] = yield* Effect.all(
-      [args.readModel.skills.installed, args.readModel.packs.installed],
+    const [skills, packs, commands, subagents, mcpServers] = yield* Effect.all(
+      [
+        args.readModel.skills.installed,
+        args.readModel.packs.installed,
+        args.readModel.commands.installed,
+        args.readModel.subagents.installed,
+        args.readModel.mcpServers.installed,
+      ],
       { concurrency: "unbounded" },
     );
     return {
@@ -176,6 +196,18 @@ const buildLintWorkspaceView = (
       installedPacks: packs.flatMap((pack) => {
         const info = installedPackToInfo(args, pack);
         return info === undefined ? [] : [info];
+      }),
+      commandContexts: commands.flatMap((command) => {
+        const context = installedCommandToContext(args, command);
+        return context === undefined ? [] : [context];
+      }),
+      subagentContexts: subagents.flatMap((subagent) => {
+        const context = installedSubagentToContext(args, subagent);
+        return context === undefined ? [] : [context];
+      }),
+      mcpServerContexts: mcpServers.flatMap((mcpServer) => {
+        const context = installedMcpServerToContext(args, mcpServer);
+        return context === undefined ? [] : [context];
       }),
     };
   });
@@ -268,10 +300,155 @@ const installedPackToInfo = (
   return undefined;
 };
 
+const installedCommandToContext = (
+  args: BuildLintWorkspaceViewArgs,
+  command: InstalledCommand,
+): CommandRuleContext | undefined => {
+  const root = commandPackageRoot(args, command);
+  if (root === undefined) {
+    return undefined;
+  }
+  return {
+    subject: { commandJson: undefined },
+    files: makePlatformPackFileAccessor(args.platform, root),
+    displayRoot: relativeDisplayRoot(args, root),
+  };
+};
+
+const installedSubagentToContext = (
+  args: BuildLintWorkspaceViewArgs,
+  subagent: InstalledSubagent,
+): SubagentRuleContext | undefined => {
+  const root = subagentPackageRoot(args, subagent);
+  if (root === undefined) {
+    return undefined;
+  }
+  return {
+    subject: { subagentJson: undefined },
+    files: makePlatformPackFileAccessor(args.platform, root),
+    displayRoot: relativeDisplayRoot(args, root),
+  };
+};
+
+const installedMcpServerToContext = (
+  args: BuildLintWorkspaceViewArgs,
+  mcpServer: InstalledMcpServer,
+): McpServerRuleContext | undefined => {
+  const root = mcpServerPackageRoot(args, mcpServer);
+  if (root === undefined) {
+    return undefined;
+  }
+  return {
+    subject: { mcpServerJson: undefined },
+    files: makePlatformPackFileAccessor(args.platform, root),
+    displayRoot: relativeDisplayRoot(args, root),
+  };
+};
+
 const chooseSkillActual = (actual: ReadonlyArray<ActualSkill>): ActualSkill | undefined =>
   actual.find((entry) => entry.origin._tag !== "agent-skill-dir") ?? actual[0];
 
 const choosePackActual = (actual: ReadonlyArray<ActualPack>): ActualPack | undefined => actual[0];
+
+const chooseCommandActual = (actual: ReadonlyArray<ActualCommand>): ActualCommand | undefined =>
+  actual.find((entry) => entry.packageRoot !== null);
+
+const chooseSubagentActual = (actual: ReadonlyArray<ActualSubagent>): ActualSubagent | undefined =>
+  actual.find((entry) => entry.packageRoot !== null);
+
+const chooseMcpServerActual = (
+  actual: ReadonlyArray<ActualMcpServer>,
+): ActualMcpServer | undefined => actual.find((entry) => entry.contentRoot !== null);
+
+const commandPackageRoot = (
+  args: BuildLintWorkspaceViewArgs,
+  command: InstalledCommand,
+): string | undefined => {
+  const actual = chooseCommandActual(command.actual);
+  if (actual?.packageRoot !== undefined && actual.packageRoot !== null) {
+    return actual.packageRoot;
+  }
+
+  const resolved = command.resolved;
+  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+    return args.platform.path.resolve(
+      args.workspaceRoot,
+      `.axm/extensions/${resolved.value.lockEntry.owner}/commands/${command.key.name}`,
+    );
+  }
+
+  if (command.installationOrigin._tag === "direct") {
+    const parsed = parseRegistrySource(command.installationOrigin.declared.entry.source);
+    if (parsed !== undefined && parsed.type === "commands") {
+      return args.platform.path.resolve(
+        args.workspaceRoot,
+        `.axm/extensions/${parsed.owner}/commands/${command.key.name}`,
+      );
+    }
+  }
+
+  return undefined;
+};
+
+const subagentPackageRoot = (
+  args: BuildLintWorkspaceViewArgs,
+  subagent: InstalledSubagent,
+): string | undefined => {
+  const actual = chooseSubagentActual(subagent.actual);
+  if (actual?.packageRoot !== undefined && actual.packageRoot !== null) {
+    return actual.packageRoot;
+  }
+
+  const resolved = subagent.resolved;
+  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+    return args.platform.path.resolve(
+      args.workspaceRoot,
+      `.axm/extensions/${resolved.value.lockEntry.owner}/subagents/${subagent.key.name}`,
+    );
+  }
+
+  if (subagent.installationOrigin._tag === "direct") {
+    const parsed = parseRegistrySource(subagent.installationOrigin.declared.entry.source);
+    if (parsed !== undefined && parsed.type === "subagents") {
+      return args.platform.path.resolve(
+        args.workspaceRoot,
+        `.axm/extensions/${parsed.owner}/subagents/${subagent.key.name}`,
+      );
+    }
+  }
+
+  return undefined;
+};
+
+const mcpServerPackageRoot = (
+  args: BuildLintWorkspaceViewArgs,
+  mcpServer: InstalledMcpServer,
+): string | undefined => {
+  const actual = chooseMcpServerActual(mcpServer.actual);
+  if (actual?.contentRoot !== undefined && actual.contentRoot !== null) {
+    return actual.contentRoot;
+  }
+
+  const resolved = mcpServer.resolved;
+  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+    return args.platform.path.resolve(
+      args.workspaceRoot,
+      `.axm/extensions/${resolved.value.lockEntry.owner}/mcp-servers/${mcpServer.key.name}`,
+    );
+  }
+
+  if (mcpServer.installationOrigin._tag === "direct") {
+    const parsed = parseRegistrySource(mcpServer.installationOrigin.declared.entry.source);
+    if (parsed !== undefined && parsed.type === "mcp-servers") {
+      return args.platform.path.resolve(
+        args.workspaceRoot,
+        `.axm/extensions/${parsed.owner}/mcp-servers/${mcpServer.key.name}`,
+      );
+    }
+  }
+
+  return undefined;
+};
 
 const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
   const resolved = skill.resolved;

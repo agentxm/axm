@@ -1,7 +1,7 @@
 /**
  * Unit tests for `skill/manifest-keys-recognized`.
  *
- * Emits one warning finding per unrecognized top-level key.
+ * Emits one error finding per unrecognized top-level key.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -44,7 +44,7 @@ describe("skill/manifest-keys-recognized", () => {
     }),
   );
 
-  it.effect("emits one warning finding per unknown top-level key", () =>
+  it.effect("emits one error finding per unknown top-level key", () =>
     Effect.gen(function* () {
       const findings = yield* manifestKeysRecognizedRule.check(
         makeContext({
@@ -54,7 +54,7 @@ describe("skill/manifest-keys-recognized", () => {
       );
       expect(findings).toHaveLength(2);
       expect(findings.every((f) => f.ruleId === "skill/manifest-keys-recognized")).toBe(true);
-      expect(findings.every((f) => f.severity === "warning")).toBe(true);
+      expect(findings.every((f) => f.severity === "error")).toBe(true);
       expect(findings.every((f) => f.location?.file === "skill.json")).toBe(true);
       const messages = findings.map((f) => f.message);
       expect(messages.some((m) => m.includes("made_up"))).toBe(true);

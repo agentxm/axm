@@ -26,7 +26,7 @@ import type { PackContent, PackFileAccessor, PackRuleContext } from "../context.
 const V1_PACK_RULES = [
   { id: "pack/manifest-present", severity: "error", kind: "advisory" },
   { id: "pack/manifest-schema-valid", severity: "error", kind: "advisory" },
-  { id: "pack/manifest-keys-recognized", severity: "warning", kind: "advisory" },
+  { id: "pack/manifest-keys-recognized", severity: "error", kind: "advisory" },
 ] as const;
 
 describe("packRules catalog membership", () => {

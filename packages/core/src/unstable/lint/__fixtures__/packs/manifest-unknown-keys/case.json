@@ -1,15 +1,15 @@
 {
-  "description": "Pack manifest with two unrecognized top-level keys; schema-valid passes, keys-recognized emits one warning per unknown key.",
+  "description": "Pack manifest with two unrecognized top-level keys; schema-valid passes, keys-recognized emits one error per unknown key.",
   "expectedFindings": [
     {
       "ruleId": "pack/manifest-keys-recognized",
-      "severity": "warning",
+      "severity": "error",
       "file": "pack.json",
       "messageIncludes": "made_up_key"
     },
     {
       "ruleId": "pack/manifest-keys-recognized",
-      "severity": "warning",
+      "severity": "error",
       "file": "pack.json",
       "messageIncludes": "another_unknown"
     }

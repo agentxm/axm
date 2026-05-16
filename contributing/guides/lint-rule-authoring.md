@@ -177,12 +177,12 @@ A schema-backed rule ships as a pair:
 - `<namespace>/<subject>-schema-valid` (error) — decodes via
   `Schema.decodeUnknown` with `onExcessProperty: "ignore"` and maps issues
   through `issuesToFindings`
-- `<namespace>/<subject>-keys-recognized` (warning) — enumerates top-level keys
+- `<namespace>/<subject>-keys-recognized` (error) — enumerates top-level keys
   and emits one finding per unknown key
 
-Splitting keeps each rule single-severity and lets newer-schema manifests roll
-out ahead of registry deploys without blocking publish. Don't inline excess-key
-checks in the schema-valid rule.
+Splitting keeps each rule single-severity while preventing publish from
+silently dropping manifest data the current toolchain does not understand.
+Don't inline excess-key checks in the schema-valid rule.
 
 ### Severity Checklist
 
@@ -194,7 +194,7 @@ checks in the schema-valid rule.
       `Schema.decodeUnknown` + `issuesToFindings` rather than re-implementing
       schema checks
 - [ ] **Paired keys rule** — Schema-valid rules ship alongside a
-      `-keys-recognized` warning rule for unknown-key hygiene
+      `-keys-recognized` error rule for unknown-key hygiene
 - [ ] **New rules start soft** — A rule that would retroactively reject prior
       publishes ships at `warning` first and graduates to `error` later
 

@@ -117,6 +117,25 @@ describe("publishCommand", () => {
     }),
   );
 
+  it.effect("rejects unrecognized manifest keys before publishing", () =>
+    Effect.gen(function* () {
+      const { axmDir, registryRoot } = setup("@community", "bad-keys", {
+        companionPackages: [{ purl: "pkg:npm/example" }],
+      });
+
+      const result = yield* publishCommand(
+        makeOp({ name: "@community/commands/bad-keys", registryName: "local" }),
+      ).pipe(
+        Effect.provide(withServices(axmDir, registryRoot)),
+        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
+      );
+
+      expect(result.result).toBe("error");
+      expect(result.message).toContain("command/manifest-keys-recognized");
+      expect(result.message).toContain("companionPackages");
+    }),
+  );
+
   describe("packages propagation", () => {
     it.effect("propagates packages from manifest to VersionEntry", () =>
       Effect.gen(function* () {

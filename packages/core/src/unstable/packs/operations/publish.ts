@@ -26,6 +26,7 @@ import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation, JobStepResult } from "../../plan/plan.js";
+import { runPublishLintGate } from "../../publish/lint-gate.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { computePackPaths } from "../paths.js";
 
@@ -121,6 +122,13 @@ export const publishPack: OperationHandler<
         }),
       ),
     );
+
+    yield* runPublishLintGate({
+      type: "pack",
+      extensionDir: packDir,
+      manifestJson,
+      platform: { fs, path },
+    });
 
     // Build zip archive from pack directory
     const archive = yield* buildZipArchive(packDir);

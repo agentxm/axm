@@ -758,6 +758,9 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const evaluations = yield* evaluateAllCatalogs({
     skillContexts,
     packContexts,
+    commandContexts: view.commandContexts,
+    subagentContexts: view.subagentContexts,
+    mcpServerContexts: view.mcpServerContexts,
     workspaceContext,
     config,
   });

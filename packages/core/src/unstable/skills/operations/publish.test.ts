@@ -84,7 +84,10 @@ describe("publishSkill", () => {
     );
 
     // Write skill files in src/ subdirectory
-    fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
+    fs.writeFileSync(
+      path.join(srcDir, "SKILL.md"),
+      `---\nname: ${name}\ndescription: Test skill\n---\n# ${name}`,
+    );
     fs.writeFileSync(path.join(srcDir, "prompt.md"), "prompt content");
 
     return { base, axmDir, extensionDir, registryRoot };
@@ -133,6 +136,25 @@ describe("publishSkill", () => {
       }),
     );
   });
+
+  it.effect("rejects unrecognized manifest keys before publishing", () =>
+    Effect.gen(function* () {
+      const { axmDir, registryRoot } = setup("@community", "bad-keys", {
+        companionPackages: [{ purl: "pkg:npm/example" }],
+      });
+
+      const result = yield* publishSkill(
+        makeOp({ name: "@community/skills/bad-keys", registryName: "local" }),
+      ).pipe(
+        Effect.provide(withServices(axmDir, registryRoot)),
+        Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
+      );
+
+      expect(result.result).toBe("error");
+      expect(result.message).toContain("skill/manifest-keys-recognized");
+      expect(result.message).toContain("companionPackages");
+    }),
+  );
 
   describe("integrity computation", () => {
     it.effect("writes integrity in sha512-<base64> SRI format to index", () =>

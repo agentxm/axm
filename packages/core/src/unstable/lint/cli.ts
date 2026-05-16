@@ -37,9 +37,23 @@ import type { LintConfig } from "./config.js";
 import { platformCanonicalLintConfig } from "./config.js";
 import type { Evaluated } from "./evaluate.js";
 import { evaluateContexts } from "./evaluate.js";
-import type { PackRuleContext, SkillRuleContext, WorkspaceRuleContext } from "./context.js";
+import type {
+  CommandRuleContext,
+  McpServerRuleContext,
+  PackRuleContext,
+  SkillRuleContext,
+  SubagentRuleContext,
+  WorkspaceRuleContext,
+} from "./context.js";
 import type { AutofixingRule, LintFinding, Severity } from "./rule.js";
-import { packRules, skillRules, workspaceRules } from "./catalog/index.js";
+import {
+  commandRules,
+  mcpServerRules,
+  packRules,
+  skillRules,
+  subagentRules,
+  workspaceRules,
+} from "./catalog/index.js";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary
@@ -55,7 +69,7 @@ import { packRules, skillRules, workspaceRules } from "./catalog/index.js";
  * @experimental This API is unstable and may change without notice.
  */
 export interface RenderedFinding {
-  readonly group: "skill" | "pack" | "workspace";
+  readonly group: "skill" | "pack" | "command" | "subagent" | "mcp-server" | "workspace";
   readonly displayRoot: string;
   readonly path: string;
   readonly finding: LintFinding;
@@ -71,6 +85,9 @@ export interface RenderedFinding {
 export interface GroupEvaluations {
   readonly skills: ReadonlyArray<Evaluated<SkillRuleContext>>;
   readonly packs: ReadonlyArray<Evaluated<PackRuleContext>>;
+  readonly commands?: ReadonlyArray<Evaluated<CommandRuleContext>>;
+  readonly subagents?: ReadonlyArray<Evaluated<SubagentRuleContext>>;
+  readonly mcpServers?: ReadonlyArray<Evaluated<McpServerRuleContext>>;
   readonly workspace: ReadonlyArray<Evaluated<WorkspaceRuleContext>>;
 }
 
@@ -118,19 +135,25 @@ export type LintExitCategory = "clean" | "warnings" | "errors";
 export const evaluateAllCatalogs = (args: {
   readonly skillContexts: ReadonlyArray<SkillRuleContext>;
   readonly packContexts: ReadonlyArray<PackRuleContext>;
+  readonly commandContexts?: ReadonlyArray<CommandRuleContext>;
+  readonly subagentContexts?: ReadonlyArray<SubagentRuleContext>;
+  readonly mcpServerContexts?: ReadonlyArray<McpServerRuleContext>;
   readonly workspaceContext: WorkspaceRuleContext;
   readonly config: LintConfig;
 }): Effect.Effect<GroupEvaluations> =>
   Effect.gen(function* () {
-    const [skills, packs, workspace] = yield* Effect.all(
+    const [skills, packs, commands, subagents, mcpServers, workspace] = yield* Effect.all(
       [
         evaluateContexts(skillRules, args.skillContexts, args.config),
         evaluateContexts(packRules, args.packContexts, args.config),
+        evaluateContexts(commandRules, args.commandContexts ?? [], args.config),
+        evaluateContexts(subagentRules, args.subagentContexts ?? [], args.config),
+        evaluateContexts(mcpServerRules, args.mcpServerContexts ?? [], args.config),
         evaluateContexts(workspaceRules, [args.workspaceContext], args.config),
       ],
       { concurrency: "unbounded" },
     );
-    return { skills, packs, workspace };
+    return { skills, packs, commands, subagents, mcpServers, workspace };
   });
 
 // -----------------------------------------------------------------------------
@@ -149,7 +172,7 @@ const severityOrder = (s: Severity): number => {
 };
 
 const flattenEvaluated = <C>(
-  group: "skill" | "pack" | "workspace",
+  group: RenderedFinding["group"],
   evaluated: ReadonlyArray<Evaluated<C>>,
   getDisplayRoot: (c: C) => string,
 ): ReadonlyArray<RenderedFinding> => {
@@ -179,6 +202,9 @@ export const collectRenderedFindings = (
 ): ReadonlyArray<RenderedFinding> => [
   ...flattenEvaluated("skill", evaluations.skills, (c) => c.displayRoot),
   ...flattenEvaluated("pack", evaluations.packs, (c) => c.displayRoot),
+  ...flattenEvaluated("command", evaluations.commands ?? [], (c) => c.displayRoot),
+  ...flattenEvaluated("subagent", evaluations.subagents ?? [], (c) => c.displayRoot),
+  ...flattenEvaluated("mcp-server", evaluations.mcpServers ?? [], (c) => c.displayRoot),
   ...flattenEvaluated("workspace", evaluations.workspace, (c) => c.displayRoot),
 ];
 
@@ -317,7 +343,14 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
   // is called against each catalog's concrete rule type so no assertion
   // is needed to widen the generic parameter.
   const weakened: Array<string> = [];
-  const visitCatalog = (rules: typeof skillRules | typeof packRules): void => {
+  const visitCatalog = (
+    rules:
+      | typeof skillRules
+      | typeof packRules
+      | typeof commandRules
+      | typeof subagentRules
+      | typeof mcpServerRules,
+  ): void => {
     for (const rule of rules) {
       if (rule.severity !== "error") {
         continue;
@@ -333,6 +366,9 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
   };
   visitCatalog(skillRules);
   visitCatalog(packRules);
+  visitCatalog(commandRules);
+  visitCatalog(subagentRules);
+  visitCatalog(mcpServerRules);
 
   return weakened;
 };
@@ -1468,7 +1504,7 @@ const formatFixSummary = (fix: FixSummary): string => {
  * @experimental This API is unstable and may change without notice.
  */
 export interface LintJsonFinding {
-  readonly group: "skill" | "pack" | "workspace";
+  readonly group: RenderedFinding["group"];
   readonly kind: "autofixable" | "advisory";
   readonly ruleId: string;
   readonly severity: Severity;

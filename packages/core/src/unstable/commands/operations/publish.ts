@@ -33,6 +33,7 @@ import {
   validateCommandManifestHasNoAgentOverridesField,
   validateManifestHasNoAgentsField,
 } from "../../publish/manifest-policy.js";
+import { runPublishLintGate } from "../../publish/lint-gate.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -153,6 +154,13 @@ export const publishCommand: (
         }),
       ),
     );
+
+    yield* runPublishLintGate({
+      type: "command",
+      extensionDir,
+      manifestJson,
+      platform: { fs, path },
+    });
 
     // Build zip archive from extension directory
     const archive = yield* buildZipArchive(extensionDir);

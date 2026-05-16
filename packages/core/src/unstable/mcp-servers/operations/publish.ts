@@ -29,6 +29,7 @@ import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
+import { runPublishLintGate } from "../../publish/lint-gate.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -137,6 +138,13 @@ export const publishMcpServer: (
         }),
       ),
     );
+
+    yield* runPublishLintGate({
+      type: "mcp-server",
+      extensionDir,
+      manifestJson,
+      platform: { fs, path },
+    });
 
     // Build zip archive from extension directory
     const archive = yield* buildZipArchive(extensionDir);

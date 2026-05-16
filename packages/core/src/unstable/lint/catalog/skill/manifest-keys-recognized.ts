@@ -3,8 +3,8 @@
  * declared by `SkillManifestSchema`.
  *
  * The paired `-schema-valid` rule ignores excess properties by construction
- * (`onExcessProperty: "ignore"`); this rule surfaces them at warning severity
- * so newer-schema manifests can roll out ahead of registry deploys.
+ * (`onExcessProperty: "ignore"`); this rule rejects them so publish never
+ * silently drops unrecognized manifest data.
  *
  * Allowed-keys set is derived from `SkillManifestSchema.fields` — no
  * copy-paste of field names. A schema gain (or rename) automatically updates
@@ -36,7 +36,7 @@ export const manifestKeysRecognizedRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
   description: "skill.json uses only supported top-level fields.",
   kind: "advisory",
-  severity: "warning",
+  severity: "error",
   check: (context) => {
     if (!context.subject.isNative) {
       return Effect.succeed([]);
@@ -44,7 +44,7 @@ export const manifestKeysRecognizedRule: AdvisoryRule<SkillRuleContext> = {
     return Effect.succeed(
       enumerateUnknownTopLevelKeys(
         RULE_ID,
-        "warning",
+        "error",
         SKILL_JSON,
         allowedKeys,
         context.subject.skillJson,

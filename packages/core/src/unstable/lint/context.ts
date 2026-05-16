@@ -82,6 +82,25 @@ export interface PackFileAccessor {
 }
 
 // -----------------------------------------------------------------------------
+// Manifest-rooted accessors for non-skill extension types
+// -----------------------------------------------------------------------------
+
+export interface CommandFileAccessor {
+  readonly exists: (path: string) => Effect.Effect<boolean>;
+  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
+}
+
+export interface SubagentFileAccessor {
+  readonly exists: (path: string) => Effect.Effect<boolean>;
+  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
+}
+
+export interface McpServerFileAccessor {
+  readonly exists: (path: string) => Effect.Effect<boolean>;
+  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
+}
+
+// -----------------------------------------------------------------------------
 // Rule-context types
 // -----------------------------------------------------------------------------
 
@@ -194,6 +213,36 @@ export interface PackRuleContext<S = PackContent> {
  */
 export interface PackContent {
   readonly packJson: unknown;
+}
+
+export interface CommandRuleContext<S = CommandContent> {
+  readonly subject: S;
+  readonly files: CommandFileAccessor;
+  readonly displayRoot: string;
+}
+
+export interface CommandContent {
+  readonly commandJson: unknown;
+}
+
+export interface SubagentRuleContext<S = SubagentContent> {
+  readonly subject: S;
+  readonly files: SubagentFileAccessor;
+  readonly displayRoot: string;
+}
+
+export interface SubagentContent {
+  readonly subagentJson: unknown;
+}
+
+export interface McpServerRuleContext<S = McpServerContent> {
+  readonly subject: S;
+  readonly files: McpServerFileAccessor;
+  readonly displayRoot: string;
+}
+
+export interface McpServerContent {
+  readonly mcpServerJson: unknown;
 }
 
 /**

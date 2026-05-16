@@ -3,15 +3,12 @@
  * declared by `PackManifestSchema`.
  *
  * The paired `-schema-valid` rule ignores excess properties by construction
- * (`onExcessProperty: "ignore"`); this rule surfaces them at warning severity
- * so newer-schema manifests can roll out ahead of registry deploys.
+ * (`onExcessProperty: "ignore"`); this rule rejects them so publish never
+ * silently drops unrecognized manifest data.
  *
  * A forbidden `packs:` dependency section (ONTOLOGY D015 "Cross-Domain
  * Pack Semantics") decodes as an unrecognized top-level key here
- * and surfaces at warning severity in v1; there is no dedicated error-severity
- * rule for the `packs:` case — see `docs/design/lint-engine.md §10.pack
- * (Notes)`. A stricter error-severity enforcement can ship in v1.5+ if real
- * publish traffic motivates it.
+ * and surfaces at error severity here.
  *
  * Allowed-keys set is derived from `PackManifestSchema.fields` — no
  * copy-paste of field names. A schema gain (or rename) automatically updates
@@ -41,12 +38,12 @@ export const manifestKeysRecognizedRule: AdvisoryRule<PackRuleContext> = {
   id: RULE_ID,
   description: "pack.json uses only supported top-level fields.",
   kind: "advisory",
-  severity: "warning",
+  severity: "error",
   check: (context) =>
     Effect.succeed(
       enumerateUnknownTopLevelKeys(
         RULE_ID,
-        "warning",
+        "error",
         PACK_JSON,
         allowedKeys,
         context.subject.packJson,

@@ -28,7 +28,7 @@ const V1_SKILL_RULES = [
   { id: "skill/manifest-present", severity: "error", kind: "advisory" },
   { id: "skill/frontmatter-parseable", severity: "error", kind: "advisory" },
   { id: "skill/manifest-schema-valid", severity: "error", kind: "advisory" },
-  { id: "skill/manifest-keys-recognized", severity: "warning", kind: "advisory" },
+  { id: "skill/manifest-keys-recognized", severity: "error", kind: "advisory" },
 ] as const;
 
 describe("skillRules catalog membership", () => {

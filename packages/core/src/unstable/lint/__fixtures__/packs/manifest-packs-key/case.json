@@ -1,9 +1,9 @@
 {
-  "description": "Pack manifest includes a forbidden `packs:` dependency section (D015 violation); keys-recognized flags it at warning severity (not error).",
+  "description": "Pack manifest includes a forbidden `packs:` dependency section (D015 violation); keys-recognized flags it at error severity.",
   "expectedFindings": [
     {
       "ruleId": "pack/manifest-keys-recognized",
-      "severity": "warning",
+      "severity": "error",
       "file": "pack.json",
       "messageIncludes": "packs"
     }

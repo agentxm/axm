@@ -4,6 +4,7 @@ import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/c
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { scopeFlag } from "../../cli-flags.js";
+import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleInstall } from "./handler.js";
 
@@ -53,4 +54,11 @@ export const installCommand = Command.make(
       description: "Preview a pack install from the registry",
     },
   ]),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help getting-started", "How to set up and configure AXM"],
+      ["axm help basic-usage", "How to use AXM"],
+    ]),
+  ),
 );

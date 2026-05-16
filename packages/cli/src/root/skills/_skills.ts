@@ -10,9 +10,17 @@ import { disableCommand } from "./disable.js";
 import { publishCommand } from "./publish.js";
 import { pruneCommand } from "./prune/command.js";
 import { skillsVersionCommand } from "../shared/version-command.js";
+import { LearnMore, formatLearnMore } from "../../formatter.js";
 
 export const skillsCommand = Command.make("skills").pipe(
   Command.withDescription("Manage skills"),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help skills", "Managing agent skills with AXM"],
+      ["axm help skill-schema", "Print the skill manifest JSON Schema"],
+    ]),
+  ),
   Command.withExamples([
     {
       command: "axm skills install @acme/skills/code-review",

@@ -40,6 +40,7 @@ import * as Terminal from "effect/Terminal";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { scopeFlag } from "../cli-flags.js";
+import { LearnMore, formatLearnMore } from "../formatter.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
@@ -355,4 +356,11 @@ export const setupCommand = Command.make(
       description: "Initialize with specific agents",
     },
   ]),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help getting-started", "How to set up and configure AXM"],
+      ["axm help basic-usage", "How to use AXM"],
+    ]),
+  ),
 );

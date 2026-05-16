@@ -492,7 +492,7 @@ const makeDependencyStep = (
 
 const publishConfig = {
   pack: Argument.string("pack").pipe(
-    Argument.withDescription("Pack name (@owner/name or bare name)"),
+    Argument.withDescription("Pack FQN (@owner/packs/name) or bare pack name"),
   ),
   registry: Flag.string("registry").pipe(
     Flag.withDescription("Target a specific named registry instead of the default"),
@@ -522,7 +522,7 @@ export const publishCommand = Command.make(
   Command.withDescription("Publish a pack to a registry"),
   Command.withExamples([
     {
-      command: "axm packs publish @acme/frontend-tools",
+      command: "axm packs publish @acme/packs/frontend-tools",
       description: "Share your pack on the registry",
     },
     {
@@ -530,7 +530,7 @@ export const publishCommand = Command.make(
       description: "Publish to a specific registry",
     },
     {
-      command: "axm packs publish @acme/frontend-tools --include-dependencies",
+      command: "axm packs publish @acme/packs/frontend-tools --include-dependencies",
       description: "Also publish the pack's local dependency extensions",
     },
   ]),

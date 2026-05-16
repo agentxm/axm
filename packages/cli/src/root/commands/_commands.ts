@@ -9,9 +9,17 @@ import { updateCommand } from "./update.js";
 import { newCommand } from "./new.js";
 import { publishCommand } from "./publish.js";
 import { commandsVersionCommand } from "../shared/version-command.js";
+import { LearnMore, formatLearnMore } from "../../formatter.js";
 
 export const commandsCommand = Command.make("commands").pipe(
   Command.withDescription("Manage commands"),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help commands", "Managing command extensions with AXM"],
+      ["axm help command-schema", "Print the command manifest JSON Schema"],
+    ]),
+  ),
   Command.withExamples([
     {
       command: "axm commands install @acme/commands/my-cmd",

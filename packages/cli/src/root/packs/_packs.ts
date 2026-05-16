@@ -9,9 +9,17 @@ import { publishCommand } from "./publish.js";
 import { removeCommand } from "./remove.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { unpackCommand } from "./unpack/command.js";
+import { LearnMore, formatLearnMore } from "../../formatter.js";
 
 export const packsCommand = Command.make("packs").pipe(
   Command.withDescription("Manage packs"),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help packs", "Managing packs with AXM"],
+      ["axm help pack-schema", "Print the pack manifest JSON Schema"],
+    ]),
+  ),
   Command.withExamples([
     {
       command: "axm packs install @acme/packs/frontend-tools",
@@ -26,7 +34,7 @@ export const packsCommand = Command.make("packs").pipe(
       description: "Add extensions to your pack",
     },
     {
-      command: "axm packs publish @acme/frontend-tools",
+      command: "axm packs publish @acme/packs/frontend-tools",
       description: "Share your pack on the registry",
     },
     {

@@ -20,6 +20,19 @@ export const LearnMore: ServiceMap.Reference<string> = ServiceMap.Reference("axm
 });
 
 /**
+ * Builds a `LEARN MORE` footer string from `axm help <topic>` rows, with the
+ * command column padded to a consistent width. Pass the result to
+ * `Command.annotate(LearnMore, ...)`.
+ */
+export const formatLearnMore = (
+  rows: ReadonlyArray<readonly [command: string, description: string]>,
+): string => {
+  const width = rows.reduce((max, [command]) => Math.max(max, command.length), 0);
+  const lines = rows.map(([command, description]) => `  ${command.padEnd(width)}  ${description}`);
+  return ["LEARN MORE", ...lines].join("\n");
+};
+
+/**
  * Determines whether a HelpDoc represents a subcommand (as opposed to the
  * root command) by counting the command tokens in the usage string that
  * precede any bracketed placeholder like `[flags]` or `<subcommand>`.

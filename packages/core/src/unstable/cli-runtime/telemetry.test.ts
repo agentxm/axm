@@ -24,6 +24,7 @@ interface Capture {
     name: string;
     message: string;
     level: "error" | "fatal";
+    errorClass: "internal" | "user" | "external";
     handled: boolean;
     command: string;
   }>;
@@ -42,6 +43,7 @@ const makeCaptureLayer = (): readonly [Layer.Layer<TelemetryClient>, Capture] =>
           name: error.name,
           message: error.message,
           level: error.level,
+          errorClass: error.errorClass,
           handled: error.handled,
           command: error.command,
         });
@@ -88,6 +90,7 @@ describe("cli telemetry helpers", () => {
           name: "not_found",
           message: "WorkspaceMutations not initialized",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         },
@@ -130,6 +133,7 @@ describe("cli telemetry helpers", () => {
           name: "Defect",
           message: "boom",
           level: "fatal",
+          errorClass: "internal",
           handled: false,
           command: "skills list",
         },

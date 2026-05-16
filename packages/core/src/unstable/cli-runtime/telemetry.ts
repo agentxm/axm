@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
-import type { AppError } from "../app-error/index.js";
+import { errorClassForAppErrorCode, type AppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
@@ -100,6 +100,7 @@ export const reportCliError = (
           message: error.detail,
           category: error.code,
           level: "error",
+          errorClass: errorClassForAppErrorCode(error.code),
           handled: true,
           command,
         });
@@ -181,6 +182,7 @@ export const reportCliDefect = (
           name: "Defect",
           message: defectMessage(cause),
           level: "fatal",
+          errorClass: "internal",
           handled: false,
           command,
         });

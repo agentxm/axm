@@ -38,6 +38,7 @@ interface CaptureServer {
 interface ErrorRequestBody {
   readonly errors: ReadonlyArray<{ readonly message: string; readonly name: string }>;
   readonly level: string;
+  readonly errorClass: string;
   readonly handled: boolean;
   readonly context: { readonly command: string };
 }
@@ -76,6 +77,8 @@ const expectErrorRequestBody = (value: unknown): ErrorRequestBody => {
   if (
     !("level" in value) ||
     typeof value.level !== "string" ||
+    !("errorClass" in value) ||
+    typeof value.errorClass !== "string" ||
     !("handled" in value) ||
     typeof value.handled !== "boolean" ||
     !("context" in value) ||
@@ -93,6 +96,7 @@ const expectErrorRequestBody = (value: unknown): ErrorRequestBody => {
       name: entry.name,
     })),
     level: value.level,
+    errorClass: value.errorClass,
     handled: value.handled,
     context: {
       command: value.context.command,
@@ -331,6 +335,7 @@ describe("axm-spike telemetry demos", () => {
         message: "Simulated handled telemetry failure",
       });
       expect(body.level).toBe("error");
+      expect(body.errorClass).toBe("internal");
       expect(body.handled).toBe(true);
       expect(body.context.command).toBe("telemetry handled");
     } finally {
@@ -358,6 +363,7 @@ describe("axm-spike telemetry demos", () => {
         message: "Simulated defect telemetry failure",
       });
       expect(body.level).toBe("fatal");
+      expect(body.errorClass).toBe("internal");
       expect(body.handled).toBe(false);
       expect(body.context.command).toBe("telemetry defect");
     } finally {

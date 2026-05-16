@@ -12,6 +12,7 @@ import type { TelemetryMode } from "./mode.js";
 
 export type TelemetryPropertyValue = string | number | boolean | null;
 export type TelemetryProperties = Record<string, TelemetryPropertyValue>;
+export type TelemetryErrorClass = "internal" | "user" | "external";
 
 export interface TelemetryClientService {
   readonly trackEvent: (event: string, properties?: TelemetryProperties) => Effect.Effect<void>;
@@ -21,6 +22,7 @@ export interface TelemetryClientService {
     readonly details?: ReadonlyArray<string>;
     readonly category?: string;
     readonly level: "error" | "fatal";
+    readonly errorClass: TelemetryErrorClass;
     readonly handled: boolean;
     readonly command: string;
   }) => Effect.Effect<void>;
@@ -138,6 +140,7 @@ export const makeTelemetryClient = (
           },
         ],
         level: error.level,
+        errorClass: error.errorClass,
         handled: error.handled,
         tags: {
           errorCode: error.name,

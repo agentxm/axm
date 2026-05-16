@@ -82,6 +82,7 @@ const AppErrorCodeByExitName = {
 } as const satisfies Record<ErrorExitName, string>;
 
 export type AppErrorCode = (typeof AppErrorCodeByExitName)[ErrorExitName];
+export type AppErrorClass = "internal" | "user" | "external";
 
 /**
  * Tuple of every `AppErrorCode`. Listed via member reads so the tuple type is
@@ -204,6 +205,24 @@ const DefaultSuggestionsByAppErrorCode: Readonly<
 /** Baseline suggested next actions for an error category. */
 export const defaultSuggestionsFor = (code: AppErrorCode): ReadonlyArray<SuggestedAction> =>
   DefaultSuggestionsByAppErrorCode[code];
+
+const AppErrorClassByAppErrorCode: Readonly<Record<AppErrorCode, AppErrorClass>> = {
+  internal: "internal",
+  network: "external",
+  unavailable: "external",
+  rate_limit: "external",
+  quota: "external",
+  auth: "user",
+  forbidden: "user",
+  not_found: "user",
+  conflict: "user",
+  validation: "user",
+  usage: "user",
+  issues: "user",
+};
+
+export const errorClassForAppErrorCode = (code: AppErrorCode): AppErrorClass =>
+  AppErrorClassByAppErrorCode[code];
 
 /**
  * Resolve the suggestions to surface for an error: the caller's own

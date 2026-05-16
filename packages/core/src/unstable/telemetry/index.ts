@@ -5,6 +5,7 @@ export {
   makeTelemetryClient,
   type TelemetryClientOptions,
   type TelemetryClientService,
+  type TelemetryErrorClass,
   type TelemetryPropertyValue,
   type TelemetryProperties,
 } from "./client.js";

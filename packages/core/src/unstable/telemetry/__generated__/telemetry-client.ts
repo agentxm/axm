@@ -237,6 +237,7 @@ export type TelemetryErrorsRequest = {
     readonly details?: ReadonlyArray<string>;
   }>;
   readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
+  readonly errorClass?: "internal" | "user" | "external";
   readonly handled?: boolean;
   readonly breadcrumbs?: ReadonlyArray<{
     readonly type?: string;
@@ -288,6 +289,13 @@ export const TelemetryErrorsRequest = Schema.Struct({
     Schema.Literals(["fatal", "error", "warning", "info", "debug"]).annotate({
       title: "Severity Level",
       description: "Severity level associated with an error report or breadcrumb.",
+    }),
+  ),
+  errorClass: Schema.optionalKey(
+    Schema.Literals(["internal", "user", "external"]).annotate({
+      title: "Error Class",
+      description:
+        "Classifies whether an error report represents an AXM bug, a user-correctable failure, or an external dependency failure.",
     }),
   ),
   handled: Schema.optionalKey(Schema.Boolean),

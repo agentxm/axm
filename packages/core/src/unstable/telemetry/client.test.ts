@@ -116,6 +116,7 @@ describe("TelemetryClientLive", () => {
           details: ["some detail"],
           category: "not_found",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -137,6 +138,7 @@ describe("TelemetryClientLive", () => {
           expect(property(error, "details")).toEqual(["some detail"]);
         }
         expect(property(body, "level")).toBe("error");
+        expect(property(body, "errorClass")).toBe("user");
         expect(property(body, "handled")).toBe(true);
         expect(property(expectRecord(property(body, "tags")), "errorCode")).toBe(
           "WORKSPACE_NOT_FOUND",
@@ -161,6 +163,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -185,6 +188,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -208,6 +212,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -303,6 +308,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -363,6 +369,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -394,6 +401,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -430,6 +438,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });
@@ -474,6 +483,7 @@ describe("TelemetryClientLive", () => {
           name: "ERR",
           message: "msg",
           level: "error",
+          errorClass: "user",
           handled: true,
           command: "setup",
         });

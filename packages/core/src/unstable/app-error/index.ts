@@ -7,8 +7,10 @@ export {
   defaultDetailFor,
   defaultTitleFor,
   effectiveSuggestionsFor,
+  errorClassForAppErrorCode,
   exitCodeFor,
   makeAppError,
+  type AppErrorClass,
   type AppErrorMetadata,
   type AppErrorCode,
 } from "./app-error.js";

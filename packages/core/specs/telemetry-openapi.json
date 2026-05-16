@@ -634,6 +634,12 @@
             "title": "Severity Level",
             "description": "Severity level associated with an error report or breadcrumb."
           },
+          "errorClass": {
+            "type": "string",
+            "enum": ["internal", "user", "external"],
+            "title": "Error Class",
+            "description": "Classifies whether an error report represents an AXM bug, a user-correctable failure, or an external dependency failure."
+          },
           "handled": { "type": "boolean" },
           "breadcrumbs": {
             "type": "array",

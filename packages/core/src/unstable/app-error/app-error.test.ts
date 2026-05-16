@@ -6,6 +6,7 @@ import {
   AppErrorCodeSchema,
   AppErrorCodes,
   ExitCode,
+  errorClassForAppErrorCode,
   exitCodeFor,
   makeAppError,
 } from "./app-error.js";
@@ -26,6 +27,26 @@ describe("AppError", () => {
     }
     expect(new Set(mappedExitCodes).size).toBe(AppErrorCodes.length);
     expect(mappedExitCodes.length).toBe(exitCodeValues.size - 1);
+  });
+
+  it("classifies AppErrorCode values for telemetry routing", () => {
+    expect(errorClassForAppErrorCode("internal")).toBe("internal");
+
+    for (const code of ["network", "unavailable", "rate_limit", "quota"] as const) {
+      expect(errorClassForAppErrorCode(code)).toBe("external");
+    }
+
+    for (const code of [
+      "usage",
+      "validation",
+      "not_found",
+      "auth",
+      "forbidden",
+      "conflict",
+      "issues",
+    ] as const) {
+      expect(errorClassForAppErrorCode(code)).toBe("user");
+    }
   });
 
   it("constructs with all fields", () => {

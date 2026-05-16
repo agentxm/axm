@@ -20,6 +20,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import { AGENTS } from "../../../agents/registry.js";
 import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -93,7 +94,7 @@ const scanAgentSettings = Effect.fn("workspace.read-model.scanner.agent-settings
           _tag: "agent-settings",
           scope,
           agentId: descriptor.id,
-          contentLocation: filePath,
+          contentLocation: makeAbsolutePath(path, filePath),
         });
       }),
     { concurrency: "unbounded" },

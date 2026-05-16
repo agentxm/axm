@@ -92,7 +92,9 @@ export const uninstallCommand: (
           Effect.forEach(
             files,
             (file) =>
-              fs.remove(file.path, { recursive: true }).pipe(Effect.catch(() => Effect.void)),
+              fs
+                .remove(path.resolve(base, file.path), { recursive: true })
+                .pipe(Effect.catch(() => Effect.void)),
             { concurrency: "unbounded" },
           ),
         { concurrency: "unbounded" },

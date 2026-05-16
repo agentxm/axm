@@ -14,6 +14,7 @@ import { sanitizeName } from "../extensions/utils.js";
 import { createDefaultSettings } from "../settings/index.js";
 import { type SkillExtensionRef } from "../skills/index.js";
 import { computeSkillPaths, type SkillPathSource } from "../skills/paths.js";
+import { makeAbsolutePath } from "../utils/path-types.js";
 import {
   resolveConfiguredSkill,
   toConfiguredEntryFailureReason,
@@ -144,9 +145,9 @@ const buildDeclaredSkillSnapshot = (baseDir: string, fs: FileSystem.FileSystem, 
     const contextEnv = Layer.mergeAll(
       fsLayer,
       Layer.succeed(WorkspaceReadModelConfig, {
-        projectRoot: ws.baseDir,
-        userHome: path.dirname(globalDir),
-        allowedRoot: "/",
+        projectRoot: makeAbsolutePath(path, ws.baseDir),
+        userHome: makeAbsolutePath(path, path.dirname(globalDir)),
+        allowedRoot: makeAbsolutePath(path, "/"),
       }),
       AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
     );

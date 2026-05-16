@@ -21,6 +21,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { computeSourceHash, RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
+import { makeWorkspaceRelativePath } from "../../utils/path-types.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "../paths.js";
 import type { SubagentPathSource } from "../paths.js";
 import { parseSubagentMd } from "../subagent-content.js";
@@ -187,12 +188,24 @@ export const enableSubagent: OperationHandler<
             force: false,
           })
           .pipe(
-            Effect.map((outcome) => {
-              if (outcome._tag === "success") {
-                renderedFilesMap[agent.id] = outcome.renderedFilePaths.map((p) => ({
-                  path: p,
-                }));
-              }
+            Effect.flatMap((outcome) => {
+              if (outcome._tag !== "success") return Effect.void;
+              return Effect.forEach(outcome.renderedFilePaths, (p) => {
+                const relativePath = makeWorkspaceRelativePath(path, baseDir, p);
+                if (Option.isNone(relativePath)) {
+                  return Effect.fail(
+                    makeAppError({
+                      code: "internal",
+                      detail: `Rendered subagent path escapes workspace root: ${p}`,
+                    }),
+                  );
+                }
+                return Effect.succeed({ path: relativePath.value });
+              }).pipe(
+                Effect.map((entries) => {
+                  renderedFilesMap[agent.id] = entries;
+                }),
+              );
             }),
           ),
       { concurrency: "unbounded" },

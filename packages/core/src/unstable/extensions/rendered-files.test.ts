@@ -63,9 +63,21 @@ describe("SourceHashSchema", () => {
 });
 
 describe("RenderedFilePathSchema", () => {
-  it("decodes a valid string to a branded RenderedFilePath", () => {
+  it("decodes a workspace-relative path to a branded RenderedFilePath", () => {
     const result = Schema.decodeUnknownResult(RenderedFilePathSchema)(".claude/skills/my-skill.md");
     expect(Result.isSuccess(result)).toBe(true);
+  });
+
+  it("rejects absolute paths", () => {
+    const result = Schema.decodeUnknownResult(RenderedFilePathSchema)(
+      "/workspace/.claude/skills/my-skill.md",
+    );
+    expect(Result.isFailure(result)).toBe(true);
+  });
+
+  it("rejects escaping relative paths", () => {
+    const result = Schema.decodeUnknownResult(RenderedFilePathSchema)("../outside.md");
+    expect(Result.isFailure(result)).toBe(true);
   });
 });
 

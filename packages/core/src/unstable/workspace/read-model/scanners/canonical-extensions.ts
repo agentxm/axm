@@ -41,6 +41,7 @@ import {
   toExtensionType,
 } from "../../../extensions/common.js";
 import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -129,11 +130,12 @@ const buildOccurrence = (
     const subjectFileName = subjectFileNameFor(args.extensionType, resolvedName);
     const subjectFile =
       subjectFileName === null
-        ? Option.none<string>()
-        : Option.some(path.join(args.nameDir, subjectFileName));
+        ? Option.none()
+        : Option.some(makeAbsolutePath(path, path.join(args.nameDir, subjectFileName)));
     const subjectFileExists = Option.isSome(subjectFile)
       ? yield* fileExists(SCANNER_NAME, fs, diagnostics, subjectFile.value)
       : false;
+    const contentLocation = makeAbsolutePath(path, args.nameDir);
     const occurrence: CanonicalExtensionOccurrence = {
       _tag: "canonical-extension",
       scope,
@@ -141,7 +143,7 @@ const buildOccurrence = (
       origin: args.origin,
       name: decodeExtensionNameSync(resolvedName),
       owner: args.owner,
-      contentLocation: args.nameDir,
+      contentLocation,
       pathSegments: splitAbsolutePathSegments(path, args.nameDir),
       subjectFile,
       subjectFileExists,

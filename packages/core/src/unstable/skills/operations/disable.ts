@@ -140,7 +140,9 @@ export const disableSkill: OperationHandler<
             return Effect.forEach(
               tracked,
               (entry) =>
-                fs.remove(entry.path, { recursive: true }).pipe(Effect.catch(() => Effect.void)),
+                fs
+                  .remove(path.resolve(base, entry.path), { recursive: true })
+                  .pipe(Effect.catch(() => Effect.void)),
               { concurrency: "unbounded" },
             );
           }

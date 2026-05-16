@@ -8,6 +8,7 @@
  */
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
@@ -26,7 +27,13 @@ export const renderMarkdownOnly = (input: RenderInput): CommandRenderOutcome => 
   warnings.push(...subWarnings);
 
   return rendered(
-    [{ content: substitutedBody, relativePath: `${input.commandName}.md`, warnings }],
+    [
+      {
+        content: substitutedBody,
+        relativePath: decodeRelativePathSync(`${input.commandName}.md`),
+        warnings,
+      },
+    ],
     warnings,
   );
 };

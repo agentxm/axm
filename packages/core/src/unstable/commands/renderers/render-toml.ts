@@ -10,6 +10,7 @@
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import { applyOverrides } from "../../extensions/agent-overrides.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
@@ -71,5 +72,8 @@ export const renderToml = (input: RenderInput): CommandRenderOutcome => {
   );
   const content = tomlLines({ ...frontmatterWithoutPrompt, prompt: substitutedBody }).join("\n");
 
-  return rendered([{ content, relativePath: `${input.commandName}.toml`, warnings }], warnings);
+  return rendered(
+    [{ content, relativePath: decodeRelativePathSync(`${input.commandName}.toml`), warnings }],
+    warnings,
+  );
 };

@@ -38,6 +38,7 @@ import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
+import { makeAbsolutePath } from "../utils/path-types.js";
 
 const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
   code: "usage",
@@ -90,9 +91,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   const contextEnv = Layer.mergeAll(
     fsLayer,
     Layer.succeed(WorkspaceReadModelConfig, {
-      projectRoot: ws.baseDir,
-      userHome: path.dirname(globalDir),
-      allowedRoot: "/",
+      projectRoot: makeAbsolutePath(path, ws.baseDir),
+      userHome: makeAbsolutePath(path, path.dirname(globalDir)),
+      allowedRoot: makeAbsolutePath(path, "/"),
     }),
     AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
   );

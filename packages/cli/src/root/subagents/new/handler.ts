@@ -26,6 +26,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { makeWorkspaceRelativePath } from "@agentxm/client-core/unstable/utils";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
@@ -205,12 +206,24 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
               force: args.force,
             })
             .pipe(
-              Effect.map((outcome) => {
-                if (outcome._tag === "success") {
-                  renderedFilesMap[agent.id] = outcome.renderedFilePaths.map((p) => ({
-                    path: p,
-                  }));
-                }
+              Effect.flatMap((outcome) => {
+                if (outcome._tag !== "success") return Effect.void;
+                return Effect.forEach(outcome.renderedFilePaths, (p) => {
+                  const relativePath = makeWorkspaceRelativePath(path, base, p);
+                  if (Option.isNone(relativePath)) {
+                    return Effect.fail(
+                      makeAppError({
+                        code: "internal",
+                        detail: `Rendered subagent path escapes workspace root: ${p}`,
+                      }),
+                    );
+                  }
+                  return Effect.succeed({ path: relativePath.value });
+                }).pipe(
+                  Effect.map((entries) => {
+                    renderedFilesMap[agent.id] = entries;
+                  }),
+                );
               }),
             ),
         { concurrency: "unbounded" },

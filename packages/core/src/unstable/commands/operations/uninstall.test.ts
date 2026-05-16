@@ -192,7 +192,7 @@ describe("uninstallCommand", () => {
           ...makeRegistryLockEntry(),
           agents: ["claude-code"],
           renderedFiles: {
-            "claude-code": [{ path: renderedFilePath(renderedPath) }],
+            "claude-code": [{ path: renderedFilePath(".claude-code/commands/my-command.md") }],
           },
         };
 

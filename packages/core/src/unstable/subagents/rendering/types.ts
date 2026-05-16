@@ -9,7 +9,7 @@
  */
 
 import type { LossyRenderingWarning } from "../../commands/rendering-warnings.js";
-import type { RenderedFilePath } from "../../extensions/rendered-files.js";
+import type { RelativePath } from "../../utils/path-types.js";
 
 /**
  * Per-agent override map applied as an RFC 7396 JSON Merge Patch on top of
@@ -46,7 +46,7 @@ export interface SubagentRenderOutput {
   /** The rendered file content. */
   readonly content: string;
   /** The relative path for the rendered file (e.g., ".claude/agents/my-agent.md"). */
-  readonly path: RenderedFilePath;
+  readonly path: RelativePath;
 }
 
 /**

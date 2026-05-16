@@ -9,6 +9,7 @@
 
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
+import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
 
 /**
  * Computed path for an installed pack directory.
@@ -18,7 +19,7 @@ import type { Handle } from "../extensions/handle.js";
  * No `src/` subdirectory for packs.
  */
 export interface PackDirPath {
-  readonly canonicalPath: string;
+  readonly canonicalPath: AbsolutePath;
 }
 
 /**
@@ -36,5 +37,5 @@ export const computePackPaths = (
   name: string,
 ): PackDirPath => {
   const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);
-  return { canonicalPath };
+  return { canonicalPath: decodeAbsolutePathSync(canonicalPath) };
 };

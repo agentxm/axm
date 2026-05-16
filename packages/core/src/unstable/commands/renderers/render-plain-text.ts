@@ -10,6 +10,7 @@
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import { applyOverrides } from "../../extensions/agent-overrides.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
@@ -38,7 +39,13 @@ export const renderPlainText = (input: RenderInput): CommandRenderOutcome => {
   warnings.push(...subWarnings);
 
   return rendered(
-    [{ content: substitutedBody, relativePath: `${input.commandName}.txt`, warnings }],
+    [
+      {
+        content: substitutedBody,
+        relativePath: decodeRelativePathSync(`${input.commandName}.txt`),
+        warnings,
+      },
+    ],
     warnings,
   );
 };

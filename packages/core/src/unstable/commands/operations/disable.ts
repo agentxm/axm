@@ -56,6 +56,7 @@ export const disableCommand: OperationHandler<
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
@@ -83,7 +84,9 @@ export const disableCommand: OperationHandler<
             Effect.forEach(
               files,
               (file) =>
-                fs.remove(file.path, { recursive: true }).pipe(Effect.catch(() => Effect.void)),
+                fs
+                  .remove(path.resolve(base, file.path), { recursive: true })
+                  .pipe(Effect.catch(() => Effect.void)),
               { concurrency: "unbounded" },
             ),
           { concurrency: "unbounded" },

@@ -9,6 +9,7 @@
 
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
+import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
@@ -31,8 +32,8 @@ export type SkillPathSource =
  *           `skillSrcPath` = `<canonicalPath>/src`
  */
 export interface SkillDirPaths {
-  readonly canonicalPath: string;
-  readonly skillSrcPath: string;
+  readonly canonicalPath: AbsolutePath;
+  readonly skillSrcPath: AbsolutePath;
 }
 
 /**
@@ -57,8 +58,14 @@ export const computeSkillPaths = (
       "skills",
       sanitizedName,
     );
-    return { canonicalPath, skillSrcPath: join(canonicalPath, "src") };
+    return {
+      canonicalPath: decodeAbsolutePathSync(canonicalPath),
+      skillSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
+    };
   }
   const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName);
-  return { canonicalPath, skillSrcPath: canonicalPath };
+  return {
+    canonicalPath: decodeAbsolutePathSync(canonicalPath),
+    skillSrcPath: decodeAbsolutePathSync(canonicalPath),
+  };
 };

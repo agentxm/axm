@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { isPathSafe } from "./path-safety.js";
+import * as Option from "effect/Option";
+import { decodeAbsolutePathSync } from "./path-types.js";
+import { isPathSafe, safeChildPathSync } from "./path-safety.js";
 
 describe("isPathSafe", () => {
   it("returns true when target is within base", () => {
@@ -32,5 +34,17 @@ describe("isPathSafe", () => {
 
   it("returns false when target is parent of base", () => {
     expect(isPathSafe("/a/b/c", "/a/b")).toBe(false);
+  });
+});
+
+describe("safeChildPathSync", () => {
+  it("returns a branded absolute path when target stays under base", () => {
+    const result = safeChildPathSync(decodeAbsolutePathSync("/a/b"), "c");
+    expect(Option.getOrNull(result)).toBe("/a/b/c");
+  });
+
+  it("returns none when target escapes base", () => {
+    const result = safeChildPathSync(decodeAbsolutePathSync("/a/b"), "/a/c");
+    expect(Option.isNone(result)).toBe(true);
   });
 });

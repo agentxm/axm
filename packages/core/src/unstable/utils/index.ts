@@ -5,7 +5,18 @@ export {
   stripFileProtocol,
 } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
-export { isPathSafe } from "./path-safety.js";
+export { isPathSafe, safeChildPath, safeChildPathSync } from "./path-safety.js";
+export {
+  AbsolutePathSchema,
+  RelativePathSchema,
+  decodeAbsolutePathSync,
+  decodeRelativePathSync,
+  makeAbsolutePath,
+  makeRelativePath,
+  makeWorkspaceRelativePath,
+  type AbsolutePath,
+  type RelativePath,
+} from "./path-types.js";
 export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 export { createSymlink, type SymlinkResult } from "./create-symlink.js";
 export {

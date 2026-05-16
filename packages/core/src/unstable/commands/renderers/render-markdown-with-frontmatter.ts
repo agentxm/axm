@@ -11,6 +11,7 @@ import YAML from "yaml";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import { applyOverrides } from "../../extensions/agent-overrides.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
@@ -40,7 +41,13 @@ export const renderMarkdownWithFrontmatter = (input: RenderInput): CommandRender
   }
 
   return rendered(
-    [{ content: parts.join("\n"), relativePath: `${input.commandName}.md`, warnings }],
+    [
+      {
+        content: parts.join("\n"),
+        relativePath: decodeRelativePathSync(`${input.commandName}.md`),
+        warnings,
+      },
+    ],
     warnings,
   );
 };

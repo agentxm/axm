@@ -8,13 +8,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Schema from "effect/Schema";
+import { decodeRelativePathSync } from "../../../utils/path-types.js";
 import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
-
-const decodeRenderedFilePath = Schema.decodeUnknownSync(
-  Schema.String.pipe(Schema.brand("RenderedFilePath")),
-);
 
 /**
  * Render a subagent as JSON for Kiro CLI.
@@ -25,7 +21,7 @@ export const renderJson = (input: SubagentRenderInput): SubagentRenderOutcome =>
   const base: Record<string, unknown> = { ...input.frontmatter, prompt: input.body };
   const merged = applyOverrides(base, input.agentOverrides);
   const content = JSON.stringify(merged, null, 2);
-  const path = decodeRenderedFilePath(`.kiro/agents/${input.name}.json`);
+  const path = decodeRelativePathSync(`.kiro/agents/${input.name}.json`);
 
   return rendered([{ content, path }], []);
 };

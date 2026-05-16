@@ -39,6 +39,7 @@ import * as Schema from "effect/Schema";
 import { AGENTS } from "../../../agents/registry.js";
 import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
 import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -177,12 +178,13 @@ const scanWorkspaceMcp = (
     const decoded = yield* readMcpConfig(fs, diagnostics, filePath);
     if (Option.isNone(decoded)) return [];
     const names = extractServerNames(decoded.value);
+    const contentLocation = makeAbsolutePath(path, filePath);
     return names.map<WorkspaceMcpConfigOccurrence>((name) => ({
       _tag: "mcp-config",
       scope,
       origin: "workspace",
       name,
-      contentLocation: filePath,
+      contentLocation,
     }));
   });
 
@@ -206,13 +208,14 @@ const scanAgentMcp = (
     const decoded = yield* readMcpConfig(fs, diagnostics, filePath);
     if (Option.isNone(decoded)) return [];
     const names = extractServerNames(decoded.value);
+    const contentLocation = makeAbsolutePath(path, filePath);
     return names.map<AgentMcpConfigOccurrence>((name) => ({
       _tag: "mcp-config",
       scope,
       origin: "agent",
       agentId: descriptor.id,
       name,
-      contentLocation: filePath,
+      contentLocation,
     }));
   });
 

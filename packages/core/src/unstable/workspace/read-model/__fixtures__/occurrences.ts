@@ -12,9 +12,11 @@
  * correct shape — workspace omits `agentId`; agent carries it non-null.
  */
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { decodeExtensionNameSync, type ExtensionType } from "../../../extensions/common.js";
 import { decodeHandleSync } from "../../../extensions/handle.js";
 import type { AgentId } from "../../../agents/types.js";
+import { AbsolutePathSchema, type AbsolutePath } from "../../../utils/path-types.js";
 import type {
   AgentDirOccurrence,
   AgentDirSubjectType,
@@ -36,6 +38,8 @@ const splitSegments = (absolute: string): ReadonlyArray<string> => absolute.spli
 
 const join = (parent: string, child: string): string =>
   parent.endsWith(POSIX_SEP) ? `${parent}${child}` : `${parent}${POSIX_SEP}${child}`;
+
+const decodeFixtureAbsolutePath = Schema.decodeUnknownSync(AbsolutePathSchema);
 
 const normalizeFileBackedName = (name: string): string => {
   const normalized = name
@@ -104,10 +108,11 @@ export const makeCanonicalOccurrence = (
   input: MakeCanonicalOccurrenceInput,
 ): CanonicalExtensionOccurrence => {
   const subjectFileName = subjectFileNameForExtensionType(input.type, input.name);
+  const contentLocation = decodeFixtureAbsolutePath(input.contentLocation);
   const subjectFile =
     subjectFileName === null
-      ? Option.none<string>()
-      : Option.some(join(input.contentLocation, subjectFileName));
+      ? Option.none<AbsolutePath>()
+      : Option.some(decodeFixtureAbsolutePath(join(input.contentLocation, subjectFileName)));
   const subjectFileExists = input.subjectFileExists ?? (subjectFileName === null ? false : true);
   return {
     _tag: "canonical-extension",
@@ -116,7 +121,7 @@ export const makeCanonicalOccurrence = (
     origin: input.origin,
     name: decodeExtensionNameSync(input.name),
     owner: input.owner === null ? null : decodeHandleSync(input.owner),
-    contentLocation: input.contentLocation,
+    contentLocation,
     pathSegments: splitSegments(input.contentLocation),
     subjectFile,
     subjectFileExists,
@@ -155,12 +160,13 @@ export interface MakeAgentDirOccurrenceInput {
 export const makeAgentDirOccurrence = (input: MakeAgentDirOccurrenceInput): AgentDirOccurrence => {
   const resolvedName = input.singleFile === true ? normalizeFileBackedName(input.name) : input.name;
   const subjectFileName = subjectFileNameForAgentDir(input.type, resolvedName);
+  const contentLocation = decodeFixtureAbsolutePath(input.contentLocation);
   const subjectFile =
     input.singleFile === true
-      ? Option.some(input.contentLocation)
+      ? Option.some(contentLocation)
       : subjectFileName === null
-        ? Option.none<string>()
-        : Option.some(join(input.contentLocation, subjectFileName));
+        ? Option.none<AbsolutePath>()
+        : Option.some(decodeFixtureAbsolutePath(join(input.contentLocation, subjectFileName)));
   const subjectFileExists = input.subjectFileExists ?? true;
   return {
     _tag: "agent-dir",
@@ -168,7 +174,7 @@ export const makeAgentDirOccurrence = (input: MakeAgentDirOccurrenceInput): Agen
     type: input.type,
     agentId: input.agentId,
     name: resolvedName,
-    contentLocation: input.contentLocation,
+    contentLocation,
     pathSegments: splitSegments(input.contentLocation),
     subjectFile,
     subjectFileExists,
@@ -199,7 +205,7 @@ export const makeWorkspaceMcpConfigOccurrence = (
   scope: input.scope,
   origin: "workspace",
   name: decodeExtensionNameSync(input.name),
-  contentLocation: input.contentLocation,
+  contentLocation: decodeFixtureAbsolutePath(input.contentLocation),
 });
 
 export const makeAgentMcpConfigOccurrence = (
@@ -210,7 +216,7 @@ export const makeAgentMcpConfigOccurrence = (
   origin: "agent",
   agentId: input.agentId,
   name: decodeExtensionNameSync(input.name),
-  contentLocation: input.contentLocation,
+  contentLocation: decodeFixtureAbsolutePath(input.contentLocation),
 });
 
 // ---------------------------------------------------------------------------
@@ -229,5 +235,5 @@ export const makeAgentSettingsOccurrence = (
   _tag: "agent-settings",
   scope: input.scope,
   agentId: input.agentId,
-  contentLocation: input.contentLocation,
+  contentLocation: decodeFixtureAbsolutePath(input.contentLocation),
 });

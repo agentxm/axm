@@ -35,6 +35,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import { AGENTS } from "../../../agents/registry.js";
 import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -148,17 +149,18 @@ const scanSubjectDirectory = (
     if (subject.isFile) {
       const present = yield* fileExists(SCANNER_NAME, fs, diagnostics, subjectAbsolute);
       if (!present) return [];
+      const contentLocation = makeAbsolutePath(path, subjectAbsolute);
       const occurrence: AgentDirOccurrence = {
         _tag: "agent-dir",
         scope,
         type: subject.type,
         agentId,
         name: normalizeFileBackedName(path.basename(subjectAbsolute)),
-        contentLocation: subjectAbsolute,
+        contentLocation,
         pathSegments: splitAbsolutePathSegments(path, subjectAbsolute),
         // Single-file surfaces ARE the materialization; the file itself is
         // the subject file and presence has already been confirmed.
-        subjectFile: Option.some(subjectAbsolute),
+        subjectFile: Option.some(contentLocation),
         subjectFileExists: true,
       };
       return [occurrence];
@@ -179,15 +181,16 @@ const scanSubjectDirectory = (
             diagnostics,
             subjectFilePath,
           );
+          const contentLocation = makeAbsolutePath(path, nameDir);
           const occurrence: AgentDirOccurrence = {
             _tag: "agent-dir",
             scope,
             type: subject.type,
             agentId,
             name,
-            contentLocation: nameDir,
+            contentLocation,
             pathSegments: splitAbsolutePathSegments(path, nameDir),
-            subjectFile: Option.some(subjectFilePath),
+            subjectFile: Option.some(makeAbsolutePath(path, subjectFilePath)),
             subjectFileExists,
           };
           return occurrence;

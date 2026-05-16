@@ -11,6 +11,7 @@ import YAML from "yaml";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import { substituteVariables } from "../variable-substitution.js";
 import { applyOverrides } from "../../extensions/agent-overrides.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { rendered, type CommandRenderOutcome, type RenderInput } from "./types.js";
 
 /**
@@ -41,7 +42,13 @@ export const renderPromptMd = (input: RenderInput): CommandRenderOutcome => {
   }
 
   return rendered(
-    [{ content: parts.join("\n"), relativePath: `${input.commandName}.prompt.md`, warnings }],
+    [
+      {
+        content: parts.join("\n"),
+        relativePath: decodeRelativePathSync(`${input.commandName}.prompt.md`),
+        warnings,
+      },
+    ],
     warnings,
   );
 };

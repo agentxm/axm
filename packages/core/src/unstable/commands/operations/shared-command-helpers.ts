@@ -28,6 +28,7 @@ import type { CodingAgent, CommandSyncOutcome } from "../../agents/coding-agent.
 import { CodingAgentRepository } from "../../agents/index.js";
 import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { decodeExtensionNameSync, decodeHandleSync } from "../../extensions/index.js";
+import { makeWorkspaceRelativePath } from "../../utils/path-types.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
@@ -193,6 +194,7 @@ const stripAgentOverrides = (
 export const renderToAgents = (args: RenderToAgentsArgs) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
+    const path = yield* Path.Path;
 
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
@@ -256,8 +258,29 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
       r.outcome._tag === "success" ? [{ agentId: r.agentId, outcome: r.outcome }] : [],
     );
     const successfulAgents = successOutcomes.map((r) => r.agentId);
+    const renderedFileEntries = yield* Effect.forEach(
+      successOutcomes,
+      (r) => {
+        const relativePath = makeWorkspaceRelativePath(
+          path,
+          args.workspaceRoot,
+          r.outcome.renderedFilePath,
+        );
+        if (Option.isNone(relativePath)) {
+          return Effect.fail(
+            makeAppError({
+              code: "internal",
+              detail: `Rendered command path escapes workspace root: ${r.outcome.renderedFilePath}`,
+            }),
+          );
+        }
+        const entries: Array<{ path: string }> = [{ path: relativePath.value }];
+        return Effect.succeed([r.agentId, entries] as const);
+      },
+      { concurrency: "unbounded" },
+    );
     const rawRenderedFiles: Record<string, Array<{ path: string }>> = Object.fromEntries(
-      successOutcomes.map((r) => [r.agentId, [{ path: r.outcome.renderedFilePath }]]),
+      renderedFileEntries,
     );
 
     return { outcomes, successfulAgents, rawRenderedFiles } satisfies RenderToAgentsResult;

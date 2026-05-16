@@ -10,6 +10,7 @@
 
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
+import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
 
 /**
  * Minimal structural discriminant for determining command path layout.
@@ -36,8 +37,8 @@ export type CommandPathSource =
  * @experimental This API is unstable and may change without notice.
  */
 export interface CommandDirPaths {
-  readonly canonicalPath: string;
-  readonly commandSrcPath: string;
+  readonly canonicalPath: AbsolutePath;
+  readonly commandSrcPath: AbsolutePath;
 }
 
 /**
@@ -56,7 +57,7 @@ export const commandContentPath = (
   join: (...paths: string[]) => string,
   root: string,
   name: string,
-): string => join(root, commandContentFilename(name));
+): AbsolutePath => decodeAbsolutePathSync(join(root, commandContentFilename(name)));
 
 /**
  * Pure function to compute command directory paths.
@@ -82,8 +83,14 @@ export const computeCommandPaths = (
       "commands",
       sanitizedName,
     );
-    return { canonicalPath, commandSrcPath: join(canonicalPath, "src") };
+    return {
+      canonicalPath: decodeAbsolutePathSync(canonicalPath),
+      commandSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
+    };
   }
   const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, "commands", sanitizedName);
-  return { canonicalPath, commandSrcPath: canonicalPath };
+  return {
+    canonicalPath: decodeAbsolutePathSync(canonicalPath),
+    commandSrcPath: decodeAbsolutePathSync(canonicalPath),
+  };
 };

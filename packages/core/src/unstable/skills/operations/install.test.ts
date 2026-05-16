@@ -1065,11 +1065,13 @@ describe("installSkill", () => {
         },
       ];
 
-      const renderedFiles = buildRenderedFilesFromResults(targets, results);
+      const renderedFiles = buildRenderedFilesFromResults(targets, results, (targetPath) =>
+        targetPath.replace("/project/", ""),
+      );
 
       // Only the copy-mode agent should be in renderedFiles
       expect(renderedFiles["claude-code"]).toBeDefined();
-      expect(renderedFiles["claude-code"]?.[0]?.path).toBe("/project/.claude/skills/my-skill");
+      expect(renderedFiles["claude-code"]?.[0]?.path).toBe(".claude/skills/my-skill");
       // Symlink-mode agent should NOT be in renderedFiles
       expect(renderedFiles["cursor"]).toBeUndefined();
     });
@@ -1089,7 +1091,9 @@ describe("installSkill", () => {
         },
       ];
 
-      const renderedFiles = buildRenderedFilesFromResults(targets, results);
+      const renderedFiles = buildRenderedFilesFromResults(targets, results, (targetPath) =>
+        targetPath.replace("/project/", ""),
+      );
 
       expect(Object.keys(renderedFiles)).toHaveLength(0);
     });

@@ -9,13 +9,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Schema from "effect/Schema";
+import { decodeRelativePathSync } from "../../../utils/path-types.js";
 import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
-
-const decodeRenderedFilePath = Schema.decodeUnknownSync(
-  Schema.String.pipe(Schema.brand("RenderedFilePath")),
-);
 
 /**
  * Serialize a single value to a TOML right-hand side.
@@ -48,7 +44,7 @@ export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome =>
   const merged = applyOverrides(base, input.agentOverrides);
   const lines = Object.entries(merged).map(([key, value]) => `${key} = ${tomlValue(value)}`);
 
-  const path = decodeRenderedFilePath(`.codex/agents/${input.name}.toml`);
+  const path = decodeRelativePathSync(`.codex/agents/${input.name}.toml`);
 
   return rendered([{ content: lines.join("\n"), path }], []);
 };

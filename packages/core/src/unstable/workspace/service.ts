@@ -60,6 +60,7 @@ import {
   writeSettings,
 } from "../settings/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
+import { makeAbsolutePath } from "../utils/path-types.js";
 
 import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
@@ -194,9 +195,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const contextEnv = Layer.mergeAll(
       fsLayer,
       Layer.succeed(WorkspaceReadModelConfig, {
-        projectRoot: path.dirname(localDir),
-        userHome: path.dirname(globalDir),
-        allowedRoot: "/",
+        projectRoot: makeAbsolutePath(path, path.dirname(localDir)),
+        userHome: makeAbsolutePath(path, path.dirname(globalDir)),
+        allowedRoot: makeAbsolutePath(path, "/"),
       }),
       AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
     );

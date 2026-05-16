@@ -10,6 +10,7 @@
 
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import type { AgentOverrides } from "../../extensions/agent-overrides.js";
+import type { RelativePath } from "../../utils/path-types.js";
 
 export type { AgentOverrides } from "../../extensions/agent-overrides.js";
 
@@ -40,7 +41,7 @@ export interface RenderOutput {
   /** The rendered file content. */
   readonly content: string;
   /** Path relative to the resolved commands directory. */
-  readonly relativePath: string;
+  readonly relativePath: RelativePath;
   /** Lossy rendering warnings for unsupported features. */
   readonly warnings: ReadonlyArray<LossyRenderingWarning>;
 }

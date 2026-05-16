@@ -120,11 +120,14 @@ export { computeSkillSourceHash } from "./source-hash.js";
 export const buildRenderedFilesFromResults = (
   installableTargets: ReadonlyArray<{ agentId: AgentId; targetDir: string }>,
   agentResults: ReadonlyArray<InstallResult>,
+  toWorkspaceRelativePath: (path: string) => string,
 ): RenderedFilesMap => {
   const result: Record<string, Array<{ path: RenderedFilePath }>> = {};
   for (const [target, installResult] of Array.zip(installableTargets, agentResults)) {
     if (installResult.mode === "copy" && installResult.success) {
-      result[target.agentId] = [{ path: decodeRenderedFilePath(installResult.path) }];
+      result[target.agentId] = [
+        { path: decodeRenderedFilePath(toWorkspaceRelativePath(installResult.path)) },
+      ];
     }
   }
   return result;
@@ -467,7 +470,9 @@ export const installSkill: OperationHandler<
     // ── Shared: compute rendered files tracking for copy-mode ──────
     const hasCopyResults = agentResults.some((r) => r.mode === "copy" && r.success);
     const renderedFiles = hasCopyResults
-      ? buildRenderedFilesFromResults(installableTargets, agentResults)
+      ? buildRenderedFilesFromResults(installableTargets, agentResults, (targetPath) =>
+          path.relative(ws.baseDir, targetPath),
+        )
       : undefined;
     const sourceHash = hasCopyResults
       ? yield* computeSkillSourceHash(materialized.skillSrcPath)

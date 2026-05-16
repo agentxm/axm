@@ -9,6 +9,7 @@
 
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
+import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
 
 /**
  * Minimal structural discriminant for determining subagent path layout.
@@ -35,8 +36,8 @@ export type SubagentPathSource =
  * @experimental This API is unstable and may change without notice.
  */
 export interface SubagentDirPaths {
-  readonly canonicalPath: string;
-  readonly subagentSrcPath: string;
+  readonly canonicalPath: AbsolutePath;
+  readonly subagentSrcPath: AbsolutePath;
 }
 
 /**
@@ -55,7 +56,7 @@ export const subagentContentPath = (
   join: (...paths: string[]) => string,
   root: string,
   name: string,
-): string => join(root, subagentContentFilename(name));
+): AbsolutePath => decodeAbsolutePathSync(join(root, subagentContentFilename(name)));
 
 /**
  * Pure function to compute subagent directory paths.
@@ -81,8 +82,14 @@ export const computeSubagentPaths = (
       "subagents",
       sanitizedName,
     );
-    return { canonicalPath, subagentSrcPath: join(canonicalPath, "src") };
+    return {
+      canonicalPath: decodeAbsolutePathSync(canonicalPath),
+      subagentSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
+    };
   }
   const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, "subagents", sanitizedName);
-  return { canonicalPath, subagentSrcPath: canonicalPath };
+  return {
+    canonicalPath: decodeAbsolutePathSync(canonicalPath),
+    subagentSrcPath: decodeAbsolutePathSync(canonicalPath),
+  };
 };

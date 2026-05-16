@@ -13,12 +13,13 @@ import * as Config from "effect/Config";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeAbsolutePath, type AbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceScope } from "./scope.js";
 
 export interface WorkspaceLocation {
   readonly scope: WorkspaceScope;
-  readonly path: string;
-  readonly baseDir: string;
+  readonly path: AbsolutePath;
+  readonly baseDir: AbsolutePath;
 }
 
 // -----------------------------------------------------------------------------
@@ -48,7 +49,7 @@ export interface WorkspaceLocation {
  */
 const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
 
-export const getUserScopeDir = (): Effect.Effect<string, never, Path.Path> =>
+export const getUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const axmUserHome = yield* Effect.orDie(axmUserHomeConfig.asEffect());
@@ -56,7 +57,7 @@ export const getUserScopeDir = (): Effect.Effect<string, never, Path.Path> =>
       onNone: () => os.homedir(),
       onSome: (value) => value,
     });
-    return path.join(home, ".axm");
+    return makeAbsolutePath(path, path.join(home, ".axm"));
   });
 
 /**
@@ -77,11 +78,13 @@ export const getUserScopeDir = (): Effect.Effect<string, never, Path.Path> =>
  * // => "/path/to/project/.axm"
  * ```
  */
-export const getProjectDir = (projectRoot?: string): Effect.Effect<string, never, Path.Path> =>
+export const getProjectDir = (
+  projectRoot?: string,
+): Effect.Effect<AbsolutePath, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const baseDir = projectRoot ?? (yield* Effect.sync(() => process.cwd()));
-    return path.join(baseDir, ".axm");
+    return makeAbsolutePath(path, path.join(baseDir, ".axm"));
   });
 
 /**
@@ -111,7 +114,7 @@ export const getProjectDir = (projectRoot?: string): Effect.Effect<string, never
 export const getAxmDir = (
   scope: WorkspaceScope,
   projectRoot?: string,
-): Effect.Effect<string, never, Path.Path> =>
+): Effect.Effect<AbsolutePath, never, Path.Path> =>
   scope === "user" ? getUserScopeDir() : getProjectDir(projectRoot);
 
 export const locateWorkspace = (
@@ -125,6 +128,6 @@ export const locateWorkspace = (
     return {
       scope,
       path: workspacePath,
-      baseDir: path.dirname(workspacePath),
+      baseDir: makeAbsolutePath(path, path.dirname(workspacePath)),
     } satisfies WorkspaceLocation;
   });

@@ -13,6 +13,7 @@ import { parseExtensionFqnParts, type ExtensionName } from "../../extensions/com
 import { type Handle } from "../../extensions/handle.js";
 import { SETTINGS_FILENAME } from "../../settings/settings.js";
 import type { SourceHostConfig } from "../../settings/schema.js";
+import { makeAbsolutePath, type AbsolutePath } from "../../utils/path-types.js";
 import { AgentRootResolver } from "./agent-root-resolver.js";
 import { makeScopedAgentsApi, type ScopedAgentsApi } from "./agents/index.js";
 import { type AgentScannerObservations } from "./agents/types.js";
@@ -117,9 +118,9 @@ export interface WorkspaceReadModel {
 
 /** Configuration the factory requires beyond `FileSystem` and `Path`. */
 export interface WorkspaceReadModelConfigService {
-  readonly projectRoot: string;
-  readonly userHome: string;
-  readonly allowedRoot: string;
+  readonly projectRoot: AbsolutePath;
+  readonly userHome: AbsolutePath;
+  readonly allowedRoot: AbsolutePath;
 }
 
 /** Service tag for the {@link WorkspaceReadModelConfigService} the factory requires. */
@@ -139,8 +140,8 @@ const ResolvedWorkspaceRoot = Brand.nominal<ResolvedWorkspaceRoot>();
 /** Resolve and validate a workspace root resides within `allowedRoot`. */
 const validateRoot = (
   pathSvc: Path.Path,
-  candidate: string,
-  allowedRoot: string,
+  candidate: AbsolutePath,
+  allowedRoot: AbsolutePath,
 ): Effect.Effect<ResolvedWorkspaceRoot, WorkspaceRootEscape> =>
   Effect.gen(function* () {
     const resolved = pathSvc.resolve(candidate);
@@ -188,8 +189,8 @@ interface BuildScopeDeps {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly workspaceRoot: ResolvedWorkspaceRoot;
-  readonly settingsPath: string;
-  readonly lockfilePath: string | null;
+  readonly settingsPath: AbsolutePath;
+  readonly lockfilePath: AbsolutePath | null;
   readonly rootResolverState: AgentRootResolverState;
   /**
    * Diagnostics-buffer Ref shared with the factory. The factory pre-seeds
@@ -539,8 +540,8 @@ export const makeWorkspaceReadModel = (
     // Workspace path layout per scope.
     const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;
     const axmDir = pathSvc.join(workspaceRoot, ".axm");
-    const settingsPath = pathSvc.join(axmDir, SETTINGS_FILENAME);
-    const lockfilePath = pathSvc.join(axmDir, LOCKFILE_NAME);
+    const settingsPath = makeAbsolutePath(pathSvc, pathSvc.join(axmDir, SETTINGS_FILENAME));
+    const lockfilePath = makeAbsolutePath(pathSvc, pathSvc.join(axmDir, LOCKFILE_NAME));
 
     // Pre-seed agent-root collision warnings into the project scope only;
     // the user scope receives a clean buffer.

@@ -557,7 +557,7 @@ describe("disableSkill", () => {
         const lockEntry: SkillLockEntry = {
           ...makeLocalLockEntry(["claude-code"]),
           renderedFiles: {
-            "claude-code": [{ path: makeRenderedFilePath(renderedPath) }],
+            "claude-code": [{ path: makeRenderedFilePath(".claude/skills/my-skill") }],
           },
         };
 
@@ -581,12 +581,10 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         // Don't create the rendered path — it doesn't exist on disk
-        const renderedPath = path.join(base, ".claude", "skills", "my-skill");
-
         const lockEntry: SkillLockEntry = {
           ...makeLocalLockEntry(["claude-code"]),
           renderedFiles: {
-            "claude-code": [{ path: makeRenderedFilePath(renderedPath) }],
+            "claude-code": [{ path: makeRenderedFilePath(".claude/skills/my-skill") }],
           },
         };
 

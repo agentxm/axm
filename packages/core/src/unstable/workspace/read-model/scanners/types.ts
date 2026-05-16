@@ -19,6 +19,7 @@ import * as Option from "effect/Option";
 import type { ExtensionName, ExtensionType } from "../../../extensions/common.js";
 import type { Handle } from "../../../extensions/handle.js";
 import type { AgentId } from "../../../agents/types.js";
+import type { AbsolutePath } from "../../../utils/path-types.js";
 import type { Scope } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -62,9 +63,9 @@ export interface CanonicalExtensionOccurrence {
   readonly origin: CanonicalExtensionOriginKind;
   readonly name: ExtensionName;
   readonly owner: Handle | null;
-  readonly contentLocation: string;
+  readonly contentLocation: AbsolutePath;
   readonly pathSegments: ReadonlyArray<string>;
-  readonly subjectFile: Option.Option<string>;
+  readonly subjectFile: Option.Option<AbsolutePath>;
   readonly subjectFileExists: boolean;
 }
 
@@ -104,9 +105,9 @@ export interface AgentDirOccurrence {
   readonly type: AgentDirSubjectType;
   readonly agentId: AgentId;
   readonly name: string;
-  readonly contentLocation: string;
+  readonly contentLocation: AbsolutePath;
   readonly pathSegments: ReadonlyArray<string>;
-  readonly subjectFile: Option.Option<string>;
+  readonly subjectFile: Option.Option<AbsolutePath>;
   readonly subjectFileExists: boolean;
 }
 
@@ -135,7 +136,7 @@ export interface WorkspaceMcpConfigOccurrence {
   readonly scope: Scope;
   readonly origin: "workspace";
   readonly name: ExtensionName;
-  readonly contentLocation: string;
+  readonly contentLocation: AbsolutePath;
 }
 
 /**
@@ -151,7 +152,7 @@ export interface AgentMcpConfigOccurrence {
   readonly origin: "agent";
   readonly agentId: AgentId;
   readonly name: ExtensionName;
-  readonly contentLocation: string;
+  readonly contentLocation: AbsolutePath;
 }
 
 /**
@@ -177,7 +178,7 @@ export interface AgentSettingsOccurrence {
   readonly _tag: "agent-settings";
   readonly scope: Scope;
   readonly agentId: AgentId;
-  readonly contentLocation: string;
+  readonly contentLocation: AbsolutePath;
 }
 
 // ---------------------------------------------------------------------------

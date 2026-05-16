@@ -19,6 +19,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
 import { AgentRootResolver, AgentRootResolverLive } from "../agent-root-resolver.js";
 import { WorkspaceReadModelConfig } from "../service.js";
 import { buildFixture, type FixtureSpec, type PathEscapeError } from "./builder.js";
@@ -70,9 +71,9 @@ export const WorkspaceReadModelTest = (
       const pathLayer = Layer.succeed(Path.Path, deps.path);
       const allowedRoot = options.allowedRoot ?? "/";
       const configLayer = Layer.succeed(WorkspaceReadModelConfig, {
-        projectRoot: deps.workspaceRoot,
-        userHome: deps.userHome,
-        allowedRoot,
+        projectRoot: makeAbsolutePath(deps.path, deps.workspaceRoot),
+        userHome: makeAbsolutePath(deps.path, deps.userHome),
+        allowedRoot: makeAbsolutePath(deps.path, allowedRoot),
       });
       return Layer.mergeAll(
         fsLayer,

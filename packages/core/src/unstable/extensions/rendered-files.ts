@@ -9,6 +9,7 @@
 
 import * as crypto from "node:crypto";
 import * as Schema from "effect/Schema";
+import { RelativePathSchema } from "../utils/path-types.js";
 
 /**
  * Branded string for content source hashes.
@@ -25,11 +26,14 @@ export const SourceHashSchema = Schema.String.pipe(Schema.brand("SourceHash"));
 export type SourceHash = Schema.Schema.Type<typeof SourceHashSchema>;
 
 /**
- * Branded string for rendered file paths.
+ * Branded string for rendered file paths tracked in lockfiles.
+ *
+ * These are workspace-root-relative managed-output paths. Lockfiles must not
+ * persist host-specific absolute paths.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RenderedFilePathSchema = Schema.String.pipe(Schema.brand("RenderedFilePath"));
+export const RenderedFilePathSchema = RelativePathSchema.pipe(Schema.brand("RenderedFilePath"));
 
 /**
  * Branded RenderedFilePath type.

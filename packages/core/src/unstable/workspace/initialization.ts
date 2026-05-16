@@ -32,11 +32,12 @@ import {
   type Settings,
   writeSettings,
 } from "../settings/index.js";
+import { makeAbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceMutationsOptions } from "./service-interface.js";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
-import { type WorkspaceLocation, getAxmDir } from "./paths.js";
+import { type WorkspaceLocation, getAxmDir, locateWorkspace } from "./paths.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "usage",
@@ -71,9 +72,9 @@ const readSettingsFromReadModel = (
     const env = Layer.mergeAll(
       platformLayer,
       Layer.succeed(WorkspaceReadModelConfig, {
-        projectRoot,
-        userHome,
-        allowedRoot: "/",
+        projectRoot: makeAbsolutePath(path, projectRoot),
+        userHome: makeAbsolutePath(path, userHome),
+        allowedRoot: makeAbsolutePath(path, "/"),
       }),
       AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
     );
@@ -254,12 +255,8 @@ export const ensureProjectWorkspaceInitialized = (
 export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const workspaceDir = yield* getAxmDir(options.scope, options.projectRoot);
-    const location: WorkspaceLocation = {
-      scope: options.scope,
-      path: workspaceDir,
-      baseDir: path.dirname(workspaceDir),
-    };
+    const location: WorkspaceLocation = yield* locateWorkspace(options.scope, options.projectRoot);
+    const workspaceDir = location.path;
 
     if (options.scope === "user") {
       const initialized = yield* ensureGlobalWorkspaceInitialized(workspaceDir);

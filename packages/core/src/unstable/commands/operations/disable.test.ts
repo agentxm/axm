@@ -163,7 +163,7 @@ describe("disableCommand", () => {
 
         const lockEntry = makeRegistryLockEntry({
           renderedFiles: {
-            "claude-code": [{ path: renderedFilePath(renderedPath) }],
+            "claude-code": [{ path: renderedFilePath(".claude-code/commands/my-command.md") }],
           },
         });
 

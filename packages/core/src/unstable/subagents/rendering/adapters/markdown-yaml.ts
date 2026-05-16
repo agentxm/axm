@@ -10,14 +10,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Schema from "effect/Schema";
 import YAML from "yaml";
+import { decodeRelativePathSync } from "../../../utils/path-types.js";
 import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
-
-const decodeRenderedFilePath = Schema.decodeUnknownSync(
-  Schema.String.pipe(Schema.brand("RenderedFilePath")),
-);
 
 const AGENT_DIRS: Readonly<Record<string, string>> = {
   "claude-code": ".claude/agents",
@@ -48,7 +44,7 @@ export const renderMarkdownYaml = (input: SubagentRenderInput): SubagentRenderOu
     parts.push(input.body);
   }
 
-  const path = decodeRenderedFilePath(`${resolveAgentsDir(input.agentId)}/${input.name}.md`);
+  const path = decodeRelativePathSync(`${resolveAgentsDir(input.agentId)}/${input.name}.md`);
 
   return rendered([{ content: parts.join("\n"), path }], []);
 };

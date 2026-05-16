@@ -24,6 +24,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
 import { AgentRootResolverLive } from "../../../workspace/read-model/agent-root-resolver.js";
 import {
   makeWorkspaceReadModel,
@@ -139,9 +140,9 @@ export const buildLintWorkspace = (
   const env = Layer.mergeAll(
     platformLayer,
     Layer.succeed(WorkspaceReadModelConfig, {
-      projectRoot: args.workspaceRoot,
-      userHome: args.userHome,
-      allowedRoot: "/",
+      projectRoot: makeAbsolutePath(args.platform.path, args.workspaceRoot),
+      userHome: makeAbsolutePath(args.platform.path, args.userHome),
+      allowedRoot: makeAbsolutePath(args.platform.path, "/"),
     }),
     AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
   );

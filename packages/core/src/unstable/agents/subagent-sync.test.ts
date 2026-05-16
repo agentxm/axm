@@ -11,15 +11,14 @@ import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { rooCodingAgent } from "./roo/service.js";
 import type { AddSubagentArgs, CodingAgent, RemoveSubagentArgs } from "./coding-agent.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
+import { RenderedFilePathSchema } from "../extensions/rendered-files.js";
 import * as Schema from "effect/Schema";
 
 const TestLayer = NodeServices.layer;
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(TestLayer));
 
-const decodeRenderedFilePath = Schema.decodeUnknownSync(
-  Schema.String.pipe(Schema.brand("RenderedFilePath")),
-);
+const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
 const makeRenderInput = (name = "test-subagent"): SubagentRenderInput => ({
   agentId: "claude-code",
@@ -51,7 +50,9 @@ const makeRemoveArgs = (
   workspaceRoot,
   scope: "project",
   subagentName: name,
-  renderedFilePaths: renderedFilePaths.map((p) => decodeRenderedFilePath(p)),
+  renderedFilePaths: renderedFilePaths.map((p) =>
+    decodeRenderedFilePath(nodePath.isAbsolute(p) ? nodePath.relative(workspaceRoot, p) : p),
+  ),
 });
 
 describe("resolveEffectiveSubagentsDir", () => {
@@ -322,7 +323,9 @@ describe("removeSubagent", () => {
             workspaceRoot,
             scope: "project",
             subagentName: "test-subagent",
-            renderedFilePaths: addOutcome.renderedFilePaths.map((p) => decodeRenderedFilePath(p)),
+            renderedFilePaths: addOutcome.renderedFilePaths.map((p) =>
+              decodeRenderedFilePath(nodePath.relative(workspaceRoot, p)),
+            ),
           });
           expect(removeOutcome._tag).toBe("success");
 

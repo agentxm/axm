@@ -1,7 +1,9 @@
 {
   "description": ".axm directory exists but settings.json is missing. workspace/initialized fires; workspace/settings-schema-valid early-returns.",
   "state": {
-    "existingPaths": [".axm"],
+    "existingPaths": [
+      ".axm"
+    ],
     "listings": {},
     "detectedProjectAgents": []
   },

@@ -195,7 +195,7 @@ const buildWorkspaceSkillAgentSnapshot = (
     const path = yield* Path.Path;
 
     const configuredAgents = yield* agentRepo
-      .getConfiguredAgents()
+      .getMaterializationAgents()
       .pipe(Effect.orElseSucceed(() => []));
     const unknownConfiguredAgentIds = yield* agentRepo
       .getUnknownConfiguredAgentIds()

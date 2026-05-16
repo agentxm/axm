@@ -233,7 +233,7 @@ describe("enableSkill", () => {
       }),
     );
 
-    it.effect("updates lock entry with configured agents and universal artifact", () =>
+    it.effect("updates lock entry with universal and configured agents", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
         const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
@@ -257,10 +257,7 @@ describe("enableSkill", () => {
           lockEntry: expect.objectContaining({
             type: "local",
             path: "/tmp/source",
-            agents: ["claude-code"],
-            universalArtifact: expect.objectContaining({
-              path: path.join(path.dirname(axmDir), ".agents", "skills", "my-skill"),
-            }),
+            agents: ["universal", "claude-code"],
           }),
           versionRange: Option.none(),
         });

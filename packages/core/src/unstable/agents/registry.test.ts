@@ -55,6 +55,7 @@ describe("getAgentIds", () => {
     expect(ids).toContain("claude-code");
     expect(ids).toContain("cursor");
     expect(ids).toContain("codex");
+    expect(ids).toContain("universal");
   });
 
   it("returns same count as AGENTS registry", () => {

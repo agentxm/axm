@@ -100,6 +100,7 @@ const makeTestLayer = (overrides?: {
     },
     all: Effect.succeed(testAgents),
     getConfiguredAgents: () => Effect.succeed(testAgents),
+    getMaterializationAgents: () => Effect.succeed(testAgents),
     getUnknownConfiguredAgentIds: () => Effect.succeed([]),
   });
 

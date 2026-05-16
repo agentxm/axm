@@ -245,6 +245,7 @@ export interface CodingAgentRepositoryShape<W = never> {
   readonly get: (id: AgentId) => Effect.Effect<CodingAgent, AppError>;
   readonly all: Effect.Effect<ReadonlyArray<CodingAgent>, AppError>;
   readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<CodingAgent>, AppError, W>;
+  readonly getMaterializationAgents: () => Effect.Effect<ReadonlyArray<CodingAgent>, AppError, W>;
   readonly getUnknownConfiguredAgentIds: () => Effect.Effect<ReadonlyArray<string>, AppError, W>;
 }
 

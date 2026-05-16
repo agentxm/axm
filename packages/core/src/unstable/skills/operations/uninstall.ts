@@ -11,6 +11,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Layer from "effect/Layer";
+import { DefaultCodingAgentRepository } from "../../agents/index.js";
 import { AGENTS } from "../../agents/registry.js";
 import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
@@ -20,16 +22,13 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
-import { isUniversalSkillsRelativeDir } from "../../extensions/universal-skills-dir.js";
 import { existsInAnyCanonicalLocation } from "../disk-check.js";
 import { getSkillFqn, isReferencedByPack } from "../utils.js";
-import { removeUniversalSkillArtifact } from "./universal-artifact.js";
-
-// -----------------------------------------------------------------------------
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 // Operation types
 // -----------------------------------------------------------------------------
+
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 /**
  * Args for the uninstall-skill operation.
@@ -70,6 +69,10 @@ export const uninstallSkill: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
+    const fsPathLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
 
     const sanitizedName = sanitizeName(op.args.skillName);
 
@@ -97,6 +100,13 @@ export const uninstallSkill: OperationHandler<
     const agentFilter = op.args.agents;
     const isPartialUninstall = agentFilter.length > 0;
     const agentsToRemove = isPartialUninstall ? agentFilter : lockAgents;
+    const materializationAgents =
+      yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
+        Effect.provideService(WorkspaceMutations, ws),
+      );
+    const agentsById: ReadonlyMap<string, (typeof materializationAgents)[number]> = new Map(
+      materializationAgents.map((agent) => [agent.id, agent]),
+    );
 
     // Remove agent symlinks/copies concurrently.
     // When renderedFiles are tracked (copy-mode), prefer tracked paths;
@@ -116,13 +126,35 @@ export const uninstallSkill: OperationHandler<
           );
         }
 
-        // Fall back to agent descriptor-based path resolution
-        if (!isKnownAgentId(agentId)) return Effect.void;
-        const agent = AGENTS[agentId];
-        if (isUniversalSkillsRelativeDir(agent.skills.dir)) return Effect.void;
+        const configuredAgent = agentsById.get(agentId);
+        const agentEffect =
+          configuredAgent !== undefined
+            ? Effect.succeed(Option.some(configuredAgent))
+            : isKnownAgentId(agentId)
+              ? DefaultCodingAgentRepository.get(agentId).pipe(Effect.map(Option.some))
+              : Effect.succeed(Option.none());
 
-        const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
-        return fs.remove(agentSkillPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+        return agentEffect.pipe(
+          Effect.flatMap((agentOption) => {
+            if (Option.isNone(agentOption)) {
+              return Effect.succeed({
+                _tag: "unsupported",
+                reason: `Unknown coding agent: ${agentId}`,
+              } as const);
+            }
+            return agentOption.value.resolveEffectiveSkillsDir({ workspaceRoot: base });
+          }),
+          Effect.provide(fsPathLayer),
+          Effect.flatMap((outcome) =>
+            outcome._tag === "supported"
+              ? fs
+                  .remove(path.join(path.normalize(outcome.dir), sanitizedName), {
+                    recursive: true,
+                  })
+                  .pipe(Effect.catch(() => Effect.void))
+              : Effect.void,
+          ),
+        );
       },
       { concurrency: "unbounded" },
     );
@@ -174,8 +206,6 @@ export const uninstallSkill: OperationHandler<
     }
 
     // Full uninstall: remove from all known canonical locations
-    yield* removeUniversalSkillArtifact(op.args.skillName);
-
     if (installedOnDisk) {
       yield* removeFromAllCanonicalLocations(fs, base, "skills", sanitizedName, path);
     }

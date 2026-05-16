@@ -189,10 +189,24 @@ const withServices = (
     })
     .filter((a): a is CodingAgent => a !== undefined);
   const unknownAgentIds = configuredAgentIds.filter((id) => descriptorFor(id) === undefined);
+  const universalAgent = (() => {
+    const descriptor = AGENTS.universal;
+    return makeCodingAgentStub(descriptor.id, {
+      resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
+        Effect.gen(function* () {
+          const p = yield* Path.Path;
+          return {
+            _tag: "supported" as const,
+            dir: p.resolve(workspaceRoot, descriptor.skills.dir),
+          };
+        }),
+    });
+  })();
   const defaultAgentRepo: CodingAgentRepositoryService = {
     get: () => Effect.die(new Error("not implemented in test")),
     all: Effect.succeed([]),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
+    getMaterializationAgents: () => Effect.succeed([universalAgent, ...configuredAgents]),
     getUnknownConfiguredAgentIds: () => Effect.succeed(unknownAgentIds),
   };
   return Layer.mergeAll(
@@ -366,7 +380,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("materializes the universal artifact when no agents are configured", () =>
+    it.effect("materializes the universal target when no agents are configured", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -381,11 +395,8 @@ describe("installSkill", () => {
 
         const lockfile = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
         const lockEntry = expectRecord(lockfile.skills["my-skill"]);
-        expect(lockEntry["agents"]).toEqual([]);
-        expect(lockEntry["universalArtifact"]).toEqual({
-          path: path.join(base, ".agents", "skills", "my-skill"),
-          integrity: expect.any(String),
-        });
+        expect(lockEntry["agents"]).toEqual(["universal"]);
+        expect(lockEntry["universalArtifact"]).toBeUndefined();
       }),
     );
 
@@ -1025,10 +1036,8 @@ describe("installSkill", () => {
         const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
         expect(lockEntry["renderedFiles"]).toBeUndefined();
         expect(lockEntry["sourceHash"]).toBeUndefined();
-        expect(lockEntry["universalArtifact"]).toEqual({
-          path: path.join(path.dirname(axmDir), ".agents", "skills", "my-skill"),
-          integrity: expect.any(String),
-        });
+        expect(lockEntry["agents"]).toEqual(["universal", "claude-code"]);
+        expect(lockEntry["universalArtifact"]).toBeUndefined();
       }),
     );
 

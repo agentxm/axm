@@ -7,6 +7,7 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { LockfileSchema, type Lockfile } from "../../lockfile/schema.js";
+import { migrateLegacyUniversalSkillArtifacts } from "../../lockfile/migration.js";
 import { formatSchemaIssuesToLines } from "../../schema/format-issues.js";
 import { SettingsSchema, type Settings } from "../../settings/schema.js";
 import {
@@ -162,7 +163,7 @@ const loadLockfile = (
           }),
       ),
     );
-    return Option.some(decoded);
+    return Option.some(migrateLegacyUniversalSkillArtifacts(parsed, decoded));
   }).pipe(Effect.withSpan("workspace.read-model.state.lockfile"));
 
 // ---------------------------------------------------------------------------

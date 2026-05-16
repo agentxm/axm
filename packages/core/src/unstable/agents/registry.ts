@@ -44,6 +44,7 @@ import { descriptor as replit } from "./replit/index.js";
 import { descriptor as roo } from "./roo/index.js";
 import { descriptor as trae } from "./trae/index.js";
 import { descriptor as traeCn } from "./trae-cn/index.js";
+import { descriptor as universal } from "./universal/index.js";
 import { descriptor as windsurf } from "./windsurf/index.js";
 import { descriptor as zencoder } from "./zencoder/index.js";
 import { AGENT_IDS, type AgentId, type AgentRegistry } from "./types.js";
@@ -94,6 +95,7 @@ export const AGENTS: AgentRegistry = {
   roo,
   trae,
   "trae-cn": traeCn,
+  universal,
   windsurf,
   zencoder,
 };

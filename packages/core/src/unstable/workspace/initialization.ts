@@ -16,11 +16,16 @@ import * as Option from "effect/Option";
 
 import { detectAgents } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
-import type { AgentDescriptor, AgentId } from "../agents/types.js";
+import {
+  isConfigurableAgentId,
+  type AgentDescriptor,
+  type AgentId,
+  type ConfigurableAgentId,
+} from "../agents/types.js";
 import { isNonInteractive } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
-import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import { LOCKFILE_NAME, LOCKFILE_VERSION, writeLockfile } from "../lockfile/index.js";
 import {
   createDefaultSettings,
   SETTINGS_FILENAME,
@@ -41,7 +46,11 @@ const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
-const allAgentDescriptors = (): ReadonlyArray<AgentDescriptor> => Object.values(AGENTS);
+const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
+  isKnownAgentId(id) && isConfigurableAgentId(id);
+
+const allAgentDescriptors = (): ReadonlyArray<AgentDescriptor> =>
+  Object.values(AGENTS).filter((agent) => isConfigurableAgentId(agent.id));
 
 const DEFAULT_SETUP_SKILLS = {
   axm: { source: "@agentxm/skills/axm", enabled: true, authored: false },
@@ -101,9 +110,9 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
       const renderer = yield* CliRenderer;
       const requestedIds = [...agents];
       selectedAgents = requestedIds.flatMap((id) => {
-        return isKnownAgentId(id) ? [AGENTS[id]] : [];
+        return isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [];
       });
-      const unrecognized = requestedIds.filter((id) => !isKnownAgentId(id));
+      const unrecognized = requestedIds.filter((id) => !isKnownConfigurableAgentId(id));
       if (unrecognized.length > 0) {
         yield* renderer.warn(
           `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
@@ -138,20 +147,22 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
           : yield* SELECT_AGENTS_PROMPT_MISSING;
 
         selectedAgents = [...selectedIds].flatMap((id) => {
-          return isKnownAgentId(id) ? [AGENTS[id]] : [];
+          return isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [];
         });
       }
     }
 
     // Extract agent IDs for settings
-    const agentIds = selectedAgents.map((a) => a.id);
+    const agentIds = selectedAgents.flatMap((agent) =>
+      isConfigurableAgentId(agent.id) ? [agent.id] : [],
+    );
 
     // Create settings with selected agents and the default setup skill.
     const settings: Settings = { agents: agentIds, skills: DEFAULT_SETUP_SKILLS };
     yield* writeSettings(localDir, settings);
 
     // Create empty lockfile
-    yield* writeLockfile(localDir, { lockfileVersion: 1, skills: {} });
+    yield* writeLockfile(localDir, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
 
     return settings;
   });
@@ -196,7 +207,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
 
     // Create axm-lock.yaml with version 1, empty skills if missing
     if (!lockfileExists) {
-      yield* writeLockfile(globalDir, { lockfileVersion: 1, skills: {} });
+      yield* writeLockfile(globalDir, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
     }
 
     return !settingsExists;

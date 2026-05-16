@@ -41,6 +41,7 @@ import {
   isUniversalSkillsRelativeDir,
   resolveUniversalDirPresence,
 } from "../../../extensions/universal-skills-dir.js";
+import { isConfigurableAgentId } from "../../../agents/types.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
 const SETTINGS_REL = ".axm/settings.json";
@@ -160,7 +161,9 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
         return EMPTY_LINT_FINDINGS;
       }
       const knownAgents = yield* scoped.agents.known;
-      const declaredAgents = knownAgents.filter((agent) => declaredAgentIds.has(agent.id));
+      const declaredAgents = knownAgents.filter(
+        (agent) => isConfigurableAgentId(agent.id) && declaredAgentIds.has(agent.id),
+      );
 
       const universalAgentIds = new Set(
         declaredAgents
@@ -208,7 +211,9 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
         return EMPTY_OPERATIONS;
       }
       const knownAgents = yield* scoped.agents.known;
-      const declaredAgents = knownAgents.filter((agent) => declaredAgentIds.has(agent.id));
+      const declaredAgents = knownAgents.filter(
+        (agent) => isConfigurableAgentId(agent.id) && declaredAgentIds.has(agent.id),
+      );
       const universalAgentIds = new Set(
         declaredAgents
           .filter((agent) => isUniversalSkillsRelativeDir(agent.skills.dir))

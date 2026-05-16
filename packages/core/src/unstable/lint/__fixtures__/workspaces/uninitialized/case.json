@@ -7,6 +7,10 @@
   },
   "scope": "project",
   "expectedFindings": [
-    { "ruleId": "workspace/initialized", "severity": "error", "file": ".axm" }
+    {
+      "ruleId": "workspace/initialized",
+      "severity": "error",
+      "file": ".axm"
+    }
   ]
 }

@@ -150,6 +150,11 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- Model the universal skills directory as an always-on `universal` materialization
+  target. Existing workspaces populate `.agents/skills/` on the next sync.
+
 ### Breaking Changes
 
 - Pack manifests are now named `pack.json` and use

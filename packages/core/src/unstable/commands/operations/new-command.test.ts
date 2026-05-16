@@ -64,6 +64,7 @@ describe("new-command operation", () => {
         get: () => Effect.die(new Error("not used")),
         all: Effect.succeed([]),
         getConfiguredAgents: () => Effect.succeed([]),
+        getMaterializationAgents: () => Effect.succeed([]),
         getUnknownConfiguredAgentIds: () => Effect.succeed([]),
       }),
     );

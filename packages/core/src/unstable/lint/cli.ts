@@ -570,7 +570,7 @@ const bucketForFinding = (entry: RenderedFinding, parsed: { readonly title: stri
     case "workspace/skills-integrity-valid":
       return "integrity";
     case "workspace/skills-universal-artifact-present":
-      return "universal-artifact";
+      return "universal-agent";
     default:
       return entry.finding.ruleId;
   }
@@ -782,15 +782,15 @@ const coalesceFullDiagnostic = (
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };
-    case "workspace/skills-universal-artifact-present:universal-artifact":
+    case "workspace/skills-universal-artifact-present:universal-agent":
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing from the universal .agents/skills directory.`,
+        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing the universal lockfile target.`,
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(
           findings,
-          "Run `axm lint --fix` to materialize the universal skill artifacts.",
+          "Run `axm lint --fix` to reconcile universal skill materialization.",
         ),
         fixable: findings.some((finding) => finding.fixable),
         paths,
@@ -930,15 +930,15 @@ const coalesceGroupedDiagnostic = (
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };
-    case "workspace/skills-universal-artifact-present:universal-artifact":
+    case "workspace/skills-universal-artifact-present:universal-agent":
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing from the universal \`.agents/skills\` directory.`,
+        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing the universal lockfile target.`,
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(
           findings,
-          "Run `axm lint --fix` to materialize the universal skill artifacts.",
+          "Run `axm lint --fix` to reconcile universal skill materialization.",
         ),
         fixable: findings.some((finding) => finding.fixable),
         paths,

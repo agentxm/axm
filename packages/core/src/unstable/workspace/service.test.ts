@@ -1002,6 +1002,22 @@ describe("WorkspaceMutationsService", () => {
         expect(settings.agents).toEqual(["claude-code"]);
       }),
     );
+
+    it.effect("fails with AppError for the synthetic universal agent", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.addConfiguredAgent("universal").pipe(Effect.flip);
+
+        expect(result).toBeInstanceOf(AppError);
+        expect(result.code).toBe("validation");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code"]);
+      }),
+    );
   });
 
   // ---------------------------------------------------------------------------

@@ -69,7 +69,10 @@ export const SkillManagerLive = Layer.effect(
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const agentRepo = yield* CodingAgentRepository;
-    const agents = yield* ws.getConfiguredAgents();
+    const materializationAgents = yield* agentRepo
+      .getMaterializationAgents()
+      .pipe(Effect.provideService(WorkspaceMutations, ws));
+    const agents = materializationAgents.map((agent) => agent.id);
     const baseDir = ws.baseDir;
 
     // Build a layer to provide FileSystem + Path to inner effects
@@ -97,7 +100,7 @@ export const SkillManagerLive = Layer.effect(
       });
 
       const configuredAgents = yield* agentRepo
-        .getConfiguredAgents()
+        .getMaterializationAgents()
         .pipe(Effect.provideService(WorkspaceMutations, ws));
       const resolved = yield* Effect.forEach(
         configuredAgents,
@@ -148,7 +151,7 @@ export const SkillManagerLive = Layer.effect(
         const sanitized = sanitizeName(target.name);
 
         const configuredAgents = yield* agentRepo
-          .getConfiguredAgents()
+          .getMaterializationAgents()
           .pipe(Effect.provideService(WorkspaceMutations, ws));
         const resolved = yield* Effect.forEach(
           configuredAgents,

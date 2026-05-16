@@ -118,6 +118,12 @@ describe("Settings schema", () => {
 
       expect(() => Schema.decodeUnknownSync(SettingsSchema)(input)).toThrow();
     });
+
+    it("rejects the synthetic universal materialization target", () => {
+      const input = { agents: ["universal"] };
+
+      expect(() => Schema.decodeUnknownSync(SettingsSchema)(input)).toThrow();
+    });
   });
 
   describe("SourceHostConfigSchema", () => {

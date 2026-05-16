@@ -19,7 +19,7 @@
         }
       ]
     },
-    "AgentId": {
+    "ConfigurableAgentId": {
       "type": "string",
       "enum": [
         "adal",
@@ -62,7 +62,7 @@
         "windsurf",
         "zencoder"
       ],
-      "title": "Agent ID",
+      "title": "Configurable Agent ID",
       "description": "Supported coding agent identifier used in `.axm/settings.json` `agents`.",
       "examples": ["claude-code", "codex", "cursor"]
     },
@@ -504,7 +504,7 @@
           "description": "Coding agents AXM should sync managed extensions into.",
           "examples": [["claude-code", "codex"]],
           "allOf": [{ "uniqueItems": true }],
-          "items": { "$ref": "#/definitions/AgentId" }
+          "items": { "$ref": "#/definitions/ConfigurableAgentId" }
         },
         "sources": {
           "type": "array",

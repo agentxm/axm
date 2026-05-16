@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
+  LOCKFILE_VERSION,
   CommandLockEntrySchema,
   LockfileSchema,
   PackLockEntrySchema,
@@ -9,6 +10,7 @@ import {
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
+import { migrateLegacyUniversalSkillArtifacts } from "./migration.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 
 describe("lockfile schema", () => {
@@ -68,6 +70,31 @@ describe("lockfile schema", () => {
 
       expect(result.lockfileVersion).toBe(1);
       expect(result.skills).toEqual({});
+    });
+
+    it("migrates legacy universalArtifact to the universal agent", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {
+          "my-skill": {
+            type: "local",
+            path: "./my-skill",
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+            universalArtifact: {
+              path: ".agents/skills/my-skill",
+              integrity: "abc123",
+            },
+          },
+        },
+      };
+
+      const decoded = Schema.decodeUnknownSync(LockfileSchema)(input);
+      const migrated = migrateLegacyUniversalSkillArtifacts(input, decoded);
+
+      expect(migrated.lockfileVersion).toBe(LOCKFILE_VERSION);
+      expect(migrated.skills["my-skill"]?.agents).toEqual(["universal", "claude-code"]);
     });
 
     it("rejects missing lockfileVersion", () => {
@@ -628,32 +655,25 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("accepts skill lock entry with sourceHash, renderedFiles, and universalArtifact", () => {
+    it("accepts skill lock entry with sourceHash and renderedFiles", () => {
       const input = {
         type: "local",
         path: "./my-skill",
-        agents: ["claude-code"],
+        agents: ["universal", "claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         sourceHash: "abc123def456",
         renderedFiles: {
           "claude-code": [{ path: ".claude/skills/my-skill" }],
         },
-        universalArtifact: {
-          path: ".agents/skills/my-skill",
-          integrity: "abc123def456",
-        },
       };
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
       expect(result.sourceHash).toBe("abc123def456");
       expect(result.renderedFiles).toBeDefined();
-      expect(result.universalArtifact).toEqual({
-        path: ".agents/skills/my-skill",
-        integrity: "abc123def456",
-      });
+      expect(result.agents).toEqual(["universal", "claude-code"]);
     });
 
-    it("accepts skill lock entry without optional sourceHash, renderedFiles, and universalArtifact", () => {
+    it("accepts skill lock entry without optional sourceHash and renderedFiles", () => {
       const input = {
         type: "github",
         owner: "example",
@@ -665,25 +685,20 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
       expect(result.sourceHash).toBeUndefined();
       expect(result.renderedFiles).toBeUndefined();
-      expect(result.universalArtifact).toBeUndefined();
     });
 
-    it("roundtrips skill lock entry with sourceHash, renderedFiles, and universalArtifact", () => {
+    it("roundtrips skill lock entry with sourceHash and renderedFiles", () => {
       const decode = Schema.decodeUnknownSync(SkillLockEntrySchema);
       const encode = Schema.encodeUnknownSync(SkillLockEntrySchema);
       const input = {
         type: "local",
         path: "./my-skill",
-        agents: ["claude-code"],
+        agents: ["universal", "claude-code"],
         installedAt: "2025-01-15T10:30:00.000Z",
         updatedAt: "2025-01-15T10:30:00.000Z",
         sourceHash: "abc123",
         renderedFiles: {
           "claude-code": [{ path: ".claude/skills/my-skill" }],
-        },
-        universalArtifact: {
-          path: ".agents/skills/my-skill",
-          integrity: "abc123",
         },
       };
       const decoded = decode(input);

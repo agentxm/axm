@@ -2,8 +2,12 @@
   "description": "Agent using universal skills dir (.agents/skills) has an artifact for a declared enabled skill but canonical source is missing. skills-integrity-valid owns the missing-source invariant and can auto-fix it.",
   "state": {
     "settings": {
-      "agents": ["amp"],
-      "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
+      "agents": [
+        "amp"
+      ],
+      "skills": {
+        "reviewer": "@acme/skills/reviewer@1.0.0"
+      }
     },
     "lockfile": {
       "lockfileVersion": 1,
@@ -15,7 +19,10 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["amp"],
+          "agents": [
+            "universal",
+            "amp"
+          ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha"
@@ -27,8 +34,14 @@
       ".axm/settings.json",
       ".agents/skills/reviewer"
     ],
-    "listings": { ".agents/skills": ["reviewer"] },
-    "detectedProjectAgents": ["amp"]
+    "listings": {
+      ".agents/skills": [
+        "reviewer"
+      ]
+    },
+    "detectedProjectAgents": [
+      "amp"
+    ]
   },
   "scope": "project",
   "expectedFindings": [

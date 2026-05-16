@@ -28,6 +28,7 @@ export type {
 export {
   CommandLockEntrySchema,
   CommandsLockMapSchema,
+  LOCKFILE_VERSION,
   makeRegistryPackLockEntry,
   LockfileSchema,
   McpServerLockEntrySchema,
@@ -46,6 +47,7 @@ export {
 export { LOCKFILE_NAME } from "./lockfile.js";
 
 export { writeLockfile } from "./lockfile.js";
+export { migrateLegacyUniversalSkillArtifacts } from "./migration.js";
 export {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,

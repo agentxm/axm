@@ -168,7 +168,7 @@ describe("generated schemas", () => {
       return;
     }
     expect(constraints[0]["minimum"]).toBe(1);
-    expect(constraints[0]["default"]).toBe(1);
+    expect(constraints[0]["default"]).toBe(2);
   });
 
   it("publishes common manifest field annotations", () => {
@@ -206,7 +206,7 @@ describe("generated schemas", () => {
     const settingsSchema = readGeneratedSettingsSchema();
     const settings = getDefinition(settingsSchema, "AxmSettings");
     const telemetry = getDefinition(settingsSchema, "TelemetryMode");
-    const agentId = getDefinition(settingsSchema, "AgentId");
+    const agentId = getDefinition(settingsSchema, "ConfigurableAgentId");
 
     expect(settingsSchema["$ref"]).toBe("#/definitions/AxmSettings");
     expect(settings["title"]).toBe("AXM Settings");
@@ -235,8 +235,9 @@ describe("generated schemas", () => {
     expect(telemetry["title"]).toBe("Telemetry Mode");
     expect(telemetry["examples"]).toEqual(expect.arrayContaining([true, "errors", false]));
 
-    expect(agentId["title"]).toBe("Agent ID");
+    expect(agentId["title"]).toBe("Configurable Agent ID");
     expect(agentId["examples"]).toEqual(expect.arrayContaining(["claude-code", "codex"]));
+    expect(agentId["enum"]).not.toContain("universal");
 
     const agents = getProperty(settings, "agents");
     expect(agents["allOf"]).toEqual(expect.arrayContaining([{ uniqueItems: true }]));

@@ -7,7 +7,7 @@
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { AGENT_IDS } from "../agents/types.js";
+import { AGENT_IDS, CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
@@ -754,6 +754,21 @@ export const NonPackManifestFields = {
 export const AgentIdSchema = Schema.Literals([...AGENT_IDS]).annotate({
   identifier: "AgentId",
   title: "Agent ID",
+  description: "Supported coding agent identifier.",
+  examples: ["claude-code", "codex", "cursor"],
+});
+
+/**
+ * Agent identifiers users may persist in `.axm/settings.json`.
+ *
+ * Synthetic materialization targets such as `universal` are known agents, but
+ * they are injected by repository code rather than configured by users.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ConfigurableAgentIdSchema = Schema.Literals([...CONFIGURABLE_AGENT_IDS]).annotate({
+  identifier: "ConfigurableAgentId",
+  title: "Configurable Agent ID",
   description: "Supported coding agent identifier used in `.axm/settings.json` `agents`.",
   examples: ["claude-code", "codex", "cursor"],
 });
@@ -764,3 +779,6 @@ export const AgentIdSchema = Schema.Literals([...AGENT_IDS]).annotate({
  * @experimental This API is unstable and may change without notice.
  */
 export type AgentId = Schema.Schema.Type<typeof AgentIdSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export type ConfigurableAgentId = Schema.Schema.Type<typeof ConfigurableAgentIdSchema>;

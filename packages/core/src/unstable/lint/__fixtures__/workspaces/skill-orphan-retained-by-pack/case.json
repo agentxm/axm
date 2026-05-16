@@ -2,9 +2,13 @@
   "description": "Lock entry with retainedByPack:true AND a matching installed declared pack that resolves it. The retention carve-out exempts the skill from the orphan arm — zero findings from workspace/skills-lockfile-aligned.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
+      "agents": [
+        "claude-code"
+      ],
       "skills": {},
-      "packs": { "toolbox": "@acme/packs/toolbox@1.0.0" }
+      "packs": {
+        "toolbox": "@acme/packs/toolbox@1.0.0"
+      }
     },
     "lockfile": {
       "lockfileVersion": 1,
@@ -16,14 +20,13 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["claude-code"],
+          "agents": [
+            "universal",
+            "claude-code"
+          ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha",
-          "universalArtifact": {
-            "path": ".agents/skills/retained-skill",
-            "integrity": "sha"
-          },
           "retainedByPack": true
         }
       },
@@ -37,7 +40,9 @@
           "sourceName": "default",
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
-          "resolvedSkills": { "@acme/skills/retained-skill": "1.0.0" },
+          "resolvedSkills": {
+            "@acme/skills/retained-skill": "1.0.0"
+          },
           "resolvedCommands": {},
           "resolvedMcpServers": {},
           "resolvedSubagents": {}
@@ -53,10 +58,16 @@
       ".claude/skills/retained-skill"
     ],
     "listings": {
-      ".agents/skills": ["retained-skill"],
-      ".claude/skills": ["retained-skill"]
+      ".agents/skills": [
+        "retained-skill"
+      ],
+      ".claude/skills": [
+        "retained-skill"
+      ]
     },
-    "detectedProjectAgents": ["claude-code"]
+    "detectedProjectAgents": [
+      "claude-code"
+    ]
   },
   "scope": "project",
   "expectedFindings": []

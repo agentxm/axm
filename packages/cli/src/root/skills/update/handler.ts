@@ -30,6 +30,7 @@ import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -436,7 +437,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     );
 
   // Step 10: Build plan
-  const lockfile = { lockfileVersion: 1, skills: lockedSkills };
+  const lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: lockedSkills };
   const plan = buildUpdatePlan(
     ops,
     lockfile,

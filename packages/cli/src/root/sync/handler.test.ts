@@ -160,8 +160,39 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ dryRun: false }));
 
       const renderedSkill = path.join(tempDir, ".claude", "skills", "review", "SKILL.md");
+      const universalSkill = path.join(tempDir, ".agents", "skills", "review", "SKILL.md");
       expect(fs.existsSync(renderedSkill)).toBe(true);
       expect(fs.readFileSync(renderedSkill, "utf-8")).toContain("# Review");
+      expect(fs.existsSync(universalSkill)).toBe(true);
+      expect(fs.readFileSync(universalSkill, "utf-8")).toContain("# Review");
+    }),
+  );
+
+  it.effect("renders skills to the universal target with no configured agents", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "solo");
+
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        skills: {
+          solo: "@acme/skills/solo",
+        },
+      });
+      writeJson(path.join(skillDir, "skill.json"), {
+        owner: "@acme",
+        type: "skill",
+        name: "solo",
+        version: "1.0.0",
+      });
+      fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "# Solo\n");
+
+      yield* provide(handleSync({ dryRun: false }));
+
+      expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "solo", "SKILL.md"))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "solo"))).toBe(false);
     }),
   );
 

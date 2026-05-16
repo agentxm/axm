@@ -61,6 +61,25 @@ describe("DefaultCodingAgentRepository", () => {
     }).pipe(Effect.provide(withWorkspace(["claude-code", "cursor"]))),
   );
 
+  it.effect("prepends universal to materialization agents", () =>
+    Effect.gen(function* () {
+      const agents = yield* DefaultCodingAgentRepository.getMaterializationAgents();
+      expect(agents.map((agent) => agent.id)).toEqual(["universal", "claude-code", "cursor"]);
+    }).pipe(Effect.provide(withWorkspace(["claude-code", "cursor"]))),
+  );
+
+  it.effect("does not expose universal as a configured agent", () =>
+    Effect.gen(function* () {
+      const configured = yield* DefaultCodingAgentRepository.getConfiguredAgents();
+      const materialization = yield* DefaultCodingAgentRepository.getMaterializationAgents();
+      const unknown = yield* DefaultCodingAgentRepository.getUnknownConfiguredAgentIds();
+
+      expect(configured.map((agent) => agent.id)).toEqual([]);
+      expect(materialization.map((agent) => agent.id)).toEqual(["universal"]);
+      expect(unknown).toEqual([]);
+    }).pipe(Effect.provide(withWorkspace(["universal"]))),
+  );
+
   it.effect("surfaces unknown configured agent ids", () =>
     Effect.gen(function* () {
       const unknown = yield* DefaultCodingAgentRepository.getUnknownConfiguredAgentIds();

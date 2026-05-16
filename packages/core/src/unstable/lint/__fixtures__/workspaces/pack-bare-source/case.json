@@ -2,11 +2,21 @@
   "description": "Pack has a bare-name source. workspace/packs-declarations-valid fires.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
-      "packs": { "toolbox": "toolbox" }
+      "agents": [
+        "claude-code"
+      ],
+      "packs": {
+        "toolbox": "toolbox"
+      }
     },
-    "lockfile": { "lockfileVersion": 1, "skills": {} },
-    "existingPaths": [".axm", ".axm/settings.json"],
+    "lockfile": {
+      "lockfileVersion": 1,
+      "skills": {}
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
     "listings": {},
     "detectedProjectAgents": []
   },

@@ -106,6 +106,7 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
   get: () => Effect.die(new Error("not implemented in test")),
   all: Effect.succeed([]),
   getConfiguredAgents: () => Effect.succeed([]),
+  getMaterializationAgents: () => Effect.succeed([]),
   getUnknownConfiguredAgentIds: () => Effect.succeed([]),
 };
 
@@ -509,6 +510,7 @@ describe("installMcpServer", () => {
       get: () => Effect.die(new Error("not implemented in test")),
       all: Effect.succeed([]),
       getConfiguredAgents: getConfiguredAgentsMock,
+      getMaterializationAgents: getConfiguredAgentsMock,
       getUnknownConfiguredAgentIds: getUnknownConfiguredAgentIdsMock,
     };
 

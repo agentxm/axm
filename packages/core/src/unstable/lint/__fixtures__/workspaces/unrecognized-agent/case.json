@@ -1,8 +1,15 @@
 {
   "description": "settings.agents[] includes an agent id not in AXM's known-agent catalog. Surfaces as workspace/settings-schema-valid because the schema already validates agent ids; no workspace/agents-recognized finding (the schema arm catches it first).",
   "state": {
-    "settings": { "agents": ["not-a-real-agent"] },
-    "existingPaths": [".axm", ".axm/settings.json"],
+    "settings": {
+      "agents": [
+        "not-a-real-agent"
+      ]
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
     "listings": {},
     "detectedProjectAgents": []
   },

@@ -2,8 +2,13 @@
   "description": "Mixed universal + agent-specific dirs. Artifact in .agents/skills (universal) but not .claude/skills (agent-specific). Finding fires only for claude-code.",
   "state": {
     "settings": {
-      "agents": ["amp", "claude-code"],
-      "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
+      "agents": [
+        "amp",
+        "claude-code"
+      ],
+      "skills": {
+        "reviewer": "@acme/skills/reviewer@1.0.0"
+      }
     },
     "lockfile": {
       "lockfileVersion": 1,
@@ -15,7 +20,11 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["amp", "claude-code"],
+          "agents": [
+            "universal",
+            "amp",
+            "claude-code"
+          ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha"
@@ -28,8 +37,16 @@
       ".axm/extensions/@acme/skills/reviewer/src/SKILL.md",
       ".agents/skills/reviewer"
     ],
-    "listings": { ".agents/skills": ["reviewer"], ".claude/skills": [] },
-    "detectedProjectAgents": ["amp", "claude-code"]
+    "listings": {
+      ".agents/skills": [
+        "reviewer"
+      ],
+      ".claude/skills": []
+    },
+    "detectedProjectAgents": [
+      "amp",
+      "claude-code"
+    ]
   },
   "scope": "project",
   "expectedFindings": [

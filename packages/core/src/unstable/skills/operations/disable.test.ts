@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import * as Schema from "effect/Schema";
 import type { SkillLockEntry } from "../../lockfile/index.js";
-import { RenderedFilePathSchema, SourceHashSchema } from "../../extensions/index.js";
+import { RenderedFilePathSchema } from "../../extensions/index.js";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
@@ -24,7 +24,6 @@ import { handle } from "../../test-helpers.js";
 // -----------------------------------------------------------------------------
 
 const makeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
-const makeSourceHash = Schema.decodeUnknownSync(SourceHashSchema);
 
 /** Creates a workspace mock for disable tests. */
 const makeWorkspaceMock = (
@@ -194,7 +193,7 @@ describe("disableSkill", () => {
       }),
     );
 
-    it.effect("updates lock entry with empty agents and no universal artifact", () =>
+    it.effect("updates lock entry with empty agents", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
         const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
@@ -204,13 +203,7 @@ describe("disableSkill", () => {
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
               lockfileSkills: {
-                "my-skill": {
-                  ...makeLocalLockEntry(["claude-code"]),
-                  universalArtifact: {
-                    path: makeRenderedFilePath(".agents/skills/my-skill"),
-                    integrity: makeSourceHash("sha"),
-                  },
-                },
+                "my-skill": makeLocalLockEntry(["universal", "claude-code"]),
               },
               setSkillLockFn,
             }),
@@ -227,8 +220,6 @@ describe("disableSkill", () => {
           }),
           versionRange: Option.none(),
         });
-        const lockArg = setSkillLockFn.mock.calls[0]?.[0].lockEntry;
-        expect(lockArg?.universalArtifact).toBeUndefined();
       }),
     );
 

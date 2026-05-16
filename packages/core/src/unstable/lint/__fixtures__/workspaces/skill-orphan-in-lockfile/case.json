@@ -2,7 +2,9 @@
   "description": "Lock entry without a corresponding declared skill. workspace/skills-lockfile-aligned orphan arm fires. workspace/skills-integrity-valid carves out orphan entries (owned by skills-lockfile-aligned) so only one finding fires.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
+      "agents": [
+        "claude-code"
+      ],
       "skills": {}
     },
     "lockfile": {
@@ -15,15 +17,23 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["claude-code"],
+          "agents": [
+            "universal",
+            "claude-code"
+          ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha"
         }
       }
     },
-    "existingPaths": [".axm", ".axm/settings.json"],
-    "listings": { ".claude/skills": [] },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
+    "listings": {
+      ".claude/skills": []
+    },
     "detectedProjectAgents": []
   },
   "scope": "project",

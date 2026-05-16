@@ -17,6 +17,7 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 
@@ -252,7 +253,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   // Step 8: Build plan
   const plan = buildUpdatePlan(
     ops,
-    { lockfileVersion: 1, subagents: lockedSubagents },
+    { lockfileVersion: LOCKFILE_VERSION, subagents: lockedSubagents },
     "Update subagent(s)",
     Option.some("Update installed subagents"),
     makeRunClosure,

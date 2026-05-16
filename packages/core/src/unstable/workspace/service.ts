@@ -24,6 +24,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import {
   LOCKFILE_NAME,
+  LOCKFILE_VERSION,
   makeRegistryPackLockEntry,
   writeLockfile,
   type RegistryPackLockEntry,
@@ -35,7 +36,7 @@ import { computePackPaths } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
-  AgentIdSchema,
+  ConfigurableAgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
   parseExtensionFqnParts,
@@ -101,7 +102,7 @@ import {
   toInstalledSubagentRecord,
 } from "./read-model-record-converters.js";
 const createEmptyLockfile = (): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: LOCKFILE_VERSION,
   skills: {},
 });
 
@@ -653,7 +654,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       addConfiguredAgent: (agentId: string) =>
         withMutex(
           Effect.gen(function* () {
-            const validId = yield* Schema.decodeUnknownEffect(AgentIdSchema)(agentId).pipe(
+            const validId = yield* Schema.decodeUnknownEffect(ConfigurableAgentIdSchema)(
+              agentId,
+            ).pipe(
               Effect.mapError((error) =>
                 makeAppError({
                   code: "validation",

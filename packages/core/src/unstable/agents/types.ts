@@ -105,12 +105,22 @@ export const AGENT_IDS = [
   "roo",
   "trae",
   "trae-cn",
+  "universal",
   "windsurf",
   "zencoder",
 ] as const;
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentId = (typeof AGENT_IDS)[number];
+
+/** @experimental This API is unstable and may change without notice. */
+export type ConfigurableAgentId = Exclude<AgentId, "universal">;
+
+/** @experimental This API is unstable and may change without notice. */
+export const isConfigurableAgentId = (id: AgentId): id is ConfigurableAgentId => id !== "universal";
+
+/** @experimental This API is unstable and may change without notice. */
+export const CONFIGURABLE_AGENT_IDS = AGENT_IDS.filter(isConfigurableAgentId);
 
 // -----------------------------------------------------------------------------
 // Agent Configuration

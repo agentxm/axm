@@ -28,8 +28,10 @@ import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
 import { rooCodingAgent } from "./roo/service.js";
 import { AGENTS } from "./registry.js";
-import { AGENT_IDS } from "./types.js";
+import { AGENT_IDS, isConfigurableAgentId } from "./types.js";
 import type { AgentDescriptor, AgentId } from "./types.js";
+
+const UNIVERSAL_AGENT_ID = "universal";
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
@@ -133,10 +135,16 @@ const getConfiguredAgents = () =>
     Effect.flatMap((ids) =>
       Effect.forEach(ids, (id) => {
         if (!isKnownAgentId(id)) return Effect.succeed(Option.none<CodingAgent>());
+        if (!isConfigurableAgentId(id)) return Effect.succeed(Option.none<CodingAgent>());
         return fromId(id).pipe(Effect.map((agent) => Option.some(agent)));
       }),
     ),
     Effect.map(Array.getSomes),
+  );
+
+const getMaterializationAgents = () =>
+  Effect.all([fromId(UNIVERSAL_AGENT_ID), getConfiguredAgents()]).pipe(
+    Effect.map(([universalAgent, configuredAgents]) => [universalAgent, ...configuredAgents]),
   );
 
 const getUnknownConfiguredAgentIds = () =>
@@ -146,6 +154,7 @@ export const DefaultCodingAgentRepository: CodingAgentRepositoryService = {
   get,
   all,
   getConfiguredAgents,
+  getMaterializationAgents,
   getUnknownConfiguredAgentIds,
 };
 

@@ -34,6 +34,7 @@ const makeRepo = (agents: ReadonlyArray<CodingAgent>): CodingAgentRepositoryServ
   },
   all: Effect.succeed(agents),
   getConfiguredAgents: () => Effect.succeed(agents),
+  getMaterializationAgents: () => Effect.succeed(agents),
   getUnknownConfiguredAgentIds: () => Effect.succeed([]),
 });
 

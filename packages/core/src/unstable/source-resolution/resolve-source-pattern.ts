@@ -14,8 +14,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { AGENTS } from "../agents/registry.js";
-import type { AgentId } from "../agents/types.js";
+import { CodingAgentRepository } from "../agents/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { skillsInDir, type DiscoveredSkill } from "../workspace/read-model/discovery/index.js";
 import { expandGlobs, isGlobPattern } from "../utils/index.js";
@@ -31,24 +30,33 @@ import type { Source } from "../sources/index.js";
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
   [...names].sort((a, b) => a.localeCompare(b));
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
-
 /** Build candidate skill names and on-disk locations from all available sources, excluding ignored. */
 const buildCandidates = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
+  const agentRepo = yield* CodingAgentRepository;
   const base = ws.baseDir;
   const installedSkills = yield* ws.records.getInstalledSkills();
   const unmanagedSkills = yield* ws.records.getUnmanagedSkills();
   const configuredSkills = yield* ws.records.getConfiguredSkills();
-  const configuredAgents = yield* ws.getConfiguredAgents();
+  const configuredAgents = yield* agentRepo
+    .getMaterializationAgents()
+    .pipe(Effect.provideService(WorkspaceMutations, ws));
+  const resolvedAgents = yield* Effect.forEach(
+    configuredAgents,
+    (agent) =>
+      agent
+        .resolveEffectiveSkillsDir({ workspaceRoot: base })
+        .pipe(Effect.map((outcome) => ({ agent, outcome }))),
+    { concurrency: "unbounded" },
+  );
 
   const agentRoots = sortNames(
     Array.dedupe(
       Array.getSomes(
-        Array.map(configuredAgents, (agentId) =>
-          isKnownAgentId(agentId)
-            ? Option.some(path.join(base, AGENTS[agentId].skills.dir))
+        Array.map(resolvedAgents, ({ outcome }) =>
+          outcome._tag === "supported"
+            ? Option.some(path.normalize(outcome.dir))
             : Option.none<string>(),
         ),
       ),
@@ -138,7 +146,7 @@ export const resolveSourcePattern = (
 ): Effect.Effect<
   ReadonlyArray<Source>,
   AppError,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  WorkspaceMutations | FileSystem.FileSystem | Path.Path | CodingAgentRepository
 > =>
   isGlobPattern(input)
     ? Effect.gen(function* () {

@@ -51,6 +51,7 @@ const emptyAgentRepo: CodingAgentRepositoryService = {
   get: () => Effect.die(new Error("not implemented")),
   all: Effect.succeed([]),
   getConfiguredAgents: () => Effect.succeed([]),
+  getMaterializationAgents: () => Effect.succeed([]),
   getUnknownConfiguredAgentIds: () => Effect.succeed([]),
 };
 

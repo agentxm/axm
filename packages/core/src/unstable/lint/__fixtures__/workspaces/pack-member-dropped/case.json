@@ -2,7 +2,9 @@
   "description": "Skill lock entry has retainedByPack:true but no installed pack declares it. workspace/packs-members-retained warns.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
+      "agents": [
+        "claude-code"
+      ],
       "skills": {},
       "packs": {}
     },
@@ -16,7 +18,10 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["claude-code"],
+          "agents": [
+            "universal",
+            "claude-code"
+          ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha",
@@ -24,8 +29,13 @@
         }
       }
     },
-    "existingPaths": [".axm", ".axm/settings.json"],
-    "listings": { ".claude/skills": [] },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
+    "listings": {
+      ".claude/skills": []
+    },
     "detectedProjectAgents": []
   },
   "scope": "project",

@@ -30,20 +30,22 @@ import {
   type AgentNativeConfig,
 } from "../../agents/index.js";
 
+const readModelAgentIds = AGENT_IDS.filter((id) => id !== "universal");
+
 // Compile-time `AgentNativeConfig`-union assertions live in
 // `registry.type-test.ts` so they are typechecked but excluded from the
 // runtime suite.
 
 describe("agents/index.ts barrel", () => {
   it("lists every registered agent id exactly once in canonical order", () => {
-    expect(registeredAgentModules.length).toBe(AGENT_IDS.length);
+    expect(registeredAgentModules.length).toBe(readModelAgentIds.length);
     const seen = new Set<AgentId>();
     registeredAgentModules.forEach((module, i) => {
-      expect(module.agentId).toBe(AGENT_IDS[i]);
+      expect(module.agentId).toBe(readModelAgentIds[i]);
       expect(seen.has(module.agentId)).toBe(false);
       seen.add(module.agentId);
     });
-    for (const id of AGENT_IDS) {
+    for (const id of readModelAgentIds) {
       expect(seen.has(id)).toBe(true);
     }
   });
@@ -66,7 +68,7 @@ describe("agents/index.ts barrel", () => {
   });
 
   it("getAgentModule returns the matching module for every AGENT_IDS entry", () => {
-    for (const id of AGENT_IDS) {
+    for (const id of readModelAgentIds) {
       const m = getAgentModule(id);
       expect(m.agentId).toBe(id);
     }

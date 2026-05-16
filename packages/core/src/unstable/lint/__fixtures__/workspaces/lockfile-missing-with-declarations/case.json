@@ -2,11 +2,20 @@
   "description": "Declared skills but no lockfile. workspace/lockfile-valid fires with an autofixable missing-arm finding. workspace/skills-artifacts-correct also fires because the enabled skill has no per-agent artifact. workspace/skills-lockfile-aligned early-returns when lockfile is absent.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
-      "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
+      "agents": [
+        "claude-code"
+      ],
+      "skills": {
+        "reviewer": "@acme/skills/reviewer@1.0.0"
+      }
     },
-    "existingPaths": [".axm", ".axm/settings.json"],
-    "listings": { ".claude/skills": [] },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
+    "listings": {
+      ".claude/skills": []
+    },
     "detectedProjectAgents": []
   },
   "scope": "project",

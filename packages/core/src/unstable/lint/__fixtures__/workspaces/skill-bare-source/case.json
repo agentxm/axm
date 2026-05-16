@@ -2,15 +2,24 @@
   "description": "Declared skill has a bare-name source 'reviewer'. workspace/skills-declarations-valid fires once per affected entity. The bare-source skill also has no lockfile entry and no per-agent artifact, so the lockfile-aligned and artifacts-correct rules fire as well.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
-      "skills": { "reviewer": "reviewer" }
+      "agents": [
+        "claude-code"
+      ],
+      "skills": {
+        "reviewer": "reviewer"
+      }
     },
     "lockfile": {
       "lockfileVersion": 1,
       "skills": {}
     },
-    "existingPaths": [".axm", ".axm/settings.json"],
-    "listings": { ".claude/skills": [] },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
+    "listings": {
+      ".claude/skills": []
+    },
     "detectedProjectAgents": []
   },
   "scope": "project",

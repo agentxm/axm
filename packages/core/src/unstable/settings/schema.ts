@@ -8,7 +8,7 @@
 
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { AgentIdSchema, EXTENSION_NAME_PATTERN } from "../extensions/common.js";
+import { ConfigurableAgentIdSchema, EXTENSION_NAME_PATTERN } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LintConfigSchema } from "../lint/config.js";
 
@@ -895,7 +895,7 @@ export const SettingsSchema = Schema.Struct({
     }),
   ),
   agents: Schema.optionalKey(
-    Schema.Array(AgentIdSchema)
+    Schema.Array(ConfigurableAgentIdSchema)
       .annotate({
         description: "Coding agents AXM should sync managed extensions into.",
         examples: [["claude-code", "codex"]],

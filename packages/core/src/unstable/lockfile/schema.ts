@@ -13,12 +13,13 @@ import {
   ExtensionFqnSchema,
   HandleSchema,
   RenderedFilesMapSchema,
-  RenderedFilePathSchema,
   SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 import { SourceRefSchema, SourceSegmentSchema, SourceSubPathSchema } from "../sources/types.js";
+
+export const LOCKFILE_VERSION = 2;
 
 // =============================================================================
 // Flat Source Schemas (discriminated by type field)
@@ -42,11 +43,6 @@ const CommonFields = {
   ...BaseCommonFields,
 };
 
-const UniversalSkillArtifactSchema = Schema.Struct({
-  path: RenderedFilePathSchema,
-  integrity: SourceHashSchema,
-});
-
 /**
  * Common fields for skill lock entries (includes agents + rendered files).
  */
@@ -54,7 +50,6 @@ const SkillCommonFields = {
   ...CommonFields,
   sourceHash: Schema.optional(SourceHashSchema),
   renderedFiles: Schema.optional(RenderedFilesMapSchema),
-  universalArtifact: Schema.optional(UniversalSkillArtifactSchema),
 };
 
 // =============================================================================
@@ -139,7 +134,6 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
  * - sourceHash: SHA-256 hash of canonical skill source (copy-mode only, optional)
  * - renderedFiles: Map of agent ID to rendered file paths (copy-mode only, optional)
- * - universalArtifact: Workspace-level `.agents/skills/<name>` artifact, optional for older lockfiles
  *
  * Source-specific fields are at the top level based on source type.
  *
@@ -424,7 +418,7 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
  * enabling reproducible installations across environments.
  *
  * Structure:
- * - lockfileVersion: Schema version (currently 1)
+ * - lockfileVersion: Schema version (currently 2)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
  *
@@ -434,8 +428,8 @@ export const LockfileSchema = Schema.Struct({
   lockfileVersion: Schema.Int.pipe(
     Schema.check(Schema.isGreaterThanOrEqualTo(1)),
     Schema.annotate({
-      description: "Lockfile schema version (currently 1).",
-      default: 1,
+      description: "Lockfile schema version (currently 2).",
+      default: LOCKFILE_VERSION,
     }),
     Schema.annotateKey({ messageMissingKey: "lockfileVersion is required" }),
   ),

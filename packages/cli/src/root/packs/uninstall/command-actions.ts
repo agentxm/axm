@@ -42,6 +42,7 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -194,7 +195,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const lockedCommands = yield* ws.getLockedCommands();
         const lockedMcpServers = yield* ws.getLockedMcpServers();
         const lockfile = {
-          lockfileVersion: 1 as const,
+          lockfileVersion: LOCKFILE_VERSION,
           skills: lockedSkills,
           commands: lockedCommands,
           mcpServers: lockedMcpServers,

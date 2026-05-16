@@ -2,12 +2,24 @@
   "description": "Declared skill has no lockfile entry, no install dir, no per-agent artifact. Three rule invariants are violated: lockfile alignment, integrity, and artifacts-correct. The autofix applies all three and the post-apply state is clean.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
-      "skills": { "reviewer": "@acme/skills/reviewer@1.0.0" }
+      "agents": [
+        "claude-code"
+      ],
+      "skills": {
+        "reviewer": "@acme/skills/reviewer@1.0.0"
+      }
     },
-    "lockfile": { "lockfileVersion": 1, "skills": {} },
-    "existingPaths": [".axm", ".axm/settings.json"],
-    "listings": { ".claude/skills": [] },
+    "lockfile": {
+      "lockfileVersion": 1,
+      "skills": {}
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
+    "listings": {
+      ".claude/skills": []
+    },
     "detectedProjectAgents": []
   },
   "scope": "project",

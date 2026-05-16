@@ -81,7 +81,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(1);
+        expect(lock.lockfileVersion).toBe(2);
         expect(lock.skills).toBeDefined();
 
         // Each skill entry should have required fields per flat schema
@@ -235,7 +235,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(1);
+        expect(lock.lockfileVersion).toBe(2);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
@@ -518,7 +518,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // New format: skills at root level
-        expect(lock.lockfileVersion).toBe(1);
+        expect(lock.lockfileVersion).toBe(2);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
@@ -650,7 +650,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Expected structure per design:
-        // lockfileVersion: 1
+        // lockfileVersion: 2
         // skills:
         //   my-skill:
         //     source:
@@ -662,7 +662,7 @@ describe("axm skills install", () => {
         //   another-skill:
         //     ...
 
-        expect(lock.lockfileVersion).toBe(1);
+        expect(lock.lockfileVersion).toBe(2);
         expect(lock.skills).toBeDefined();
         expect(Object.keys(lock.skills).length).toBe(2);
 

@@ -24,7 +24,13 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { AGENTS } from "../../../agents/registry.js";
-import { AGENT_IDS, type AgentDescriptor, type AgentId } from "../../../agents/types.js";
+import {
+  AGENT_IDS,
+  isConfigurableAgentId,
+  type AgentDescriptor,
+  type AgentId,
+  type ConfigurableAgentId,
+} from "../../../agents/types.js";
 import type { SettingsReadError } from "../errors.js";
 import type { Scope } from "../types.js";
 import { agentModule as adal, type AdalNativeConfig } from "./adal.js";
@@ -225,8 +231,10 @@ export type {
  * extra key fails type-check.
  */
 type RegisteredAgentIds = keyof typeof registeredAgentModulesById;
-type _RegisteredCoversAgentId = Exclude<AgentId, RegisteredAgentIds> extends never ? true : false;
-type _AgentIdCoversRegistered = Exclude<RegisteredAgentIds, AgentId> extends never ? true : false;
+type _RegisteredCoversAgentId =
+  Exclude<ConfigurableAgentId, RegisteredAgentIds> extends never ? true : false;
+type _AgentIdCoversRegistered =
+  Exclude<RegisteredAgentIds, ConfigurableAgentId> extends never ? true : false;
 const _registeredCoversAgentId = true as const satisfies _RegisteredCoversAgentId;
 const _agentIdCoversRegistered = true as const satisfies _AgentIdCoversRegistered;
 // Reference the compile-time witnesses so `noUnusedLocals` does not flag
@@ -243,7 +251,7 @@ export type _AgentRegistryCoverage = [
  * widened union shape downstream consumers expect.
  */
 const agentModulesById: Record<
-  AgentId,
+  ConfigurableAgentId,
   AgentModule<AgentNativeConfig>
 > = registeredAgentModulesById;
 
@@ -251,15 +259,18 @@ const agentModulesById: Record<
  * Every registered per-agent module. Order matches the canonical `AGENT_IDS`
  * tuple so consumers can iterate in registry order.
  */
-export const registeredAgentModules: ReadonlyArray<AgentModule<AgentNativeConfig>> = AGENT_IDS.map(
-  (id) => agentModulesById[id],
+export const registeredAgentModules: ReadonlyArray<AgentModule<AgentNativeConfig>> = Array.getSomes(
+  Array.map(AGENT_IDS, (id) =>
+    isConfigurableAgentId(id) ? Option.some(agentModulesById[id]) : Option.none(),
+  ),
 );
 
 /**
  * Look up a per-agent module by id. Direct typed-record access — every
  * `AgentId` is guaranteed to map to a module at type-check.
  */
-export const getAgentModule = (id: AgentId): AgentModule<AgentNativeConfig> => agentModulesById[id];
+export const getAgentModule = (id: ConfigurableAgentId): AgentModule<AgentNativeConfig> =>
+  agentModulesById[id];
 
 const isAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
@@ -323,10 +334,14 @@ export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi 
   // `Effect.gen` wrapper that previously fronted a one-yield-plus-pure-call
   // pattern.
   const declared = (id: AgentId) =>
-    settings.pipe(Effect.map((decoded) => getAgentModule(id).declared(scope, decoded)));
+    isConfigurableAgentId(id)
+      ? settings.pipe(Effect.map((decoded) => getAgentModule(id).declared(scope, decoded)))
+      : Effect.succeed(Option.none<DeclaredAgent>());
 
   const actual = (id: AgentId) =>
-    observations.pipe(Effect.map((obs) => getAgentModule(id).actual(scope, obs)));
+    isConfigurableAgentId(id)
+      ? observations.pipe(Effect.map((obs) => getAgentModule(id).actual(scope, obs)))
+      : Effect.succeed(Option.none<ActualAgent>());
 
   // The detected projection is resilient (per spec — never fails). Settings
   // can fail with `SettingsReadError`; we swallow the error and treat it as

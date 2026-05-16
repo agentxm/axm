@@ -12,7 +12,7 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
-import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import { LOCKFILE_NAME, LOCKFILE_VERSION, writeLockfile } from "../lockfile/index.js";
 import type { DegradedLockfileState } from "./augment-plan.js";
 import type {
   DeclarationResolution,
@@ -93,7 +93,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
   }
 
   return {
-    lockfileVersion: 1,
+    lockfileVersion: LOCKFILE_VERSION,
     skills,
     commands,
     subagents,

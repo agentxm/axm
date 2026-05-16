@@ -12,20 +12,15 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { AGENTS } from "../../agents/registry.js";
-import type { AgentId } from "../../agents/types.js";
+import * as Layer from "effect/Layer";
+import { DefaultCodingAgentRepository } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
-import { isUniversalSkillsRelativeDir } from "../../extensions/universal-skills-dir.js";
-import { materializeUniversalSkillArtifact } from "./universal-artifact.js";
-
-// -----------------------------------------------------------------------------
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+import { sanitizeName } from "../../extensions/utils.js";
+import { ensureSkillAgentArtifact } from "../materialization.js";
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -64,6 +59,12 @@ export const enableSkill: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
+    const fsPathLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
+    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.provide(effect, fsPathLayer);
 
     // Check for lock entry to determine path
     const lockEntry = yield* ws.getLockedSkill(op.args.skillName);
@@ -82,7 +83,10 @@ export const enableSkill: OperationHandler<
 
     // Lock-backed path: full enable with symlinks
     const sanitizedName = sanitizeName(op.args.skillName);
-    const configuredAgents = yield* ws.getConfiguredAgents();
+    const materializationAgents =
+      yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
+        Effect.provideService(WorkspaceMutations, ws),
+      );
 
     const { skillSrcPath } = yield* ws.getSkillDir(op.args.skillName);
 
@@ -101,36 +105,32 @@ export const enableSkill: OperationHandler<
     }
 
     yield* Effect.forEach(
-      configuredAgents,
-      (agentId) => {
-        if (!isKnownAgentId(agentId)) return Effect.void;
-        const agent = AGENTS[agentId];
-        if (isUniversalSkillsRelativeDir(agent.skills.dir)) return Effect.void;
-
-        const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
-        return createSymlink({ target: skillSrcPath, link: agentSkillPath }).pipe(
-          Effect.catch(() =>
-            copyExtensionDirectory(skillSrcPath, agentSkillPath).pipe(
-              Effect.catch(() => Effect.void),
-            ),
+      materializationAgents,
+      (agent) =>
+        agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
+          Effect.provide(fsPathLayer),
+          Effect.flatMap((outcome) =>
+            outcome._tag === "supported"
+              ? ensureSkillAgentArtifact({
+                  canonicalSkillSrcPath: skillSrcPath,
+                  targetDir: path.normalize(outcome.dir),
+                  sanitizedName,
+                  pathService: path,
+                  baseDir: base,
+                  provide,
+                })
+              : Effect.void,
           ),
-        );
-      },
+        ),
       { concurrency: "unbounded" },
     );
-
-    const universal = yield* materializeUniversalSkillArtifact({
-      canonicalSkillSrcPath: skillSrcPath,
-      skillName: op.args.skillName,
-    });
 
     yield* ws
       .setSkillLock({
         name: op.args.skillName,
         lockEntry: {
           ...lockEntry.value,
-          agents: configuredAgents,
-          universalArtifact: universal.artifact,
+          agents: materializationAgents.map((agent) => agent.id),
         },
         versionRange: Option.none(),
       })

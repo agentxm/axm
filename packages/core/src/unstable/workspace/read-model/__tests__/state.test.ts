@@ -371,7 +371,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
       const result = yield* api.lockfile;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).lockfileVersion).toBe(1);
+      expect(Option.getOrThrow(result).lockfileVersion).toBe(2);
     }),
   );
 

@@ -2,8 +2,12 @@
   "description": "Installed pack declares a skill dependency that has no matching member lock entry. workspace/packs-dependencies-resolved fires once per missing dependency FQN.",
   "state": {
     "settings": {
-      "agents": ["claude-code"],
-      "packs": { "toolbox": "@acme/packs/toolbox@1.0.0" }
+      "agents": [
+        "claude-code"
+      ],
+      "packs": {
+        "toolbox": "@acme/packs/toolbox@1.0.0"
+      }
     },
     "lockfile": {
       "lockfileVersion": 1,
@@ -18,7 +22,9 @@
           "sourceName": "default",
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
-          "resolvedSkills": { "@acme/skills/helper": "1.0.0" },
+          "resolvedSkills": {
+            "@acme/skills/helper": "1.0.0"
+          },
           "resolvedCommands": {},
           "resolvedMcpServers": {},
           "resolvedSubagents": {}

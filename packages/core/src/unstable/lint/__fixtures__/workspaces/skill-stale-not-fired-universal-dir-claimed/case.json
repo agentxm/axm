@@ -2,7 +2,9 @@
   "description": "Agent using universal skills dir (.agents/skills) has an artifact that IS declared in settings. Classifier sees it as configured, not unmanaged, so skills-managed does not fire.",
   "state": {
     "settings": {
-      "agents": ["amp"],
+      "agents": [
+        "amp"
+      ],
       "skills": {
         "reviewer": "@acme/skills/reviewer@1.0.0",
         "active-shared": "@acme/skills/active-shared@1.0.0"
@@ -18,7 +20,10 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["amp"],
+          "agents": [
+            "universal",
+            "amp"
+          ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha"
@@ -30,7 +35,10 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": ["amp"],
+          "agents": [
+            "universal",
+            "amp"
+          ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha"
@@ -45,8 +53,15 @@
       ".agents/skills/reviewer",
       ".agents/skills/active-shared"
     ],
-    "listings": { ".agents/skills": ["reviewer", "active-shared"] },
-    "detectedProjectAgents": ["amp"]
+    "listings": {
+      ".agents/skills": [
+        "reviewer",
+        "active-shared"
+      ]
+    },
+    "detectedProjectAgents": [
+      "amp"
+    ]
   },
   "scope": "project",
   "expectedFindings": []

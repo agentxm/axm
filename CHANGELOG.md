@@ -1,3 +1,13 @@
+## 0.10.1 (2026-05-16)
+
+### 🩹 Fixes
+
+- Update registry discovery contracts and CLI suggested actions. ([dbd5869a](https://github.com/agentxm/axm/commit/dbd5869a))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.10.0 (2026-05-15)
 
 ### 🚀 Features

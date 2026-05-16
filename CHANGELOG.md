@@ -1,3 +1,13 @@
+## 0.11.1 (2026-05-16)
+
+### 🩹 Fixes
+
+- Fix pack publish help text and add contextual help-topic footers. ([c3936bd8](https://github.com/agentxm/axm/commit/c3936bd8))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.11.0 (2026-05-16)
 
 ### 🚀 Features

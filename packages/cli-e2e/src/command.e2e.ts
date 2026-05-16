@@ -55,9 +55,9 @@ describe("axm (root command)", () => {
       const output = getOutput(resultWithHelp);
 
       expect(resultWithHelp.exitCode).toBe(0);
-      expect(output).toContain("USAGE");
+      expect(output).toContain("Topic");
+      expect(output).toContain("Description");
       expect(output).toContain("axm help <topic>");
-      expect(output).toContain("TOPICS");
       expect(output).toContain("basic-usage");
       expect(output).toContain("getting-started");
       expect(output).toContain("exit-codes");

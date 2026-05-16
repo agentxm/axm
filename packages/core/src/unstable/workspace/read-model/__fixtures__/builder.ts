@@ -227,6 +227,7 @@ const notFound = (method: string, path: string) =>
 
 const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSystem => {
   const directorySet = new Set<string>();
+  const encoder = new TextEncoder();
   for (const filePath of files.keys()) {
     const segments = filePath.split("/");
     for (let i = 1; i < segments.length; i += 1) {
@@ -248,24 +249,33 @@ const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSyst
       }
       return Effect.succeed(value);
     },
-    readDirectory: (path) =>
-      Effect.sync(() => {
-        const prefix = path.endsWith("/") ? path : `${path}/`;
-        const entries = new Set<string>();
-        for (const filePath of files.keys()) {
-          if (!filePath.startsWith(prefix)) continue;
-          const remainder = filePath.slice(prefix.length);
-          const head = remainder.split("/")[0];
-          if (head !== undefined && head.length > 0) entries.add(head);
-        }
-        for (const dir of directorySet) {
-          if (!dir.startsWith(prefix)) continue;
-          const remainder = dir.slice(prefix.length);
-          const head = remainder.split("/")[0];
-          if (head !== undefined && head.length > 0) entries.add(head);
-        }
-        return Array.from(entries).sort();
-      }),
+    readFile: (path) => {
+      const value = files.get(path);
+      if (value === undefined) {
+        return Effect.fail(notFound("readFile", path));
+      }
+      return Effect.succeed(encoder.encode(value));
+    },
+    readDirectory: (path) => {
+      if (!directorySet.has(path)) {
+        return Effect.fail(notFound("readDirectory", path));
+      }
+      const prefix = path.endsWith("/") ? path : `${path}/`;
+      const entries = new Set<string>();
+      for (const filePath of files.keys()) {
+        if (!filePath.startsWith(prefix)) continue;
+        const remainder = filePath.slice(prefix.length);
+        const head = remainder.split("/")[0];
+        if (head !== undefined && head.length > 0) entries.add(head);
+      }
+      for (const dir of directorySet) {
+        if (!dir.startsWith(prefix)) continue;
+        const remainder = dir.slice(prefix.length);
+        const head = remainder.split("/")[0];
+        if (head !== undefined && head.length > 0) entries.add(head);
+      }
+      return Effect.succeed(Array.from(entries).sort());
+    },
     // Minimal `stat` for callers that probe entry kind. Returns `File` for a
     // path tracked in the files map, `Directory` for a synthesized directory,
     // and fails with NotFound otherwise. Only `type` is meaningful — the

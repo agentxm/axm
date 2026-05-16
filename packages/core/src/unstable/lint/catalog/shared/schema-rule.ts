@@ -20,6 +20,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { issuesToFindings } from "../../issues-to-findings.js";
 import type { AdvisoryFinding, Severity } from "../../rule.js";
+import { isManifestJsonParseFailure, manifestJsonParseFailureToFinding } from "./manifest-json.js";
 
 // -----------------------------------------------------------------------------
 // schemaDecodeFindings
@@ -51,6 +52,9 @@ export const schemaDecodeFindings = <A, I>(
 ): Effect.Effect<ReadonlyArray<AdvisoryFinding>> => {
   if (input === undefined) {
     return Effect.succeed([]);
+  }
+  if (isManifestJsonParseFailure(input)) {
+    return Effect.succeed([manifestJsonParseFailureToFinding(ruleId, severity, file, input)]);
   }
   const result = Schema.decodeUnknownResult(schema)(input, {
     onExcessProperty: "ignore",
@@ -94,6 +98,9 @@ export const enumerateUnknownTopLevelKeys = (
   allowedKeys: ReadonlySet<string>,
   input: unknown,
 ): ReadonlyArray<AdvisoryFinding> => {
+  if (isManifestJsonParseFailure(input)) {
+    return [];
+  }
   if (!isPlainRecord(input)) {
     return [];
   }

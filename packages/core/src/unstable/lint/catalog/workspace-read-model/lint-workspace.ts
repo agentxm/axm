@@ -54,6 +54,12 @@ import type { InstalledPackInfo } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
 import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
+import { COMMAND_MANIFEST_FILENAME } from "../../../commands/manifest-schema.js";
+import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcp-servers/manifest-schema.js";
+import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
+import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "../../../skills/manifest-schema.js";
+import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "../../../subagents/manifest-schema.js";
+import { readManifestJson } from "./manifest-json.js";
 
 // -----------------------------------------------------------------------------
 // LintWorkspaceView
@@ -189,28 +195,119 @@ const buildLintWorkspaceView = (
       ],
       { concurrency: "unbounded" },
     );
+    const installedSkills = skills
+      .filter((skill) => skill.actual.length > 0 || Option.isSome(skill.resolved))
+      .map((skill) => installedSkillToInfo(args, skill));
+    const installedPacks = packs.flatMap((pack) => {
+      const info = installedPackToInfo(args, pack);
+      return info === undefined ? [] : [info];
+    });
+    const commandContexts = commands.flatMap((command) => {
+      const context = installedCommandToContext(args, command);
+      return context === undefined ? [] : [context];
+    });
+    const subagentContexts = subagents.flatMap((subagent) => {
+      const context = installedSubagentToContext(args, subagent);
+      return context === undefined ? [] : [context];
+    });
+    const mcpServerContexts = mcpServers.flatMap((mcpServer) => {
+      const context = installedMcpServerToContext(args, mcpServer);
+      return context === undefined ? [] : [context];
+    });
+
+    const [
+      installedSkillsWithJson,
+      installedPacksWithJson,
+      commandContextsWithJson,
+      subagentContextsWithJson,
+      mcpServerContextsWithJson,
+    ] = yield* Effect.all(
+      [
+        populateSkillManifestJson(installedSkills),
+        populatePackManifestJson(installedPacks),
+        populateCommandManifestJson(commandContexts),
+        populateSubagentManifestJson(subagentContexts),
+        populateMcpServerManifestJson(mcpServerContexts),
+      ],
+      { concurrency: "unbounded" },
+    );
+
     return {
-      installedSkills: skills
-        .filter((skill) => skill.actual.length > 0 || Option.isSome(skill.resolved))
-        .map((skill) => installedSkillToInfo(args, skill)),
-      installedPacks: packs.flatMap((pack) => {
-        const info = installedPackToInfo(args, pack);
-        return info === undefined ? [] : [info];
-      }),
-      commandContexts: commands.flatMap((command) => {
-        const context = installedCommandToContext(args, command);
-        return context === undefined ? [] : [context];
-      }),
-      subagentContexts: subagents.flatMap((subagent) => {
-        const context = installedSubagentToContext(args, subagent);
-        return context === undefined ? [] : [context];
-      }),
-      mcpServerContexts: mcpServers.flatMap((mcpServer) => {
-        const context = installedMcpServerToContext(args, mcpServer);
-        return context === undefined ? [] : [context];
-      }),
+      installedSkills: installedSkillsWithJson,
+      installedPacks: installedPacksWithJson,
+      commandContexts: commandContextsWithJson,
+      subagentContexts: subagentContextsWithJson,
+      mcpServerContexts: mcpServerContextsWithJson,
     };
   });
+
+const populateSkillManifestJson = (
+  installedSkills: ReadonlyArray<InstalledSkillInfo>,
+): Effect.Effect<ReadonlyArray<InstalledSkillInfo>> =>
+  Effect.forEach(
+    installedSkills,
+    (info) =>
+      Effect.gen(function* () {
+        if (!info.isNative) {
+          return info;
+        }
+        const skillJson = yield* readManifestJson(info.packageFiles, SKILL_MANIFEST_FILENAME);
+        return { ...info, skillJson };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populatePackManifestJson = (
+  installedPacks: ReadonlyArray<InstalledPackInfo>,
+): Effect.Effect<ReadonlyArray<InstalledPackInfo>> =>
+  Effect.forEach(
+    installedPacks,
+    (info) =>
+      Effect.gen(function* () {
+        const packJson = yield* readManifestJson(info.files, PACK_MANIFEST_FILENAME);
+        return { ...info, packJson };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateCommandManifestJson = (
+  commandContexts: ReadonlyArray<CommandRuleContext>,
+): Effect.Effect<ReadonlyArray<CommandRuleContext>> =>
+  Effect.forEach(
+    commandContexts,
+    (context) =>
+      Effect.gen(function* () {
+        const commandJson = yield* readManifestJson(context.files, COMMAND_MANIFEST_FILENAME);
+        return { ...context, subject: { commandJson } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateSubagentManifestJson = (
+  subagentContexts: ReadonlyArray<SubagentRuleContext>,
+): Effect.Effect<ReadonlyArray<SubagentRuleContext>> =>
+  Effect.forEach(
+    subagentContexts,
+    (context) =>
+      Effect.gen(function* () {
+        const subagentJson = yield* readManifestJson(context.files, SUBAGENT_MANIFEST_FILENAME);
+        return { ...context, subject: { subagentJson } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateMcpServerManifestJson = (
+  mcpServerContexts: ReadonlyArray<McpServerRuleContext>,
+): Effect.Effect<ReadonlyArray<McpServerRuleContext>> =>
+  Effect.forEach(
+    mcpServerContexts,
+    (context) =>
+      Effect.gen(function* () {
+        const mcpServerJson = yield* readManifestJson(context.files, MCP_SERVER_MANIFEST_FILENAME);
+        return { ...context, subject: { mcpServerJson } };
+      }),
+    { concurrency: "unbounded" },
+  );
 
 const installedSkillToInfo = (
   args: BuildLintWorkspaceViewArgs,

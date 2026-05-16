@@ -20,7 +20,7 @@ import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlSchema } from "./package-url.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
-const mojoType = Schema.decodeUnknownSync(PackageTypeSchema)("generic");
+const mojoType = Schema.decodeUnknownSync(PackageTypeSchema)("mojo");
 const condaType = Schema.decodeUnknownSync(PackageTypeSchema)("conda");
 const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
 const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
@@ -54,7 +54,7 @@ const parseJsonOptional = (content: string, context: string) =>
   });
 
 /**
- * Known Mojo-specific packages that should produce pkg:generic/mojo purls
+ * Known Mojo-specific packages that should produce pkg:mojo purls
  * rather than pkg:conda purls.
  */
 const MOJO_SPECIFIC_PACKAGES = new Set([
@@ -104,7 +104,7 @@ const parseTomlDependencies = (
  * Mojo package detector.
  *
  * Scans `pixi.toml` (preferred) and `mojoproject.toml` (deprecated fallback)
- * in the project directory. Mojo-specific packages produce `pkg:generic/mojo`
+ * in the project directory. Mojo-specific packages produce `pkg:mojo`
  * purls, while conda packages produce `pkg:conda` purls.
  *
  * @experimental This API is unstable and may change without notice.
@@ -147,7 +147,7 @@ export const mojoDetector: PackageDetector = {
         const version = isExactVersion(dep.version) ? dep.version : undefined;
 
         if (isMojoSpecific) {
-          const purl = new PackageURL("generic", "mojo", dep.name, version ?? null, null, null);
+          const purl = new PackageURL("mojo", null, dep.name, version ?? null, null, null);
           const purlParts = decodePurl(purl.toString());
           results.push({ purl: purlParts, type: mojoType, source });
         } else {

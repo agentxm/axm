@@ -7,10 +7,14 @@ export interface ParsedPurlIdentity {
 
 export const parsePurlIdentity = (value: string): ParsedPurlIdentity | string => {
   try {
-    const parsed = PackageURL.fromString(value);
+    const [type, , , version] = PackageURL.parseString(value);
+    if (type === undefined) {
+      return `Expected valid purl, got: ${value}`;
+    }
+
     return {
-      type: parsed.type,
-      version: parsed.version ?? undefined,
+      type: type.toLowerCase(),
+      version: version ?? undefined,
     };
   } catch {
     return `Expected valid purl, got: ${value}`;

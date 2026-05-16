@@ -25,7 +25,7 @@ import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlSchema } from "./package-url.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
-const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("generic");
+const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("jsr");
 const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
 const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
@@ -145,15 +145,7 @@ const extractJsrImports = (
     const version =
       parsed.version !== undefined && isExactVersion(parsed.version) ? parsed.version : undefined;
 
-    // Use scope as namespace with jsr/ prefix: pkg:generic/jsr/%40scope/name
-    const purl = new PackageURL(
-      "generic",
-      `jsr/${parsed.scope}`,
-      parsed.name,
-      version ?? null,
-      null,
-      null,
-    );
+    const purl = new PackageURL("jsr", parsed.scope, parsed.name, version ?? null, null, null);
     const purlParts = decodePurl(purl.toString());
     results.push({ purl: purlParts, type: jsrType, source });
   }
@@ -171,7 +163,7 @@ const decodeDenoImports = Schema.decodeUnknownResult(DenoImportsSchema);
  * JSR package detector.
  *
  * Scans `deno.json` and `deno.jsonc` in the project directory and extracts
- * `jsr:@scope/name` imports, producing `pkg:generic/jsr/<scope>/<name>` purls.
+ * `jsr:@scope/name` imports, producing `pkg:jsr/<scope>/<name>` purls.
  * npm-prefixed imports are skipped.
  *
  * @experimental This API is unstable and may change without notice.
@@ -260,15 +252,9 @@ export const denoReader: PackageReader = {
       const denoDirExists = yield* fs.exists(denoDir).pipe(Effect.option);
       if (Option.isNone(denoDirExists) || !denoDirExists.value) return Option.none();
 
-      // Reconstruct the package identifier from purl parts
-      // For JSR packages: namespace is "jsr/@scope", name is the package name
       const pkgNamespace = pkg.purl.namespace;
       if (pkgNamespace === undefined) return Option.none();
-
-      // Extract scope from namespace (e.g., "jsr/@std" -> "@std")
-      const jsrPrefix = "jsr/";
-      if (!pkgNamespace.startsWith(jsrPrefix)) return Option.none();
-      const scope = pkgNamespace.slice(jsrPrefix.length);
+      const scope = pkgNamespace;
 
       // Look for cached module metadata
       // Deno caches JSR packages in registry cache

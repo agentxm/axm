@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 import { parsePurlIdentity } from "./internal.js";
 import { PackageIdentityPurlSchema } from "./package-identity-purl.js";
-import { splitVersAtScheme, VersRangeSchema } from "./vers-range.js";
+import { isConcreteEcosystemScheme, splitVersAtScheme, VersRangeSchema } from "./vers-range.js";
 
 const CompanionPackageShapeSchema = Schema.Struct({
   purl: PackageIdentityPurlSchema,
@@ -15,13 +15,17 @@ const CompanionPackageShapeSchema = Schema.Struct({
 type CompanionPackageShape = Schema.Schema.Type<typeof CompanionPackageShapeSchema>;
 
 const validateCompanionPackage = (value: CompanionPackageShape): string | undefined => {
-  if (value.versionRange === undefined) {
-    return undefined;
-  }
-
   const parsed = parsePurlIdentity(value.purl);
   if (typeof parsed === "string") {
     return parsed;
+  }
+
+  if (!isConcreteEcosystemScheme(parsed.type)) {
+    return `Companion package purl ecosystem '${parsed.type}' is not supported.`;
+  }
+
+  if (value.versionRange === undefined) {
+    return undefined;
   }
 
   let versionRangeScheme: string;

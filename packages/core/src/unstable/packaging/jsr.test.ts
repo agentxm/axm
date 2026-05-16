@@ -10,7 +10,7 @@ import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlPartsSchema } from "./package-url.js";
 import { jsrDetector, denoReader } from "./jsr.js";
 
-const genericType = Schema.decodeUnknownSync(PackageTypeSchema)("generic");
+const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("jsr");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 
 const withNodeContext = <A, E>(
@@ -30,8 +30,8 @@ const detectInTempDir = (denoJson?: string, filename = "deno.json") =>
   }).pipe(Effect.scoped);
 
 describe("jsrDetector", () => {
-  it("has type generic", () => {
-    expect(jsrDetector.type).toBe(genericType);
+  it("has type jsr", () => {
+    expect(jsrDetector.type).toBe(jsrType);
   });
 
   describe("JSR imports extracted from deno.json", () => {
@@ -85,8 +85,8 @@ describe("jsrDetector", () => {
           expect(result).toHaveLength(1);
           expect(result[0]?.purl).toEqual(
             makePurl({
-              type: "generic",
-              namespace: "jsr/@std",
+              type: "jsr",
+              namespace: "@std",
               name: "path",
               version: "1.0.0",
             }),
@@ -109,8 +109,8 @@ describe("jsrDetector", () => {
           expect(result).toHaveLength(1);
           expect(result[0]?.purl).toEqual(
             makePurl({
-              type: "generic",
-              namespace: "jsr/@std",
+              type: "jsr",
+              namespace: "@std",
               name: "fs",
             }),
           );
@@ -130,8 +130,7 @@ describe("jsrDetector", () => {
           });
           const result = yield* detectInTempDir(denoJson);
           expect(result).toHaveLength(1);
-          // The namespace should contain jsr/@std
-          expect(result[0]?.purl.namespace).toBe("jsr/@std");
+          expect(result[0]?.purl.namespace).toBe("@std");
           expect(result[0]?.purl.name).toBe("fs");
         }),
       ),
@@ -224,12 +223,8 @@ const readInTempDenoCache = (
 
     // Set up a fake Deno cache structure
     if (denoJsonContent !== undefined) {
-      // Extract scope from namespace (e.g., "jsr/@std" -> "@std")
       const namespace = pkgPurl.namespace ?? "";
-      const jsrPrefix = "jsr/";
-      const scope = namespace.startsWith(jsrPrefix)
-        ? namespace.slice(jsrPrefix.length).replace("%40", "@")
-        : namespace;
+      const scope = namespace.replace("%40", "@");
 
       const pkgCacheDir = path.join(
         tmpDir,
@@ -251,7 +246,7 @@ const readInTempDenoCache = (
 
     const detected = {
       purl: pkgPurl,
-      type: genericType,
+      type: jsrType,
       source: path.join(sourceDir, "deno.json"),
     };
 
@@ -273,8 +268,8 @@ const readInTempDenoCache = (
   }).pipe(Effect.scoped);
 
 describe("denoReader", () => {
-  it("has type generic", () => {
-    expect(denoReader.type).toBe(genericType);
+  it("has type jsr", () => {
+    expect(denoReader.type).toBe(jsrType);
   });
 
   describe("valid axm metadata in cache", () => {
@@ -282,8 +277,8 @@ describe("denoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "jsr/@std",
+            type: "jsr",
+            namespace: "@std",
             name: "fs",
             version: "1.0.0",
           });
@@ -310,8 +305,8 @@ describe("denoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "jsr/@std",
+            type: "jsr",
+            namespace: "@std",
             name: "fs",
             version: "1.0.0",
           });
@@ -330,8 +325,8 @@ describe("denoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "jsr/@std",
+            type: "jsr",
+            namespace: "@std",
             name: "fs",
             version: "1.0.0",
           });
@@ -353,8 +348,8 @@ describe("denoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "jsr/@std",
+            type: "jsr",
+            namespace: "@std",
             name: "fs",
             version: "1.0.0",
           });
@@ -382,8 +377,8 @@ describe("denoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "jsr/@std",
+            type: "jsr",
+            namespace: "@std",
             name: "fs",
           });
           const result = yield* readInTempDenoCache(purl);
@@ -398,7 +393,7 @@ describe("denoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
+            type: "jsr",
             namespace: "zig",
             name: "zap",
           });
@@ -410,7 +405,7 @@ describe("denoReader", () => {
 
           const detected = {
             purl,
-            type: genericType,
+            type: jsrType,
             source: "/tmp/fake/deno.json",
           };
 

@@ -16,7 +16,7 @@ const SENTINEL_SCHEMES = [
   "datetime",
 ] as const;
 
-const CONCRETE_ECOSYSTEM_SCHEMES = [
+export const CONCRETE_ECOSYSTEM_SCHEMES = [
   "apk",
   "bazel",
   "cargo",
@@ -80,7 +80,7 @@ const VersRangeDecodedSchema = Schema.Struct({
 const isSentinelScheme = (scheme: string): boolean =>
   SENTINEL_SCHEMES.some((candidate) => candidate === scheme);
 
-const isConcreteEcosystemScheme = (scheme: string): boolean =>
+export const isConcreteEcosystemScheme = (scheme: string): boolean =>
   CONCRETE_ECOSYSTEM_SCHEMES.some((candidate) => candidate === scheme);
 
 const parseComparator = (constraint: string): VersComparator | undefined => {

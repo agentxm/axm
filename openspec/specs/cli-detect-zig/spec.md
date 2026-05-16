@@ -2,12 +2,12 @@
 
 ### Requirement: Parse build.zig.zon for Zig dependencies
 
-The Zig detector SHALL parse `build.zig.zon` in the project directory and extract entries from the `.dependencies` field. Zig Object Notation (Zon) uses a struct-like syntax. Each dependency SHALL be converted to a `pkg:generic` purl with a `zig` qualifier, since there is no registered purl type for Zig. Dependency names are the keys; URLs provide identity.
+The Zig detector SHALL parse `build.zig.zon` in the project directory and extract entries from the `.dependencies` field. Zig Object Notation (Zon) uses a struct-like syntax. Each dependency SHALL be converted to a native `pkg:zig` purl. Dependency names are the keys; URLs provide identity.
 
 #### Scenario: Dependencies extracted from build.zig.zon
 
 - **WHEN** `build.zig.zon` contains `.dependencies` with entries `"zap"` and `"mach"` pointing to URL-based sources
-- **THEN** the detector SHALL produce `pkg:generic/zig/zap` and `pkg:generic/zig/mach` purls
+- **THEN** the detector SHALL produce `pkg:zig/zap` and `pkg:zig/mach` purls
 
 #### Scenario: Missing build.zig.zon
 
@@ -27,12 +27,12 @@ The Zig detector SHALL parse `build.zig.zon` in the project directory and extrac
 
 ### Requirement: Package identity derived from dependency name
 
-Since Zig has no central ecosystem registry, the detector SHALL derive package identity from the dependency name key in `build.zig.zon`. The purl SHALL use `pkg:generic` type with the dependency name.
+Since Zig has no central ecosystem registry, the detector SHALL derive package identity from the dependency name key in `build.zig.zon`. The purl SHALL use the `pkg:zig` type with the dependency name.
 
 #### Scenario: Dependency name used as purl name
 
 - **WHEN** `.dependencies` contains a key `"ziglyph"` with a URL source
-- **THEN** the detector SHALL produce a purl with `type: "generic"`, `namespace: "zig"`, `name: "ziglyph"`
+- **THEN** the detector SHALL produce a purl with `type: "zig"`, `name: "ziglyph"`
 
 ### Requirement: URL-based dependencies with integrity hashes
 

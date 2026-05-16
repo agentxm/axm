@@ -2,7 +2,7 @@
 
 ### Requirement: Parse deno.json for JSR dependencies
 
-The JSR detector SHALL parse `deno.json` and `deno.jsonc` (JSON with comments) in the project directory and extract `jsr:@scope/name` imports from the `imports` map. Each JSR dependency SHALL be converted to a `pkg:generic` purl with a `jsr` qualifier, since there is no registered purl type for JSR. npm-prefixed imports (`npm:`) SHALL be skipped as they are covered by `cli-detect-npm`.
+The JSR detector SHALL parse `deno.json` and `deno.jsonc` (JSON with comments) in the project directory and extract `jsr:@scope/name` imports from the `imports` map. Each JSR dependency SHALL be converted to a native `pkg:jsr` purl. npm-prefixed imports (`npm:`) SHALL be skipped as they are covered by `cli-detect-npm`.
 
 #### Scenario: JSR imports extracted from deno.json
 
@@ -43,12 +43,12 @@ When a JSR import specifies an exact version, the detector SHALL include the ver
 #### Scenario: Exact version
 
 - **WHEN** `imports` contains `"@std/path": "jsr:@std/path@1.0.0"`
-- **THEN** the detector SHALL produce `pkg:generic/jsr/%40std/path@1.0.0`
+- **THEN** the detector SHALL produce `pkg:jsr/%40std/path@1.0.0`
 
 #### Scenario: Semver range
 
 - **WHEN** `imports` contains `"@std/fs": "jsr:@std/fs@^1.0.0"`
-- **THEN** the detector SHALL produce `pkg:generic/jsr/%40std/fs` (versionless)
+- **THEN** the detector SHALL produce `pkg:jsr/%40std/fs` (versionless)
 
 ### Requirement: Scoped JSR packages use percent-encoded namespace
 
@@ -57,4 +57,4 @@ JSR packages use `@scope/name` format. The detector SHALL represent the scope wi
 #### Scenario: Scoped JSR package
 
 - **WHEN** `imports` contains `"@std/fs": "jsr:@std/fs@^1.0.0"`
-- **THEN** the detector SHALL produce a purl with `type: "generic"`, `namespace: "jsr/%40std"`, `name: "fs"`
+- **THEN** the detector SHALL produce a purl with `type: "jsr"`, `namespace: "%40std"`, `name: "fs"`

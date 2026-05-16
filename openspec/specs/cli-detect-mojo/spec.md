@@ -2,12 +2,12 @@
 
 ### Requirement: Parse pixi.toml and mojoproject.toml for Mojo dependencies
 
-The Mojo detector SHALL parse `pixi.toml` and `mojoproject.toml` in the project directory and extract dependencies from the `[dependencies]` section. `mojoproject.toml` is deprecated in favor of `pixi.toml`; the detector SHALL check both. Dependencies that are conda packages SHALL produce `pkg:conda` purls. Dependencies that are Mojo-specific SHALL produce `pkg:generic` purls with a `mojo` qualifier.
+The Mojo detector SHALL parse `pixi.toml` and `mojoproject.toml` in the project directory and extract dependencies from the `[dependencies]` section. `mojoproject.toml` is deprecated in favor of `pixi.toml`; the detector SHALL check both. Dependencies that are conda packages SHALL produce `pkg:conda` purls. Dependencies that are Mojo-specific SHALL produce native `pkg:mojo` purls.
 
 #### Scenario: Dependencies extracted from pixi.toml
 
 - **WHEN** `pixi.toml` contains `[dependencies]` with entries `max = ">=24.6"` and `numpy = ">=1.26"`
-- **THEN** the detector SHALL produce `pkg:generic/mojo/max` and `pkg:conda/numpy` purls
+- **THEN** the detector SHALL produce `pkg:mojo/max` and `pkg:conda/numpy` purls
 
 #### Scenario: Dependencies from deprecated mojoproject.toml
 
@@ -45,14 +45,14 @@ Dependencies that are recognized conda packages (e.g., `numpy`, `scipy`, `pandas
 - **WHEN** `[dependencies]` contains `"numpy": ">=1.26"`
 - **THEN** the detector SHALL produce `pkg:conda/numpy` (versionless, since it's a range)
 
-### Requirement: Mojo-specific packages produce pkg:generic purls
+### Requirement: Mojo-specific packages produce pkg:mojo purls
 
-Dependencies that are Mojo-specific (e.g., `max`, Modular SDK packages) SHALL produce `pkg:generic` purls with a `mojo` qualifier since there is no registered purl type for Mojo.
+Dependencies that are Mojo-specific (e.g., `max`, Modular SDK packages) SHALL produce native `pkg:mojo` purls.
 
 #### Scenario: Mojo-specific dependency
 
 - **WHEN** `[dependencies]` contains `"max": ">=24.6"`
-- **THEN** the detector SHALL produce a purl with `type: "generic"`, `namespace: "mojo"`, `name: "max"`
+- **THEN** the detector SHALL produce a purl with `type: "mojo"`, `name: "max"`
 
 ### Requirement: Exact versions produce versioned purls
 

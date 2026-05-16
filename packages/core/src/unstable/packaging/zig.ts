@@ -22,7 +22,7 @@ import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlSchema } from "./package-url.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
-const zigType = Schema.decodeUnknownSync(PackageTypeSchema)("generic");
+const zigType = Schema.decodeUnknownSync(PackageTypeSchema)("zig");
 const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
 const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
@@ -112,7 +112,7 @@ const parseZonDependencies = (content: string): ReadonlyArray<string> => {
  * Zig package detector.
  *
  * Scans `build.zig.zon` in the project directory and extracts dependency
- * names from the `.dependencies` field, producing `pkg:generic/zig/<name>` purls.
+ * names from the `.dependencies` field, producing `pkg:zig/<name>` purls.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -142,7 +142,7 @@ export const zigDetector: PackageDetector = {
 
       const results: Array<DetectedPackage> = [];
       for (const name of names) {
-        const purl = new PackageURL("generic", "zig", name, null, null, null);
+        const purl = new PackageURL("zig", null, name, null, null, null);
         const purlParts = decodePurl(purl.toString());
         results.push({ purl: purlParts, type: zigType, source: manifestPath });
       }

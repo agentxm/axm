@@ -9,7 +9,7 @@ import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlPartsSchema } from "./package-url.js";
 import { zigDetector, zigReader } from "./zig.js";
 
-const genericType = Schema.decodeUnknownSync(PackageTypeSchema)("generic");
+const zigType = Schema.decodeUnknownSync(PackageTypeSchema)("zig");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 
 const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
@@ -28,8 +28,8 @@ const detectInTempDir = (buildZigZon?: string) =>
   }).pipe(Effect.scoped);
 
 describe("zigDetector", () => {
-  it("has type generic", () => {
-    expect(zigDetector.type).toBe(genericType);
+  it("has type zig", () => {
+    expect(zigDetector.type).toBe(zigType);
   });
 
   describe("dependencies extracted from build.zig.zon", () => {
@@ -59,7 +59,7 @@ describe("zigDetector", () => {
       ),
     );
 
-    it.effect("produces pkg:generic/zig purls", () =>
+    it.effect("produces pkg:zig purls", () =>
       withNodeContext(
         Effect.gen(function* () {
           const zon = `.{
@@ -72,9 +72,7 @@ describe("zigDetector", () => {
 }`;
           const result = yield* detectInTempDir(zon);
           expect(result).toHaveLength(1);
-          expect(result[0]?.purl).toEqual(
-            makePurl({ type: "generic", namespace: "zig", name: "ziglyph" }),
-          );
+          expect(result[0]?.purl).toEqual(makePurl({ type: "zig", name: "ziglyph" }));
         }),
       ),
     );
@@ -94,9 +92,7 @@ describe("zigDetector", () => {
 }`;
           const result = yield* detectInTempDir(zon);
           expect(result).toHaveLength(1);
-          expect(result[0]?.purl).toEqual(
-            makePurl({ type: "generic", namespace: "zig", name: "zig-network" }),
-          );
+          expect(result[0]?.purl).toEqual(makePurl({ type: "zig", name: "zig-network" }));
         }),
       ),
     );
@@ -154,9 +150,7 @@ describe("zigDetector", () => {
           const result = yield* detectInTempDir(zon);
           expect(result).toHaveLength(1);
           // Purl should be versionless with no URL/hash data
-          expect(result[0]?.purl).toEqual(
-            makePurl({ type: "generic", namespace: "zig", name: "zap" }),
-          );
+          expect(result[0]?.purl).toEqual(makePurl({ type: "zig", name: "zap" }));
           expect(result[0]?.purl.version).toBeUndefined();
         }),
       ),
@@ -194,7 +188,7 @@ const readInTempZigCache = (
 
     const detected = {
       purl: pkgPurl,
-      type: genericType,
+      type: zigType,
       source: path.join(sourceDir, "build.zig.zon"),
     };
 
@@ -216,15 +210,15 @@ const readInTempZigCache = (
   }).pipe(Effect.scoped);
 
 describe("zigReader", () => {
-  it("has type generic", () => {
-    expect(zigReader.type).toBe(genericType);
+  it("has type zig", () => {
+    expect(zigReader.type).toBe(zigType);
   });
 
   describe("valid axm.json in cache", () => {
     it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
-          const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
+          const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
             JSON.stringify({
@@ -244,7 +238,7 @@ describe("zigReader", () => {
     it.effect("returns Option.none when no axm.json exists", () =>
       withNodeContext(
         Effect.gen(function* () {
-          const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
+          const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(purl);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -256,7 +250,7 @@ describe("zigReader", () => {
     it.effect("returns Option.none on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
-          const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
+          const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
             JSON.stringify({ extensions: "not-an-array" }),
@@ -271,7 +265,7 @@ describe("zigReader", () => {
     it.effect("ignores extra fields in axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
-          const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
+          const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
             JSON.stringify({
@@ -292,7 +286,7 @@ describe("zigReader", () => {
     it.effect("returns Option.none when Zig cache does not exist", () =>
       withNodeContext(
         Effect.gen(function* () {
-          const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
+          const purl = makePurl({ type: "zig", name: "zap" });
           // readInTempZigCache without axmJsonContent won't create the cache dir
           const result = yield* readInTempZigCache(purl);
           expect(Option.isNone(result)).toBe(true);
@@ -305,7 +299,7 @@ describe("zigReader", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {
-          const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
+          const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(purl, "{ not valid json }");
           expect(Option.isNone(result)).toBe(true);
         }),

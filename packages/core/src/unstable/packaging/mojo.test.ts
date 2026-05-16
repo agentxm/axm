@@ -9,7 +9,7 @@ import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlPartsSchema } from "./package-url.js";
 import { mojoDetector, mojoReader } from "./mojo.js";
 
-const genericType = Schema.decodeUnknownSync(PackageTypeSchema)("generic");
+const mojoType = Schema.decodeUnknownSync(PackageTypeSchema)("mojo");
 const condaType = Schema.decodeUnknownSync(PackageTypeSchema)("conda");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 
@@ -32,8 +32,8 @@ const detectInTempDir = (files?: { pixi?: string; mojoproject?: string }) =>
   }).pipe(Effect.scoped);
 
 describe("mojoDetector", () => {
-  it("has type generic", () => {
-    expect(mojoDetector.type).toBe(genericType);
+  it("has type mojo", () => {
+    expect(mojoDetector.type).toBe(mojoType);
   });
 
   describe("dependencies extracted from pixi.toml", () => {
@@ -50,12 +50,10 @@ numpy = ">=1.26"
           const result = yield* detectInTempDir({ pixi });
           expect(result).toHaveLength(2);
 
-          // max should be mojo-specific (pkg:generic/mojo)
+          // max should be mojo-specific (pkg:mojo)
           const maxDep = result.find((r) => r.purl.name === "max");
           expect(maxDep).toBeDefined();
-          expect(maxDep?.purl).toEqual(
-            makePurl({ type: "generic", namespace: "mojo", name: "max" }),
-          );
+          expect(maxDep?.purl).toEqual(makePurl({ type: "mojo", name: "max" }));
 
           // numpy should be conda (pkg:conda)
           const numpyDep = result.find((r) => r.purl.name === "numpy");
@@ -104,7 +102,7 @@ numpy = ">=1.26"
   });
 
   describe("mojo-specific vs conda packages", () => {
-    it.effect("mojo-specific package produces pkg:generic/mojo purl", () =>
+    it.effect("mojo-specific package produces pkg:mojo purl", () =>
       withNodeContext(
         Effect.gen(function* () {
           const pixi = `[dependencies]
@@ -112,10 +110,8 @@ max = ">=24.6"
 `;
           const result = yield* detectInTempDir({ pixi });
           expect(result).toHaveLength(1);
-          expect(result[0]?.purl).toEqual(
-            makePurl({ type: "generic", namespace: "mojo", name: "max" }),
-          );
-          expect(result[0]?.type).toBe(genericType);
+          expect(result[0]?.purl).toEqual(makePurl({ type: "mojo", name: "max" }));
+          expect(result[0]?.type).toBe(mojoType);
         }),
       ),
     );
@@ -145,7 +141,7 @@ max = "24.6.0"
           const result = yield* detectInTempDir({ pixi });
           expect(result).toHaveLength(1);
           expect(result[0]?.purl).toEqual(
-            makePurl({ type: "generic", namespace: "mojo", name: "max", version: "24.6.0" }),
+            makePurl({ type: "mojo", name: "max", version: "24.6.0" }),
           );
         }),
       ),
@@ -242,7 +238,7 @@ const readInTempPixiCache = (
 
     const detected = {
       purl: pkgPurl,
-      type: genericType,
+      type: mojoType,
       source: path.join(tmpDir, "pixi.toml"),
     };
 
@@ -250,8 +246,8 @@ const readInTempPixiCache = (
   }).pipe(Effect.scoped);
 
 describe("mojoReader", () => {
-  it("has type generic", () => {
-    expect(mojoReader.type).toBe(genericType);
+  it("has type mojo", () => {
+    expect(mojoReader.type).toBe(mojoType);
   });
 
   describe("valid axm.json in pixi environment", () => {
@@ -259,8 +255,7 @@ describe("mojoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "mojo",
+            type: "mojo",
             name: "max",
             version: "24.6.0",
           });
@@ -284,8 +279,7 @@ describe("mojoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "mojo",
+            type: "mojo",
             name: "max",
           });
           const result = yield* readInTempPixiCache(purl);
@@ -300,8 +294,7 @@ describe("mojoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "mojo",
+            type: "mojo",
             name: "max",
             version: "24.6.0",
           });
@@ -320,8 +313,7 @@ describe("mojoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "mojo",
+            type: "mojo",
             name: "max",
             version: "24.6.0",
           });
@@ -346,8 +338,7 @@ describe("mojoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "mojo",
+            type: "mojo",
             name: "max",
           });
           const result = yield* readInTempPixiCache(purl);
@@ -362,8 +353,7 @@ describe("mojoReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
-            type: "generic",
-            namespace: "mojo",
+            type: "mojo",
             name: "max",
             version: "24.6.0",
           });

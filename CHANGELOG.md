@@ -1,3 +1,13 @@
+## 0.11.0 (2026-05-16)
+
+### 🚀 Features
+
+- Add universal agent skill targeting, publish lint gates, CLI help topic refinements, upgrade behavior improvements, and telemetry error classification. ([05aa56bc](https://github.com/agentxm/axm/commit/05aa56bc))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.10.1 (2026-05-16)
 
 ### 🩹 Fixes

@@ -13,7 +13,7 @@ skills:
     gitTreeHash: abc123def456
   local-skill:
     type: local
-    path: /home/user/skills/my-skill
+    path: skills/my-skill
     agents:
       - claude-code
     installedAt: 2024-01-16T14:00:00.000Z

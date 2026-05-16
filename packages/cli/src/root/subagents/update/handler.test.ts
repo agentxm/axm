@@ -130,14 +130,14 @@ describe("subagents-update.handler", () => {
         subagentLocks: {
           researcher: {
             type: "local",
-            path: "/nonexistent/path",
+            path: "nonexistent/path",
             agents: ["claude-code"],
             installedAt: now,
             updatedAt: now,
           },
           summarizer: {
             type: "local",
-            path: "/nonexistent/path2",
+            path: "nonexistent/path2",
             agents: ["claude-code"],
             installedAt: now,
             updatedAt: now,

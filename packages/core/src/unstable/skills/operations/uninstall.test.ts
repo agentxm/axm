@@ -22,6 +22,7 @@ import {
   makeRegistryPackLockEntry,
   makeRegistrySkillLockEntry,
 } from "../../workspace/test-stubs.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { exactVersion, getAppError, handle } from "../../test-helpers.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
 import { uninstallSkill } from "./uninstall.js";
@@ -174,7 +175,7 @@ const readLockfileYaml = (axmDir: string) => {
 /** Creates a local source lock entry for the in-memory mock (Date objects). */
 const makeLocalLockEntry = (agents: string[]) => ({
   type: "local" as const,
-  path: "/tmp/source",
+  path: decodeRelativePathSync("tmp/source"),
   agents,
   installedAt: new Date(),
   updatedAt: new Date(),
@@ -183,7 +184,7 @@ const makeLocalLockEntry = (agents: string[]) => ({
 /** Creates a local source lock entry for on-disk YAML (ISO strings). */
 const makeLocalLockEntryYaml = (agents: string[]) => ({
   type: "local",
-  path: "/tmp/source",
+  path: "tmp/source",
   agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

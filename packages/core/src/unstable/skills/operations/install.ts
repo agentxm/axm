@@ -33,6 +33,7 @@ import {
   computeIntegrity,
   createSymlink,
   isPathSafe,
+  makeWorkspaceRelativeSourcePath,
   removeFromAllCanonicalLocations,
   stripFileProtocol,
 } from "../../utils/index.js";
@@ -479,12 +480,23 @@ export const installSkill: OperationHandler<
       : undefined;
 
     // ── Shared: update lockfile + settings ──────────────────────────
+    const workspaceRelativeLocalSourcePath =
+      ref.refType === "local"
+        ? makeWorkspaceRelativeSourcePath(path, ws.baseDir, ref.source.path)
+        : Option.none();
+    if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
+      });
+    }
     const baseLockEntry = sourceToLockEntry({
       ref,
       agents,
       now: new Date(),
       sourceName: op.args.sourceName,
       existingInstalledAt: op.args.existingInstalledAt,
+      workspaceRelativeLocalSourcePath,
     });
     const lockEntry = {
       ...baseLockEntry,

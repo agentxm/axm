@@ -294,7 +294,7 @@ describe("subagents-new.handler", () => {
         lockfileSubagents: {
           "my-subagent": {
             type: "local",
-            path: "/installed",
+            path: "installed",
             agents: ["claude-code"],
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

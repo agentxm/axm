@@ -272,7 +272,7 @@ describe("packs-add.handler", () => {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
-          "local-skill": makeLocalSkillLockEntry({ path: "/some/path" }),
+          "local-skill": makeLocalSkillLockEntry({ path: "some/path" }),
         },
       });
       createPackManifest(tempDir, "@acme", "my-pack");

@@ -29,6 +29,11 @@ const commonFields = (agents: ReadonlyArray<string>, now: Date) => ({
   updatedAt: now,
 });
 
+const localSourceLockPath = (
+  sourcePath: string,
+  workspaceRelativeLocalSourcePath: Option.Option<string>,
+): string => Option.getOrElse(workspaceRelativeLocalSourcePath, () => sourcePath);
+
 // -----------------------------------------------------------------------------
 // Implementation
 // -----------------------------------------------------------------------------
@@ -42,6 +47,7 @@ export const buildSubagentLockEntry = (
   ref: SubagentExtensionRef,
   agents: ReadonlyArray<string>,
   now: Date,
+  workspaceRelativeLocalSourcePath: Option.Option<string> = Option.none(),
 ): SubagentLockEntry => {
   const common = commonFields(agents, now);
 
@@ -108,7 +114,7 @@ export const buildSubagentLockEntry = (
     case "local":
       return {
         type: "local",
-        path: ref.source.path,
+        path: localSourceLockPath(ref.source.path, workspaceRelativeLocalSourcePath),
         ...common,
       };
 

@@ -35,6 +35,17 @@ const BaseCommonFields = {
   retainedByPack: Schema.optional(Schema.Boolean),
 };
 
+const looksAbsolutePath = (value: string): boolean =>
+  value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
+
+const LocalSourceLockPathSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) =>
+      looksAbsolutePath(value) ? "Expected a relative local source path" : undefined,
+    ),
+  ),
+);
+
 /**
  * Common fields shared by skill lock entries (includes agents).
  */
@@ -106,7 +117,11 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       path: Schema.optional(SourceSubPathSchema),
       ...extraFields,
     }),
-    Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...extraFields }),
+    Schema.Struct({
+      type: Schema.Literal("local"),
+      path: LocalSourceLockPathSchema,
+      ...extraFields,
+    }),
     Schema.Struct({
       type: Schema.Literal("registry"),
       owner: HandleSchema,

@@ -8,6 +8,7 @@
 import { pathToFileURL } from "node:url";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionName } from "../extensions/index.js";
 import type {
@@ -29,6 +30,7 @@ type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | 
 
 interface LockEntryToRefDeps {
   readonly baseDir: string;
+  readonly path: Path.Path;
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   readonly getConfiguredSourceByName: (
     name: string,
@@ -36,6 +38,9 @@ interface LockEntryToRefDeps {
 }
 
 const fileHref = (path: string): string => pathToFileURL(path).href;
+
+const localLockEntryPath = (deps: LockEntryToRefDeps, entryPath: string): string =>
+  deps.path.resolve(deps.baseDir, entryPath);
 
 const missingSource = (entryType: string, sourceName: string) =>
   makeAppError({
@@ -199,14 +204,16 @@ export const skillLockEntryToRef = (
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
             }),
           );
-        case "local":
+        case "local": {
+          const skillSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
             type: "skill" as const,
             refType: "local" as const,
-            source: { type: "local" as const, path: entry.path },
-            location: fileHref(entry.path),
+            source: { type: "local" as const, path: skillSourcePath },
+            location: fileHref(skillSourcePath),
             skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
           });
+        }
         case "github":
         case "gitlab":
         case "bitbucket":
@@ -251,14 +258,16 @@ export const commandLockEntryToRef = (
               command: { name: extensionName },
             }),
           );
-        case "local":
+        case "local": {
+          const commandSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
             type: "command" as const,
             refType: "local" as const,
-            source: { type: "local" as const, path: entry.path },
-            location: fileHref(entry.path),
+            source: { type: "local" as const, path: commandSourcePath },
+            location: fileHref(commandSourcePath),
             command: { name: extensionName },
           });
+        }
         case "github":
         case "gitlab":
         case "bitbucket":
@@ -303,14 +312,16 @@ export const mcpServerLockEntryToRef = (
               server: { name: extensionName },
             }),
           );
-        case "local":
+        case "local": {
+          const mcpServerSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
             type: "mcp-server" as const,
             refType: "local" as const,
-            source: { type: "local" as const, path: entry.path },
-            location: fileHref(entry.path),
+            source: { type: "local" as const, path: mcpServerSourcePath },
+            location: fileHref(mcpServerSourcePath),
             server: { name: extensionName },
           });
+        }
         case "github":
         case "gitlab":
         case "bitbucket":
@@ -355,14 +366,16 @@ export const subagentLockEntryToRef = (
               subagent: { name: extensionName, description: Option.none() },
             }),
           );
-        case "local":
+        case "local": {
+          const subagentSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
             type: "subagent" as const,
             refType: "local" as const,
-            source: { type: "local" as const, path: entry.path },
-            location: fileHref(entry.path),
+            source: { type: "local" as const, path: subagentSourcePath },
+            location: fileHref(subagentSourcePath),
             subagent: { name: extensionName, description: Option.none() },
           });
+        }
         case "github":
         case "gitlab":
         case "bitbucket":

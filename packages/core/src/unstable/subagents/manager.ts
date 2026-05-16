@@ -23,6 +23,7 @@ import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
 import {
   removeFromAllCanonicalLocations,
   stripFileProtocol,
+  makeWorkspaceRelativeSourcePath,
   computeIntegrity,
 } from "../utils/index.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
@@ -345,47 +346,71 @@ export const SubagentManagerLive = Layer.effect(
       }),
       materializeUninstall,
 
-      upsertSettingsEntry: ({
+      upsertSettingsEntry: Effect.fn("SubagentManager.upsertSettingsEntry")(function* ({
         ref,
       }: {
         readonly ref: SubagentExtensionRef;
         readonly versionRange: Option.Option<string>;
-      }) => {
-        const lockEntry = buildSubagentLockEntry(ref, agents, new Date());
+      }) {
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const lockEntry = buildSubagentLockEntry(
+          ref,
+          agents,
+          new Date(),
+          workspaceRelativeLocalSourcePath,
+        );
         if (lockEntry.type === "registry") {
-          return validateExactResolvedVersion(
+          yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
             lockEntry.resolvedVersion,
-          ).pipe(
-            Effect.flatMap(() => ws.setSubagent({ name: ref.subagent.name, lockEntry })),
-            Effect.withSpan("SubagentManager.upsertSettingsEntry"),
           );
         }
-        return ws
-          .setSubagent({ name: ref.subagent.name, lockEntry })
-          .pipe(Effect.withSpan("SubagentManager.upsertSettingsEntry"));
-      },
+        return yield* ws.setSubagent({ name: ref.subagent.name, lockEntry });
+      }),
 
       removeSettingsEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
         ws
           .removeSubagentSettings(target.name)
           .pipe(Effect.withSpan("SubagentManager.removeSettingsEntry")),
 
-      upsertLockfileEntry: ({ ref }: { readonly ref: SubagentExtensionRef }) => {
-        const lockEntry = buildSubagentLockEntry(ref, agents, new Date());
+      upsertLockfileEntry: Effect.fn("SubagentManager.upsertLockfileEntry")(function* ({
+        ref,
+      }: {
+        readonly ref: SubagentExtensionRef;
+      }) {
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const lockEntry = buildSubagentLockEntry(
+          ref,
+          agents,
+          new Date(),
+          workspaceRelativeLocalSourcePath,
+        );
         if (lockEntry.type === "registry") {
-          return validateExactResolvedVersion(
+          yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
             lockEntry.resolvedVersion,
-          ).pipe(
-            Effect.flatMap(() => ws.setSubagentLock({ name: ref.subagent.name, lockEntry })),
-            Effect.withSpan("SubagentManager.upsertLockfileEntry"),
           );
         }
-        return ws
-          .setSubagentLock({ name: ref.subagent.name, lockEntry })
-          .pipe(Effect.withSpan("SubagentManager.upsertLockfileEntry"));
-      },
+        return yield* ws.setSubagentLock({ name: ref.subagent.name, lockEntry });
+      }),
 
       removeLockfileEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
         ws

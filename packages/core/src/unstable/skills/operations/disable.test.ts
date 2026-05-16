@@ -18,6 +18,7 @@ import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspa
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
 import { handle } from "../../test-helpers.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -67,7 +68,7 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
 /** Creates a local source lock entry. */
 const makeLocalLockEntry = (agents: string[]): SkillLockEntry => ({
   type: "local" as const,
-  path: "/tmp/source",
+  path: decodeRelativePathSync("tmp/source"),
   agents,
   installedAt: new Date(),
   updatedAt: new Date(),
@@ -215,7 +216,7 @@ describe("disableSkill", () => {
           name: "my-skill",
           lockEntry: expect.objectContaining({
             type: "local",
-            path: "/tmp/source",
+            path: "tmp/source",
             agents: [],
           }),
           versionRange: Option.none(),

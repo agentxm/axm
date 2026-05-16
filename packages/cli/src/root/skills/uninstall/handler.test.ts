@@ -79,7 +79,7 @@ const createAgentSymlink = (base: string, agentDir: string, name: string) => {
 
 const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
   type: "local",
-  path: "/installed",
+  path: "installed",
   agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

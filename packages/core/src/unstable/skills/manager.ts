@@ -24,7 +24,10 @@ import type { ExtensionManager, SkillExtensionTarget } from "../workspace/servic
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { existsInAnyCanonicalLocation } from "./disk-check.js";
 import { sanitizeName } from "../extensions/utils.js";
-import { removeFromAllCanonicalLocations } from "../utils/index.js";
+import {
+  makeWorkspaceRelativeSourcePath,
+  removeFromAllCanonicalLocations,
+} from "../utils/index.js";
 import { CodingAgentRepository } from "../agents/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import {
@@ -48,13 +51,18 @@ export class SkillManager extends ServiceMap.Service<
 // -----------------------------------------------------------------------------
 
 // Build skill lock entry from ref
-const buildSkillLockEntry = (ref: SkillExtensionRef, agents: ReadonlyArray<string>) =>
+const buildSkillLockEntry = (
+  ref: SkillExtensionRef,
+  agents: ReadonlyArray<string>,
+  workspaceRelativeLocalSourcePath: Option.Option<string>,
+) =>
   sourceToLockEntry({
     ref,
     agents,
     now: new Date(),
     sourceName: Option.none(),
     existingInstalledAt: Option.none(),
+    workspaceRelativeLocalSourcePath,
   });
 
 // -----------------------------------------------------------------------------
@@ -208,58 +216,66 @@ export const SkillManagerLive = Layer.effect(
       }),
       materializeUninstall,
 
-      upsertSettingsEntry: ({
+      upsertSettingsEntry: Effect.fn("SkillManager.upsertSettingsEntry")(function* ({
         ref,
         versionRange,
       }: {
         readonly ref: SkillExtensionRef;
         readonly versionRange: Option.Option<string>;
-      }) => {
-        const lockEntry = buildSkillLockEntry(ref, agents);
+      }) {
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const lockEntry = buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath);
         if (lockEntry.type === "registry") {
-          return validateExactResolvedVersion(
+          yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
             lockEntry.resolvedVersion,
-          ).pipe(
-            Effect.flatMap(() => ws.setSkill({ name: ref.skill.name, lockEntry, versionRange })),
-            Effect.withSpan("SkillManager.upsertSettingsEntry"),
           );
         }
-        return ws
-          .setSkill({ name: ref.skill.name, lockEntry, versionRange })
-          .pipe(Effect.withSpan("SkillManager.upsertSettingsEntry"));
-      },
+        return yield* ws.setSkill({ name: ref.skill.name, lockEntry, versionRange });
+      }),
 
       removeSettingsEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
         ws
           .removeSkillFromSettings(target.name)
           .pipe(Effect.withSpan("SkillManager.removeSettingsEntry")),
 
-      upsertLockfileEntry: ({ ref }: { readonly ref: SkillExtensionRef }) => {
-        const lockEntry = buildSkillLockEntry(ref, agents);
+      upsertLockfileEntry: Effect.fn("SkillManager.upsertLockfileEntry")(function* ({
+        ref,
+      }: {
+        readonly ref: SkillExtensionRef;
+      }) {
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const lockEntry = buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath);
         if (lockEntry.type === "registry") {
-          return validateExactResolvedVersion(
+          yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
             lockEntry.resolvedVersion,
-          ).pipe(
-            Effect.flatMap(() =>
-              ws.setSkillLock({
-                name: ref.skill.name,
-                lockEntry,
-                versionRange: Option.none(),
-              }),
-            ),
-            Effect.withSpan("SkillManager.upsertLockfileEntry"),
           );
         }
-        return ws
-          .setSkillLock({
-            name: ref.skill.name,
-            lockEntry,
-            versionRange: Option.none(),
-          })
-          .pipe(Effect.withSpan("SkillManager.upsertLockfileEntry"));
-      },
+        return yield* ws.setSkillLock({
+          name: ref.skill.name,
+          lockEntry,
+          versionRange: Option.none(),
+        });
+      }),
 
       removeLockfileEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
         ws.removeSkillLock(target.name).pipe(Effect.withSpan("SkillManager.removeLockfileEntry")),

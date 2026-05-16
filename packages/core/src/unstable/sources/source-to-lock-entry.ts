@@ -24,6 +24,8 @@ export interface SourceToLockEntryInput {
   readonly sourceName: Option.Option<string>;
   /** When updating, preserve the original install timestamp instead of using `now`. */
   readonly existingInstalledAt: Option.Option<Date>;
+  /** Workspace-root-relative local source path for lockfile persistence. */
+  readonly workspaceRelativeLocalSourcePath?: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -43,6 +45,9 @@ const commonFields = (input: SourceToLockEntryInput) => ({
   installedAt: Option.getOrElse(input.existingInstalledAt, () => input.now),
   updatedAt: input.now,
 });
+
+const localSourceLockPath = (input: SourceToLockEntryInput, sourcePath: string): string =>
+  Option.getOrElse(input.workspaceRelativeLocalSourcePath ?? Option.none(), () => sourcePath);
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -121,7 +126,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
     case "local":
       return {
         type: "local",
-        path: ref.source.path,
+        path: localSourceLockPath(input, ref.source.path),
         ...common,
       };
 

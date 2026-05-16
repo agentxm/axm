@@ -45,6 +45,7 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
 import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;
@@ -298,7 +299,7 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly updatedAt?: Date;
 }): SkillLockEntry => ({
   type: "local",
-  path: opts?.path ?? "/installed",
+  path: decodeRelativePathSync(opts?.path ?? "installed"),
   agents: [...(opts?.agents ?? ["claude-code"])],
   installedAt: opts?.installedAt ?? TEST_DATE,
   updatedAt: opts?.updatedAt ?? TEST_DATE,

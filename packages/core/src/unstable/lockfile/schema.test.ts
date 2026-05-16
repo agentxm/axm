@@ -400,6 +400,18 @@ describe("lockfile schema", () => {
       }
     });
 
+    it("rejects local lock entry with absolute path", () => {
+      const input = {
+        type: "local",
+        path: "/tmp/my-skill",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
+    });
+
     it("accepts valid git lock entry", () => {
       const input = {
         type: "git",

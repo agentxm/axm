@@ -19,6 +19,7 @@ import { sanitizeName } from "../../extensions/utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import { handle } from "../../test-helpers.js";
+import { decodeRelativePathSync } from "../../utils/path-types.js";
 
 type SettingsSkillValue =
   | string
@@ -125,9 +126,9 @@ const makeOp = (skillName = "my-skill"): EnableSkillOperation => ({
 });
 
 /** Creates a local source lock entry for the in-memory mock (Date objects). */
-const makeLocalLockEntry = (agents: string[], sourcePath = "/tmp/source"): SkillLockEntry => ({
+const makeLocalLockEntry = (agents: string[], sourcePath = "tmp/source"): SkillLockEntry => ({
   type: "local" as const,
-  path: sourcePath,
+  path: decodeRelativePathSync(sourcePath),
   agents,
   installedAt: new Date(),
   updatedAt: new Date(),
@@ -256,7 +257,7 @@ describe("enableSkill", () => {
           name: "my-skill",
           lockEntry: expect.objectContaining({
             type: "local",
-            path: "/tmp/source",
+            path: "tmp/source",
             agents: ["universal", "claude-code"],
           }),
           versionRange: Option.none(),

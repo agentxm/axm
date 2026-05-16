@@ -23,6 +23,7 @@ import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
 import { RenderedFilesMapSchema } from "../extensions/rendered-files.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
+import { decodeRelativePathSync } from "../utils/path-types.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -140,7 +141,7 @@ describe("SubagentManager", () => {
                 Effect.succeed({
                   planner: {
                     type: "local",
-                    path: "/test",
+                    path: decodeRelativePathSync("test"),
                     agents: ["claude-code"],
                     installedAt: new Date(),
                     updatedAt: new Date(),
@@ -338,7 +339,7 @@ describe("SubagentManager", () => {
                 Effect.succeed(
                   Option.some({
                     type: "local",
-                    path: sourceDir,
+                    path: decodeRelativePathSync("source/planner"),
                     agents: ["claude-code"],
                     installedAt: new Date(),
                     updatedAt: new Date(),
@@ -386,7 +387,7 @@ describe("SubagentManager", () => {
                 Effect.succeed(
                   Option.some({
                     type: "local",
-                    path: "/tmp/source/planner",
+                    path: decodeRelativePathSync("tmp/source/planner"),
                     agents: ["claude-code"],
                     installedAt: new Date(),
                     updatedAt: new Date(),

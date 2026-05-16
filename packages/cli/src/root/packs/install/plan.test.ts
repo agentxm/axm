@@ -33,6 +33,7 @@ import {
   makeBaseWorkspaceMock,
   makeRegistryPackLockEntry,
 } from "../../../test-stubs.js";
+import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -211,7 +212,7 @@ const lockfileWithSkills = (...names: string[]): Lockfile => ({
       name,
       {
         type: "local" as const,
-        path: `/tmp/skills/${name}`,
+        path: decodeRelativePathSync(`tmp/skills/${name}`),
         agents: [],
         installedAt: new Date(),
         updatedAt: new Date(),
@@ -525,7 +526,7 @@ describe("buildInstallPlan", () => {
         skills: {
           "skill-a": {
             type: "local" as const,
-            path: "/tmp/skills/skill-a",
+            path: decodeRelativePathSync("tmp/skills/skill-a"),
             agents: [],
             installedAt: new Date(),
             updatedAt: new Date(),
@@ -690,7 +691,7 @@ describe("buildInstallPlan", () => {
         skills: {
           "skill-a": {
             type: "local" as const,
-            path: "/tmp/skills/skill-a",
+            path: decodeRelativePathSync("tmp/skills/skill-a"),
             agents: [],
             installedAt: new Date(),
             updatedAt: new Date(),

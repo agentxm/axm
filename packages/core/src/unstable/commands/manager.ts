@@ -15,7 +15,12 @@ import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError } from "../app-error/index.js";
-import { computeIntegrity, isPathSafe, stripFileProtocol } from "../utils/index.js";
+import {
+  computeIntegrity,
+  isPathSafe,
+  makeWorkspaceRelativeSourcePath,
+  stripFileProtocol,
+} from "../utils/index.js";
 import { configuredCommandsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type {
   CommandExtensionRef,
@@ -127,9 +132,19 @@ const buildGitHostedCommandLockEntry = (ref: GitHostedCommandRef, now: Date): Co
 };
 
 // Build lock entry for local refs
-const buildLocalCommandLockEntry = (ref: LocalCommandRef, now: Date): CommandLockEntry => ({
+const localSourceLockPath = (
+  ref: LocalCommandRef,
+  workspaceRelativeLocalSourcePath?: Option.Option<string>,
+): string =>
+  Option.getOrElse(workspaceRelativeLocalSourcePath ?? Option.none(), () => ref.source.path);
+
+const buildLocalCommandLockEntry = (
+  ref: LocalCommandRef,
+  now: Date,
+  workspaceRelativeLocalSourcePath?: Option.Option<string>,
+): CommandLockEntry => ({
   type: "local",
-  path: ref.source.path,
+  path: localSourceLockPath(ref, workspaceRelativeLocalSourcePath),
   agents: [],
   installedAt: now,
   updatedAt: now,
@@ -138,14 +153,18 @@ const buildLocalCommandLockEntry = (ref: LocalCommandRef, now: Date): CommandLoc
 /**
  * Build a CommandLockEntry from any ref type.
  */
-export const buildLockEntryFromRef = (ref: CommandExtensionRef, now: Date): CommandLockEntry => {
+export const buildLockEntryFromRef = (
+  ref: CommandExtensionRef,
+  now: Date,
+  workspaceRelativeLocalSourcePath?: Option.Option<string>,
+): CommandLockEntry => {
   switch (ref.refType) {
     case "registry":
       return buildCommandLockEntry(ref, now);
     case "git-hosted":
       return buildGitHostedCommandLockEntry(ref, now);
     case "local":
-      return buildLocalCommandLockEntry(ref, now);
+      return buildLocalCommandLockEntry(ref, now, workspaceRelativeLocalSourcePath);
   }
 };
 
@@ -456,49 +475,63 @@ export const CommandManagerLive = Layer.effect(
       }),
       materializeUninstall,
 
-      upsertSettingsEntry: ({
+      upsertSettingsEntry: Effect.fn("CommandManager.upsertSettingsEntry")(function* ({
         ref,
       }: {
         readonly ref: CommandExtensionRef;
         readonly versionRange: Option.Option<string>;
-      }) => {
+      }) {
         const now = new Date();
-        const lockEntry = buildLockEntryFromRef(ref, now);
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local command source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const lockEntry = buildLockEntryFromRef(ref, now, workspaceRelativeLocalSourcePath);
         if (lockEntry.type === "registry") {
-          return validateExactResolvedVersion(
+          yield* validateExactResolvedVersion(
             `commands.${ref.command.name}.resolvedVersion`,
             lockEntry.resolvedVersion,
-          ).pipe(
-            Effect.flatMap(() => ws.setCommand({ name: ref.command.name, lockEntry })),
-            Effect.withSpan("CommandManager.upsertSettingsEntry"),
           );
         }
-        return ws
-          .setCommand({ name: ref.command.name, lockEntry })
-          .pipe(Effect.withSpan("CommandManager.upsertSettingsEntry"));
-      },
+        return yield* ws.setCommand({ name: ref.command.name, lockEntry });
+      }),
 
       removeSettingsEntry: ({ target }: { readonly target: CommandExtensionTarget }) =>
         ws
           .removeCommandSettings(target.name)
           .pipe(Effect.withSpan("CommandManager.removeSettingsEntry")),
 
-      upsertLockfileEntry: ({ ref }: { readonly ref: CommandExtensionRef }) => {
+      upsertLockfileEntry: Effect.fn("CommandManager.upsertLockfileEntry")(function* ({
+        ref,
+      }: {
+        readonly ref: CommandExtensionRef;
+      }) {
         const now = new Date();
-        const lockEntry = buildLockEntryFromRef(ref, now);
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local command source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const lockEntry = buildLockEntryFromRef(ref, now, workspaceRelativeLocalSourcePath);
         if (lockEntry.type === "registry") {
-          return validateExactResolvedVersion(
+          yield* validateExactResolvedVersion(
             `commands.${ref.command.name}.resolvedVersion`,
             lockEntry.resolvedVersion,
-          ).pipe(
-            Effect.flatMap(() => ws.setCommandLock({ name: ref.command.name, lockEntry })),
-            Effect.withSpan("CommandManager.upsertLockfileEntry"),
           );
         }
-        return ws
-          .setCommandLock({ name: ref.command.name, lockEntry })
-          .pipe(Effect.withSpan("CommandManager.upsertLockfileEntry"));
-      },
+        return yield* ws.setCommandLock({ name: ref.command.name, lockEntry });
+      }),
 
       removeLockfileEntry: ({ target }: { readonly target: CommandExtensionTarget }) =>
         ws

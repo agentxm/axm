@@ -40,7 +40,7 @@ const initWorkspace = (
 
 const makeLockEntry = () => ({
   type: "local",
-  path: "/installed",
+  path: "installed",
   agents: [],
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

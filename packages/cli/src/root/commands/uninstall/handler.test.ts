@@ -44,7 +44,7 @@ const initWorkspace = (
 
 const makeLockEntry = (overrides: Record<string, unknown> = {}) => ({
   type: "local",
-  path: "/installed",
+  path: "installed",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   agents: [],

@@ -14,6 +14,7 @@ export {
   makeAbsolutePath,
   makeRelativePath,
   makeWorkspaceRelativePath,
+  makeWorkspaceRelativeSourcePath,
   type AbsolutePath,
   type RelativePath,
 } from "./path-types.js";

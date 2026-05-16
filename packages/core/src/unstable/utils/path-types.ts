@@ -68,3 +68,17 @@ export const makeWorkspaceRelativePath = (
   const relative = path.relative(root, resolvedTarget);
   return makeRelativePath(path, relative);
 };
+
+export const makeWorkspaceRelativeSourcePath = (
+  path: Path.Path,
+  workspaceRoot: AbsolutePath | string,
+  target: string,
+): Option.Option<string> => {
+  const root = path.resolve(workspaceRoot);
+  const resolvedTarget = path.isAbsolute(target)
+    ? path.resolve(target)
+    : path.resolve(root, target);
+  const relative = path.relative(root, resolvedTarget);
+  if (path.isAbsolute(relative)) return Option.none();
+  return Option.some(path.normalize(relative.length === 0 ? "." : relative));
+};

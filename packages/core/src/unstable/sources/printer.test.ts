@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import { decodeRelativePathSync } from "../utils/path-types.js";
 import { lockEntryToSourceParams, printSourceParams } from "./printer.js";
 import type { SourceParams } from "./types.js";
 
@@ -270,13 +271,13 @@ describe("lockEntryToSourceParams", () => {
     const source = lockEntryToSourceParams(
       makeLockEntry({
         type: "local",
-        path: "/tmp/skills/my-skill",
+        path: decodeRelativePathSync("tmp/skills/my-skill"),
         ...baseLockFields,
       }),
     );
     expect(source).toEqual({
       type: "local",
-      path: "/tmp/skills/my-skill",
+      path: "tmp/skills/my-skill",
     });
   });
 

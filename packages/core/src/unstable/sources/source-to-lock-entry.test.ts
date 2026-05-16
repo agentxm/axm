@@ -267,11 +267,12 @@ describe("sourceToLockEntry", () => {
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
+      workspaceRelativeLocalSourcePath: Option.some("skills/my-skill"),
     });
 
     expect(result).toEqual({
       type: "local",
-      path: "/home/user/skills/my-skill",
+      path: "skills/my-skill",
       agents,
       installedAt: now,
       updatedAt: now,

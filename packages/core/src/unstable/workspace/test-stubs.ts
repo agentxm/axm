@@ -33,6 +33,7 @@ import {
 } from "../lockfile/index.js";
 import { decodeExtensionNameSync } from "../extensions/index.js";
 import { type Handle } from "../extensions/handle.js";
+import { decodeRelativePathSync } from "../utils/path-types.js";
 import { decodeVersionSync, type Version } from "../version-constraints/version-constraints.js";
 import type * as Record from "effect/Record";
 
@@ -267,7 +268,7 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly updatedAt?: Date;
 }): SkillLockEntry => ({
   type: "local",
-  path: opts?.path ?? "/installed",
+  path: decodeRelativePathSync(opts?.path ?? "installed"),
   agents: [...(opts?.agents ?? ["claude-code"])],
   installedAt: opts?.installedAt ?? TEST_DATE,
   updatedAt: opts?.updatedAt ?? TEST_DATE,

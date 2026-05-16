@@ -15,7 +15,12 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { CliRenderer } from "../../cli-renderer/index.js";
-import { computeIntegrity, isPathSafe, stripFileProtocol } from "../../utils/index.js";
+import {
+  computeIntegrity,
+  isPathSafe,
+  makeWorkspaceRelativeSourcePath,
+  stripFileProtocol,
+} from "../../utils/index.js";
 import { errInstallFailed, makeAppError, type AppError } from "../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
@@ -267,6 +272,7 @@ export const installCommand: (
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const path = yield* Path.Path;
     const renderer = yield* CliRenderer;
     const { ref } = op.args;
 
@@ -357,7 +363,17 @@ export const installCommand: (
 
     // --- Build lock entry with agents, sourceHash, renderedFiles ---
     const now = new Date();
-    const baseLockEntry = buildLockEntryFromRef(ref, now);
+    const workspaceRelativeLocalSourcePath =
+      ref.refType === "local"
+        ? makeWorkspaceRelativeSourcePath(path, ws.baseDir, ref.source.path)
+        : Option.none();
+    if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Local command source path must stay within the workspace root: ${ref.source.path}`,
+      });
+    }
+    const baseLockEntry = buildLockEntryFromRef(ref, now, workspaceRelativeLocalSourcePath);
 
     const renderedFiles = decodeRenderedFilesMap(rawRenderedFiles);
 

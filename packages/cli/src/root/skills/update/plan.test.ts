@@ -14,6 +14,7 @@ import type { Version } from "@agentxm/client-core/unstable/version-constraints"
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 
@@ -281,7 +282,7 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
       const localOverrides = overrides?.type === "local" ? overrides : undefined;
       return {
         type: "local",
-        path: localOverrides?.path ?? "/installed",
+        path: decodeRelativePathSync(localOverrides?.path ?? "installed"),
         ...makeCommonLockFields(localOverrides),
       };
     }
@@ -559,7 +560,7 @@ describe("buildUpdatePlan", () => {
     Effect.gen(function* () {
       const op = makeOp("commit", { sourceType: "local" });
       const lf = lockfileWith({
-        commit: makeLockEntry({ type: "local", path: "/installed" }),
+        commit: makeLockEntry({ type: "local", path: decodeRelativePathSync("installed") }),
       });
 
       const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
@@ -721,7 +722,10 @@ describe("buildUpdatePlan", () => {
           repo: "r",
           gitTreeHash: "same-sha",
         }),
-        "local-skill": makeLockEntry({ type: "local", path: "/local" }),
+        "local-skill": makeLockEntry({
+          type: "local",
+          path: decodeRelativePathSync("local"),
+        }),
       });
 
       const plan = buildUpdatePlan(ops, lf, "Update", Option.none(), stubRunClosure);

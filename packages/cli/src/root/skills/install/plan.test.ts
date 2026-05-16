@@ -20,6 +20,7 @@ import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolu
 import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
 import {
   exactVersion,
   extensionName,
@@ -75,7 +76,7 @@ const lockfileWith = (...names: string[]): SkillsLockMap =>
       name,
       {
         type: "local" as const,
-        path: "/installed",
+        path: decodeRelativePathSync("installed"),
         agents: [],
         installedAt: new Date(),
         updatedAt: new Date(),

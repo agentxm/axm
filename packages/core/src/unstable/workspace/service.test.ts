@@ -877,7 +877,7 @@ describe("WorkspaceMutationsService", () => {
           },
           "test-gen": {
             type: "local",
-            path: "/tmp/test-gen",
+            path: "test-gen",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -909,7 +909,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {
           "test-gen": {
             type: "local",
-            path: "/tmp/test-gen",
+            path: "test-gen",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -939,7 +939,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {
           implicit: {
             type: "local",
-            path: "/tmp/implicit",
+            path: "implicit",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -2756,7 +2756,7 @@ describe("WorkspaceMutationsService", () => {
           },
           "other-command": {
             type: "local",
-            path: "/tmp/other",
+            path: "other",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -2788,7 +2788,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {}, undefined, {
           "other-command": {
             type: "local",
-            path: "/tmp/other",
+            path: "other",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -2818,7 +2818,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {}, undefined, {
           implicit: {
             type: "local",
-            path: "/tmp/implicit-cmd",
+            path: "implicit-cmd",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -3059,7 +3059,7 @@ describe("WorkspaceMutationsService", () => {
           },
           "other-server": {
             type: "local",
-            path: "/tmp/other",
+            path: "other",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3090,7 +3090,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {}, undefined, undefined, {
           "other-server": {
             type: "local",
-            path: "/tmp/other",
+            path: "other",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3119,7 +3119,7 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {}, undefined, undefined, {
           implicit: {
             type: "local",
-            path: "/tmp/implicit-mcp",
+            path: "implicit-mcp",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },

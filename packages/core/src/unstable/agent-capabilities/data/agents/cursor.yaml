@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: cursor
+name: Cursor
+vendor: Anysphere
+homepage: https://cursor.com
+interfaces: [ide-extension, cli]
+family: cursor
+docs:
+  - label: Cursor documentation
+    url: https://docs.cursor.com
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http, sse]
+  sources:
+    - https://docs.cursor.com/advanced/model-context-protocol
+  lastVerified: 2026-05-16
+
+instructions:
+  support: standard
+  scopes: [project]
+  files: [AGENTS.md, CLAUDE.md]
+  nestedDiscovery: false
+  sources:
+    - https://docs.cursor.com/en/cli/using
+  lastVerified: 2026-05-16
+
+rules:
+  support: bridged
+  scopes: [project]
+  directory: .cursor/rules
+  sources:
+    - https://docs.cursor.com/en/context/rules
+  lastVerified: 2026-05-16

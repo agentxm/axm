@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: claude-code
+name: Claude Code
+vendor: Anthropic
+homepage: https://claude.com/claude-code
+interfaces: [cli, ide-extension]
+family: anthropic
+docs:
+  - label: Claude Code documentation
+    url: https://docs.claude.com/en/docs/claude-code
+
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .claude/skills
+  sources:
+    - https://docs.claude.com/en/docs/claude-code/skills
+  lastVerified: 2026-05-16
+
+commands:
+  support: standard
+  scopes: [user, project]
+  directory: .claude/commands
+  sources:
+    - https://docs.claude.com/en/docs/claude-code/slash-commands
+  lastVerified: 2026-05-16
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http, sse]
+  sources:
+    - https://docs.claude.com/en/docs/claude-code/mcp
+  lastVerified: 2026-05-16
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  sources:
+    - https://docs.claude.com/en/docs/claude-code/sub-agents
+  lastVerified: 2026-05-16
+
+instructions:
+  support: bridged
+  scopes: [user, project]
+  files: [CLAUDE.md]
+  nestedDiscovery: true
+  sources:
+    - https://docs.claude.com/en/docs/claude-code/memory
+  lastVerified: 2026-05-16

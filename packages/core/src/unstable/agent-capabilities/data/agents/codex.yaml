@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: codex
+name: Codex
+vendor: OpenAI
+homepage: https://developers.openai.com/codex
+interfaces: [cli, ide-extension]
+family: openai
+docs:
+  - label: Codex documentation
+    url: https://developers.openai.com/codex
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http]
+  sources:
+    - https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers
+  lastVerified: 2026-05-16
+
+instructions:
+  support: standard
+  scopes: [user, project]
+  files: [AGENTS.md]
+  nestedDiscovery: true
+  sources:
+    - https://github.com/openai/codex/blob/main/docs/agents_md.md
+  lastVerified: 2026-05-16

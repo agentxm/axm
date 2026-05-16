@@ -1,0 +1,326 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/Agent",
+  "definitions": {
+    "AgentIdFromYaml": {
+      "type": "string",
+      "allOf": [
+        { "minLength": 1 },
+        {
+          "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$",
+          "title": "Agent ID",
+          "description": "Lowercase kebab-case coding agent identifier.",
+          "examples": ["claude-code", "codex", "cursor"]
+        }
+      ]
+    },
+    "AgentInterface": {
+      "type": "string",
+      "enum": ["cli", "ide-extension"],
+      "title": "Agent Interface",
+      "description": "Primary product interface where the agent runs.",
+      "examples": ["cli", "ide-extension"]
+    },
+    "DocLink": {
+      "type": "object",
+      "properties": {
+        "label": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "url": { "type": "string", "allOf": [{ "minLength": 1 }] }
+      },
+      "required": ["label", "url"],
+      "additionalProperties": false,
+      "title": "Documentation Link",
+      "description": "Documentation reference for an agent or capability."
+    },
+    "SupportLevel": {
+      "type": "string",
+      "enum": ["standard", "bridged", "planned", "unsupported", "unknown"],
+      "title": "Support Level",
+      "description": "How an agent supports a capability.",
+      "examples": ["standard", "bridged", "unknown"]
+    },
+    "LastVerifiedDate": {
+      "type": "string",
+      "allOf": [
+        { "minLength": 1 },
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Last Verified Date",
+          "description": "Date a capability claim was last verified.",
+          "examples": ["2026-05-16"]
+        }
+      ]
+    },
+    "Scope": {
+      "type": "string",
+      "enum": ["user", "project"],
+      "title": "Scope",
+      "description": "Where a capability can be configured.",
+      "examples": ["user", "project"]
+    },
+    "SkillsCapability": {
+      "type": "object",
+      "properties": {
+        "support": { "$ref": "#/definitions/SupportLevel" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        },
+        "directory": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["support", "scopes"],
+      "additionalProperties": false,
+      "title": "Skills Capability",
+      "description": "Agent support for Agent Skills-style extensions."
+    },
+    "CommandsCapability": {
+      "type": "object",
+      "properties": {
+        "support": { "$ref": "#/definitions/SupportLevel" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        },
+        "directory": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["support", "scopes"],
+      "additionalProperties": false,
+      "title": "Commands Capability",
+      "description": "Agent support for command extensions."
+    },
+    "McpTransport": {
+      "type": "string",
+      "enum": ["stdio", "http", "sse"],
+      "title": "MCP Transport",
+      "description": "MCP transport supported by an agent.",
+      "examples": ["stdio", "http", "sse"]
+    },
+    "McpCapability": {
+      "type": "object",
+      "properties": {
+        "support": { "$ref": "#/definitions/SupportLevel" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        },
+        "transports": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/McpTransport" }
+        }
+      },
+      "required": ["support", "scopes", "transports"],
+      "additionalProperties": false,
+      "title": "MCP Capability",
+      "description": "Agent support for MCP server extensions."
+    },
+    "SubagentsCapability": {
+      "type": "object",
+      "properties": {
+        "support": { "$ref": "#/definitions/SupportLevel" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        }
+      },
+      "required": ["support", "scopes"],
+      "additionalProperties": false,
+      "title": "Subagents Capability",
+      "description": "Agent support for subagent extensions."
+    },
+    "InstructionsCapability": {
+      "type": "object",
+      "properties": {
+        "support": { "$ref": "#/definitions/SupportLevel" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        },
+        "files": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+        },
+        "nestedDiscovery": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+      },
+      "required": ["support", "scopes", "files"],
+      "additionalProperties": false,
+      "title": "Instructions Capability",
+      "description": "Agent support for plain prose instruction files."
+    },
+    "RulesCapability": {
+      "type": "object",
+      "properties": {
+        "support": { "$ref": "#/definitions/SupportLevel" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        },
+        "directory": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["support", "scopes"],
+      "additionalProperties": false,
+      "title": "Rules Capability",
+      "description": "Agent support for structured rule files."
+    },
+    "Agent": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/definitions/AgentIdFromYaml" },
+        "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "vendor": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "homepage": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "interfaces": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/AgentInterface" }
+        },
+        "family": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "skills": { "anyOf": [{ "$ref": "#/definitions/SkillsCapability" }, { "type": "null" }] },
+        "commands": {
+          "anyOf": [{ "$ref": "#/definitions/CommandsCapability" }, { "type": "null" }]
+        },
+        "mcp": { "anyOf": [{ "$ref": "#/definitions/McpCapability" }, { "type": "null" }] },
+        "subagents": {
+          "anyOf": [{ "$ref": "#/definitions/SubagentsCapability" }, { "type": "null" }]
+        },
+        "instructions": {
+          "anyOf": [{ "$ref": "#/definitions/InstructionsCapability" }, { "type": "null" }]
+        },
+        "rules": { "anyOf": [{ "$ref": "#/definitions/RulesCapability" }, { "type": "null" }] }
+      },
+      "required": ["id", "name", "vendor", "homepage", "interfaces"],
+      "additionalProperties": false,
+      "title": "Agent",
+      "description": "AI coding agent and its verified extension capability claims."
+    }
+  }
+}

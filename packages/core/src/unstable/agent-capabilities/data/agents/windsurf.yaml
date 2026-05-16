@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: windsurf
+name: Windsurf
+vendor: Cognition
+homepage: https://windsurf.com
+interfaces: [ide-extension]
+family: cognition
+docs:
+  - label: Windsurf documentation
+    url: https://docs.windsurf.com
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio]
+  sources:
+    - https://docs.windsurf.com/windsurf/cascade/mcp
+  lastVerified: 2026-05-16
+
+instructions:
+  support: standard
+  scopes: [project]
+  files: [AGENTS.md]
+  nestedDiscovery: true
+  sources:
+    - https://docs.windsurf.com/windsurf/cascade/agents-md
+  lastVerified: 2026-05-16
+
+rules:
+  support: bridged
+  scopes: [user, project]
+  directory: .windsurf/rules
+  sources:
+    - https://docs.windsurf.com/windsurf/cascade/rules
+  lastVerified: 2026-05-16

@@ -47,6 +47,10 @@
       "types": "./dist/src/unstable/agents/index.d.ts",
       "default": "./dist/src/unstable/agents/index.js"
     },
+    "./unstable/agent-capabilities": {
+      "types": "./dist/src/unstable/agent-capabilities/index.d.ts",
+      "default": "./dist/src/unstable/agent-capabilities/index.js"
+    },
     "./unstable/extensions": {
       "types": "./dist/src/unstable/extensions/index.d.ts",
       "default": "./dist/src/unstable/extensions/index.js"

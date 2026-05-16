@@ -21,9 +21,30 @@
         "cwd": "packages/core"
       }
     },
+    "generate-agent-catalog": {
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production",
+        "{workspaceRoot}/packages/cli/scripts/generate-agent-catalog.ts",
+        "{projectRoot}/src/unstable/agent-capabilities/data/agents/*.yaml",
+        "{projectRoot}/src/unstable/agent-capabilities/schema.ts",
+        "{projectRoot}/src/unstable/agent-capabilities/validate.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": [
+        "{projectRoot}/src/unstable/agent-capabilities/catalog.generated.ts",
+        "{projectRoot}/src/unstable/agent-capabilities/agent.schema.json"
+      ],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "../cli/scripts/generate-agent-catalog.ts"],
+        "cwd": "packages/core"
+      }
+    },
     "build": {
       "cache": true,
-      "dependsOn": ["generate-schemas", "^build"],
+      "dependsOn": ["generate-agent-catalog", "generate-schemas", "^build"],
       "executor": "@nx/js:tsc",
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"],

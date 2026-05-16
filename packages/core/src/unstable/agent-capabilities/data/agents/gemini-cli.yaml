@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: gemini-cli
+name: Gemini CLI
+vendor: Google
+homepage: https://github.com/google-gemini/gemini-cli
+interfaces: [cli]
+family: google
+docs:
+  - label: Gemini CLI documentation
+    url: https://github.com/google-gemini/gemini-cli/tree/main/docs
+
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .gemini/skills
+  sources:
+    - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
+  lastVerified: 2026-05-16
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio]
+  sources:
+    - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
+  lastVerified: 2026-05-16
+
+instructions:
+  support: bridged
+  scopes: [user, project]
+  files: [GEMINI.md]
+  nestedDiscovery: true
+  sources:
+    - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md
+  lastVerified: 2026-05-16

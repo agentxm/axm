@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: github-copilot
+name: GitHub Copilot
+vendor: GitHub
+homepage: https://github.com/features/copilot
+interfaces: [ide-extension, cli]
+family: github
+docs:
+  - label: GitHub Copilot documentation
+    url: https://docs.github.com/en/copilot
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http, sse]
+  sources:
+    - https://docs.github.com/en/copilot/concepts/agents/coding-agent/mcp-and-coding-agent
+  lastVerified: 2026-05-16
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  sources:
+    - https://docs.github.com/en/copilot/reference/custom-agents-configuration
+  lastVerified: 2026-05-16
+
+instructions:
+  support: standard
+  scopes: [project]
+  files: [AGENTS.md, .github/copilot-instructions.md]
+  nestedDiscovery: false
+  sources:
+    - https://code.visualstudio.com/docs/copilot/customization/custom-instructions
+  lastVerified: 2026-05-16

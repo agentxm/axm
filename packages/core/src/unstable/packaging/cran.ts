@@ -219,7 +219,7 @@ export const cranReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "cran" }),
     Effect.withSpan("read.cran"),

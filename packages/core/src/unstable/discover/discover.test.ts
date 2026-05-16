@@ -9,8 +9,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import { purlMatch } from "../packaging/purl-match.js";
-import type { DiscoverExtensionsArgs, RegistryClient } from "../registry/client.js";
-import type { DiscoverExtensionsResponse } from "../registry/discover-schema.js";
+import type { DiscoverPackagesArgs, RegistryClient } from "../registry/client.js";
+import type { DiscoverPackagesResponse } from "../registry/discover-schema.js";
 import { packageType } from "../test-helpers.js";
 import { discover } from "./discover.js";
 
@@ -19,13 +19,11 @@ import { discover } from "./discover.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Build a stub RegistryClient that only implements discoverExtensions.
+ * Build a stub RegistryClient that only implements discoverPackages.
  * All other methods fail with a not-implemented error.
  */
 const makeStubClient = (
-  discoverImpl: (
-    args: DiscoverExtensionsArgs,
-  ) => Effect.Effect<DiscoverExtensionsResponse, AppError>,
+  discoverImpl: (args: DiscoverPackagesArgs) => Effect.Effect<DiscoverPackagesResponse, AppError>,
 ): RegistryClient => {
   const notImplemented = Effect.fail(makeAppError({ code: "internal", detail: "stub" }));
 
@@ -36,14 +34,13 @@ const makeStubClient = (
     getExtensionPackage: () => notImplemented,
     publishExtension: () => notImplemented,
     extensionExists: () => notImplemented,
-    discoverExtensions: discoverImpl,
+    discoverPackages: discoverImpl,
     // Assertion needed: stub RegistryClient satisfies the interface
   } as unknown as RegistryClient;
 };
 
-const emptyResponse: DiscoverExtensionsResponse = {
+const emptyResponse: DiscoverPackagesResponse = {
   results: [],
-  resolvedRecommendations: [],
 };
 
 // -----------------------------------------------------------------------------

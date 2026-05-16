@@ -186,6 +186,16 @@ export const TokenOAuthError = Schema.Struct({
     description: "Human-readable explanation of the error.",
   }),
 });
+export type AuthWhoamiResponse = { readonly handle: string };
+export const AuthWhoamiResponse = Schema.Struct({
+  handle: Schema.String.annotate({
+    description: "The authenticated user's registry handle.",
+    examples: ["@example"],
+  }),
+}).annotate({
+  title: "Auth Whoami Response",
+  description: "Minimal identity response for login checks and CLI whoami.",
+});
 export type UserId = string;
 export const UserId = Schema.String.check(
   Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -204,6 +214,19 @@ export const ResourceRestrictions = Schema.Struct({
   title: "Resource Restrictions",
   description: "What this token is allowed to access.",
 });
+export type StepUpChallengeResponse =
+  | { readonly status: "pending" }
+  | { readonly status: "completed"; readonly step_up: string; readonly expires_at: string };
+export const StepUpChallengeResponse = Schema.Union([
+  Schema.Struct({ status: Schema.Literal("pending") }),
+  Schema.Struct({
+    status: Schema.Literal("completed"),
+    step_up: Schema.String.annotate({
+      description: "Opaque step-up proof for the original request.",
+    }),
+    expires_at: Schema.String.annotate({ description: "ISO timestamp when this proof expires." }),
+  }),
+]).annotate({ title: "Step-up Challenge Response" });
 export type TokenId = string;
 export const TokenId = Schema.String.check(
   Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -250,35 +273,72 @@ export const AuthorizationDenyDetails = Schema.Struct({
   description:
     "Diagnostic details returned when a request is denied due to insufficient authorization.",
 });
-export type CreateTokenRequest = {
-  readonly name: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly expires_in: number;
+export type CreateTokenPermissionsRequest = {
+  readonly owners?: ReadonlyArray<string> | null;
+  readonly extensions?: ReadonlyArray<string> | null;
+  readonly permission?: "read" | "publish" | "admin" | null;
+  readonly org_permission?: "read" | "write" | "admin" | null;
+  readonly cidr?: ReadonlyArray<string> | null;
+  readonly bypass_mfa?: boolean | null;
 };
-export const CreateTokenRequest = Schema.Struct({
-  name: Schema.String.check(
-    Schema.isMinLength(1, {
-      description: "Human-readable name for the token.",
-      examples: ["CI publish token"],
+export const CreateTokenPermissionsRequest = Schema.Struct({
+  owners: Schema.optionalKey(
+    Schema.Union([Schema.Array(Schema.String), Schema.Null]).annotate({
+      description: 'Owner selectors for extension permissions. Use full handles or "all".',
+      examples: [["@example"]],
     }),
   ),
-  scopes: Schema.Array(Schema.String).check(
-    Schema.isMinLength(1, {
-      description: "Permissions to grant this token (e.g. extensions:read, extensions:write).",
-      examples: [["extensions:read", "extensions:write"]],
+  extensions: Schema.optionalKey(
+    Schema.Union([Schema.Array(Schema.String), Schema.Null]).annotate({
+      description: "Extension selectors in @handle/<plural-type>/<name> form.",
+      examples: [["@example/skills/release-bot"]],
     }),
   ),
-  expires_in: Schema.Number.check(Schema.isInt())
-    .check(Schema.isFinite())
-    .check(Schema.isGreaterThanOrEqualTo(3600))
-    .check(
-      Schema.isLessThanOrEqualTo(31536000, {
-        description: "How long the token lasts, in seconds (1 hour to 365 days).",
-      }),
-    ),
+  permission: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["read", "publish", "admin"]), Schema.Null]).annotate({
+      description: "Extension-level permission to grant.",
+    }),
+  ),
+  org_permission: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["read", "write", "admin"]), Schema.Null]).annotate({
+      description: "Organization-level permission to grant.",
+    }),
+  ),
+  cidr: Schema.optionalKey(
+    Schema.Union([Schema.Array(Schema.String), Schema.Null]).annotate({
+      description: "Optional CIDR allowlist for the token.",
+    }),
+  ),
+  bypass_mfa: Schema.optionalKey(
+    Schema.Union([Schema.Boolean, Schema.Null]).annotate({
+      description: "Whether this automation token bypasses step-up MFA.",
+    }),
+  ),
 }).annotate({
-  title: "Create Token Request",
-  description: "Request body for creating a new personal access token.",
+  title: "Create Token Permissions Request",
+  description: "Structured permission request for a granular access token.",
+});
+export type StepUpRequiredError = {
+  readonly kind: "StepUpRequiredError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "eotp";
+  readonly authUrl: string;
+  readonly doneUrl: string;
+};
+export const StepUpRequiredError = Schema.Struct({
+  kind: Schema.Literal("StepUpRequiredError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("eotp"),
+  authUrl: Schema.String,
+  doneUrl: Schema.String,
 });
 export type Handle = string;
 export const Handle = Schema.String.check(
@@ -664,6 +724,19 @@ export const PutCollaboratorBody = Schema.Struct({
   title: "Put Collaborator Body",
   description: "Request body for assigning a collaborator role on an extension.",
 });
+export type ExtensionFqn = string;
+export const ExtensionFqn = Schema.String.check(
+  Schema.isPattern(
+    new RegExp(
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+    ),
+    {
+      title: "Extension FQN",
+      description: "Canonical extension identifier in @owner/<type>s/<name> form.",
+      examples: ["@acme/skills/code-review", "@my-org/commands/format"],
+    },
+  ),
+);
 export type ProblemDetails = {
   readonly type: string;
   readonly title: string;
@@ -720,6 +793,7 @@ export type AuthMeToken = {
   readonly id: string;
   readonly type: "session" | "pat" | "oidc";
   readonly name: string | null;
+  readonly permissions: unknown | null;
   readonly scopes: ReadonlyArray<string>;
   readonly resource_restrictions: ResourceRestrictions;
   readonly expires_at: string;
@@ -736,6 +810,9 @@ export const AuthMeToken = Schema.Struct({
     Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
     Schema.Null,
   ]),
+  permissions: Schema.Union([Schema.Unknown, Schema.Null]).annotate({
+    description: "Structured permissions associated with this token.",
+  }),
   scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
   resource_restrictions: ResourceRestrictions,
   expires_at: Schema.String.annotate({
@@ -751,6 +828,7 @@ export type TokenListItem = {
   readonly name: string | null;
   readonly type: string;
   readonly scopes: ReadonlyArray<string>;
+  readonly permissions: unknown | null;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
   readonly last_used_at: IsoDateTimeString | null;
@@ -763,6 +841,9 @@ export const TokenListItem = Schema.Struct({
   ]),
   type: Schema.String.annotate({ description: "Token type (e.g. 'pat', 'session')." }),
   scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
+  permissions: Schema.Union([Schema.Unknown, Schema.Null]).annotate({
+    description: "Structured permissions associated with this token.",
+  }),
   created_at: IsoDateTimeString,
   expires_at: IsoDateTimeString,
   last_used_at: Schema.Union([IsoDateTimeString, Schema.Null]),
@@ -772,6 +853,7 @@ export type CreateTokenResponse = {
   readonly token: string;
   readonly name: string;
   readonly scopes: ReadonlyArray<string>;
+  readonly permissions: unknown;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
 };
@@ -783,6 +865,7 @@ export const CreateTokenResponse = Schema.Struct({
   }),
   name: Schema.String,
   scopes: Schema.Array(Schema.String),
+  permissions: Schema.Unknown,
   created_at: IsoDateTimeString,
   expires_at: IsoDateTimeString,
 }).annotate({
@@ -801,6 +884,7 @@ export type ForbiddenError = {
     | "insufficient_scope"
     | "resource_restriction"
     | "scope_escalation"
+    | "gat_requires_session"
     | "team_create_not_authorized"
     | "team_delete_not_authorized"
     | "team_update_not_authorized"
@@ -828,6 +912,7 @@ export const ForbiddenError = Schema.Struct({
     "insufficient_scope",
     "resource_restriction",
     "scope_escalation",
+    "gat_requires_session",
     "team_create_not_authorized",
     "team_delete_not_authorized",
     "team_update_not_authorized",
@@ -845,6 +930,42 @@ export const ForbiddenError = Schema.Struct({
   details: Schema.optionalKey(
     Schema.Union([ScopeCheckDetails, AuthorizationDenyDetails, PublishDetails]),
   ),
+});
+export type CreateTokenRequest = {
+  readonly name: string;
+  readonly scopes?: ReadonlyArray<string> | null;
+  readonly permissions?: CreateTokenPermissionsRequest | null;
+  readonly expires_in: number;
+};
+export const CreateTokenRequest = Schema.Struct({
+  name: Schema.String.check(
+    Schema.isMinLength(1, {
+      description: "Human-readable name for the token.",
+      examples: ["CI publish token"],
+    }),
+  ),
+  scopes: Schema.optionalKey(
+    Schema.Union([Schema.Array(Schema.String).check(Schema.isMinLength(1)), Schema.Null]).annotate({
+      description: "Deprecated scope-string grant surface. Prefer permissions.",
+      examples: [["extensions:read", "extensions:publish:version"]],
+    }),
+  ),
+  permissions: Schema.optionalKey(
+    Schema.Union([CreateTokenPermissionsRequest, Schema.Null]).annotate({
+      description: "Structured permission request for the token.",
+    }),
+  ),
+  expires_in: Schema.Number.check(Schema.isInt())
+    .check(Schema.isFinite())
+    .check(Schema.isGreaterThanOrEqualTo(3600))
+    .check(
+      Schema.isLessThanOrEqualTo(31536000, {
+        description: "How long the token lasts, in seconds (1 hour to 365 days).",
+      }),
+    ),
+}).annotate({
+  title: "Create Token Request",
+  description: "Request body for creating a new personal access token.",
 });
 export type UpsertTeamGrantBody = {
   readonly teamId: TeamId;
@@ -1112,7 +1233,14 @@ export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.Struct({
   client_id: Schema.Literal("axm-cli").annotate({
     description: "OAuth client identifier. Must be 'axm-cli'.",
   }),
-  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  scope: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Ignored for axm-cli. Sessions always use full user authority.",
+      }),
+      Schema.Null,
+    ]),
+  ),
 });
 export type AuthIssueDeviceCode200 = DeviceCodeResponse;
 export const AuthIssueDeviceCode200 = DeviceCodeResponse;
@@ -1336,12 +1464,26 @@ export const AuthRevokeOAuthTokenRequestFormUrlEncoded = Schema.Struct({
 });
 export type AuthRevokeOAuthToken400 = DecodeErrorResponse;
 export const AuthRevokeOAuthToken400 = DecodeErrorResponse;
+export type AuthGetWhoami200 = AuthWhoamiResponse;
+export const AuthGetWhoami200 = AuthWhoamiResponse;
+export type AuthGetWhoami400 = DecodeErrorResponse;
+export const AuthGetWhoami400 = DecodeErrorResponse;
+export type AuthGetWhoami401 = ProblemDetails;
+export const AuthGetWhoami401 = ProblemDetails;
 export type AuthGetMe200 = AuthMeResponse;
 export const AuthGetMe200 = AuthMeResponse;
 export type AuthGetMe400 = DecodeErrorResponse;
 export const AuthGetMe400 = DecodeErrorResponse;
 export type AuthGetMe401 = ProblemDetails;
 export const AuthGetMe401 = ProblemDetails;
+export type AuthGetStepUpChallenge200 = StepUpChallengeResponse;
+export const AuthGetStepUpChallenge200 = StepUpChallengeResponse;
+export type AuthGetStepUpChallenge400 = DecodeErrorResponse;
+export const AuthGetStepUpChallenge400 = DecodeErrorResponse;
+export type AuthGetStepUpChallenge401 = ProblemDetails;
+export const AuthGetStepUpChallenge401 = ProblemDetails;
+export type AuthGetStepUpChallenge404 = ProblemDetails;
+export const AuthGetStepUpChallenge404 = ProblemDetails;
 export type AuthExchangeOidcToken400 = DecodeErrorResponse;
 export const AuthExchangeOidcToken400 = DecodeErrorResponse;
 export type AuthExchangeOidcToken501 = ProblemDetails;
@@ -1387,8 +1529,8 @@ export type TokensCreate422 = ProblemDetails;
 export const TokensCreate422 = ProblemDetails;
 export type TokensDelete400 = DecodeErrorResponse;
 export const TokensDelete400 = DecodeErrorResponse;
-export type TokensDelete401 = ProblemDetails;
-export const TokensDelete401 = ProblemDetails;
+export type TokensDelete401 = StepUpRequiredError | ProblemDetails;
+export const TokensDelete401 = Schema.Union([StepUpRequiredError, ProblemDetails]);
 export type TokensDelete403 = ForbiddenError;
 export const TokensDelete403 = ForbiddenError;
 export type OwnersGetOwner200 = OwnerResponse;
@@ -1593,7 +1735,7 @@ export type ExtensionsGet200 = {
     readonly published: IsoDateTimeString;
     readonly integrity: string;
     readonly dependencies?: { readonly [x: string]: VersionRange } | null;
-    readonly companionPackages?: ReadonlyArray<CompanionPackage> | null;
+    readonly packages?: ReadonlyArray<CompanionPackage> | null;
     readonly yanked_at?: IsoDateTimeString | null;
   }>;
   readonly visibility?: "public" | "internal" | "private" | null;
@@ -1617,9 +1759,7 @@ export const ExtensionsGet200 = Schema.Struct({
       dependencies: Schema.optionalKey(
         Schema.Union([Schema.Record(Schema.String, VersionRange), Schema.Null]),
       ),
-      companionPackages: Schema.optionalKey(
-        Schema.Union([Schema.Array(CompanionPackage), Schema.Null]),
-      ),
+      packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage), Schema.Null])),
       yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
     }),
   ),
@@ -1684,7 +1824,7 @@ export type ExtensionsGetVersion200 = {
   readonly license?: LicenseExpression | null;
   readonly authors?: ReadonlyArray<Author> | null;
   readonly dependencies?: { readonly [x: string]: VersionRange } | null;
-  readonly companionPackages?: ReadonlyArray<CompanionPackage> | null;
+  readonly packages?: ReadonlyArray<CompanionPackage> | null;
   readonly yanked_at?: IsoDateTimeString | null;
   readonly deleted_at?: IsoDateTimeString | null;
 };
@@ -1704,9 +1844,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   dependencies: Schema.optionalKey(
     Schema.Union([Schema.Record(Schema.String, VersionRange), Schema.Null]),
   ),
-  companionPackages: Schema.optionalKey(
-    Schema.Union([Schema.Array(CompanionPackage), Schema.Null]),
-  ),
+  packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage), Schema.Null])),
   yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
   deleted_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
 });
@@ -1876,8 +2014,8 @@ export const ExtensionsYankVersion200 = Schema.Struct({
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
 export const ExtensionsYankVersion400 = DecodeErrorResponse;
-export type ExtensionsYankVersion401 = ProblemDetails;
-export const ExtensionsYankVersion401 = ProblemDetails;
+export type ExtensionsYankVersion401 = StepUpRequiredError | ProblemDetails;
+export const ExtensionsYankVersion401 = Schema.Union([StepUpRequiredError, ProblemDetails]);
 export type ExtensionsYankVersion403 = ForbiddenError;
 export const ExtensionsYankVersion403 = ForbiddenError;
 export type ExtensionsYankVersion404 = ProblemDetails;
@@ -1900,8 +2038,8 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
 export const ExtensionsUnyankVersion400 = DecodeErrorResponse;
-export type ExtensionsUnyankVersion401 = ProblemDetails;
-export const ExtensionsUnyankVersion401 = ProblemDetails;
+export type ExtensionsUnyankVersion401 = StepUpRequiredError | ProblemDetails;
+export const ExtensionsUnyankVersion401 = Schema.Union([StepUpRequiredError, ProblemDetails]);
 export type ExtensionsUnyankVersion403 = ForbiddenError;
 export const ExtensionsUnyankVersion403 = ForbiddenError;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
@@ -1989,6 +2127,83 @@ export type TeamGrantsDeleteTeamExtensionGrant403 = ForbiddenError | ForbiddenEr
 export const TeamGrantsDeleteTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
 export type TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
 export const TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
+export type DiscoveryPostDiscoveryRequestJson = {
+  readonly client: { readonly axmVersion: string };
+  readonly packages: ReadonlyArray<{
+    readonly purl: string;
+    readonly version: string;
+    readonly declaredExtensions: ReadonlyArray<{
+      readonly ref: ExtensionFqn;
+      readonly versionRange?: string | null;
+    }>;
+  }>;
+};
+export const DiscoveryPostDiscoveryRequestJson = Schema.Struct({
+  client: Schema.Struct({ axmVersion: Schema.String }),
+  packages: Schema.Array(
+    Schema.Struct({
+      purl: Schema.String,
+      version: Schema.String,
+      declaredExtensions: Schema.Array(
+        Schema.Struct({
+          ref: ExtensionFqn,
+          versionRange: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+        }),
+      ),
+    }),
+  ),
+});
+export type DiscoveryPostDiscovery200 = {
+  readonly results: ReadonlyArray<{
+    readonly purl: string;
+    readonly version: string;
+    readonly status: "resolved" | "invalid_purl";
+    readonly extensions: ReadonlyArray<{
+      readonly ref: string;
+      readonly resolved: boolean;
+      readonly extension?: {
+        readonly owner: string;
+        readonly type: string;
+        readonly name: string;
+        readonly installVersion: string;
+      } | null;
+      readonly attestedBy: ReadonlyArray<"package" | "extension">;
+      readonly official: boolean;
+      readonly packageVersionInRange: boolean;
+    }>;
+  }>;
+};
+export const DiscoveryPostDiscovery200 = Schema.Struct({
+  results: Schema.Array(
+    Schema.Struct({
+      purl: Schema.String,
+      version: Schema.String,
+      status: Schema.Literals(["resolved", "invalid_purl"]),
+      extensions: Schema.Array(
+        Schema.Struct({
+          ref: Schema.String,
+          resolved: Schema.Boolean,
+          extension: Schema.optionalKey(
+            Schema.Union([
+              Schema.Struct({
+                owner: Schema.String,
+                type: Schema.String,
+                name: Schema.String,
+                installVersion: Schema.String,
+              }),
+              Schema.Null,
+            ]),
+          ),
+          attestedBy: Schema.Array(Schema.Literals(["package", "extension"])),
+          official: Schema.Boolean,
+          packageVersionInRange: Schema.Boolean,
+        }),
+      ),
+    }),
+  ),
+});
+export type DiscoveryPostDiscovery400 = ProblemDetails | DecodeErrorResponse;
+export const DiscoveryPostDiscovery400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
@@ -2347,6 +2562,17 @@ export const make = (
           }),
         ),
       ),
+    AuthGetWhoami: (options) =>
+      HttpClientRequest.get(`/v1/auth/whoami`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AuthGetWhoami200),
+            "400": decodeError("AuthGetWhoami400", AuthGetWhoami400),
+            "401": decodeError("AuthGetWhoami401", AuthGetWhoami401),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     AuthGetMe: (options) =>
       HttpClientRequest.get(`/v1/auth/me`).pipe(
         withResponse(options?.config)(
@@ -2354,6 +2580,18 @@ export const make = (
             "2xx": decodeSuccess(AuthGetMe200),
             "400": decodeError("AuthGetMe400", AuthGetMe400),
             "401": decodeError("AuthGetMe401", AuthGetMe401),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    AuthGetStepUpChallenge: (challengeId, options) =>
+      HttpClientRequest.get(`/v1/auth/step-up/challenges/${challengeId}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AuthGetStepUpChallenge200),
+            "400": decodeError("AuthGetStepUpChallenge400", AuthGetStepUpChallenge400),
+            "401": decodeError("AuthGetStepUpChallenge401", AuthGetStepUpChallenge401),
+            "404": decodeError("AuthGetStepUpChallenge404", AuthGetStepUpChallenge404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -2872,6 +3110,17 @@ export const make = (
           }),
         ),
       ),
+    DiscoveryPostDiscovery: (options) =>
+      HttpClientRequest.post(`/v1/discovery`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(DiscoveryPostDiscovery200),
+            "400": decodeError("DiscoveryPostDiscovery400", DiscoveryPostDiscovery400),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     HealthGetShallowHealth: (options) =>
       HttpClientRequest.get(`/v1/health`).pipe(
         withResponse(options?.config)(
@@ -3024,6 +3273,18 @@ export interface RegistryClient {
     | RegistryClientError<"AuthRevokeOAuthToken400", typeof AuthRevokeOAuthToken400.Type>
   >;
   /**
+   * Return authenticated user handle
+   */
+  readonly AuthGetWhoami: <Config extends OperationConfig>(
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof AuthGetWhoami200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthGetWhoami400", typeof AuthGetWhoami400.Type>
+    | RegistryClientError<"AuthGetWhoami401", typeof AuthGetWhoami401.Type>
+  >;
+  /**
    * Return authenticated user info
    */
   readonly AuthGetMe: <Config extends OperationConfig>(
@@ -3034,6 +3295,20 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"AuthGetMe400", typeof AuthGetMe400.Type>
     | RegistryClientError<"AuthGetMe401", typeof AuthGetMe401.Type>
+  >;
+  /**
+   * Poll step-up challenge status
+   */
+  readonly AuthGetStepUpChallenge: <Config extends OperationConfig>(
+    challengeId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof AuthGetStepUpChallenge200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthGetStepUpChallenge400", typeof AuthGetStepUpChallenge400.Type>
+    | RegistryClientError<"AuthGetStepUpChallenge401", typeof AuthGetStepUpChallenge401.Type>
+    | RegistryClientError<"AuthGetStepUpChallenge404", typeof AuthGetStepUpChallenge404.Type>
   >;
   /**
    * Exchange OIDC token (reserved, not implemented)
@@ -3700,6 +3975,18 @@ export interface RegistryClient {
         "TeamGrantsDeleteTeamExtensionGrant404",
         typeof TeamGrantsDeleteTeamExtensionGrant404.Type
       >
+  >;
+  /**
+   * Persists submitted package metadata and resolves package and extension attestations.
+   */
+  readonly DiscoveryPostDiscovery: <Config extends OperationConfig>(options: {
+    readonly payload: typeof DiscoveryPostDiscoveryRequestJson.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
+    WithOptionalResponse<typeof DiscoveryPostDiscovery200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"DiscoveryPostDiscovery400", typeof DiscoveryPostDiscovery400.Type>
   >;
   /**
    * Returns pass/fail status. Public, no auth required.

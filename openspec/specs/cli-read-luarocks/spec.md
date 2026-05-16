@@ -2,12 +2,12 @@
 
 ### Requirement: Read axm recommendation metadata from installed LuaRocks packages
 
-The LuaRocks reader SHALL inspect `axm.json` sidecar files in the LuaRocks install tree. The location varies: `/usr/local/lib/luarocks/rocks-5.x/<pkg>/<version>/` for system installs or the user tree for local installs. Rockspec parsing requires Lua, so the reader SHALL use the sidecar file instead. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The LuaRocks reader SHALL inspect `axm.json` sidecar files in the LuaRocks install tree. The location varies: `/usr/local/lib/luarocks/rocks-5.x/<pkg>/<version>/` for system installs or the user tree for local installs. Rockspec parsing requires Lua, so the reader SHALL use the sidecar file instead. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm.json sidecar
 
-- **WHEN** `/usr/local/lib/luarocks/rocks-5.4/luasocket/3.1.0/axm.json` contains `{ "recommendedExtensions": ["@luarocks/skills/luasocket@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@luarocks/skills/luasocket@^1.0.0"]`
+- **WHEN** `/usr/local/lib/luarocks/rocks-5.4/luasocket/3.1.0/axm.json` contains `{ "extensions": [{ "ref": "@luarocks/skills/luasocket", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@luarocks/skills/luasocket", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without axm.json sidecar
 
@@ -25,14 +25,14 @@ The reader SHALL validate the `axm.json` sidecar contents against the `AxmPackag
 
 #### Scenario: Malformed axm.json warned and skipped
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": "not-an-array" }`
+- **WHEN** `axm.json` contains `{ "extensions": "not-an-array" }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing LuaRocks install tree handled gracefully
 

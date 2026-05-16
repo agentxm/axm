@@ -276,7 +276,7 @@ describe("swiftReader", () => {
   });
 
   describe("valid axm.json sidecar", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -287,18 +287,20 @@ describe("swiftReader", () => {
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@apple/skills/swift-nio@^2.0.0"],
+              extensions: [{ ref: "@apple/skills/swift-nio", versionRange: "^2.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@apple/skills/swift-nio@^2.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@apple/skills/swift-nio", versionRange: "^2.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -306,7 +308,7 @@ describe("swiftReader", () => {
             namespace: "github.com/apple",
             name: "swift-log",
           });
-          const result = yield* readInTempDir(purl, JSON.stringify({ recommendedExtensions: [] }));
+          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -341,7 +343,7 @@ describe("swiftReader", () => {
             namespace: "github.com/some",
             name: "some-package",
           });
-          const result = yield* readInTempDir(purl, JSON.stringify({ recommendedExtensions: 42 }));
+          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: 42 }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -360,13 +362,13 @@ describe("swiftReader", () => {
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

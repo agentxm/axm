@@ -134,24 +134,24 @@ const versScheme = (value: string): string | undefined => {
 const classifyCompanionPackageManifestError = (
   raw: unknown,
 ): { readonly code: ManifestError["code"]; readonly detail: string } | undefined => {
-  if (typeof raw !== "object" || raw === null || !("companionPackages" in raw)) {
+  if (typeof raw !== "object" || raw === null || !("packages" in raw)) {
     return undefined;
   }
 
-  const companionPackages = Reflect.get(raw, "companionPackages");
-  if (!Array.isArray(companionPackages)) {
+  const packages = Reflect.get(raw, "packages");
+  if (!Array.isArray(packages)) {
     return {
       code: "companion_package_invalid",
-      detail: "Manifest companionPackages must be an array of companion package objects.",
+      detail: "Manifest packages must be an array of companion package objects.",
     };
   }
 
-  for (const entry of companionPackages) {
+  for (const entry of packages) {
     if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
       return {
         code: "companion_package_invalid",
         detail:
-          "Manifest companionPackages entries must be objects with purl and optional versionRange fields.",
+          "Manifest packages entries must be objects with purl and optional versionRange fields.",
       };
     }
 
@@ -159,7 +159,7 @@ const classifyCompanionPackageManifestError = (
     if (typeof purl !== "string") {
       return {
         code: "companion_package_invalid",
-        detail: "Manifest companionPackages entries must include a purl string.",
+        detail: "Manifest packages entries must include a purl string.",
       };
     }
 
@@ -175,7 +175,7 @@ const classifyCompanionPackageManifestError = (
     if (versionRange !== undefined && typeof versionRange !== "string") {
       return {
         code: "companion_package_invalid",
-        detail: "Manifest companionPackages versionRange must be a VERS string.",
+        detail: "Manifest packages versionRange must be a VERS string.",
       };
     }
 
@@ -191,7 +191,7 @@ const classifyCompanionPackageManifestError = (
 
   return {
     code: "companion_package_invalid",
-    detail: "Manifest companionPackages contains an invalid companion package declaration.",
+    detail: "Manifest packages contains an invalid companion package declaration.",
   };
 };
 

@@ -319,19 +319,21 @@ describe("hackageReader", () => {
   });
 
   describe("valid x-axm fields", () => {
-    it.effect("extracts recommendedExtensions from x-axm fields", () =>
+    it.effect("extracts extensions from x-axm fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
             "name: aeson",
             "version: 2.2.1.0",
-            'x-axm-recommendedExtensions: ["@hackage/skills/aeson@^1.0.0"]',
+            'x-axm-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
           ].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@hackage/skills/aeson@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@hackage/skills/aeson", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
@@ -356,9 +358,7 @@ describe("hackageReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
-          const cabalContent = ["name: aeson", "x-axm-recommendedExtensions: not-valid-json"].join(
-            "\n",
-          );
+          const cabalContent = ["name: aeson", "x-axm-extensions: not-valid-json"].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -373,13 +373,15 @@ describe("hackageReader", () => {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
             "name: aeson",
-            'x-axm-recommendedExtensions: ["@hackage/skills/aeson@^1.0.0"]',
+            'x-axm-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
             "x-axm-futureField: true",
           ].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@hackage/skills/aeson@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@hackage/skills/aeson", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
@@ -393,12 +395,14 @@ describe("hackageReader", () => {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
             "name: aeson",
-            'x-axm-recommendedExtensions: ["@hackage/skills/aeson@^1.0.0"]',
+            'x-axm-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
           ].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent, "dist-newstyle");
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@hackage/skills/aeson@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@hackage/skills/aeson", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),

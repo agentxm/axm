@@ -186,7 +186,7 @@ describe("juliaReader", () => {
   });
 
   describe("valid [axm] section", () => {
-    it.effect("extracts recommendedExtensions from [axm] section", () =>
+    it.effect("extracts extensions from [axm] section", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "DataFrames" });
@@ -194,22 +194,24 @@ describe("juliaReader", () => {
             'name = "DataFrames"',
             "",
             "[axm]",
-            'recommendedExtensions = ["@julialang/skills/dataframes@^1.0.0"]',
+            'extensions = [{ ref = "@julialang/skills/dataframes", versionRange = "^1.0.0" }]',
           ].join("\n");
           const result = yield* readInTempJulia(purl, toml);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@julialang/skills/dataframes@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@julialang/skills/dataframes", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
-          const toml = ['name = "SomeLib"', "", "[axm]", "recommendedExtensions = []"].join("\n");
+          const toml = ['name = "SomeLib"', "", "[axm]", "extensions = []"].join("\n");
           const result = yield* readInTempJulia(purl, toml);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -240,12 +242,7 @@ describe("juliaReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
-          const toml = [
-            'name = "SomeLib"',
-            "",
-            "[axm]",
-            'recommendedExtensions = "not-an-array"',
-          ].join("\n");
+          const toml = ['name = "SomeLib"', "", "[axm]", 'extensions = "not-an-array"'].join("\n");
           const result = yield* readInTempJulia(purl, toml);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -262,13 +259,13 @@ describe("juliaReader", () => {
             'name = "SomeLib"',
             "",
             "[axm]",
-            'recommendedExtensions = ["@acme/skills/foo@^1.0.0"]',
+            'extensions = [{ ref = "@acme/skills/foo", versionRange = "^1.0.0" }]',
             "futureField = true",
           ].join("\n");
           const result = yield* readInTempJulia(purl, toml);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

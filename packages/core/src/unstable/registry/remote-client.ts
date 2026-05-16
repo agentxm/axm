@@ -10,13 +10,14 @@
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { type AppError, type AppErrorMetadata, makeAppError } from "../app-error/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
-import { parseExtensionSpecParts } from "../extensions/common.js";
+import { parseExtensionFqnParts, toExtensionTypePlural } from "../extensions/common.js";
 import {
   decodeExtensionNameSync,
   toAuthor,
@@ -24,16 +25,13 @@ import {
   type ExtensionType,
 } from "../extensions/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
-import { purlMatch } from "../packaging/purl-match.js";
-import {
-  companionPackagesToPackageUrlParts,
-  ExtensionIndexSchema,
-  type ExtensionIndex,
-} from "./schema.js";
-import type { DiscoverExtensionEntry } from "./discover-schema.js";
+import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
+import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
+import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
+import { DiscoverPackagesResponseSchema } from "./discover-schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
-  DiscoverExtensionsArgs,
+  DiscoverPackagesArgs,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
   GetExtensionIndexArgs,
@@ -65,7 +63,6 @@ import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
   ExtensionsListByOwner200,
-  SearchSearchExtensions200,
 } from "./__generated__/registry-client.js";
 
 // -----------------------------------------------------------------------------
@@ -74,6 +71,7 @@ import type {
 
 const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
 const decodeExtensionIndex = Schema.decodeUnknownSync(ExtensionIndexSchema);
+const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 
 /**
  * Narrow a string to ExtensionType via Schema validation.
@@ -106,10 +104,7 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
       published: v.published,
       integrity: v.integrity,
       dependencies: v.dependencies === null ? undefined : v.dependencies,
-      companionPackages:
-        v.companionPackages === null || v.companionPackages === undefined
-          ? undefined
-          : v.companionPackages,
+      packages: v.packages === null || v.packages === undefined ? undefined : v.packages,
     })),
   });
 
@@ -137,67 +132,9 @@ const toRegistryManifest = (
     dependencies: latest.dependencies ?? {},
     version: latest.version,
     integrity: latest.integrity,
-    companionPackages: companionPackagesToPackageUrlParts(latest.companionPackages),
+    packages: packagesToPackageUrlParts(latest.packages),
   });
 };
-
-const optionToArray = <A>(option: Option.Option<A>): ReadonlyArray<A> =>
-  Option.match(option, {
-    onNone: () => [],
-    onSome: (value) => [value],
-  });
-
-const indexToDiscoverEntry = (index: ExtensionIndex): Option.Option<DiscoverExtensionEntry> => {
-  const [latestVersion] = index.versions;
-  if (latestVersion === undefined) {
-    return Option.none();
-  }
-
-  return Option.some({
-    type: index.type,
-    name: index.name,
-    owner: index.owner,
-    description: index.description ?? "",
-    latestVersion: latestVersion.version,
-  });
-};
-
-const remoteDiscoverableTypes: ReadonlyArray<ExtensionType> = [
-  "skill",
-  "command",
-  "mcp-server",
-  "subagent",
-] as const;
-
-const isRemoteDiscoverableType = (type: ExtensionType): boolean =>
-  remoteDiscoverableTypes.includes(type);
-
-type SearchCatalogHit = SearchSearchExtensions200["extensions"][number];
-
-const isSearchCatalogHitDiscoverable = (
-  hit: SearchCatalogHit,
-): hit is SearchCatalogHit & { readonly type: (typeof remoteDiscoverableTypes)[number] } =>
-  hit.type === "skill" ||
-  hit.type === "command" ||
-  hit.type === "mcp-server" ||
-  hit.type === "subagent";
-
-const decodeSearchCatalogHit = (
-  hit: SearchCatalogHit,
-): Effect.Effect<GetExtensionIndexArgs, AppError> =>
-  Effect.try({
-    try: () => ({
-      owner: decodeHandleSync(hit.owner),
-      type: hit.type,
-      name: decodeExtensionNameSync(hit.name),
-    }),
-    catch: (cause) =>
-      makeAppError({
-        code: "validation",
-        detail: "Remote discovery response does not match expected schema",
-        cause,
-      }),
-  });
 
 // -----------------------------------------------------------------------------
 // Remote Registry Client
@@ -210,6 +147,37 @@ const remoteDiscoveryTypes: ReadonlyArray<ExtensionType> = [
   "subagent",
   "pack",
 ] as const;
+
+const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
+  type: parts.type,
+  name: parts.name,
+  ...(parts.namespace === undefined ? {} : { namespace: parts.namespace }),
+  ...(parts.qualifiers === undefined ? {} : { qualifiers: parts.qualifiers }),
+  ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
+});
+
+const extensionDeclarationToDiscoveryRef = (value: PackageExtensionDeclaration) => {
+  const parts = parseExtensionFqnParts(value.ref);
+  if (parts === undefined) {
+    return undefined;
+  }
+
+  return {
+    ref: `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`,
+    ...(value.versionRange === undefined || value.versionRange === null
+      ? {}
+      : { versionRange: value.versionRange }),
+  };
+};
+
+const registryRequestMetadata = (
+  method: string,
+  url: string,
+): NonNullable<AppErrorMetadata["request"]> => ({
+  service: "registry",
+  method,
+  url,
+});
 
 /**
  * Creates a remote HTTPS registry client.
@@ -226,9 +194,10 @@ export const createRemoteRegistryClient = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
 ): RegistryClient => {
-  const client = GeneratedRegistryClient.make(
-    httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
+  const remoteHttpClient = httpClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl)),
   );
+  const client = GeneratedRegistryClient.make(remoteHttpClient);
 
   // ---------------------------------------------------------------------------
   // getExtensionIndex
@@ -424,57 +393,6 @@ export const createRemoteRegistryClient = (
   const mapDiscoveryErrors = <A>(effect: Effect.Effect<A, unknown>): Effect.Effect<A, AppError> =>
     effect.pipe(Effect.mapError((e) => mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")));
 
-  const fetchDiscoverableCatalogHits = (): Effect.Effect<
-    ReadonlyArray<SearchCatalogHit>,
-    AppError
-  > =>
-    Effect.gen(function* () {
-      const hits: Array<SearchCatalogHit> = [];
-      let cursor: string | undefined;
-
-      while (true) {
-        const page = yield* mapDiscoveryErrors(
-          client.SearchSearchExtensions({
-            params: {
-              q: "",
-              limit: "100",
-              ...(cursor === undefined ? {} : { cursor }),
-            },
-          }),
-        );
-
-        hits.push(...page.extensions.filter(isSearchCatalogHitDiscoverable));
-
-        if (!page.has_more) {
-          return hits;
-        }
-
-        if (page.cursor === null) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: "Remote discovery response does not match expected schema",
-          });
-        }
-
-        cursor = page.cursor;
-      }
-    });
-
-  const fetchDiscoverableIndexes = (): Effect.Effect<ReadonlyArray<ExtensionIndex>, AppError> =>
-    Effect.gen(function* () {
-      const hits = yield* fetchDiscoverableCatalogHits();
-      const maybeIndexes = yield* Effect.forEach(
-        hits,
-        (hit) =>
-          decodeSearchCatalogHit(hit).pipe(
-            Effect.flatMap((decodedHit) => getExtensionIndex(decodedHit)),
-          ),
-        { concurrency: "unbounded" },
-      );
-
-      return maybeIndexes.flatMap(optionToArray);
-    });
-
   // ---------------------------------------------------------------------------
   // ownerExists
   // ---------------------------------------------------------------------------
@@ -664,6 +582,13 @@ export const createRemoteRegistryClient = (
   ): Effect.Effect<PublishExtensionResponse, AppError> => {
     const networkSuggestions = buildNetworkSuggestions(baseUrl);
     const networkDiagnosisDetails = buildNetworkDiagnosis(baseUrl);
+    const publishRequest = registryRequestMetadata(
+      "PUT",
+      new URL(
+        `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
+        baseUrl,
+      ).href,
+    );
 
     // Build FormData for multipart upload
     const formData = new FormData();
@@ -689,7 +614,9 @@ export const createRemoteRegistryClient = (
       .pipe(
         Effect.map((response) => ({ published: true as const, links: response.links })),
         // Single mapError handler for all error types to avoid error channel narrowing issues
-        Effect.mapError((e) => mapPublishError(e, networkSuggestions, networkDiagnosisDetails)),
+        Effect.mapError((e) =>
+          mapPublishError(e, networkSuggestions, networkDiagnosisDetails, publishRequest),
+        ),
       );
   };
 
@@ -701,12 +628,16 @@ export const createRemoteRegistryClient = (
     e: unknown,
     networkSuggestions: ReadonlyArray<SuggestedAction>,
     _networkDiagnosisDetails: ReadonlyArray<string>,
+    publishRequest: NonNullable<AppErrorMetadata["request"]>,
   ): AppError => {
     // HttpClientError — network error
     if (isHttpClientError(e)) {
       return makeAppError({
         code: "network",
         detail: "Remote registry is unreachable",
+        metadata: {
+          request: registryRequestMetadata(e.request.method, e.request.url),
+        },
         suggestions: networkSuggestions,
         cause: e,
       });
@@ -716,6 +647,9 @@ export const createRemoteRegistryClient = (
       return makeAppError({
         code: "internal",
         detail: "The registry returned a response the CLI could not parse.",
+        metadata: {
+          request: publishRequest,
+        },
         suggestions: [
           {
             description:
@@ -743,75 +677,56 @@ export const createRemoteRegistryClient = (
   };
 
   // ---------------------------------------------------------------------------
-  // discoverExtensions
+  // discoverPackages
   // ---------------------------------------------------------------------------
-  const discoverExtensions = (
-    args: DiscoverExtensionsArgs,
+  const discoverPackages = (
+    args: DiscoverPackagesArgs,
   ): Effect.Effect<
-    import("./discover-schema.js").DiscoverExtensionsResponse,
+    import("./discover-schema.js").DiscoverPackagesResponse,
     import("../app-error/index.js").AppError
-  > =>
-    Effect.gen(function* () {
-      const indexes = yield* fetchDiscoverableIndexes();
-
-      const results = args.packages.flatMap((detectedPackage) => {
-        const matchingExtensions = indexes.flatMap((index) => {
-          const [latestVersion] = index.versions;
-          if (latestVersion === undefined) {
-            return [];
-          }
-
-          const companionPackages = companionPackagesToPackageUrlParts(
-            latestVersion.companionPackages,
-          );
-          if (!companionPackages.some((declared) => purlMatch(detectedPackage, declared))) {
-            return [];
-          }
-
-          return optionToArray(indexToDiscoverEntry(index));
-        });
-
-        if (matchingExtensions.length === 0) {
-          return [];
-        }
-
-        return [
-          {
-            detectedPackage,
-            extensions: matchingExtensions,
-          },
-        ];
-      });
-
-      const resolvedRecommendationIndexes = yield* Effect.forEach(
-        args.workspaceRecommendedExtensions ?? [],
-        (ref) => {
-          const parsed = parseExtensionSpecParts(ref);
-          if (parsed === undefined || !isRemoteDiscoverableType(parsed.type)) {
-            return Effect.succeed(Option.none<ExtensionIndex>());
-          }
-
-          return getExtensionIndex({
-            owner: parsed.owner,
-            type: parsed.type,
-            name: parsed.name,
-          });
-        },
-        { concurrency: "unbounded" },
-      );
-
-      const resolvedRecommendations = resolvedRecommendationIndexes.flatMap((index) =>
-        Option.match(index, {
-          onNone: () => [],
-          onSome: (value) => optionToArray(indexToDiscoverEntry(value)),
+  > => {
+    const payload = {
+      client: { axmVersion: "0.0.0" },
+      packages: args.packages.map((pkg) => ({
+        purl: encodePackageUrl(packageIdentity(pkg.purl)),
+        version: pkg.version,
+        declaredExtensions: pkg.declaredExtensions.flatMap((entry) => {
+          const ref = extensionDeclarationToDiscoveryRef(entry);
+          return ref === undefined ? [] : [ref];
         }),
-      );
+      })),
+    };
 
-      return {
-        results,
-        resolvedRecommendations,
-      };
-    });
+    return HttpClientRequest.post("/v1/discovery").pipe(
+      HttpClientRequest.bodyJsonUnsafe(payload),
+      remoteHttpClient.execute,
+      Effect.flatMap(
+        HttpClientResponse.matchStatus({
+          "2xx": HttpClientResponse.schemaBodyJson(DiscoverPackagesResponseSchema),
+          orElse: (response) =>
+            Effect.fail(
+              makeAppError({
+                code: "network",
+                detail: `Remote discovery failed with HTTP ${response.status}`,
+                metadata: {
+                  request: registryRequestMetadata(response.request.method, response.request.url),
+                  response: {
+                    status: response.status,
+                  },
+                },
+              }),
+            ),
+        }),
+      ),
+      Effect.mapError((e) =>
+        isHttpClientError(e) || isSchemaError(e)
+          ? mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")
+          : isAnyRegistryClientError(e)
+            ? registryClientErrorToAppError(e)
+            : mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY"),
+      ),
+    );
+  };
 
   return {
     getExtensionIndex,
@@ -820,6 +735,6 @@ export const createRemoteRegistryClient = (
     getExtensionPackage,
     publishExtension,
     extensionExists,
-    discoverExtensions,
+    discoverPackages,
   };
 };

@@ -316,7 +316,7 @@ describe("ref detail interfaces", () => {
       name: extensionName("my-skill"),
       version: exactVersion("1.2.3"),
       integrity: Option.some("sha512-abc=="),
-      companionPackages: [],
+      packages: [],
     };
     expect(details.owner).toBe("@acme");
     expect(details.name).toBe("my-skill");
@@ -378,7 +378,7 @@ describe("SkillExtensionRef", () => {
       name: extensionName("test-pkg"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-abc"),
-      companionPackages: [],
+      packages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("1.0.0");
@@ -469,7 +469,7 @@ describe("McpServerExtensionRef", () => {
       name: extensionName("server-pkg"),
       version: exactVersion("2.0.0"),
       integrity: Option.some("sha512-def"),
-      companionPackages: [],
+      packages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("2.0.0");
@@ -500,7 +500,7 @@ describe("PackRef", () => {
       name: extensionName("pack-pkg"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-ghi"),
-      companionPackages: [],
+      packages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("1.0.0");
@@ -554,7 +554,7 @@ describe("ExtensionRef", () => {
       name: extensionName("p"),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
-      companionPackages: [],
+      packages: [],
     };
     if (ref.type === "pack") {
       expect(ref.pack.name).toBe("p");
@@ -571,7 +571,7 @@ describe("ExtensionRef", () => {
       name: extensionName("pkg"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-abc"),
-      companionPackages: [],
+      packages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.owner).toBe("@acme");

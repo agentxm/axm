@@ -22,7 +22,12 @@ export { readLocalRecommendations } from "./read.js";
 
 export { purlIdentityMatch, purlMatch } from "./purl-match.js";
 
-export { AxmPackageMetaSchema, type AxmPackageMeta } from "./axm-package-meta.js";
+export {
+  AxmPackageMetaSchema,
+  PackageExtensionDeclarationSchema,
+  type AxmPackageMeta,
+  type PackageExtensionDeclaration,
+} from "./axm-package-meta.js";
 
 // Tier 1
 import { npmDetector, npmReader } from "./npm.js";

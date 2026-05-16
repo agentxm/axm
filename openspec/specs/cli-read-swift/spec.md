@@ -2,21 +2,21 @@
 
 ### Requirement: Read axm recommendation metadata from installed SwiftPM packages
 
-The Swift reader SHALL inspect `.build/checkouts/<package-name>/axm.json` for each detected SwiftPM package and check for recommendation metadata. SwiftPM checks out dependencies into `.build/checkouts/` after `swift package resolve`. The sidecar approach follows the ecosystem precedent of `.spi.yml` from Swift Package Index. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The Swift reader SHALL inspect `.build/checkouts/<package-name>/axm.json` for each detected SwiftPM package and check for recommendation metadata. SwiftPM checks out dependencies into `.build/checkouts/` after `swift package resolve`. The sidecar approach follows the ecosystem precedent of `.spi.yml` from Swift Package Index. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm.json sidecar
 
-- **WHEN** `.build/checkouts/swift-nio/axm.json` contains `{ "recommendedExtensions": ["@apple/skills/swift-nio@^2.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@apple/skills/swift-nio@^2.0.0"]`
+- **WHEN** `.build/checkouts/swift-nio/axm.json` contains `{ "extensions": [{ "ref": "@apple/skills/swift-nio", "versionRange": "^2.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@apple/skills/swift-nio", "versionRange": "^2.0.0" }]`
 
 #### Scenario: Package without axm.json sidecar
 
 - **WHEN** `.build/checkouts/swift-argument-parser/` exists but contains no `axm.json`
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Package with empty recommendedExtensions
+#### Scenario: Package with empty extensions
 
-- **WHEN** `.build/checkouts/swift-log/axm.json` contains `{ "recommendedExtensions": [] }`
+- **WHEN** `.build/checkouts/swift-log/axm.json` contains `{ "extensions": [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Validate metadata against AxmPackageMeta schema
@@ -25,14 +25,14 @@ The reader SHALL validate the `axm.json` contents against the `AxmPackageMeta` s
 
 #### Scenario: Malformed axm.json warned and skipped
 
-- **WHEN** `.build/checkouts/some-package/axm.json` contains `{ "recommendedExtensions": 42 }`
+- **WHEN** `.build/checkouts/some-package/axm.json` contains `{ "extensions": 42 }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `.build/checkouts/some-package/axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `.build/checkouts/some-package/axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Checkout path derived from package name
 

@@ -1,44 +1,35 @@
 /**
- * Discover pipeline: detect packages, read local recommendations,
- * query registry, and merge results with signal assignment.
+ * Discover pipeline: detect direct packages, read package-native extension
+ * declarations, submit them to the registry, and render attestation results.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import {
-  parseExtensionSpecParts,
-  toExtensionTypePlural,
-  type ExtensionSpec,
-} from "../extensions/common.js";
+import { parseExtensionFqnParts, toExtensionTypePlural } from "../extensions/common.js";
 import type { RegistryClient } from "../registry/client.js";
-import type {
-  DiscoverExtensionEntry,
-  DiscoverExtensionsResponse,
-} from "../registry/discover-schema.js";
+import type { DiscoveryExtensionResult } from "../registry/discover-schema.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { detectPackages } from "../packaging/detect.js";
 import { packageDetectors, packageReaders } from "../packaging/index.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import { PackageUrlSchema } from "../packaging/package-url.js";
 import { readLocalRecommendations } from "../packaging/read.js";
-
-// -----------------------------------------------------------------------------
-// Result Types
-// -----------------------------------------------------------------------------
-
-export type DiscoverSignal = "compatible" | "recommended";
+import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
 
 export interface DiscoverResultEntry {
-  readonly extension: DiscoverExtensionEntry;
-  readonly signal: DiscoverSignal;
+  readonly ref: string;
+  readonly resolved: boolean;
+  readonly extension: DiscoveryExtensionResult["extension"];
+  readonly attestedBy: ReadonlyArray<"package" | "extension">;
+  readonly official: boolean;
+  readonly packageVersionInRange: boolean;
 }
 
 export interface DiscoverPackageResult {
@@ -54,20 +45,24 @@ export interface DiscoverResult {
 
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
-// -----------------------------------------------------------------------------
-// Pipeline
-// -----------------------------------------------------------------------------
+const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
+  type: parts.type,
+  name: parts.name,
+  ...(parts.namespace === undefined ? {} : { namespace: parts.namespace }),
+  ...(parts.qualifiers === undefined ? {} : { qualifiers: parts.qualifiers }),
+  ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
+});
 
-/**
- * Run the full discover pipeline:
- * 1. Detect packages from project manifests
- * 2. Read local recommendation metadata
- * 3. Query registry for compatible extensions
- * 4. Merge and assign signals
- */
+const extensionDeclarationToRef = (value: PackageExtensionDeclaration): string | undefined => {
+  const parts = parseExtensionFqnParts(value.ref);
+  if (parts === undefined) {
+    return undefined;
+  }
+  return `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`;
+};
+
 export const discover = (projectDir: string, registryClient: RegistryClient) =>
   Effect.gen(function* () {
-    // Stage 1: Detect packages
     const detected = yield* detectPackages(projectDir, packageDetectors).pipe(
       Effect.withSpan("discover.detect"),
     );
@@ -80,190 +75,123 @@ export const discover = (projectDir: string, registryClient: RegistryClient) =>
       } satisfies DiscoverResult;
     }
 
-    // Stage 2: Read local recommendations
-    const localRecs = yield* readLocalRecommendations(detected, packageReaders).pipe(
+    const localExtensions = yield* readLocalRecommendations(detected, packageReaders).pipe(
       Effect.withSpan("discover.readLocal"),
     );
 
-    // Collect all recommendation refs for the registry query
-    const allRecommendedRefs = Array.dedupe(
-      Array.flatten(Array.fromIterable(HashMap.values(localRecs))),
-    );
+    // v1 submits direct dependencies only. Revisit transitive submission and
+    // privacy-mode filtering together so users get one coherent consent model.
+    const submittedPackages = detected.flatMap((pkg) => {
+      if (pkg.purl.version === undefined) {
+        return [];
+      }
 
-    // Stage 3: Query registry
-    const purls = detected.map((d) => d.purl);
-    const discoverArgs =
-      allRecommendedRefs.length > 0
-        ? { packages: purls, workspaceRecommendedExtensions: allRecommendedRefs }
-        : { packages: purls };
+      const purl = encodePurl(pkg.purl);
+      const declaredExtensions = Option.match(HashMap.get(localExtensions, purl), {
+        onNone: (): ReadonlyArray<PackageExtensionDeclaration> => [],
+        onSome: (value) => value,
+      });
+
+      return [
+        {
+          purl: packageIdentity(pkg.purl),
+          version: pkg.purl.version,
+          declaredExtensions,
+        },
+      ];
+    });
 
     const registryResult = yield* Effect.result(
-      registryClient.discoverExtensions(discoverArgs),
+      registryClient.discoverPackages({ packages: submittedPackages }),
     ).pipe(Effect.withSpan("discover.queryRegistry"));
 
     if (Result.isFailure(registryResult)) {
-      yield* Effect.logWarning("Registry is unreachable — showing local recommendations only");
+      yield* Effect.logWarning("Registry is unreachable; showing local package declarations only");
     }
 
     const registryAvailable = Result.isSuccess(registryResult);
-
-    // Stage 4: Merge and assign signals
-    const merged = mergeResults(
-      detected.map((d) => ({ purlString: encodePurl(d.purl), parts: d.purl })),
-      registryAvailable ? registryResult.success : undefined,
-      localRecs,
-    );
+    const packages = registryAvailable
+      ? mergeRegistryResults(detected, registryResult.success.results)
+      : buildLocalOnlyResults(detected, localExtensions);
 
     return {
-      packages: merged,
+      packages,
       totalDetected: detected.length,
       registryAvailable,
     } satisfies DiscoverResult;
   }).pipe(Effect.annotateLogs({ command: "discover", projectDir }), Effect.withSpan("discover"));
 
-// -----------------------------------------------------------------------------
-// Merge Logic
-// -----------------------------------------------------------------------------
-
-const makeEntryKey = (entry: DiscoverExtensionEntry): string =>
-  `${entry.owner}/${entry.type}/${entry.name}`;
-
-const mergeResults = (
-  detected: ReadonlyArray<{ readonly purlString: string; readonly parts: PackageUrlParts }>,
-  response: DiscoverExtensionsResponse | undefined,
-  localRecs: HashMap.HashMap<string, ReadonlyArray<ExtensionSpec>>,
+const mergeRegistryResults = (
+  detected: ReadonlyArray<{ readonly purl: PackageUrlParts }>,
+  results: ReadonlyArray<{
+    readonly purl: string;
+    readonly extensions: ReadonlyArray<DiscoveryExtensionResult>;
+  }>,
 ): ReadonlyArray<DiscoverPackageResult> => {
-  if (response === undefined) {
-    return buildLocalOnlyResults(detected, localRecs);
-  }
+  const detectedByIdentity = new Map(
+    detected.map((pkg) => [encodePurl(packageIdentity(pkg.purl)), pkg.purl]),
+  );
 
-  // Build a set of recommended extension keys from resolvedRecommendations
-  const recommendedKeys = new Set<string>();
-  for (const rec of response.resolvedRecommendations) {
-    recommendedKeys.add(makeEntryKey(rec));
-  }
-
-  // Build per-package results from registry response
-  const packageMap = new Map<string, Map<string, DiscoverResultEntry>>();
-
-  for (const group of response.results) {
-    const purlParts = group.detectedPackage;
-    const purlKey = encodePurl(purlParts);
-    let entries = packageMap.get(purlKey);
-    if (entries === undefined) {
-      entries = new Map();
-      packageMap.set(purlKey, entries);
+  return results.flatMap((result) => {
+    const detectedPackage = detectedByIdentity.get(result.purl);
+    if (detectedPackage === undefined || result.extensions.length === 0) {
+      return [];
     }
 
-    const localRefsForPurl = HashMap.get(localRecs, purlKey);
-
-    for (const ext of group.extensions) {
-      const key = makeEntryKey(ext);
-      const isRecommended =
-        recommendedKeys.has(key) ||
-        (Option.isSome(localRefsForPurl) && hasMatchingRef(localRefsForPurl.value, ext));
-
-      const signal: DiscoverSignal = isRecommended ? "recommended" : "compatible";
-      const existing = entries.get(key);
-
-      // recommended overrides compatible
-      if (
-        existing === undefined ||
-        (signal === "recommended" && existing.signal === "compatible")
-      ) {
-        entries.set(key, { extension: ext, signal });
-      }
-    }
-  }
-
-  // Also add resolvedRecommendations that may not appear in results
-  for (const rec of response.resolvedRecommendations) {
-    const key = makeEntryKey(rec);
-    HashMap.forEach(localRecs, (refs, purl) => {
-      if (hasMatchingRef(refs, rec)) {
-        let entries = packageMap.get(purl);
-        if (entries === undefined) {
-          entries = new Map();
-          packageMap.set(purl, entries);
-        }
-        const existing = entries.get(key);
-        if (existing === undefined || existing.signal === "compatible") {
-          entries.set(key, { extension: rec, signal: "recommended" });
-        }
-      }
-    });
-  }
-
-  // Map detected packages to results, maintaining order
-  const purlToDetected = new Map(detected.map((d) => [d.purlString, d.parts]));
-  const results: Array<DiscoverPackageResult> = [];
-
-  for (const [purl, entries] of packageMap) {
-    const parts = purlToDetected.get(purl);
-    if (parts === undefined) continue;
-    results.push({
-      detectedPackage: parts,
-      extensions: [...entries.values()],
-    });
-  }
-
-  return results;
+    return [
+      {
+        detectedPackage,
+        extensions: result.extensions.map((entry) => ({
+          ref: entry.ref,
+          resolved: entry.resolved,
+          extension: entry.extension,
+          attestedBy: entry.attestedBy,
+          official: entry.official,
+          packageVersionInRange: entry.packageVersionInRange,
+        })),
+      },
+    ];
+  });
 };
 
-/**
- * Build results from local recommendations only (when registry is unavailable).
- */
 const buildLocalOnlyResults = (
-  detected: ReadonlyArray<{ readonly purlString: string; readonly parts: PackageUrlParts }>,
-  localRecs: HashMap.HashMap<string, ReadonlyArray<ExtensionSpec>>,
+  detected: ReadonlyArray<{ readonly purl: PackageUrlParts }>,
+  localExtensions: HashMap.HashMap<string, ReadonlyArray<PackageExtensionDeclaration>>,
 ): ReadonlyArray<DiscoverPackageResult> => {
-  const results: Array<DiscoverPackageResult> = [];
   const fallbackVersion = decodeVersionSync("0.0.0");
 
-  for (const pkg of detected) {
-    const refsOpt = HashMap.get(localRecs, pkg.purlString);
-    if (Option.isNone(refsOpt) || refsOpt.value.length === 0) continue;
-
-    const extensions: Array<DiscoverResultEntry> = [];
-    for (const ref of refsOpt.value) {
-      const parsed = parseExtensionSpecParts(ref);
-      if (parsed === undefined) continue;
-
-      extensions.push({
-        extension: {
-          type: parsed.type,
-          name: parsed.name,
-          owner: parsed.owner,
-          description: "",
-          latestVersion: fallbackVersion,
-        },
-        signal: "recommended",
-      });
+  return detected.flatMap((pkg) => {
+    const refs = HashMap.get(localExtensions, encodePurl(pkg.purl));
+    if (Option.isNone(refs) || refs.value.length === 0) {
+      return [];
     }
 
-    if (extensions.length > 0) {
-      results.push({ detectedPackage: pkg.parts, extensions });
-    }
-  }
+    const extensions = refs.value.flatMap((entry) => {
+      const parts = parseExtensionFqnParts(entry.ref);
+      const ref = extensionDeclarationToRef(entry);
+      if (parts === undefined || ref === undefined) {
+        return [];
+      }
 
-  return results;
-};
+      return [
+        {
+          ref,
+          resolved: true,
+          extension: {
+            owner: parts.owner,
+            type: parts.type,
+            name: parts.name,
+            installVersion: fallbackVersion,
+          },
+          attestedBy: ["package"],
+          official: false,
+          packageVersionInRange: true,
+        } satisfies DiscoverResultEntry,
+      ];
+    });
 
-/**
- * Check if any ref in the array matches the extension entry's FQN pattern.
- */
-const hasMatchingRef = (
-  refs: ReadonlyArray<ExtensionSpec>,
-  entry: DiscoverExtensionEntry,
-): boolean => {
-  const plural = toExtensionTypePlural(entry.type);
-  const fqn = `${entry.owner}/${plural}/${entry.name}`;
-
-  for (const ref of refs) {
-    const parsed = parseExtensionSpecParts(ref);
-    if (parsed === undefined) continue;
-    const refFqn = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
-    if (refFqn === fqn) return true;
-  }
-  return false;
+    return extensions.length === 0
+      ? []
+      : [{ detectedPackage: pkg.purl, extensions } satisfies DiscoverPackageResult];
+  });
 };

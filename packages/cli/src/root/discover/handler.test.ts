@@ -8,7 +8,6 @@ import {
   decodeHandleSync,
 } from "@agentxm/client-core/unstable/extensions";
 import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
-import type { DiscoverExtensionEntry } from "@agentxm/client-core/unstable/registry";
 import type { DiscoverPackageResult, DiscoverResult } from "@agentxm/client-core/unstable/discover";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -17,25 +16,45 @@ import { formatPackageName, handleDiscoverWith, toDiscoverOutput } from "./handl
 
 const packageType = Schema.decodeUnknownSync(PackageTypeSchema);
 
-const makeEntry = (name: string): DiscoverExtensionEntry => ({
-  type: "skill",
-  name: decodeExtensionNameSync(name),
-  owner: decodeHandleSync("@acme"),
-  description: `${name} description`,
-  latestVersion: decodeVersionSync("1.0.0"),
-});
-
 const sampleResult: DiscoverResult = {
   totalDetected: 2,
   registryAvailable: true,
   packages: [
     {
       detectedPackage: { type: packageType("npm"), name: "react" },
-      extensions: [{ extension: makeEntry("react-testing"), signal: "recommended" }],
+      extensions: [
+        {
+          ref: "@acme/skills/react-testing",
+          resolved: true,
+          extension: {
+            type: "skill",
+            name: decodeExtensionNameSync("react-testing"),
+            owner: decodeHandleSync("@acme"),
+            installVersion: decodeVersionSync("1.0.0"),
+          },
+          attestedBy: ["package", "extension"],
+          official: true,
+          packageVersionInRange: true,
+        },
+      ],
     },
     {
       detectedPackage: { type: packageType("npm"), name: "vitest", version: "3.2.1" },
-      extensions: [{ extension: makeEntry("effect-testing"), signal: "compatible" }],
+      extensions: [
+        {
+          ref: "@acme/skills/effect-testing",
+          resolved: true,
+          extension: {
+            type: "skill",
+            name: decodeExtensionNameSync("effect-testing"),
+            owner: decodeHandleSync("@acme"),
+            installVersion: decodeVersionSync("1.0.0"),
+          },
+          attestedBy: ["extension"],
+          official: false,
+          packageVersionInRange: true,
+        },
+      ],
     },
   ],
 };
@@ -88,11 +107,11 @@ describe("toDiscoverOutput", () => {
       items: [
         {
           package: "pkg:npm/react",
-          extensions: [{ name: "react-testing", signal: "recommended" }],
+          extensions: [{ name: "react-testing", official: true }],
         },
         {
           package: "pkg:npm/vitest@3.2.1",
-          extensions: [{ name: "effect-testing", signal: "compatible" }],
+          extensions: [{ name: "effect-testing", official: false }],
         },
       ],
     });
@@ -112,13 +131,13 @@ describe("discover handler", () => {
             expect.arrayContaining([
               expect.objectContaining({
                 package: "react",
-                extension: "@acme/skill/react-testing",
-                signal: "recommended",
+                extension: "@acme/skills/react-testing",
+                official: "yes",
               }),
               expect.objectContaining({
                 package: "vitest@3.2.1",
-                extension: "@acme/skill/effect-testing",
-                signal: "compatible",
+                extension: "@acme/skills/effect-testing",
+                official: "no",
               }),
             ]),
           );

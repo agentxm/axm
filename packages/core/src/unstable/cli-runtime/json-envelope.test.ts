@@ -84,6 +84,55 @@ describe("JsonEnvelopeSchema", () => {
     });
   });
 
+  it("emits request and normalized response metadata", () => {
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({
+        code: "internal",
+        detail: "Registry failed",
+        metadata: {
+          request: {
+            service: "registry",
+            method: "PUT",
+            url: "http://localhost:4300/v1/extensions/@examples/packs/demo/0.1.0",
+          },
+          response: {
+            status: 500,
+            requestId: "req_123",
+            problemCode: "internal",
+            body: { code: "internal", requestId: "req_123" },
+          },
+        },
+      }),
+    );
+
+    expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
+      ok: false,
+      code: "internal",
+      title: "Internal Error",
+      detail: "Registry failed",
+      metadata: {
+        request: {
+          service: "registry",
+          method: "PUT",
+          url: "http://localhost:4300/v1/extensions/@examples/packs/demo/0.1.0",
+        },
+        response: {
+          status: 500,
+          requestId: "req_123",
+          problemCode: "internal",
+          body: { code: "internal", requestId: "req_123" },
+        },
+      },
+      suggestions: [
+        {
+          description:
+            "This looks like a bug. Please report it, including the request ID if one is shown.",
+          url: "https://github.com/agentxm/axm/issues",
+        },
+      ],
+    });
+  });
+
   it("falls back to the default suggestions for the error code when none are supplied", () => {
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({ code: "internal", detail: "Something broke" }),

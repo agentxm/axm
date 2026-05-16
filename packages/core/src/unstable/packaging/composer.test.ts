@@ -242,7 +242,7 @@ describe("composerReader", () => {
   });
 
   describe("valid axm metadata in extra field", () => {
-    it.effect("extracts recommendedExtensions from extra.axm field", () =>
+    it.effect("extracts extensions from extra.axm field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "laravel", name: "framework" });
@@ -252,20 +252,22 @@ describe("composerReader", () => {
               name: "laravel/framework",
               extra: {
                 axm: {
-                  recommendedExtensions: ["@laravel/skills/framework@^1.0.0"],
+                  extensions: [{ ref: "@laravel/skills/framework", versionRange: "^1.0.0" }],
                 },
               },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@laravel/skills/framework@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@laravel/skills/framework", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "phpstan", name: "phpstan" });
@@ -273,7 +275,7 @@ describe("composerReader", () => {
             purl,
             JSON.stringify({
               name: "phpstan/phpstan",
-              extra: { axm: { recommendedExtensions: [] } },
+              extra: { axm: { extensions: [] } },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -325,7 +327,7 @@ describe("composerReader", () => {
             purl,
             JSON.stringify({
               name: "some/lib",
-              extra: { axm: { recommendedExtensions: "not-an-array" } },
+              extra: { axm: { extensions: "not-an-array" } },
             }),
           );
           expect(Option.isNone(result)).toBe(true);
@@ -345,7 +347,7 @@ describe("composerReader", () => {
               name: "some/lib",
               extra: {
                 axm: {
-                  recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+                  extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
                   futureField: true,
                 },
               },
@@ -353,7 +355,7 @@ describe("composerReader", () => {
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

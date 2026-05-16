@@ -2,12 +2,12 @@
 
 ### Requirement: Read axm recommendation metadata from installed Composer packages
 
-The Composer reader SHALL inspect `vendor/<namespace>/<name>/composer.json` for each detected Composer package and check for an `"axm"` key within the `"extra"` field containing recommendation metadata. The `extra` field is the standard Composer extensibility mechanism. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The Composer reader SHALL inspect `vendor/<namespace>/<name>/composer.json` for each detected Composer package and check for an `"axm"` key within the `"extra"` field containing recommendation metadata. The `extra` field is the standard Composer extensibility mechanism. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm metadata in extra field
 
-- **WHEN** `vendor/laravel/framework/composer.json` contains `"extra": { "axm": { "recommendedExtensions": ["@laravel/skills/framework@^1.0.0"] } }`
-- **THEN** the reader SHALL return the extension refs `["@laravel/skills/framework@^1.0.0"]`
+- **WHEN** `vendor/laravel/framework/composer.json` contains `"extra": { "axm": { "extensions": [{ "ref": "@laravel/skills/framework", "versionRange": "^1.0.0" }] } }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@laravel/skills/framework", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without extra.axm metadata
 
@@ -19,9 +19,9 @@ The Composer reader SHALL inspect `vendor/<namespace>/<name>/composer.json` for 
 - **WHEN** `vendor/monolog/monolog/composer.json` has no `"extra"` field at all
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Package with empty recommendedExtensions
+#### Scenario: Package with empty extensions
 
-- **WHEN** `vendor/phpstan/phpstan/composer.json` contains `"extra": { "axm": { "recommendedExtensions": [] } }`
+- **WHEN** `vendor/phpstan/phpstan/composer.json` contains `"extra": { "axm": { "extensions": [] } }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Validate metadata against AxmPackageMeta schema
@@ -30,14 +30,14 @@ The reader SHALL validate the `"extra"."axm"` field contents against the `AxmPac
 
 #### Scenario: Malformed axm metadata warned and skipped
 
-- **WHEN** `vendor/some/lib/composer.json` contains `"extra": { "axm": { "recommendedExtensions": "not-an-array" } }`
+- **WHEN** `vendor/some/lib/composer.json` contains `"extra": { "axm": { "extensions": "not-an-array" } }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `vendor/some/lib/composer.json` contains `"extra": { "axm": { "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true } }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `vendor/some/lib/composer.json` contains `"extra": { "axm": { "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true } }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Vendor path reconstruction from PackageUrlParts
 

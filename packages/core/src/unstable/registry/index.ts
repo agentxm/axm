@@ -10,24 +10,28 @@
 
 // Schema types and schemas
 export type { ExtensionIndex, VersionEntry } from "./schema.js";
-export {
-  companionPackagesToPackageUrlParts,
-  ExtensionIndexSchema,
-  VersionEntrySchema,
-} from "./schema.js";
+export { packagesToPackageUrlParts, ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
 
 // Discover schemas
-export type { DiscoverExtensionEntry, DiscoverExtensionsResponse } from "./discover-schema.js";
+export type {
+  DiscoverPackagesResponse,
+  DiscoveryExtensionResult,
+  DiscoveryPackageResult,
+  DiscoveryResolvedExtension,
+} from "./discover-schema.js";
 export {
-  DiscoverExtensionEntrySchema,
-  DiscoverExtensionsResponseSchema,
+  DiscoverPackagesResponseSchema,
+  DiscoveryExtensionResultSchema,
+  DiscoveryPackageResultSchema,
+  DiscoveryResolvedExtensionSchema,
 } from "./discover-schema.js";
 
 // Client types and factory
 export type {
   RegistryClient,
   RegistryExtensionManifest,
-  DiscoverExtensionsArgs,
+  DiscoverPackageInput,
+  DiscoverPackagesArgs,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
   GetExtensionIndexArgs,

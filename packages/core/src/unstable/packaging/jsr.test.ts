@@ -278,7 +278,7 @@ describe("denoReader", () => {
   });
 
   describe("valid axm metadata in cache", () => {
-    it.effect("extracts recommendedExtensions from axm field", () =>
+    it.effect("extracts extensions from axm field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -292,13 +292,13 @@ describe("denoReader", () => {
             JSON.stringify({
               name: "@std/fs",
               axm: {
-                recommendedExtensions: ["@deno/skills/fs@^1.0.0"],
+                extensions: [{ ref: "@deno/skills/fs", versionRange: "^1.0.0" }],
               },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@deno/skills/fs@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@deno/skills/fs", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -339,7 +339,7 @@ describe("denoReader", () => {
             purl,
             JSON.stringify({
               name: "@std/fs",
-              axm: { recommendedExtensions: 42 },
+              axm: { extensions: 42 },
             }),
           );
           expect(Option.isNone(result)).toBe(true);
@@ -363,14 +363,14 @@ describe("denoReader", () => {
             JSON.stringify({
               name: "@std/fs",
               axm: {
-                recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+                extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
                 futureField: true,
               },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

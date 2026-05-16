@@ -22,7 +22,7 @@ const ACME = normalizeHandle("@acme");
 
 const makeRegistrySkillRef = (
   name: string,
-  companionPackages: ReadonlyArray<PackageUrlParts> = [],
+  packages: ReadonlyArray<PackageUrlParts> = [],
 ): RegistrySkillRef => ({
   type: "skill",
   refType: "registry",
@@ -40,7 +40,7 @@ const makeRegistrySkillRef = (
   name: extensionName(name),
   version: exactVersion("1.0.0"),
   integrity: Option.some("sha512-deadbeef"),
-  companionPackages,
+  packages,
 });
 
 const makeLocalSkillRef = (name: string, metadata?: Record<string, unknown>): LocalSkillRef => ({
@@ -65,7 +65,7 @@ const reactDomPkg: PackageUrlParts = { type: packageType("npm"), name: "react-do
 // -----------------------------------------------------------------------------
 
 describe("getCompanionPackages", () => {
-  it("returns companionPackages from a registry skill ref", () => {
+  it("returns packages from a registry skill ref", () => {
     const ref = makeRegistrySkillRef("react-testing", [reactPkg, reactDomPkg]);
     expect(getCompanionPackages(ref)).toEqual([reactPkg, reactDomPkg]);
   });
@@ -75,9 +75,9 @@ describe("getCompanionPackages", () => {
     expect(getCompanionPackages(ref)).toEqual([]);
   });
 
-  it("extracts companionPackages from local skill ref metadata", () => {
+  it("extracts packages from local skill ref metadata", () => {
     const ref = makeLocalSkillRef("react-testing", {
-      companionPackages: [reactPkg, reactDomPkg],
+      packages: [reactPkg, reactDomPkg],
     });
     expect(getCompanionPackages(ref)).toEqual([reactPkg, reactDomPkg]);
   });
@@ -87,21 +87,21 @@ describe("getCompanionPackages", () => {
     expect(getCompanionPackages(ref)).toEqual([]);
   });
 
-  it("returns empty array from local skill ref with metadata lacking companionPackages", () => {
+  it("returns empty array from local skill ref with metadata lacking packages", () => {
     const ref = makeLocalSkillRef("general-review", { internal: true });
     expect(getCompanionPackages(ref)).toEqual([]);
   });
 
-  it("filters out invalid entries from metadata companionPackages", () => {
+  it("filters out invalid entries from metadata packages", () => {
     const ref = makeLocalSkillRef("mixed", {
-      companionPackages: [reactPkg, "not-an-object", null, { noType: true }],
+      packages: [reactPkg, "not-an-object", null, { noType: true }],
     });
     expect(getCompanionPackages(ref)).toEqual([reactPkg]);
   });
 
   it("returns empty array when metadata entries have partial fields missing required name", () => {
     const ref = makeLocalSkillRef("partial-fields", {
-      companionPackages: [{ type: "npm" }],
+      packages: [{ type: "npm" }],
     });
     expect(getCompanionPackages(ref)).toEqual([]);
   });
@@ -146,7 +146,7 @@ describe("buildCompanionPackagesSection", () => {
     const expressPkg: PackageUrlParts = { type: packageType("npm"), name: "express" };
     const section = buildCompanionPackagesSection([
       makeRegistrySkillRef("skill-a", [reactPkg]),
-      makeLocalSkillRef("skill-b", { companionPackages: [expressPkg] }),
+      makeLocalSkillRef("skill-b", { packages: [expressPkg] }),
     ]);
 
     expect(section?.items).toEqual(["react (npm)", "express (npm)"]);

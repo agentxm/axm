@@ -273,7 +273,7 @@ describe("cpanReader", () => {
   });
 
   describe("valid x_axm in MYMETA.json", () => {
-    it.effect("extracts recommendedExtensions from x_axm", () =>
+    it.effect("extracts extensions from x_axm", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
@@ -281,25 +281,25 @@ describe("cpanReader", () => {
             name: "Moose",
             version: "2.2014",
             x_axm: {
-              recommendedExtensions: ["@perl/skills/moose@^1.0.0"],
+              extensions: [{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }],
             },
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@perl/skills/moose@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "DBI", version: "1.643" });
           const mymeta = JSON.stringify({
             name: "DBI",
-            x_axm: { recommendedExtensions: [] },
+            x_axm: { extensions: [] },
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isSome(result)).toBe(true);
@@ -355,7 +355,7 @@ describe("cpanReader", () => {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({
             name: "Moose",
-            x_axm: { recommendedExtensions: "not-an-array" },
+            x_axm: { extensions: "not-an-array" },
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isNone(result)).toBe(true);
@@ -372,14 +372,14 @@ describe("cpanReader", () => {
           const mymeta = JSON.stringify({
             name: "Moose",
             x_axm: {
-              recommendedExtensions: ["@perl/skills/moose@^1.0.0"],
+              extensions: [{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }],
               futureField: true,
             },
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@perl/skills/moose@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }]);
           }
         }),
       ),

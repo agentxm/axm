@@ -2,12 +2,12 @@
 
 ### Requirement: Read axm recommendation metadata from Deno module cache
 
-The Deno reader SHALL inspect cached module metadata in Deno's module cache for an `axm` custom field. The cache location is `$DENO_DIR/` (default `~/.cache/deno/` on Linux, `~/Library/Caches/deno/` on macOS). When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The Deno reader SHALL inspect cached module metadata in Deno's module cache for an `axm` custom field. The cache location is `$DENO_DIR/` (default `~/.cache/deno/` on Linux, `~/Library/Caches/deno/` on macOS). When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Module with valid axm field in cache
 
-- **WHEN** the cached metadata for `@std/fs` in `$DENO_DIR/` contains `"axm": { "recommendedExtensions": ["@deno/skills/fs@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@deno/skills/fs@^1.0.0"]`
+- **WHEN** the cached metadata for `@std/fs` in `$DENO_DIR/` contains `"axm": { "extensions": [{ "ref": "@deno/skills/fs", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@deno/skills/fs", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Module without axm field
 
@@ -25,14 +25,14 @@ The reader SHALL validate the `axm` field contents against the `AxmPackageMeta` 
 
 #### Scenario: Malformed axm metadata warned and skipped
 
-- **WHEN** the cached module metadata contains `"axm": { "recommendedExtensions": 42 }`
+- **WHEN** the cached module metadata contains `"axm": { "extensions": 42 }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** the cached module metadata contains `"axm": { "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** the cached module metadata contains `"axm": { "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing Deno cache handled gracefully
 

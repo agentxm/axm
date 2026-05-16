@@ -34,7 +34,7 @@ describe("formatPackageUrlParts", () => {
 });
 
 describe("toLabelWithCompanions", () => {
-  it("returns base label when companionPackages is empty", () => {
+  it("returns base label when packages is empty", () => {
     const result = toLabelWithCompanions({ type: "skill", name: "my-skill" }, []);
     expect(result).toBe("my-skill");
   });
@@ -46,7 +46,7 @@ describe("toLabelWithCompanions", () => {
     expect(result).toBe("react-testing (pkg:npm/react)");
   });
 
-  it("appends multiple companionPackages comma-separated", () => {
+  it("appends multiple packages comma-separated", () => {
     const result = toLabelWithCompanions({ type: "skill", name: "fullstack" }, [
       packageUrl("pkg:npm/react"),
       packageUrl("pkg:npm/typescript"),

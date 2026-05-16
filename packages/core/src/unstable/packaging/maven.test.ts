@@ -573,7 +573,7 @@ describe("mavenReader", () => {
   });
 
   describe("valid META-INF/axm.json in JAR", () => {
-    it.effect("extracts recommendedExtensions from META-INF/axm.json", () =>
+    it.effect("extracts extensions from META-INF/axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -585,18 +585,18 @@ describe("mavenReader", () => {
           const result = yield* readInTempM2(purl, {
             entryName: "META-INF/axm.json",
             entryContent: JSON.stringify({
-              recommendedExtensions: ["@google/skills/guava@^1.0.0"],
+              extensions: [{ ref: "@google/skills/guava", versionRange: "^1.0.0" }],
             }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@google/skills/guava@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@google/skills/guava", versionRange: "^1.0.0" }]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -607,7 +607,7 @@ describe("mavenReader", () => {
           });
           const result = yield* readInTempM2(purl, {
             entryName: "META-INF/axm.json",
-            entryContent: JSON.stringify({ recommendedExtensions: [] }),
+            entryContent: JSON.stringify({ extensions: [] }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -667,7 +667,7 @@ describe("mavenReader", () => {
           });
           const result = yield* readInTempM2(purl, {
             entryName: "META-INF/axm.json",
-            entryContent: JSON.stringify({ recommendedExtensions: { invalid: true } }),
+            entryContent: JSON.stringify({ extensions: { invalid: true } }),
           });
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -688,13 +688,13 @@ describe("mavenReader", () => {
           const result = yield* readInTempM2(purl, {
             entryName: "META-INF/axm.json",
             entryContent: JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -714,12 +714,14 @@ describe("mavenReader", () => {
           const result = yield* readInTempM2(purl, {
             entryName: "META-INF/axm.json",
             entryContent: JSON.stringify({
-              recommendedExtensions: ["@apache/skills/commons@^1.0.0"],
+              extensions: [{ ref: "@apache/skills/commons", versionRange: "^1.0.0" }],
             }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@apache/skills/commons@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@apache/skills/commons", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),

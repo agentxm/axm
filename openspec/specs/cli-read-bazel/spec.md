@@ -2,12 +2,12 @@
 
 ### Requirement: Read axm recommendation metadata from Bazel module cache
 
-The Bazel reader SHALL inspect `axm.json` sidecar files in the Bazel external repository directory under the output base (`external/<repo>/`) and in the Bzlmod module cache if available. The output base is queryable via `bazel info output_base`. Module cache location varies and SHALL be scanned on a best-effort basis. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The Bazel reader SHALL inspect `axm.json` sidecar files in the Bazel external repository directory under the output base (`external/<repo>/`) and in the Bzlmod module cache if available. The output base is queryable via `bazel info output_base`. Module cache location varies and SHALL be scanned on a best-effort basis. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm.json in external repository
 
-- **WHEN** `<output_base>/external/com_google_protobuf/axm.json` contains `{ "recommendedExtensions": ["@google/skills/protobuf@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@google/skills/protobuf@^1.0.0"]`
+- **WHEN** `<output_base>/external/com_google_protobuf/axm.json` contains `{ "extensions": [{ "ref": "@google/skills/protobuf", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@google/skills/protobuf", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without axm.json sidecar
 
@@ -25,14 +25,14 @@ The reader SHALL validate the `axm.json` sidecar contents against the `AxmPackag
 
 #### Scenario: Malformed axm.json warned and skipped
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": 42 }`
+- **WHEN** `axm.json` contains `{ "extensions": 42 }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing Bazel cache handled gracefully
 

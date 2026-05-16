@@ -420,12 +420,12 @@ describe("common schemas", () => {
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("accepts manifest with companionPackages", () => {
+    it("accepts manifest with packages", () => {
       const input = {
         owner: "@wayne",
         name: "grappling-hook",
         version: "1.0.0",
-        companionPackages: [
+        packages: [
           { purl: "pkg:npm/react" },
           {
             purl: "pkg:npm/%40angular/core",
@@ -438,16 +438,14 @@ describe("common schemas", () => {
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
-        expect(result.success.companionPackages).toHaveLength(2);
-        expect(result.success.companionPackages?.[0]?.purl).toBe("pkg:npm/react");
-        expect(result.success.companionPackages?.[1]?.purl).toBe("pkg:npm/%40angular/core");
-        expect(result.success.companionPackages?.[1]?.versionRange?.raw).toBe(
-          "vers:npm/>=17.0.0|<18.0.0",
-        );
+        expect(result.success.packages).toHaveLength(2);
+        expect(result.success.packages?.[0]?.purl).toBe("pkg:npm/react");
+        expect(result.success.packages?.[1]?.purl).toBe("pkg:npm/%40angular/core");
+        expect(result.success.packages?.[1]?.versionRange?.raw).toBe("vers:npm/>=17.0.0|<18.0.0");
       }
     });
 
-    it("accepts manifest without companionPackages", () => {
+    it("accepts manifest without packages", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
@@ -458,32 +456,32 @@ describe("common schemas", () => {
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
-        expect(result.success.companionPackages).toBeUndefined();
+        expect(result.success.packages).toBeUndefined();
       }
     });
 
-    it("accepts manifest with empty companionPackages array", () => {
+    it("accepts manifest with empty packages array", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
         version: "0.1.0",
-        companionPackages: [],
+        packages: [],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
-        expect(result.success.companionPackages).toEqual([]);
+        expect(result.success.packages).toEqual([]);
       }
     });
 
-    it("rejects manifest with legacy string companionPackages entries", () => {
+    it("rejects manifest with legacy string packages entries", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
         version: "0.1.0",
-        companionPackages: ["pkg:npm/react"],
+        packages: ["pkg:npm/react"],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);
@@ -496,7 +494,7 @@ describe("common schemas", () => {
         owner: "@wayne",
         name: "hook",
         version: "0.1.0",
-        companionPackages: [{ purl: "pkg:npm/react@18.2.0" }],
+        packages: [{ purl: "pkg:npm/react@18.2.0" }],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);

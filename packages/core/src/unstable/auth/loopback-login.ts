@@ -26,6 +26,10 @@ const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 // authorization code remains shorter-lived on the registry side.
 const LOOPBACK_TIMEOUT_MS = 5 * 60_000;
 
+export interface RunLoopbackLoginOptions {
+  readonly scopes?: ReadonlyArray<string>;
+}
+
 export const makePkceVerifier = (): string => randomBytes(64).toString("base64url");
 
 export const makePkceChallenge = (verifier: string): string =>
@@ -55,7 +59,7 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
     return Option.map(meResult, (me) => me.userHandle);
   });
 
-export const runLoopbackLogin = (registryUrl: string) =>
+export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginOptions = {}) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
@@ -75,7 +79,7 @@ export const runLoopbackLogin = (registryUrl: string) =>
       expiresAt: new Date(Date.now() + LOOPBACK_TIMEOUT_MS),
       state,
       redirectUri: server.redirectUri,
-      scopes: ["openid", "profile", "email", "offline_access"],
+      ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
     });
 
     const openedBrowser = yield* interaction.openBrowser(authorizeUrl);

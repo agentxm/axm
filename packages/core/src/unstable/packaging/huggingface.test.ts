@@ -74,7 +74,7 @@ describe("huggingfaceReader", () => {
   });
 
   describe("valid axm metadata in YAML frontmatter", () => {
-    it.effect("extracts recommendedExtensions from frontmatter axm field", () =>
+    it.effect("extracts extensions from frontmatter axm field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -86,8 +86,8 @@ describe("huggingfaceReader", () => {
             "---",
             "license: llama2",
             "axm:",
-            "  recommendedExtensions:",
-            '    - "@meta/skills/llama@^1.0.0"',
+            "  extensions:",
+            '    - { ref: "@meta/skills/llama", versionRange: "^1.0.0" }',
             "---",
             "# Llama 2",
             "This is a model card.",
@@ -95,7 +95,7 @@ describe("huggingfaceReader", () => {
           const result = yield* readInTempCache(purl, readme);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@meta/skills/llama@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@meta/skills/llama", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -110,15 +110,15 @@ describe("huggingfaceReader", () => {
           const readme = [
             "---",
             "axm:",
-            "  recommendedExtensions:",
-            '    - "@openai/skills/gpt2@^1.0.0"',
+            "  extensions:",
+            '    - { ref: "@openai/skills/gpt2", versionRange: "^1.0.0" }',
             "---",
             "# GPT-2",
           ].join("\n");
           const result = yield* readInTempCache(purl, readme);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@openai/skills/gpt2@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@openai/skills/gpt2", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -201,13 +201,9 @@ describe("huggingfaceReader", () => {
             namespace: "meta-llama",
             name: "Llama-2-7b",
           });
-          const readme = [
-            "---",
-            "axm:",
-            "  recommendedExtensions: not-an-array",
-            "---",
-            "# Llama 2",
-          ].join("\n");
+          const readme = ["---", "axm:", "  extensions: not-an-array", "---", "# Llama 2"].join(
+            "\n",
+          );
           const result = yield* readInTempCache(purl, readme);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -215,8 +211,8 @@ describe("huggingfaceReader", () => {
     );
   });
 
-  describe("empty recommendedExtensions", () => {
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+  describe("empty extensions", () => {
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -224,9 +220,7 @@ describe("huggingfaceReader", () => {
             namespace: "meta-llama",
             name: "Llama-2-7b",
           });
-          const readme = ["---", "axm:", "  recommendedExtensions: []", "---", "# Llama 2"].join(
-            "\n",
-          );
+          const readme = ["---", "axm:", "  extensions: []", "---", "# Llama 2"].join("\n");
           const result = yield* readInTempCache(purl, readme);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {

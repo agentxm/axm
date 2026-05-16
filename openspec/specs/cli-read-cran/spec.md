@@ -6,8 +6,8 @@ The CRAN reader SHALL inspect the `DESCRIPTION` file of installed R packages for
 
 #### Scenario: Package with valid Config/axm fields
 
-- **WHEN** `<lib-path>/ggplot2/DESCRIPTION` contains `Config/axm/recommendedExtensions: @tidyverse/skills/ggplot2@^1.0.0`
-- **THEN** the reader SHALL return the extension refs `["@tidyverse/skills/ggplot2@^1.0.0"]`
+- **WHEN** `<lib-path>/ggplot2/DESCRIPTION` contains `Config/axm: {"extensions": [{ "ref": "@tidyverse/skills/ggplot2", "versionRange": "^1.0.0" }]}`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@tidyverse/skills/ggplot2", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without Config/axm fields
 
@@ -25,14 +25,14 @@ The reader SHALL validate the reconstructed `Config/axm` field contents against 
 
 #### Scenario: Malformed Config/axm metadata warned and skipped
 
-- **WHEN** `<lib-path>/some-pkg/DESCRIPTION` contains `Config/axm/recommendedExtensions` with an unparseable value
+- **WHEN** `<lib-path>/some-pkg/DESCRIPTION` contains `Config/axm` with an unparseable value
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra Config/axm fields tolerated
 
-- **WHEN** `<lib-path>/some-pkg/DESCRIPTION` contains `Config/axm/recommendedExtensions` and `Config/axm/futureField`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `<lib-path>/some-pkg/DESCRIPTION` contains `Config/axm` with `extensions` and `futureField`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing R library handled gracefully
 

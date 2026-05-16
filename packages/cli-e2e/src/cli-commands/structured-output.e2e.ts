@@ -104,7 +104,7 @@ describe("structured output (--json)", () => {
       expect(result.exitCode).toBe(2);
       expect(parseJson(result.stdout)).toMatchObject({
         type: "help",
-        usage: "axm token [flags]",
+        usage: "axm token <subcommand> [flags]",
       });
       expect(result.stderr).toContain("Unrecognized flag: --nonexistent-flag");
       expect(getJsonLines(result.stderr)).toHaveLength(0);

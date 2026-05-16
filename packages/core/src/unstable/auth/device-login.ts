@@ -94,6 +94,7 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
 
 export interface RunDeviceLoginOptions {
   readonly openBrowser?: boolean;
+  readonly scopes?: ReadonlyArray<string>;
 }
 
 const presentDeviceFlow = (
@@ -129,7 +130,9 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
       return yield* makePersistedCredentialsUnsupportedError();
     }
 
-    const deviceFlow = yield* authClient.initiateDeviceFlow();
+    const deviceFlow = yield* authClient.initiateDeviceFlow({
+      ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
+    });
 
     yield* presentDeviceFlow(deviceFlow.verification_uri, deviceFlow.user_code, options);
 

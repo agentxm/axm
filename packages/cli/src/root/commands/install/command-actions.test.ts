@@ -85,7 +85,7 @@ const makeRegistryRef = (name = "my-cmd"): RegistryCommandRef => ({
   name: extensionName(name),
   version: exactVersion("1.0.0"),
   integrity: Option.none(),
-  companionPackages: [],
+  packages: [],
 });
 
 describe("parseCommandInstallArgs", () => {

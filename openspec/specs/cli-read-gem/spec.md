@@ -6,8 +6,8 @@ The gem reader SHALL inspect gemspec metadata for axm recommendation data. For e
 
 #### Scenario: Gem with valid axm metadata keys
 
-- **WHEN** `<gem-dir>/specifications/rails-7.1.0.gemspec` metadata hash contains `"axm_recommended_extensions" => "[@rails/skills/rails@^1.0.0]"`
-- **THEN** the reader SHALL parse the value and return the extension refs `["@rails/skills/rails@^1.0.0"]`
+- **WHEN** `<gem-dir>/specifications/rails-7.1.0.gemspec` metadata hash contains `"axm_extensions" => "[{\"ref\":\"@rails/skills/rails\",\"versionRange\":\"^1.0.0\"}]"`
+- **THEN** the reader SHALL parse the value and return the extension refs `[{ "ref": "@rails/skills/rails", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Gem without axm metadata keys
 
@@ -16,7 +16,7 @@ The gem reader SHALL inspect gemspec metadata for axm recommendation data. For e
 
 #### Scenario: Gem with empty recommended extensions
 
-- **WHEN** the gemspec metadata contains `"axm_recommended_extensions" => "[]"`
+- **WHEN** the gemspec metadata contains `"axm_extensions" => "[]"`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Parse gemspec metadata to extract axm fields
@@ -25,12 +25,12 @@ The reader SHALL parse the serialized gemspec file to extract metadata hash entr
 
 #### Scenario: Reconstruct AxmPackageMeta from prefixed keys
 
-- **WHEN** the metadata hash contains `"axm_recommended_extensions" => "[@acme/skills/foo@^1.0.0, @acme/skills/bar@^2.0.0]"`
-- **THEN** the reader SHALL reconstruct `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0", "@acme/skills/bar@^2.0.0"] }` for validation
+- **WHEN** the metadata hash contains `"axm_extensions" => "[{\"ref\":\"@acme/skills/foo\",\"versionRange\":\"^1.0.0\"},{\"ref\":\"@acme/skills/bar\",\"versionRange\":\"^2.0.0\"}]"`
+- **THEN** the reader SHALL reconstruct `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }, { "ref": "@acme/skills/bar", "versionRange": "^2.0.0" }] }` for validation
 
 #### Scenario: Only axm-prefixed keys extracted
 
-- **WHEN** the metadata hash contains `"rubygems_mfa_required" => "true"` and `"axm_recommended_extensions" => "[@acme/skills/foo@^1.0.0]"`
+- **WHEN** the metadata hash contains `"rubygems_mfa_required" => "true"` and `"axm_extensions" => "[{\"ref\":\"@acme/skills/foo\",\"versionRange\":\"^1.0.0\"}]"`
 - **THEN** the reader SHALL extract only the `axm_`-prefixed keys and ignore other metadata entries
 
 ### Requirement: Missing gemspec handled gracefully
@@ -71,11 +71,11 @@ The reader SHALL validate the reconstructed metadata object against the `AxmPack
 
 #### Scenario: Malformed metadata warned and skipped
 
-- **WHEN** the reconstructed metadata fails schema validation (e.g., `axm_recommended_extensions` value is unparseable)
+- **WHEN** the reconstructed metadata fails schema validation (e.g., `axm_extensions` value is unparseable)
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra axm-prefixed keys tolerated
 
-- **WHEN** the metadata hash contains `"axm_recommended_extensions" => "[@acme/skills/foo@^1.0.0]"` and `"axm_future_field" => "true"`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown axm fields
+- **WHEN** the metadata hash contains `"axm_extensions" => "[{\"ref\":\"@acme/skills/foo\",\"versionRange\":\"^1.0.0\"}]"` and `"axm_future_field" => "true"`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown axm fields

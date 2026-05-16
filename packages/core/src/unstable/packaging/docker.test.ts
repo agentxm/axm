@@ -305,29 +305,29 @@ describe("dockerReader", () => {
   });
 
   describe("valid axm annotation", () => {
-    it.effect("extracts recommendedExtensions from annotation file", () =>
+    it.effect("extracts extensions from annotation file", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "nginx", version: "alpine" });
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@nginx/skills/nginx@^1.0.0"],
+              extensions: [{ ref: "@nginx/skills/nginx", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@nginx/skills/nginx@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@nginx/skills/nginx", versionRange: "^1.0.0" }]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "postgres", version: "16" });
-          const result = yield* readInTempDir(purl, JSON.stringify({ recommendedExtensions: [] }));
+          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -354,10 +354,7 @@ describe("dockerReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "myimage", version: "1.0" });
-          const result = yield* readInTempDir(
-            purl,
-            JSON.stringify({ recommendedExtensions: "not-an-array" }),
-          );
+          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: "not-an-array" }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -372,13 +369,13 @@ describe("dockerReader", () => {
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

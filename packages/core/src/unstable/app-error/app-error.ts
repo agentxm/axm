@@ -126,9 +126,16 @@ const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
 export const exitCodeFor = (code: AppErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
 
 export type AppErrorMetadata = {
+  readonly request?: {
+    readonly service: string;
+    readonly method?: string;
+    readonly url: string;
+  };
   readonly response?: {
     readonly status: number;
-    readonly body: unknown;
+    readonly requestId?: string;
+    readonly problemCode?: string;
+    readonly body?: unknown;
   };
 };
 

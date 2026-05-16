@@ -12,25 +12,33 @@ import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 describe("AxmPackageMetaSchema", () => {
   const decode = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
-  it("accepts valid metadata with recommendedExtensions", () => {
+  it("accepts valid metadata with extensions", () => {
     const input = {
-      recommendedExtensions: ["@acme/skills/code-review", "@acme/skills/lint@^1.0.0"],
+      extensions: [
+        { ref: "@acme/skills/code-review" },
+        { ref: "@acme/skills/lint", versionRange: "^1.0.0" },
+      ],
     };
 
     const result = decode(input);
 
     expect(Result.isSuccess(result)).toBe(true);
     if (Result.isSuccess(result)) {
-      expect(result.success.recommendedExtensions).toHaveLength(2);
-      expect(result.success.recommendedExtensions[0]).toBe("@acme/skills/code-review");
-      expect(result.success.recommendedExtensions[1]).toBe("@acme/skills/lint@^1.0.0");
+      expect(result.success.extensions).toHaveLength(2);
+      expect(result.success.extensions[0]).toEqual({
+        ref: "@acme/skills/code-review",
+      });
+      expect(result.success.extensions[1]).toEqual({
+        ref: "@acme/skills/lint",
+        versionRange: "^1.0.0",
+      });
     }
   });
 
   it("accepts metadata with optional $schema field", () => {
     const input = {
       $schema: "https://axm.sh/schemas/axm-package-meta.schema.json",
-      recommendedExtensions: ["@acme/skills/code-review"],
+      extensions: [{ ref: "@acme/skills/code-review" }],
     };
 
     const result = decode(input);
@@ -43,7 +51,7 @@ describe("AxmPackageMetaSchema", () => {
 
   it("accepts metadata without $schema field", () => {
     const input = {
-      recommendedExtensions: ["@acme/skills/code-review"],
+      extensions: [{ ref: "@acme/skills/code-review" }],
     };
 
     const result = decode(input);
@@ -54,22 +62,22 @@ describe("AxmPackageMetaSchema", () => {
     }
   });
 
-  it("accepts empty recommendedExtensions array", () => {
+  it("accepts empty extensions array", () => {
     const input = {
-      recommendedExtensions: [],
+      extensions: [],
     };
 
     const result = decode(input);
 
     expect(Result.isSuccess(result)).toBe(true);
     if (Result.isSuccess(result)) {
-      expect(result.success.recommendedExtensions).toEqual([]);
+      expect(result.success.extensions).toEqual([]);
     }
   });
 
-  it("rejects invalid recommendedExtensions type (string instead of array)", () => {
+  it("rejects invalid extensions type (string instead of array)", () => {
     const input = {
-      recommendedExtensions: "@acme/skills/code-review",
+      extensions: "@acme/skills/code-review",
     };
 
     const result = decode(input);
@@ -77,9 +85,9 @@ describe("AxmPackageMetaSchema", () => {
     expect(Result.isFailure(result)).toBe(true);
   });
 
-  it("rejects invalid extension ref in recommendedExtensions", () => {
+  it("rejects invalid extension ref in extensions", () => {
     const input = {
-      recommendedExtensions: ["not-a-valid-ref"],
+      extensions: [{ ref: "not-a-valid-ref" }],
     };
 
     const result = decode(input);
@@ -87,7 +95,7 @@ describe("AxmPackageMetaSchema", () => {
     expect(Result.isFailure(result)).toBe(true);
   });
 
-  it("rejects missing recommendedExtensions field", () => {
+  it("rejects missing extensions field", () => {
     const input = {};
 
     const result = decode(input);
@@ -97,7 +105,7 @@ describe("AxmPackageMetaSchema", () => {
 
   it("tolerates extra fields", () => {
     const input = {
-      recommendedExtensions: ["@acme/skills/code-review"],
+      extensions: [{ ref: "@acme/skills/code-review" }],
       extraField: "should be ignored",
       anotherExtra: 42,
     };
@@ -106,7 +114,7 @@ describe("AxmPackageMetaSchema", () => {
 
     expect(Result.isSuccess(result)).toBe(true);
     if (Result.isSuccess(result)) {
-      expect(result.success.recommendedExtensions).toHaveLength(1);
+      expect(result.success.extensions).toHaveLength(1);
     }
   });
 });

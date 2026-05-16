@@ -493,7 +493,7 @@ export const mavenReader: PackageReader = {
               );
               return Option.none();
             }
-            return Option.some(metaResult.success.recommendedExtensions);
+            return Option.some(metaResult.success.extensions);
           }
         }
       }
@@ -532,7 +532,7 @@ export const mavenReader: PackageReader = {
                   );
                   return Option.none();
                 }
-                return Option.some(metaResult.success.recommendedExtensions);
+                return Option.some(metaResult.success.extensions);
               }
             }
           }

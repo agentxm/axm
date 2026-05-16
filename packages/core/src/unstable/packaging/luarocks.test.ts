@@ -291,32 +291,34 @@ describe("luarocksReader", () => {
   });
 
   describe("valid axm.json sidecar", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
           const result = yield* readInTempLuarocks(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@luarocks/skills/luasocket@^1.0.0"],
+              extensions: [{ ref: "@luarocks/skills/luasocket", versionRange: "^1.0.0" }],
             }),
             "user",
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@luarocks/skills/luasocket@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@luarocks/skills/luasocket", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
           const result = yield* readInTempLuarocks(
             purl,
-            JSON.stringify({ recommendedExtensions: [] }),
+            JSON.stringify({ extensions: [] }),
             "user",
           );
           expect(Option.isSome(result)).toBe(true);
@@ -347,7 +349,7 @@ describe("luarocksReader", () => {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
           const result = yield* readInTempLuarocks(
             purl,
-            JSON.stringify({ recommendedExtensions: 42 }),
+            JSON.stringify({ extensions: 42 }),
             "user",
           );
           expect(Option.isNone(result)).toBe(true);
@@ -364,14 +366,14 @@ describe("luarocksReader", () => {
           const result = yield* readInTempLuarocks(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
             "user",
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

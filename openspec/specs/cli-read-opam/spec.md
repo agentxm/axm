@@ -6,8 +6,8 @@ The opam reader SHALL inspect `.opam` files in the opam switch for `x-axm` custo
 
 #### Scenario: Package with valid x-axm custom fields
 
-- **WHEN** `~/.opam/default/lib/lwt/opam` contains `x-axm-recommendedExtensions: ["@ocaml/skills/lwt@^1.0.0"]`
-- **THEN** the reader SHALL return the extension refs `["@ocaml/skills/lwt@^1.0.0"]`
+- **WHEN** `~/.opam/default/lib/lwt/opam` contains `x-axm-extensions: [{"ref":"@ocaml/skills/lwt","versionRange":"^1.0.0"}]`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@ocaml/skills/lwt", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without x-axm custom fields
 
@@ -25,14 +25,14 @@ The reader SHALL validate the reconstructed `x-axm` field contents against the `
 
 #### Scenario: Malformed x-axm metadata warned and skipped
 
-- **WHEN** the opam file contains `x-axm-recommendedExtensions` with an unparseable value
+- **WHEN** the opam file contains `x-axm-extensions` with an unparseable value
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra x-axm fields tolerated
 
-- **WHEN** the opam file contains `x-axm-recommendedExtensions` and `x-axm-futureField`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** the opam file contains `x-axm-extensions` and `x-axm-futureField`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing opam switch handled gracefully
 

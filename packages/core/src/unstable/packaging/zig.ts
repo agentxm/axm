@@ -199,7 +199,7 @@ export const zigReader: PackageReader = {
           continue;
         }
 
-        return Option.some(metaResult.success.recommendedExtensions);
+        return Option.some(metaResult.success.extensions);
       }
 
       return Option.none();

@@ -2,12 +2,12 @@
 
 ### Requirement: Read axm recommendation metadata from installed CPAN distributions
 
-The CPAN reader SHALL inspect `MYMETA.json` files under `<lib-path>/.meta/<dist>/` for an `x_axm` key containing recommendation metadata. The `x_` prefix is the standard CPAN metadata extension mechanism. The reader SHALL check `PERL5LIB` and `@INC` standard locations. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The CPAN reader SHALL inspect `MYMETA.json` files under `<lib-path>/.meta/<dist>/` for an `x_axm` key containing recommendation metadata. The `x_` prefix is the standard CPAN metadata extension mechanism. The reader SHALL check `PERL5LIB` and `@INC` standard locations. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Distribution with valid x_axm metadata
 
-- **WHEN** `<lib-path>/.meta/Moose-2.2206/MYMETA.json` contains `"x_axm": { "recommendedExtensions": ["@cpan/skills/moose@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@cpan/skills/moose@^1.0.0"]`
+- **WHEN** `<lib-path>/.meta/Moose-2.2206/MYMETA.json` contains `"x_axm": { "extensions": [{ "ref": "@cpan/skills/moose", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@cpan/skills/moose", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Distribution without x_axm metadata
 
@@ -25,14 +25,14 @@ The reader SHALL validate the `x_axm` field contents against the `AxmPackageMeta
 
 #### Scenario: Malformed x_axm metadata warned and skipped
 
-- **WHEN** `MYMETA.json` contains `"x_axm": { "recommendedExtensions": 42 }`
+- **WHEN** `MYMETA.json` contains `"x_axm": { "extensions": 42 }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `MYMETA.json` contains `"x_axm": { "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `MYMETA.json` contains `"x_axm": { "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing Perl library path handled gracefully
 

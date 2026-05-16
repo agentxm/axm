@@ -2,21 +2,21 @@
 
 ### Requirement: Read axm recommendation metadata from installed Hex packages via sidecar
 
-The Hex reader SHALL inspect `deps/<package-name>/axm.json` as the primary source for recommendation metadata. Hex packages install dependencies into `deps/` after `mix deps.get` or `gleam deps download`. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The Hex reader SHALL inspect `deps/<package-name>/axm.json` as the primary source for recommendation metadata. Hex packages install dependencies into `deps/` after `mix deps.get` or `gleam deps download`. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm.json sidecar
 
-- **WHEN** `deps/phoenix/axm.json` contains `{ "recommendedExtensions": ["@phoenixframework/skills/phoenix@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@phoenixframework/skills/phoenix@^1.0.0"]`
+- **WHEN** `deps/phoenix/axm.json` contains `{ "extensions": [{ "ref": "@phoenixframework/skills/phoenix", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@phoenixframework/skills/phoenix", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without axm.json sidecar
 
 - **WHEN** `deps/ecto/` exists but contains no `axm.json`
 - **THEN** the reader SHALL fall back to hex_metadata.config inspection
 
-#### Scenario: Package with empty recommendedExtensions
+#### Scenario: Package with empty extensions
 
-- **WHEN** `deps/plug/axm.json` contains `{ "recommendedExtensions": [] }`
+- **WHEN** `deps/plug/axm.json` contains `{ "extensions": [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Fall back to hex_metadata.config extra field
@@ -26,8 +26,8 @@ When no `axm.json` sidecar is found, the reader SHALL parse `deps/<package-name>
 #### Scenario: Metadata found in hex_metadata.config extra field
 
 - **WHEN** `deps/jason/axm.json` does not exist
-- **AND** `deps/jason/hex_metadata.config` contains an `extra` field with `axm` key holding `{ "recommendedExtensions": ["@hex/skills/jason@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@hex/skills/jason@^1.0.0"]`
+- **AND** `deps/jason/hex_metadata.config` contains an `extra` field with `axm` key holding `{ "extensions": [{ "ref": "@hex/skills/jason", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@hex/skills/jason", "versionRange": "^1.0.0" }]`
 
 #### Scenario: No metadata in either location
 
@@ -41,14 +41,14 @@ The reader SHALL validate metadata from either source against the `AxmPackageMet
 
 #### Scenario: Malformed sidecar metadata warned and skipped
 
-- **WHEN** `deps/some-lib/axm.json` contains `{ "recommendedExtensions": "not-an-array" }`
+- **WHEN** `deps/some-lib/axm.json` contains `{ "extensions": "not-an-array" }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `deps/some-lib/axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `deps/some-lib/axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing deps directory handled gracefully
 

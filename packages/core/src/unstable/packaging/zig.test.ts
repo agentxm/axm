@@ -221,19 +221,19 @@ describe("zigReader", () => {
   });
 
   describe("valid axm.json in cache", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@zig/skills/zap@^1.0.0"],
+              extensions: [{ ref: "@zig/skills/zap", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@zig/skills/zap@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@zig/skills/zap", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -259,7 +259,7 @@ describe("zigReader", () => {
           const purl = makePurl({ type: "generic", namespace: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
-            JSON.stringify({ recommendedExtensions: "not-an-array" }),
+            JSON.stringify({ extensions: "not-an-array" }),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -275,13 +275,13 @@ describe("zigReader", () => {
           const result = yield* readInTempZigCache(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

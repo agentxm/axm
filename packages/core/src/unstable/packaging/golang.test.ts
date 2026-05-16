@@ -294,7 +294,7 @@ describe("golangReader", () => {
   });
 
   describe("valid axm.json sidecar", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -306,18 +306,18 @@ describe("golangReader", () => {
           const result = yield* readInTempGopath(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@gorilla/skills/mux@^1.0.0"],
+              extensions: [{ ref: "@gorilla/skills/mux", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@gorilla/skills/mux@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@gorilla/skills/mux", versionRange: "^1.0.0" }]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -326,10 +326,7 @@ describe("golangReader", () => {
             name: "lib",
             version: "v0.5.0",
           });
-          const result = yield* readInTempGopath(
-            purl,
-            JSON.stringify({ recommendedExtensions: [] }),
-          );
+          const result = yield* readInTempGopath(purl, JSON.stringify({ extensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -366,10 +363,7 @@ describe("golangReader", () => {
             name: "lib",
             version: "v1.0.0",
           });
-          const result = yield* readInTempGopath(
-            purl,
-            JSON.stringify({ recommendedExtensions: 42 }),
-          );
+          const result = yield* readInTempGopath(purl, JSON.stringify({ extensions: 42 }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -389,13 +383,13 @@ describe("golangReader", () => {
           const result = yield* readInTempGopath(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -415,7 +409,7 @@ describe("golangReader", () => {
           const result = yield* readInTempGopath(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@gorilla/skills/mux@^1.0.0"],
+              extensions: [{ ref: "@gorilla/skills/mux", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);

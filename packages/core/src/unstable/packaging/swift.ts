@@ -200,7 +200,7 @@ export const swiftReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "swift" }),
     Effect.withSpan("read.swift"),

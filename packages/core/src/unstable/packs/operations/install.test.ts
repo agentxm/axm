@@ -36,7 +36,7 @@ const makePackRef = () => ({
   name: extensionName("frontend-pack"),
   version: exactVersion("1.0.0"),
   integrity: Option.none(),
-  companionPackages: [],
+  packages: [],
 });
 
 const makeOp = (): InstallPackOperation => ({

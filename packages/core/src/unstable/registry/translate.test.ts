@@ -54,6 +54,43 @@ describe("registryErrorToAppError", () => {
     expect(error.suggestions?.[0]?.description).toBe("Retry after 30s.");
   });
 
+  it("adds registry request and normalized response metadata", () => {
+    const error = registryErrorToAppError(
+      {
+        kind: "InternalServerError",
+        type: "about:blank",
+        title: "Internal Server Error",
+        status: 500,
+        detail: "An unexpected error occurred.",
+        code: "internal",
+        requestId: "req_123",
+      },
+      responseFor(500),
+    );
+
+    expect(error.metadata).toEqual({
+      request: {
+        service: "registry",
+        method: "GET",
+        url: "https://registry.agentxm.ai/test",
+      },
+      response: {
+        status: 500,
+        requestId: "req_123",
+        problemCode: "internal",
+        body: {
+          kind: "InternalServerError",
+          type: "about:blank",
+          title: "Internal Server Error",
+          status: 500,
+          detail: "An unexpected error occurred.",
+          code: "internal",
+          requestId: "req_123",
+        },
+      },
+    });
+  });
+
   it("adds scope suggestions for insufficient-scope 403 responses", () => {
     const error = registryErrorToAppError(
       {

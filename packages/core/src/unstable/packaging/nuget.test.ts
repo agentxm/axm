@@ -397,7 +397,7 @@ describe("nugetReader", () => {
   });
 
   describe("valid axm.json", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -408,18 +408,20 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@newtonsoft/skills/json@^1.0.0"],
+              extensions: [{ ref: "@newtonsoft/skills/json", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@newtonsoft/skills/json@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@newtonsoft/skills/json", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -427,10 +429,7 @@ describe("nugetReader", () => {
             name: "some.lib",
             version: "1.0.0",
           });
-          const result = yield* readInTempNuget(
-            purl,
-            JSON.stringify({ recommendedExtensions: [] }),
-          );
+          const result = yield* readInTempNuget(purl, JSON.stringify({ extensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -467,7 +466,7 @@ describe("nugetReader", () => {
           });
           const result = yield* readInTempNuget(
             purl,
-            JSON.stringify({ recommendedExtensions: "not-an-array" }),
+            JSON.stringify({ extensions: "not-an-array" }),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -487,13 +486,13 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -513,7 +512,7 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@newtonsoft/skills/json@^1.0.0"],
+              extensions: [{ ref: "@newtonsoft/skills/json", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -535,7 +534,7 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -644,12 +643,14 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@microsoft/skills/logging@^1.0.0"],
+              extensions: [{ ref: "@microsoft/skills/logging", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@microsoft/skills/logging@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@microsoft/skills/logging", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),

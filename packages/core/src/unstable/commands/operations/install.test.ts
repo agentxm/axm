@@ -132,7 +132,7 @@ const makeRegistryRef = (
     name: extensionName(name),
     version: exactVersion(overrides.version ?? "1.0.0"),
     integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
-    companionPackages: [],
+    packages: [],
   };
 };
 
@@ -163,7 +163,7 @@ const makeUnsafeRegistryRef = (
     // Assertion needed: these tests intentionally construct invalid refs to hit runtime guards.
     version: (overrides.version ?? "1.0.0") as unknown as RegistryCommandRef["version"],
     integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
-    companionPackages: [],
+    packages: [],
   };
 };
 

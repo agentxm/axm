@@ -2,21 +2,21 @@
 
 ### Requirement: Read axm recommendation metadata from installed CocoaPods packages
 
-The CocoaPods reader SHALL inspect `Pods/<pod-name>/axm.json` for each detected pod and check for recommendation metadata. CocoaPods installs dependencies into the `Pods/` directory after `pod install`. The sidecar approach uses `preserve_paths` in the podspec to ship the file. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The CocoaPods reader SHALL inspect `Pods/<pod-name>/axm.json` for each detected pod and check for recommendation metadata. CocoaPods installs dependencies into the `Pods/` directory after `pod install`. The sidecar approach uses `preserve_paths` in the podspec to ship the file. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Pod with valid axm.json sidecar
 
-- **WHEN** `Pods/Alamofire/axm.json` contains `{ "recommendedExtensions": ["@alamofire/skills/alamofire@^5.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@alamofire/skills/alamofire@^5.0.0"]`
+- **WHEN** `Pods/Alamofire/axm.json` contains `{ "extensions": [{ "ref": "@alamofire/skills/alamofire", "versionRange": "^5.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@alamofire/skills/alamofire", "versionRange": "^5.0.0" }]`
 
 #### Scenario: Pod without axm.json sidecar
 
 - **WHEN** `Pods/SnapKit/` exists but contains no `axm.json`
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Pod with empty recommendedExtensions
+#### Scenario: Pod with empty extensions
 
-- **WHEN** `Pods/SwiftyJSON/axm.json` contains `{ "recommendedExtensions": [] }`
+- **WHEN** `Pods/SwiftyJSON/axm.json` contains `{ "extensions": [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Validate metadata against AxmPackageMeta schema
@@ -25,14 +25,14 @@ The reader SHALL validate the `axm.json` contents against the `AxmPackageMeta` s
 
 #### Scenario: Malformed axm.json warned and skipped
 
-- **WHEN** `Pods/SomePod/axm.json` contains `{ "recommendedExtensions": { "invalid": true } }`
+- **WHEN** `Pods/SomePod/axm.json` contains `{ "extensions": { "invalid": true } }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `Pods/SomePod/axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `Pods/SomePod/axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Pod path reconstructed from pod name
 

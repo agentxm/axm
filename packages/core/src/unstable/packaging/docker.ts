@@ -342,7 +342,7 @@ export const dockerReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "docker" }),
     Effect.withSpan("read.docker"),

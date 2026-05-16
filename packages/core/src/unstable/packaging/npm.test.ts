@@ -347,7 +347,7 @@ describe("npmReader", () => {
   });
 
   describe("valid axm metadata", () => {
-    it.effect("extracts recommendedExtensions from axm field", () =>
+    it.effect("extracts extensions from axm field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "next" });
@@ -356,19 +356,21 @@ describe("npmReader", () => {
             JSON.stringify({
               name: "next",
               axm: {
-                recommendedExtensions: ["@vercel/skills/nextjs@^1.0.0"],
+                extensions: [{ ref: "@vercel/skills/nextjs", versionRange: "^1.0.0" }],
               },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@vercel/skills/nextjs@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@vercel/skills/nextjs", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "some-lib" });
@@ -376,7 +378,7 @@ describe("npmReader", () => {
             purl,
             JSON.stringify({
               name: "some-lib",
-              axm: { recommendedExtensions: [] },
+              axm: { extensions: [] },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -412,7 +414,7 @@ describe("npmReader", () => {
             purl,
             JSON.stringify({
               name: "some-lib",
-              axm: { recommendedExtensions: "not-an-array" },
+              axm: { extensions: "not-an-array" },
             }),
           );
           expect(Option.isNone(result)).toBe(true);
@@ -431,14 +433,14 @@ describe("npmReader", () => {
             JSON.stringify({
               name: "some-lib",
               axm: {
-                recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+                extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
                 futureField: true,
               },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -455,13 +457,15 @@ describe("npmReader", () => {
             JSON.stringify({
               name: "@angular/core",
               axm: {
-                recommendedExtensions: ["@angular/skills/angular@^1.0.0"],
+                extensions: [{ ref: "@angular/skills/angular", versionRange: "^1.0.0" }],
               },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@angular/skills/angular@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@angular/skills/angular", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),

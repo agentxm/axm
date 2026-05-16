@@ -76,7 +76,15 @@
                     "enum": ["axm-cli"],
                     "description": "OAuth client identifier. Must be 'axm-cli'."
                   },
-                  "scope": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "scope": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Ignored for axm-cli. Sessions always use full user authority."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["client_id"],
                 "additionalProperties": false
@@ -493,6 +501,41 @@
         }
       }
     },
+    "/v1/auth/whoami": {
+      "get": {
+        "tags": ["Auth"],
+        "operationId": "Auth.getWhoami",
+        "parameters": [],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Minimal identity response for login checks and CLI whoami.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthWhoamiResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Return authenticated user handle"
+      }
+    },
     "/v1/auth/me": {
       "get": {
         "tags": ["Auth"],
@@ -524,6 +567,51 @@
           }
         },
         "summary": "Return authenticated user info"
+      }
+    },
+    "/v1/auth/step-up/challenges/{challengeId}": {
+      "get": {
+        "tags": ["Auth"],
+        "operationId": "Auth.getStepUpChallenge",
+        "parameters": [
+          { "name": "challengeId", "in": "path", "schema": { "type": "string" }, "required": true }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "StepUpChallengeResponse",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StepUpChallengeResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Poll step-up challenge status"
       }
     },
     "/v1/auth/oidc/exchange": {
@@ -708,10 +796,19 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "StepUpRequiredError | UnauthorizedError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
               }
             }
           },
@@ -1644,7 +1741,7 @@
                               { "type": "null" }
                             ]
                           },
-                          "companionPackages": {
+                          "packages": {
                             "anyOf": [
                               {
                                 "type": "array",
@@ -1904,7 +2001,7 @@
                         { "type": "null" }
                       ]
                     },
-                    "companionPackages": {
+                    "packages": {
                       "anyOf": [
                         {
                           "type": "array",
@@ -2568,10 +2665,19 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "StepUpRequiredError | UnauthorizedError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
               }
             }
           },
@@ -2654,10 +2760,19 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "StepUpRequiredError | UnauthorizedError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
               }
             }
           },
@@ -3130,6 +3245,144 @@
         },
         "description": "Removes a team's grant on this extension. Idempotent — deleting a non-existent grant still returns 204.",
         "summary": "Delete a team extension grant"
+      }
+    },
+    "/v1/discovery": {
+      "post": {
+        "tags": ["Discovery"],
+        "operationId": "Discovery.postDiscovery",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "purl": { "type": "string" },
+                          "version": { "type": "string" },
+                          "status": { "type": "string", "enum": ["resolved", "invalid_purl"] },
+                          "extensions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "ref": { "type": "string" },
+                                "resolved": { "type": "boolean" },
+                                "extension": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "owner": { "type": "string" },
+                                        "type": { "type": "string" },
+                                        "name": { "type": "string" },
+                                        "installVersion": { "type": "string" }
+                                      },
+                                      "required": ["owner", "type", "name", "installVersion"],
+                                      "additionalProperties": false
+                                    },
+                                    { "type": "null" }
+                                  ]
+                                },
+                                "attestedBy": {
+                                  "type": "array",
+                                  "items": { "type": "string", "enum": ["package", "extension"] }
+                                },
+                                "official": { "type": "boolean" },
+                                "packageVersionInRange": { "type": "boolean" }
+                              },
+                              "required": [
+                                "ref",
+                                "resolved",
+                                "attestedBy",
+                                "official",
+                                "packageVersionInRange"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": ["purl", "version", "status", "extensions"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["results"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Persists submitted package metadata and resolves package and extension attestations.",
+        "summary": "Discover companion extensions for packages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "client": {
+                    "type": "object",
+                    "properties": { "axmVersion": { "type": "string" } },
+                    "required": ["axmVersion"],
+                    "additionalProperties": false
+                  },
+                  "packages": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "purl": { "type": "string" },
+                        "version": { "type": "string" },
+                        "declaredExtensions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "ref": { "$ref": "#/components/schemas/ExtensionFqn" },
+                              "versionRange": {
+                                "anyOf": [{ "type": "string" }, { "type": "null" }]
+                              }
+                            },
+                            "required": ["ref"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["purl", "version", "declaredExtensions"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["client", "packages"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        }
       }
     },
     "/v1/health": {
@@ -3660,6 +3913,20 @@
         "required": ["kind", "error", "error_description"],
         "additionalProperties": false
       },
+      "AuthWhoamiResponse": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "description": "The authenticated user's registry handle.",
+            "examples": ["@example"]
+          }
+        },
+        "required": ["handle"],
+        "additionalProperties": false,
+        "title": "Auth Whoami Response",
+        "description": "Minimal identity response for login checks and CLI whoami."
+      },
       "UserId": {
         "type": "string",
         "allOf": [
@@ -3728,6 +3995,10 @@
               { "type": "null" }
             ]
           },
+          "permissions": {
+            "anyOf": [{}, { "type": "null" }],
+            "description": "Structured permissions associated with this token."
+          },
           "scopes": {
             "type": "array",
             "items": { "type": "string" },
@@ -3740,7 +4011,15 @@
             "format": "date-time"
           }
         },
-        "required": ["id", "type", "name", "scopes", "resource_restrictions", "expires_at"],
+        "required": [
+          "id",
+          "type",
+          "name",
+          "permissions",
+          "scopes",
+          "resource_restrictions",
+          "expires_at"
+        ],
         "additionalProperties": false,
         "title": "Token Info",
         "description": "Details about the token you used to authenticate."
@@ -3760,6 +4039,33 @@
         "additionalProperties": false,
         "title": "Auth Me Response",
         "description": "Your user profile, organizations, and token details."
+      },
+      "StepUpChallengeResponse": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": { "status": { "type": "string", "enum": ["pending"] } },
+            "required": ["status"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["completed"] },
+              "step_up": {
+                "type": "string",
+                "description": "Opaque step-up proof for the original request."
+              },
+              "expires_at": {
+                "type": "string",
+                "description": "ISO timestamp when this proof expires."
+              }
+            },
+            "required": ["status", "step_up", "expires_at"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Step-up Challenge Response"
       },
       "TokenId": {
         "type": "string",
@@ -3789,13 +4095,26 @@
             "items": { "type": "string" },
             "description": "Scopes granted to this token."
           },
+          "permissions": {
+            "anyOf": [{}, { "type": "null" }],
+            "description": "Structured permissions associated with this token."
+          },
           "created_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
           "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
           "last_used_at": {
             "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
           }
         },
-        "required": ["id", "name", "type", "scopes", "created_at", "expires_at", "last_used_at"],
+        "required": [
+          "id",
+          "name",
+          "type",
+          "scopes",
+          "permissions",
+          "created_at",
+          "expires_at",
+          "last_used_at"
+        ],
         "additionalProperties": false,
         "title": "Token List Item",
         "description": "Summary of an access token."
@@ -3883,6 +4202,7 @@
               "insufficient_scope",
               "resource_restriction",
               "scope_escalation",
+              "gat_requires_session",
               "team_create_not_authorized",
               "team_delete_not_authorized",
               "team_update_not_authorized",
@@ -3909,6 +4229,43 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
+      "CreateTokenPermissionsRequest": {
+        "type": "object",
+        "properties": {
+          "owners": {
+            "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }],
+            "description": "Owner selectors for extension permissions. Use full handles or \"all\".",
+            "examples": [["@example"]]
+          },
+          "extensions": {
+            "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }],
+            "description": "Extension selectors in @handle/<plural-type>/<name> form.",
+            "examples": [["@example/skills/release-bot"]]
+          },
+          "permission": {
+            "anyOf": [
+              { "type": "string", "enum": ["read", "publish", "admin"] },
+              { "type": "null" }
+            ],
+            "description": "Extension-level permission to grant."
+          },
+          "org_permission": {
+            "anyOf": [{ "type": "string", "enum": ["read", "write", "admin"] }, { "type": "null" }],
+            "description": "Organization-level permission to grant."
+          },
+          "cidr": {
+            "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }],
+            "description": "Optional CIDR allowlist for the token."
+          },
+          "bypass_mfa": {
+            "anyOf": [{ "type": "boolean" }, { "type": "null" }],
+            "description": "Whether this automation token bypasses step-up MFA."
+          }
+        },
+        "additionalProperties": false,
+        "title": "Create Token Permissions Request",
+        "description": "Structured permission request for a granular access token."
+      },
       "CreateTokenRequest": {
         "type": "object",
         "properties": {
@@ -3923,15 +4280,19 @@
             ]
           },
           "scopes": {
-            "type": "array",
-            "items": { "type": "string" },
-            "allOf": [
-              {
-                "minItems": 1,
-                "description": "Permissions to grant this token (e.g. extensions:read, extensions:write).",
-                "examples": [["extensions:read", "extensions:write"]]
-              }
-            ]
+            "anyOf": [
+              { "type": "array", "items": { "type": "string" }, "allOf": [{ "minItems": 1 }] },
+              { "type": "null" }
+            ],
+            "description": "Deprecated scope-string grant surface. Prefer permissions.",
+            "examples": [["extensions:read", "extensions:publish:version"]]
+          },
+          "permissions": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/CreateTokenPermissionsRequest" },
+              { "type": "null" }
+            ],
+            "description": "Structured permission request for the token."
           },
           "expires_in": {
             "type": "integer",
@@ -3944,7 +4305,7 @@
             ]
           }
         },
-        "required": ["name", "scopes", "expires_in"],
+        "required": ["name", "expires_in"],
         "additionalProperties": false,
         "title": "Create Token Request",
         "description": "Request body for creating a new personal access token."
@@ -3960,13 +4321,30 @@
           },
           "name": { "type": "string" },
           "scopes": { "type": "array", "items": { "type": "string" } },
+          "permissions": {},
           "created_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
           "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
-        "required": ["id", "token", "name", "scopes", "created_at", "expires_at"],
+        "required": ["id", "token", "name", "scopes", "permissions", "created_at", "expires_at"],
         "additionalProperties": false,
         "title": "Create Token Response",
         "description": "Your new access token. The token value is only shown once — save it now."
+      },
+      "StepUpRequiredError": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["StepUpRequiredError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string", "enum": ["eotp"] },
+          "authUrl": { "type": "string" },
+          "doneUrl": { "type": "string" }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code", "authUrl", "doneUrl"],
+        "additionalProperties": false
       },
       "Handle": {
         "type": "string",
@@ -4609,6 +4987,17 @@
         "additionalProperties": false,
         "title": "Team Grant"
       },
+      "ExtensionFqn": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+            "title": "Extension FQN",
+            "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
+            "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
+          }
+        ]
+      },
       "SearchHit": {
         "type": "object",
         "properties": {
@@ -4681,6 +5070,7 @@
     { "name": "Extensions" },
     { "name": "Collaborators" },
     { "name": "TeamGrants" },
+    { "name": "Discovery" },
     { "name": "Health" },
     { "name": "Search" }
   ],

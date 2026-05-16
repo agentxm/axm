@@ -307,7 +307,7 @@ export const nugetReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "nuget" }),
     Effect.withSpan("read.nuget"),

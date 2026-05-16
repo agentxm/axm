@@ -7,7 +7,7 @@
 #### Scenario: Full discovery pipeline
 
 - **WHEN** user runs `axm discover` in a project with `package.json` containing `react` and `next` dependencies
-- **AND** `node_modules/next/package.json` contains `"axm": { "recommendedExtensions": ["@vercel/skills/nextjs@^1.0.0"] }`
+- **AND** `node_modules/next/package.json` contains `"axm": { "extensions": [{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }] }`
 - **AND** the registry has `@acme/skills/react-testing` with `compatiblePackages: ["pkg:npm/react"]`
 - **THEN** the output SHALL show `react` with `@acme/skills/react-testing` as `compatible`
 - **AND** `next` with `@vercel/skills/nextjs` as `recommended`
@@ -39,8 +39,8 @@ The read-local stage SHALL check locally installed packages for author-provided 
 
 #### Scenario: Package with recommendation metadata
 
-- **WHEN** `node_modules/next/package.json` contains `"axm": { "recommendedExtensions": ["@vercel/skills/nextjs@^1.0.0"] }`
-- **THEN** the read stage SHALL collect `@vercel/skills/nextjs@^1.0.0` as a recommendation for `pkg:npm/next`
+- **WHEN** `node_modules/next/package.json` contains `"axm": { "extensions": [{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }] }`
+- **THEN** the read stage SHALL collect `{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }` as a recommendation for `pkg:npm/next`
 
 #### Scenario: Package without recommendation metadata
 

@@ -21,13 +21,13 @@ import type {
   ExtensionDependencyConstraintMap,
   ExtensionName,
   ExtensionType,
-  ExtensionSpec,
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
 import type { Bugs, Repository } from "../extensions/common.js";
-import type { DiscoverExtensionsResponse } from "./discover-schema.js";
+import type { DiscoverPackagesResponse } from "./discover-schema.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
+import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
@@ -199,11 +199,16 @@ export interface ExtensionExistsResponse {
  * and workspace recommendations.
  *
  * - `packages`: detected package purls to match against extension compatibility
- * - `workspaceRecommendedExtensions`: optional FQRefs from installed package metadata
+ * - `declaredExtensions`: extension refs declared by the package's native AXM metadata
  */
-export interface DiscoverExtensionsArgs {
-  readonly packages: ReadonlyArray<PackageUrlParts>;
-  readonly workspaceRecommendedExtensions?: ReadonlyArray<ExtensionSpec>;
+export interface DiscoverPackageInput {
+  readonly purl: PackageUrlParts;
+  readonly version: string;
+  readonly declaredExtensions: ReadonlyArray<PackageExtensionDeclaration>;
+}
+
+export interface DiscoverPackagesArgs {
+  readonly packages: ReadonlyArray<DiscoverPackageInput>;
 }
 
 // -----------------------------------------------------------------------------
@@ -228,7 +233,7 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly version: Version;
   readonly integrity: string;
   /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
-  readonly companionPackages: ReadonlyArray<PackageUrlParts>;
+  readonly packages: ReadonlyArray<PackageUrlParts>;
 }
 
 // -----------------------------------------------------------------------------
@@ -260,9 +265,9 @@ export interface RegistryClient {
   readonly extensionExists: (
     args: ExtensionExistsArgs,
   ) => Effect.Effect<ExtensionExistsResponse, AppError>;
-  readonly discoverExtensions: (
-    args: DiscoverExtensionsArgs,
-  ) => Effect.Effect<DiscoverExtensionsResponse, AppError>;
+  readonly discoverPackages: (
+    args: DiscoverPackagesArgs,
+  ) => Effect.Effect<DiscoverPackagesResponse, AppError>;
 }
 
 // -----------------------------------------------------------------------------

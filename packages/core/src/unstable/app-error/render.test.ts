@@ -95,6 +95,63 @@ describe("renderAppError", () => {
     expect(result).toBe("\u2717 Something went wrong (not_found)");
   });
 
+  it("renders registry origin in normal mode", () => {
+    const error = new AppError({
+      code: "internal",
+      title: "Internal Error",
+      detail: "The registry returned a server error",
+      metadata: {
+        request: {
+          service: "registry",
+          method: "PUT",
+          url: "http://localhost:4300/v1/extensions/@examples/packs/demo/0.1.0",
+        },
+        response: {
+          status: 500,
+          requestId: "req_123",
+          problemCode: "internal",
+          body: { requestId: "req_123", code: "internal" },
+        },
+      },
+      cause: undefined,
+    });
+
+    const result = renderAppError(error);
+
+    expect(result).toContain("  Registry: http://localhost:4300");
+    expect(result).not.toContain("/v1/extensions");
+  });
+
+  it("renders registry request and normalized request ID in verbose mode", () => {
+    const error = new AppError({
+      code: "internal",
+      title: "Internal Error",
+      detail: "The registry returned a server error",
+      metadata: {
+        request: {
+          service: "registry",
+          method: "PUT",
+          url: "http://localhost:4300/v1/extensions/@examples/packs/demo/0.1.0",
+        },
+        response: {
+          status: 500,
+          requestId: "req_123",
+          problemCode: "internal",
+          body: { code: "internal" },
+        },
+      },
+      cause: undefined,
+    });
+
+    const result = renderAppError(error, { verbose: true, debug: false });
+
+    expect(result).toContain("  Registry: http://localhost:4300");
+    expect(result).toContain(
+      "  Request: PUT http://localhost:4300/v1/extensions/@examples/packs/demo/0.1.0",
+    );
+    expect(result).toContain("  Request ID: req_123");
+  });
+
   it("formats error with multiple detail lines", () => {
     const error = new AppError({
       code: "validation",

@@ -2,21 +2,21 @@
 
 ### Requirement: Read axm recommendation metadata from NuGet global packages
 
-The NuGet reader SHALL inspect the NuGet global packages folder for an `axm.json` file alongside each detected NuGet package. For each detected nuget package, the reader SHALL locate `<packages-folder>/{id}/{version}/axm.json` and extract the `recommendedExtensions` array when present and valid.
+The NuGet reader SHALL inspect the NuGet global packages folder for an `axm.json` file alongside each detected NuGet package. For each detected nuget package, the reader SHALL locate `<packages-folder>/{id}/{version}/axm.json` and extract the `extensions` array when present and valid.
 
 #### Scenario: Package with valid axm.json
 
-- **WHEN** `~/.nuget/packages/newtonsoft.json/13.0.3/axm.json` contains `{ "recommendedExtensions": ["@newtonsoft/skills/json@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@newtonsoft/skills/json@^1.0.0"]`
+- **WHEN** `~/.nuget/packages/newtonsoft.json/13.0.3/axm.json` contains `{ "extensions": [{ "ref": "@newtonsoft/skills/json", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@newtonsoft/skills/json", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without axm.json
 
 - **WHEN** `~/.nuget/packages/serilog/3.1.1/axm.json` does not exist
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Package with empty recommendedExtensions
+#### Scenario: Package with empty extensions
 
-- **WHEN** `~/.nuget/packages/some.lib/1.0.0/axm.json` contains `{ "recommendedExtensions": [] }`
+- **WHEN** `~/.nuget/packages/some.lib/1.0.0/axm.json` contains `{ "extensions": [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Package ID lowercased in folder path
@@ -69,14 +69,14 @@ The reader SHALL validate `axm.json` contents against the `AxmPackageMeta` schem
 
 #### Scenario: Malformed axm.json warned and skipped
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": "not-an-array" }`
+- **WHEN** `axm.json` contains `{ "extensions": "not-an-array" }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Version from purl used for directory lookup
 

@@ -78,12 +78,12 @@ describe("registry schema", () => {
       expect(result.dependencies).toEqual({});
     });
 
-    it("accepts entry with companionPackages array", () => {
+    it("accepts entry with packages array", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
         integrity: "sha512-abc123",
-        companionPackages: [
+        packages: [
           { purl: "pkg:npm/react", versionRange: "vers:npm/>=18.0.0|<19.0.0" },
           { purl: "pkg:pypi/django" },
         ],
@@ -91,13 +91,13 @@ describe("registry schema", () => {
 
       const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
 
-      expect(result.companionPackages).toHaveLength(2);
-      expect(result.companionPackages?.[0]?.purl).toBe("pkg:npm/react");
-      expect(result.companionPackages?.[0]?.versionRange?.raw).toBe("vers:npm/>=18.0.0|<19.0.0");
-      expect(result.companionPackages?.[1]?.purl).toBe("pkg:pypi/django");
+      expect(result.packages).toHaveLength(2);
+      expect(result.packages?.[0]?.purl).toBe("pkg:npm/react");
+      expect(result.packages?.[0]?.versionRange?.raw).toBe("vers:npm/>=18.0.0|<19.0.0");
+      expect(result.packages?.[1]?.purl).toBe("pkg:pypi/django");
     });
 
-    it("omits companionPackages when absent", () => {
+    it("omits packages when absent", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
@@ -106,21 +106,21 @@ describe("registry schema", () => {
 
       const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
 
-      expect(result.companionPackages).toBeUndefined();
+      expect(result.packages).toBeUndefined();
     });
 
-    it("encodes companionPackages back to companion package objects", () => {
+    it("encodes packages back to companion package objects", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
         integrity: "sha512-abc123",
-        companionPackages: [{ purl: "pkg:npm/react", versionRange: "vers:npm/=18.2.0" }],
+        packages: [{ purl: "pkg:npm/react", versionRange: "vers:npm/=18.2.0" }],
       };
 
       const decoded = Schema.decodeUnknownSync(VersionEntrySchema)(input);
       const encoded = Schema.encodeSync(VersionEntrySchema)(decoded);
 
-      expect(encoded.companionPackages).toEqual([
+      expect(encoded.packages).toEqual([
         { purl: "pkg:npm/react", versionRange: "vers:npm/=18.2.0" },
       ]);
     });

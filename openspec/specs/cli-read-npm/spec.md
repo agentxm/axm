@@ -2,21 +2,21 @@
 
 ### Requirement: Read axm recommendation metadata from installed npm packages
 
-The npm reader SHALL inspect `node_modules/<name>/package.json` for each detected npm package and check for an `"axm"` field containing recommendation metadata. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The npm reader SHALL inspect `node_modules/<name>/package.json` for each detected npm package and check for an `"axm"` field containing recommendation metadata. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm metadata
 
-- **WHEN** `node_modules/next/package.json` contains `"axm": { "recommendedExtensions": ["@vercel/skills/nextjs@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@vercel/skills/nextjs@^1.0.0"]`
+- **WHEN** `node_modules/next/package.json` contains `"axm": { "extensions": [{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without axm metadata
 
 - **WHEN** `node_modules/react/package.json` does not contain an `"axm"` field
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Package with empty recommendedExtensions
+#### Scenario: Package with empty extensions
 
-- **WHEN** `node_modules/some-lib/package.json` contains `"axm": { "recommendedExtensions": [] }`
+- **WHEN** `node_modules/some-lib/package.json` contains `"axm": { "extensions": [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Validate metadata against AxmPackageMeta schema
@@ -25,14 +25,14 @@ The reader SHALL validate the `"axm"` field contents against the `AxmPackageMeta
 
 #### Scenario: Malformed axm metadata warned and skipped
 
-- **WHEN** `node_modules/some-lib/package.json` contains `"axm": { "recommendedExtensions": "not-an-array" }`
+- **WHEN** `node_modules/some-lib/package.json` contains `"axm": { "extensions": "not-an-array" }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `node_modules/some-lib/package.json` contains `"axm": { "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `node_modules/some-lib/package.json` contains `"axm": { "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Scoped package path reconstruction from PackageUrlParts
 

@@ -2,21 +2,21 @@
 
 ### Requirement: Read axm recommendation metadata from `[package.metadata.axm]` in cached Cargo.toml
 
-The Cargo reader SHALL inspect each detected Rust crate's cached `Cargo.toml` for axm recommendation data. For each detected crate, the reader SHALL parse the `[package.metadata.axm]` table from `$CARGO_HOME/registry/src/<index>/<crate>-<version>/Cargo.toml` and extract the `recommendedExtensions` array when present and valid. The `[package.metadata]` table is the standard Rust extensibility mechanism used by docs.rs, cargo-deb, cargo-bundle, and other ecosystem tools.
+The Cargo reader SHALL inspect each detected Rust crate's cached `Cargo.toml` for axm recommendation data. For each detected crate, the reader SHALL parse the `[package.metadata.axm]` table from `$CARGO_HOME/registry/src/<index>/<crate>-<version>/Cargo.toml` and extract the `extensions` array when present and valid. The `[package.metadata]` table is the standard Rust extensibility mechanism used by docs.rs, cargo-deb, cargo-bundle, and other ecosystem tools.
 
 #### Scenario: Crate with valid `[package.metadata.axm]`
 
-- **WHEN** the cached `Cargo.toml` for `serde@1.0.193` contains `[package.metadata.axm]\nrecommendedExtensions = ["@serde/skills/serde@^1.0.0"]`
-- **THEN** the reader SHALL return the extension refs `["@serde/skills/serde@^1.0.0"]`
+- **WHEN** the cached `Cargo.toml` for `serde@1.0.193` contains `[package.metadata.axm]\nextensions = [{ ref = "@serde/skills/serde", versionRange = "^1.0.0" }]`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@serde/skills/serde", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Crate without `[package.metadata.axm]`
 
 - **WHEN** the cached `Cargo.toml` for `tokio` has no `[package.metadata.axm]` table
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Crate with empty recommendedExtensions
+#### Scenario: Crate with empty extensions
 
-- **WHEN** the cached `Cargo.toml` contains `[package.metadata.axm]\nrecommendedExtensions = []`
+- **WHEN** the cached `Cargo.toml` contains `[package.metadata.axm]\nextensions = []`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 #### Scenario: Section parsing stops at the next table header
@@ -50,11 +50,11 @@ The reader SHALL validate the extracted `axm` metadata object against the `AxmPa
 
 #### Scenario: Malformed axm metadata warned and skipped
 
-- **WHEN** `[package.metadata.axm]` contains `recommendedExtensions = 42`
+- **WHEN** `[package.metadata.axm]` contains `extensions = 42`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `[package.metadata.axm]` contains `recommendedExtensions = ["@acme/skills/foo@^1.0.0"]` and an additional unrecognized key
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `[package.metadata.axm]` contains `extensions = [{ ref = "@acme/skills/foo", versionRange = "^1.0.0" }]` and an additional unrecognized key
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields

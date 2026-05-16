@@ -235,6 +235,39 @@ const PackageConfigSchema = Schema.Struct({
 
 const decodePackageConfig = Schema.decodeUnknownResult(PackageConfigSchema);
 
+const parseYamlInlineObject = (value: string): unknown => {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return trimmed.replace(/^["']|["']$/g, "");
+  }
+
+  const body = trimmed.slice(1, -1);
+  const entry: Record<string, string> = {};
+  for (const part of body.split(",")) {
+    const pair = /^\s*([A-Za-z0-9_-]+)\s*:\s*["']([^"']+)["']\s*$/.exec(part);
+    const key = pair?.[1];
+    const rawValue = pair?.[2];
+    if (key === undefined || rawValue === undefined) continue;
+    entry[key] = rawValue;
+  }
+
+  return Object.keys(entry).length > 0 ? entry : value;
+};
+
+const parseYamlInlineArray = (value: string): ReadonlyArray<unknown> => {
+  const inner = value.slice(1, value.lastIndexOf("]")).trim();
+  if (inner === "") return [];
+
+  const objectMatches = Array.from(inner.matchAll(/\{[^{}]*\}/g), (match) => match[0]);
+  if (objectMatches.length > 0) return objectMatches.map(parseYamlInlineObject);
+
+  return inner
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .map((item) => item.replace(/^["']|["']$/g, ""));
+};
+
 /**
  * Extract the `axm` field from a pubspec.yaml content string using line-based parsing.
  * Returns the axm field value as a simple JSON-like structure, or undefined if not found.
@@ -277,10 +310,10 @@ const extractAxmFromPubspec = (content: string): unknown => {
 
   if (axmLines.length === 0) return undefined;
 
-  // Parse the axm section: extract recommendedExtensions list
+  // Parse the axm section: extract extensions list
   const result: Record<string, unknown> = {};
   let currentKey: string | undefined;
-  const currentList: Array<string> = [];
+  const currentList: Array<unknown> = [];
   let inList = false;
 
   for (const line of axmLines) {
@@ -305,23 +338,14 @@ const extractAxmFromPubspec = (content: string): unknown => {
         result[key] = value;
         inList = false;
       } else if (value.startsWith("[")) {
-        // Inline array: [item1, item2]
-        const inner = value.slice(1, value.lastIndexOf("]"));
-        result[key] = inner
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
-          .map((s) => s.replace(/^["']|["']$/g, ""));
+        result[key] = parseYamlInlineArray(value);
         inList = false;
       } else {
         // List follows on next lines
         inList = true;
       }
     } else if (trimmed.startsWith("- ") && inList && currentKey !== undefined) {
-      const item = trimmed
-        .slice(2)
-        .trim()
-        .replace(/^["']|["']$/g, "");
+      const item = parseYamlInlineObject(trimmed.slice(2));
       currentList.push(item);
     }
   }
@@ -391,7 +415,7 @@ export const pubReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "pub" }),
     Effect.withSpan("read.pub"),

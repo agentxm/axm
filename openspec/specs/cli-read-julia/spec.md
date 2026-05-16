@@ -6,8 +6,8 @@ The Julia reader SHALL inspect `Project.toml` files at `~/.julia/packages/<pkg>/
 
 #### Scenario: Package with valid [axm] section
 
-- **WHEN** `~/.julia/packages/DataFrames/abcde/Project.toml` contains `[axm]` with `recommendedExtensions = ["@julialang/skills/dataframes@^1.0.0"]`
-- **THEN** the reader SHALL return the extension refs `["@julialang/skills/dataframes@^1.0.0"]`
+- **WHEN** `~/.julia/packages/DataFrames/abcde/Project.toml` contains `[axm]` with `extensions = [{ ref = "@julialang/skills/dataframes", versionRange = "^1.0.0" }]`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@julialang/skills/dataframes", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without [axm] section
 
@@ -25,14 +25,14 @@ The reader SHALL validate the `[axm]` section contents against the `AxmPackageMe
 
 #### Scenario: Malformed [axm] section warned and skipped
 
-- **WHEN** `Project.toml` contains `[axm]` with `recommendedExtensions = "not-an-array"`
+- **WHEN** `Project.toml` contains `[axm]` with `extensions = "not-an-array"`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `Project.toml` contains `[axm]` with `recommendedExtensions` and `futureField`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `Project.toml` contains `[axm]` with `extensions` and `futureField`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing Julia packages directory handled gracefully
 

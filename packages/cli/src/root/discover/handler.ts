@@ -19,12 +19,15 @@ export interface DiscoverHandlerArgs {
 }
 
 const DiscoverExtensionSchema = Schema.Struct({
-  owner: Schema.String,
-  type: Schema.String,
-  name: Schema.String,
-  description: Schema.String,
-  latestVersion: Schema.String,
-  signal: Schema.String,
+  ref: Schema.String,
+  resolved: Schema.Boolean,
+  owner: Schema.optional(Schema.String),
+  type: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+  installVersion: Schema.optional(Schema.String),
+  attestedBy: Schema.Array(Schema.String),
+  official: Schema.Boolean,
+  packageVersionInRange: Schema.Boolean,
 });
 
 const DiscoverPackageItemSchema = Schema.Struct({
@@ -45,18 +48,18 @@ export type DiscoverOutput = typeof DiscoverOutputSchema.Type;
 interface DiscoverTableRow {
   readonly package: string;
   readonly extension: string;
-  readonly signal: string;
-  readonly latestVersion: string;
-  readonly description: string;
+  readonly attestedBy: string;
+  readonly official: string;
+  readonly installVersion: string;
 }
 
 const DiscoverTable = {
   columns: {
     package: { header: "Package" },
     extension: { header: "Extension" },
-    signal: { header: "Signal" },
-    latestVersion: { header: "Latest" },
-    description: { header: "Description" },
+    attestedBy: { header: "Attested" },
+    official: { header: "Official" },
+    installVersion: { header: "Install" },
   },
 } as const satisfies TableView<DiscoverTableRow>;
 
@@ -86,12 +89,15 @@ export const toDiscoverOutput = (
   items: result.packages.map((pkg) => ({
     package: encodePurl(pkg.detectedPackage),
     extensions: pkg.extensions.map((entry) => ({
-      owner: entry.extension.owner,
-      type: entry.extension.type,
-      name: entry.extension.name,
-      description: entry.extension.description,
-      latestVersion: entry.extension.latestVersion,
-      signal: entry.signal,
+      ref: entry.ref,
+      resolved: entry.resolved,
+      owner: entry.extension?.owner,
+      type: entry.extension?.type,
+      name: entry.extension?.name,
+      installVersion: entry.extension?.installVersion,
+      attestedBy: [...entry.attestedBy],
+      official: entry.official,
+      packageVersionInRange: entry.packageVersionInRange,
     })),
   })),
   count: result.packages.length,
@@ -103,10 +109,10 @@ const toDiscoverTableRows = (result: DiscoverResult): ReadonlyArray<DiscoverTabl
   result.packages.flatMap((pkg) =>
     pkg.extensions.map((entry) => ({
       package: formatPackageName(pkg),
-      extension: `${entry.extension.owner}/${entry.extension.type}/${entry.extension.name}`,
-      signal: entry.signal,
-      latestVersion: entry.extension.latestVersion,
-      description: entry.extension.description,
+      extension: entry.ref,
+      attestedBy: entry.attestedBy.join("+"),
+      official: entry.official ? "yes" : "no",
+      installVersion: entry.extension?.installVersion ?? "-",
     })),
   );
 
@@ -116,7 +122,7 @@ const formatSummary = (
 ): string => {
   const extensionLabel = extensionCount === 1 ? "extension" : "extensions";
   const packageLabel = args.totalDetected === 1 ? "package" : "packages";
-  return `Found ${extensionCount} compatible ${extensionLabel} for ${args.count} of ${args.totalDetected} detected ${packageLabel}.`;
+  return `Found ${extensionCount} companion ${extensionLabel} for ${args.count} of ${args.totalDetected} detected ${packageLabel}.`;
 };
 
 export const handleDiscoverWith = <E, R>(
@@ -138,12 +144,12 @@ export const handleDiscoverWith = <E, R>(
     }
 
     if (output.items.length === 0) {
-      yield* renderer.info("No compatible extensions found.");
+      yield* renderer.info("No companion extensions found.");
       return;
     }
 
     const rows = toDiscoverTableRows(result);
-    yield* renderer.table(rows, DiscoverTable, "Compatible extensions");
+    yield* renderer.table(rows, DiscoverTable, "Companion extensions");
     yield* renderer.success(formatSummary(output, rows.length));
   });
 

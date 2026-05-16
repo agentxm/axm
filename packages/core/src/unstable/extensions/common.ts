@@ -706,7 +706,7 @@ export const CommonManifestBaseFields = {
   license: Schema.optional(LicenseSchema),
   bugs: Schema.optional(BugsSchema),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
-  companionPackages: Schema.optional(
+  packages: Schema.optional(
     Schema.Array(CompanionPackageSchema).pipe(
       Schema.annotate({
         description:

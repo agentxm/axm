@@ -6,17 +6,17 @@ The Maven reader SHALL inspect locally cached JAR files for axm recommendation m
 
 #### Scenario: JAR with valid META-INF/axm.json
 
-- **WHEN** `~/.m2/repository/com/google/guava/guava/32.1.0-jre/guava-32.1.0-jre.jar` contains `META-INF/axm.json` with `{ "recommendedExtensions": ["@google/skills/guava@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@google/skills/guava@^1.0.0"]`
+- **WHEN** `~/.m2/repository/com/google/guava/guava/32.1.0-jre/guava-32.1.0-jre.jar` contains `META-INF/axm.json` with `{ "extensions": [{ "ref": "@google/skills/guava", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@google/skills/guava", "versionRange": "^1.0.0" }]`
 
 #### Scenario: JAR without META-INF/axm.json
 
 - **WHEN** the JAR file does not contain a `META-INF/axm.json` entry
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: JAR with empty recommendedExtensions
+#### Scenario: JAR with empty extensions
 
-- **WHEN** `META-INF/axm.json` contains `{ "recommendedExtensions": [] }`
+- **WHEN** `META-INF/axm.json` contains `{ "extensions": [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Search Maven local repository for JAR files
@@ -71,11 +71,11 @@ The reader SHALL validate `axm.json` contents against the `AxmPackageMeta` schem
 
 #### Scenario: Malformed axm.json warned and skipped
 
-- **WHEN** `META-INF/axm.json` contains `{ "recommendedExtensions": { "invalid": true } }`
+- **WHEN** `META-INF/axm.json` contains `{ "extensions": { "invalid": true } }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `META-INF/axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `META-INF/axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields

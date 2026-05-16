@@ -269,7 +269,7 @@ describe("pubReader", () => {
   });
 
   describe("valid axm metadata", () => {
-    it.effect("extracts recommendedExtensions from axm field", () =>
+    it.effect("extracts extensions from axm field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "riverpod" });
@@ -287,20 +287,22 @@ describe("pubReader", () => {
             "version: 2.0.0",
             "",
             "axm:",
-            "  recommendedExtensions:",
-            '    - "@riverpod/skills/riverpod@^2.0.0"',
+            "  extensions:",
+            '    - { ref: "@riverpod/skills/riverpod", versionRange: "^2.0.0" }',
           ].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@riverpod/skills/riverpod@^2.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@riverpod/skills/riverpod", versionRange: "^2.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "some_lib" });
@@ -310,9 +312,7 @@ describe("pubReader", () => {
               { name: "some_lib", rootUri: "../.pub-cache/hosted/pub.dev/some_lib-1.0.0" },
             ],
           });
-          const targetPubspec = ["name: some_lib", "", "axm:", "  recommendedExtensions: []"].join(
-            "\n",
-          );
+          const targetPubspec = ["name: some_lib", "", "axm:", "  extensions: []"].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
           expect(Option.isSome(result)).toBe(true);
@@ -351,9 +351,7 @@ describe("pubReader", () => {
             configVersion: 2,
             packages: [{ name: "bad_lib", rootUri: "../.pub-cache/hosted/pub.dev/bad_lib-1.0.0" }],
           });
-          const targetPubspec = ["name: bad_lib", "", "axm:", "  recommendedExtensions: 123"].join(
-            "\n",
-          );
+          const targetPubspec = ["name: bad_lib", "", "axm:", "  extensions: 123"].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
           expect(Option.isNone(result)).toBe(true);
@@ -408,15 +406,15 @@ describe("pubReader", () => {
             "name: some_lib",
             "",
             "axm:",
-            "  recommendedExtensions:",
-            '    - "@acme/skills/foo@^1.0.0"',
+            "  extensions:",
+            '    - { ref: "@acme/skills/foo", versionRange: "^1.0.0" }',
             "  futureField: true",
           ].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

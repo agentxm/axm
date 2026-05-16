@@ -303,7 +303,7 @@ describe("gemReader", () => {
   });
 
   describe("valid axm metadata in gemspec", () => {
-    it.effect("extracts recommendedExtensions from axm metadata", () =>
+    it.effect("extracts extensions from axm metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "rails", version: "7.1.0" });
@@ -312,20 +312,20 @@ describe("gemReader", () => {
             '  s.name = "rails"',
             '  s.version = "7.1.0"',
             "  s.metadata = {",
-            '    "axm_recommended_extensions" => "[@rails/skills/rails@^1.0.0]"',
+            '    "axm_extensions" => "[{\\"ref\\":\\"@rails/skills/rails\\",\\"versionRange\\":\\"^1.0.0\\"}]"',
             "  }",
             "end",
           ].join("\n");
           const result = yield* readInTempGemDir(purl, gemspecContent);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@rails/skills/rails@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@rails/skills/rails", versionRange: "^1.0.0" }]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "some-gem", version: "1.0.0" });
@@ -333,7 +333,7 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "some-gem"',
             "  s.metadata = {",
-            '    "axm_recommended_extensions" => "[]"',
+            '    "axm_extensions" => "[]"',
             "  }",
             "end",
           ].join("\n");
@@ -389,7 +389,7 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "bad-gem"',
             "  s.metadata = {",
-            '    "axm_recommended_extensions" => "not-a-valid-value"',
+            '    "axm_extensions" => "not-a-valid-value"',
             "  }",
             "end",
           ].join("\n");
@@ -409,7 +409,7 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "some-gem"',
             "  s.metadata = {",
-            '    "axm_recommended_extensions" => "[@acme/skills/foo@^1.0.0]",',
+            '    "axm_extensions" => "[{\\"ref\\":\\"@acme/skills/foo\\",\\"versionRange\\":\\"^1.0.0\\"}]",',
             '    "axm_future_field" => "true"',
             "  }",
             "end",
@@ -417,7 +417,7 @@ describe("gemReader", () => {
           const result = yield* readInTempGemDir(purl, gemspecContent);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -433,14 +433,17 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "some-gem"',
             "  s.metadata = {",
-            '    "axm_recommended_extensions" => "[@acme/skills/foo@^1.0.0, @acme/skills/bar@^2.0.0]"',
+            '    "axm_extensions" => "[{\\"ref\\":\\"@acme/skills/foo\\",\\"versionRange\\":\\"^1.0.0\\"},{\\"ref\\":\\"@acme/skills/bar\\",\\"versionRange\\":\\"^2.0.0\\"}]"',
             "  }",
             "end",
           ].join("\n");
           const result = yield* readInTempGemDir(purl, gemspecContent);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0", "@acme/skills/bar@^2.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@acme/skills/foo", versionRange: "^1.0.0" },
+              { ref: "@acme/skills/bar", versionRange: "^2.0.0" },
+            ]);
           }
         }),
       ),

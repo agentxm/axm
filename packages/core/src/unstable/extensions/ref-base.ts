@@ -45,7 +45,7 @@ export interface RegistryRefDetails {
   /** SRI integrity string in `sha512-<base64>` format. None for synthetic refs from publish. */
   readonly integrity: Option.Option<string>;
   /** Package URLs this extension is designed to work with, from registry metadata. Empty when absent. */
-  readonly companionPackages: ReadonlyArray<PackageUrlParts>;
+  readonly packages: ReadonlyArray<PackageUrlParts>;
 }
 
 /** Ref details for local filesystem sources. @experimental */

@@ -24,7 +24,7 @@ const makeRegistryRef = (name: string, version: string): RegistrySubagentRef =>
     owner: "@test",
     version,
     integrity: Option.none(),
-    companionPackages: [],
+    packages: [],
     subagent: { name, description: "" },
     source: {
       type: "registry",

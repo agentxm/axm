@@ -195,6 +195,47 @@ export const cargoDetector: PackageDetector = {
  */
 const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.cargo`);
 
+const parseTomlInlineString = (value: string): string | undefined => {
+  try {
+    const decoded: unknown = JSON.parse(value);
+    return typeof decoded === "string" ? decoded : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const parseTomlInlineTableArray = (rawValue: string): unknown => {
+  if (rawValue === "[]") return [];
+
+  try {
+    return JSON.parse(rawValue);
+  } catch {
+    // TOML inline tables use `key = "value"`, which is not JSON. Parse the
+    // package metadata subset AXM supports without pulling in a full TOML parser.
+  }
+
+  const entries: Array<Record<string, string>> = [];
+  for (const match of rawValue.matchAll(/\{([^{}]*)\}/g)) {
+    const tableBody = match[1];
+    if (tableBody === undefined) continue;
+
+    const entry: Record<string, string> = {};
+    for (const part of tableBody.split(",")) {
+      const pair = /^\s*([A-Za-z0-9_-]+)\s*=\s*("(?:\\.|[^"\\])*")\s*$/.exec(part);
+      const key = pair?.[1];
+      const encodedValue = pair?.[2];
+      if (key === undefined || encodedValue === undefined) continue;
+
+      const value = parseTomlInlineString(encodedValue);
+      if (value !== undefined) entry[key] = value;
+    }
+
+    if (Object.keys(entry).length > 0) entries.push(entry);
+  }
+
+  return entries.length > 0 ? entries : rawValue;
+};
+
 /**
  * Parse the `[package.metadata.axm]` table from a Cargo.toml string.
  *
@@ -203,9 +244,9 @@ const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.ca
  * parser, mirroring `julia.ts`/`parseAxmSection`. Supported forms:
  *
  *   [package.metadata.axm]
- *   recommendedExtensions = ["@owner/pack@^1.0.0"]
+ *   extensions = [{ ref = "@owner/packs/example", versionRange = "^1.0.0" }]
  *
- *   [package.metadata.axm.recommendedExtensions]  # not supported; arrays are
+ *   [package.metadata.axm.extensions]  # not supported; arrays are
  *                                                 # always inline below the
  *                                                 # `[package.metadata.axm]`
  *                                                 # header.
@@ -240,12 +281,7 @@ const parsePackageMetadataAxm = (content: string): Record<string, unknown> | und
     if (key === undefined || rawValue === undefined) continue;
 
     if (rawValue.startsWith("[")) {
-      // TOML arrays of strings are JSON-compatible
-      try {
-        fields[key] = JSON.parse(rawValue);
-      } catch {
-        fields[key] = rawValue;
-      }
+      fields[key] = parseTomlInlineTableArray(rawValue);
     } else if (rawValue.startsWith('"')) {
       fields[key] = rawValue.slice(1, -1);
     } else if (rawValue === "true" || rawValue === "false") {
@@ -318,7 +354,7 @@ export const cargoReader: PackageReader = {
           return Option.none();
         }
 
-        return Option.some(metaResult.success.recommendedExtensions);
+        return Option.some(metaResult.success.extensions);
       }
 
       return Option.none();

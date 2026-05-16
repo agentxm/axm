@@ -4,13 +4,13 @@ AXM links extensions and packages in two directions. Extension authors declare *
 
 ## Companion packages
 
-Any extension author may declare one or more `companionPackages` on an extension manifest (`skill.json`, `subagent.json`, `pack.json`, etc.) to signal that the extension is designed to work with those packages. Companion packages use [Package URL](https://github.com/package-url/purl-spec) identities, with an optional [VERS](https://github.com/package-url/vers-spec) range when the extension truly depends on a bounded package-version span.
+Any extension author may declare one or more `packages` on an extension manifest (`skill.json`, `subagent.json`, `pack.json`, etc.) to signal that the extension is designed to work with those packages. Companion packages use [Package URL](https://github.com/package-url/purl-spec) identities, with an optional [VERS](https://github.com/package-url/vers-spec) range when the extension truly depends on a bounded package-version span.
 
 Default to identity-only. The declaration usually means "this extension targets this package," not "this extension is tied to a specific release":
 
 ```jsonc
 {
-  "companionPackages": [{ "purl": "pkg:npm/example-tinyflags" }],
+  "packages": [{ "purl": "pkg:npm/example-tinyflags" }],
 }
 ```
 
@@ -18,7 +18,7 @@ Use `versionRange` only when the extension has a real compatibility constraint. 
 
 ```jsonc
 {
-  "companionPackages": [
+  "packages": [
     {
       "purl": "pkg:npm/example-tinyflags",
       "versionRange": "vers:npm/>=1.0.0|<2.0.0",
@@ -33,17 +33,17 @@ Do not put `@version` on the purl. A versioned purl like `pkg:npm/example-tinyfl
 - Users on any other version see no signal that the extension applies to them.
 - The extension author must republish to track upstream package releases.
 
-When the package author recommends an extension from package metadata, they still use `recommendedExtensions` to express which extension version pairs with their package release. `companionPackages.versionRange` is for the extension author's side of the relationship: use it only when the extension itself depends on package APIs introduced or removed in a known range.
+When the package author recommends an extension from package metadata, they still use `extensions` to express which extension version pairs with their package release. `packages.versionRange` is for the extension author's side of the relationship: use it only when the extension itself depends on package APIs introduced or removed in a known range.
 
 ## Recommended extensions
 
-Any package author may declare `recommendedExtensions` in their package's native metadata to signal that those extensions are recommended for working with the package. Each entry is an extension reference (`@owner/<type>/<name>`) with an optional semver range. For npm, that field lives in `package.json`:
+Any package author may declare `extensions` in their package's native metadata to signal that those extensions are recommended for working with the package. Each entry is an object with an extension reference (`ref`) and an optional semver `versionRange`. For npm, that field lives in `package.json`:
 
 ```jsonc
 // package.json
 {
   "axm": {
-    "recommendedExtensions": ["@acme/packs/widget-kit"],
+    "extensions": [{ "ref": "@acme/packs/widget-kit" }],
   },
 }
 ```
@@ -52,19 +52,19 @@ A recommendation can target any extension type — skill, subagent, command, MCP
 
 For the equivalent location in other package formats, see [Specifying recommended extensions in package metadata](#specifying-recommended-extensions-in-package-metadata) below.
 
-Default to identity-only — omit the `@<range>` suffix. A recommendation is a discovery signal: AXM resolves it to the newest matching extension version and pins that exact version in `.axm/axm-lock.yaml`, so the range never controls what the user ends up installing. An identity-only recommendation never goes stale and always points at the current extension.
+Default to identity-only — omit `versionRange`. A recommendation is a discovery signal: AXM resolves it to the newest matching extension version and pins that exact version in `.axm/axm-lock.yaml`, so the range never controls what the user ends up installing. An identity-only recommendation never goes stale and always points at the current extension.
 
-Append a semver range only when your package genuinely pairs with a bounded major line of the extension — for example, when a later major release of the extension drops an API your package relies on:
+Add a semver `versionRange` only when your package genuinely pairs with a bounded major line of the extension — for example, when a later major release of the extension drops an API your package relies on:
 
 ```jsonc
 {
   "axm": {
-    "recommendedExtensions": ["@acme/packs/widget-kit@^1.0.0"],
+    "extensions": [{ "ref": "@acme/packs/widget-kit", "versionRange": "^1.0.0" }],
   },
 }
 ```
 
-A `^major` range still lets the extension author ship minor and patch releases without you republishing; it goes stale only on a major bump. Do not exact-pin (`@1.2.3`): like a versioned companion-package purl, an exact pin goes stale on every extension release and forces you to republish to track it. Writing `@*` is equivalent to omitting the suffix — omit it. For pre-1.0 extensions, prefer identity-only: a caret range on a `0.x` version (`^0.1.0` resolves to `>=0.1.0 <0.2.0`) behaves almost like an exact pin and goes stale on every minor release.
+A `^major` range still lets the extension author ship minor and patch releases without you republishing; it goes stale only on a major bump. Do not exact-pin (`"versionRange": "1.2.3"`): like a versioned companion-package purl, an exact pin goes stale on every extension release and forces you to republish to track it. Writing `"versionRange": "*"` is equivalent to omitting it — omit it. For pre-1.0 extensions, prefer identity-only: a caret range on a `0.x` version (`^0.1.0` resolves to `>=0.1.0 <0.2.0`) behaves almost like an exact pin and goes stale on every minor release.
 
 ## Official extensions
 
@@ -94,7 +94,7 @@ The location depends on the package format.
 | opam (OCaml)                  | `x-axm-<field>:` custom fields in the `.opam` file                 |
 | Pub (Dart)                    | `axm` field in `pubspec.yaml`                                      |
 | PyPI (Python)                 | `[tool.axm]` table in `pyproject.toml`                             |
-| RubyGems (Ruby)               | stringified array in `spec.metadata["axm_recommended_extensions"]` |
+| RubyGems (Ruby)               | stringified array in `spec.metadata["axm_extensions"]`             |
 | SwiftPM (Swift)               | `axm.json` sidecar at the package root                             |
 | Zig                           | `axm.json` sidecar at the package root (listed in `.paths`)        |
 

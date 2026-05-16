@@ -245,19 +245,21 @@ describe("cranReader", () => {
   });
 
   describe("valid Config/axm field", () => {
-    it.effect("extracts recommendedExtensions from Config/axm", () =>
+    it.effect("extracts extensions from Config/axm", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
           const desc = [
             "Package: dplyr",
             "Version: 1.1.4",
-            'Config/axm: {"recommendedExtensions": ["@tidyverse/skills/dplyr@^1.0.0"]}',
+            'Config/axm: {"extensions": [{"ref":"@tidyverse/skills/dplyr","versionRange":"^1.0.0"}]}',
           ].join("\n");
           const result = yield* readInTempLib(purl, desc);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@tidyverse/skills/dplyr@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@tidyverse/skills/dplyr", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
@@ -307,7 +309,7 @@ describe("cranReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
-          const desc = 'Package: dplyr\nConfig/axm: {"recommendedExtensions": "not-an-array"}\n';
+          const desc = 'Package: dplyr\nConfig/axm: {"extensions": "not-an-array"}\n';
           const result = yield* readInTempLib(purl, desc);
           expect(Option.isNone(result)).toBe(true);
         }),

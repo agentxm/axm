@@ -10,7 +10,7 @@ export const buildRegistryMcpServerRef = (
   name: ExtensionName,
   version: Version,
   source: RegistrySource,
-  companionPackages: ReadonlyArray<PackageUrlParts>,
+  packages: ReadonlyArray<PackageUrlParts>,
 ): RegistryMcpServerRef => ({
   type: "mcp-server",
   refType: "registry",
@@ -20,5 +20,5 @@ export const buildRegistryMcpServerRef = (
   name,
   version,
   integrity: Option.none(),
-  companionPackages,
+  packages,
 });

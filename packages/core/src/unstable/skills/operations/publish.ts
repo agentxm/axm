@@ -177,8 +177,8 @@ export const publishSkill: OperationHandler<
       version: manifest.version,
       published: new Date().toISOString(),
       integrity,
-      ...(manifest.companionPackages !== undefined && {
-        companionPackages: manifest.companionPackages,
+      ...(manifest.packages !== undefined && {
+        packages: manifest.packages,
       }),
     };
 

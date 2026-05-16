@@ -97,6 +97,7 @@ const makeMeResponse = () => ({
     id: "tok_01h455vb4pexka56gq5w2r7cpc",
     type: "session",
     name: null,
+    permissions: null,
     scopes: ["extensions:read", "account:read"],
     resource_restrictions: { extensions: null },
     expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
@@ -145,6 +146,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
 
       expect(url.pathname).toBe("/oauth/authorize");
       expect(url.searchParams.get("request_expires_at")).toBe(expiresAt.toISOString());
+      expect(url.searchParams.get("scope")).toContain("extensions:publish:new");
     }).pipe(Effect.provide(layer));
   });
 });

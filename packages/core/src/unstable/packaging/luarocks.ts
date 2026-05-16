@@ -210,7 +210,7 @@ export const luarocksReader: PackageReader = {
             return Option.none();
           }
 
-          return Option.some(metaResult.success.recommendedExtensions);
+          return Option.some(metaResult.success.extensions);
         }
       }
 

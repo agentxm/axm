@@ -2,21 +2,21 @@
 
 ### Requirement: Read axm recommendation metadata from installed Go modules
 
-The Go reader SHALL inspect the Go module cache for an `axm.json` sidecar file alongside each detected Go module. For each detected golang package, the reader SHALL locate `$GOPATH/pkg/mod/<module>@<version>/axm.json` and extract the `recommendedExtensions` array when present and valid.
+The Go reader SHALL inspect the Go module cache for an `axm.json` sidecar file alongside each detected Go module. For each detected golang package, the reader SHALL locate `$GOPATH/pkg/mod/<module>@<version>/axm.json` and extract the `extensions` array when present and valid.
 
 #### Scenario: Module with valid axm.json sidecar
 
-- **WHEN** `$GOPATH/pkg/mod/github.com/gorilla/mux@v1.8.1/axm.json` contains `{ "recommendedExtensions": ["@gorilla/skills/mux@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@gorilla/skills/mux@^1.0.0"]`
+- **WHEN** `$GOPATH/pkg/mod/github.com/gorilla/mux@v1.8.1/axm.json` contains `{ "extensions": [{ "ref": "@gorilla/skills/mux", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@gorilla/skills/mux", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Module without axm.json sidecar
 
 - **WHEN** `$GOPATH/pkg/mod/github.com/gin-gonic/gin@v1.9.1/axm.json` does not exist
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Module with empty recommendedExtensions
+#### Scenario: Module with empty extensions
 
-- **WHEN** `$GOPATH/pkg/mod/github.com/some/lib@v0.5.0/axm.json` contains `{ "recommendedExtensions": [] }`
+- **WHEN** `$GOPATH/pkg/mod/github.com/some/lib@v0.5.0/axm.json` contains `{ "extensions": [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Reconstruct module path from PackageUrlParts
@@ -69,14 +69,14 @@ The reader SHALL validate `axm.json` contents against the `AxmPackageMeta` schem
 
 #### Scenario: Malformed axm.json warned and skipped
 
-- **WHEN** `$GOPATH/pkg/mod/github.com/some/lib@v1.0.0/axm.json` contains `{ "recommendedExtensions": 42 }`
+- **WHEN** `$GOPATH/pkg/mod/github.com/some/lib@v1.0.0/axm.json` contains `{ "extensions": 42 }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": ["@acme/skills/foo@^1.0.0"], "futureField": true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], "futureField": true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: No Go toolchain dependency
 

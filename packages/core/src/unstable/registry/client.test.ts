@@ -32,8 +32,8 @@ import {
   dependencyConstraints,
   exactVersion,
   extensionName,
-  fullyQualifiedRef,
   handle,
+  packageExtensionDeclaration,
   packageType,
   versionRange,
 } from "../test-helpers.js";
@@ -59,7 +59,7 @@ interface TestVersionEntryOverrides {
   readonly published?: string;
   readonly integrity?: string;
   readonly dependencies?: Record<string, string>;
-  readonly companionPackages?: ReadonlyArray<CompanionPackage>;
+  readonly packages?: ReadonlyArray<CompanionPackage>;
 }
 
 const makeVersionEntry = (overrides?: TestVersionEntryOverrides): VersionEntry => ({
@@ -71,9 +71,7 @@ const makeVersionEntry = (overrides?: TestVersionEntryOverrides): VersionEntry =
   ...(overrides?.dependencies === undefined
     ? {}
     : { dependencies: dependencyConstraints(overrides.dependencies) }),
-  ...(overrides?.companionPackages === undefined
-    ? {}
-    : { companionPackages: overrides.companionPackages }),
+  ...(overrides?.packages === undefined ? {} : { packages: overrides.packages }),
 });
 
 interface TestIndexOverrides {
@@ -771,22 +769,22 @@ describe("LocalRegistryClient.extensionExists", () => {
 });
 
 // -----------------------------------------------------------------------------
-// LocalRegistryClient.discoverExtensions
+// LocalRegistryClient.discoverPackages
 // -----------------------------------------------------------------------------
 
-describe("LocalRegistryClient.discoverExtensions", () => {
-  /** Helper to create an index with companionPackages on the latest version. */
+describe("LocalRegistryClient.discoverPackages", () => {
+  /** Helper to create an index with packages on the latest version. */
   const makeCompatibleIndex = (
     overrides: TestIndexOverrides & {
-      companionPackages?: ReadonlyArray<CompanionPackage>;
+      packages?: ReadonlyArray<CompanionPackage>;
     },
   ): ExtensionIndex => {
-    const { companionPackages, ...rest } = overrides;
+    const { packages, ...rest } = overrides;
     return makeIndex({
       ...rest,
       versions: [
         makeVersionEntry({
-          ...(companionPackages ? { companionPackages } : {}),
+          ...(packages ? { packages } : {}),
         }),
       ],
     });
@@ -805,21 +803,23 @@ describe("LocalRegistryClient.discoverExtensions", () => {
           makeCompatibleIndex({
             name: "react-skill",
             description: "React support",
-            companionPackages: [companionPackage("pkg:npm/react")],
+            packages: [companionPackage("pkg:npm/react")],
           }),
         ),
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [makeDetectedPackage("npm", "react")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          { purl: makeDetectedPackage("npm", "react"), version: "18.2.0", declaredExtensions: [] },
+        ],
       });
 
       expect(result.results).toHaveLength(1);
-      expect(at(result.results, 0).detectedPackage).toEqual(makeDetectedPackage("npm", "react"));
+      expect(at(result.results, 0).purl).toBe("pkg:npm/react");
       expect(at(result.results, 0).extensions).toHaveLength(1);
-      expect(at(at(result.results, 0).extensions, 0).name).toBe("react-skill");
-      expect(result.resolvedRecommendations).toHaveLength(0);
+      expect(at(at(result.results, 0).extensions, 0).extension?.name).toBe("react-skill");
+      expect(at(at(result.results, 0).extensions, 0).attestedBy).toEqual(["extension"]);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -828,7 +828,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
     );
   });
 
-  it.effect("packages + recommendations — returns both groups", () => {
+  it.effect("package and extension attestations produce official result", () => {
     const registryRoot = makeRegistryDir();
     const nextSkillDir = nodePath.join(registryRoot, "extensions", "@vercel", "skills", "nextjs");
 
@@ -842,57 +842,31 @@ describe("LocalRegistryClient.discoverExtensions", () => {
             owner: "@vercel",
             name: "nextjs",
             description: "Next.js support",
-            companionPackages: [companionPackage("pkg:npm/next")],
+            packages: [companionPackage("pkg:npm/next")],
           }),
         ),
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [makeDetectedPackage("npm", "next")],
-        workspaceRecommendedExtensions: [fullyQualifiedRef("@vercel/skills/nextjs@^1.0.0")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          {
+            purl: makeDetectedPackage("npm", "next"),
+            version: "14.0.0",
+            declaredExtensions: [
+              packageExtensionDeclaration({
+                ref: "@vercel/skills/nextjs",
+                versionRange: "^1.0.0",
+              }),
+            ],
+          },
+        ],
       });
 
       expect(result.results).toHaveLength(1);
       expect(at(result.results, 0).extensions).toHaveLength(1);
-      expect(result.resolvedRecommendations).toHaveLength(1);
-      expect(at(result.resolvedRecommendations, 0).name).toBe("nextjs");
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-      ),
-      Effect.provide(NodeServices.layer),
-    );
-  });
-
-  it.effect("empty packages with recommendations — results empty, recommendations resolved", () => {
-    const registryRoot = makeRegistryDir();
-    const nextSkillDir = nodePath.join(registryRoot, "extensions", "@vercel", "skills", "nextjs");
-
-    return Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      yield* fs.makeDirectory(nextSkillDir, { recursive: true });
-      yield* fs.writeFileString(
-        nodePath.join(nextSkillDir, "index.json"),
-        JSON.stringify(
-          makeCompatibleIndex({
-            owner: "@vercel",
-            name: "nextjs",
-            description: "Next.js support",
-            companionPackages: [companionPackage("pkg:npm/next")],
-          }),
-        ),
-      );
-
-      const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [],
-        workspaceRecommendedExtensions: [fullyQualifiedRef("@vercel/skills/nextjs@^1.0.0")],
-      });
-
-      expect(result.results).toHaveLength(0);
-      expect(result.resolvedRecommendations).toHaveLength(1);
-      expect(at(result.resolvedRecommendations, 0).name).toBe("nextjs");
+      expect(at(at(result.results, 0).extensions, 0).official).toBe(true);
+      expect(at(at(result.results, 0).extensions, 0).attestedBy).toEqual(["package", "extension"]);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -915,31 +889,31 @@ describe("LocalRegistryClient.discoverExtensions", () => {
             owner: "@acme",
             name: "fullstack",
             description: "Full stack support",
-            companionPackages: [
-              companionPackage("pkg:npm/react"),
-              companionPackage("pkg:npm/next"),
-            ],
+            packages: [companionPackage("pkg:npm/react"), companionPackage("pkg:npm/next")],
           }),
         ),
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [makeDetectedPackage("npm", "react"), makeDetectedPackage("npm", "next")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          { purl: makeDetectedPackage("npm", "react"), version: "18.2.0", declaredExtensions: [] },
+          { purl: makeDetectedPackage("npm", "next"), version: "14.0.0", declaredExtensions: [] },
+        ],
       });
 
       expect(result.results).toHaveLength(2);
 
-      const reactGroup = result.results.find((r) => r.detectedPackage.name === "react");
-      const nextGroup = result.results.find((r) => r.detectedPackage.name === "next");
+      const reactGroup = result.results.find((r) => r.purl === "pkg:npm/react");
+      const nextGroup = result.results.find((r) => r.purl === "pkg:npm/next");
 
       expect(reactGroup).toBeDefined();
       expect(reactGroup?.extensions).toHaveLength(1);
-      expect(at(reactGroup?.extensions ?? [], 0).name).toBe("fullstack");
+      expect(at(reactGroup?.extensions ?? [], 0).extension?.name).toBe("fullstack");
 
       expect(nextGroup).toBeDefined();
       expect(nextGroup?.extensions).toHaveLength(1);
-      expect(at(nextGroup?.extensions ?? [], 0).name).toBe("fullstack");
+      expect(at(nextGroup?.extensions ?? [], 0).extension?.name).toBe("fullstack");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -961,17 +935,24 @@ describe("LocalRegistryClient.discoverExtensions", () => {
           makeCompatibleIndex({
             name: "react-skill",
             description: "React support",
-            companionPackages: [companionPackage("pkg:npm/react")],
+            packages: [companionPackage("pkg:npm/react")],
           }),
         ),
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [makeDetectedPackage("npm", "obscure-lib")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          {
+            purl: makeDetectedPackage("npm", "obscure-lib"),
+            version: "1.0.0",
+            declaredExtensions: [],
+          },
+        ],
       });
 
-      expect(result.results).toHaveLength(0);
+      expect(result.results).toHaveLength(1);
+      expect(at(result.results, 0).extensions).toHaveLength(0);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -980,7 +961,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
     );
   });
 
-  it.effect("recommendation resolution for valid refs", () => {
+  it.effect("package-only declarations resolve when the extension exists", () => {
     const registryRoot = makeRegistryDir();
     const skillDir = nodePath.join(registryRoot, "extensions", "@vercel", "skills", "nextjs");
 
@@ -999,16 +980,26 @@ describe("LocalRegistryClient.discoverExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [],
-        workspaceRecommendedExtensions: [fullyQualifiedRef("@vercel/skills/nextjs@^1.0.0")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          {
+            purl: makeDetectedPackage("npm", "next"),
+            version: "14.0.0",
+            declaredExtensions: [
+              packageExtensionDeclaration({
+                ref: "@vercel/skills/nextjs",
+                versionRange: "^1.0.0",
+              }),
+            ],
+          },
+        ],
       });
 
-      expect(result.resolvedRecommendations).toHaveLength(1);
-      const rec = at(result.resolvedRecommendations, 0);
-      expect(rec.type).toBe("skill");
-      expect(rec.name).toBe("nextjs");
-      expect(rec.owner).toBe("@vercel");
+      const rec = at(at(result.results, 0).extensions, 0);
+      expect(rec.extension?.type).toBe("skill");
+      expect(rec.extension?.name).toBe("nextjs");
+      expect(rec.extension?.owner).toBe("@vercel");
+      expect(rec.attestedBy).toEqual(["package"]);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -1017,7 +1008,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
     );
   });
 
-  it.effect("unknown refs — omitted from resolvedRecommendations", () => {
+  it.effect("unknown refs are returned unresolved", () => {
     const registryRoot = makeRegistryDir();
 
     return Effect.gen(function* () {
@@ -1025,12 +1016,24 @@ describe("LocalRegistryClient.discoverExtensions", () => {
       yield* fs.makeDirectory(nodePath.join(registryRoot, "extensions"), { recursive: true });
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [],
-        workspaceRecommendedExtensions: [fullyQualifiedRef("@unknown/skills/nonexistent@^1.0.0")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          {
+            purl: makeDetectedPackage("npm", "unknown"),
+            version: "1.0.0",
+            declaredExtensions: [
+              packageExtensionDeclaration({
+                ref: "@unknown/skills/nonexistent",
+                versionRange: "^1.0.0",
+              }),
+            ],
+          },
+        ],
       });
 
-      expect(result.resolvedRecommendations).toHaveLength(0);
+      const entry = at(at(result.results, 0).extensions, 0);
+      expect(entry.resolved).toBe(false);
+      expect(entry.ref).toBe("@unknown/skills/nonexistent");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -1047,12 +1050,14 @@ describe("LocalRegistryClient.discoverExtensions", () => {
       yield* fs.makeDirectory(nodePath.join(registryRoot, "extensions"), { recursive: true });
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [makeDetectedPackage("npm", "react")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          { purl: makeDetectedPackage("npm", "react"), version: "18.2.0", declaredExtensions: [] },
+        ],
       });
 
-      expect(result.results).toHaveLength(0);
-      expect(result.resolvedRecommendations).toHaveLength(0);
+      expect(result.results).toHaveLength(1);
+      expect(at(result.results, 0).extensions).toHaveLength(0);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -1061,45 +1066,43 @@ describe("LocalRegistryClient.discoverExtensions", () => {
     );
   });
 
-  it.effect(
-    "entry contains required fields (type, name, owner, description, latestVersion)",
-    () => {
-      const registryRoot = makeRegistryDir();
-      const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+  it.effect("entry contains required fields", () => {
+    const registryRoot = makeRegistryDir();
+    const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
 
-      return Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        yield* fs.makeDirectory(skillDir, { recursive: true });
-        yield* fs.writeFileString(
-          nodePath.join(skillDir, "index.json"),
-          JSON.stringify(
-            makeCompatibleIndex({
-              name: "my-skill",
-              description: "A test skill",
-              companionPackages: [companionPackage("pkg:npm/react")],
-            }),
-          ),
-        );
-
-        const client = yield* makeLocalClient(registryRoot);
-        const result = yield* client.discoverExtensions({
-          packages: [makeDetectedPackage("npm", "react")],
-        });
-
-        const entry = at(at(result.results, 0).extensions, 0);
-        expect(entry.type).toBe("skill");
-        expect(entry.name).toBe("my-skill");
-        expect(entry.owner).toBe("@test");
-        expect(entry.description).toBe("A test skill");
-        expect(entry.latestVersion).toBe("1.0.0");
-      }).pipe(
-        Effect.ensuring(
-          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs.makeDirectory(skillDir, { recursive: true });
+      yield* fs.writeFileString(
+        nodePath.join(skillDir, "index.json"),
+        JSON.stringify(
+          makeCompatibleIndex({
+            name: "my-skill",
+            description: "A test skill",
+            packages: [companionPackage("pkg:npm/react")],
+          }),
         ),
-        Effect.provide(NodeServices.layer),
       );
-    },
-  );
+
+      const client = yield* makeLocalClient(registryRoot);
+      const result = yield* client.discoverPackages({
+        packages: [
+          { purl: makeDetectedPackage("npm", "react"), version: "18.2.0", declaredExtensions: [] },
+        ],
+      });
+
+      const entry = at(at(result.results, 0).extensions, 0);
+      expect(entry.extension?.type).toBe("skill");
+      expect(entry.extension?.name).toBe("my-skill");
+      expect(entry.extension?.owner).toBe("@test");
+      expect(entry.extension?.installVersion).toBe("1.0.0");
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+      ),
+      Effect.provide(NodeServices.layer),
+    );
+  });
 
   it.effect(
     "discover returns individual extensions not packs when extension belongs to a pack",
@@ -1117,7 +1120,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
       return Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
 
-        // Create a skill with companionPackages
+        // Create a skill with packages
         yield* fs.makeDirectory(skillDir, { recursive: true });
         yield* fs.writeFileString(
           nodePath.join(skillDir, "index.json"),
@@ -1126,12 +1129,12 @@ describe("LocalRegistryClient.discoverExtensions", () => {
               owner: "@acme",
               name: "react-testing",
               description: "React testing support",
-              companionPackages: [companionPackage("pkg:npm/react")],
+              packages: [companionPackage("pkg:npm/react")],
             }),
           ),
         );
 
-        // Create a pack that includes the skill (packs do not declare companionPackages)
+        // Create a pack that includes the skill (packs do not declare packages)
         yield* fs.makeDirectory(packDir, { recursive: true });
         yield* fs.writeFileString(
           nodePath.join(packDir, "index.json"),
@@ -1150,18 +1153,24 @@ describe("LocalRegistryClient.discoverExtensions", () => {
         );
 
         const client = yield* makeLocalClient(registryRoot);
-        const result = yield* client.discoverExtensions({
-          packages: [makeDetectedPackage("npm", "react")],
+        const result = yield* client.discoverPackages({
+          packages: [
+            {
+              purl: makeDetectedPackage("npm", "react"),
+              version: "18.2.0",
+              declaredExtensions: [],
+            },
+          ],
         });
 
         // The individual skill appears, not the pack
         expect(result.results).toHaveLength(1);
         const matchGroup = at(result.results, 0);
         expect(matchGroup.extensions).toHaveLength(1);
-        expect(at(matchGroup.extensions, 0).name).toBe("react-testing");
-        expect(at(matchGroup.extensions, 0).type).toBe("skill");
+        expect(at(matchGroup.extensions, 0).extension?.name).toBe("react-testing");
+        expect(at(matchGroup.extensions, 0).extension?.type).toBe("skill");
         // No pack reference in results
-        const allNames = matchGroup.extensions.map((e) => e.name);
+        const allNames = matchGroup.extensions.map((e) => e.extension?.name);
         expect(allNames).not.toContain("frontend");
       }).pipe(
         Effect.ensuring(
@@ -1172,7 +1181,7 @@ describe("LocalRegistryClient.discoverExtensions", () => {
     },
   );
 
-  it.effect("no signal field in response entries", () => {
+  it.effect("no legacy signal field in response entries", () => {
     const registryRoot = makeRegistryDir();
     const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
 
@@ -1185,14 +1194,16 @@ describe("LocalRegistryClient.discoverExtensions", () => {
           makeCompatibleIndex({
             name: "my-skill",
             description: "A test skill",
-            companionPackages: [companionPackage("pkg:npm/react")],
+            packages: [companionPackage("pkg:npm/react")],
           }),
         ),
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.discoverExtensions({
-        packages: [makeDetectedPackage("npm", "react")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          { purl: makeDetectedPackage("npm", "react"), version: "18.2.0", declaredExtensions: [] },
+        ],
       });
 
       const entry = at(at(result.results, 0).extensions, 0);

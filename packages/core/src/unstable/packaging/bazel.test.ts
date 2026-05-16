@@ -252,32 +252,31 @@ describe("bazelReader", () => {
   });
 
   describe("valid axm.json in external repository", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "com_google_protobuf" });
           const result = yield* readInTempBazel(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@google/skills/protobuf@^1.0.0"],
+              extensions: [{ ref: "@google/skills/protobuf", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@google/skills/protobuf@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@google/skills/protobuf", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
-          const result = yield* readInTempBazel(
-            purl,
-            JSON.stringify({ recommendedExtensions: [] }),
-          );
+          const result = yield* readInTempBazel(purl, JSON.stringify({ extensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -304,10 +303,7 @@ describe("bazelReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
-          const result = yield* readInTempBazel(
-            purl,
-            JSON.stringify({ recommendedExtensions: 42 }),
-          );
+          const result = yield* readInTempBazel(purl, JSON.stringify({ extensions: 42 }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -322,13 +318,13 @@ describe("bazelReader", () => {
           const result = yield* readInTempBazel(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

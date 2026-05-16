@@ -164,6 +164,15 @@ const serverErrorSuggestedAction = (status: number): SuggestedAction | undefined
       }
     : undefined;
 
+const getStringField = (value: unknown, field: string): string | undefined => {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return undefined;
+  }
+
+  const fieldValue: unknown = Reflect.get(value, field);
+  return typeof fieldValue === "string" ? fieldValue : undefined;
+};
+
 const problemSuggestions = (
   status: number,
   problem: ProblemDetails,
@@ -199,12 +208,25 @@ export const registryErrorToAppError = (
     ...problemSuggestions(status, problem, response),
     ...(ctx?.suggestions ?? []),
   ];
+  const requestId = getStringField(problem, "requestId");
 
   return makeAppError({
     code,
     title: problem.title ?? defaultTitleFor(code),
     detail: problem.detail ?? defaultDetailFor(code),
-    metadata: { response: { status, body: problem } },
+    metadata: {
+      request: {
+        service: "registry",
+        method: response.request.method,
+        url: response.request.url,
+      },
+      response: {
+        status,
+        ...(requestId === undefined ? {} : { requestId }),
+        ...(problem.code === undefined ? {} : { problemCode: problem.code }),
+        body: problem,
+      },
+    },
     ...(suggestions.length > 0 ? { suggestions } : {}),
     cause: problem,
   });

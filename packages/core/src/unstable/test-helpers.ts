@@ -26,6 +26,10 @@ import {
 import { PackageTypeSchema } from "./packaging/package-type.js";
 import { PackageUrlSchema, type PackageUrlParts } from "./packaging/package-url.js";
 import type { PackageType } from "./packaging/index.js";
+import {
+  PackageExtensionDeclarationSchema,
+  type PackageExtensionDeclaration,
+} from "./packaging/axm-package-meta.js";
 
 export const expectDefined = <T>(
   value: T | null | undefined,
@@ -107,6 +111,11 @@ export const fullyQualifiedName = (value: string): ExtensionFqn =>
 
 export const fullyQualifiedRef = (value: string): ExtensionSpec =>
   Schema.decodeUnknownSync(ExtensionSpecSchema)(value);
+
+export const packageExtensionDeclaration = (
+  value: typeof PackageExtensionDeclarationSchema.Encoded,
+): PackageExtensionDeclaration =>
+  Schema.decodeUnknownSync(PackageExtensionDeclarationSchema)(value);
 
 export const dependencyConstraints = (
   value: Record<string, string>,

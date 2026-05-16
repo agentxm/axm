@@ -12,6 +12,8 @@ import {
   selectLoginStrategy,
   type LoopbackCallbackRejected,
   type LoopbackLoginFallback,
+  type RunDeviceLoginOptions,
+  type RunLoopbackLoginOptions,
 } from "@agentxm/client-core/unstable/auth";
 import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -26,10 +28,11 @@ interface LoginInteractions {
   readonly confirmRelogin?: (message: string) => Effect.Effect<boolean, PromptCancelled | AppError>;
   readonly runLoopbackLogin?: (
     registryUrl: string,
+    options?: RunLoopbackLoginOptions,
   ) => Effect.Effect<void, AppError | LoopbackLoginFallback | LoopbackCallbackRejected>;
   readonly runDeviceLogin?: (
     registryUrl: string,
-    options?: { readonly openBrowser?: boolean },
+    options?: RunDeviceLoginOptions,
   ) => Effect.Effect<void, AppError>;
 }
 
@@ -59,7 +62,12 @@ const loginStrategyEnvironment = Effect.gen(function* () {
 });
 
 export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
-  options: { yes: boolean; deviceCode: boolean; noBrowser: boolean },
+  options: {
+    readonly yes: boolean;
+    readonly deviceCode: boolean;
+    readonly noBrowser: boolean;
+    readonly scopes: ReadonlyArray<string>;
+  },
   interactions?: LoginInteractions,
 ) {
   const credStore = yield* CredentialStore;
@@ -98,6 +106,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const strategy = selectLoginStrategy(options, yield* loginStrategyEnvironment);
   const performDeviceLogin = interactions?.runDeviceLogin ?? runDeviceLogin;
   const performLoopbackLogin = interactions?.runLoopbackLogin ?? runLoopbackLogin;
+  const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };
 
   if (strategy === "device-code") {
     if (!options.deviceCode && !options.noBrowser) {
@@ -105,15 +114,21 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     }
     yield* performDeviceLogin(registryUrl, {
       openBrowser: options.deviceCode && !options.noBrowser,
+      ...requestedScopeOptions,
     });
     return;
   }
 
-  yield* performLoopbackLogin(registryUrl).pipe(
+  yield* performLoopbackLogin(registryUrl, {
+    ...requestedScopeOptions,
+  }).pipe(
     Effect.catchTag("LoopbackLoginFallback", (error) =>
       Effect.gen(function* () {
         yield* renderer.info(`${error.message} Using device code fallback.`);
-        yield* performDeviceLogin(registryUrl, { openBrowser: false });
+        yield* performDeviceLogin(registryUrl, {
+          openBrowser: false,
+          ...requestedScopeOptions,
+        });
       }),
     ),
     Effect.catchTag("LoopbackCallbackRejected", (error) =>
@@ -132,10 +147,17 @@ const loginConfig = {
   noBrowser: Flag.boolean("no-browser").pipe(
     Flag.withDescription("Do not open a browser; use device-code fallback"),
   ),
+  scope: Flag.string("scope").pipe(
+    Flag.withDescription("Registry scope to request; repeatable"),
+    Flag.atLeast(0),
+  ),
 } as const;
 
-export const loginCommand = Command.make("login", loginConfig, ({ yes, deviceCode, noBrowser }) =>
-  handleLogin({ yes, deviceCode, noBrowser }).pipe(withAuthRuntime("auth login")),
+export const loginCommand = Command.make(
+  "login",
+  loginConfig,
+  ({ yes, deviceCode, noBrowser, scope }) =>
+    handleLogin({ yes, deviceCode, noBrowser, scopes: scope }).pipe(withAuthRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),
@@ -143,6 +165,10 @@ export const loginCommand = Command.make("login", loginConfig, ({ yes, deviceCod
     { command: "axm auth login", description: "Sign in to the default registry" },
     { command: "axm login", description: "Same command via shortcut" },
     { command: "axm auth login --yes", description: "Skip the browser confirmation" },
+    {
+      command: "axm auth login --scope extensions:publish:new",
+      description: "Request a specific registry scope",
+    },
     { command: "axm auth login --device-code", description: "Sign in with device code fallback" },
   ]),
 );

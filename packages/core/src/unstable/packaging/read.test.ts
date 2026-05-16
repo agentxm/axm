@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { ExtensionSpecSchema } from "../extensions/common.js";
+import { PackageExtensionDeclarationSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlPartsSchema, PackageUrlSchema } from "./package-url.js";
 import { readLocalRecommendations } from "./read.js";
@@ -13,7 +13,7 @@ import type { DetectedPackage, PackageReader } from "./types.js";
 const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-const makeRef = Schema.decodeUnknownSync(ExtensionSpecSchema);
+const makeDeclaration = Schema.decodeUnknownSync(PackageExtensionDeclarationSchema);
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
 const withNodeContext = <A, E>(
@@ -66,7 +66,7 @@ describe("readLocalRecommendations", () => {
           source: "package.json",
         };
 
-        const refs = [makeRef("@acme/skills/code-review")];
+        const refs = [makeDeclaration({ ref: "@acme/skills/code-review" })];
 
         const reader: PackageReader = {
           type: npmType,
@@ -105,8 +105,8 @@ describe("readLocalRecommendations", () => {
           source: "requirements.txt",
         };
 
-        const npmRefs = [makeRef("@acme/skills/code-review")];
-        const pypiRefs = [makeRef("@acme/skills/python-lint")];
+        const npmRefs = [makeDeclaration({ ref: "@acme/skills/code-review" })];
+        const pypiRefs = [makeDeclaration({ ref: "@acme/skills/python-lint" })];
 
         const npmReader: PackageReader = {
           type: npmType,
@@ -142,7 +142,8 @@ describe("readLocalRecommendations", () => {
 
         const npmReader: PackageReader = {
           type: npmType,
-          read: () => Effect.succeed(Option.some([makeRef("@acme/skills/code-review")])),
+          read: () =>
+            Effect.succeed(Option.some([makeDeclaration({ ref: "@acme/skills/code-review" })])),
         };
 
         const result = yield* readLocalRecommendations([pkg], [npmReader]);

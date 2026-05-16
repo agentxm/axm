@@ -2,13 +2,13 @@
 
 ### Requirement: Read axm recommendation metadata from installed Dart/Flutter packages
 
-The pub reader SHALL locate the package root via `.dart_tool/package_config.json`, find the package entry, resolve its `rootUri`, then read `pubspec.yaml` from the package root and extract the `axm` custom top-level field containing recommendation metadata. Dart/Flutter pubspec supports arbitrary custom top-level keys, following the precedent of Flutter's `flutter:` key. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The pub reader SHALL locate the package root via `.dart_tool/package_config.json`, find the package entry, resolve its `rootUri`, then read `pubspec.yaml` from the package root and extract the `axm` custom top-level field containing recommendation metadata. Dart/Flutter pubspec supports arbitrary custom top-level keys, following the precedent of Flutter's `flutter:` key. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm field in pubspec.yaml
 
 - **WHEN** `.dart_tool/package_config.json` maps package `riverpod` to a root URI
-- **AND** the resolved `pubspec.yaml` contains `axm: { recommendedExtensions: ["@riverpod/skills/riverpod@^2.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@riverpod/skills/riverpod@^2.0.0"]`
+- **AND** the resolved `pubspec.yaml` contains `axm: { extensions: [{ "ref": "@riverpod/skills/riverpod", "versionRange": "^2.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@riverpod/skills/riverpod", "versionRange": "^2.0.0" }]`
 
 #### Scenario: Package without axm field
 
@@ -16,9 +16,9 @@ The pub reader SHALL locate the package root via `.dart_tool/package_config.json
 - **AND** the resolved `pubspec.yaml` does not contain an `axm` field
 - **THEN** the reader SHALL return no recommendations (Option.none)
 
-#### Scenario: Package with empty recommendedExtensions
+#### Scenario: Package with empty extensions
 
-- **WHEN** the resolved `pubspec.yaml` contains `axm: { recommendedExtensions: [] }`
+- **WHEN** the resolved `pubspec.yaml` contains `axm: { extensions: [] }`
 - **THEN** the reader SHALL return an empty array of recommendations
 
 ### Requirement: Resolve package root via package_config.json
@@ -41,14 +41,14 @@ The reader SHALL validate the extracted `axm` field contents against the `AxmPac
 
 #### Scenario: Malformed axm metadata warned and skipped
 
-- **WHEN** the resolved `pubspec.yaml` contains `axm: { recommendedExtensions: 123 }`
+- **WHEN** the resolved `pubspec.yaml` contains `axm: { extensions: 123 }`
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** the resolved `pubspec.yaml` contains `axm: { recommendedExtensions: ["@acme/skills/foo@^1.0.0"], futureField: true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** the resolved `pubspec.yaml` contains `axm: { extensions: [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], futureField: true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing .dart_tool directory handled gracefully
 

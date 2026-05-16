@@ -18,10 +18,19 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   detail: Schema.String,
   metadata: Schema.optional(
     Schema.Struct({
+      request: Schema.optional(
+        Schema.Struct({
+          service: Schema.String,
+          method: Schema.optional(Schema.String),
+          url: Schema.String,
+        }),
+      ),
       response: Schema.optional(
         Schema.Struct({
           status: Schema.Number,
-          body: Schema.Unknown,
+          requestId: Schema.optional(Schema.String),
+          problemCode: Schema.optional(Schema.String),
+          body: Schema.optional(Schema.Unknown),
         }),
       ),
     }),

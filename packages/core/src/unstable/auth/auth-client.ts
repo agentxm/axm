@@ -38,9 +38,17 @@ import {
 // -----------------------------------------------------------------------------
 
 const CLIENT_ID = "axm-cli";
-const DEVICE_CODE_SCOPES =
-  "extensions:read extensions:publish:new extensions:publish:version extensions:yank extensions:admin account:read account:write";
-const PKCE_SCOPES = "openid profile email offline_access";
+const OIDC_LOGIN_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
+const REGISTRY_LOGIN_SCOPES = [
+  "extensions:read",
+  "extensions:publish:new",
+  "extensions:publish:version",
+  "extensions:yank",
+  "extensions:admin",
+  "account:read",
+  "account:write",
+] as const;
+const DEFAULT_LOGIN_SCOPES = [...OIDC_LOGIN_SCOPES, ...REGISTRY_LOGIN_SCOPES];
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
 const SLOW_DOWN_INCREMENT_MS = 5000;
@@ -58,6 +66,10 @@ export interface DeviceFlowResponse {
   readonly verification_uri_complete?: string;
   readonly interval: number;
   readonly expires_in: number;
+}
+
+export interface LoginScopeOptions {
+  readonly scopes?: ReadonlyArray<string>;
 }
 
 export interface MeResponse {
@@ -160,7 +172,9 @@ export interface AuthClientService {
   readonly exchangePkceCode: (
     params: ExchangePkceCodeParams,
   ) => Effect.Effect<NormalizedTokenResponse, AppError>;
-  readonly initiateDeviceFlow: () => Effect.Effect<DeviceFlowResponse, AppError>;
+  readonly initiateDeviceFlow: (
+    options?: LoginScopeOptions,
+  ) => Effect.Effect<DeviceFlowResponse, AppError>;
   readonly pollDeviceToken: (
     deviceCode: string,
     interval: number,
@@ -337,12 +351,30 @@ const makeTransientDevicePollAppError = (cause: unknown) =>
 
 const isAppError = (error: unknown): error is AppError => getString(error, "_tag") === "AppError";
 
+const registryHttpErrorMetadata = (error: HttpClientError.HttpClientError) => ({
+  request: {
+    service: "registry",
+    method: error.request.method,
+    url: error.request.url,
+  },
+  ...(error.response === undefined
+    ? {}
+    : {
+        response: {
+          status: error.response.status,
+        },
+      }),
+});
+
 const mapRegistryAuthError = (operation: string, error: unknown): AppError =>
   isAppError(error)
     ? error
     : makeAppError({
         code: "auth",
         detail: operation,
+        ...(HttpClientError.isHttpClientError(error)
+          ? { metadata: registryHttpErrorMetadata(error) }
+          : {}),
         suggestions: [{ description: "Run `axm login` to re-authenticate.", cmd: "axm login" }],
         cause: error,
       });
@@ -522,7 +554,7 @@ export const AuthClientLive = Layer.effect(
       url.searchParams.set("code_challenge_method", "S256");
       url.searchParams.set("state", state);
       url.searchParams.set("redirect_uri", redirectUri);
-      url.searchParams.set("scope", (scopes ?? PKCE_SCOPES.split(" ")).join(" "));
+      url.searchParams.set("scope", (scopes ?? DEFAULT_LOGIN_SCOPES).join(" "));
       if (expiresAt !== undefined) {
         url.searchParams.set("request_expires_at", expiresAt.toISOString());
       }
@@ -548,10 +580,13 @@ export const AuthClientLive = Layer.effect(
 
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
       "AuthClient.initiateDeviceFlow",
-    )(function* () {
+    )(function* (options) {
       const response = yield* client
         .AuthIssueDeviceCode({
-          payload: { client_id: CLIENT_ID, scope: DEVICE_CODE_SCOPES },
+          payload: {
+            client_id: CLIENT_ID,
+            scope: (options?.scopes ?? DEFAULT_LOGIN_SCOPES).join(" "),
+          },
         })
         .pipe(
           Effect.mapError((error) =>

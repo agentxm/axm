@@ -255,19 +255,19 @@ describe("conanReader", () => {
   });
 
   describe("valid axm metadata in conandata.yml", () => {
-    it.effect("extracts recommendedExtensions from axm field", () =>
+    it.effect("extracts extensions from axm field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
           const yml = [
             "axm:",
-            "  recommendedExtensions:",
-            '    - "@conan/skills/zlib@^1.0.0"',
+            "  extensions:",
+            '    - { ref: "@conan/skills/zlib", versionRange: "^1.0.0" }',
           ].join("\n");
           const result = yield* readInTempCache(purl, yml);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@conan/skills/zlib@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@conan/skills/zlib", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -304,7 +304,7 @@ describe("conanReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
-          const yml = "axm:\n  recommendedExtensions: not-an-array\n";
+          const yml = "axm:\n  extensions: not-an-array\n";
           const result = yield* readInTempCache(purl, yml);
           expect(Option.isNone(result)).toBe(true);
         }),

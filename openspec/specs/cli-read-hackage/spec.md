@@ -6,8 +6,8 @@ The Hackage reader SHALL inspect `.cabal` files for `x-axm` prefixed custom fiel
 
 #### Scenario: Package with valid x-axm custom fields
 
-- **WHEN** `~/.cabal/store/ghc-9.6.3/aeson-2.2.1.0/aeson.cabal` contains `x-axm-recommendedExtensions: @hackage/skills/aeson@^1.0.0`
-- **THEN** the reader SHALL return the extension refs `["@hackage/skills/aeson@^1.0.0"]`
+- **WHEN** `~/.cabal/store/ghc-9.6.3/aeson-2.2.1.0/aeson.cabal` contains `x-axm-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@hackage/skills/aeson", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without x-axm custom fields
 
@@ -30,14 +30,14 @@ The reader SHALL validate the reconstructed `x-axm` field contents against the `
 
 #### Scenario: Malformed x-axm metadata warned and skipped
 
-- **WHEN** the `.cabal` file contains `x-axm-recommendedExtensions` with an unparseable value
+- **WHEN** the `.cabal` file contains `x-axm-extensions` with an unparseable value
 - **THEN** the reader SHALL log a warning with schema error details
 - **AND** return no recommendations (Option.none)
 
 #### Scenario: Extra x-axm fields tolerated
 
-- **WHEN** the `.cabal` file contains `x-axm-recommendedExtensions` and `x-axm-futureField`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** the `.cabal` file contains `x-axm-extensions` and `x-axm-futureField`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing Cabal store handled gracefully
 

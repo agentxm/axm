@@ -280,29 +280,31 @@ describe("hexReader", () => {
   });
 
   describe("valid axm.json sidecar", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "phoenix" });
           const result = yield* readInTempDir(purl, {
             axmJson: JSON.stringify({
-              recommendedExtensions: ["@phoenixframework/skills/phoenix@^1.0.0"],
+              extensions: [{ ref: "@phoenixframework/skills/phoenix", versionRange: "^1.0.0" }],
             }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@phoenixframework/skills/phoenix@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@phoenixframework/skills/phoenix", versionRange: "^1.0.0" },
+            ]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "plug" });
           const result = yield* readInTempDir(purl, {
-            axmJson: JSON.stringify({ recommendedExtensions: [] }),
+            axmJson: JSON.stringify({ extensions: [] }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -318,11 +320,11 @@ describe("hexReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "jason" });
-          const hexMeta = `{<<"name">>,<<"jason">>}.\n{<<"extra">>, [{<<"axm">>, <<"{\\"recommendedExtensions\\": [\\"@hex/skills/jason@^1.0.0\\"]}">>}]}.`;
+          const hexMeta = `{<<"name">>,<<"jason">>}.\n{<<"extra">>, [{<<"axm">>, <<"{\\"extensions\\": [{\\"ref\\":\\"@hex/skills/jason\\",\\"versionRange\\":\\"^1.0.0\\"}]}">>}]}.`;
           const result = yield* readInTempDir(purl, { hexMetadataConfig: hexMeta });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@hex/skills/jason@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@hex/skills/jason", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -360,7 +362,7 @@ describe("hexReader", () => {
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {
-            axmJson: JSON.stringify({ recommendedExtensions: "not-an-array" }),
+            axmJson: JSON.stringify({ extensions: "not-an-array" }),
           });
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -375,13 +377,13 @@ describe("hexReader", () => {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {
             axmJson: JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

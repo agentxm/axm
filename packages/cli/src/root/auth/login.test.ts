@@ -122,9 +122,12 @@ describe("auth login handler", () => {
     const { provide } = makeLayers({ nonInteractive: true });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false }).pipe(
-          Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
-        );
+        const result = yield* handleLogin({
+          yes: false,
+          deviceCode: true,
+          noBrowser: false,
+          scopes: [],
+        }).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })));
         expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
@@ -134,9 +137,12 @@ describe("auth login handler", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false }).pipe(
-          Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
-        );
+        const result = yield* handleLogin({
+          yes: false,
+          deviceCode: true,
+          noBrowser: false,
+          scopes: [],
+        }).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })));
         expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
@@ -146,7 +152,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
+        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
         expect(
           rendererState.logs.some(
             (l) =>
@@ -158,11 +164,37 @@ describe("auth login handler", () => {
     );
   });
 
+  it.effect("passes requested scopes to device login", () => {
+    const { provide } = makeLayers();
+    const deviceLoginCalls: Array<ReadonlyArray<string> | undefined> = [];
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin(
+          {
+            yes: false,
+            deviceCode: true,
+            noBrowser: false,
+            scopes: ["extensions:publish:new"],
+          },
+          {
+            runDeviceLogin: (_registryUrl, options) => {
+              deviceLoginCalls.push(options?.scopes);
+              return Effect.void;
+            },
+          },
+        );
+
+        expect(deviceLoginCalls).toEqual([["extensions:publish:new"]]);
+      }),
+    );
+  });
+
   it.effect("displays URL and code for manual entry", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
+        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
         const steps = rendererState.logs.filter((l) => l._tag === "step").map((l) => l.message);
         expect(steps.some((m) => m.includes("https://auth.agentxm.ai/device"))).toBe(true);
         expect(steps.some((m) => m.includes("ABCD-1234"))).toBe(true);
@@ -178,7 +210,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: true, noBrowser: false },
+          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
           {
             confirmRelogin: (message) => {
               confirmCalls.push(message);
@@ -210,7 +242,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: true, deviceCode: true, noBrowser: false });
+        yield* handleLogin({ yes: true, deviceCode: true, noBrowser: false, scopes: [] });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -235,7 +267,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: true, noBrowser: false },
+          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
           {
             confirmRelogin: (message) => {
               confirmCalls.push(message);
@@ -260,7 +292,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
+        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -310,7 +342,7 @@ describe("auth login handler", () => {
     );
 
     return Effect.gen(function* () {
-      yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false });
+      yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
 
       expect(
         rendererState2.logs.some(

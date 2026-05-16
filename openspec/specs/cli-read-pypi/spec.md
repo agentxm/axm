@@ -7,7 +7,7 @@ The pypi reader SHALL inspect locally installed Python packages for axm recommen
 #### Scenario: Package with valid axm metadata via entry point
 
 - **WHEN** `site-packages/django-4.2.0.dist-info/entry_points.txt` contains an `[axm]` group
-- **AND** the package data contains a valid `axm.json` with `"recommendedExtensions": ["@django/skills/django@^1.0.0"]`
+- **AND** the package data contains a valid `axm.json` with `"extensions": [{ "ref": "@django/skills/django", "versionRange": "^1.0.0" }]`
 - **THEN** the reader SHALL return the extension refs
 
 #### Scenario: Package without axm entry point
@@ -57,7 +57,7 @@ The reader SHALL validate `axm.json` contents against the `AxmPackageMeta` schem
 
 #### Scenario: Valid axm.json
 
-- **WHEN** `axm.json` contains `{ "recommendedExtensions": ["@acme/skills/django@^1.0.0"] }`
+- **WHEN** `axm.json` contains `{ "extensions": [{ "ref": "@acme/skills/django", "versionRange": "^1.0.0" }] }`
 - **THEN** schema validation SHALL succeed and the reader SHALL return the extension refs
 
 #### Scenario: Malformed axm.json

@@ -23,7 +23,7 @@ import type {
   GetExtensionsByOwnerArgs,
 } from "../../../registry/index.js";
 import {
-  companionPackagesToPackageUrlParts,
+  packagesToPackageUrlParts,
   createRegistryClient,
   extractZip,
   resolveVersionEntry,
@@ -119,7 +119,7 @@ const manifestFromIndex = (
     dependencies: version.dependencies ?? {},
     version: version.version,
     integrity: version.integrity,
-    companionPackages: companionPackagesToPackageUrlParts(version.companionPackages),
+    packages: packagesToPackageUrlParts(version.packages),
   } satisfies RegistryExtensionManifest);
 };
 
@@ -230,7 +230,7 @@ const toExtensionRef = (
     name: entry.name,
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),
-    companionPackages: entry.companionPackages,
+    packages: entry.packages,
   };
 
   switch (entry.type) {

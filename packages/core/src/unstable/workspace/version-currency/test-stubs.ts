@@ -35,5 +35,5 @@ export const makeStubRegistryClient = (indices: ReadonlyArray<ExtensionIndex>): 
     getExtensionPackage: () => Effect.die("not used"),
     publishExtension: () => Effect.die("not used"),
     extensionExists: () => Effect.die("not used"),
-    discoverExtensions: () => Effect.die("not used"),
+    discoverPackages: () => Effect.die("not used"),
   }) as unknown as RegistryClient;

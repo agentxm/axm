@@ -28,17 +28,19 @@ import type {
   PublishExtensionArgs,
   ExtensionExistsArgs,
   GetExtensionsByOwnerResponse,
-  DiscoverExtensionsArgs,
+  DiscoverPackagesArgs,
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
-import { isExtensionTypePlural, parseExtensionSpecParts } from "../extensions/common.js";
 import {
-  companionPackagesToPackageUrlParts,
-  ExtensionIndexSchema,
-  type ExtensionIndex,
-} from "./schema.js";
-import type { DiscoverExtensionEntry, DiscoverExtensionsResponse } from "./discover-schema.js";
+  isExtensionTypePlural,
+  parseExtensionFqnParts,
+  toExtensionTypePlural,
+} from "../extensions/common.js";
+import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
+import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
+import type { DiscoverPackagesResponse, DiscoveryExtensionResult } from "./discover-schema.js";
 import { purlMatch } from "../packaging/purl-match.js";
+import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
 
 const decodeExtensionIndexFromJsonString = Schema.decodeUnknownEffect(
@@ -47,6 +49,7 @@ const decodeExtensionIndexFromJsonString = Schema.decodeUnknownEffect(
 const encodeExtensionIndexToJsonString = Schema.encodeSync(
   Schema.fromJsonString(ExtensionIndexSchema),
 );
+const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -100,7 +103,7 @@ const indexToManifest = (
     dependencies: ver.dependencies ?? {},
     version: ver.version,
     integrity: ver.integrity,
-    companionPackages: companionPackagesToPackageUrlParts(ver.companionPackages),
+    packages: packagesToPackageUrlParts(ver.packages),
   } satisfies RegistryExtensionManifest);
 };
 
@@ -126,23 +129,56 @@ const processNameDir = (
     return indexToManifest(index, versionRange);
   });
 
-/** Convert an ExtensionIndex to a DiscoverExtensionEntry.
- *  Callers must ensure `index.versions` is non-empty (scanAllExtensions filters empty indices). */
-const indexToDiscoverEntry = (index: ExtensionIndex): DiscoverExtensionEntry => {
-  const [latestVersion] = index.versions;
+const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
+  type: parts.type,
+  name: parts.name,
+  ...(parts.namespace === undefined ? {} : { namespace: parts.namespace }),
+  ...(parts.qualifiers === undefined ? {} : { qualifiers: parts.qualifiers }),
+  ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
+});
+
+const extensionDeclarationToDiscoveryRef = (value: PackageExtensionDeclaration) => {
+  const parts = parseExtensionFqnParts(value.ref);
+  if (parts === undefined) {
+    return undefined;
+  }
+
   return {
-    type: index.type,
-    name: index.name,
-    owner: index.owner,
-    description: index.description ?? "",
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- caller filters empty versions
-    latestVersion: latestVersion!.version,
+    ref: `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`,
+    ...(value.versionRange === undefined || value.versionRange === null
+      ? {}
+      : { versionRange: value.versionRange }),
   };
 };
 
-/** Parse a ExtensionSpec string into owner/type/name parts (ignoring version constraint). */
+const indexToExtensionResult = (
+  index: ExtensionIndex,
+  attestedBy: ReadonlyArray<"package" | "extension">,
+  official: boolean,
+): DiscoveryExtensionResult | undefined => {
+  const [latestVersion] = index.versions;
+  if (latestVersion === undefined) {
+    return undefined;
+  }
+
+  return {
+    ref: `${index.owner}/${toExtensionTypePlural(index.type)}/${index.name}`,
+    resolved: true,
+    extension: {
+      type: index.type,
+      name: index.name,
+      owner: index.owner,
+      installVersion: latestVersion.version,
+    },
+    attestedBy,
+    official,
+    packageVersionInRange: true,
+  };
+};
+
+/** Parse an extension FQN string into owner/type/name parts. */
 const parseRef = (ref: string): { owner: string; type: ExtensionType; name: string } | undefined =>
-  parseExtensionSpecParts(ref);
+  parseExtensionFqnParts(ref);
 
 /**
  * Scan all extensions under the extensions root directory.
@@ -496,47 +532,83 @@ export const createLocalRegistryClient = (
       return { exists };
     }),
 
-  discoverExtensions: (args: DiscoverExtensionsArgs) =>
+  discoverPackages: (args: DiscoverPackagesArgs) =>
     Effect.gen(function* () {
       const extensionsRoot = path.join(registryRoot, "extensions");
       const rootExists = yield* fs.exists(extensionsRoot).pipe(Effect.orElseSucceed(() => false));
       if (!rootExists) {
-        return { results: [], resolvedRecommendations: [] } satisfies DiscoverExtensionsResponse;
+        return { results: [] } satisfies DiscoverPackagesResponse;
       }
 
       // Scan all extensions and read their index.json
       const allExtensions = yield* scanAllExtensions(fs, path, extensionsRoot);
 
-      // Match packages against extension companionPackages (from latest version)
-      const results = args.packages.flatMap((detectedPurl) => {
-        const matching = allExtensions.filter((ext) => {
+      const results = args.packages.map((pkg) => {
+        const purl = encodePackageUrl(packageIdentity(pkg.purl));
+        const entries = new Map<string, DiscoveryExtensionResult>();
+
+        for (const spec of pkg.declaredExtensions) {
+          const declared = extensionDeclarationToDiscoveryRef(spec);
+          if (declared === undefined) {
+            continue;
+          }
+          const parsed = parseRef(spec.ref);
+          const match =
+            parsed === undefined
+              ? undefined
+              : allExtensions.find(
+                  (ext) =>
+                    ext.owner === parsed.owner &&
+                    ext.type === parsed.type &&
+                    ext.name === parsed.name,
+                );
+          const resolved =
+            match === undefined
+              ? ({
+                  ref: declared.ref,
+                  resolved: false,
+                  attestedBy: ["package"],
+                  official: false,
+                  packageVersionInRange: true,
+                } satisfies DiscoveryExtensionResult)
+              : indexToExtensionResult(match, ["package"], false);
+          if (resolved !== undefined) {
+            entries.set(declared.ref, resolved);
+          }
+        }
+
+        for (const ext of allExtensions) {
           const latestVersion = ext.versions[0];
-          if (latestVersion === undefined) return false;
-          return companionPackagesToPackageUrlParts(latestVersion.companionPackages).some(
-            (declared) => purlMatch(detectedPurl, declared),
+          if (latestVersion === undefined) {
+            continue;
+          }
+          const matchesPackage = packagesToPackageUrlParts(latestVersion.packages).some(
+            (declared) => purlMatch(pkg.purl, declared),
           );
-        });
-        if (matching.length === 0) return [];
-        return [
-          {
-            detectedPackage: detectedPurl,
-            extensions: matching.map(indexToDiscoverEntry),
-          },
-        ];
+          if (!matchesPackage) {
+            continue;
+          }
+
+          const ref = `${ext.owner}/${toExtensionTypePlural(ext.type)}/${ext.name}`;
+          const existing = entries.get(ref);
+          const next = indexToExtensionResult(
+            ext,
+            existing === undefined ? ["extension"] : ["package", "extension"],
+            existing !== undefined,
+          );
+          if (next !== undefined) {
+            entries.set(ref, next);
+          }
+        }
+
+        return {
+          purl,
+          version: pkg.version,
+          status: "resolved" as const,
+          extensions: [...entries.values()],
+        };
       });
 
-      // Resolve workspace recommendations
-      const resolvedRecommendations = (args.workspaceRecommendedExtensions ?? []).flatMap((ref) => {
-        const parsed = parseRef(ref);
-        if (parsed === undefined) return [];
-        const match = allExtensions.find(
-          (ext) =>
-            ext.owner === parsed.owner && ext.type === parsed.type && ext.name === parsed.name,
-        );
-        if (match === undefined) return [];
-        return [indexToDiscoverEntry(match)];
-      });
-
-      return { results, resolvedRecommendations } satisfies DiscoverExtensionsResponse;
+      return { results } satisfies DiscoverPackagesResponse;
     }),
 });

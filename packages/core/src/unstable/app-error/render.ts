@@ -24,7 +24,27 @@ const getStringField = (value: unknown, field: string): string | undefined => {
 };
 
 const getRequestId = (error: AppError): string | undefined =>
+  error.metadata?.response?.requestId ??
   getStringField(error.metadata?.response?.body, "requestId");
+
+const getRegistryUrl = (error: AppError): string | undefined =>
+  error.metadata?.request?.service === "registry" ? error.metadata.request.url : undefined;
+
+const formatRegistryLocation = (url: string): string => {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+};
+
+const formatRegistryRequest = (error: AppError): string | undefined => {
+  const request = error.metadata?.request;
+  if (request === undefined || request.service !== "registry") {
+    return undefined;
+  }
+  return request.method === undefined ? request.url : `${request.method} ${request.url}`;
+};
 
 const formatResponseBody = (body: unknown): ReadonlyArray<string> => {
   try {
@@ -97,9 +117,19 @@ export const renderAppError = (
   lines.push(`\u2717 ${error.detail} (${error.code})`);
 
   const requestId = getRequestId(error);
+  const registryUrl = getRegistryUrl(error);
+
+  if (registryUrl !== undefined) {
+    lines.push(`  Registry: ${formatRegistryLocation(registryUrl)}`);
+  }
 
   if (options.verbose || options.debug) {
     lines.push(`  Title: ${error.title}`);
+
+    const registryRequest = formatRegistryRequest(error);
+    if (registryRequest !== undefined) {
+      lines.push(`  Request: ${registryRequest}`);
+    }
 
     if (requestId !== undefined) {
       lines.push(`  Request ID: ${requestId}`);

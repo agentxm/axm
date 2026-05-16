@@ -274,19 +274,19 @@ describe("opamReader", () => {
   });
 
   describe("valid x-axm fields", () => {
-    it.effect("extracts recommendedExtensions from x-axm fields", () =>
+    it.effect("extracts extensions from x-axm fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const opamContent = [
             'opam-version: "2.0"',
             'name: "lwt"',
-            'x-axm-recommendedExtensions: ["@ocaml/skills/lwt@^1.0.0"]',
+            'x-axm-extensions: [{"ref":"@ocaml/skills/lwt","versionRange":"^1.0.0"}]',
           ].join("\n");
           const result = yield* readInTempOpam(purl, opamContent);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@ocaml/skills/lwt@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@ocaml/skills/lwt", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -311,10 +311,9 @@ describe("opamReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
-          const opamContent = [
-            'opam-version: "2.0"',
-            "x-axm-recommendedExtensions: not-valid-json",
-          ].join("\n");
+          const opamContent = ['opam-version: "2.0"', "x-axm-extensions: not-valid-json"].join(
+            "\n",
+          );
           const result = yield* readInTempOpam(purl, opamContent);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -329,13 +328,13 @@ describe("opamReader", () => {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const opamContent = [
             'opam-version: "2.0"',
-            'x-axm-recommendedExtensions: ["@ocaml/skills/lwt@^1.0.0"]',
+            'x-axm-extensions: [{"ref":"@ocaml/skills/lwt","versionRange":"^1.0.0"}]',
             "x-axm-futureField: true",
           ].join("\n");
           const result = yield* readInTempOpam(purl, opamContent);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@ocaml/skills/lwt@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@ocaml/skills/lwt", versionRange: "^1.0.0" }]);
           }
         }),
       ),

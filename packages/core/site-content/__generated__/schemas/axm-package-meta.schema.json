@@ -2,28 +2,55 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/AxmPackageMeta",
   "definitions": {
-    "ExtensionSpec": {
+    "ExtensionFqn": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "title": "Extension FQN",
+          "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
+          "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
+        }
+      ]
+    },
+    "VersionRange": {
       "type": "string",
       "allOf": [
         { "minLength": 1 },
         {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
-          "title": "Extension Spec",
-          "description": "Extension reference with an optional version constraint suffix.",
-          "examples": ["@acme/skills/code-review", "@acme/skills/code-review@^1.0.0"]
+          "pattern": "^[~^<>=*xXvV0-9A-Za-z| .-]+$",
+          "title": "Version Range",
+          "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+          "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
         }
       ]
+    },
+    "PackageExtensionDeclaration": {
+      "type": "object",
+      "properties": {
+        "ref": { "$ref": "#/definitions/ExtensionFqn" },
+        "versionRange": {
+          "anyOf": [
+            { "anyOf": [{ "$ref": "#/definitions/VersionRange" }, { "type": "null" }] },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["ref"],
+      "additionalProperties": false,
+      "title": "Package Extension Declaration",
+      "description": "An extension declared by package-native AXM metadata, with an optional semver version range."
     },
     "AxmPackageMeta": {
       "type": "object",
       "properties": {
         "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "recommendedExtensions": {
+        "extensions": {
           "type": "array",
-          "items": { "$ref": "#/definitions/ExtensionSpec" }
+          "items": { "$ref": "#/definitions/PackageExtensionDeclaration" }
         }
       },
-      "required": ["recommendedExtensions"],
+      "required": ["extensions"],
       "additionalProperties": false,
       "title": "axm Package Metadata",
       "description": "Recommendation metadata shipped by library authors to surface axm extensions."

@@ -255,7 +255,7 @@ describe("mojoReader", () => {
   });
 
   describe("valid axm.json in pixi environment", () => {
-    it.effect("extracts recommendedExtensions from axm.json", () =>
+    it.effect("extracts extensions from axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -267,12 +267,12 @@ describe("mojoReader", () => {
           const result = yield* readInTempPixiCache(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@modular/skills/max@^1.0.0"],
+              extensions: [{ ref: "@modular/skills/max", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@modular/skills/max@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@modular/skills/max", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -307,7 +307,7 @@ describe("mojoReader", () => {
           });
           const result = yield* readInTempPixiCache(
             purl,
-            JSON.stringify({ recommendedExtensions: "not-an-array" }),
+            JSON.stringify({ extensions: "not-an-array" }),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -328,13 +328,13 @@ describe("mojoReader", () => {
           const result = yield* readInTempPixiCache(
             purl,
             JSON.stringify({
-              recommendedExtensions: ["@acme/skills/foo@^1.0.0"],
+              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

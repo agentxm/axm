@@ -11,12 +11,12 @@ The axm registry SHALL expose a discover endpoint that accepts two inputs: an ar
 
 #### Scenario: Discover with packages and recommendations
 
-- **WHEN** the CLI sends `packages: ["pkg:npm/next"]` and `workspaceRecommendedExtensions: ["@vercel/skills/nextjs@^1.0.0"]`
+- **WHEN** the CLI sends `packages: ["pkg:npm/next"]` and `workspaceRecommendedExtensions: [{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }]`
 - **THEN** the registry SHALL return both compatible extensions for `pkg:npm/next` in `results` and resolved metadata for `@vercel/skills/nextjs` in `resolvedRecommendations`
 
 #### Scenario: Discover with empty packages
 
-- **WHEN** the CLI sends `packages: []` with `workspaceRecommendedExtensions: ["@vercel/skills/nextjs@^1.0.0"]`
+- **WHEN** the CLI sends `packages: []` with `workspaceRecommendedExtensions: [{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }]`
 - **THEN** `results` SHALL be empty
 - **AND** `resolvedRecommendations` SHALL contain resolved metadata for the requested ref
 
@@ -51,16 +51,16 @@ Each extension entry in the discover response SHALL include: `type` (extension t
 
 ### Requirement: Resolved recommendations as flat list
 
-The `resolvedRecommendations` field SHALL be a flat array of extension metadata for the requested `workspaceRecommendedExtensions` refs that exist in the registry. Unknown refs SHALL be silently omitted.
+The `resolvedRecommendations` field SHALL be a flat array of extension metadata for the requested package-declared extension refs that exist in the registry. Unknown refs SHALL be silently omitted.
 
 #### Scenario: Known ref resolved
 
-- **WHEN** `workspaceRecommendedExtensions` contains `"@vercel/skills/nextjs@^1.0.0"` and the extension exists
+- **WHEN** package-declared extensions contain `{ "ref": "@vercel/skills/nextjs", "versionRange": "^1.0.0" }` and the extension exists
 - **THEN** `resolvedRecommendations` SHALL contain an entry with full metadata for `@vercel/skills/nextjs`
 
 #### Scenario: Unknown ref omitted
 
-- **WHEN** `workspaceRecommendedExtensions` contains `"@unknown/skills/nonexistent@^1.0.0"` and the extension does not exist
+- **WHEN** package-declared extensions contain `{ "ref": "@unknown/skills/nonexistent", "versionRange": "^1.0.0" }` and the extension does not exist
 - **THEN** `resolvedRecommendations` SHALL NOT contain an entry for it
 - **AND** no error SHALL be raised
 

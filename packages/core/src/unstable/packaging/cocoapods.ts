@@ -249,7 +249,7 @@ export const cocoapodsReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "cocoapods" }),
     Effect.withSpan("read.cocoapods"),

@@ -6,8 +6,8 @@ The Docker reader SHALL inspect local Docker image metadata for `axm`-prefixed O
 
 #### Scenario: Image with valid axm annotation
 
-- **WHEN** the local Docker image `nginx:latest` has annotation `sh.axm.recommended-extensions` containing `["@nginx/skills/nginx@^1.0.0"]`
-- **THEN** the reader SHALL return the extension refs `["@nginx/skills/nginx@^1.0.0"]`
+- **WHEN** the local Docker image `nginx:latest` has annotation `sh.axm.recommended-extensions` containing `[{ "ref": "@nginx/skills/nginx", "versionRange": "^1.0.0" }]`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@nginx/skills/nginx", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Image without axm annotations
 

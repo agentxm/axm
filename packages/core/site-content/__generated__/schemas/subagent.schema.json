@@ -251,7 +251,7 @@
             { "type": "null" }
           ]
         },
-        "companionPackages": {
+        "packages": {
           "anyOf": [
             {
               "type": "array",

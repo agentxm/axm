@@ -253,7 +253,7 @@ export const cpanReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "cpan" }),
     Effect.withSpan("read.cpan"),

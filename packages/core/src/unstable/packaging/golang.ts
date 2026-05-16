@@ -228,7 +228,7 @@ export const golangReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "golang" }),
     Effect.withSpan("read.golang"),

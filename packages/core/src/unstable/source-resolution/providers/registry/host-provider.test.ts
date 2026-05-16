@@ -133,7 +133,7 @@ const makeManifest = (overrides?: {
   dependencies: dependencyConstraints(overrides?.dependencies ?? {}),
   version: exactVersion(overrides?.version ?? "1.0.0"),
   integrity: overrides?.integrity ?? "sha512-abc",
-  companionPackages: [],
+  packages: [],
 });
 
 /** Create a mock RegistryClient with controllable return values. */
@@ -150,7 +150,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
     ),
   publishExtension: () => Effect.succeed({ published: true } as const),
   extensionExists: () => Effect.succeed({ exists: false }),
-  discoverExtensions: () => Effect.succeed({ results: [], resolvedRecommendations: [] }),
+  discoverPackages: () => Effect.succeed({ results: [] }),
   ...overrides,
 });
 
@@ -197,7 +197,7 @@ const createFailingClient = (): RegistryClient => ({
         detail: "remote registry not yet supported",
       }),
     ),
-  discoverExtensions: () =>
+  discoverPackages: () =>
     Effect.fail(
       makeAppError({
         code: "internal",
@@ -620,7 +620,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
       integrity: Option.some(integrity),
-      companionPackages: [],
+      packages: [],
     };
 
     return runEffect(
@@ -668,7 +668,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-wrongIntegrityValue=="),
-      companionPackages: [],
+      packages: [],
     };
 
     return runEffect(
@@ -709,7 +709,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       name: extensionName("my-server"),
       version: exactVersion("2.0.0"),
       integrity: Option.some(integrity),
-      companionPackages: [],
+      packages: [],
     };
 
     return runEffect(
@@ -830,7 +830,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-abc"),
-      companionPackages: [],
+      packages: [],
     };
 
     return runEffect(

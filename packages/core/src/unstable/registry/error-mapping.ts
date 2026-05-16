@@ -178,6 +178,13 @@ export const mapNetworkError = (
   makeAppError({
     code: "network",
     detail: message,
+    metadata: {
+      request: {
+        service: "registry",
+        method: error.request.method,
+        url: error.request.url,
+      },
+    },
     suggestions: buildNetworkSuggestions(baseUrl),
     cause: error,
   });

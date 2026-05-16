@@ -144,7 +144,7 @@ export const huggingfaceReader: PackageReader = {
         return Option.none();
       }
 
-      return Option.some(metaResult.success.recommendedExtensions);
+      return Option.some(metaResult.success.extensions);
     },
     Effect.annotateLogs({ reader: "huggingface" }),
     Effect.withSpan("read.huggingface"),

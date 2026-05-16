@@ -83,6 +83,7 @@ export {
   makePkceChallenge,
   makePkceVerifier,
   runLoopbackLogin,
+  type RunLoopbackLoginOptions,
 } from "./loopback-login.js";
 export {
   LoopbackCallbackRejected,

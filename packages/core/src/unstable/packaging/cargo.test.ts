@@ -339,7 +339,7 @@ describe("cargoReader", () => {
   });
 
   describe("valid [package.metadata.axm] in Cargo.toml", () => {
-    it.effect("extracts recommendedExtensions from [package.metadata.axm]", () =>
+    it.effect("extracts extensions from [package.metadata.axm]", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.193" });
@@ -351,24 +351,24 @@ describe("cargoReader", () => {
               'version = "1.0.193"',
               "",
               "[package.metadata.axm]",
-              'recommendedExtensions = ["@serde/skills/serde@^1.0.0"]',
+              'extensions = [{ ref = "@serde/skills/serde", versionRange = "^1.0.0" }]',
             ].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@serde/skills/serde@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@serde/skills/serde", versionRange: "^1.0.0" }]);
           }
         }),
       ),
     );
 
-    it.effect("returns empty array from empty recommendedExtensions", () =>
+    it.effect("returns empty array from empty extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
-            ["[package.metadata.axm]", "recommendedExtensions = []"].join("\n"),
+            ["[package.metadata.axm]", "extensions = []"].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -386,15 +386,15 @@ describe("cargoReader", () => {
             purl,
             [
               "[package.metadata.axm]",
-              'recommendedExtensions = ["@serde/skills/serde@^1.0.0"]',
+              'extensions = [{ ref = "@serde/skills/serde", versionRange = "^1.0.0" }]',
               "",
               "[package.metadata.other-tool]",
-              'recommendedExtensions = ["should-be-ignored"]',
+              'extensions = ["should-be-ignored"]',
             ].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@serde/skills/serde@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@serde/skills/serde", versionRange: "^1.0.0" }]);
           }
         }),
       ),
@@ -433,7 +433,7 @@ describe("cargoReader", () => {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
-            ["[package.metadata.axm]", "recommendedExtensions = 42"].join("\n"),
+            ["[package.metadata.axm]", "extensions = 42"].join("\n"),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -450,13 +450,13 @@ describe("cargoReader", () => {
             purl,
             [
               "[package.metadata.axm]",
-              'recommendedExtensions = ["@acme/skills/foo@^1.0.0"]',
+              'extensions = [{ ref = "@acme/skills/foo", versionRange = "^1.0.0" }]',
               "futureField = true",
             ].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/foo@^1.0.0"]);
+            expect(result.value).toEqual([{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }]);
           }
         }),
       ),

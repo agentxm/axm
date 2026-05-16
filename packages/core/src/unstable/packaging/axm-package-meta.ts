@@ -5,7 +5,22 @@
  */
 
 import * as Schema from "effect/Schema";
-import { ExtensionSpecSchema } from "../extensions/common.js";
+import { ExtensionFqnSchema } from "../extensions/common.js";
+import { VersionRangeSchema } from "../version-constraints/version-constraints.js";
+
+export const PackageExtensionDeclarationSchema = Schema.Struct({
+  ref: ExtensionFqnSchema,
+  versionRange: Schema.optional(Schema.NullOr(VersionRangeSchema)),
+}).annotate({
+  identifier: "PackageExtensionDeclaration",
+  title: "Package Extension Declaration",
+  description:
+    "An extension declared by package-native AXM metadata, with an optional semver version range.",
+});
+
+export type PackageExtensionDeclaration = Schema.Schema.Type<
+  typeof PackageExtensionDeclarationSchema
+>;
 
 /**
  * Schema for the axm package metadata file that library authors ship
@@ -15,7 +30,7 @@ import { ExtensionSpecSchema } from "../extensions/common.js";
  */
 export const AxmPackageMetaSchema = Schema.Struct({
   $schema: Schema.optional(Schema.String),
-  recommendedExtensions: Schema.Array(ExtensionSpecSchema),
+  extensions: Schema.Array(PackageExtensionDeclarationSchema),
 }).annotate({
   identifier: "AxmPackageMeta",
   title: "axm Package Metadata",

@@ -131,21 +131,21 @@ const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUr
 /**
  * Extract compatible packages from a skill ref.
  *
- * Registry refs have a typed `companionPackages` field.
+ * Registry refs have a typed `packages` field.
  * Local/git-hosted refs may carry them in the generic `metadata` bag.
  *
  * @internal Exported for testing only.
  */
 export const getCompanionPackages = (ref: SkillExtensionRef): ReadonlyArray<PackageUrlParts> => {
   if (ref.refType === "registry") {
-    return ref.companionPackages ?? [];
+    return ref.packages ?? [];
   }
 
   // For non-registry refs, check the generic metadata bag
   return Option.match(ref.skill.metadata, {
     onNone: (): ReadonlyArray<PackageUrlParts> => [],
     onSome: (m) => {
-      const raw = m["companionPackages"];
+      const raw = m["packages"];
       if (!globalThis.Array.isArray(raw)) return [];
       // Validate each entry individually — skip invalid ones rather than failing the whole array
       return raw.flatMap((entry: unknown) => {

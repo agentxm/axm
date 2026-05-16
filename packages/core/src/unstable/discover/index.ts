@@ -10,5 +10,4 @@ export {
   type DiscoverResult,
   type DiscoverPackageResult,
   type DiscoverResultEntry,
-  type DiscoverSignal,
 } from "./discover.js";

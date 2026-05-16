@@ -2,12 +2,12 @@
 
 ### Requirement: Read axm recommendation metadata from installed Conan packages
 
-The Conan reader SHALL inspect Conan package cache directories for axm recommendation metadata. For Conan 2.x, the reader SHALL check `extension_properties` in the package cache under `~/.conan2/p/`. For Conan 1.x, the reader SHALL check `conandata.yml` in the recipe export cache under `~/.conan/data/`. When present and valid, the reader SHALL extract the `recommendedExtensions` array.
+The Conan reader SHALL inspect Conan package cache directories for axm recommendation metadata. For Conan 2.x, the reader SHALL check `extension_properties` in the package cache under `~/.conan2/p/`. For Conan 1.x, the reader SHALL check `conandata.yml` in the recipe export cache under `~/.conan/data/`. When present and valid, the reader SHALL extract the `extensions` array.
 
 #### Scenario: Package with valid axm metadata in Conan 2.x cache
 
-- **WHEN** `~/.conan2/p/<hash>/e/conandata.yml` contains an `axm` key with `recommendedExtensions: ["@conan-center/skills/boost@^1.0.0"]`
-- **THEN** the reader SHALL return the extension refs `["@conan-center/skills/boost@^1.0.0"]`
+- **WHEN** `~/.conan2/p/<hash>/e/conandata.yml` contains an `axm` key with `extensions: [{ "ref": "@conan-center/skills/boost", "versionRange": "^1.0.0" }]`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@conan-center/skills/boost", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Package without axm metadata
 
@@ -31,8 +31,8 @@ The reader SHALL validate axm metadata contents against the `AxmPackageMeta` sch
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** `conandata.yml` contains `axm: { recommendedExtensions: ["@acme/skills/foo@^1.0.0"], futureField: true }`
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** `conandata.yml` contains `axm: { extensions: [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], futureField: true }`
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing Conan cache handled gracefully
 

@@ -40,7 +40,7 @@ export const VersionEntrySchema = Schema.Struct({
   version: VersionSchema,
   published: IsoDateTimeStringSchema,
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
-  companionPackages: Schema.optional(Schema.Array(CompanionPackageSchema)),
+  packages: Schema.optional(Schema.Array(CompanionPackageSchema)),
   integrity: Schema.String,
 }).annotate({
   identifier: "VersionEntry",
@@ -58,17 +58,17 @@ export type VersionEntry = Schema.Schema.Type<typeof VersionEntrySchema>;
 const decodePackageUrlOption = Schema.decodeUnknownOption(PackageUrlSchema);
 
 export const companionPackageToPackageUrlParts = (
-  companionPackage: NonNullable<VersionEntry["companionPackages"]>[number],
+  companionPackage: NonNullable<VersionEntry["packages"]>[number],
 ): Option.Option<PackageUrlParts> => decodePackageUrlOption(companionPackage.purl);
 
-export const companionPackagesToPackageUrlParts = (
-  companionPackages: VersionEntry["companionPackages"],
+export const packagesToPackageUrlParts = (
+  packages: VersionEntry["packages"],
 ): ReadonlyArray<PackageUrlParts> => {
-  if (companionPackages === undefined) {
+  if (packages === undefined) {
     return [];
   }
 
-  return companionPackages.flatMap((companionPackage) =>
+  return packages.flatMap((companionPackage) =>
     Option.match(companionPackageToPackageUrlParts(companionPackage), {
       onNone: (): ReadonlyArray<PackageUrlParts> => [],
       onSome: (packageUrl) => [packageUrl],

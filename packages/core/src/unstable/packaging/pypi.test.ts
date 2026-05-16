@@ -471,7 +471,7 @@ describe("pypiReader", () => {
         yield* fs.writeFileString(
           path.join(pkgData, "axm.json"),
           JSON.stringify({
-            recommendedExtensions: ["@django/skills/django@^1.0.0"],
+            extensions: [{ ref: "@django/skills/django", versionRange: "^1.0.0" }],
           }),
         );
 
@@ -493,7 +493,9 @@ describe("pypiReader", () => {
           const result = yield* pypiReader.read(pkg);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@django/skills/django@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@django/skills/django", versionRange: "^1.0.0" },
+            ]);
           }
         } finally {
           if (origVirtualEnv === undefined) {
@@ -529,7 +531,7 @@ describe("pypiReader", () => {
         yield* fs.writeFileString(
           path.join(pkgData, "axm.json"),
           JSON.stringify({
-            recommendedExtensions: ["@django/skills/django@^1.0.0"],
+            extensions: [{ ref: "@django/skills/django", versionRange: "^1.0.0" }],
           }),
         );
 
@@ -551,7 +553,9 @@ describe("pypiReader", () => {
           const result = yield* pypiReader.read(pkg);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@django/skills/django@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@django/skills/django", versionRange: "^1.0.0" },
+            ]);
           }
         } finally {
           if (origVirtualEnv === undefined) {
@@ -678,7 +682,7 @@ describe("pypiReader", () => {
         yield* fs.writeFileString(
           path.join(pkgData, "axm.json"),
           JSON.stringify({
-            recommendedExtensions: ["@acme/skills/flask-rest@^1.0.0"],
+            extensions: [{ ref: "@acme/skills/flask-rest", versionRange: "^1.0.0" }],
           }),
         );
 
@@ -702,7 +706,9 @@ describe("pypiReader", () => {
           const result = yield* pypiReader.read(pkg);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
-            expect(result.value).toEqual(["@acme/skills/flask-rest@^1.0.0"]);
+            expect(result.value).toEqual([
+              { ref: "@acme/skills/flask-rest", versionRange: "^1.0.0" },
+            ]);
           }
         } finally {
           if (origVirtualEnv === undefined) {

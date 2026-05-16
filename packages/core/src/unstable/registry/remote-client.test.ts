@@ -10,7 +10,6 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import * as UrlParams from "effect/unstable/http/UrlParams";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -20,8 +19,8 @@ import type { AppError } from "../app-error/index.js";
 import {
   extensionName,
   exactVersion,
-  fullyQualifiedRef,
   handle,
+  packageExtensionDeclaration,
   packageUrl,
 } from "../test-helpers.js";
 
@@ -92,7 +91,7 @@ const extensionIndexResponse = {
       published: "2025-01-01T00:00:00Z",
       integrity: "sha512-abc123",
       dependencies: {},
-      companionPackages: [{ purl: "pkg:npm/react" }],
+      packages: [{ purl: "pkg:npm/react" }],
     },
     {
       version: "0.9.0",
@@ -101,53 +100,6 @@ const extensionIndexResponse = {
     },
   ],
 };
-
-const makeExtensionIndexResponse = (overrides?: {
-  readonly name?: string;
-  readonly owner?: string;
-  readonly type?: string;
-  readonly description?: string;
-  readonly companionPackages?: ReadonlyArray<{ readonly purl: string }>;
-}) => ({
-  ...extensionIndexResponse,
-  ...(overrides?.name === undefined ? {} : { name: overrides.name }),
-  ...(overrides?.owner === undefined ? {} : { owner: overrides.owner }),
-  ...(overrides?.type === undefined ? {} : { type: overrides.type }),
-  ...(overrides?.description === undefined ? {} : { description: overrides.description }),
-  versions: [
-    {
-      ...extensionIndexResponse.versions[0],
-      ...(overrides?.companionPackages === undefined
-        ? {}
-        : { companionPackages: [...overrides.companionPackages] }),
-    },
-    ...extensionIndexResponse.versions.slice(1),
-  ],
-});
-
-const makeSearchHit = (overrides?: {
-  readonly name?: string;
-  readonly owner?: string;
-  readonly type?: string;
-  readonly latestVersion?: string;
-}) => ({
-  name: overrides?.name ?? "test-skill",
-  owner: overrides?.owner ?? "@acme",
-  type: overrides?.type ?? "skill",
-  latestVersion: overrides?.latestVersion ?? "1.0.0",
-});
-
-const makeSearchResponse = (
-  extensions: ReadonlyArray<ReturnType<typeof makeSearchHit>>,
-  options?: {
-    readonly has_more?: boolean;
-    readonly cursor?: string | null;
-  },
-) => ({
-  extensions,
-  has_more: options?.has_more ?? false,
-  cursor: options?.cursor ?? null,
-});
 
 /**
  * Standard extension list response body.
@@ -264,7 +216,7 @@ describe("getExtensionIndex", () => {
       expect(index.type).toBe("skill");
       expect(index.versions).toHaveLength(2);
       expect(index.versions[0]?.version).toBe("1.0.0");
-      expect(index.versions[0]?.companionPackages?.[0]).toEqual({ purl: "pkg:npm/react" });
+      expect(index.versions[0]?.packages?.[0]).toEqual({ purl: "pkg:npm/react" });
     }),
   );
 
@@ -629,114 +581,42 @@ describe("extensionExists", () => {
 });
 
 // =============================================================================
-// discoverExtensions
+// discoverPackages
 // =============================================================================
 
-describe("discoverExtensions", () => {
-  it.effect("discovers supported types via search pagination and resolves recommendations", () =>
+describe("discoverPackages", () => {
+  it.effect("posts package metadata and decodes attestation results", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient((request) => {
         const url = new URL(request.url);
         const path = decodeURIComponent(url.pathname);
-        const getParam = (key: string): string | null =>
-          Option.getOrNull(UrlParams.getFirst(request.urlParams, key));
 
-        if (path === "/v1/search") {
-          expect(getParam("q")).toBe("");
-          expect(getParam("limit")).toBe("100");
-
-          if (getParam("cursor") === "2") {
-            return new Response(
-              JSON.stringify(
-                makeSearchResponse([
-                  makeSearchHit({ name: "test-mcp", type: "mcp-server" }),
-                  makeSearchHit({ name: "test-subagent", type: "subagent" }),
-                ]),
-              ),
-              { status: 200 },
-            );
-          }
-
+        if (path === "/v1/discovery") {
           return new Response(
-            JSON.stringify(
-              makeSearchResponse(
-                [
-                  makeSearchHit({ name: "test-skill", type: "skill" }),
-                  makeSearchHit({ name: "test-command", type: "command" }),
-                ],
-                { has_more: true, cursor: "2" },
-              ),
-            ),
-            { status: 200 },
-          );
-        }
-
-        if (path === "/v1/extensions/@acme/skills/test-skill") {
-          return new Response(
-            JSON.stringify(
-              makeExtensionIndexResponse({
-                name: "test-skill",
-                type: "skill",
-                description: "Skill result",
-                companionPackages: [{ purl: "pkg:npm/react" }],
-              }),
-            ),
-            { status: 200 },
-          );
-        }
-
-        if (path === "/v1/extensions/@acme/commands/test-command") {
-          return new Response(
-            JSON.stringify(
-              makeExtensionIndexResponse({
-                name: "test-command",
-                type: "command",
-                description: "Command result",
-                companionPackages: [{ purl: "pkg:npm/react" }],
-              }),
-            ),
-            { status: 200 },
-          );
-        }
-
-        if (path === "/v1/extensions/@acme/mcp-servers/test-mcp") {
-          return new Response(
-            JSON.stringify(
-              makeExtensionIndexResponse({
-                name: "test-mcp",
-                type: "mcp-server",
-                description: "MCP result",
-                companionPackages: [{ purl: "pkg:npm/react" }],
-              }),
-            ),
-            { status: 200 },
-          );
-        }
-
-        if (path === "/v1/extensions/@acme/subagents/test-subagent") {
-          return new Response(
-            JSON.stringify(
-              makeExtensionIndexResponse({
-                name: "test-subagent",
-                type: "subagent",
-                description: "Subagent result",
-                companionPackages: [{ purl: "pkg:npm/react" }],
-              }),
-            ),
-            { status: 200 },
-          );
-        }
-
-        if (path === "/v1/extensions/@acme/skills/recommended-skill") {
-          return new Response(
-            JSON.stringify(
-              makeExtensionIndexResponse({
-                name: "recommended-skill",
-                type: "skill",
-                description: "Recommended result",
-                companionPackages: [{ purl: "pkg:npm/react" }],
-              }),
-            ),
+            JSON.stringify({
+              results: [
+                {
+                  purl: "pkg:npm/react",
+                  version: "18.2.0",
+                  status: "resolved",
+                  extensions: [
+                    {
+                      ref: "@acme/skills/react",
+                      resolved: true,
+                      extension: {
+                        owner: "@acme",
+                        type: "skill",
+                        name: "react",
+                        installVersion: "1.0.0",
+                      },
+                      attestedBy: ["package", "extension"],
+                      official: true,
+                      packageVersionInRange: true,
+                    },
+                  ],
+                },
+              ],
+            }),
             { status: 200 },
           );
         }
@@ -745,66 +625,41 @@ describe("discoverExtensions", () => {
       });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const result = yield* client.discoverExtensions({
-        packages: [packageUrl("pkg:npm/react")],
-        workspaceRecommendedExtensions: [fullyQualifiedRef("@acme/skills/recommended-skill")],
+      const result = yield* client.discoverPackages({
+        packages: [
+          {
+            purl: packageUrl("pkg:npm/react@18.2.0"),
+            version: "18.2.0",
+            declaredExtensions: [
+              packageExtensionDeclaration({
+                ref: "@acme/skills/react",
+                versionRange: "^1.0.0",
+              }),
+            ],
+          },
+        ],
       });
 
       expect(result.results).toHaveLength(1);
-      expect(result.results[0]?.detectedPackage).toMatchObject({
-        type: "npm",
-        name: "react",
-      });
-      expect(result.results[0]?.extensions).toEqual([
-        {
-          owner: "@acme",
-          type: "skill",
-          name: "test-skill",
-          description: "Skill result",
-          latestVersion: "1.0.0",
-        },
-        {
-          owner: "@acme",
-          type: "command",
-          name: "test-command",
-          description: "Command result",
-          latestVersion: "1.0.0",
-        },
-        {
-          owner: "@acme",
-          type: "mcp-server",
-          name: "test-mcp",
-          description: "MCP result",
-          latestVersion: "1.0.0",
-        },
-        {
-          owner: "@acme",
-          type: "subagent",
-          name: "test-subagent",
-          description: "Subagent result",
-          latestVersion: "1.0.0",
-        },
-      ]);
-      expect(result.resolvedRecommendations).toEqual([
-        {
-          owner: "@acme",
-          type: "skill",
-          name: "recommended-skill",
-          description: "Recommended result",
-          latestVersion: "1.0.0",
-        },
-      ]);
+      expect(result.results[0]?.purl).toBe("pkg:npm/react");
+      expect(result.results[0]?.extensions[0]?.official).toBe(true);
     }),
   );
 
-  it.effect("fails with network when search cannot be reached", () =>
+  it.effect("fails with network when discovery cannot be reached", () =>
     Effect.gen(function* () {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(
-        client.discoverExtensions({
-          packages: [packageUrl("pkg:npm/react")],
+        client.discoverPackages({
+          packages: [
+            {
+              purl: packageUrl("pkg:npm/react@18.2.0"),
+              version: "18.2.0",
+              declaredExtensions: [],
+            },
+          ],
         }),
       );
 

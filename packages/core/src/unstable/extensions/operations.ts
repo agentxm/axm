@@ -71,18 +71,18 @@ export const formatPackageUrlParts = (parts: PackageUrlParts): string => {
 };
 
 /**
- * Build a display label with optional companionPackages suffix.
+ * Build a display label with optional packages suffix.
  *
- * When companionPackages is non-empty, appends them parenthesized:
+ * When packages is non-empty, appends them parenthesized:
  *   `code-review (pkg:npm/react, pkg:npm/typescript)`
  */
 export const toLabelWithCompanions = (
   target: ExtensionTarget,
-  companionPackages: ReadonlyArray<PackageUrlParts>,
+  packages: ReadonlyArray<PackageUrlParts>,
 ): string => {
   const base = toLabel(target);
-  if (companionPackages.length === 0) return base;
-  const purls = companionPackages.map(formatPackageUrlParts).join(", ");
+  if (packages.length === 0) return base;
+  const purls = packages.map(formatPackageUrlParts).join(", ");
   return `${base} (${purls})`;
 };
 
@@ -149,7 +149,7 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
   args: InstallOperationArgs<TRef>,
 ): PlannedJobStep => {
   const target = targetFromRef(args.ref);
-  const companionPkgs = args.ref.refType === "registry" ? args.ref.companionPackages : [];
+  const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
 
   return {
     key: toStepKey(target),
@@ -184,7 +184,7 @@ export const buildMaterializeOperation = <TRef extends ExtensionRef>(
   args: MaterializeOperationArgs<TRef>,
 ): PlannedJobStep => {
   const target = targetFromRef(args.ref);
-  const companionPkgs = args.ref.refType === "registry" ? args.ref.companionPackages : [];
+  const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
 
   return {
     key: toStepKey(target),

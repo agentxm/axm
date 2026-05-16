@@ -6,8 +6,8 @@ The HuggingFace reader SHALL inspect model card README.md files in the HuggingFa
 
 #### Scenario: Model with valid axm frontmatter
 
-- **WHEN** `~/.cache/huggingface/hub/models--meta-llama--Llama-2-7b/snapshots/<hash>/README.md` contains YAML frontmatter with `axm: { recommendedExtensions: ["@huggingface/skills/llama@^1.0.0"] }`
-- **THEN** the reader SHALL return the extension refs `["@huggingface/skills/llama@^1.0.0"]`
+- **WHEN** `~/.cache/huggingface/hub/models--meta-llama--Llama-2-7b/snapshots/<hash>/README.md` contains YAML frontmatter with `axm: { extensions: [{ "ref": "@huggingface/skills/llama", "versionRange": "^1.0.0" }] }`
+- **THEN** the reader SHALL return the extension refs `[{ "ref": "@huggingface/skills/llama", "versionRange": "^1.0.0" }]`
 
 #### Scenario: Model without axm frontmatter
 
@@ -36,8 +36,8 @@ The reader SHALL validate the `axm` frontmatter contents against the `AxmPackage
 
 #### Scenario: Extra fields tolerated
 
-- **WHEN** the model card contains `axm: { recommendedExtensions: ["@acme/skills/foo@^1.0.0"], futureField: true }` in its YAML frontmatter
-- **THEN** the reader SHALL extract `recommendedExtensions` and ignore unknown fields
+- **WHEN** the model card contains `axm: { extensions: [{ "ref": "@acme/skills/foo", "versionRange": "^1.0.0" }], futureField: true }` in its YAML frontmatter
+- **THEN** the reader SHALL extract `extensions` and ignore unknown fields
 
 ### Requirement: Missing HuggingFace cache handled gracefully
 

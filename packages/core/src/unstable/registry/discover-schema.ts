@@ -1,86 +1,47 @@
 /**
- * Registry discover schemas for package-aware extension discovery.
- *
- * Defines the request/response shapes for the discover endpoint that
- * maps detected packages and workspace recommendations to extensions.
+ * Registry discovery schemas for package-submitted companion extension metadata.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
-import { ExtensionTypeSchema } from "../extensions/index.js";
-import { ExtensionNameSchema } from "../extensions/common.js";
+import { ExtensionNameSchema, ExtensionTypeSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
-import { PackageUrlSchema } from "../packaging/package-url.js";
 
-// =============================================================================
-// Discover Extension Entry
-// =============================================================================
-
-/**
- * An extension discovered via package compatibility or recommendation.
- *
- * Fields:
- * - type: Extension type (skill, mcp-server, etc.)
- * - name: Extension name without owner
- * - owner: Owner namespace including `@` prefix (e.g., "@acme")
- * - description: Human-readable description
- * - latestVersion: Latest compatible semver version
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const DiscoverExtensionEntrySchema = Schema.Struct({
+export const DiscoveryResolvedExtensionSchema = Schema.Struct({
+  owner: HandleSchema,
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
-  owner: HandleSchema,
-  description: Schema.String,
-  latestVersion: VersionSchema,
-}).annotate({
-  identifier: "DiscoverExtensionEntry",
-  title: "Discover Extension Entry",
-  description: "An extension discovered via package compatibility or recommendation.",
+  installVersion: VersionSchema,
 });
 
-/**
- * Inferred type for DiscoverExtensionEntry schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type DiscoverExtensionEntry = Schema.Schema.Type<typeof DiscoverExtensionEntrySchema>;
-
-// =============================================================================
-// Discover Extensions Response
-// =============================================================================
-
-/**
- * Response from extension discovery showing compatible and recommended extensions.
- *
- * Fields:
- * - results: Extensions grouped by detected package
- * - resolvedRecommendations: Flat list of extensions from workspace recommendations
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const DiscoverExtensionsResponseSchema = Schema.Struct({
-  results: Schema.Array(
-    Schema.Struct({
-      detectedPackage: PackageUrlSchema,
-      extensions: Schema.Array(DiscoverExtensionEntrySchema),
-    }),
-  ),
-  resolvedRecommendations: Schema.Array(DiscoverExtensionEntrySchema),
-}).annotate({
-  identifier: "DiscoverExtensionsResponse",
-  title: "Discover Extensions Response",
-  description: "Response from extension discovery showing compatible and recommended extensions.",
-});
-
-/**
- * Inferred type for DiscoverExtensionsResponse schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type DiscoverExtensionsResponse = Schema.Schema.Type<
-  typeof DiscoverExtensionsResponseSchema
+export type DiscoveryResolvedExtension = Schema.Schema.Type<
+  typeof DiscoveryResolvedExtensionSchema
 >;
+
+export const DiscoveryExtensionResultSchema = Schema.Struct({
+  ref: Schema.String,
+  resolved: Schema.Boolean,
+  extension: Schema.optional(DiscoveryResolvedExtensionSchema),
+  attestedBy: Schema.Array(Schema.Literals(["package", "extension"])),
+  official: Schema.Boolean,
+  packageVersionInRange: Schema.Boolean,
+});
+
+export type DiscoveryExtensionResult = Schema.Schema.Type<typeof DiscoveryExtensionResultSchema>;
+
+export const DiscoveryPackageResultSchema = Schema.Struct({
+  purl: Schema.String,
+  version: Schema.String,
+  status: Schema.Literals(["resolved", "invalid_purl"]),
+  extensions: Schema.Array(DiscoveryExtensionResultSchema),
+});
+
+export type DiscoveryPackageResult = Schema.Schema.Type<typeof DiscoveryPackageResultSchema>;
+
+export const DiscoverPackagesResponseSchema = Schema.Struct({
+  results: Schema.Array(DiscoveryPackageResultSchema),
+});
+
+export type DiscoverPackagesResponse = Schema.Schema.Type<typeof DiscoverPackagesResponseSchema>;

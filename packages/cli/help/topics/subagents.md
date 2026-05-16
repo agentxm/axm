@@ -10,7 +10,7 @@ A subagent is two coordinated files: a portable manifest plus a content file tha
 
 Targeting is workspace-owned through `.axm/settings.json` `agents`; publish rejects manifest `agents`. The manifest does not carry per-agent behavior — that lives in the content file.
 
-<!-- axm:embed-schema subagent.schema.json -->
+Run `axm help subagent-schema` to print the raw JSON Schema.
 
 ## `src/`
 

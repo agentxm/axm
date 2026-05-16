@@ -4,14 +4,16 @@ import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   HELP_TOPICS,
+  HELP_TOPIC_KINDS,
   HELP_TOPIC_NAMES,
   type HelpTopicName,
 } from "../../__generated__/help-topics.js";
 import { withRuntime } from "../../runtime.js";
+import { HELP_TOPIC_DESCRIPTIONS } from "./help-topic-descriptions.js";
 
 const helpConfig = {
   topic: Argument.string("topic").pipe(
@@ -29,10 +31,19 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "getting-started",
   "basic-usage",
   "skills",
+  "skill-schema",
   "subagents",
+  "subagent-schema",
   "commands",
+  "command-schema",
   "packs",
+  "pack-schema",
   "package-extensions",
+  "settings",
+  "settings-schema",
+  "mcp-server-schema",
+  "axm-lock-schema",
+  "axm-package-meta-schema",
   "exit-codes",
 ];
 
@@ -46,8 +57,13 @@ export const ORDERED_TOPIC_NAMES: ReadonlyArray<HelpTopicName> = (() => {
 })();
 
 const HelpIndexResultSchema = Schema.Struct({
-  content: Schema.String,
-  topics: Schema.Array(Schema.String),
+  usage: Schema.String,
+  topics: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      description: Schema.String,
+    }),
+  ),
 });
 
 const HelpTopicResultSchema = Schema.Struct({
@@ -55,28 +71,39 @@ const HelpTopicResultSchema = Schema.Struct({
   content: Schema.String,
 });
 
-const buildHelpIndexText = (): string =>
-  [
-    "USAGE",
-    "  axm help <topic>",
-    "",
-    "TOPICS",
-    ...ORDERED_TOPIC_NAMES.map((name) => `  ${name}`),
-    "",
-    "Use 'axm <command> --help' for command help.",
-    "",
-  ].join("\n");
+interface HelpTopicRow {
+  readonly topic: HelpTopicName;
+  readonly description: string;
+}
+
+const HelpTopicTableView = {
+  columns: {
+    topic: { header: "Topic" },
+    description: { header: "Description" },
+  },
+} as const satisfies TableView<HelpTopicRow>;
 
 const writeHelpTopicIndex = () =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const content = buildHelpIndexText();
+    const rows: ReadonlyArray<HelpTopicRow> = ORDERED_TOPIC_NAMES.map((topic) => ({
+      topic,
+      description: HELP_TOPIC_DESCRIPTIONS[topic],
+    }));
     const emitted = yield* renderer.result(
-      { content, topics: ORDERED_TOPIC_NAMES },
+      {
+        usage: "axm help <topic>",
+        topics: rows.map(({ topic, description }) => ({ name: topic, description })),
+      },
       HelpIndexResultSchema,
     );
     if (emitted) return;
-    yield* renderer.markdown(content);
+    // Render the index through the renderer's structured table so topics align
+    // in columns and pick up the standard chrome — no Markdown reflow.
+    yield* renderer.table(rows, HelpTopicTableView);
+    yield* renderer.message(
+      "Run 'axm help <topic>' to read a topic, or 'axm <command> --help' for command help.",
+    );
   });
 
 const writeHelpTopic = (name: HelpTopicName) =>
@@ -86,6 +113,10 @@ const writeHelpTopic = (name: HelpTopicName) =>
     const content = raw.endsWith("\n") ? raw : `${raw}\n`;
     const emitted = yield* renderer.result({ topic: name, content }, HelpTopicResultSchema);
     if (emitted) return;
+    if (HELP_TOPIC_KINDS[name] === "json-schema") {
+      yield* renderer.raw(content);
+      return;
+    }
     yield* renderer.markdown(content);
   });
 
@@ -116,7 +147,7 @@ export const helpCommand = Command.make("help", helpConfig, ({ topic }) =>
   handleHelpTopic(topic).pipe(withRuntime("help")),
 ).pipe(
   withArgvTracking(helpConfig),
-  Command.withDescription("Show general help or a markdown topic page"),
+  Command.withDescription("Show general help, a topic page, or a raw schema"),
   Command.withExamples([
     { command: "axm help", description: "View help topics" },
     { command: "axm help basic-usage", description: "How to use AXM" },
@@ -126,6 +157,7 @@ export const helpCommand = Command.make("help", helpConfig, ({ topic }) =>
       command: "axm help subagents",
       description: "Managing subagents with AXM",
     },
+    { command: "axm help skill-schema", description: "Print the skill manifest JSON Schema" },
     { command: "axm help exit-codes", description: "Exit code conventions" },
   ]),
 );

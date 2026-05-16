@@ -6,7 +6,7 @@ Pack packages live in `./.axm/extensions/<@owner>/packs/<pack-name>`.
 
 [`pack.json`](https://axm.sh/schemas/pack.schema.json)
 
-<!-- axm:embed-schema pack.schema.json -->
+Run `axm help pack-schema` to print the raw JSON Schema.
 
 ## Authoring and editing packs
 

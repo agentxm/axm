@@ -6,7 +6,7 @@ AXM workspace state lives in `.axm/settings.json`.
 
 [`settings.json`](https://axm.sh/schemas/settings.schema.json)
 
-<!-- axm:embed-schema settings.schema.json -->
+Run `axm help settings-schema` to print the raw JSON Schema.
 
 ## Anatomy
 

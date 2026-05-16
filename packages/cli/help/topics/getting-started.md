@@ -55,7 +55,8 @@ know what to install.
 ## Where to go next
 
 - `axm help basic-usage` — what each workspace file is for, what is safe to inspect, what changes state, and what must be checked in
-- `axm help settings` — `.axm/settings.json` fields and schema
+- `axm help settings` — `.axm/settings.json` fields
+- `axm help settings-schema` — `.axm/settings.json` raw JSON Schema
 - `axm help skills` — anatomy of a native managed skill on disk
 - `axm <command> --help` — flags and examples for any command
 - `axm help` — list every available help topic

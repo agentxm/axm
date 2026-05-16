@@ -9,7 +9,7 @@ holds agent-facing frontmatter and the slash-command prompt body.
 
 [`command.json`](https://axm.sh/schemas/command.schema.json)
 
-<!-- axm:embed-schema command.schema.json -->
+Run `axm help command-schema` to print the raw JSON Schema.
 
 ## Content File
 

@@ -1,5 +1,5 @@
 /**
- * Generate bundled CLI help topic source from markdown files.
+ * Generate bundled CLI help topic source from markdown files and JSON schemas.
  */
 
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off — build-time help topic generation script, not Effect code
@@ -12,32 +12,55 @@ const TOPICS_DIR = path.join(CLI_ROOT, "help/topics");
 const OUTPUT_PATH = path.join(CLI_ROOT, "src/__generated__/help-topics.ts");
 const SCHEMAS_DIR = path.join(CLI_ROOT, "../core/site-content/__generated__/schemas");
 
-const EMBED_RE = /^<!-- axm:embed-schema ([\w.-]+\.schema\.json) -->$/gm;
+type HelpTopicKind = "markdown" | "json-schema";
 
-const expandSchemaEmbeds = (content: string, topicName: string): string =>
-  content.replace(EMBED_RE, (_match, file: string) => {
-    const schemaPath = path.join(SCHEMAS_DIR, file);
-    if (!fs.existsSync(schemaPath)) {
-      throw new Error(`help topic "${topicName}" references missing schema ${file}`);
-    }
-    const json = fs.readFileSync(schemaPath, "utf-8").trimEnd();
-    return ["### Schema", "", "```json", json, "```"].join("\n");
-  });
+interface HelpTopic {
+  readonly name: string;
+  readonly content: string;
+  readonly kind: HelpTopicKind;
+}
+
+// Index-table descriptions are curated by hand in
+// src/root/help/help-topic-descriptions.ts (a `satisfies` clause there fails
+// the typecheck when a topic gains or loses a description).
 
 const topicFiles = fs
   .readdirSync(TOPICS_DIR)
   .filter((file) => file.endsWith(".md"))
   .sort((a, b) => a.localeCompare(b));
 
-const topics = topicFiles.map((file) => {
+const markdownTopics = topicFiles.map((file): HelpTopic => {
   const name = path.basename(file, ".md");
-  const raw = fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8");
-  return { name, content: expandSchemaEmbeds(raw, name) };
+  const content = fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8");
+  return { name, content, kind: "markdown" };
 });
+
+const schemaFiles = fs
+  .readdirSync(SCHEMAS_DIR)
+  .filter((file) => file.endsWith(".schema.json"))
+  .sort((a, b) => a.localeCompare(b));
+
+const schemaTopics = schemaFiles.map((file): HelpTopic => {
+  const name = `${path.basename(file, ".schema.json")}-schema`;
+  const content = fs.readFileSync(path.join(SCHEMAS_DIR, file), "utf-8").trimEnd();
+  return { name, content, kind: "json-schema" };
+});
+
+const topics = [...markdownTopics, ...schemaTopics].sort((a, b) => a.name.localeCompare(b.name));
+const seenTopicNames = new Set<string>();
+for (const { name } of topics) {
+  if (seenTopicNames.has(name)) {
+    throw new Error(`duplicate help topic name: ${name}`);
+  }
+  seenTopicNames.add(name);
+}
 
 const topicNames = topics.map(({ name }) => name);
 const topicEntries = topics
   .map(({ name, content }) => `  ${JSON.stringify(name)}: ${JSON.stringify(content)},`)
+  .join("\n");
+const topicKindEntries = topics
+  .map(({ name, kind }) => `  ${JSON.stringify(name)}: ${JSON.stringify(kind)},`)
   .join("\n");
 
 const source = `/**
@@ -52,6 +75,12 @@ export type HelpTopicName = (typeof HELP_TOPIC_NAMES)[number];
 export const HELP_TOPICS: Record<HelpTopicName, string> = {
 ${topicEntries}
 };
+
+export type HelpTopicKind = "markdown" | "json-schema";
+
+export const HELP_TOPIC_KINDS = {
+${topicKindEntries}
+} as const satisfies Record<HelpTopicName, HelpTopicKind>;
 `;
 
 fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });

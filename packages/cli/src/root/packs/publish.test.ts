@@ -84,7 +84,8 @@ const createManagedExtension = (
   const manifestFilename =
     type === "skills" ? "skill.json" : type === "commands" ? "command.json" : "mcp-server.json";
   const extDir = path.join(tempDir, ".axm", "extensions", owner, type, name);
-  fs.mkdirSync(extDir, { recursive: true });
+  const srcDir = path.join(extDir, "src");
+  fs.mkdirSync(srcDir, { recursive: true });
   const normalizedManifest = {
     ...manifest,
     owner,
@@ -93,6 +94,15 @@ const createManagedExtension = (
     version: manifest["version"] ?? "0.0.1",
   };
   fs.writeFileSync(path.join(extDir, manifestFilename), JSON.stringify(normalizedManifest));
+  if (type === "skills") {
+    fs.writeFileSync(path.join(srcDir, "SKILL.md"), `---\nname: "${name}"\n---\n\n# ${name}\n`);
+  }
+  if (type === "commands") {
+    fs.writeFileSync(
+      path.join(srcDir, `${name}.md`),
+      `---\nname: "${name}"\ndescription: "A test command"\n---\n\n# ${name}\n`,
+    );
+  }
   return extDir;
 };
 

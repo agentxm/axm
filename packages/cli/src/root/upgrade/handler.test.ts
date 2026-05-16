@@ -231,7 +231,7 @@ describe("handleUpgrade", () => {
           yield* handleUpgrade({ force: false });
           expect(logs.info).toContain("Installed via Homebrew");
           expect(rendererState.spinnerMessages).toContain("Upgrading via Homebrew...");
-          expect(rendererState.spinnerMessages).toContain("Upgraded to 99.0.0");
+          expect(logs.success).toContain("Upgraded to 99.0.0");
           expect(
             subprocess.calls.some(
               (call) =>
@@ -344,7 +344,7 @@ describe("handleUpgrade", () => {
           yield* handleUpgrade({ force: true });
           expect(logs.info).not.toContain(`Already up to date (${LOCAL_VERSION})`);
           expect(rendererState.spinnerMessages).toContain("Reinstalling via Homebrew...");
-          expect(rendererState.spinnerMessages).toContain(`Reinstalled ${LOCAL_VERSION}`);
+          expect(logs.success).toContain(`Reinstalled ${LOCAL_VERSION}`);
           expect(
             subprocess.calls.some(
               (call) =>
@@ -354,6 +354,72 @@ describe("handleUpgrade", () => {
         }),
       );
     });
+
+    it.effect("refreshes the agentxm tap with update-reset before upgrading", () => {
+      const tapPath = "/opt/homebrew/Library/Taps/agentxm/homebrew-tap";
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "agentxm/tap\n" });
+        }
+        if (invocation.command === "brew" && invocation.args[0] === "--repository") {
+          return commandResult({ stdout: `${tapPath}\n` });
+        }
+        return commandResult();
+      });
+      const { provide } = makeTestLayers({
+        method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          const updateResetIndex = subprocess.calls.findIndex(
+            (call) => call.command === "brew" && call.args[0] === "update-reset",
+          );
+          const upgradeIndex = subprocess.calls.findIndex(
+            (call) => call.command === "brew" && call.args.join(" ") === "upgrade agentxm/tap/axm",
+          );
+          expect(updateResetIndex).toBeGreaterThanOrEqual(0);
+          expect(upgradeIndex).toBeGreaterThanOrEqual(0);
+          // refresh must run before the upgrade so brew sees the latest formula
+          expect(updateResetIndex).toBeLessThan(upgradeIndex);
+          // update-reset targets the resolved tap path, not the tap name
+          expect(subprocess.calls[updateResetIndex]?.args[1]).toBe(tapPath);
+        }),
+      );
+    });
+
+    it.effect(
+      "warns instead of claiming success when the binary still reports the old version",
+      () => {
+        const subprocess = makeMockSubprocess((invocation) => {
+          if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+            return commandResult({ stdout: "agentxm/tap\n" });
+          }
+          // `axm --version` still reports the pre-upgrade version: brew was a no-op
+          if (invocation.command === process.execPath) {
+            return commandResult({ stdout: `${LOCAL_VERSION}\n` });
+          }
+          return commandResult();
+        });
+        const { provide, logs } = makeTestLayers({
+          method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+          httpHandler: makeSuccessHandler("99.0.0"),
+          subprocess,
+        });
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUpgrade({ force: false });
+            expect(logs.success).not.toContain("Upgraded to 99.0.0");
+            expect(
+              logs.warn.some(
+                (msg) => msg.includes(`still reports ${LOCAL_VERSION}`) && msg.includes("99.0.0"),
+              ),
+            ).toBe(true);
+          }),
+        );
+      },
+    );
   });
 
   describe("npm upgrades", () => {
@@ -368,7 +434,7 @@ describe("handleUpgrade", () => {
           yield* handleUpgrade({ force: false });
           expect(logs.info).toContain("Installed via npm");
           expect(rendererState.spinnerMessages).toContain("Upgrading via npm...");
-          expect(rendererState.spinnerMessages).toContain("Upgraded to 99.0.0");
+          expect(logs.success).toContain("Upgraded to 99.0.0");
           expect(
             subprocess.calls.some(
               (call) =>
@@ -446,7 +512,7 @@ describe("handleUpgrade", () => {
           yield* handleUpgrade({ force: true });
           expect(logs.info).not.toContain(`Already up to date (${LOCAL_VERSION})`);
           expect(rendererState.spinnerMessages).toContain("Reinstalling via npm...");
-          expect(rendererState.spinnerMessages).toContain(`Reinstalled ${LOCAL_VERSION}`);
+          expect(logs.success).toContain(`Reinstalled ${LOCAL_VERSION}`);
           expect(
             subprocess.calls.some(
               (call) =>

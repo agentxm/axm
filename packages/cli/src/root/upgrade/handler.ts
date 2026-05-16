@@ -24,7 +24,13 @@ export interface UpgradeHandlerArgs {
 }
 
 const UpgradeResultSchema = Schema.Struct({
-  status: Schema.Literals(["already-up-to-date", "reinstalled", "upgraded", "delegated"] as const),
+  status: Schema.Literals([
+    "already-up-to-date",
+    "reinstalled",
+    "upgraded",
+    "upgrade-incomplete",
+    "delegated",
+  ] as const),
   installMethod: Schema.Literals(["script", "homebrew", "npm", "unknown"] as const),
   localVersion: Schema.String,
   targetVersion: Schema.optional(Schema.String),
@@ -37,6 +43,7 @@ const UpgradeDocumentFields = {
   result: UpgradeResultSchema,
 } satisfies Schema.Struct.Fields;
 
+const HOMEBREW_TAP = "agentxm/tap";
 const BREW_UPGRADE_COMMAND = "brew upgrade agentxm/tap/axm";
 const BREW_REINSTALL_COMMAND = "brew reinstall agentxm/tap/axm";
 const NPM_PACKAGE = "axm.sh";
@@ -265,20 +272,117 @@ const failOnCommandError = (args: {
 }) =>
   args.result.exitCode === 0 ? Effect.succeed(args.result) : Effect.fail(commandFailedError(args));
 
-const verifyUpgradedVersion = (targetVersion: string) =>
+type UpgradeCheck =
+  | { readonly _tag: "Verified" }
+  | { readonly _tag: "Unchanged"; readonly reported: string }
+  | { readonly _tag: "Mismatch"; readonly reported: string }
+  | { readonly _tag: "Unverifiable" };
+
+/**
+ * Run the just-installed `axm --version` and classify what it reports against
+ * the version we expected and the version we started from. Never renders — the
+ * caller decides what to say.
+ */
+const checkUpgradedVersion = (
+  targetVersion: string,
+  localVersion: string,
+): Effect.Effect<UpgradeCheck, never, Subprocess> =>
+  verifyBinary(process.execPath).pipe(
+    Effect.map((reported): UpgradeCheck => {
+      if (reported === targetVersion) return { _tag: "Verified" };
+      if (reported === localVersion) return { _tag: "Unchanged", reported };
+      return { _tag: "Mismatch", reported };
+    }),
+    Effect.catch(() => Effect.succeed<UpgradeCheck>({ _tag: "Unverifiable" })),
+  );
+
+/**
+ * Report the outcome of a delegated upgrade. The success line is printed only
+ * after `axm --version` confirms the new version actually landed; a no-op or
+ * mismatch is surfaced honestly instead of a false success. Returns whether the
+ * upgrade genuinely landed so the caller can record an accurate status.
+ */
+const finishUpgrade = (args: {
+  readonly check: UpgradeCheck;
+  readonly targetVersion: string;
+  readonly successMessage: string;
+  readonly staleHint?: string;
+}): Effect.Effect<"complete" | "incomplete", never, CliRenderer> =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const version = yield* verifyBinary(process.execPath).pipe(
+    switch (args.check._tag) {
+      case "Verified": {
+        yield* renderer.success(args.successMessage);
+        return "complete";
+      }
+      case "Unchanged": {
+        const hint = args.staleHint === undefined ? "" : ` ${args.staleHint}`;
+        yield* renderer.warn(
+          `Upgrade completed, but axm still reports ${args.check.reported}, not ${args.targetVersion}.${hint}`,
+        );
+        return "incomplete";
+      }
+      case "Mismatch": {
+        yield* renderer.warn(
+          `Upgrade completed, but axm reports ${args.check.reported} instead of ${args.targetVersion}.`,
+        );
+        return "incomplete";
+      }
+      case "Unverifiable": {
+        yield* renderer.warn(
+          "Could not verify the upgraded binary. Try running `axm --version` to check.",
+        );
+        return "complete";
+      }
+    }
+  });
+
+/**
+ * Refresh the local agentxm/tap clone before a Homebrew upgrade.
+ *
+ * `brew upgrade` evaluates the formula in the local tap clone. With
+ * `HOMEBREW_NO_AUTO_UPDATE` set, that clone is never refreshed, so it can lag
+ * the published formula and make `brew upgrade` a silent no-op.
+ * `brew update-reset <path>` fetches and resets only that tap — no raw `git`,
+ * no repo-wide `brew update`. Failure is non-fatal: the upgrade proceeds
+ * against the cached formula.
+ */
+const refreshHomebrewTap: Effect.Effect<void, never, CliRenderer | Subprocess> = Effect.gen(
+  function* () {
+    const renderer = yield* CliRenderer;
+    const subprocess = yield* Subprocess;
+
+    const refresh = Effect.gen(function* () {
+      const repoResult = yield* subprocess.run("brew", ["--repository", HOMEBREW_TAP], {
+        env: HOMEBREW_ENV,
+      });
+      const tapPath = repoResult.stdout.trim();
+      if (repoResult.exitCode !== 0 || tapPath.length === 0) {
+        return yield* Effect.fail("refresh-failed" as const);
+      }
+      yield* renderer.withSpinner(
+        `Refreshing ${HOMEBREW_TAP}...`,
+        () =>
+          subprocess
+            .run("brew", ["update-reset", tapPath], { env: HOMEBREW_ENV })
+            .pipe(
+              Effect.flatMap((result) =>
+                result.exitCode === 0 ? Effect.void : Effect.fail("refresh-failed" as const),
+              ),
+            ),
+        { successMessage: `Refreshed ${HOMEBREW_TAP}` },
+      );
+    });
+
+    yield* refresh.pipe(
       Effect.catch(() =>
-        renderer.warn("Could not verify upgraded binary. Try running `axm --version` to check."),
+        renderer.warn(
+          `Could not refresh the ${HOMEBREW_TAP} tap; continuing with the cached formula.`,
+        ),
       ),
     );
-
-    if (version === undefined || version === targetVersion) return;
-    yield* renderer.warn(
-      `Upgrade completed, but axm reports ${version} instead of ${targetVersion}.`,
-    );
-  });
+  },
+);
 
 const homebrewTapIsPresent = (result: CommandResult): boolean =>
   result.stdout
@@ -323,6 +427,9 @@ const handleHomebrew = (force: boolean) =>
     const spinnerMessage = isReinstall
       ? "Reinstalling via Homebrew..."
       : "Upgrading via Homebrew...";
+    const spinnerDoneMessage = isReinstall
+      ? "Homebrew reinstall complete"
+      : "Homebrew upgrade complete";
     const successMessage = isReinstall
       ? `Reinstalled ${targetVersion}`
       : `Upgraded to ${targetVersion}`;
@@ -336,18 +443,23 @@ const handleHomebrew = (force: boolean) =>
       });
     }
 
-    if (!homebrewTapIsPresent(tapList)) {
+    if (homebrewTapIsPresent(tapList)) {
+      // A freshly tapped clone is already at origin HEAD, but an existing clone
+      // is not refreshed by `brew upgrade` (HOMEBREW_NO_AUTO_UPDATE is set), so
+      // reset it to origin first or `brew upgrade` may be a silent no-op.
+      yield* refreshHomebrewTap;
+    } else {
       yield* renderer.withSpinner(
         "Tapping Homebrew formula...",
         () =>
           subprocess
-            .run("brew", ["tap", "agentxm/tap"], { env: HOMEBREW_ENV })
+            .run("brew", ["tap", HOMEBREW_TAP], { env: HOMEBREW_ENV })
             .pipe(
               Effect.flatMap((result) =>
                 failOnCommandError({ manager: "Homebrew", command: delegatedCommand, result }),
               ),
             ),
-        { successMessage: "Tapped agentxm/tap" },
+        { successMessage: `Tapped ${HOMEBREW_TAP}` },
       );
     }
 
@@ -361,13 +473,24 @@ const handleHomebrew = (force: boolean) =>
               failOnCommandError({ manager: "Homebrew", command: delegatedCommand, result }),
             ),
           ),
-      { successMessage },
+      { successMessage: spinnerDoneMessage },
     );
 
-    yield* verifyUpgradedVersion(targetVersion);
+    const check = yield* checkUpgradedVersion(targetVersion, localVersion);
+    const completion = yield* finishUpgrade({
+      check,
+      targetVersion,
+      successMessage,
+      staleHint: `The ${HOMEBREW_TAP} formula may not have published ${targetVersion} yet — try again shortly.`,
+    });
 
     return {
-      status: isReinstall ? "reinstalled" : "upgraded",
+      status:
+        completion === "incomplete"
+          ? "upgrade-incomplete"
+          : isReinstall
+            ? "reinstalled"
+            : "upgraded",
       installMethod: "homebrew",
       localVersion,
       targetVersion,
@@ -402,6 +525,7 @@ const handleNpm = (force: boolean) =>
 
     const isReinstall = force && !resolution.isStale;
     const spinnerMessage = isReinstall ? "Reinstalling via npm..." : "Upgrading via npm...";
+    const spinnerDoneMessage = isReinstall ? "npm reinstall complete" : "npm install complete";
     const successMessage = isReinstall
       ? `Reinstalled ${targetVersion}`
       : `Upgraded to ${targetVersion}`;
@@ -416,13 +540,19 @@ const handleNpm = (force: boolean) =>
               failOnCommandError({ manager: "npm", command: delegatedCommand, result }),
             ),
           ),
-      { successMessage },
+      { successMessage: spinnerDoneMessage },
     );
 
-    yield* verifyUpgradedVersion(targetVersion);
+    const check = yield* checkUpgradedVersion(targetVersion, localVersion);
+    const completion = yield* finishUpgrade({ check, targetVersion, successMessage });
 
     return {
-      status: isReinstall ? "reinstalled" : "upgraded",
+      status:
+        completion === "incomplete"
+          ? "upgrade-incomplete"
+          : isReinstall
+            ? "reinstalled"
+            : "upgraded",
       installMethod: "npm",
       localVersion,
       targetVersion,

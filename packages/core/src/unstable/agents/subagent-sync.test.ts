@@ -38,6 +38,7 @@ const makeAddArgs = (
 ): AddSubagentArgs => ({
   workspaceRoot,
   scope: "project",
+  editSourcePath: `.axm/extensions/@acme/subagents/${name}/src/${name}.md`,
   input: { ...makeRenderInput(name), agentId },
   force: false,
 });
@@ -183,6 +184,11 @@ describe("addSubagent", () => {
                 expect(filePath).toContain(expectedSubpath);
                 const content = yield* fs.readFileString(filePath);
                 expect(content.length).toBeGreaterThan(0);
+                expect(content).toContain("AXM managed file");
+                expect(content).toContain(
+                  "1. Edit: .axm/extensions/@acme/subagents/test-subagent/src/test-subagent.md",
+                );
+                expect(content).toContain("Learn more: `axm help subagents`");
               }
             }
           } finally {
@@ -215,6 +221,13 @@ describe("addSubagent", () => {
             for (const filePath of outcome.renderedFilePaths) {
               const content = yield* fs.readFileString(filePath);
               expect(content.length).toBeGreaterThan(0);
+              if (filePath.endsWith(".md")) {
+                expect(content).toContain("AXM managed file");
+                expect(content).toContain("Learn more: `axm help subagents`");
+              }
+              if (filePath.endsWith(".json")) {
+                expect(content).not.toContain("AXM managed file");
+              }
             }
           }
         } finally {

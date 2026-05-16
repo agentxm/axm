@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { selectRenderer, type CommandRenderOutcome } from "../commands/renderers/index.js";
+import { insertManagedFileBanner, managedFileFormatForPath } from "../extensions/index.js";
 import type {
   AddCommandArgs,
   CommandSyncOutcome,
@@ -83,6 +84,15 @@ export const writeCommandFile = (
     const output = renderResult.outputs[0];
     if (output === undefined) return unsupportedCommandOutcome(config.agentId);
     const filePath = path.join(commandsDir, output.relativePath);
+    const format = managedFileFormatForPath(output.relativePath);
+    const content =
+      format === undefined
+        ? output.content
+        : insertManagedFileBanner(output.content, {
+            editPath: args.editSourcePath,
+            helpTopic: "commands",
+            format,
+          });
 
     // Ensure directory exists
     const parentDir = path.dirname(filePath);
@@ -97,7 +107,7 @@ export const writeCommandFile = (
     );
 
     // Write the file
-    yield* fs.writeFileString(filePath, output.content).pipe(
+    yield* fs.writeFileString(filePath, content).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",

@@ -137,6 +137,13 @@ export const enableSubagent: OperationHandler<
     // Read and parse the subagent content file
     const expectedFilename = subagentContentFilename(op.args.subagentName);
     const contentPath = subagentContentPath(path.join, paths.subagentSrcPath, op.args.subagentName);
+    const editSourcePath = makeWorkspaceRelativePath(path, baseDir, contentPath);
+    if (Option.isNone(editSourcePath)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Subagent source path escapes workspace root: ${contentPath}`,
+      });
+    }
     const rawContent = yield* fs.readFileString(contentPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -178,6 +185,7 @@ export const enableSubagent: OperationHandler<
           .addSubagent({
             workspaceRoot: baseDir,
             scope: "project",
+            editSourcePath: editSourcePath.value,
             input: {
               agentId: agent.id,
               name: op.args.subagentName,

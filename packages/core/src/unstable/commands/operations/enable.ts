@@ -24,6 +24,7 @@ import {
 } from "../../extensions/index.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
 import { readCommandContent, renderToAgents } from "./shared-command-helpers.js";
 
 const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
@@ -125,11 +126,18 @@ export const enableCommand: OperationHandler<
     }
 
     // Read the command content file and command.json
-    const { frontmatter, agentOverrides, body, manifest } = yield* readCommandContent(
+    const { frontmatter, agentOverrides, body, manifest, contentPath } = yield* readCommandContent(
       canonicalPath,
       op.args.commandName,
       "ENABLE_COMMAND",
     );
+    const editSourcePath = makeWorkspaceRelativeSourcePath(path, base, contentPath);
+    if (Option.isNone(editSourcePath)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Command source path escapes workspace root: ${contentPath}`,
+      });
+    }
 
     // Resolve owner: registry lock entries supply it; otherwise read from settings
     const owner =
@@ -159,6 +167,7 @@ export const enableCommand: OperationHandler<
     // Render to agents concurrently
     const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: op.args.commandName,
+      editSourcePath: editSourcePath.value,
       frontmatter,
       agentOverrides: Option.getOrUndefined(agentOverrides),
       body,

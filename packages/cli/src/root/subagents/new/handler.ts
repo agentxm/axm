@@ -161,21 +161,24 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       // Write starter content file
       const subagentMdContent = makeSubagentMd(args.name);
       const contentFilename = subagentContentFilename(args.name);
+      const contentPath = subagentContentPath(path.join, subagentSrcPath, args.name);
 
-      yield* fs
-        .writeFileString(
-          subagentContentPath(path.join, subagentSrcPath, args.name),
-          subagentMdContent,
-        )
-        .pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "validation",
-              detail: `Failed to write ${contentFilename}`,
-              cause: e,
-            }),
-          ),
-        );
+      yield* fs.writeFileString(contentPath, subagentMdContent).pipe(
+        Effect.mapError((e) =>
+          makeAppError({
+            code: "validation",
+            detail: `Failed to write ${contentFilename}`,
+            cause: e,
+          }),
+        ),
+      );
+      const editSourcePath = makeWorkspaceRelativePath(path, base, contentPath);
+      if (Option.isNone(editSourcePath)) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Subagent source path escapes workspace root: ${contentPath}`,
+        });
+      }
 
       // Register in settings
       yield* ws.setSubagentEntry(args.name, {
@@ -196,6 +199,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
             .addSubagent({
               workspaceRoot: base,
               scope: "project",
+              editSourcePath: editSourcePath.value,
               input: {
                 agentId: agent.id,
                 name: args.name,

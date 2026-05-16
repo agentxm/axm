@@ -31,6 +31,7 @@ import {
 import { commandContentFilename } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
 import { parseCommandMd } from "../command-content.js";
 import { renderToAgents } from "./shared-command-helpers.js";
 
@@ -163,8 +164,9 @@ export const newCommand: OperationHandler<
 
     // 5. Write starter content file (<name>.md) in src/
     const contentFilename = commandContentFilename(name);
+    const contentPath = path.join(srcDir, contentFilename);
     const commandMdContent = makeCommandMd(name, description);
-    yield* fs.writeFileString(path.join(srcDir, contentFilename), commandMdContent).pipe(
+    yield* fs.writeFileString(contentPath, commandMdContent).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "validation",
@@ -173,10 +175,18 @@ export const newCommand: OperationHandler<
         }),
       ),
     );
+    const editSourcePath = makeWorkspaceRelativeSourcePath(path, ws.baseDir, contentPath);
+    if (Option.isNone(editSourcePath)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Command source path escapes workspace root: ${contentPath}`,
+      });
+    }
 
     const { frontmatter, agentOverrides, body } = yield* parseCommandMd(commandMdContent);
     const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: name,
+      editSourcePath: editSourcePath.value,
       frontmatter,
       agentOverrides: Option.getOrUndefined(agentOverrides),
       body,

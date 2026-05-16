@@ -45,6 +45,7 @@ export type CommandErrorPrefix = "INSTALL_COMMAND" | "ENABLE_COMMAND";
  */
 export interface ReadCommandContentResult extends CommandContentResult {
   readonly manifest: CommandManifest | undefined;
+  readonly contentPath: string;
 }
 
 /**
@@ -140,7 +141,11 @@ export const readCommandContent = (
       });
     }
 
-    return { ...frontmatter, manifest } satisfies ReadCommandContentResult;
+    return {
+      ...frontmatter,
+      manifest,
+      contentPath: commandMdPath,
+    } satisfies ReadCommandContentResult;
   });
 
 // -----------------------------------------------------------------------------
@@ -152,6 +157,7 @@ export const readCommandContent = (
  */
 export interface RenderToAgentsArgs {
   readonly commandName: string;
+  readonly editSourcePath: string;
   readonly frontmatter: CommandContentResult["frontmatter"];
   readonly agentOverrides: AllAgentOverrides | undefined;
   readonly body: string;
@@ -225,6 +231,7 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
             workspaceRoot: args.workspaceRoot,
             scope: "project",
             commandName: args.commandName,
+            editSourcePath: args.editSourcePath,
             frontmatter,
             body: args.body,
             manifest: effectiveManifest,

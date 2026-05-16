@@ -280,11 +280,18 @@ export const installCommand: (
     const canonicalPath = yield* materializeCommand(ref);
 
     // --- Read command content ---
-    const { frontmatter, agentOverrides, body, manifest } = yield* readCommandContent(
+    const { frontmatter, agentOverrides, body, manifest, contentPath } = yield* readCommandContent(
       canonicalPath,
       ref.command.name,
       "INSTALL_COMMAND",
     );
+    const editSourcePath = makeWorkspaceRelativeSourcePath(path, ws.baseDir, contentPath);
+    if (Option.isNone(editSourcePath)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Command source path escapes workspace root: ${contentPath}`,
+      });
+    }
 
     // --- Resolve owner: registry refs supply it; otherwise read from settings ---
     const owner =
@@ -314,6 +321,7 @@ export const installCommand: (
     // --- Render to agents concurrently ---
     const { outcomes, successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: ref.command.name,
+      editSourcePath: editSourcePath.value,
       frontmatter,
       agentOverrides: Option.getOrUndefined(agentOverrides),
       body,

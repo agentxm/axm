@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { insertManagedFileBanner, managedFileFormatForPath } from "../extensions/index.js";
 import {
   renderSubagent,
   buildRooModeEntry,
@@ -95,6 +96,15 @@ export const writeSubagentFiles = (
 
     const renderedFilePaths: Array<string> = [];
     for (const { output, filePath } of resolvedOutputs) {
+      const format = managedFileFormatForPath(output.path);
+      const content =
+        format === undefined
+          ? output.content
+          : insertManagedFileBanner(output.content, {
+              editPath: args.editSourcePath,
+              helpTopic: "subagents",
+              format,
+            });
       // Ensure parent dir exists (for nested paths)
       const parentDir = path.dirname(filePath);
       yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
@@ -107,7 +117,7 @@ export const writeSubagentFiles = (
         ),
       );
 
-      yield* fs.writeFileString(filePath, output.content).pipe(
+      yield* fs.writeFileString(filePath, content).pipe(
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",

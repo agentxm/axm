@@ -72,6 +72,8 @@ Overrides for agents not in your configured `agents` set are ignored, with a war
 
 Edit the content file under `src/`. `axm sync` re-renders the agent-native files from the content file's frontmatter and body; it does not write to `subagent.json`.
 
+If you find an AXM-managed rendered subagent file in an agent directory, edit the source path named in that file and then run `axm sync`.
+
 Run `axm subagents publish` to release a new version. Publish validates the manifest, checks that `src/<subagent-name>.md` exists and that its frontmatter `name` matches the manifest, then zips the extension directory, computes its SRI integrity hash, and uploads the version to the target registry. Publish never edits `subagent.json` — whatever is on disk is what gets shipped.
 
 ## Where to go next

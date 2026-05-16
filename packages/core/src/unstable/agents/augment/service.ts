@@ -22,6 +22,7 @@ import {
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { CLAUDE_CODE_COMMANDS_PROJECT_DIR } from "../claude-code/service.js";
 import { selectRenderer } from "../../commands/renderers/index.js";
+import { insertManagedFileBanner, managedFileFormatForPath } from "../../extensions/index.js";
 
 /** @experimental */
 export const AUGMENT_COMMANDS_PROJECT_DIR = ".augment/commands";
@@ -69,7 +70,17 @@ const isRenderedToClaudeCode = (
     });
     if (expected._tag === "Skipped") return false;
     const output = expected.outputs[0];
-    return output !== undefined && content === output.content;
+    if (output === undefined) return false;
+    const format = managedFileFormatForPath(output.relativePath);
+    const expectedContent =
+      format === undefined
+        ? output.content
+        : insertManagedFileBanner(output.content, {
+            editPath: args.editSourcePath,
+            helpTopic: "commands",
+            format,
+          });
+    return content === expectedContent;
   });
 
 export const augmentCodingAgent: CodingAgent = {

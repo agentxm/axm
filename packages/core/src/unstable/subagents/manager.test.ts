@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "./refs.js";
-import type { CodingAgent } from "../agents/coding-agent.js";
+import type { AddSubagentArgs, CodingAgent } from "../agents/coding-agent.js";
 import { CodingAgentRepository } from "../agents/coding-agent.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
@@ -252,11 +252,15 @@ describe("SubagentManager", () => {
 
     it.effect("renders to configured agents without writing lockfile render metadata", () => {
       const setSubagentLockSpy = vi.fn(() => Effect.void);
-      const addSubagentSpy = vi.fn(() =>
-        Effect.succeed({
-          _tag: "success" as const,
-          renderedFilePaths: [`.claude/agents/planner.md`],
-          warnings: [],
+      const addSubagentCalls: Array<AddSubagentArgs> = [];
+      const addSubagentSpy = vi.fn((args: AddSubagentArgs) =>
+        Effect.sync(() => {
+          addSubagentCalls.push(args);
+          return {
+            _tag: "success" as const,
+            renderedFilePaths: [`.claude/agents/planner.md`],
+            warnings: [],
+          };
         }),
       );
 
@@ -281,6 +285,9 @@ describe("SubagentManager", () => {
           ref: makeLocalSubagentRef("planner", sourceDir),
         });
         expect(addSubagentSpy).toHaveBeenCalledOnce();
+        expect(addSubagentCalls[0]?.editSourcePath).toBe(
+          ".axm/extensions/external/subagents/planner/planner.md",
+        );
         expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(

@@ -28,6 +28,7 @@ const makeAddArgs = (workspaceRoot: string, commandName = "test-cmd"): AddComman
   workspaceRoot,
   scope: "project",
   commandName,
+  editSourcePath: `.axm/extensions/@acme/commands/${commandName}/src/${commandName}.md`,
   frontmatter: Option.none(),
   body: "This is a test command body.",
   manifest: {
@@ -374,6 +375,19 @@ describe("addCommand", () => {
               const fs = yield* FileSystem.FileSystem;
               const content = yield* fs.readFileString(outcome.renderedFilePath);
               expect(content).toContain("This is a test command body.");
+              if (
+                outcome.renderedFilePath.endsWith(".md") ||
+                outcome.renderedFilePath.endsWith(".toml")
+              ) {
+                expect(content).toContain("AXM managed file");
+                expect(content).toContain(
+                  "1. Edit: .axm/extensions/@acme/commands/test-cmd/src/test-cmd.md",
+                );
+                expect(content).toContain("Learn more: `axm help commands`");
+              }
+              if (outcome.renderedFilePath.endsWith(".txt")) {
+                expect(content).not.toContain("AXM managed file");
+              }
             }
           } finally {
             rmSync(workspaceRoot, { recursive: true, force: true });

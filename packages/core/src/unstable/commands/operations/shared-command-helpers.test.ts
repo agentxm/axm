@@ -77,6 +77,7 @@ Deploy the app.`);
 
       yield* renderToAgents({
         commandName: "deploy",
+        editSourcePath: ".axm/extensions/@acme/commands/deploy/src/deploy.md",
         frontmatter: parsed.frontmatter,
         agentOverrides: Option.getOrUndefined(parsed.agentOverrides),
         body: parsed.body,
@@ -127,6 +128,7 @@ Plain body.`);
 
           const result = yield* renderToAgents({
             commandName: "plain",
+            editSourcePath: ".axm/extensions/@acme/commands/plain/src/plain.md",
             frontmatter: parsed.frontmatter,
             agentOverrides: Option.getOrUndefined(parsed.agentOverrides),
             body: parsed.body,

@@ -382,9 +382,16 @@ export const CommandManagerLive = Layer.effect(
           }
         });
 
-        const { frontmatter, agentOverrides, body, manifest } = yield* provide(
+        const { frontmatter, agentOverrides, body, manifest, contentPath } = yield* provide(
           readCommandContent(canonicalPath, ref.command.name, "INSTALL_COMMAND"),
         );
+        const editSourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
+        if (Option.isNone(editSourcePath)) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Command source path escapes workspace root: ${contentPath}`,
+          });
+        }
 
         const owner =
           ref.refType === "registry"
@@ -413,6 +420,7 @@ export const CommandManagerLive = Layer.effect(
         yield* provide(
           renderToAgents({
             commandName: ref.command.name,
+            editSourcePath: editSourcePath.value,
             frontmatter,
             agentOverrides: Option.getOrUndefined(agentOverrides),
             body,

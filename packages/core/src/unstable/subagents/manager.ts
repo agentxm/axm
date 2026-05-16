@@ -248,6 +248,14 @@ export const SubagentManagerLive = Layer.effect(
         yield* materializeCanonical(ref, sanitized, canonicalPath, subagentSrcPath);
 
         // --- Read content file ---
+        const contentPath = subagentContentPath(path.join, subagentSrcPath, ref.subagent.name);
+        const editSourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
+        if (Option.isNone(editSourcePath)) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Subagent source path escapes workspace root: ${contentPath}`,
+          });
+        }
         const { parsed } = yield* readSubagentContent(subagentSrcPath, ref.subagent.name);
 
         // --- Resolve configured agents ---
@@ -278,6 +286,7 @@ export const SubagentManagerLive = Layer.effect(
               .addSubagent({
                 workspaceRoot: baseDir,
                 scope: "project",
+                editSourcePath: editSourcePath.value,
                 input: {
                   agentId: agent.id,
                   name: ref.subagent.name,

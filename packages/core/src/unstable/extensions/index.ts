@@ -189,6 +189,13 @@ export {
 } from "./frontmatter.js";
 
 export {
+  insertManagedFileBanner,
+  managedFileFormatForPath,
+  type ManagedFileBannerOptions,
+  type ManagedFileFormat,
+} from "./managed-file-banner.js";
+
+export {
   applyOverrides,
   warnOnOrphanOverrides,
   type AgentOverrides,

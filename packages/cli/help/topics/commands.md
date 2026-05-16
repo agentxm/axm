@@ -62,6 +62,8 @@ Targets that drop frontmatter (such as Cursor's body-only Markdown) ignore keys 
 
 Do not edit rendered command files directly. Edit the command package source and re-render.
 
+If you find an AXM-managed rendered command file in an agent directory, edit the source path named in that file and then run `axm sync`.
+
 ## Where to go next
 
 - `axm help packs` — bundling command extensions with extension packs

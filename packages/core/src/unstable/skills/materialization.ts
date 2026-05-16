@@ -3,7 +3,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { validatePathSafety } from "../extensions/index.js";
+import { insertManagedFileBanner, validatePathSafety } from "../extensions/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { SkillExtensionRef } from "./refs.js";
@@ -12,6 +12,7 @@ import {
   computeIntegrity,
   createSymlink,
   isPathSafe,
+  makeWorkspaceRelativeSourcePath,
   removeFromAllCanonicalLocations,
   stripFileProtocol,
 } from "../utils/index.js";
@@ -227,6 +228,37 @@ export const materializeSkillCanonical = (args: {
   }
 };
 
+export const insertSkillCopyFallbackBanner = (args: {
+  readonly canonicalSkillSrcPath: string;
+  readonly agentSkillPath: string;
+  readonly baseDir: string;
+}): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const skillMdPath = path.join(args.agentSkillPath, "SKILL.md");
+    const skillMdExists = yield* fs
+      .exists(skillMdPath)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!skillMdExists) return;
+
+    const canonicalSkillMdPath = path.join(args.canonicalSkillSrcPath, "SKILL.md");
+    const editSourcePath = makeWorkspaceRelativeSourcePath(
+      path,
+      args.baseDir,
+      canonicalSkillMdPath,
+    );
+    if (Option.isNone(editSourcePath)) return;
+
+    const content = yield* fs.readFileString(skillMdPath);
+    const withBanner = insertManagedFileBanner(content, {
+      editPath: editSourcePath.value,
+      helpTopic: "skills",
+      format: "markdown",
+    });
+    yield* fs.writeFileString(skillMdPath, withBanner);
+  }).pipe(Effect.catch(() => Effect.void));
+
 export const ensureSkillAgentArtifact = (args: {
   readonly canonicalSkillSrcPath: string;
   readonly targetDir: string;
@@ -247,7 +279,16 @@ export const ensureSkillAgentArtifact = (args: {
         link: agentSkillPath,
       }).pipe(
         Effect.catch(() =>
-          copyExtensionDirectory(args.canonicalSkillSrcPath, agentSkillPath).pipe(Effect.ignore),
+          copyExtensionDirectory(args.canonicalSkillSrcPath, agentSkillPath).pipe(
+            Effect.flatMap(() =>
+              insertSkillCopyFallbackBanner({
+                canonicalSkillSrcPath: args.canonicalSkillSrcPath,
+                agentSkillPath,
+                baseDir: args.baseDir,
+              }),
+            ),
+            Effect.ignore,
+          ),
         ),
       ),
     );

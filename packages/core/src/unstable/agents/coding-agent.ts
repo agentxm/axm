@@ -87,6 +87,7 @@ export interface AddCommandArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
   readonly commandName: string;
+  readonly editSourcePath: string;
   readonly frontmatter: Option.Option<CommandFrontmatter>;
   readonly body: string;
   readonly manifest: CommandManifest;
@@ -146,6 +147,7 @@ export type ResolveSubagentsDirOutcome =
 export interface AddSubagentArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
+  readonly editSourcePath: string;
   readonly input: SubagentRenderInput;
   readonly force: boolean;
 }

@@ -18,6 +18,8 @@ The `src/` directory holds `SKILL.md` and any other files described by the [agen
 
 The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.
 
+If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md` in `.axm/extensions/...` and run `axm sync`; do not edit the copied agent-side file.
+
 ## Where to go next
 
 - `axm skills --help` — full skill subcommand surface

@@ -133,8 +133,8 @@ describe("commands disable.handler", () => {
             ...makeLockEntry(),
             agents: ["claude-code", "cursor"],
             renderedFiles: {
-              "claude-code": [{ path: "/tmp/.claude/commands/my-cmd.md" }],
-              cursor: [{ path: "/tmp/.cursor/commands/my-cmd.md" }],
+              "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
+              cursor: [{ path: ".cursor/commands/my-cmd.md" }],
             },
           },
         },

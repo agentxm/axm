@@ -114,8 +114,8 @@ describe("commands uninstall.handler", () => {
           "my-cmd": makeLockEntry({
             agents: ["claude-code", "cursor"],
             renderedFiles: {
-              "claude-code": [{ path: path.join(tempDir, ".claude/commands/my-cmd.md") }],
-              cursor: [{ path: path.join(tempDir, ".cursor/commands/my-cmd.md") }],
+              "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
+              cursor: [{ path: ".cursor/commands/my-cmd.md" }],
             },
           }),
         },

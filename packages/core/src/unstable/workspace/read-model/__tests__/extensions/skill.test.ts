@@ -41,7 +41,7 @@ const harness = (params: {
         agentDir: Effect.succeed(params.agentDirOccurrences ?? []),
       },
       installedPacks: Effect.succeed([]),
-      ignoredNames: new Set(params.ignoredNames ?? []),
+      ignoredPatterns: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
     return { api, ref };

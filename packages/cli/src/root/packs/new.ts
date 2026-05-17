@@ -18,18 +18,18 @@ import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
+import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
-  readonly profile: Option.Option<Handle>;
+  readonly owner: Option.Option<Handle>;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -44,8 +44,8 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   yield* renderer.info("axm packs new");
 
   // Resolve owner
-  const owner = Option.isSome(args.profile)
-    ? args.profile.value
+  const owner = Option.isSome(args.owner)
+    ? args.owner.value
     : yield* resolveOwnerForNewContent("pack creation");
 
   const fqn = formatFqn({ owner, type: "pack", name: args.name });
@@ -113,11 +113,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   const suggestions = [
     {
@@ -147,8 +143,8 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the pack (without owner)")),
-  profile: Flag.string("profile").pipe(
-    Flag.withDescription("Override the workspace profile (e.g., @acme)"),
+  owner: Flag.string("owner").pipe(
+    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the pack without confirmation")),
@@ -158,10 +154,10 @@ const newConfig = {
   ),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, force, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, force, preview }) =>
   handlePacksNew({
     name: decodeExtensionNameSync(name),
-    profile: Option.map(profile, (s) => normalizeHandle(s.startsWith("@") ? s : `@${s}`)),
+    owner: Option.map(owner, (s) => normalizeHandle(s.startsWith("@") ? s : `@${s}`)),
     yes,
     force,
     preview,
@@ -175,7 +171,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, 
       description: "Create an empty pack to bundle extensions",
     },
     {
-      command: "axm packs new frontend-tools --profile @co",
+      command: "axm packs new frontend-tools --owner @co",
       description: "Create under a specific owner",
     },
   ]),

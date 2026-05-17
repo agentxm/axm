@@ -1,0 +1,28 @@
+{
+  "description": "Agent using universal skills dir has an unmanaged artifact ignored by skillsConfig.ignore; workspace/skills-managed does not fire.",
+  "state": {
+    "settings": {
+      "agents": [
+        "amp"
+      ],
+      "skillsConfig": {
+        "ignore": [
+          "stale-*"
+        ]
+      }
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json",
+      ".agents/skills/stale-artifact"
+    ],
+    "listings": {
+      ".agents/skills": [
+        "stale-artifact"
+      ]
+    },
+    "detectedProjectAgents": []
+  },
+  "scope": "project",
+  "expectedFindings": []
+}

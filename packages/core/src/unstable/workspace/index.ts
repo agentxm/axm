@@ -87,8 +87,10 @@ export type {
 
 export {
   AXM_MANAGED_MARKER,
+  cleanupManagedArtifactsForRemovedAgents,
   cleanupStaleManagedSubagentFiles,
   hasAxmManagedMarker,
+  type RemovedAgentArtifactCleanupResult,
   type RenderedFileCleanupResult,
 } from "./rendered-file-cleanup.js";
 
@@ -186,6 +188,12 @@ export {
 } from "./resolve-plan-interaction.js";
 // Plan display
 export { displayPlan } from "./display-plan.js";
+
+// Lockfile update policy
+export {
+  ignoreMalformedWorkspaceLockfileRead,
+  isMalformedWorkspaceLockfileRead,
+} from "./lockfile-update-policy.js";
 
 // Version currency
 export {

@@ -17,10 +17,10 @@ import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/c
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
+import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
 
@@ -29,7 +29,7 @@ const MAX_NAME_LENGTH = 64;
 
 export interface SkillsNewHandlerArgs {
   readonly name: ExtensionName;
-  readonly profile: Option.Option<string>;
+  readonly owner: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
   readonly yes: boolean;
   readonly force: boolean;
@@ -47,8 +47,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   yield* renderer.info("axm skills new");
 
   // 1. Resolve owner
-  const owner = Option.isSome(args.profile)
-    ? normalizeOwner(args.profile.value)
+  const owner = Option.isSome(args.owner)
+    ? normalizeOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("skill creation");
 
   // 2. Validate name
@@ -65,7 +65,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   }
 
   // 3. Check existence
-  const configuredSkills = yield* ws.records.getConfiguredSkills();
+  const configuredSkills = yield* ws.getConfiguredSkillEntries();
   if (args.name in configuredSkills) {
     return yield* makeAppError({
       code: "conflict",
@@ -117,11 +117,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   const suggestions = [
     {
@@ -148,8 +144,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill (without owner)")),
-  profile: Flag.string("profile").pipe(
-    Flag.withDescription("Override the workspace profile (e.g., @acme)"),
+  owner: Flag.string("owner").pipe(
+    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
   agent: Flag.string("agent").pipe(
@@ -167,10 +163,10 @@ const newConfig = {
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, profile, agent, yes, force, preview }) =>
+  ({ name, owner, agent, yes, force, preview }) =>
     handleSkillsNew({
       name: decodeExtensionNameSync(name),
-      profile,
+      owner,
       agents: Option.map(agent, (value) => [...value]),
       yes,
       force,
@@ -182,7 +178,7 @@ export const newCommand = Command.make(
   Command.withExamples([
     { command: "axm skills new my-skill", description: "Scaffold a new skill" },
     {
-      command: "axm skills new my-skill --profile @acme",
+      command: "axm skills new my-skill --owner @acme",
       description: "Create under a specific owner",
     },
   ]),

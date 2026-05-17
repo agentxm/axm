@@ -111,6 +111,12 @@ type JsonHelpDoc = {
   readonly learnMore?: string | undefined;
 };
 
+type RootSubcommandDoc = {
+  readonly name: string;
+  readonly shortDescription?: string | undefined;
+  readonly description?: string | undefined;
+};
+
 const JsonFlagDocSchema = Schema.Struct({
   name: Schema.String,
   aliases: Schema.Array(Schema.String),
@@ -204,59 +210,133 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   };
 };
 
-const flagNames = (flag: FlagDoc): string => {
-  const names = [`--${flag.name}`, ...flag.aliases.map((alias) => `-${alias}`)];
-  return names.join(", ");
+const groupLabel = (group: string | undefined): string => {
+  if (group === undefined) return "commands";
+
+  return group.toUpperCase();
 };
 
-const flagLabel = (flag: FlagDoc): string =>
-  flag.type === "boolean" ? flagNames(flag) : `${flagNames(flag)} <${flag.type}>`;
+const COMMON_COMMANDS = ["skills", "commands", "mcp-servers", "subagents", "packs", "agents"];
+const COMMON_COMMAND_GROUP = "COMMON";
+const COMMAND_COLUMN_WIDTH = 16;
 
-const padRows = (
-  rows: ReadonlyArray<readonly [string, string]>,
-  indent = "  ",
-): ReadonlyArray<string> => {
-  const width = rows.reduce((max, [label]) => Math.max(max, label.length), 0);
-  return rows.map(([label, description]) =>
-    description === "" ? `${indent}${label}` : `${indent}${label.padEnd(width)}  ${description}`,
+const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
+  agents: "Configure coding-agent targets",
+  auth: "Manage registry authentication",
+  commands: "Manage slash-command extensions",
+  discover: "Find extensions for this project",
+  help: "Show topic and command help",
+  install: "Install extensions from the registry",
+  lint: "Check workspace configuration",
+  login: "Sign in to a registry",
+  logout: "Sign out of a registry",
+  "mcp-servers": "Manage MCP server extensions",
+  outdated: "Show extensions with updates",
+  packs: "Manage extension bundles",
+  prune: "Remove unmanaged extension files",
+  setup: "Set up AXM in this project",
+  skills: "Manage agent skills",
+  subagents: "Manage subagent extensions",
+  sync: "Render configured extensions",
+  token: "Print the current auth token",
+  uninstall: "Remove installed extensions",
+  update: "Update installed extensions",
+  upgrade: "Update the AXM CLI",
+  version: "Bump extension versions",
+  view: "View published extension metadata",
+  whoami: "Show the signed-in account",
+};
+
+interface RootHelpColors {
+  readonly bold: (text: string) => string;
+  readonly cyan: (text: string) => string;
+  readonly green: (text: string) => string;
+}
+
+const makeRootHelpColors = (enabled: boolean): RootHelpColors => {
+  if (!enabled) {
+    return {
+      bold: (text) => text,
+      cyan: (text) => text,
+      green: (text) => text,
+    };
+  }
+
+  return {
+    bold: (text) => `\u001b[1m${text}\u001b[0m`,
+    cyan: (text) => `\u001b[36m${text}\u001b[0m`,
+    green: (text) => `\u001b[32m${text}\u001b[0m`,
+  };
+};
+
+const rootCommandDescription = (
+  command: string,
+  docs: ReadonlyMap<string, RootSubcommandDoc>,
+): string => {
+  const customDescription = ROOT_COMMAND_DESCRIPTIONS[command];
+  if (customDescription !== undefined) return customDescription;
+
+  const doc = docs.get(command);
+  return doc?.shortDescription ?? doc?.description ?? "";
+};
+
+const renderCommandRow = (command: string, description: string, colors: RootHelpColors): string => {
+  const padding = " ".repeat(Math.max(1, COMMAND_COLUMN_WIDTH - command.length));
+  return `  ${colors.green(command)}${padding}${description}`;
+};
+
+const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
+  const commandDocs = new Map(
+    (doc.subcommands ?? []).flatMap((group) =>
+      group.commands.map((command) => [command.name, command]),
+    ),
   );
-};
 
-const commandDescription = (command: {
-  readonly shortDescription: string | undefined;
-  readonly description: string;
-}): string => command.shortDescription ?? command.description;
+  const renderCommonGroup = (commands: ReadonlyArray<string>): ReadonlyArray<string> => {
+    if (commands.length === 0) return [];
 
-const renderRootHelpDoc = (doc: HelpDoc): string => {
-  const sections: Array<string> = [
-    ["", BRANDING, "", doc.description].filter((line) => line !== "").join("\n"),
-    ["USAGE", `  ${doc.usage}`].join("\n"),
+    return [
+      `${colors.bold(COMMON_COMMAND_GROUP)}:`,
+      ...commands.map((command) =>
+        renderCommandRow(command, rootCommandDescription(command, commandDocs), colors),
+      ),
+    ];
+  };
+
+  const renderCompactGroup = (
+    label: string,
+    commands: ReadonlyArray<string>,
+  ): ReadonlyArray<string> => {
+    if (commands.length === 0) return [];
+
+    return [
+      `${colors.bold(label)}: ${commands.map((command) => colors.green(command)).join(", ")}`,
+    ];
+  };
+
+  const commandGroups = [
+    ...renderCommonGroup(COMMON_COMMANDS),
+    ...(doc.subcommands ?? []).flatMap((group) => {
+      const commands = group.commands
+        .map((command) => command.name)
+        .filter((command) => !COMMON_COMMANDS.includes(command));
+      return renderCompactGroup(groupLabel(group.group), commands);
+    }),
   ];
 
-  for (const group of doc.subcommands ?? []) {
-    const groupName = group.group ?? "COMMANDS";
-    const rows = group.commands.map(
-      (command) => [command.name, commandDescription(command)] as const,
-    );
-    sections.push([`${groupName} COMMANDS`, ...padRows(rows)].join("\n"));
-  }
-
-  const flags = [...doc.flags, ...(doc.globalFlags ?? [])];
-  if (flags.length > 0) {
-    const rows = flags.map(
-      (flag) => [flagLabel(flag), Option.getOrElse(flag.description, () => "")] as const,
-    );
-    sections.push(["FLAGS", ...padRows(rows)].join("\n"));
-  }
-
-  if (doc.examples !== undefined && doc.examples.length > 0) {
-    const rows = doc.examples.map(
-      (example) => [example.command, example.description ?? ""] as const,
-    );
-    sections.push(["EXAMPLES", ...padRows(rows)].join("\n"));
-  }
-
-  return sections.join("\n\n");
+  return [
+    BRANDING,
+    "",
+    `${colors.bold("Usage:")} ${colors.cyan(doc.usage.replace("<subcommand>", "<command>"))}`,
+    "",
+    colors.bold("All commands:"),
+    ...commandGroups,
+    "",
+    colors.bold("More:"),
+    `  ${colors.cyan("axm <command> --help")}              quick help for a command`,
+    `  ${colors.cyan("axm help <topic>")}                  topic help`,
+    `  ${colors.cyan("axm --json")}                        machine-readable output`,
+  ].join("\n");
 };
 
 // ---------------------------------------------------------------------------
@@ -267,15 +347,16 @@ const renderRootHelpDoc = (doc: HelpDoc): string => {
  * Creates a custom CLI output formatter that wraps the Effect default
  * formatter with axm-specific adjustments:
  *
- * 1. Root help section reordering and hidden subcommand filtering
- * 2. Global flag suppression on subcommand help output
- * 3. "Learn more" footer from the {@link LearnMore} command annotation
+ * 1. Global flag suppression on subcommand help output
+ * 2. "Learn more" footer from the {@link LearnMore} command annotation
  */
 export const makeAxmFormatter = (options?: {
   readonly json?: boolean | undefined;
   readonly colors?: boolean | undefined;
 }): CliOutput.Formatter => {
-  const base = CliOutput.defaultFormatter({ colors: options?.colors ?? true });
+  const colorsEnabled = options?.colors ?? true;
+  const base = CliOutput.defaultFormatter({ colors: colorsEnabled });
+  const rootHelpColors = makeRootHelpColors(colorsEnabled);
   const json = options?.json === true;
 
   return {
@@ -287,11 +368,9 @@ export const makeAxmFormatter = (options?: {
       }
 
       const adjusted = getAdjustedHelpDoc(doc);
-      let output = base.formatHelpDoc(adjusted);
-
-      if (!isSubcommandDoc(doc)) {
-        output = renderRootHelpDoc(adjusted);
-      }
+      let output = isSubcommandDoc(doc)
+        ? base.formatHelpDoc(adjusted)
+        : renderRootHelpDoc(adjusted, rootHelpColors);
 
       const learnMore = getLearnMore(doc);
       if (learnMore !== "") {

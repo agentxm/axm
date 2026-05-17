@@ -21,11 +21,11 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { joinDisplayPath } from "../shared/display-path.js";
+import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { toJobStepResult } from "./job-step-result.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -34,7 +34,7 @@ const MAX_NAME_LENGTH = 64;
 export interface CommandsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly description: string;
-  readonly profile: Option.Option<string>;
+  readonly owner: Option.Option<string>;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -50,8 +50,8 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   yield* renderer.info("axm commands new");
 
   // 1. Resolve owner
-  const owner = Option.isSome(args.profile)
-    ? normalizeOwner(args.profile.value)
+  const owner = Option.isSome(args.owner)
+    ? normalizeOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("command creation");
 
   // 2. Validate name
@@ -125,11 +125,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   const suggestions = [
     {
@@ -160,8 +156,8 @@ const newConfig = {
     Flag.withDescription("Description for the command"),
     Flag.withDefault(""),
   ),
-  profile: Flag.string("profile").pipe(
-    Flag.withDescription("Override the workspace profile (e.g., @acme)"),
+  owner: Flag.string("owner").pipe(
+    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the command without confirmation")),
@@ -174,11 +170,11 @@ const newConfig = {
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, description, profile, yes, force, preview }) =>
+  ({ name, description, owner, yes, force, preview }) =>
     handleCommandsNew({
       name: decodeExtensionNameSync(name),
       description,
-      profile,
+      owner,
       yes,
       force,
       preview,
@@ -189,7 +185,7 @@ export const newCommand = Command.make(
   Command.withExamples([
     { command: "axm commands new my-command", description: "Scaffold a new command" },
     {
-      command: "axm commands new my-command --profile @acme",
+      command: "axm commands new my-command --owner @acme",
       description: "Create under a specific owner",
     },
   ]),

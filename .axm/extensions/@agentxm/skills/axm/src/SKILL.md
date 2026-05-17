@@ -16,6 +16,8 @@ invocable: true
    - User explicitly chose to trust AXM for filesystem mutations.
    - Agent sandbox can write every needed target. Codex: use `--sandbox workspace-write` plus `--add-dir <dir>` for extra roots; `read-only` needs explicit escalation. Claude Code: enable workspace/user-dir write permissions.
    - If trust or permissions are missing, do not run AXM for mutating operations. Tell the user the exact `axm ...` command to run after they configure permissions. Offer option to run CI command via agent prompt if you have the ability to do so with sufficient consent from the user.
+3. **Resolve lint with help topics**: On any `axm lint` finding, read `axm help basic-usage` and the subject topic before acting: `axm help skills` for `skill/*` and `workspace/skills-managed`, `axm help packs` for `pack/*`, and `axm help settings` for workspace/config findings.
+4. **Do not auto-resolve unmanaged skills**: For `workspace/skills-managed`, group related unmanaged skills, then present adopt/fork/ignore/prune choices with a recommended option using the signals in `axm help skills`.
 
 ### CLI Introspection
 
@@ -38,6 +40,8 @@ Append `--json` to any command for machine-readable output. Install/uninstall/up
 | List installed skills                         | `axm skills list`                                  |
 | List installed subagents                      | `axm subagents list`                               |
 | List installed commands                       | `axm commands list`                                |
+| List configured and detected coding agents    | `axm agents list`                                  |
+| Add / remove a coding agent harness           | `axm agents <add\|remove> <id>`                    |
 | Disable a skill / subagent / command          | `axm <kind> disable <name>`                        |
 | Enable a skill / subagent / command           | `axm <kind> enable <name>`                         |
 | Publish a skill / subagent / command / pack   | `axm <kind> publish <name>`                        |

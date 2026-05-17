@@ -15,13 +15,14 @@ import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli
 import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheckLive } from "@agentxm/client-core/unstable/update-check";
 
-import { LearnMore, makeAxmFormatter } from "./formatter.js";
+import { makeAxmFormatter } from "./formatter.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
 import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
 import { setupCommand } from "./root/setup.js";
+import { agentsCommand } from "./root/agents/_agents.js";
 import { skillsCommand } from "./root/skills/_skills.js";
 import { packsCommand } from "./root/packs/_packs.js";
 import { commandsCommand } from "./root/commands/_commands.js";
@@ -41,14 +42,12 @@ import { uninstallCommand } from "./root/uninstall/command.js";
 import { pruneCommand } from "./root/prune/command.js";
 import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
-import { helpCommand, ORDERED_TOPIC_NAMES } from "./root/help/command.js";
+import { helpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
 import { versionCommand } from "./root/shared/version-command.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
-const HELP_TOPIC_LIST = ORDERED_TOPIC_NAMES.map((topic) => `  ${topic}`).join("\n");
-const LEARN_MORE_FOOTER = `LEARN MORE\n  Use 'axm help <topic>' to read a topic page.\n\nTOPICS\n${HELP_TOPIC_LIST}\n\nCOMMAND HELP\n  Use 'axm <command> --help' for command help.\n  Report issues at https://github.com/agentxm/axm/issues`;
 
 removeBuiltInFlag(GlobalFlag.Completions);
 removeBuiltInFlag(GlobalFlag.LogLevel);
@@ -57,7 +56,6 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
     "Open extension manager for AI coding agents.\n  Manage skills, commands, MCP servers, and packs across your AI coding agents from a single CLI.",
   ),
-  Command.annotate(LearnMore, LEARN_MORE_FOOTER),
   Command.withExamples([
     { command: "axm setup", description: "Start managing extensions in your project" },
     {
@@ -86,6 +84,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         installCommand,
         updateCommand,
         syncCommand,
+        agentsCommand,
         uninstallCommand,
         outdatedCommand,
         viewCommand,

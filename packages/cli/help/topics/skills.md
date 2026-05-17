@@ -20,6 +20,17 @@ The contents of `src/` are symlinked by AXM into each configured agent's skill d
 
 If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md` in `.axm/extensions/...` and run `axm sync`; do not edit the copied agent-side file.
 
+## Unmanaged skills
+
+When `axm lint` reports `workspace/skills-managed`, choose one resolution per skill or related group:
+
+- **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
+- **Fork** when there is no clean source, or you want to own, customize, or publish it: `axm skills fork`, then `axm skills publish`.
+- **Ignore** when another tool owns its lifecycle, such as a managed marker, same-prefix family, or cross-tool config reference: add names or globs to `skillsConfig.ignore`.
+- **Prune** when it is orphaned and unused: `axm skills prune <name>` or `axm prune`.
+
+Prefer ignore for tool-managed skills. Fork only when you deliberately take ownership away from that tool. See `axm help settings` for `skillsConfig.ignore`.
+
 ## Where to go next
 
 - `axm skills --help` — full skill subcommand surface

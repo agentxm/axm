@@ -167,6 +167,10 @@ const memberNamesFromResolvedMap = (
     return parts === undefined ? [] : [parts.name];
   });
 
+const emptyIgnoredPatterns = (): ReadonlySet<string> => new Set<string>();
+const ignoredPatternsFrom = (patterns: ReadonlyArray<string> | undefined): ReadonlySet<string> =>
+  new Set(patterns ?? []);
+
 // ---------------------------------------------------------------------------
 // Pack-member maps for cross-subject implicit installation
 // ---------------------------------------------------------------------------
@@ -224,6 +228,25 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     settingsPath,
     lockfilePath,
   });
+  const settingsForIgnorePatterns = yield* loaders.settings.pipe(
+    Effect.catch(() => Effect.succeed(Option.none())),
+  );
+  const ignoredPatterns = Option.match(settingsForIgnorePatterns, {
+    onNone: () => ({
+      skills: emptyIgnoredPatterns(),
+      commands: emptyIgnoredPatterns(),
+      mcpServers: emptyIgnoredPatterns(),
+      subagents: emptyIgnoredPatterns(),
+      packs: emptyIgnoredPatterns(),
+    }),
+    onSome: (settings) => ({
+      skills: ignoredPatternsFrom(settings.skillsConfig?.ignore),
+      commands: ignoredPatternsFrom(settings.commandsConfig?.ignore),
+      mcpServers: ignoredPatternsFrom(settings.mcpServersConfig?.ignore),
+      subagents: ignoredPatternsFrom(settings.subagentsConfig?.ignore),
+      packs: ignoredPatternsFrom(settings.packsConfig?.ignore),
+    }),
+  });
 
   // Scanner cells — eagerly enumerate the closed scanner key set.
   const canonicalScanner = yield* Effect.cached(
@@ -273,7 +296,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     scope,
     loaders,
     scanners: { canonical: canonicalScanner },
-    ignoredNames: new Set<string>(),
+    ignoredPatterns: ignoredPatterns.packs,
     diagnostics,
   });
 
@@ -369,7 +392,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     loaders,
     scanners: { canonical: canonicalScanner, agentDir: agentDirScanner },
     installedPacks: skillsInstalledPacks,
-    ignoredNames: new Set<string>(),
+    ignoredPatterns: ignoredPatterns.skills,
     diagnostics,
   });
 
@@ -378,7 +401,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     loaders,
     scanners: { canonical: canonicalScanner, agentDir: agentDirScanner },
     installedPacks: commandsInstalledPacks,
-    ignoredNames: new Set<string>(),
+    ignoredPatterns: ignoredPatterns.commands,
     diagnostics,
   });
 
@@ -387,7 +410,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     loaders,
     scanners: { canonical: canonicalScanner, mcpConfig: mcpConfigScanner },
     installedPacks: mcpServersInstalledPacks,
-    ignoredNames: new Set<string>(),
+    ignoredPatterns: ignoredPatterns.mcpServers,
     diagnostics,
   });
 
@@ -396,7 +419,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     loaders,
     scanners: { canonical: canonicalScanner, agentDir: agentDirScanner },
     installedPacks: subagentsInstalledPacks,
-    ignoredNames: new Set<string>(),
+    ignoredPatterns: ignoredPatterns.subagents,
     diagnostics,
   });
 

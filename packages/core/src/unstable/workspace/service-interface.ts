@@ -34,8 +34,11 @@ import type {
 import type {
   CommandEntry,
   PackEntry,
+  PacksMap,
   SkillEntry,
+  SkillsMap,
   SubagentEntry,
+  SubagentsMap,
   SourceHostConfig,
 } from "../settings/index.js";
 import type {
@@ -313,6 +316,8 @@ export interface WorkspaceMutationsService {
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
   /** Ignored skill patterns from settings. */
   readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
+  /** Read settings and return configured skills, defaulting to `{}`. */
+  readonly getConfiguredSkillEntries: () => Effect.Effect<SkillsMap, AppError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
   readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read lockfile and return the skills lock map. */
@@ -346,9 +351,13 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Append an agent ID if not already present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
+  /** Remove an agent ID if present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
+  readonly removeConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
   readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
+  /** Read settings and return configured packs, defaulting to `{}`. */
+  readonly getConfiguredPackEntries: () => Effect.Effect<PacksMap, AppError>;
   /** Read lockfile and return the packs lock map. */
   readonly getLockedPacks: () => Effect.Effect<PacksLockMap, AppError>;
   /** Read lockfile and return the entry for a specific pack, or Option.none(). */
@@ -386,6 +395,8 @@ export interface WorkspaceMutationsService {
   readonly getLockedSubagent: (
     name: string,
   ) => Effect.Effect<Option.Option<SubagentLockEntry>, AppError>;
+  /** Read settings and return configured subagents, defaulting to `{}`. */
+  readonly getConfiguredSubagentEntries: () => Effect.Effect<SubagentsMap, AppError>;
   /** Add or update a subagent in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setSubagent: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
   /** Add or update a subagent in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */

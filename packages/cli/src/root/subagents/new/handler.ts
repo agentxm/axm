@@ -22,14 +22,17 @@ import {
   type SubagentManifest,
 } from "@agentxm/client-core/unstable/subagents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  ignoreMalformedWorkspaceLockfileRead,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeWorkspaceRelativePath } from "@agentxm/client-core/unstable/utils";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
+import { previewOrApplyLocalPlan } from "../../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -38,7 +41,7 @@ const INITIAL_VERSION = decodeVersionSync("0.0.1");
 
 export interface SubagentsNewHandlerArgs {
   readonly name: ExtensionName;
-  readonly profile: Option.Option<string>;
+  readonly owner: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
   readonly yes: boolean;
   readonly force: boolean;
@@ -66,8 +69,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   yield* renderer.info("axm subagents new");
 
   // 1. Resolve owner
-  const owner = Option.isSome(args.profile)
-    ? normalizeOwner(args.profile.value)
+  const owner = Option.isSome(args.owner)
+    ? normalizeOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("subagent creation");
 
   // 2. Validate name
@@ -88,8 +91,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   }
 
   // 3. Check existence
-  const existingSubagent = yield* ws.getLockedSubagent(args.name);
-  if (Option.isSome(existingSubagent) && !args.force) {
+  const configuredSubagents = yield* ws.getConfiguredSubagentEntries();
+  if (configuredSubagents[args.name] !== undefined && !args.force) {
     return yield* makeAppError({
       code: "conflict",
       detail: `Subagent '${args.name}' already exists`,
@@ -237,22 +240,24 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       const now = new Date();
       const sourceHash = computeSourceHash(subagentMdContent);
 
-      yield* ws.setSubagentLock({
-        name: args.name,
-        lockEntry: {
-          type: "registry",
-          owner,
-          name: extensionName,
-          resolvedVersion: INITIAL_VERSION,
-          integrity: "",
-          sourceName: "local",
-          agents: [...agents],
-          installedAt: now,
-          updatedAt: now,
-          sourceHash,
-          renderedFiles: decodeRenderedFiles(renderedFilesMap),
-        },
-      });
+      yield* ignoreMalformedWorkspaceLockfileRead(
+        ws.setSubagentLock({
+          name: args.name,
+          lockEntry: {
+            type: "registry",
+            owner,
+            name: extensionName,
+            resolvedVersion: INITIAL_VERSION,
+            integrity: "",
+            sourceName: "local",
+            agents: [...agents],
+            installedAt: now,
+            updatedAt: now,
+            sourceHash,
+            renderedFiles: decodeRenderedFiles(renderedFilesMap),
+          },
+        }),
+      );
 
       return {
         result: "success",
@@ -272,11 +277,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   const suggestions = [
     {

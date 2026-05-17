@@ -26,6 +26,7 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
+import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
@@ -173,7 +174,7 @@ export interface McpServerExtensionsApiDeps {
   readonly loaders: McpServerScopedLoaders;
   readonly scanners: McpServerScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForMcpServers>>;
-  readonly ignoredNames: ReadonlySet<string>;
+  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -219,7 +220,7 @@ const mcpServerPolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: (name, ignored) => ignored.has(name),
+  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -263,7 +264,7 @@ export const makeMcpServerExtensionsApi = (
   deps: McpServerExtensionsApiDeps,
 ): Effect.Effect<McpServerExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, ignoredNames, diagnostics } = deps;
+    const { scope, loaders, scanners, installedPacks, ignoredPatterns, diagnostics } = deps;
 
     const declared: McpServerExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -295,7 +296,7 @@ export const makeMcpServerExtensionsApi = (
           readonly members: ReadonlyArray<McpServerPackMember>;
         }) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames,
+        ignoredNames: ignoredPatterns,
         policy: mcpServerPolicy(scope),
         diagnostics,
       }),

@@ -45,7 +45,7 @@ const harness = (params: {
         lockfile: Effect.succeed(Option.fromUndefinedOr(params.lockfile)),
       },
       scanners: { canonical: Effect.succeed(params.canonicalOccurrences ?? []) },
-      ignoredNames: new Set(params.ignoredNames ?? []),
+      ignoredPatterns: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
     return { api, ref };

@@ -18,6 +18,7 @@ import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
+import { ignoreMalformedWorkspaceLockfileRead } from "../../workspace/lockfile-update-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
@@ -93,7 +94,7 @@ export const newSkill: OperationHandler<
     const fqn = `${owner}/skills/${name}`;
 
     // 1. Check if skill already exists in settings
-    const configuredSkills = yield* ws.records.getConfiguredSkills();
+    const configuredSkills = yield* ws.getConfiguredSkillEntries();
     if (name in configuredSkills) {
       return yield* makeAppError({
         code: "conflict",
@@ -181,21 +182,23 @@ export const newSkill: OperationHandler<
     );
 
     const now = new Date();
-    yield* ws.setSkillLock({
-      name,
-      versionRange: Option.none(),
-      lockEntry: {
-        type: "registry",
-        owner,
-        name: extensionName,
-        resolvedVersion: INITIAL_SKILL_VERSION,
-        integrity: "",
-        sourceName: "local",
-        agents,
-        installedAt: now,
-        updatedAt: now,
-      },
-    });
+    yield* ignoreMalformedWorkspaceLockfileRead(
+      ws.setSkillLock({
+        name,
+        versionRange: Option.none(),
+        lockEntry: {
+          type: "registry",
+          owner,
+          name: extensionName,
+          resolvedVersion: INITIAL_SKILL_VERSION,
+          integrity: "",
+          sourceName: "local",
+          agents,
+          installedAt: now,
+          updatedAt: now,
+        },
+      }),
+    );
 
     return {
       result: "success",

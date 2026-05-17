@@ -516,6 +516,20 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
+    it.effect("returns invalid when lockfile does not match the schema", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(projectDir, ".axm", "axm-lock.yaml"),
+          "lockfileVersion: 1\nskills: []\n",
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const state = yield* ws.getLockfileState();
+
+        expect(state).toBe("invalid");
+      }),
+    );
+
     it.effect("returns ok for valid lockfile", () =>
       Effect.gen(function* () {
         writeLockfileTo(projectDir, {});
@@ -1016,6 +1030,66 @@ describe("WorkspaceMutationsService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code"]);
+      }),
+    );
+  });
+
+  describe("removeConfiguredAgent", () => {
+    it.effect("removes existing agent from settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code", "cursor"] });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeConfiguredAgent("cursor");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code"]);
+      }),
+    );
+
+    it.effect("no-op when agent is absent", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeConfiguredAgent("cursor");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code"]);
+      }),
+    );
+
+    it.effect("fails with AppError for invalid agent ID", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code", "cursor"] });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.removeConfiguredAgent("invalid-agent-xyz").pipe(Effect.flip);
+
+        expect(result).toBeInstanceOf(AppError);
+        expect(result.code).toBe("validation");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code", "cursor"]);
+      }),
+    );
+
+    it.effect("fails with AppError for the synthetic universal agent", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code", "cursor"] });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.removeConfiguredAgent("universal").pipe(Effect.flip);
+
+        expect(result).toBeInstanceOf(AppError);
+        expect(result.code).toBe("validation");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code", "cursor"]);
       }),
     );
   });

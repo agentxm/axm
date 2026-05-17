@@ -7,9 +7,9 @@ workspace.
 
 1. In a publisher workspace, run `axm setup --yes --agent claude-code`.
 2. Add a local registry source in `.axm/settings.json`:
-   `{"name":"local","type":"registry","location":"file:///tmp/axm-registry"}` and set `profile` to `@test`.
+   `{"name":"local","type":"registry","location":"file:///tmp/axm-registry"}` and set `owner` to `@test`.
 3. Publish one or more extensions, for example:
-   `axm skills new smoke-skill --profile @test --agent claude-code --yes`
+   `axm skills new smoke-skill --owner @test --agent claude-code --yes`
    `axm skills publish @test/skills/smoke-skill --yes`
 4. In a fresh workspace with the same registry source:
    - Sourceful root install: `axm install @test/skills/smoke-skill --yes`

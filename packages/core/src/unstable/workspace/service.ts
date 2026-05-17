@@ -112,7 +112,10 @@ const contextReadErrorToAppError = (
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
 ): AppError =>
   makeAppError({
-    code: error._tag === "LockfileParseError" ? "validation" : "internal",
+    code:
+      error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError"
+        ? "validation"
+        : "internal",
     detail: `Failed to read workspace ${source}`,
     cause: error,
   });
@@ -447,6 +450,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((s): ReadonlyArray<string> => s.skillsConfig?.ignore ?? []),
         ),
 
+      getConfiguredSkillEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): SkillsMap => s.skills ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredSkillEntries"),
+        ),
+
       getConfiguredAgents: () =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s) => s.agents ?? []),
@@ -674,6 +683,31 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
+      removeConfiguredAgent: (agentId: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const validId = yield* Schema.decodeUnknownEffect(ConfigurableAgentIdSchema)(
+              agentId,
+            ).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Invalid agent ID: ${agentId}`,
+                  cause: error,
+                }),
+              ),
+            );
+            const current = yield* readSettingsSafe(workspaceDir);
+            const agents = current.agents ?? [];
+            if (!agents.includes(validId)) return;
+            const updatedSettings: Settings = {
+              ...current,
+              agents: agents.filter((configured) => configured !== validId),
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
       getIgnoredCommandPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s): ReadonlyArray<string> => s.commandsConfig?.ignore ?? []),
@@ -687,6 +721,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       getIgnoredPackPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s): ReadonlyArray<string> => s.packsConfig?.ignore ?? []),
+        ),
+
+      getConfiguredPackEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): PacksMap => s.packs ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredPackEntries"),
         ),
 
       getLockedPacks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
@@ -911,6 +951,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       getLockedSubagent: (name: string) =>
         readLockfileSafe(workspaceDir).pipe(
           Effect.map((lf) => Option.fromUndefinedOr((lf.subagents ?? {})[name])),
+        ),
+
+      getConfiguredSubagentEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): SubagentsMap => s.subagents ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredSubagentEntries"),
         ),
 
       setSubagent: ({ name, lockEntry }: SetSubagentArgs) =>

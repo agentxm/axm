@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
+import * as ServiceMap from "effect/Context";
 import { CliOutput, Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
 import { rootCommand } from "./app.js";
+import { LearnMore } from "./formatter.js";
 import { baseLayer } from "./runtime.js";
 
 const TEST_VERSION = "0.0.0-test";
@@ -61,6 +63,12 @@ const collectHelpDocs = (
   });
 
 describe("root command help", () => {
+  it("does not attach the long topic footer to root help", async () => {
+    const doc = await Effect.runPromise(captureHelpDoc([]));
+
+    expect(ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore)).toBe("");
+  });
+
   it("uses executable examples across the full command tree", async () => {
     const docs = await Effect.runPromise(collectHelpDocs());
     const entries = Array.from(docs.entries());

@@ -39,6 +39,11 @@ For non-interactive environments, pass `--yes`. To pin which agents AXM
 configures, pass one or more `--agent <id>` flags instead of relying on
 auto-detection.
 
+After setup, use `axm agents list` to inspect configured and detected coding
+agents. If you adopt another coding agent later, run `axm agents add <id>`;
+do not hand-edit `settings.agents`, because the command also materializes
+installed extensions into that agent's directories.
+
 ## Add your first extension
 
 Once setup is complete, install extensions in one of these ways:

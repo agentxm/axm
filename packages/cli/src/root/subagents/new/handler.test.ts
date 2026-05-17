@@ -1,7 +1,7 @@
 /**
  * Unit tests for the subagents new handler.
  *
- * Tests profile resolution, name validation, manifest creation, <name>.md,
+ * Tests owner resolution, name validation, manifest creation, <name>.md,
  * settings registration, rendering, and error paths.
  */
 
@@ -27,7 +27,7 @@ import { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./handler.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    profile?: string;
+    owner?: string;
     subagents?: Record<string, unknown>;
     lockfileSubagents?: Record<string, unknown>;
     agents?: string[];
@@ -35,7 +35,7 @@ const initWorkspace = (
 ) => {
   writeWorkspaceFiles(axmDir, {
     agents: opts.agents,
-    owner: opts.profile,
+    owner: opts.owner,
     subagents: opts.subagents,
     lockfileSubagents: opts.lockfileSubagents,
   });
@@ -46,7 +46,7 @@ const defaultArgs = (
   overrides: Partial<SubagentsNewHandlerArgs> = {},
 ): SubagentsNewHandlerArgs => ({
   name: extensionName(name),
-  profile: Option.none(),
+  owner: Option.none(),
   agents: Option.none(),
   yes: false,
   force: false,
@@ -94,7 +94,7 @@ describe("subagents-new.handler", () => {
   describe("success", () => {
     it.effect("creates subagent with manifest, <name>.md, and settings", () => {
       const { provide, logs, rendererState } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: ["claude-code"] });
 
       return provide(
         Effect.gen(function* () {
@@ -170,14 +170,14 @@ describe("subagents-new.handler", () => {
     });
   });
 
-  describe("profile override", () => {
-    it.effect("uses --profile override instead of workspace profile", () => {
+  describe("owner override", () => {
+    it.effect("uses --owner override instead of workspace owner", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSubagentsNew(defaultArgs("my-subagent", { profile: Option.some("@corp") }));
+          yield* handleSubagentsNew(defaultArgs("my-subagent", { owner: Option.some("@corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -198,13 +198,13 @@ describe("subagents-new.handler", () => {
       );
     });
 
-    it.effect("normalizes profile without @ prefix", () => {
+    it.effect("normalizes owner without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSubagentsNew(defaultArgs("my-subagent", { profile: Option.some("corp") }));
+          yield* handleSubagentsNew(defaultArgs("my-subagent", { owner: Option.some("corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -224,8 +224,8 @@ describe("subagents-new.handler", () => {
     });
   });
 
-  describe("no profile configured", () => {
-    it.effect("fails when no profile is configured and no --profile override", () => {
+  describe("no owner configured", () => {
+    it.effect("fails when no owner is configured and no --owner override", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -241,7 +241,7 @@ describe("subagents-new.handler", () => {
   describe("name validation", () => {
     it.effect("rejects name starting with hyphen", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -256,7 +256,7 @@ describe("subagents-new.handler", () => {
 
     it.effect("rejects uppercase name", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -271,7 +271,7 @@ describe("subagents-new.handler", () => {
 
     it.effect("rejects name exceeding 64 characters", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
       const longName = "a".repeat(65);
 
       return provide(
@@ -287,17 +287,14 @@ describe("subagents-new.handler", () => {
   });
 
   describe("subagent already exists", () => {
-    it.effect("fails when subagent already exists in lockfile", () => {
+    it.effect("fails when subagent already exists in settings", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        profile: "@acme",
-        lockfileSubagents: {
+        owner: "@acme",
+        subagents: {
           "my-subagent": {
-            type: "local",
-            path: "installed",
-            agents: ["claude-code"],
-            installedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            source: "@acme/subagents/my-subagent",
+            authored: true,
           },
         },
       });
@@ -314,7 +311,7 @@ describe("subagents-new.handler", () => {
   describe("<name>.md content", () => {
     it.effect("writes <name>.md with required name frontmatter and placeholder body", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -344,7 +341,7 @@ describe("subagents-new.handler", () => {
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
       const { provide, logs } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: ["claude-code"] });
 
       return provide(
         Effect.gen(function* () {

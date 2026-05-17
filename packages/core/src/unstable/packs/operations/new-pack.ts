@@ -16,6 +16,7 @@ import { PACK_MANIFEST_FILENAME, PACK_MANIFEST_SCHEMA_URL } from "../manifest-sc
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
+import { ignoreMalformedWorkspaceLockfileRead } from "../../workspace/lockfile-update-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { computePackPaths } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
@@ -127,12 +128,12 @@ export const newPack: OperationHandler<
       ),
     );
 
-    // 5. Register in settings (best-effort: directory/manifest already on disk).
+    // 5. Register in settings.
     // Mark authored first so the subsequent setPack preserves the flag.
-    yield* ws.setPackEntry(name, { source: fqn, authored: true }).pipe(Effect.ignore);
+    yield* ws.setPackEntry(name, { source: fqn, authored: true });
     const now = new Date();
-    yield* ws
-      .setPack({
+    yield* ignoreMalformedWorkspaceLockfileRead(
+      ws.setPack({
         owner,
         name: extensionName,
         resolvedVersion: initialVersion,
@@ -145,8 +146,8 @@ export const newPack: OperationHandler<
         resolvedMcpServers: {},
         resolvedSubagents: {},
         versionRange: Option.none(),
-      })
-      .pipe(Effect.ignore);
+      }),
+    );
 
     return {
       result: "success",

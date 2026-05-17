@@ -1,7 +1,7 @@
 /**
  * Unit tests for the packs new handler.
  *
- * Tests profile resolution, manifest creation, settings registration, and error paths.
+ * Tests owner resolution, manifest creation, settings registration, and error paths.
  */
 
 import * as fs from "node:fs";
@@ -23,14 +23,14 @@ import { handlePacksNew, type PacksNewHandlerArgs } from "./new.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    profile?: string;
+    owner?: string;
     packs?: Record<string, unknown>;
     agents?: string[];
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
     agents: opts.agents,
-    owner: opts.profile,
+    owner: opts.owner,
     packs: opts.packs,
   });
 };
@@ -40,7 +40,7 @@ const defaultArgs = (
   overrides: Partial<PacksNewHandlerArgs> = {},
 ): PacksNewHandlerArgs => ({
   name: extensionName(name),
-  profile: Option.none<Handle>(),
+  owner: Option.none<Handle>(),
   yes: false,
   force: false,
   preview: false,
@@ -75,7 +75,7 @@ describe("packs-new.handler", () => {
   describe("success", () => {
     it.effect("creates pack manifest and registers in settings", () => {
       const { provide, logs, rendererState } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -131,7 +131,7 @@ describe("packs-new.handler", () => {
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
       const { provide, logs } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -161,15 +161,15 @@ describe("packs-new.handler", () => {
     });
   });
 
-  describe("profile override", () => {
-    it.effect("uses --profile override instead of workspace profile", () => {
+  describe("owner override", () => {
+    it.effect("uses --owner override instead of workspace owner", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
           yield* handlePacksNew(
-            defaultArgs("frontend-tools", { profile: Option.some(handle("@corp")) }),
+            defaultArgs("frontend-tools", { owner: Option.some(handle("@corp")) }),
           );
 
           const manifestPath = path.join(
@@ -191,13 +191,13 @@ describe("packs-new.handler", () => {
       );
     });
 
-    it.effect("normalizes profile without @ prefix", () => {
+    it.effect("normalizes owner without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("my-pack", { profile: Option.some(handle("@corp")) }));
+          yield* handlePacksNew(defaultArgs("my-pack", { owner: Option.some(handle("@corp")) }));
 
           const manifestPath = path.join(
             tempDir,
@@ -219,10 +219,10 @@ describe("packs-new.handler", () => {
     });
   });
 
-  describe("no profile configured", () => {
-    it.effect("fails when no profile is configured and no --profile override", () => {
+  describe("no owner configured", () => {
+    it.effect("fails when no owner is configured and no --owner override", () => {
       const { provide } = makeLayers();
-      // No profile in settings — DEFAULT_PROFILE is "@axm"
+      // No owner in settings — DEFAULT_PROFILE is "@axm"
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -237,7 +237,7 @@ describe("packs-new.handler", () => {
   describe("pack already exists", () => {
     it.effect("fails when pack manifest already exists", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       // Pre-create the manifest
       const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "frontend-tools");

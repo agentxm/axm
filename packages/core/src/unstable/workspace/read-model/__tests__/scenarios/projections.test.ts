@@ -50,19 +50,26 @@ const settingsJson = (params: {
     string,
     string | { readonly source: string; readonly enabled?: boolean }
   >;
+  readonly commands?: Record<
+    string,
+    string | { readonly source: string; readonly enabled?: boolean }
+  >;
   readonly subagents?: Record<
     string,
     string | { readonly source: string; readonly enabled?: boolean }
   >;
   readonly packs?: Record<string, string | { readonly source: string }>;
   readonly skillsConfig?: { readonly ignore?: ReadonlyArray<string> };
+  readonly commandsConfig?: { readonly ignore?: ReadonlyArray<string> };
   readonly subagentsConfig?: { readonly ignore?: ReadonlyArray<string> };
 }): object => {
   const out: Record<string, unknown> = {};
   if (params.skills !== undefined) out["skills"] = params.skills;
+  if (params.commands !== undefined) out["commands"] = params.commands;
   if (params.subagents !== undefined) out["subagents"] = params.subagents;
   if (params.packs !== undefined) out["packs"] = params.packs;
   if (params.skillsConfig !== undefined) out["skillsConfig"] = params.skillsConfig;
+  if (params.commandsConfig !== undefined) out["commandsConfig"] = params.commandsConfig;
   if (params.subagentsConfig !== undefined) out["subagentsConfig"] = params.subagentsConfig;
   return out;
 };
@@ -409,21 +416,62 @@ describe("projection: ignored skill is suppressed but raw evidence remains visib
         }),
         (ctx) =>
           Effect.gen(function* () {
-            // NOTE: the live context wires `ignoredNames: new Set<string>()`
-            // unconditionally (Phase 9 has not yet plumbed `skillsConfig.ignore`
-            // through to the projection helper). The raw evidence-vs-projection
-            // contract is still verified through declared + actual cells.
             const project = ctx.scope("project");
             const declared = yield* project.skills.declared;
             const actual = yield* project.skills.actual;
+            const installed = yield* project.skills.installed;
+            const unmanaged = yield* project.skills.unmanaged;
+            const ignored = yield* project.skills.ignored;
+
             // Declared and actual remain visible regardless of ignored policy.
             expect(declared._tag).toBe("Some");
             if (declared._tag === "Some") {
               expect(declared.value.some((d) => d.name === "review-tool")).toBe(true);
             }
             expect(actual.some((a) => a.key.name === "review-tool")).toBe(true);
+            expect(installed.some((r) => r.key.name === "review-tool")).toBe(false);
+            expect(unmanaged.some((u) => u.key.name === "review-tool")).toBe(false);
+            expect(ignored.map((row) => row.reason).sort()).toEqual([
+              "actual-ignored",
+              "declared-ignored",
+            ]);
           }),
       ),
+  );
+
+  it.effect("command ignore globs suppress unmanaged commands and populate ignored", () =>
+    runScenario(
+      projectSpec({
+        settings: {
+          _tag: "valid",
+          contents: settingsJson({
+            commandsConfig: { ignore: ["local-*"] },
+          }),
+        },
+        agentDirs: {
+          "claude-code": {
+            "commands/local-build/local-build.md": "# local\n",
+            "commands/manual/manual.md": "# manual\n",
+          },
+        },
+      }),
+      (ctx) =>
+        Effect.gen(function* () {
+          const project = ctx.scope("project");
+          const actual = yield* project.commands.actual;
+          const unmanaged = yield* project.commands.unmanaged;
+          const ignored = yield* project.commands.ignored;
+
+          expect(actual.some((a) => a.key.name === "local-build")).toBe(true);
+          expect(unmanaged.some((u) => u.key.name === "local-build")).toBe(false);
+          expect(unmanaged.some((u) => u.key.name === "manual")).toBe(true);
+          expect(
+            ignored.some(
+              (row) => row.reason === "actual-ignored" && row.key.name === "local-build",
+            ),
+          ).toBe(true);
+        }),
+    ),
   );
 });
 

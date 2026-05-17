@@ -12,7 +12,11 @@ Run `axm help settings-schema` to print the raw JSON Schema.
 
 `owner` is the default handle AXM uses when creating or resolving workspace-owned extensions.
 
-`agents` lists the coding agents AXM syncs into. `sources` names registries and source hosts that entries can reference.
+`agents` lists the coding agents AXM syncs into. Use `axm agents list`,
+`axm agents add <id>`, and `axm agents remove <id>` instead of hand-editing
+this array; the commands also reconcile per-agent managed artifacts for
+installed extensions. `sources` names registries and source hosts that entries
+can reference.
 
 Extension entries live under `skills`, `commands`, `subagents`, `packs`, and `mcpServers`. Each entry can be a source string or an object with metadata such as `enabled` or `authored`.
 
@@ -34,7 +38,9 @@ Feature config lives under `skillsConfig`, `commandsConfig`, `subagentsConfig`, 
 
 ## Authoring
 
-Let AXM edit settings for routine install, remove, enable, disable, and source changes. Hand-edit settings when reviewing generated changes, adding source hosts, or adjusting `lint.rules`.
+Let AXM edit settings for routine install, remove, enable, disable, agent, and
+source changes. Hand-edit settings when reviewing generated changes, adding
+source hosts, or adjusting `lint.rules`.
 
 Set `authored: true` only for extensions you expect to edit in this workspace. Omit `authored` otherwise — `false` is the default and should not be written explicitly. Likewise, omit `enabled` unless you are disabling an entry with `enabled: false`.
 
@@ -45,6 +51,7 @@ Use each feature's `ignore` list to leave matching pre-existing extensions unman
 ## Where to go next
 
 - `axm help basic-usage` — workspace file overview
+- `axm agents list` — configured, detected, and supported coding-agent IDs
 - `axm help skills` — working with skills
 - `axm help commands` — working with slash commands
 - `axm help subagents` — working with subagents

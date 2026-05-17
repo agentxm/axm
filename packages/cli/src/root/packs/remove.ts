@@ -18,12 +18,12 @@ import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils"
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 
 export interface PacksRemoveHandlerArgs {
   readonly pack: string;
@@ -46,7 +46,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   yield* renderer.info("axm packs remove");
 
   // Step 1: Find the pack
-  const configuredPacks = yield* ws.records.getConfiguredPacks();
+  const configuredPacks = yield* ws.getConfiguredPackEntries();
   const packEntry = configuredPacks[args.pack];
 
   if (packEntry === undefined) {
@@ -204,11 +204,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
   yield* emitPlanResolutionResult("packs.remove", resolution);
 
   yield* renderer.success("Done");

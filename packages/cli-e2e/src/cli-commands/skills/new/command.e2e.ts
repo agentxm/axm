@@ -93,13 +93,13 @@ describe("axm skills new", () => {
     }
   });
 
-  it("respects --profile override", async () => {
+  it("respects --owner override", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
       await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
       configureScope(settingsPath);
 
-      const result = await runCli(["skills", "new", "my-skill", "--profile", "@custom", "--yes"], {
+      const result = await runCli(["skills", "new", "my-skill", "--owner", "@custom", "--yes"], {
         cwd: temp.path,
       });
       expect(result.exitCode).toBe(0);

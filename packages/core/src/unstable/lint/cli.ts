@@ -772,8 +772,8 @@ const coalesceFullDiagnostic = (
         title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not managed by this workspace.`,
         details: compressDetails(names),
         helps: [
-          "To keep them: run `axm skills install <source>` for each skill you want axm to manage.",
-          "To remove them: run `axm prune` or `axm skills prune <name>`.",
+          "Choose adopt, fork, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
+          "Adopt with `axm skills install <source>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
         ],
         fixable: false,
         paths,
@@ -920,8 +920,8 @@ const coalesceGroupedDiagnostic = (
           8,
         ),
         helps: [
-          "To keep them: run `axm skills install <source>` for each skill you want axm to manage.",
-          "To remove them: run `axm prune` or `axm skills prune <name>`.",
+          "Choose adopt, fork, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
+          "Adopt with `axm skills install <source>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
         ],
         fixable: false,
         paths,

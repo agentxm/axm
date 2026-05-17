@@ -51,6 +51,19 @@ const makeWorkspaceMock = (
           ]),
         ),
       ),
+    getConfiguredSkillEntries: () =>
+      Effect.succeed(
+        Object.fromEntries(
+          Object.entries(configuredSkills).map(([k, v]) => [
+            k,
+            {
+              source: typeof v === "string" ? v : (v?.source ?? ""),
+              enabled: typeof v === "string" ? true : (v?.enabled ?? true),
+              authored: typeof v === "string" ? false : (v?.authored ?? false),
+            },
+          ]),
+        ),
+      ),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     setSkillEntry: opts.setSkillEntryFn ?? (() => Effect.void),
   });

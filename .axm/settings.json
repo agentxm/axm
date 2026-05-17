@@ -1,5 +1,4 @@
 {
-  "profile": "@agentxm",
   "agents": [
     "amp",
     "antigravity",
@@ -7,8 +6,7 @@
     "codex",
     "cursor",
     "gemini-cli",
-    "github-copilot",
-    "opencode"
+    "github-copilot"
   ],
   "skills": {
     "effect-basics": "@axm/skills/effect-basics",

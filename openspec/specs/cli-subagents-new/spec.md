@@ -63,13 +63,13 @@ After scaffolding, `axm subagents new` SHALL render agent-native files for confi
 - **WHEN** user runs `axm subagents new code-reviewer --agent claude-code`
 - **THEN** only `.claude/agents/code-reviewer.md` SHALL be created
 
-### Requirement: Profile override
+### Requirement: Owner override
 
-`--profile` SHALL override the workspace default owner.
+`--owner` SHALL override the workspace default owner.
 
-#### Scenario: Custom profile
+#### Scenario: Custom owner
 
-- **WHEN** user runs `axm subagents new code-reviewer --profile @myorg`
+- **WHEN** user runs `axm subagents new code-reviewer --owner @myorg`
 - **THEN** the subagent SHALL be created under `.axm/extensions/@myorg/subagents/code-reviewer/`
 
 ### Requirement: Preview flag

@@ -71,7 +71,7 @@ const enabledDependencyEntries = (
   return entries;
 };
 
-const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* () {
+export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* () {
   const skillManager = yield* SkillManager;
   const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;

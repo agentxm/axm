@@ -44,7 +44,7 @@ const harness = (params: {
         mcpConfig: Effect.succeed(params.mcpConfigOccurrences ?? []),
       },
       installedPacks: Effect.succeed([]),
-      ignoredNames: new Set(params.ignoredNames ?? []),
+      ignoredPatterns: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
   });

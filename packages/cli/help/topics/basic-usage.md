@@ -26,6 +26,11 @@ _Extensions_ are agent extensions managed by AXM: skills, subagents, and command
 
 After running `axm setup`, AXM configures a workspace settings file at [`.axm/settings.json`](https://axm.sh/schemas/settings.schema.json). Installed extensions are listed there, sometimes with extended metadata. Management operations apply to every coding agent configured in `$.agents`.
 
+Use `axm agents list` to inspect configured and detected coding agents. Use
+`axm agents add <id>` or `axm agents remove <id>` for day-2 agent changes so
+AXM also creates or removes the per-agent managed artifacts for installed
+extensions.
+
 Extensions are typically referenced by their full name: `<@owner>/<skills|subagents|...>/<name>` and vendored under `.axm/extensions/<@owner>/<type>/<name>`. Non-registry sourced extensions are vendored under `.axm/extensions/external/<type>/<name>`. `.axm` should not be ignored by source control. The `.axm/axm-lock.yaml` file records resolved metadata captured at install time.
 
 ### Authoring and editing extensions
@@ -56,6 +61,7 @@ It's possible to ignore pre-existing skills and other extensions in your workspa
 - `axm help getting-started` — first-time setup for a workspace that has never used AXM
 - `axm help settings` — `.axm/settings.json` fields
 - `axm help settings-schema` — `.axm/settings.json` raw JSON Schema
+- `axm agents list` — configured, detected, and supported coding-agent IDs
 - `axm help skills` — working with skills
 - `axm help subagents` — working with subagents
 - `axm help commands` — working with slash commands

@@ -15,11 +15,12 @@ export { detectAgent, detectAgentInRoot, detectAgents, detectAgentsInRoot } from
 export { AGENTS, getAgentIds } from "./registry.js";
 
 // Types and constants
-export { AGENT_IDS } from "./types.js";
+export { AGENT_IDS, CONFIGURABLE_AGENT_IDS } from "./types.js";
 export type {
   AgentCommandsDescriptor,
   AgentDescriptor,
   AgentId,
+  ConfigurableAgentId,
   AgentRegistry,
   AgentSkillsDescriptor,
   AgentSubagentsDescriptor,

@@ -18,7 +18,7 @@
  *
  * The factory `makeSkillExtensionsApi(deps)` returns a `SkillExtensionsApi`
  * with cells whose public types are dependency-closed. Phase 9 composes the
- * factory inputs (`loaders`, `scanners`, `installedPacks`, `ignoredNames`,
+ * factory inputs (`loaders`, `scanners`, `installedPacks`, `ignoredPatterns`,
  * `diagnostics`) inside `WorkspaceReadModelLive`.
  */
 
@@ -39,6 +39,7 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
+import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
@@ -251,7 +252,7 @@ export interface SkillExtensionsApiDeps {
   readonly loaders: SkillScopedLoaders;
   readonly scanners: SkillScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForSkills>>;
-  readonly ignoredNames: ReadonlySet<string>;
+  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -302,7 +303,7 @@ const skillPolicy = (
   actualEntries: (actual) => actual,
   actualName: (entry) => entry.key.name,
   packMemberName: (member) => simpleName(member.name),
-  isIgnoredName: (name, ignored) => ignored.has(name),
+  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -351,7 +352,7 @@ export const makeSkillExtensionsApi = (
   deps: SkillExtensionsApiDeps,
 ): Effect.Effect<SkillExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, ignoredNames, diagnostics } = deps;
+    const { scope, loaders, scanners, installedPacks, ignoredPatterns, diagnostics } = deps;
 
     const declared: SkillExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, (settings) => declaredFromSettings(settings))),
@@ -387,7 +388,7 @@ export const makeSkillExtensionsApi = (
           readonly members: ReadonlyArray<SkillPackMember>;
         }) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames,
+        ignoredNames: ignoredPatterns,
         policy: skillPolicy(scope),
         diagnostics,
       }),

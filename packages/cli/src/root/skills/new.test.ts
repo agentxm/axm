@@ -1,7 +1,7 @@
 /**
  * Unit tests for the skills new handler.
  *
- * Tests profile resolution, name validation, manifest creation, SKILL.md,
+ * Tests owner resolution, name validation, manifest creation, SKILL.md,
  * settings registration, agent symlinks, and error paths.
  */
 
@@ -25,14 +25,14 @@ import { handleSkillsNew, type SkillsNewHandlerArgs } from "./new.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    profile?: string;
+    owner?: string;
     skills?: Record<string, unknown>;
     agents?: string[];
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
     agents: opts.agents,
-    owner: opts.profile,
+    owner: opts.owner,
     skills: opts.skills,
   });
 };
@@ -42,7 +42,7 @@ const defaultArgs = (
   overrides: Partial<SkillsNewHandlerArgs> = {},
 ): SkillsNewHandlerArgs => ({
   name: extensionName(name),
-  profile: Option.none(),
+  owner: Option.none(),
   agents: Option.none(),
   yes: false,
   force: false,
@@ -78,7 +78,7 @@ describe("skills-new.handler", () => {
   describe("success", () => {
     it.effect("creates skill with manifest, SKILL.md, settings, and symlinks", () => {
       const { provide, logs, rendererState } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: ["claude-code"] });
 
       return provide(
         Effect.gen(function* () {
@@ -159,14 +159,14 @@ describe("skills-new.handler", () => {
     });
   });
 
-  describe("profile override", () => {
-    it.effect("uses --profile override instead of workspace profile", () => {
+  describe("owner override", () => {
+    it.effect("uses --owner override instead of workspace owner", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { profile: Option.some("@corp") }));
+          yield* handleSkillsNew(defaultArgs("my-skill", { owner: Option.some("@corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -187,13 +187,13 @@ describe("skills-new.handler", () => {
       );
     });
 
-    it.effect("normalizes profile without @ prefix", () => {
+    it.effect("normalizes owner without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { profile: Option.some("corp") }));
+          yield* handleSkillsNew(defaultArgs("my-skill", { owner: Option.some("corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -215,8 +215,8 @@ describe("skills-new.handler", () => {
     });
   });
 
-  describe("no profile configured", () => {
-    it.effect("fails when no profile is configured and no --profile override", () => {
+  describe("no owner configured", () => {
+    it.effect("fails when no owner is configured and no --owner override", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -232,7 +232,7 @@ describe("skills-new.handler", () => {
   describe("name validation", () => {
     it.effect("rejects name starting with hyphen", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -247,7 +247,7 @@ describe("skills-new.handler", () => {
 
     it.effect("rejects uppercase name", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -262,7 +262,7 @@ describe("skills-new.handler", () => {
 
     it.effect("rejects name exceeding 64 characters", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
       const longName = "a".repeat(65);
 
       return provide(
@@ -281,7 +281,7 @@ describe("skills-new.handler", () => {
     it.effect("fails when skill already exists in settings", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        profile: "@acme",
+        owner: "@acme",
         skills: { "my-skill": "@acme/skills/my-skill" },
       });
 
@@ -297,7 +297,7 @@ describe("skills-new.handler", () => {
   describe("SKILL.md content", () => {
     it.effect("writes SKILL.md with frontmatter and placeholder body", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -329,7 +329,7 @@ describe("skills-new.handler", () => {
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
       const { provide, logs } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: ["claude-code"] });
 
       return provide(
         Effect.gen(function* () {
@@ -367,7 +367,7 @@ describe("skills-new.handler", () => {
     it.effect("creates symlinks for all configured agents", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        profile: "@acme",
+        owner: "@acme",
         agents: ["claude-code", "cursor"],
       });
 
@@ -389,7 +389,7 @@ describe("skills-new.handler", () => {
     it.effect("narrows symlinks to --agent flag agents only", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        profile: "@acme",
+        owner: "@acme",
         agents: ["claude-code", "cursor"],
       });
 

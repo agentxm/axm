@@ -33,8 +33,8 @@ describe("axm (root command)", () => {
       const result = await runCli([]);
       const output = getOutput(result);
 
-      expect(output).toContain("EXAMPLES");
-      expect(output).toContain("axm setup");
+      expect(output).toContain("More:");
+      expect(output).toContain("axm help <topic>");
     });
   });
 
@@ -90,15 +90,17 @@ describe("main CLI help", () => {
     const output = getOutput(result);
 
     expect(result.exitCode).toBe(0);
-    expect(output).toContain("Open extension manager for AI coding agents.");
-    expect(output).toContain("GETTING STARTED COMMANDS");
-    expect(output).toContain("EXTENSIONS COMMANDS");
-    expect(output).toContain("WORKSPACE COMMANDS");
-    expect(output).toContain("AUTH COMMANDS");
+    expect(output).toContain("Agent Extension Manager");
+    expect(output).toContain("All commands:");
+    expect(output).toContain("COMMON:");
+    expect(output).toContain("GETTING STARTED:");
+    expect(output).toContain("WORKSPACE:");
+    expect(output).toContain("AUTH:");
     expect(output).toContain("skills");
     expect(output).toContain("packs");
     expect(output).toContain("commands");
     expect(output).toContain("mcp-servers");
+    expect(output).toContain("agents");
     expect(output).toContain("auth");
   });
 
@@ -107,10 +109,9 @@ describe("main CLI help", () => {
     const output = getOutput(result);
 
     expect(result.exitCode).toBe(0);
-    expect(output).toContain("EXAMPLES");
-    expect(output).toContain("axm setup");
-    expect(output).toContain("axm install @acme/skills/code-review");
-    expect(output).toContain("axm whoami");
+    expect(output).toContain("More:");
+    expect(output).toContain("axm <command> --help");
+    expect(output).toContain("axm help <topic>");
   });
 
   it.each([

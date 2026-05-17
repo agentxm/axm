@@ -10,7 +10,7 @@ The `axm skills new` command scaffolds a new managed skill with manifest, starte
 
 The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
-#### Scenario: Create a skill with configured profile
+#### Scenario: Create a skill with configured owner
 
 - **WHEN** the user runs `axm skills new my-skill`
 - **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-owner>/skills/my-skill/`
@@ -19,10 +19,10 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 - **AND** registers the skill in `settings.json` as a managed entry
 - **AND** creates symlinks in all configured agent skill directories pointing to the `src/` subdirectory
 
-#### Scenario: Create a skill with explicit profile
+#### Scenario: Create a skill with explicit owner
 
-- **WHEN** the user runs `axm skills new my-skill --profile @acme`
-- **THEN** the CLI uses `@acme` as the owner instead of the workspace-configured profile
+- **WHEN** the user runs `axm skills new my-skill --owner @acme`
+- **THEN** the CLI uses `@acme` as the owner instead of the workspace-configured owner
 - **AND** the skill directory is `.axm/extensions/@acme/skills/my-skill/`
 - **AND** the manifest contains `owner: "@acme"` and `name: "my-skill"`
 
@@ -38,11 +38,11 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 - **THEN** the CLI fails with an error indicating the skill already exists
 - **AND** no files are created or modified
 
-#### Scenario: No profile configured and no --profile flag
+#### Scenario: No owner configured and no --owner flag
 
-- **WHEN** the user runs `axm skills new my-skill` and no profile is configured (or the configured profile is `@community`)
-- **THEN** the CLI fails with an error indicating a profile is required
-- **AND** suggests using `--profile` or configuring a profile via `axm setup`
+- **WHEN** the user runs `axm skills new my-skill` and no owner is configured (or the configured owner is `@community`)
+- **THEN** the CLI fails with an error indicating an owner is required
+- **AND** suggests using `--owner` or configuring an owner via `axm setup`
 
 ### Requirement: Starter SKILL.md template
 

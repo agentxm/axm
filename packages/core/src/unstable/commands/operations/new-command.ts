@@ -22,6 +22,7 @@ import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
+import { ignoreMalformedWorkspaceLockfileRead } from "../../workspace/lockfile-update-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   COMMAND_MANIFEST_FILENAME,
@@ -217,7 +218,7 @@ export const newCommand: OperationHandler<
       sourceHash: computeSourceHash(body),
       renderedFiles: decodeRenderedFilesMap(rawRenderedFiles),
     };
-    yield* ws.setCommandLock({ name, lockEntry });
+    yield* ignoreMalformedWorkspaceLockfileRead(ws.setCommandLock({ name, lockEntry }));
 
     return {
       result: "success",

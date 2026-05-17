@@ -56,7 +56,6 @@ describe("axm source smoke", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output).toContain("--json");
-    expect(output).toContain("--quiet");
     expect(output).not.toContain("--completions");
     expect(output).not.toContain("--log-level");
   });

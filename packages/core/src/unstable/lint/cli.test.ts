@@ -447,8 +447,8 @@ describe("toLintHumanBlocks", () => {
             severity: "error",
             message:
               "Skill 'alpha' is present here, but it is not managed by this workspace. " +
-              "To keep it, run `axm skills install <source>` with the intended source for 'alpha'. " +
-              "To remove it, run `axm prune` or `axm skills prune alpha`.",
+              "To adopt it, run `axm skills install <source>` with the intended source for 'alpha'. " +
+              "To fork, ignore, or prune it, use `axm help skills` to choose the right resolution.",
             location: { file: ".agents/skills/alpha" },
           },
           {
@@ -457,8 +457,8 @@ describe("toLintHumanBlocks", () => {
             severity: "error",
             message:
               "Skill 'beta' is present here, but it is not managed by this workspace. " +
-              "To keep it, run `axm skills install <source>` with the intended source for 'beta'. " +
-              "To remove it, run `axm prune` or `axm skills prune beta`.",
+              "To adopt it, run `axm skills install <source>` with the intended source for 'beta'. " +
+              "To fork, ignore, or prune it, use `axm help skills` to choose the right resolution.",
             location: { file: ".agents/skills/beta" },
           },
         ]),
@@ -478,8 +478,8 @@ describe("toLintHumanBlocks", () => {
           title: "2 skills are present here but not managed by this workspace.",
           details: ["alpha", "beta"],
           helps: [
-            "To keep them: run `axm skills install <source>` for each skill you want axm to manage.",
-            "To remove them: run `axm prune` or `axm skills prune <name>`.",
+            "Choose adopt, fork, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
+            "Adopt with `axm skills install <source>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
           ],
           fixable: false,
           paths: ["./.agents/skills"],

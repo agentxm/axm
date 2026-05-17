@@ -103,7 +103,7 @@ describe("axm commands publish", () => {
       configureWorkspaceRegistry(temp.path, registryDir.path, "@test");
 
       const newResult = await runCli(
-        ["commands", "new", "fresh-command", "--profile", "@test", "--yes"],
+        ["commands", "new", "fresh-command", "--owner", "@test", "--yes"],
         { cwd: temp.path },
       );
       expect(newResult.exitCode).toBe(0);

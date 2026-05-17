@@ -114,7 +114,7 @@ async function publishRegistrySkill(registryPath: string, name: string) {
     configureRegistrySource(settingsPath, `file://${registryPath}`);
 
     const createResult = await runCli(
-      ["skills", "new", name, "--profile", "@test", "--agent", "claude-code", "--yes"],
+      ["skills", "new", name, "--owner", "@test", "--agent", "claude-code", "--yes"],
       { cwd: workspace.path },
     );
     expect(createResult.exitCode).toBe(0);
@@ -197,13 +197,13 @@ describe("axm packs new", () => {
     }
   });
 
-  it("respects --profile override", async () => {
+  it("respects --owner override", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      const result = await runCli(["packs", "new", "my-pack", "--profile", "@custom", "--yes"], {
+      const result = await runCli(["packs", "new", "my-pack", "--owner", "@custom", "--yes"], {
         cwd: temp.path,
       });
 

@@ -10,27 +10,27 @@ The `axm packs new` command scaffolds a new empty pack with a manifest and regis
 
 `axm packs new <name>` SHALL create a new empty pack with a `pack.json` manifest in the managed extensions directory.
 
-The pack name SHALL resolve its owner from the workspace's configured profile (from settings.json) unless overridden with `--profile`.
+The pack name SHALL resolve its owner from the workspace's configured owner (from settings.json) unless overridden with `--owner`.
 
-#### Scenario: Create pack with workspace profile
+#### Scenario: Create pack with workspace owner
 
 - **WHEN** user runs `axm packs new frontend-tools`
-- **AND** workspace profile is `@acme`
+- **AND** workspace owner is `@acme`
 - **THEN** `pack.json` is created at `.axm/extensions/@acme/packs/frontend-tools/pack.json`
 - **AND** manifest contains `owner: "@acme"`, `name: "frontend-tools"`, `version: "0.0.1"`, and empty `dependencies`
 
-#### Scenario: Create pack with profile override
+#### Scenario: Create pack with owner override
 
-- **WHEN** user runs `axm packs new frontend-tools --profile @corp`
+- **WHEN** user runs `axm packs new frontend-tools --owner @corp`
 - **THEN** `pack.json` is created at `.axm/extensions/@corp/packs/frontend-tools/pack.json`
 - **AND** manifest contains `owner: "@corp"` and `name: "frontend-tools"`
 
-#### Scenario: No workspace profile and no override
+#### Scenario: No workspace owner and no override
 
 - **WHEN** user runs `axm packs new frontend-tools`
-- **AND** no profile is configured in settings.json
-- **AND** `--profile` is not provided
-- **THEN** the command fails with an `AppError` indicating a profile is required
+- **AND** no owner is configured in settings.json
+- **AND** `--owner` is not provided
+- **THEN** the command fails with an `AppError` indicating an owner is required
 
 #### Scenario: Pack already exists
 

@@ -1,7 +1,7 @@
 /**
  * Unit tests for the commands new handler.
  *
- * Tests profile resolution, name validation, manifest creation, ${name}.md content file,
+ * Tests owner resolution, name validation, manifest creation, ${name}.md content file,
  * and error paths.
  */
 
@@ -27,11 +27,11 @@ import { handleCommandsNew, type CommandsNewHandlerArgs } from "./new.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    profile?: string;
+    owner?: string;
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
-    owner: opts.profile,
+    owner: opts.owner,
   });
 };
 
@@ -41,7 +41,7 @@ const defaultArgs = (
 ): CommandsNewHandlerArgs => ({
   name: extensionName(name),
   description: "",
-  profile: Option.none(),
+  owner: Option.none(),
   yes: false,
   force: false,
   preview: false,
@@ -84,7 +84,7 @@ describe("commands-new.handler", () => {
   describe("success", () => {
     it.effect("creates command with manifest and ${name}.md content file", () => {
       const { provide, logs, rendererState } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -160,7 +160,7 @@ describe("commands-new.handler", () => {
 
     it.effect("creates command with custom description", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -195,14 +195,14 @@ describe("commands-new.handler", () => {
     });
   });
 
-  describe("profile override", () => {
-    it.effect("uses --profile override instead of workspace profile", () => {
+  describe("owner override", () => {
+    it.effect("uses --owner override instead of workspace owner", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleCommandsNew(defaultArgs("my-command", { profile: Option.some("@corp") }));
+          yield* handleCommandsNew(defaultArgs("my-command", { owner: Option.some("@corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -223,13 +223,13 @@ describe("commands-new.handler", () => {
       );
     });
 
-    it.effect("normalizes profile without @ prefix", () => {
+    it.effect("normalizes owner without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleCommandsNew(defaultArgs("my-command", { profile: Option.some("corp") }));
+          yield* handleCommandsNew(defaultArgs("my-command", { owner: Option.some("corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -249,8 +249,8 @@ describe("commands-new.handler", () => {
     });
   });
 
-  describe("no profile configured", () => {
-    it.effect("fails when no profile is configured and no --profile override", () => {
+  describe("no owner configured", () => {
+    it.effect("fails when no owner is configured and no --owner override", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -266,7 +266,7 @@ describe("commands-new.handler", () => {
   describe("name validation", () => {
     it.effect("rejects name starting with hyphen", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -282,7 +282,7 @@ describe("commands-new.handler", () => {
 
     it.effect("rejects uppercase name", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -298,7 +298,7 @@ describe("commands-new.handler", () => {
 
     it.effect("rejects name exceeding 64 characters", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
       const longName = "a".repeat(65);
 
       return provide(
@@ -317,7 +317,7 @@ describe("commands-new.handler", () => {
   describe("directory already exists", () => {
     it.effect("fails when command directory already exists", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       // Pre-create the managed extension directory
       fs.mkdirSync(path.join(tempDir, ".axm", "extensions", "@acme", "commands", "my-command"), {
@@ -336,7 +336,7 @@ describe("commands-new.handler", () => {
   describe("content file", () => {
     it.effect("writes ${name}.md with frontmatter and placeholder body", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -368,7 +368,7 @@ describe("commands-new.handler", () => {
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
       const { provide, logs } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {

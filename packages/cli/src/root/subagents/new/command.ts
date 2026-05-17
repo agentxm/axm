@@ -11,8 +11,8 @@ const newConfig = {
   name: Argument.string("name").pipe(
     Argument.withDescription("Name of the subagent (without owner)"),
   ),
-  profile: Flag.string("profile").pipe(
-    Flag.withDescription("Override the workspace profile (e.g., @acme)"),
+  owner: Flag.string("owner").pipe(
+    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
   agent: Flag.string("agent").pipe(
@@ -32,10 +32,10 @@ const newConfig = {
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, profile, agent, yes, force, preview }) =>
+  ({ name, owner, agent, yes, force, preview }) =>
     handleSubagentsNew({
       name: decodeExtensionNameSync(name),
-      profile,
+      owner,
       agents: Option.map(agent, (value) => [...value]),
       yes,
       force,
@@ -47,7 +47,7 @@ export const newCommand = Command.make(
   Command.withExamples([
     { command: "axm subagents new my-subagent", description: "Scaffold a new subagent" },
     {
-      command: "axm subagents new my-subagent --profile @acme",
+      command: "axm subagents new my-subagent --owner @acme",
       description: "Create under a specific owner",
     },
   ]),

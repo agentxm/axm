@@ -40,6 +40,7 @@ import type {
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
+import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
@@ -176,7 +177,7 @@ export interface PackExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: PackScopedLoaders;
   readonly scanners: PackScanners;
-  readonly ignoredNames: ReadonlySet<string>;
+  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -225,7 +226,7 @@ const packPolicy = (
   // installed-pack set into the projection helper, so the helper never
   // invokes these. The functions still need to satisfy the types.
   packMemberName: (member) => member,
-  isIgnoredName: (name, ignored) => ignored.has(name),
+  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -267,7 +268,7 @@ export const makePackExtensionsApi = (
   deps: PackExtensionsApiDeps,
 ): Effect.Effect<PackExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, ignoredNames, diagnostics } = deps;
+    const { scope, loaders, scanners, ignoredPatterns, diagnostics } = deps;
 
     const declared: PackExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -297,7 +298,7 @@ export const makePackExtensionsApi = (
         installedPacks,
         packMembers: (pack) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames,
+        ignoredNames: ignoredPatterns,
         policy: packPolicy(scope),
         diagnostics,
       }),

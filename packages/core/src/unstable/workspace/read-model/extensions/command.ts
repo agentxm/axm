@@ -25,6 +25,7 @@ import type {
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
+import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
@@ -166,7 +167,7 @@ export interface CommandExtensionsApiDeps {
   readonly loaders: CommandScopedLoaders;
   readonly scanners: CommandScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForCommands>>;
-  readonly ignoredNames: ReadonlySet<string>;
+  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -211,7 +212,7 @@ const commandPolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: (name, ignored) => ignored.has(name),
+  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -255,7 +256,7 @@ export const makeCommandExtensionsApi = (
   deps: CommandExtensionsApiDeps,
 ): Effect.Effect<CommandExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, ignoredNames, diagnostics } = deps;
+    const { scope, loaders, scanners, installedPacks, ignoredPatterns, diagnostics } = deps;
 
     const declared: CommandExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -289,7 +290,7 @@ export const makeCommandExtensionsApi = (
           readonly members: ReadonlyArray<CommandPackMember>;
         }) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames,
+        ignoredNames: ignoredPatterns,
         policy: commandPolicy(scope),
         diagnostics,
       }),

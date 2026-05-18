@@ -21,6 +21,7 @@ import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
+import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
 
 export interface AgentsAddArgs {
@@ -108,8 +109,13 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
   ]);
 
   const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
-  yield* emitPlanResolutionResult("agents.add", resolution);
-  yield* renderer.success("Done");
+  const suggestions =
+    resolution._tag === "ExecutedPlan" ? buildPermissionSuggestions(agentIds) : [];
+  const emitted = yield* emitPlanResolutionResult("agents.add", resolution, {
+    summary: `Configured ${agentIds.join(", ")}`,
+    suggestions,
+  });
+  yield* renderer.success("Done", { suggestions, withoutSuggestions: emitted });
 });
 
 const addConfig = {

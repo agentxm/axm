@@ -40,6 +40,7 @@ describe("agent capability catalog validation", () => {
       "cursor",
       "gemini-cli",
       "github-copilot",
+      "pi",
       "windsurf",
     ]);
   });

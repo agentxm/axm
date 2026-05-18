@@ -13,6 +13,7 @@ export const AGENT_IDS = [
   "cursor",
   "gemini-cli",
   "github-copilot",
+  "pi",
   "windsurf",
 ] as const;
 
@@ -643,6 +644,73 @@ export const AGENTS = [
           },
         },
       },
+    },
+  },
+  {
+    id: "pi",
+    name: "Pi",
+    vendor: "Mario Zechner",
+    homepage: "https://github.com/badlogic/pi-mono",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Pi coding agent documentation",
+        url: "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Skills follow the Agent Skills SKILL.md standard and are invoked via /skill:name. Pi discovers them from .pi/skills and .agents/skills (project, searched up through parent directories) and ~/.pi/agent/skills and ~/.agents/skills (user).\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".pi/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom slash commands are Markdown prompt templates with {{variable}} interpolation, expanded via /templatename. Stored in .pi/prompts (project) or ~/.pi/agent/prompts (user). Recorded as bridged because prompt templates have no industry spec standard.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".pi/prompts",
+    },
+    mcp: {
+      support: "unsupported",
+      notes:
+        'Pi ships a deliberate "no MCP" core with only four built-in tools (read, write, edit, bash). MCP can only be added by installing or building a TypeScript extension; there is no native MCP server configuration.\n',
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
+      transports: [],
+    },
+    subagents: {
+      support: "unsupported",
+      notes:
+        "Pi has no built-in subagent system by design. Multi-agent workflows are expected to be composed externally (e.g. spawning pi instances under tmux) or via a TypeScript extension.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
+    },
+    instructions: {
+      support: "standard",
+      notes:
+        "AGENTS.md and CLAUDE.md context files load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md", "CLAUDE.md"],
+      nestedDiscovery: true,
+    },
+    permissions: {
+      support: "unsupported",
+      notes:
+        "Pi has no per-call approval prompts and no permission config file. Tools run without confirmation; the philosophy is to run pi in a container or supply a confirmation flow via extension. Tool availability is selected at invocation with --tools and --no-builtin-tools, but this is tool enablement rather than a permission-grant surface.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
+      mechanism: [],
     },
   },
   {
@@ -1364,6 +1432,73 @@ export const AGENTS_BY_ID = {
           },
         },
       },
+    },
+  },
+  pi: {
+    id: "pi",
+    name: "Pi",
+    vendor: "Mario Zechner",
+    homepage: "https://github.com/badlogic/pi-mono",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Pi coding agent documentation",
+        url: "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Skills follow the Agent Skills SKILL.md standard and are invoked via /skill:name. Pi discovers them from .pi/skills and .agents/skills (project, searched up through parent directories) and ~/.pi/agent/skills and ~/.agents/skills (user).\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".pi/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom slash commands are Markdown prompt templates with {{variable}} interpolation, expanded via /templatename. Stored in .pi/prompts (project) or ~/.pi/agent/prompts (user). Recorded as bridged because prompt templates have no industry spec standard.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".pi/prompts",
+    },
+    mcp: {
+      support: "unsupported",
+      notes:
+        'Pi ships a deliberate "no MCP" core with only four built-in tools (read, write, edit, bash). MCP can only be added by installing or building a TypeScript extension; there is no native MCP server configuration.\n',
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
+      transports: [],
+    },
+    subagents: {
+      support: "unsupported",
+      notes:
+        "Pi has no built-in subagent system by design. Multi-agent workflows are expected to be composed externally (e.g. spawning pi instances under tmux) or via a TypeScript extension.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
+    },
+    instructions: {
+      support: "standard",
+      notes:
+        "AGENTS.md and CLAUDE.md context files load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md", "CLAUDE.md"],
+      nestedDiscovery: true,
+    },
+    permissions: {
+      support: "unsupported",
+      notes:
+        "Pi has no per-call approval prompts and no permission config file. Tools run without confirmation; the philosophy is to run pi in a container or supply a confirmation flow via extension. Tool availability is selected at invocation with --tools and --no-builtin-tools, but this is tool enablement rather than a permission-grant surface.\n",
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
+      mechanism: [],
     },
   },
   windsurf: {

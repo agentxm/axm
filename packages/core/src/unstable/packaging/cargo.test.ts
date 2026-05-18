@@ -378,6 +378,36 @@ describe("cargoReader", () => {
       ),
     );
 
+    it.effect("extracts extensions from cargo-normalized array-of-tables", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.193" });
+          const result = yield* readInTempCargoHome(
+            purl,
+            [
+              "[package]",
+              'name = "serde"',
+              'version = "1.0.193"',
+              "",
+              "[[package.metadata.axm.extensions]]",
+              'ref = "@serde/skills/serde"',
+              'versionRange = "^1.0.0"',
+              "",
+              "[[package.metadata.axm.extensions]]",
+              'ref = "@serde/packs/serde"',
+            ].join("\n"),
+          );
+          expect(Option.isSome(result)).toBe(true);
+          if (Option.isSome(result)) {
+            expect(result.value).toEqual([
+              { ref: "@serde/skills/serde", versionRange: "^1.0.0" },
+              { ref: "@serde/packs/serde" },
+            ]);
+          }
+        }),
+      ),
+    );
+
     it.effect("stops parsing at the next section header", () =>
       withNodeContext(
         Effect.gen(function* () {

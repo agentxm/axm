@@ -236,6 +236,22 @@ const parseTomlInlineTableArray = (rawValue: string): unknown => {
   return entries.length > 0 ? entries : rawValue;
 };
 
+const parseTomlValue = (rawValue: string): unknown => {
+  if (rawValue.startsWith("[")) {
+    return parseTomlInlineTableArray(rawValue);
+  }
+
+  if (rawValue.startsWith('"')) {
+    return parseTomlInlineString(rawValue) ?? rawValue.slice(1, -1);
+  }
+
+  if (rawValue === "true" || rawValue === "false") {
+    return rawValue === "true";
+  }
+
+  return rawValue;
+};
+
 /**
  * Parse the `[package.metadata.axm]` table from a Cargo.toml string.
  *
@@ -246,16 +262,17 @@ const parseTomlInlineTableArray = (rawValue: string): unknown => {
  *   [package.metadata.axm]
  *   extensions = [{ ref = "@owner/packs/example", versionRange = "^1.0.0" }]
  *
- *   [package.metadata.axm.extensions]  # not supported; arrays are
- *                                                 # always inline below the
- *                                                 # `[package.metadata.axm]`
- *                                                 # header.
+ *   [[package.metadata.axm.extensions]]
+ *   ref = "@owner/packs/example"
+ *   versionRange = "^1.0.0"
  */
 const parsePackageMetadataAxm = (content: string): Record<string, unknown> | undefined => {
   const lines = content.split("\n");
   let inAxmSection = false;
   let found = false;
   const fields: Record<string, unknown> = {};
+  const extensionEntries: Array<Record<string, unknown>> = [];
+  let currentTable: Record<string, unknown> | undefined;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -265,13 +282,39 @@ const parsePackageMetadataAxm = (content: string): Record<string, unknown> | und
 
     // Section headers (`[section.path]` or `[[array.of.tables]]`)
     if (trimmed.startsWith("[")) {
-      if (inAxmSection) break; // leaving the [package.metadata.axm] table
-      inAxmSection = trimmed === "[package.metadata.axm]";
-      if (inAxmSection) found = true;
+      const arrayTableMatch = /^\[\[package\.metadata\.axm\.([A-Za-z0-9_-]+)\]\]$/.exec(trimmed);
+      const arrayTableKey = arrayTableMatch?.[1];
+      if (arrayTableKey !== undefined) {
+        found = true;
+        inAxmSection = false;
+
+        if (arrayTableKey === "extensions") {
+          const entry: Record<string, unknown> = {};
+          extensionEntries.push(entry);
+          fields["extensions"] = extensionEntries;
+          currentTable = entry;
+        } else {
+          currentTable = undefined;
+        }
+
+        continue;
+      }
+
+      const axmTableMatch = /^\[package\.metadata\.axm(?:\.([A-Za-z0-9_-]+))?\]$/.exec(trimmed);
+      if (axmTableMatch !== null) {
+        found = true;
+        inAxmSection = axmTableMatch[1] === undefined;
+        currentTable = undefined;
+        continue;
+      }
+
+      inAxmSection = false;
+      currentTable = undefined;
       continue;
     }
 
-    if (!inAxmSection) continue;
+    const target = currentTable ?? (inAxmSection ? fields : undefined);
+    if (target === undefined) continue;
 
     const match = /^([^=\s]+)\s*=\s*(.+)$/.exec(trimmed);
     if (match === null) continue;
@@ -280,15 +323,7 @@ const parsePackageMetadataAxm = (content: string): Record<string, unknown> | und
     const rawValue = match[2]?.trim();
     if (key === undefined || rawValue === undefined) continue;
 
-    if (rawValue.startsWith("[")) {
-      fields[key] = parseTomlInlineTableArray(rawValue);
-    } else if (rawValue.startsWith('"')) {
-      fields[key] = rawValue.slice(1, -1);
-    } else if (rawValue === "true" || rawValue === "false") {
-      fields[key] = rawValue === "true";
-    } else {
-      fields[key] = rawValue;
-    }
+    target[key] = parseTomlValue(rawValue);
   }
 
   return found ? fields : undefined;

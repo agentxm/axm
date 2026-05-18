@@ -15,6 +15,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
+import { parseTomlStringEntries, readTomlSection } from "../toml/index.js";
 import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlSchema } from "./package-url.js";
@@ -80,24 +81,10 @@ const isExactVersion = (specifier: string): boolean =>
 const parseTomlDependencies = (
   content: string,
 ): ReadonlyArray<{ readonly name: string; readonly version: string }> => {
-  // Find the [dependencies] section
-  const depsMatch = /\[dependencies\]\s*\n([\s\S]*?)(?:\n\[|\n*$)/.exec(content);
-  if (depsMatch === null || depsMatch[1] === undefined) return [];
+  const depsBlock = readTomlSection(content, "dependencies");
+  if (depsBlock === undefined) return [];
 
-  const depsBlock = depsMatch[1];
-  const results: Array<{ readonly name: string; readonly version: string }> = [];
-
-  // Match key = "value" or key = "value" patterns
-  const linePattern = /^([a-zA-Z0-9_-]+)\s*=\s*"([^"]*)"$/gm;
-  let match = linePattern.exec(depsBlock);
-  while (match !== null) {
-    if (match[1] !== undefined && match[2] !== undefined) {
-      results.push({ name: match[1], version: match[2] });
-    }
-    match = linePattern.exec(depsBlock);
-  }
-
-  return results;
+  return parseTomlStringEntries(depsBlock).map(({ key, value }) => ({ name: key, version: value }));
 };
 
 /**

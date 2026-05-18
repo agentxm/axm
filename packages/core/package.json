@@ -181,6 +181,10 @@
       "types": "./dist/src/unstable/packaging/index.d.ts",
       "default": "./dist/src/unstable/packaging/index.js"
     },
+    "./unstable/toml": {
+      "types": "./dist/src/unstable/toml/index.d.ts",
+      "default": "./dist/src/unstable/toml/index.js"
+    },
     "./unstable/discover": {
       "types": "./dist/src/unstable/discover/index.d.ts",
       "default": "./dist/src/unstable/discover/index.js"

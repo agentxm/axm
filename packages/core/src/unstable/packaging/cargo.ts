@@ -14,6 +14,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
+import { parseTomlValue } from "../toml/index.js";
 import { envWithDefault } from "../utils/environment.js";
 import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
@@ -194,63 +195,6 @@ export const cargoDetector: PackageDetector = {
  * Resolve the CARGO_HOME, defaulting to ~/.cargo when not set.
  */
 const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.cargo`);
-
-const parseTomlInlineString = (value: string): string | undefined => {
-  try {
-    const decoded: unknown = JSON.parse(value);
-    return typeof decoded === "string" ? decoded : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-const parseTomlInlineTableArray = (rawValue: string): unknown => {
-  if (rawValue === "[]") return [];
-
-  try {
-    return JSON.parse(rawValue);
-  } catch {
-    // TOML inline tables use `key = "value"`, which is not JSON. Parse the
-    // package metadata subset AXM supports without pulling in a full TOML parser.
-  }
-
-  const entries: Array<Record<string, string>> = [];
-  for (const match of rawValue.matchAll(/\{([^{}]*)\}/g)) {
-    const tableBody = match[1];
-    if (tableBody === undefined) continue;
-
-    const entry: Record<string, string> = {};
-    for (const part of tableBody.split(",")) {
-      const pair = /^\s*([A-Za-z0-9_-]+)\s*=\s*("(?:\\.|[^"\\])*")\s*$/.exec(part);
-      const key = pair?.[1];
-      const encodedValue = pair?.[2];
-      if (key === undefined || encodedValue === undefined) continue;
-
-      const value = parseTomlInlineString(encodedValue);
-      if (value !== undefined) entry[key] = value;
-    }
-
-    if (Object.keys(entry).length > 0) entries.push(entry);
-  }
-
-  return entries.length > 0 ? entries : rawValue;
-};
-
-const parseTomlValue = (rawValue: string): unknown => {
-  if (rawValue.startsWith("[")) {
-    return parseTomlInlineTableArray(rawValue);
-  }
-
-  if (rawValue.startsWith('"')) {
-    return parseTomlInlineString(rawValue) ?? rawValue.slice(1, -1);
-  }
-
-  if (rawValue === "true" || rawValue === "false") {
-    return rawValue === "true";
-  }
-
-  return rawValue;
-};
 
 /**
  * Parse the `[package.metadata.axm]` table from a Cargo.toml string.

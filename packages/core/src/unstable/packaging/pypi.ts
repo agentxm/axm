@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import { extractTomlQuotedStrings } from "../toml/index.js";
 import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -112,17 +113,6 @@ const parseJsonOptional = (content: string, context: string) =>
 // File parsers
 // ---------------------------------------------------------------------------
 
-/** Extract quoted strings from a TOML array body. */
-const extractQuotedStrings = (content: string): ReadonlyArray<string> => {
-  const strings: Array<string> = [];
-  const regex = /["']([^"']*?)["']/g;
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    if (match[1] !== undefined) strings.push(match[1]);
-  }
-  return strings;
-};
-
 /**
  * Parse pyproject.toml for dependencies.
  * Uses simple regex parsing for the subset of TOML we need.
@@ -139,7 +129,7 @@ const parsePyprojectToml = (content: string, source: string) =>
           /\[project\]\s*\n(?:(?!\[).*\n)*?dependencies\s*=\s*\[([\s\S]*?)\]/m.exec(content);
         if (projectDepsMatch) {
           const depsStr = projectDepsMatch[1] ?? "";
-          for (const dep of extractQuotedStrings(depsStr)) {
+          for (const dep of extractTomlQuotedStrings(depsStr)) {
             const parsed = parseDependencyLine(dep);
             if (parsed) {
               packages.push(makeDetectedPackage(parsed.name, parsed.version, source));
@@ -156,7 +146,7 @@ const parsePyprojectToml = (content: string, source: string) =>
           const groupRegex = /\w+\s*=\s*\[([\s\S]*?)\]/gm;
           let groupMatch;
           while ((groupMatch = groupRegex.exec(section)) !== null) {
-            for (const dep of extractQuotedStrings(groupMatch[1] ?? "")) {
+            for (const dep of extractTomlQuotedStrings(groupMatch[1] ?? "")) {
               const parsed = parseDependencyLine(dep);
               if (parsed) {
                 packages.push(makeDetectedPackage(parsed.name, parsed.version, source));

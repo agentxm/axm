@@ -9,27 +9,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { stringifyToml } from "../../../toml/index.js";
 import { decodeRelativePathSync } from "../../../utils/path-types.js";
 import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
-
-/**
- * Serialize a single value to a TOML right-hand side.
- *
- * Strings use triple-quoted form when they contain newlines and regular
- * quotes otherwise. Numbers and booleans pass through. Other types are
- * coerced via `String(...)` and quoted.
- */
-const tomlValue = (value: unknown): string => {
-  if (typeof value === "boolean" || typeof value === "number") {
-    return String(value);
-  }
-  const str = typeof value === "string" ? value : String(value);
-  if (str.includes("\n")) {
-    return `"""\n${str.replace(/"""/g, '"\\"\\""')}"""`;
-  }
-  return `"${str.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-};
 
 /**
  * Render a subagent as TOML for Codex.
@@ -42,9 +25,8 @@ export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome =>
     developer_instructions: input.body,
   };
   const merged = applyOverrides(base, input.agentOverrides);
-  const lines = Object.entries(merged).map(([key, value]) => `${key} = ${tomlValue(value)}`);
 
   const path = decodeRelativePathSync(`.codex/agents/${input.name}.toml`);
 
-  return rendered([{ content: lines.join("\n"), path }], []);
+  return rendered([{ content: stringifyToml(merged), path }], []);
 };

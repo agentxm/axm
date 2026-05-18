@@ -14,6 +14,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
+import { parseTomlStringEntries, readTomlSection } from "../toml/index.js";
 import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlSchema } from "./package-url.js";
@@ -195,22 +196,15 @@ const parseGradleBuild = (content: string, source: string): ReadonlyArray<Detect
 const parseVersionCatalog = (content: string, source: string): ReadonlyArray<DetectedPackage> => {
   const results: Array<DetectedPackage> = [];
 
-  // Find the [libraries] section
-  const librariesMatch = /\[libraries\]([\s\S]*?)(?:\n\[|\n*$)/i.exec(content);
-  if (librariesMatch?.[1] === undefined) return results;
-
-  const librariesSection = librariesMatch[1];
+  const librariesSection = readTomlSection(content, "libraries");
+  if (librariesSection === undefined) return results;
 
   // Parse [versions] section for version references
   const versions = new Map<string, string>();
-  const versionsMatch = /\[versions\]([\s\S]*?)(?:\n\[|\n*$)/i.exec(content);
-  if (versionsMatch?.[1] !== undefined) {
-    const versionLineRegex = /^\s*([a-zA-Z0-9_-]+)\s*=\s*"([^"]+)"/gm;
-    let vMatch: RegExpExecArray | null;
-    while ((vMatch = versionLineRegex.exec(versionsMatch[1])) !== null) {
-      if (vMatch[1] !== undefined && vMatch[2] !== undefined) {
-        versions.set(vMatch[1], vMatch[2]);
-      }
+  const versionsSection = readTomlSection(content, "versions");
+  if (versionsSection !== undefined) {
+    for (const { key, value } of parseTomlStringEntries(versionsSection)) {
+      versions.set(key, value);
     }
   }
 

@@ -14,6 +14,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
+import { parseTomlStringEntries, readTomlSection } from "../toml/index.js";
 import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlSchema } from "./package-url.js";
@@ -84,28 +85,10 @@ const parseTomlDeps = (
   source: string,
 ): ReadonlyArray<DetectedPackage> => {
   const results: Array<DetectedPackage> = [];
+  const sectionContent = readTomlSection(content, sectionName);
+  if (sectionContent === undefined) return [];
 
-  // Find the section
-  const sectionRegex = new RegExp(`\\[${sectionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]`);
-  const sectionMatch = sectionRegex.exec(content);
-  if (sectionMatch === null) return [];
-
-  const sectionStart = sectionMatch.index + sectionMatch[0].length;
-
-  // Find the next section (or end of content)
-  const nextSectionMatch = /\n\[/.exec(content.slice(sectionStart));
-  const sectionEnd =
-    nextSectionMatch !== null ? sectionStart + nextSectionMatch.index : content.length;
-  const sectionContent = content.slice(sectionStart, sectionEnd);
-
-  // Parse key = "value" entries
-  const entryRegex = /^(\w+)\s*=\s*"([^"]*)"/gm;
-  let match: RegExpExecArray | null;
-  while ((match = entryRegex.exec(sectionContent)) !== null) {
-    const name = match[1];
-    const versionSpec = match[2];
-    if (name === undefined || versionSpec === undefined) continue;
-
+  for (const { key: name, value: versionSpec } of parseTomlStringEntries(sectionContent, "\\w+")) {
     const version = isExactVersion(versionSpec) ? versionSpec : undefined;
 
     const purl = new PackageURL("hex", null, name, version ?? null, null, null);

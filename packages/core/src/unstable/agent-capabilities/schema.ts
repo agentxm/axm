@@ -226,7 +226,9 @@ export const InstructionsCapabilitySchema = Schema.Struct({
     Schema.annotateKey({ messageMissingKey: "instruction files are required" }),
     Schema.check(Schema.isUnique()),
   ),
-  nestedDiscovery: Schema.optional(Schema.Boolean),
+  nestedDiscovery: Schema.Boolean.pipe(
+    Schema.annotateKey({ messageMissingKey: "nestedDiscovery is required" }),
+  ),
 }).annotate({
   identifier: "InstructionsCapability",
   title: "Instructions Capability",
@@ -303,7 +305,9 @@ export const ConfigFileLocationSchema = Schema.Struct({
   scope: ScopeSchema,
   path: Schema.NonEmptyString,
   format: ConfigFileFormatSchema,
-  gitignored: Schema.optional(Schema.Boolean),
+  gitignored: Schema.Boolean.pipe(
+    Schema.annotateKey({ messageMissingKey: "gitignored is required" }),
+  ),
 }).annotate({
   identifier: "ConfigFileLocation",
   title: "Config File Location",

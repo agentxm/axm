@@ -63,9 +63,11 @@ permissions:
     - scope: user
       path: "~/.gemini/settings.json"
       format: json
+      gitignored: false
     - scope: project
       path: .gemini/settings.json
       format: json
+      gitignored: false
   grammar:
     style: prefix
     example: run_shell_command(axm)

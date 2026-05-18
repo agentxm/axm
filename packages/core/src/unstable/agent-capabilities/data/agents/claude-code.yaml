@@ -60,9 +60,11 @@ permissions:
     - scope: user
       path: "~/.claude/settings.json"
       format: json
+      gitignored: false
     - scope: project
       path: .claude/settings.json
       format: json
+      gitignored: false
     - scope: project
       path: .claude/settings.local.json
       format: json

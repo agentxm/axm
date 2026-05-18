@@ -65,9 +65,11 @@ permissions:
     - scope: user
       path: "~/Library/Application Support/Code/User/settings.json"
       format: vscode-settings
+      gitignored: false
     - scope: project
       path: .vscode/settings.json
       format: vscode-settings
+      gitignored: false
   grammar:
     style: regex
     example: '"/^axm(\\s|$)/": true'

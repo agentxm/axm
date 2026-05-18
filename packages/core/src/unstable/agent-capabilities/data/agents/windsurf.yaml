@@ -75,6 +75,7 @@ permissions:
     - scope: user
       path: VS Code settings (Settings UI)
       format: vscode-settings
+      gitignored: false
   grammar:
     style: prefix
     example: axm

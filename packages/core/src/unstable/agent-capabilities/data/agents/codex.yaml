@@ -69,9 +69,11 @@ permissions:
     - scope: user
       path: "~/.codex/config.toml"
       format: toml
+      gitignored: false
     - scope: user
       path: "~/.codex/rules/${tool}.rules"
       format: starlark
+      gitignored: false
   grammar:
     style: starlark-rule
     example: 'prefix_rule(pattern=["axm"], decision="allow")'

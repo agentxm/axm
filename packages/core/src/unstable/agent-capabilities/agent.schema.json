@@ -240,9 +240,9 @@
           "allOf": [{ "uniqueItems": true }],
           "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
         },
-        "nestedDiscovery": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "nestedDiscovery": { "type": "boolean" }
       },
-      "required": ["support", "scopes", "files"],
+      "required": ["support", "scopes", "files", "nestedDiscovery"],
       "additionalProperties": false,
       "title": "Instructions Capability",
       "description": "Agent support for plain prose instruction files."
@@ -303,9 +303,9 @@
         "scope": { "$ref": "#/definitions/Scope" },
         "path": { "type": "string", "allOf": [{ "minLength": 1 }] },
         "format": { "$ref": "#/definitions/ConfigFileFormat" },
-        "gitignored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "gitignored": { "type": "boolean" }
       },
-      "required": ["scope", "path", "format"],
+      "required": ["scope", "path", "format", "gitignored"],
       "additionalProperties": false,
       "title": "Config File Location",
       "description": "A configuration file where an agent's permission rules can live."

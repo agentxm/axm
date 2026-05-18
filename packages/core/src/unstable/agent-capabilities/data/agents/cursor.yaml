@@ -79,20 +79,25 @@ permissions:
     - scope: user
       path: "~/.cursor/permissions.json"
       format: json
+      gitignored: false
     # Sandbox supports both user and project scope.
     - scope: user
       path: "~/.cursor/sandbox.json"
       format: json
+      gitignored: false
     - scope: project
       path: .cursor/sandbox.json
       format: json
+      gitignored: false
     # cursor-agent CLI supports both scopes.
     - scope: user
       path: "~/.cursor/cli-config.json"
       format: json
+      gitignored: false
     - scope: project
       path: .cursor/cli.json
       format: json
+      gitignored: false
   grammar:
     style: prefix
     example: axm

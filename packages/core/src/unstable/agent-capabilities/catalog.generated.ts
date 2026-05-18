@@ -94,11 +94,13 @@ export const AGENTS = [
           scope: "user",
           path: "~/.claude/settings.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".claude/settings.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
@@ -210,11 +212,13 @@ export const AGENTS = [
           scope: "user",
           path: "~/.codex/config.toml",
           format: "toml",
+          gitignored: false,
         },
         {
           scope: "user",
           path: "~/.codex/rules/${tool}.rules",
           format: "starlark",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -348,26 +352,31 @@ export const AGENTS = [
           scope: "user",
           path: "~/.cursor/permissions.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "user",
           path: "~/.cursor/sandbox.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".cursor/sandbox.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "user",
           path: "~/.cursor/cli-config.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".cursor/cli.json",
           format: "json",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -489,11 +498,13 @@ export const AGENTS = [
           scope: "user",
           path: "~/.gemini/settings.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".gemini/settings.json",
           format: "json",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -611,11 +622,13 @@ export const AGENTS = [
           scope: "user",
           path: "~/Library/Application Support/Code/User/settings.json",
           format: "vscode-settings",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".vscode/settings.json",
           format: "vscode-settings",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -788,6 +801,7 @@ export const AGENTS = [
           scope: "user",
           path: "VS Code settings (Settings UI)",
           format: "vscode-settings",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -882,11 +896,13 @@ export const AGENTS_BY_ID = {
           scope: "user",
           path: "~/.claude/settings.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".claude/settings.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
@@ -998,11 +1014,13 @@ export const AGENTS_BY_ID = {
           scope: "user",
           path: "~/.codex/config.toml",
           format: "toml",
+          gitignored: false,
         },
         {
           scope: "user",
           path: "~/.codex/rules/${tool}.rules",
           format: "starlark",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -1136,26 +1154,31 @@ export const AGENTS_BY_ID = {
           scope: "user",
           path: "~/.cursor/permissions.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "user",
           path: "~/.cursor/sandbox.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".cursor/sandbox.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "user",
           path: "~/.cursor/cli-config.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".cursor/cli.json",
           format: "json",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -1277,11 +1300,13 @@ export const AGENTS_BY_ID = {
           scope: "user",
           path: "~/.gemini/settings.json",
           format: "json",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".gemini/settings.json",
           format: "json",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -1399,11 +1424,13 @@ export const AGENTS_BY_ID = {
           scope: "user",
           path: "~/Library/Application Support/Code/User/settings.json",
           format: "vscode-settings",
+          gitignored: false,
         },
         {
           scope: "project",
           path: ".vscode/settings.json",
           format: "vscode-settings",
+          gitignored: false,
         },
       ],
       grammar: {
@@ -1576,6 +1603,7 @@ export const AGENTS_BY_ID = {
           scope: "user",
           path: "VS Code settings (Settings UI)",
           format: "vscode-settings",
+          gitignored: false,
         },
       ],
       grammar: {

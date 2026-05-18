@@ -33,10 +33,6 @@ describe("buildPermissionSuggestions", () => {
         url: "https://code.visualstudio.com/docs/copilot/reference/copilot-settings",
       },
       {
-        description: "Configure Pi to allow AXM without per-call prompts",
-        url: "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
-      },
-      {
         description: "Allow AXM in Windsurf by adding `axm` to `VS Code settings (Settings UI)`",
         url: "https://docs.windsurf.com/windsurf/terminal",
       },
@@ -45,6 +41,10 @@ describe("buildPermissionSuggestions", () => {
 
   it("omits agents without a permissions capability", () => {
     expect(buildPermissionSuggestions(["opencode"])).toEqual([]);
+  });
+
+  it("omits agents whose permissions capability is unsupported", () => {
+    expect(buildPermissionSuggestions(["pi"])).toEqual([]);
   });
 
   it("prefers project scope over user scope when both are defined", () => {

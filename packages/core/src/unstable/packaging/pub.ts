@@ -5,6 +5,8 @@
  * @packageDocumentation
  */
 
+// Intentional escape hatch: node:url URL <-> path conversion has no @effect/platform equivalent.
+import { fileURLToPath, pathToFileURL } from "node:url";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -235,6 +237,27 @@ const PackageConfigSchema = Schema.Struct({
 
 const decodePackageConfig = Schema.decodeUnknownResult(PackageConfigSchema);
 
+/**
+ * Resolve a `package_config.json` `rootUri` to an absolute filesystem path.
+ *
+ * `rootUri` is a URI reference resolved against the location of
+ * `package_config.json` (the `.dart_tool/` directory). A real `dart pub get`
+ * writes absolute `file://` URIs for hosted packages, while path dependencies
+ * and hand-written configs may use relative paths; resolving as a URL handles
+ * both and decodes any percent-encoding. `path.resolve` cannot be used here —
+ * it has no notion of URI schemes and mangles `file://` values into garbage
+ * paths. Returns `Option.none` for a `rootUri` that is not a resolvable
+ * `file:` location.
+ */
+const resolvePackageRoot = (dartToolDir: string, rootUri: string): Option.Option<string> => {
+  try {
+    const baseUrl = new URL(`${pathToFileURL(dartToolDir).href}/`);
+    return Option.some(fileURLToPath(new URL(rootUri, baseUrl)));
+  } catch {
+    return Option.none();
+  }
+};
+
 const parseYamlInlineObject = (value: string): unknown => {
   const trimmed = value.trim();
   if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
@@ -393,12 +416,15 @@ export const pubReader: PackageReader = {
       const pkgEntry = packages.find((p) => p.name === pkg.purl.name);
       if (pkgEntry === undefined) return Option.none();
 
-      // Resolve rootUri relative to .dart_tool/
-      const dartToolDir = path.join(projectDir, ".dart_tool");
-      const packageRoot = path.resolve(dartToolDir, pkgEntry.rootUri);
+      // Resolve rootUri against the .dart_tool/ directory. package_config.json
+      // entries are URI references — a real `dart pub get` writes absolute
+      // `file://` URIs for hosted packages — so resolve as a URL, not a path.
+      const dartToolDir = path.resolve(projectDir, ".dart_tool");
+      const packageRoot = resolvePackageRoot(dartToolDir, pkgEntry.rootUri);
+      if (Option.isNone(packageRoot)) return Option.none();
 
       // Read pubspec.yaml from package root
-      const pubspecPath = path.join(packageRoot, "pubspec.yaml");
+      const pubspecPath = path.join(packageRoot.value, "pubspec.yaml");
       const pubspecContent = yield* readFileOptional(pubspecPath);
       if (Option.isNone(pubspecContent)) return Option.none();
 

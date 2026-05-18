@@ -22,8 +22,8 @@ describe("compiled binary smoke", () => {
     const result = await runBinary(["--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(getOutput(result)).toContain("Usage: axm <command> [flags]");
-    expect(getOutput(result)).toContain("All commands:");
+    expect(getOutput(result)).toContain("USAGE\n  axm <command> [flags]");
+    expect(getOutput(result)).toContain("CORE");
   });
 
   it("exits non-zero for auth token without credentials", async () => {

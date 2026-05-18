@@ -15,7 +15,7 @@ import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli
 import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheckLive } from "@agentxm/client-core/unstable/update-check";
 
-import { makeAxmFormatter } from "./formatter.js";
+import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
 import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
@@ -73,33 +73,42 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     { command: "axm whoami", description: "Check who you're authenticated as" },
   ]),
   Command.withSubcommands([
-    { group: "GETTING STARTED", commands: [helpCommand, setupCommand, discoverCommand] },
     {
       group: "EXTENSIONS",
-      commands: [skillsCommand, commandsCommand, mcpServersCommand, subagentsCommand, packsCommand],
-    },
-    {
-      group: "WORKSPACE",
       commands: [
+        skillsCommand,
+        commandsCommand,
+        mcpServersCommand,
+        subagentsCommand,
+        packsCommand,
         installCommand,
         updateCommand,
-        syncCommand,
-        agentsCommand,
         uninstallCommand,
         outdatedCommand,
         viewCommand,
         versionCommand,
-        lintCommand,
-        pruneCommand,
-        upgradeCommand,
       ],
+    },
+    {
+      group: "WORKSPACE",
+      commands: [syncCommand, agentsCommand, lintCommand, pruneCommand, upgradeCommand],
     },
     {
       group: "AUTH",
       commands: [authCommand, loginCommand, logoutCommand, whoamiCommand, tokenCommand],
     },
+    { group: "GETTING STARTED", commands: [setupCommand, discoverCommand, helpCommand] },
   ]),
   Command.withGlobalFlags(axmGlobalFlags),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help getting-started", "Set up AXM in a new workspace"],
+      ["axm help basic-usage", "Managing extensions and agents for an AXM workspace"],
+      ["axm help skills", "How skill extensions work"],
+      ["axm help", "Browse all help topics"],
+    ]),
+  ),
 );
 
 const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>

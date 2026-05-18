@@ -28,14 +28,6 @@ describe("axm (root command)", () => {
       expect(output).toContain("setup");
       expect(output).toContain("skills");
     });
-
-    it("displays examples", async () => {
-      const result = await runCli([]);
-      const output = getOutput(result);
-
-      expect(output).toContain("More:");
-      expect(output).toContain("axm help <topic>");
-    });
   });
 
   describe("--help", () => {
@@ -91,27 +83,15 @@ describe("main CLI help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output).toContain("Agent Extension Manager");
-    expect(output).toContain("All commands:");
-    expect(output).toContain("COMMON:");
-    expect(output).toContain("GETTING STARTED:");
-    expect(output).toContain("WORKSPACE:");
-    expect(output).toContain("AUTH:");
+    expect(output).toContain("CORE");
+    expect(output).toContain("WORKSPACE");
+    expect(output).toContain("AUTH");
+    expect(output).toContain("START HERE");
     expect(output).toContain("skills");
     expect(output).toContain("packs");
     expect(output).toContain("commands");
     expect(output).toContain("mcp-servers");
     expect(output).toContain("agents");
-    expect(output).toContain("auth");
-  });
-
-  it("shows root help examples", async () => {
-    const result = await runCli(["--help"]);
-    const output = getOutput(result);
-
-    expect(result.exitCode).toBe(0);
-    expect(output).toContain("More:");
-    expect(output).toContain("axm <command> --help");
-    expect(output).toContain("axm help <topic>");
   });
 
   it.each([

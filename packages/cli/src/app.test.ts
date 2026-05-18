@@ -63,10 +63,16 @@ const collectHelpDocs = (
   });
 
 describe("root command help", () => {
-  it("does not attach the long topic footer to root help", async () => {
+  it("attaches a LEARN MORE footer pointing at entry-point help topics", async () => {
     const doc = await Effect.runPromise(captureHelpDoc([]));
+    const learnMore = ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
 
-    expect(ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore)).toBe("");
+    expect(learnMore).toContain("LEARN MORE");
+    expect(learnMore).toContain("axm help getting-started");
+    expect(learnMore).toContain("axm help basic-usage");
+    expect(learnMore).toContain("axm help skills");
+    expect(learnMore).toContain("axm help ");
+    expect(learnMore).toContain("Browse all help topics");
   });
 
   it("uses executable examples across the full command tree", async () => {

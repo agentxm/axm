@@ -216,9 +216,67 @@ const groupLabel = (group: string | undefined): string => {
   return group.toUpperCase();
 };
 
-const COMMON_COMMANDS = ["skills", "commands", "mcp-servers", "subagents", "packs", "agents"];
-const COMMON_COMMAND_GROUP = "COMMON";
-const COMMAND_COLUMN_WIDTH = 16;
+/** Core capability commands, rendered with descriptions at the top of root help. */
+const CORE_COMMANDS = ["skills", "commands", "mcp-servers", "subagents", "packs", "agents"];
+const CORE_GROUP_LABEL = "CORE";
+const CORE_COLUMN_WIDTH = 14;
+
+/** Compact group that should render above the descriptive Core block. */
+const LEADING_COMPACT_GROUP = "GETTING STARTED";
+
+/**
+ * Parent commands whose subcommands are promoted to the root command set.
+ * The parent is omitted from the root listing to avoid duplicating its
+ * children (e.g. `auth` — `login`/`logout`/`whoami`/`token` appear at root).
+ */
+const PROMOTED_PARENT_COMMANDS = ["auth"];
+
+/**
+ * Display labels for the compact (description-free) command groups. Only
+ * defined when the display label differs from the group key.
+ */
+const COMPACT_GROUP_LABELS: Record<string, string> = {
+  "GETTING STARTED": "START HERE",
+};
+
+/** Indent for content rows under section headers (commands, flags, usage). */
+const SECTION_INDENT = "  ";
+
+/** Display label for the global flags compact row appended to root help. */
+const GLOBAL_FLAGS_LABEL = "GLOBAL FLAGS";
+
+/** Target line width for wrapping the compact command lists. */
+const ROOT_HELP_WIDTH = 80;
+
+/**
+ * Groups command names into rows whose rendered width — a leading `indent`,
+ * the names, and ", " separators — stays within `width`. Wrapping is computed
+ * on plain names so it is unaffected by ANSI color escapes added later.
+ */
+const wrapCommandRows = (
+  commands: ReadonlyArray<string>,
+  indent: number,
+  width: number,
+): ReadonlyArray<ReadonlyArray<string>> => {
+  const rows: Array<Array<string>> = [];
+  let current: Array<string> = [];
+  let currentWidth = 0;
+
+  commands.forEach((command, index) => {
+    const separatorWidth = index < commands.length - 1 ? ", ".length : 0;
+    const cost = command.length + separatorWidth;
+    if (current.length > 0 && indent + currentWidth + cost > width) {
+      rows.push(current);
+      current = [];
+      currentWidth = 0;
+    }
+    current.push(command);
+    currentWidth += cost;
+  });
+
+  if (current.length > 0) rows.push(current);
+  return rows;
+};
 
 const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
   agents: "Configure coding-agent targets",
@@ -281,8 +339,8 @@ const rootCommandDescription = (
 };
 
 const renderCommandRow = (command: string, description: string, colors: RootHelpColors): string => {
-  const padding = " ".repeat(Math.max(1, COMMAND_COLUMN_WIDTH - command.length));
-  return `  ${colors.green(command)}${padding}${description}`;
+  const padding = " ".repeat(Math.max(1, CORE_COLUMN_WIDTH - command.length));
+  return `  ${colors.cyan(command)}${padding}${description}`;
 };
 
 const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
@@ -292,11 +350,11 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
     ),
   );
 
-  const renderCommonGroup = (commands: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const renderCoreGroup = (commands: ReadonlyArray<string>): ReadonlyArray<string> => {
     if (commands.length === 0) return [];
 
     return [
-      `${colors.bold(COMMON_COMMAND_GROUP)}:`,
+      colors.bold(CORE_GROUP_LABEL),
       ...commands.map((command) =>
         renderCommandRow(command, rootCommandDescription(command, commandDocs), colors),
       ),
@@ -306,36 +364,60 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
   const renderCompactGroup = (
     label: string,
     commands: ReadonlyArray<string>,
+    colorize: (text: string) => string = colors.cyan,
   ): ReadonlyArray<string> => {
     if (commands.length === 0) return [];
 
+    const displayLabel = COMPACT_GROUP_LABELS[label] ?? label;
+    const rows = wrapCommandRows(commands, SECTION_INDENT.length, ROOT_HELP_WIDTH);
+
     return [
-      `${colors.bold(label)}: ${commands.map((command) => colors.green(command)).join(", ")}`,
+      colors.bold(displayLabel),
+      ...rows.map((row, rowIndex) => {
+        const trailingComma = rowIndex < rows.length - 1 ? "," : "";
+        return `${SECTION_INDENT}${row.map((command) => colorize(command)).join(", ")}${trailingComma}`;
+      }),
     ];
   };
 
-  const commandGroups = [
-    ...renderCommonGroup(COMMON_COMMANDS),
-    ...(doc.subcommands ?? []).flatMap((group) => {
-      const commands = group.commands
-        .map((command) => command.name)
-        .filter((command) => !COMMON_COMMANDS.includes(command));
-      return renderCompactGroup(groupLabel(group.group), commands);
-    }),
-  ];
+  const leadingCompact: Array<ReadonlyArray<string>> = [];
+  const trailingCompact: Array<ReadonlyArray<string>> = [];
+  for (const group of doc.subcommands ?? []) {
+    const label = groupLabel(group.group);
+    const commands = group.commands
+      .map((command) => command.name)
+      .filter(
+        (command) =>
+          !CORE_COMMANDS.includes(command) && !PROMOTED_PARENT_COMMANDS.includes(command),
+      );
+    const rendered = renderCompactGroup(label, commands);
+    if (rendered.length === 0) continue;
+    (label === LEADING_COMPACT_GROUP ? leadingCompact : trailingCompact).push(rendered);
+  }
+
+  const globalFlagRow = renderCompactGroup(
+    GLOBAL_FLAGS_LABEL,
+    (doc.globalFlags ?? []).map((flag) => `--${flag.name}`),
+    colors.green,
+  );
+  if (globalFlagRow.length > 0) trailingCompact.push(globalFlagRow);
+
+  const sections: Array<ReadonlyArray<string>> = [
+    ...leadingCompact,
+    renderCoreGroup(CORE_COMMANDS),
+    ...trailingCompact,
+  ].filter((section) => section.length > 0);
+  const body = sections.flatMap((section, index) =>
+    index === 0 ? [...section] : ["", ...section],
+  );
 
   return [
     BRANDING,
     "",
-    `${colors.bold("Usage:")} ${colors.cyan(doc.usage.replace("<subcommand>", "<command>"))}`,
+    colors.bold("USAGE"),
+    `${SECTION_INDENT}${colors.cyan(doc.usage.replace("<subcommand>", "<command>"))}`,
     "",
-    colors.bold("All commands:"),
-    ...commandGroups,
-    "",
-    colors.bold("More:"),
-    `  ${colors.cyan("axm <command> --help")}              quick help for a command`,
-    `  ${colors.cyan("axm help <topic>")}                  topic help`,
-    `  ${colors.cyan("axm --json")}                        machine-readable output`,
+    ...body,
   ].join("\n");
 };
 
@@ -374,7 +456,10 @@ export const makeAxmFormatter = (options?: {
 
       const learnMore = getLearnMore(doc);
       if (learnMore !== "") {
-        output += "\n\n" + learnMore;
+        const display = colorsEnabled
+          ? learnMore.replace(/^([^\n]+)/, (heading) => `\u001b[1m${heading}\u001b[0m`)
+          : learnMore;
+        output += "\n\n" + display;
       }
 
       return output;

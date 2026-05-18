@@ -35,15 +35,13 @@ describe("makeAxmFormatter", () => {
   ];
 
   describe("global flag suppression", () => {
-    it("omits the global flag table from compact root help", () => {
+    it("omits the global flag table from compact root help but lists flag names", () => {
       const doc = makeHelpDoc({
         usage: "axm [flags]",
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
-      expect(output).not.toContain("GLOBAL FLAGS");
-      expect(output).not.toContain("--verbose");
-      expect(output).toContain("axm --json");
+      expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");
     });
 
     it("preserves only --json on subcommand help", () => {
@@ -76,6 +74,15 @@ describe("makeAxmFormatter", () => {
       const doc = makeHelpDoc({ annotations });
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain(footerText);
+    });
+
+    it("bolds the LEARN MORE heading when colors are enabled", () => {
+      const footerText = "LEARN MORE\n  Visit https://example.com for docs.";
+      const annotations = ServiceMap.make(LearnMore, footerText);
+      const doc = makeHelpDoc({ annotations });
+      const output = colorFormatter.formatHelpDoc(doc);
+      expect(output).toContain("\u001b[1mLEARN MORE\u001b[0m");
+      expect(output).toContain("Visit https://example.com for docs.");
     });
 
     it("does not append footer when LearnMore annotation is absent", () => {
@@ -118,19 +125,16 @@ describe("makeAxmFormatter", () => {
       });
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
-      expect(output).toContain("Usage: axm <command> [flags]");
-      expect(output).toContain("All commands:");
-      expect(output).toContain("COMMON:");
-      expect(output).toContain("  skills          Manage agent skills");
-      expect(output).toContain("  agents          Configure coding-agent targets");
-      expect(output).toContain("GETTING STARTED:");
-      expect(output).toContain("GETTING STARTED: help, setup");
-      expect(output).toContain("AUTH:");
-      expect(output).toContain("AUTH: login");
-      expect(output).toContain("More:");
+      expect(output).toContain("USAGE\n  axm <command> [flags]");
+      expect(output).toContain("CORE\n  skills        Manage agent skills");
+      expect(output).toContain("  agents        Configure coding-agent targets");
+      expect(output).toContain("START HERE\n  help, setup");
+      expect(output).toContain("AUTH\n  login");
+      expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");
+      expect(output).not.toContain("All commands:");
+      expect(output).not.toContain("COMMON");
+      expect(output).not.toContain("More:");
       expect(output).not.toContain("DESCRIPTION");
-      expect(output).not.toContain("Common:");
-      expect(output).not.toContain("GLOBAL FLAGS");
       expect(output).not.toContain("EXAMPLES");
       expect(output.split("\n").length).toBeLessThanOrEqual(40);
     });
@@ -146,13 +150,15 @@ describe("makeAxmFormatter", () => {
             ],
           },
         ],
+        globalFlags,
       });
       const output = colorFormatter.formatHelpDoc(doc);
 
-      expect(output).toContain("\u001b[1mUsage:\u001b[0m");
+      expect(output).toContain("\u001b[1mUSAGE\u001b[0m");
       expect(output).toContain("\u001b[36maxm <command> [flags]\u001b[0m");
-      expect(output).toContain("\u001b[1mCOMMON\u001b[0m:");
-      expect(output).toContain("\u001b[1mAUTH\u001b[0m: \u001b[32mlogin\u001b[0m");
+      expect(output).toContain("[1mCORE[0m");
+      expect(output).toContain("[1mAUTH[0m\n  [36mlogin[0m");
+      expect(output).toContain("[32m--json[0m");
     });
 
     it("does not prepend branding to subcommand help", () => {
@@ -161,7 +167,7 @@ describe("makeAxmFormatter", () => {
       expect(output).not.toContain("▄▀█ ▀▄▀ █▀▄▀█");
     });
 
-    it("renders compact root command groups in declaration order", () => {
+    it("renders Start here above Core, with remaining compact groups after", () => {
       const doc = makeHelpDoc({
         usage: "axm [flags]",
         subcommands: [
@@ -181,22 +187,22 @@ describe("makeAxmFormatter", () => {
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
-      const usageIdx = output.indexOf("Usage:");
-      const commonIdx = output.indexOf("COMMON:");
-      const gettingStartedIdx = output.indexOf("GETTING STARTED:");
-      const authIdx = output.indexOf("AUTH:");
-      const moreIdx = output.indexOf("More:");
+      const usageIdx = output.indexOf("USAGE");
+      const coreIdx = output.indexOf("CORE");
+      const startHereIdx = output.indexOf("START HERE");
+      const authIdx = output.indexOf("AUTH");
+      const footerIdx = output.indexOf("GLOBAL FLAGS");
 
       expect(usageIdx).toBeGreaterThan(-1);
-      expect(commonIdx).toBeGreaterThan(-1);
-      expect(gettingStartedIdx).toBeGreaterThan(-1);
+      expect(coreIdx).toBeGreaterThan(-1);
+      expect(startHereIdx).toBeGreaterThan(-1);
       expect(authIdx).toBeGreaterThan(-1);
-      expect(moreIdx).toBeGreaterThan(-1);
+      expect(footerIdx).toBeGreaterThan(-1);
 
-      expect(usageIdx).toBeLessThan(commonIdx);
-      expect(commonIdx).toBeLessThan(gettingStartedIdx);
-      expect(gettingStartedIdx).toBeLessThan(authIdx);
-      expect(authIdx).toBeLessThan(moreIdx);
+      expect(usageIdx).toBeLessThan(startHereIdx);
+      expect(startHereIdx).toBeLessThan(coreIdx);
+      expect(coreIdx).toBeLessThan(authIdx);
+      expect(authIdx).toBeLessThan(footerIdx);
     });
 
     it("renders custom groups in compact root command list", () => {
@@ -218,8 +224,7 @@ describe("makeAxmFormatter", () => {
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
-      expect(output).toContain("CUSTOM SECTION:");
-      expect(output).toContain("custom");
+      expect(output).toContain("CUSTOM SECTION\n  custom");
     });
 
     it("trims trailing blank lines from sections", () => {

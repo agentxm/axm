@@ -27,8 +27,12 @@ describe("agent capability derivation", () => {
   });
 
   it("does not infer support for omitted capabilities", () => {
-    expect(agentSupportsType(agentById("codex"), "skill")).toBe(false);
-    expect(agentSupportsType(agentById("windsurf"), "command")).toBe(false);
+    expect(agentSupportsType(agentById("codex"), "rule")).toBe(false);
+    expect(agentSupportsType(agentById("github-copilot"), "rule")).toBe(false);
+  });
+
+  it("does not count explicit unsupported as works-with support", () => {
+    expect(agentSupportsType(agentById("windsurf"), "subagent")).toBe(false);
   });
 
   it("finds agents that work with one extension type", () => {
@@ -36,10 +40,7 @@ describe("agent capability derivation", () => {
   });
 
   it("requires every requested type for multi-type compatibility", () => {
-    expect(worksOnAll(["skill", "file"], AGENTS).map((agent) => agent.id)).toEqual([
-      "claude-code",
-      "gemini-cli",
-    ]);
+    expect(worksOnAll(["rule", "subagent"], AGENTS).map((agent) => agent.id)).toEqual(["cursor"]);
   });
 
   it("derives pack compatibility from all member types", () => {
@@ -61,7 +62,10 @@ describe("agent capability derivation", () => {
         support: entry.capability.support,
       })),
     ).toEqual([
+      { type: "skill", support: "standard" },
+      { type: "command", support: "bridged" },
       { type: "mcp-server", support: "standard" },
+      { type: "subagent", support: "bridged" },
       { type: "file", support: "standard" },
     ]);
   });

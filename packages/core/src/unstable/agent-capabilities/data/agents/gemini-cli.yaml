@@ -17,6 +17,17 @@ skills:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
   lastVerified: 2026-05-16
 
+commands:
+  support: bridged
+  scopes: [user, project]
+  directory: .gemini/commands
+  notes: >
+    Custom slash commands are TOML files under .gemini/commands (project) or
+    ~/.gemini/commands (user); AXM bridges its command extension format to TOML.
+  sources:
+    - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md
+  lastVerified: 2026-05-18
+
 mcp:
   support: standard
   scopes: [user, project]
@@ -24,6 +35,16 @@ mcp:
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
   lastVerified: 2026-05-16
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  notes: >
+    Subagents are Markdown files with YAML frontmatter under .gemini/agents
+    (project) or ~/.gemini/agents (user); shipped in Gemini CLI v0.38.1.
+  sources:
+    - https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md
+  lastVerified: 2026-05-18
 
 instructions:
   support: bridged

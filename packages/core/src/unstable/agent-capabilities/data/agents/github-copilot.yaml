@@ -9,6 +9,30 @@ docs:
   - label: GitHub Copilot documentation
     url: https://docs.github.com/en/copilot
 
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .github/skills
+  notes: >
+    VS Code agent mode, the Copilot CLI, and the cloud agent read SKILL.md
+    skills from .github/skills (project) and ~/.copilot/skills (user);
+    .claude/skills is also recognized.
+  sources:
+    - https://code.visualstudio.com/docs/copilot/customization/agent-skills
+    - https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
+  lastVerified: 2026-05-18
+
+commands:
+  support: bridged
+  scopes: [user, project]
+  directory: .github/prompts
+  notes: >
+    VS Code Copilot prompt files (.prompt.md) act as slash commands under
+    .github/prompts; the Copilot CLI does not yet support custom commands.
+  sources:
+    - https://code.visualstudio.com/docs/copilot/customization/prompt-files
+  lastVerified: 2026-05-18
+
 mcp:
   support: standard
   scopes: [user, project]

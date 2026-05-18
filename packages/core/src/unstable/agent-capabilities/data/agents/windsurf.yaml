@@ -9,6 +9,29 @@ docs:
   - label: Windsurf documentation
     url: https://docs.windsurf.com
 
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .windsurf/skills
+  notes: >
+    Cascade reads SKILL.md skills from .windsurf/skills (project) and
+    ~/.codeium/windsurf/skills (user) with progressive disclosure.
+  sources:
+    - https://docs.windsurf.com/windsurf/cascade/skills
+  lastVerified: 2026-05-18
+
+commands:
+  support: bridged
+  scopes: [user, project]
+  directory: .windsurf/workflows
+  notes: >
+    Windsurf Workflows are slash-command-invoked Markdown prompts under
+    .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows
+    (user).
+  sources:
+    - https://docs.windsurf.com/windsurf/cascade/workflows
+  lastVerified: 2026-05-18
+
 mcp:
   support: standard
   scopes: [user, project]
@@ -16,6 +39,16 @@ mcp:
   sources:
     - https://docs.windsurf.com/windsurf/cascade/mcp
   lastVerified: 2026-05-16
+
+subagents:
+  support: unsupported
+  scopes: []
+  notes: >
+    Cascade exposes only built-in and internal subagents plus multi-agent
+    sessions; no user-authorable custom subagent extension type is documented.
+  sources:
+    - https://docs.windsurf.com/windsurf/cascade/agents-md
+  lastVerified: 2026-05-18
 
 instructions:
   support: standard

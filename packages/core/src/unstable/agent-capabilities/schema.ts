@@ -37,7 +37,15 @@ export const SupportLevelSchema = Schema.Literals([
 ]).annotate({
   identifier: "SupportLevel",
   title: "Support Level",
-  description: "How an agent supports a capability.",
+  description:
+    "How an agent supports a capability. `standard`: the agent natively conforms to " +
+    "an industry spec standard for the capability (e.g. the Agent Skills `SKILL.md` " +
+    "format). `bridged`: the capability works through an AXM adapter that maps it to " +
+    "the agent's native format — this is the ceiling for capabilities that have no " +
+    "industry spec standard yet, such as subagents and commands. `planned`: AXM " +
+    "support is intended but not yet available. `unsupported`: an authoritative " +
+    "source confirms the agent lacks the capability. `unknown`: support has not been " +
+    "verified, normally expressed by omitting the capability section entirely.",
   examples: ["standard", "bridged", "unknown"],
 });
 

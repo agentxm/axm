@@ -9,6 +9,31 @@ docs:
   - label: Cursor documentation
     url: https://docs.cursor.com
 
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .cursor/skills
+  notes: >
+    Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the
+    cursor-agent CLI; it also loads .claude/skills and .codex/skills for
+    cross-tool compatibility.
+  sources:
+    - https://cursor.com/docs/context/skills
+    - https://cursor.com/changelog/2-4
+  lastVerified: 2026-05-18
+
+commands:
+  support: bridged
+  scopes: [user, project]
+  directory: .cursor/commands
+  notes: >
+    Custom commands are Markdown prompt files under .cursor/commands (project)
+    or ~/.cursor/commands (user); documented as a beta feature.
+  sources:
+    - https://docs.cursor.com/en/agent/chat/commands
+    - https://cursor.com/changelog/1-6
+  lastVerified: 2026-05-18
+
 mcp:
   support: standard
   scopes: [user, project]
@@ -16,6 +41,17 @@ mcp:
   sources:
     - https://docs.cursor.com/advanced/model-context-protocol
   lastVerified: 2026-05-16
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  notes: >
+    Custom subagents are Markdown files with YAML frontmatter under
+    .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.
+  sources:
+    - https://cursor.com/docs/subagents
+    - https://cursor.com/changelog/2-4
+  lastVerified: 2026-05-18
 
 instructions:
   support: standard

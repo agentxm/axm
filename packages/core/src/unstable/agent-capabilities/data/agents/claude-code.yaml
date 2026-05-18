@@ -18,12 +18,15 @@ skills:
   lastVerified: 2026-05-16
 
 commands:
-  support: standard
+  support: bridged
   scopes: [user, project]
   directory: .claude/commands
+  notes: >
+    Custom slash commands are Markdown prompt files under .claude/commands.
+    Recorded as bridged because commands have no industry spec standard.
   sources:
     - https://docs.claude.com/en/docs/claude-code/slash-commands
-  lastVerified: 2026-05-16
+  lastVerified: 2026-05-18
 
 mcp:
   support: standard

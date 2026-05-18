@@ -9,6 +9,31 @@ docs:
   - label: Codex documentation
     url: https://developers.openai.com/codex
 
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .agents/skills
+  notes: >
+    Reads SKILL.md skills from repository (.agents/skills) and user
+    (~/.agents/skills) locations with progressive disclosure, using the
+    cross-tool Agent Skills convention rather than a .codex/ path.
+  sources:
+    - https://developers.openai.com/codex/skills
+  lastVerified: 2026-05-18
+
+commands:
+  support: bridged
+  scopes: [user]
+  directory: "~/.codex/prompts"
+  notes: >
+    Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts.
+    Deprecated by OpenAI in favor of skills for reusable instructions, and there
+    is no project-scoped command directory.
+  sources:
+    - https://developers.openai.com/codex/custom-prompts
+    - https://developers.openai.com/codex/cli/slash-commands
+  lastVerified: 2026-05-18
+
 mcp:
   support: standard
   scopes: [user, project]
@@ -16,6 +41,16 @@ mcp:
   sources:
     - https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers
   lastVerified: 2026-05-16
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  notes: >
+    Custom agents are standalone TOML files under .codex/agents (project) or
+    ~/.codex/agents (user); a custom agent overrides a built-in of the same name.
+  sources:
+    - https://developers.openai.com/codex/subagents
+  lastVerified: 2026-05-18
 
 instructions:
   support: standard

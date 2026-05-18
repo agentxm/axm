@@ -50,9 +50,11 @@ export const AGENTS = [
       directory: ".claude/skills",
     },
     commands: {
-      support: "standard",
+      support: "bridged",
+      notes:
+        "Custom slash commands are Markdown prompt files under .claude/commands. Recorded as bridged because commands have no industry spec standard.\n",
       sources: ["https://docs.claude.com/en/docs/claude-code/slash-commands"],
-      lastVerified: "2026-05-16",
+      lastVerified: "2026-05-18",
       scopes: ["user", "project"],
       directory: ".claude/commands",
     },
@@ -147,12 +149,41 @@ export const AGENTS = [
         url: "https://developers.openai.com/codex",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "Reads SKILL.md skills from repository (.agents/skills) and user (~/.agents/skills) locations with progressive disclosure, using the cross-tool Agent Skills convention rather than a .codex/ path.\n",
+      sources: ["https://developers.openai.com/codex/skills"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts. Deprecated by OpenAI in favor of skills for reusable instructions, and there is no project-scoped command directory.\n",
+      sources: [
+        "https://developers.openai.com/codex/custom-prompts",
+        "https://developers.openai.com/codex/cli/slash-commands",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user"],
+      directory: "~/.codex/prompts",
+    },
     mcp: {
       support: "standard",
       sources: ["https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http"],
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Custom agents are standalone TOML files under .codex/agents (project) or ~/.codex/agents (user); a custom agent overrides a built-in of the same name.\n",
+      sources: ["https://developers.openai.com/codex/subagents"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
     },
     instructions: {
       support: "standard",
@@ -249,12 +280,41 @@ export const AGENTS = [
         url: "https://docs.cursor.com",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also loads .claude/skills and .codex/skills for cross-tool compatibility.\n",
+      sources: ["https://cursor.com/docs/context/skills", "https://cursor.com/changelog/2-4"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".cursor/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom commands are Markdown prompt files under .cursor/commands (project) or ~/.cursor/commands (user); documented as a beta feature.\n",
+      sources: [
+        "https://docs.cursor.com/en/agent/chat/commands",
+        "https://cursor.com/changelog/1-6",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".cursor/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://docs.cursor.com/advanced/model-context-protocol"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.\n",
+      sources: ["https://cursor.com/docs/subagents", "https://cursor.com/changelog/2-4"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
     },
     instructions: {
       support: "standard",
@@ -378,12 +438,31 @@ export const AGENTS = [
       scopes: ["user", "project"],
       directory: ".gemini/skills",
     },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom slash commands are TOML files under .gemini/commands (project) or ~/.gemini/commands (user); AXM bridges its command extension format to TOML.\n",
+      sources: [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".gemini/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Subagents are Markdown files with YAML frontmatter under .gemini/agents (project) or ~/.gemini/agents (user); shipped in Gemini CLI v0.38.1.\n",
+      sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
     },
     instructions: {
       support: "bridged",
@@ -471,6 +550,27 @@ export const AGENTS = [
         url: "https://docs.github.com/en/copilot",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "VS Code agent mode, the Copilot CLI, and the cloud agent read SKILL.md skills from .github/skills (project) and ~/.copilot/skills (user); .claude/skills is also recognized.\n",
+      sources: [
+        "https://code.visualstudio.com/docs/copilot/customization/agent-skills",
+        "https://docs.github.com/en/copilot/concepts/agents/about-agent-skills",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".github/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "VS Code Copilot prompt files (.prompt.md) act as slash commands under .github/prompts; the Copilot CLI does not yet support custom commands.\n",
+      sources: ["https://code.visualstudio.com/docs/copilot/customization/prompt-files"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".github/prompts",
+    },
     mcp: {
       support: "standard",
       sources: [
@@ -558,12 +658,38 @@ export const AGENTS = [
         url: "https://docs.windsurf.com",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "Cascade reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure.\n",
+      sources: ["https://docs.windsurf.com/windsurf/cascade/skills"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".windsurf/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Windsurf Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows (user).\n",
+      sources: ["https://docs.windsurf.com/windsurf/cascade/workflows"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".windsurf/workflows",
+    },
     mcp: {
       support: "standard",
       sources: ["https://docs.windsurf.com/windsurf/cascade/mcp"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+    },
+    subagents: {
+      support: "unsupported",
+      notes:
+        "Cascade exposes only built-in and internal subagents plus multi-agent sessions; no user-authorable custom subagent extension type is documented.\n",
+      sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
     },
     instructions: {
       support: "standard",
@@ -645,9 +771,11 @@ export const AGENTS_BY_ID = {
       directory: ".claude/skills",
     },
     commands: {
-      support: "standard",
+      support: "bridged",
+      notes:
+        "Custom slash commands are Markdown prompt files under .claude/commands. Recorded as bridged because commands have no industry spec standard.\n",
       sources: ["https://docs.claude.com/en/docs/claude-code/slash-commands"],
-      lastVerified: "2026-05-16",
+      lastVerified: "2026-05-18",
       scopes: ["user", "project"],
       directory: ".claude/commands",
     },
@@ -742,12 +870,41 @@ export const AGENTS_BY_ID = {
         url: "https://developers.openai.com/codex",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "Reads SKILL.md skills from repository (.agents/skills) and user (~/.agents/skills) locations with progressive disclosure, using the cross-tool Agent Skills convention rather than a .codex/ path.\n",
+      sources: ["https://developers.openai.com/codex/skills"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts. Deprecated by OpenAI in favor of skills for reusable instructions, and there is no project-scoped command directory.\n",
+      sources: [
+        "https://developers.openai.com/codex/custom-prompts",
+        "https://developers.openai.com/codex/cli/slash-commands",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user"],
+      directory: "~/.codex/prompts",
+    },
     mcp: {
       support: "standard",
       sources: ["https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http"],
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Custom agents are standalone TOML files under .codex/agents (project) or ~/.codex/agents (user); a custom agent overrides a built-in of the same name.\n",
+      sources: ["https://developers.openai.com/codex/subagents"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
     },
     instructions: {
       support: "standard",
@@ -844,12 +1001,41 @@ export const AGENTS_BY_ID = {
         url: "https://docs.cursor.com",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also loads .claude/skills and .codex/skills for cross-tool compatibility.\n",
+      sources: ["https://cursor.com/docs/context/skills", "https://cursor.com/changelog/2-4"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".cursor/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom commands are Markdown prompt files under .cursor/commands (project) or ~/.cursor/commands (user); documented as a beta feature.\n",
+      sources: [
+        "https://docs.cursor.com/en/agent/chat/commands",
+        "https://cursor.com/changelog/1-6",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".cursor/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://docs.cursor.com/advanced/model-context-protocol"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.\n",
+      sources: ["https://cursor.com/docs/subagents", "https://cursor.com/changelog/2-4"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
     },
     instructions: {
       support: "standard",
@@ -973,12 +1159,31 @@ export const AGENTS_BY_ID = {
       scopes: ["user", "project"],
       directory: ".gemini/skills",
     },
+    commands: {
+      support: "bridged",
+      notes:
+        "Custom slash commands are TOML files under .gemini/commands (project) or ~/.gemini/commands (user); AXM bridges its command extension format to TOML.\n",
+      sources: [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".gemini/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Subagents are Markdown files with YAML frontmatter under .gemini/agents (project) or ~/.gemini/agents (user); shipped in Gemini CLI v0.38.1.\n",
+      sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
     },
     instructions: {
       support: "bridged",
@@ -1066,6 +1271,27 @@ export const AGENTS_BY_ID = {
         url: "https://docs.github.com/en/copilot",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "VS Code agent mode, the Copilot CLI, and the cloud agent read SKILL.md skills from .github/skills (project) and ~/.copilot/skills (user); .claude/skills is also recognized.\n",
+      sources: [
+        "https://code.visualstudio.com/docs/copilot/customization/agent-skills",
+        "https://docs.github.com/en/copilot/concepts/agents/about-agent-skills",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".github/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "VS Code Copilot prompt files (.prompt.md) act as slash commands under .github/prompts; the Copilot CLI does not yet support custom commands.\n",
+      sources: ["https://code.visualstudio.com/docs/copilot/customization/prompt-files"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".github/prompts",
+    },
     mcp: {
       support: "standard",
       sources: [
@@ -1153,12 +1379,38 @@ export const AGENTS_BY_ID = {
         url: "https://docs.windsurf.com",
       },
     ],
+    skills: {
+      support: "standard",
+      notes:
+        "Cascade reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure.\n",
+      sources: ["https://docs.windsurf.com/windsurf/cascade/skills"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".windsurf/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Windsurf Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows (user).\n",
+      sources: ["https://docs.windsurf.com/windsurf/cascade/workflows"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".windsurf/workflows",
+    },
     mcp: {
       support: "standard",
       sources: ["https://docs.windsurf.com/windsurf/cascade/mcp"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+    },
+    subagents: {
+      support: "unsupported",
+      notes:
+        "Cascade exposes only built-in and internal subagents plus multi-agent sessions; no user-authorable custom subagent extension type is documented.\n",
+      sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
+      lastVerified: "2026-05-18",
+      scopes: [],
     },
     instructions: {
       support: "standard",

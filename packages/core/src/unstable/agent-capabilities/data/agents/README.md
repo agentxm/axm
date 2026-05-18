@@ -15,6 +15,17 @@ Capability claims require:
 Use `unknown` by omitting a capability. Use `unsupported` only when an
 authoritative source verifies lack of support.
 
+Support levels:
+
+- `standard` — the agent natively conforms to an industry spec standard for the
+  capability. Only `skills` has such a standard today (the Agent Skills
+  `SKILL.md` format), so only `skills` can be `standard`.
+- `bridged` — the capability works through an AXM adapter that maps it to the
+  agent's native format. This is the ceiling for capabilities with no industry
+  spec standard yet, such as `subagents` and `commands`: even when an agent
+  supports them natively, the catalog records `bridged` rather than `standard`.
+- `planned` — AXM support is intended but not yet available.
+
 Instructions invariant:
 
 - `support: standard` means `files` includes `AGENTS.md`

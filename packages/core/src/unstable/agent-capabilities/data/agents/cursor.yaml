@@ -33,3 +33,67 @@ rules:
   sources:
     - https://docs.cursor.com/en/context/rules
   lastVerified: 2026-05-16
+
+permissions:
+  support: standard
+  scopes: [user, project]
+  mechanism: [config-file, ui-only, cli-flag]
+  configFiles:
+    # IDE terminal allowlist (user scope only - no per-project IDE override).
+    - scope: user
+      path: "~/.cursor/permissions.json"
+      format: json
+    # Sandbox supports both user and project scope.
+    - scope: user
+      path: "~/.cursor/sandbox.json"
+      format: json
+    - scope: project
+      path: .cursor/sandbox.json
+      format: json
+    # cursor-agent CLI supports both scopes.
+    - scope: user
+      path: "~/.cursor/cli-config.json"
+      format: json
+    - scope: project
+      path: .cursor/cli.json
+      format: json
+  grammar:
+    style: prefix
+    example: axm
+    notes: >
+      IDE: case-sensitive command prefix in terminalAllowlist. CLI: Tool-call
+      syntax Shell()/Read()/Write() with glob patterns. Deny always beats allow.
+  prerequisites:
+    - key: "Settings > Cursor Settings > Agents > Auto-Run"
+      value: "Run in Sandbox | Run Everything"
+      scope: user
+      note: IDE Auto-Run must be enabled before terminalAllowlist takes effect.
+  cliFlags:
+    - flag: "--force"
+      note: Bypasses cursor-agent prompts (community-documented; verify against --help).
+    - flag: "--yolo"
+      note: Bypasses cursor-agent prompts (community-documented; verify against --help).
+  grants:
+    shell:
+      target: "~/.cursor/permissions.json"
+      patch:
+        terminalAllowlist:
+          - "${tool}"
+    cliShell:
+      target: .cursor/cli.json
+      patch:
+        permissions:
+          allow:
+            - "Shell(${tool})"
+            - "Shell(${tool}:*)"
+    filesystem:
+      target: .cursor/sandbox.json
+      patch:
+        type: workspace_readwrite
+        additionalReadwritePaths: []
+  sources:
+    - https://cursor.com/docs/reference/permissions
+    - https://cursor.com/docs/reference/sandbox
+    - https://cursor.com/docs/agent/tools/terminal
+    - https://cursor.com/docs/cli/reference/permissions
+  lastVerified: 2026-05-18

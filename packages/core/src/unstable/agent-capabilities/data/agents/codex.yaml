@@ -25,3 +25,58 @@ instructions:
   sources:
     - https://github.com/openai/codex/blob/main/docs/agents_md.md
   lastVerified: 2026-05-16
+
+permissions:
+  support: standard
+  scopes: [user, project]
+  mechanism: [config-file, cli-flag]
+  configFiles:
+    - scope: user
+      path: "~/.codex/config.toml"
+      format: toml
+    - scope: user
+      path: "~/.codex/rules/${tool}.rules"
+      format: starlark
+  grammar:
+    style: starlark-rule
+    example: 'prefix_rule(pattern=["axm"], decision="allow")'
+    notes: >
+      Per-command allowlisting is Starlark prefix_rule() in ~/.codex/rules/*.rules.
+      Sandbox and approval mode live separately in config.toml. Most restrictive
+      match wins (forbidden > prompt > allow).
+  prerequisites:
+    - key: sandbox_mode
+      value: workspace-write
+      scope: user
+      note: Required to grant project write access.
+    - key: approval_policy
+      value: never
+      scope: user
+      note: Suppresses approval prompts.
+  cliFlags:
+    - flag: "--full-auto"
+      note: Equivalent one-shot bypass of prompts and sandbox restrictions.
+    - flag: "--sandbox workspace-write"
+    - flag: "--ask-for-approval never"
+  grants:
+    shell:
+      target: "~/.codex/rules/${tool}.rules"
+      template: |
+        prefix_rule(
+            pattern = ["${tool}"],
+            decision = "allow",
+            justification = "${tool} CLI trusted in this workspace.",
+        )
+    filesystem:
+      target: "~/.codex/config.toml"
+      patch:
+        sandbox_mode: workspace-write
+        sandbox_workspace_write:
+          writable_roots: ["${workspaceRoot}"]
+          network_access: true
+  sources:
+    - https://developers.openai.com/codex/config-reference
+    - https://developers.openai.com/codex/config-advanced
+    - https://developers.openai.com/codex/security
+    - https://developers.openai.com/codex/rules
+  lastVerified: 2026-05-18

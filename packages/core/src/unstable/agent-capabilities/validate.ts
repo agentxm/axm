@@ -41,6 +41,8 @@ const capabilityEntry = (
         : { kind, capability: agent.instructions };
     case "rules":
       return agent.rules === undefined ? undefined : { kind, capability: agent.rules };
+    case "permissions":
+      return agent.permissions === undefined ? undefined : { kind, capability: agent.permissions };
     default:
       return kind satisfies never;
   }

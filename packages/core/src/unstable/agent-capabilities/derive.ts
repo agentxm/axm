@@ -34,6 +34,7 @@ export const capabilityKinds = [
   "subagents",
   "instructions",
   "rules",
+  "permissions",
 ] as const;
 
 /** @experimental This API is unstable and may change without notice. */

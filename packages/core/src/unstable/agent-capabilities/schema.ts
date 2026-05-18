@@ -242,13 +242,156 @@ export const RulesCapabilitySchema = Schema.Struct({
 export type RulesCapability = Schema.Schema.Type<typeof RulesCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const ConfigFileFormatSchema = Schema.Literals([
+  "json",
+  "jsonc",
+  "toml",
+  "starlark",
+  "vscode-settings",
+]).annotate({
+  identifier: "ConfigFileFormat",
+  title: "Config File Format",
+  description: "Serialization format used by an agent's permission config file.",
+  examples: ["json", "toml", "vscode-settings"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type ConfigFileFormat = Schema.Schema.Type<typeof ConfigFileFormatSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionMechanismSchema = Schema.Literals([
+  "config-file",
+  "cli-flag",
+  "ui-only",
+]).annotate({
+  identifier: "PermissionMechanism",
+  title: "Permission Mechanism",
+  description: "How an agent exposes permission configuration.",
+  examples: ["config-file", "cli-flag", "ui-only"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PermissionMechanism = Schema.Schema.Type<typeof PermissionMechanismSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionGrammarStyleSchema = Schema.Literals([
+  "tool-call",
+  "prefix",
+  "regex",
+  "glob",
+  "starlark-rule",
+]).annotate({
+  identifier: "PermissionGrammarStyle",
+  title: "Permission Grammar Style",
+  description: "Syntax shape used to express a permission rule.",
+  examples: ["tool-call", "prefix", "regex"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PermissionGrammarStyle = Schema.Schema.Type<typeof PermissionGrammarStyleSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const ConfigFileLocationSchema = Schema.Struct({
+  scope: ScopeSchema,
+  path: Schema.NonEmptyString,
+  format: ConfigFileFormatSchema,
+  gitignored: Schema.optional(Schema.Boolean),
+}).annotate({
+  identifier: "ConfigFileLocation",
+  title: "Config File Location",
+  description: "A configuration file where an agent's permission rules can live.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type ConfigFileLocation = Schema.Schema.Type<typeof ConfigFileLocationSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionGrammarSchema = Schema.Struct({
+  style: PermissionGrammarStyleSchema,
+  example: Schema.NonEmptyString,
+  notes: Schema.optional(Schema.NonEmptyString),
+}).annotate({
+  identifier: "PermissionGrammar",
+  title: "Permission Grammar",
+  description: "Rule syntax used by an agent's permission system.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PermissionGrammar = Schema.Schema.Type<typeof PermissionGrammarSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionPrerequisiteSchema = Schema.Struct({
+  key: Schema.NonEmptyString,
+  value: Schema.NonEmptyString,
+  scope: ScopeSchema,
+  note: Schema.optional(Schema.NonEmptyString),
+}).annotate({
+  identifier: "PermissionPrerequisite",
+  title: "Permission Prerequisite",
+  description: "Mode or gate that must be set before allow rules take effect.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PermissionPrerequisite = Schema.Schema.Type<typeof PermissionPrerequisiteSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionCliFlagSchema = Schema.Struct({
+  flag: Schema.NonEmptyString,
+  note: Schema.optional(Schema.NonEmptyString),
+}).annotate({
+  identifier: "PermissionCliFlag",
+  title: "Permission CLI Flag",
+  description: "Invocation-time flag that adjusts approval or sandbox behavior.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PermissionCliFlag = Schema.Schema.Type<typeof PermissionCliFlagSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionGrantSchema = Schema.Struct({
+  target: Schema.NonEmptyString,
+  patch: Schema.optional(Schema.Unknown),
+  template: Schema.optional(Schema.NonEmptyString),
+}).annotate({
+  identifier: "PermissionGrant",
+  title: "Permission Grant",
+  description:
+    "Instruction to grant access for a named tool. Provide patch (JSON-ish merge) or template (raw text). Path and patch may interpolate ${tool} and ${workspaceRoot}.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PermissionGrant = Schema.Schema.Type<typeof PermissionGrantSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionsCapabilitySchema = Schema.Struct({
+  ...ScopedCapabilityBaseFields,
+  mechanism: Schema.Array(PermissionMechanismSchema).pipe(
+    Schema.annotateKey({ messageMissingKey: "permission mechanisms are required" }),
+    Schema.check(Schema.isUnique()),
+  ),
+  configFiles: Schema.optional(Schema.Array(ConfigFileLocationSchema)),
+  grammar: Schema.optional(PermissionGrammarSchema),
+  prerequisites: Schema.optional(Schema.Array(PermissionPrerequisiteSchema)),
+  cliFlags: Schema.optional(Schema.Array(PermissionCliFlagSchema)),
+  grants: Schema.optional(Schema.Record(Schema.String, PermissionGrantSchema)),
+}).annotate({
+  identifier: "PermissionsCapability",
+  title: "Permissions Capability",
+  description: "How an agent grants tool execution and filesystem access without per-call prompts.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PermissionsCapability = Schema.Schema.Type<typeof PermissionsCapabilitySchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export type AgentCapability =
   | SkillsCapability
   | CommandsCapability
   | McpCapability
   | SubagentsCapability
   | InstructionsCapability
-  | RulesCapability;
+  | RulesCapability
+  | PermissionsCapability;
 
 /** @experimental This API is unstable and may change without notice. */
 export const AgentSchema = Schema.Struct({
@@ -274,6 +417,7 @@ export const AgentSchema = Schema.Struct({
   subagents: Schema.optional(SubagentsCapabilitySchema),
   instructions: Schema.optional(InstructionsCapabilitySchema),
   rules: Schema.optional(RulesCapabilitySchema),
+  permissions: Schema.optional(PermissionsCapabilitySchema),
 }).annotate({
   identifier: "Agent",
   title: "Agent",

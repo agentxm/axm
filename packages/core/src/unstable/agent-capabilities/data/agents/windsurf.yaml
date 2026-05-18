@@ -33,3 +33,34 @@ rules:
   sources:
     - https://docs.windsurf.com/windsurf/cascade/rules
   lastVerified: 2026-05-16
+
+permissions:
+  support: standard
+  scopes: [user]
+  mechanism: [config-file, ui-only]
+  configFiles:
+    - scope: user
+      path: VS Code settings (Settings UI)
+      format: vscode-settings
+  grammar:
+    style: prefix
+    example: axm
+    notes: >
+      windsurf.cascadeCommandsAllowList is prefix-matched. Workspace-scoped
+      override for these keys is not documented; configure at user scope.
+      Teams/Enterprise can merge in lists via the Admin Portal.
+  prerequisites:
+    - key: Cascade auto-execution level
+      value: "allowlist_only | turbo"
+      scope: user
+      note: Disabled and Auto modes ignore allowlist entries; set via the Windsurf Settings panel.
+  grants:
+    shell:
+      target: VS Code settings
+      patch:
+        windsurf.cascadeCommandsAllowList:
+          - "${tool}"
+  sources:
+    - https://docs.windsurf.com/windsurf/terminal
+    - https://docs.windsurf.com/windsurf/cascade
+  lastVerified: 2026-05-18

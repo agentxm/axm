@@ -283,6 +283,162 @@
       "title": "Rules Capability",
       "description": "Agent support for structured rule files."
     },
+    "PermissionMechanism": {
+      "type": "string",
+      "enum": ["config-file", "cli-flag", "ui-only"],
+      "title": "Permission Mechanism",
+      "description": "How an agent exposes permission configuration.",
+      "examples": ["config-file", "cli-flag", "ui-only"]
+    },
+    "ConfigFileFormat": {
+      "type": "string",
+      "enum": ["json", "jsonc", "toml", "starlark", "vscode-settings"],
+      "title": "Config File Format",
+      "description": "Serialization format used by an agent's permission config file.",
+      "examples": ["json", "toml", "vscode-settings"]
+    },
+    "ConfigFileLocation": {
+      "type": "object",
+      "properties": {
+        "scope": { "$ref": "#/definitions/Scope" },
+        "path": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "format": { "$ref": "#/definitions/ConfigFileFormat" },
+        "gitignored": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+      },
+      "required": ["scope", "path", "format"],
+      "additionalProperties": false,
+      "title": "Config File Location",
+      "description": "A configuration file where an agent's permission rules can live."
+    },
+    "PermissionGrammarStyle": {
+      "type": "string",
+      "enum": ["tool-call", "prefix", "regex", "glob", "starlark-rule"],
+      "title": "Permission Grammar Style",
+      "description": "Syntax shape used to express a permission rule.",
+      "examples": ["tool-call", "prefix", "regex"]
+    },
+    "PermissionGrammar": {
+      "type": "object",
+      "properties": {
+        "style": { "$ref": "#/definitions/PermissionGrammarStyle" },
+        "example": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["style", "example"],
+      "additionalProperties": false,
+      "title": "Permission Grammar",
+      "description": "Rule syntax used by an agent's permission system."
+    },
+    "PermissionPrerequisite": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "value": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "scope": { "$ref": "#/definitions/Scope" },
+        "note": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["key", "value", "scope"],
+      "additionalProperties": false,
+      "title": "Permission Prerequisite",
+      "description": "Mode or gate that must be set before allow rules take effect."
+    },
+    "PermissionCliFlag": {
+      "type": "object",
+      "properties": {
+        "flag": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "note": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["flag"],
+      "additionalProperties": false,
+      "title": "Permission CLI Flag",
+      "description": "Invocation-time flag that adjusts approval or sandbox behavior."
+    },
+    "PermissionGrant": {
+      "type": "object",
+      "properties": {
+        "target": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "patch": { "anyOf": [{}, { "type": "null" }] },
+        "template": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["target"],
+      "additionalProperties": false,
+      "title": "Permission Grant",
+      "description": "Instruction to grant access for a named tool. Provide patch (JSON-ish merge) or template (raw text). Path and patch may interpolate ${tool} and ${workspaceRoot}."
+    },
+    "PermissionsCapability": {
+      "type": "object",
+      "properties": {
+        "support": { "$ref": "#/definitions/SupportLevel" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        },
+        "mechanism": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/PermissionMechanism" }
+        },
+        "configFiles": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/ConfigFileLocation" } },
+            { "type": "null" }
+          ]
+        },
+        "grammar": { "anyOf": [{ "$ref": "#/definitions/PermissionGrammar" }, { "type": "null" }] },
+        "prerequisites": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/PermissionPrerequisite" } },
+            { "type": "null" }
+          ]
+        },
+        "cliFlags": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/PermissionCliFlag" } },
+            { "type": "null" }
+          ]
+        },
+        "grants": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/PermissionGrant" }
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["support", "scopes", "mechanism"],
+      "additionalProperties": false,
+      "title": "Permissions Capability",
+      "description": "How an agent grants tool execution and filesystem access without per-call prompts."
+    },
     "Agent": {
       "type": "object",
       "properties": {
@@ -315,7 +471,10 @@
         "instructions": {
           "anyOf": [{ "$ref": "#/definitions/InstructionsCapability" }, { "type": "null" }]
         },
-        "rules": { "anyOf": [{ "$ref": "#/definitions/RulesCapability" }, { "type": "null" }] }
+        "rules": { "anyOf": [{ "$ref": "#/definitions/RulesCapability" }, { "type": "null" }] },
+        "permissions": {
+          "anyOf": [{ "$ref": "#/definitions/PermissionsCapability" }, { "type": "null" }]
+        }
       },
       "required": ["id", "name", "vendor", "homepage", "interfaces"],
       "additionalProperties": false,

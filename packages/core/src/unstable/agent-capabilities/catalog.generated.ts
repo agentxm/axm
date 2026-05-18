@@ -77,6 +77,62 @@ export const AGENTS = [
       files: ["CLAUDE.md"],
       nestedDiscovery: true,
     },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://docs.claude.com/en/docs/claude-code/iam",
+        "https://docs.claude.com/en/docs/claude-code/settings",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.claude/settings.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.local.json",
+          format: "json",
+          gitignored: true,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: "Bash(axm:*)",
+        notes:
+          "Tool(specifier) with * wildcards. Evaluated deny > ask > allow (first match wins). Settings merge across scopes rather than override.\n",
+      },
+      grants: {
+        shell: {
+          target: "~/.claude/settings.json",
+          patch: {
+            permissions: {
+              allow: ["Bash(${tool}:*)"],
+            },
+          },
+        },
+        filesystem: {
+          target: "~/.claude/settings.json",
+          patch: {
+            permissions: {
+              allow: [
+                "Read(${workspaceRoot}/**)",
+                "Write(${workspaceRoot}/**)",
+                "Edit(${workspaceRoot}/**)",
+              ],
+            },
+          },
+        },
+      },
+    },
   },
   {
     id: "codex",
@@ -105,6 +161,79 @@ export const AGENTS = [
       scopes: ["user", "project"],
       files: ["AGENTS.md"],
       nestedDiscovery: true,
+    },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://developers.openai.com/codex/config-reference",
+        "https://developers.openai.com/codex/config-advanced",
+        "https://developers.openai.com/codex/security",
+        "https://developers.openai.com/codex/rules",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.codex/config.toml",
+          format: "toml",
+        },
+        {
+          scope: "user",
+          path: "~/.codex/rules/${tool}.rules",
+          format: "starlark",
+        },
+      ],
+      grammar: {
+        style: "starlark-rule",
+        example: 'prefix_rule(pattern=["axm"], decision="allow")',
+        notes:
+          "Per-command allowlisting is Starlark prefix_rule() in ~/.codex/rules/*.rules. Sandbox and approval mode live separately in config.toml. Most restrictive match wins (forbidden > prompt > allow).\n",
+      },
+      prerequisites: [
+        {
+          key: "sandbox_mode",
+          value: "workspace-write",
+          scope: "user",
+          note: "Required to grant project write access.",
+        },
+        {
+          key: "approval_policy",
+          value: "never",
+          scope: "user",
+          note: "Suppresses approval prompts.",
+        },
+      ],
+      cliFlags: [
+        {
+          flag: "--full-auto",
+          note: "Equivalent one-shot bypass of prompts and sandbox restrictions.",
+        },
+        {
+          flag: "--sandbox workspace-write",
+        },
+        {
+          flag: "--ask-for-approval never",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.codex/rules/${tool}.rules",
+          template:
+            'prefix_rule(\n    pattern = ["${tool}"],\n    decision = "allow",\n    justification = "${tool} CLI trusted in this workspace.",\n)\n',
+        },
+        filesystem: {
+          target: "~/.codex/config.toml",
+          patch: {
+            sandbox_mode: "workspace-write",
+            sandbox_workspace_write: {
+              writable_roots: ["${workspaceRoot}"],
+              network_access: true,
+            },
+          },
+        },
+      },
     },
   },
   {
@@ -142,6 +271,92 @@ export const AGENTS = [
       scopes: ["project"],
       directory: ".cursor/rules",
     },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://cursor.com/docs/reference/permissions",
+        "https://cursor.com/docs/reference/sandbox",
+        "https://cursor.com/docs/agent/tools/terminal",
+        "https://cursor.com/docs/cli/reference/permissions",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "ui-only", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.cursor/permissions.json",
+          format: "json",
+        },
+        {
+          scope: "user",
+          path: "~/.cursor/sandbox.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".cursor/sandbox.json",
+          format: "json",
+        },
+        {
+          scope: "user",
+          path: "~/.cursor/cli-config.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".cursor/cli.json",
+          format: "json",
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: "axm",
+        notes:
+          "IDE: case-sensitive command prefix in terminalAllowlist. CLI: Tool-call syntax Shell()/Read()/Write() with glob patterns. Deny always beats allow.\n",
+      },
+      prerequisites: [
+        {
+          key: "Settings > Cursor Settings > Agents > Auto-Run",
+          value: "Run in Sandbox | Run Everything",
+          scope: "user",
+          note: "IDE Auto-Run must be enabled before terminalAllowlist takes effect.",
+        },
+      ],
+      cliFlags: [
+        {
+          flag: "--force",
+          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+        },
+        {
+          flag: "--yolo",
+          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.cursor/permissions.json",
+          patch: {
+            terminalAllowlist: ["${tool}"],
+          },
+        },
+        cliShell: {
+          target: ".cursor/cli.json",
+          patch: {
+            permissions: {
+              allow: ["Shell(${tool})", "Shell(${tool}:*)"],
+            },
+          },
+        },
+        filesystem: {
+          target: ".cursor/sandbox.json",
+          patch: {
+            type: "workspace_readwrite",
+            additionalReadwritePaths: [],
+          },
+        },
+      },
+    },
   },
   {
     id: "gemini-cli",
@@ -177,6 +392,70 @@ export const AGENTS = [
       scopes: ["user", "project"],
       files: ["GEMINI.md"],
       nestedDiscovery: true,
+    },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/settings.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/shell.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/trusted-folders.md",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.gemini/settings.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".gemini/settings.json",
+          format: "json",
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: "run_shell_command(axm)",
+        notes:
+          "tools.core is prefix-matched and currently documented in docs/tools/shell.md. The newer Policy Engine is replacing --allowed-tools; tools.core is still functional but transitional.\n",
+      },
+      prerequisites: [
+        {
+          key: "security.folderTrust.enabled",
+          value: "true",
+          scope: "user",
+          note: "Untrusted folders disable all auto-acceptance regardless of other settings.",
+        },
+      ],
+      cliFlags: [
+        {
+          flag: "--approval-mode=yolo",
+          note: "Broad bypass; not tool-scoped. Blocked when security.disableYoloMode=true.",
+        },
+        {
+          flag: "--yolo",
+          note: "Alias for --approval-mode=yolo.",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.gemini/settings.json",
+          patch: {
+            security: {
+              folderTrust: {
+                enabled: true,
+              },
+              enablePermanentToolApproval: true,
+            },
+            tools: {
+              core: ["run_shell_command(${tool})"],
+            },
+          },
+        },
+      },
     },
   },
   {
@@ -215,6 +494,56 @@ export const AGENTS = [
       files: ["AGENTS.md", ".github/copilot-instructions.md"],
       nestedDiscovery: false,
     },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://code.visualstudio.com/docs/copilot/reference/copilot-settings",
+        "https://code.visualstudio.com/docs/copilot/chat/chat-agent-mode",
+        "https://code.visualstudio.com/docs/copilot/agents/agent-tools",
+        "https://docs.github.com/en/copilot/concepts/agents/coding-agent",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/Library/Application Support/Code/User/settings.json",
+          format: "vscode-settings",
+        },
+        {
+          scope: "project",
+          path: ".vscode/settings.json",
+          format: "vscode-settings",
+        },
+      ],
+      grammar: {
+        style: "regex",
+        example: '"/^axm(\\\\s|$)/": true',
+        notes:
+          "chat.tools.terminal.autoApprove keys are literal command names or /regex/ patterns mapping to bool. Default deny rules for rm, chmod, etc. remain active unless chat.tools.terminal.ignoreDefaultAutoApproveRules is set.\n",
+      },
+      cliFlags: [],
+      grants: {
+        shell: {
+          target: ".vscode/settings.json",
+          patch: {
+            "chat.tools.terminal.autoApprove": {
+              "${tool}": true,
+              "/^${tool}(\\s|$)/": true,
+            },
+          },
+        },
+        filesystem: {
+          target: ".vscode/settings.json",
+          patch: {
+            "chat.tools.edits.autoApprove": {
+              "**/*": true,
+            },
+          },
+        },
+      },
+    },
   },
   {
     id: "windsurf",
@@ -250,6 +579,45 @@ export const AGENTS = [
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       directory: ".windsurf/rules",
+    },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://docs.windsurf.com/windsurf/terminal",
+        "https://docs.windsurf.com/windsurf/cascade",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user"],
+      mechanism: ["config-file", "ui-only"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "VS Code settings (Settings UI)",
+          format: "vscode-settings",
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: "axm",
+        notes:
+          "windsurf.cascadeCommandsAllowList is prefix-matched. Workspace-scoped override for these keys is not documented; configure at user scope. Teams/Enterprise can merge in lists via the Admin Portal.\n",
+      },
+      prerequisites: [
+        {
+          key: "Cascade auto-execution level",
+          value: "allowlist_only | turbo",
+          scope: "user",
+          note: "Disabled and Auto modes ignore allowlist entries; set via the Windsurf Settings panel.",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "VS Code settings",
+          patch: {
+            "windsurf.cascadeCommandsAllowList": ["${tool}"],
+          },
+        },
+      },
     },
   },
 ] as const satisfies ReadonlyArray<Agent>;
@@ -304,6 +672,62 @@ export const AGENTS_BY_ID = {
       files: ["CLAUDE.md"],
       nestedDiscovery: true,
     },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://docs.claude.com/en/docs/claude-code/iam",
+        "https://docs.claude.com/en/docs/claude-code/settings",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.claude/settings.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.local.json",
+          format: "json",
+          gitignored: true,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: "Bash(axm:*)",
+        notes:
+          "Tool(specifier) with * wildcards. Evaluated deny > ask > allow (first match wins). Settings merge across scopes rather than override.\n",
+      },
+      grants: {
+        shell: {
+          target: "~/.claude/settings.json",
+          patch: {
+            permissions: {
+              allow: ["Bash(${tool}:*)"],
+            },
+          },
+        },
+        filesystem: {
+          target: "~/.claude/settings.json",
+          patch: {
+            permissions: {
+              allow: [
+                "Read(${workspaceRoot}/**)",
+                "Write(${workspaceRoot}/**)",
+                "Edit(${workspaceRoot}/**)",
+              ],
+            },
+          },
+        },
+      },
+    },
   },
   codex: {
     id: "codex",
@@ -332,6 +756,79 @@ export const AGENTS_BY_ID = {
       scopes: ["user", "project"],
       files: ["AGENTS.md"],
       nestedDiscovery: true,
+    },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://developers.openai.com/codex/config-reference",
+        "https://developers.openai.com/codex/config-advanced",
+        "https://developers.openai.com/codex/security",
+        "https://developers.openai.com/codex/rules",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.codex/config.toml",
+          format: "toml",
+        },
+        {
+          scope: "user",
+          path: "~/.codex/rules/${tool}.rules",
+          format: "starlark",
+        },
+      ],
+      grammar: {
+        style: "starlark-rule",
+        example: 'prefix_rule(pattern=["axm"], decision="allow")',
+        notes:
+          "Per-command allowlisting is Starlark prefix_rule() in ~/.codex/rules/*.rules. Sandbox and approval mode live separately in config.toml. Most restrictive match wins (forbidden > prompt > allow).\n",
+      },
+      prerequisites: [
+        {
+          key: "sandbox_mode",
+          value: "workspace-write",
+          scope: "user",
+          note: "Required to grant project write access.",
+        },
+        {
+          key: "approval_policy",
+          value: "never",
+          scope: "user",
+          note: "Suppresses approval prompts.",
+        },
+      ],
+      cliFlags: [
+        {
+          flag: "--full-auto",
+          note: "Equivalent one-shot bypass of prompts and sandbox restrictions.",
+        },
+        {
+          flag: "--sandbox workspace-write",
+        },
+        {
+          flag: "--ask-for-approval never",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.codex/rules/${tool}.rules",
+          template:
+            'prefix_rule(\n    pattern = ["${tool}"],\n    decision = "allow",\n    justification = "${tool} CLI trusted in this workspace.",\n)\n',
+        },
+        filesystem: {
+          target: "~/.codex/config.toml",
+          patch: {
+            sandbox_mode: "workspace-write",
+            sandbox_workspace_write: {
+              writable_roots: ["${workspaceRoot}"],
+              network_access: true,
+            },
+          },
+        },
+      },
     },
   },
   cursor: {
@@ -369,6 +866,92 @@ export const AGENTS_BY_ID = {
       scopes: ["project"],
       directory: ".cursor/rules",
     },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://cursor.com/docs/reference/permissions",
+        "https://cursor.com/docs/reference/sandbox",
+        "https://cursor.com/docs/agent/tools/terminal",
+        "https://cursor.com/docs/cli/reference/permissions",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "ui-only", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.cursor/permissions.json",
+          format: "json",
+        },
+        {
+          scope: "user",
+          path: "~/.cursor/sandbox.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".cursor/sandbox.json",
+          format: "json",
+        },
+        {
+          scope: "user",
+          path: "~/.cursor/cli-config.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".cursor/cli.json",
+          format: "json",
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: "axm",
+        notes:
+          "IDE: case-sensitive command prefix in terminalAllowlist. CLI: Tool-call syntax Shell()/Read()/Write() with glob patterns. Deny always beats allow.\n",
+      },
+      prerequisites: [
+        {
+          key: "Settings > Cursor Settings > Agents > Auto-Run",
+          value: "Run in Sandbox | Run Everything",
+          scope: "user",
+          note: "IDE Auto-Run must be enabled before terminalAllowlist takes effect.",
+        },
+      ],
+      cliFlags: [
+        {
+          flag: "--force",
+          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+        },
+        {
+          flag: "--yolo",
+          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.cursor/permissions.json",
+          patch: {
+            terminalAllowlist: ["${tool}"],
+          },
+        },
+        cliShell: {
+          target: ".cursor/cli.json",
+          patch: {
+            permissions: {
+              allow: ["Shell(${tool})", "Shell(${tool}:*)"],
+            },
+          },
+        },
+        filesystem: {
+          target: ".cursor/sandbox.json",
+          patch: {
+            type: "workspace_readwrite",
+            additionalReadwritePaths: [],
+          },
+        },
+      },
+    },
   },
   "gemini-cli": {
     id: "gemini-cli",
@@ -404,6 +987,70 @@ export const AGENTS_BY_ID = {
       scopes: ["user", "project"],
       files: ["GEMINI.md"],
       nestedDiscovery: true,
+    },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/settings.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/shell.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/trusted-folders.md",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.gemini/settings.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".gemini/settings.json",
+          format: "json",
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: "run_shell_command(axm)",
+        notes:
+          "tools.core is prefix-matched and currently documented in docs/tools/shell.md. The newer Policy Engine is replacing --allowed-tools; tools.core is still functional but transitional.\n",
+      },
+      prerequisites: [
+        {
+          key: "security.folderTrust.enabled",
+          value: "true",
+          scope: "user",
+          note: "Untrusted folders disable all auto-acceptance regardless of other settings.",
+        },
+      ],
+      cliFlags: [
+        {
+          flag: "--approval-mode=yolo",
+          note: "Broad bypass; not tool-scoped. Blocked when security.disableYoloMode=true.",
+        },
+        {
+          flag: "--yolo",
+          note: "Alias for --approval-mode=yolo.",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.gemini/settings.json",
+          patch: {
+            security: {
+              folderTrust: {
+                enabled: true,
+              },
+              enablePermanentToolApproval: true,
+            },
+            tools: {
+              core: ["run_shell_command(${tool})"],
+            },
+          },
+        },
+      },
     },
   },
   "github-copilot": {
@@ -442,6 +1089,56 @@ export const AGENTS_BY_ID = {
       files: ["AGENTS.md", ".github/copilot-instructions.md"],
       nestedDiscovery: false,
     },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://code.visualstudio.com/docs/copilot/reference/copilot-settings",
+        "https://code.visualstudio.com/docs/copilot/chat/chat-agent-mode",
+        "https://code.visualstudio.com/docs/copilot/agents/agent-tools",
+        "https://docs.github.com/en/copilot/concepts/agents/coding-agent",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/Library/Application Support/Code/User/settings.json",
+          format: "vscode-settings",
+        },
+        {
+          scope: "project",
+          path: ".vscode/settings.json",
+          format: "vscode-settings",
+        },
+      ],
+      grammar: {
+        style: "regex",
+        example: '"/^axm(\\\\s|$)/": true',
+        notes:
+          "chat.tools.terminal.autoApprove keys are literal command names or /regex/ patterns mapping to bool. Default deny rules for rm, chmod, etc. remain active unless chat.tools.terminal.ignoreDefaultAutoApproveRules is set.\n",
+      },
+      cliFlags: [],
+      grants: {
+        shell: {
+          target: ".vscode/settings.json",
+          patch: {
+            "chat.tools.terminal.autoApprove": {
+              "${tool}": true,
+              "/^${tool}(\\s|$)/": true,
+            },
+          },
+        },
+        filesystem: {
+          target: ".vscode/settings.json",
+          patch: {
+            "chat.tools.edits.autoApprove": {
+              "**/*": true,
+            },
+          },
+        },
+      },
+    },
   },
   windsurf: {
     id: "windsurf",
@@ -477,6 +1174,45 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       directory: ".windsurf/rules",
+    },
+    permissions: {
+      support: "standard",
+      sources: [
+        "https://docs.windsurf.com/windsurf/terminal",
+        "https://docs.windsurf.com/windsurf/cascade",
+      ],
+      lastVerified: "2026-05-18",
+      scopes: ["user"],
+      mechanism: ["config-file", "ui-only"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "VS Code settings (Settings UI)",
+          format: "vscode-settings",
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: "axm",
+        notes:
+          "windsurf.cascadeCommandsAllowList is prefix-matched. Workspace-scoped override for these keys is not documented; configure at user scope. Teams/Enterprise can merge in lists via the Admin Portal.\n",
+      },
+      prerequisites: [
+        {
+          key: "Cascade auto-execution level",
+          value: "allowlist_only | turbo",
+          scope: "user",
+          note: "Disabled and Auto modes ignore allowlist entries; set via the Windsurf Settings panel.",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "VS Code settings",
+          patch: {
+            "windsurf.cascadeCommandsAllowList": ["${tool}"],
+          },
+        },
+      },
     },
   },
 } as const satisfies Record<AgentId, Agent>;

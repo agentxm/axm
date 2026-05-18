@@ -19,3 +19,15 @@ Instructions invariant:
 
 - `support: standard` means `files` includes `AGENTS.md`
 - `support: bridged` means `files` omits `AGENTS.md`
+
+Permissions capability:
+
+- Describes how an agent grants tool execution and filesystem access without
+  per-call prompts. Used by `axm agents add` to suggest concrete config edits.
+- `mechanism` lists every surface that can be used (any of `config-file`,
+  `cli-flag`, `ui-only`).
+- `configFiles` enumerates writable config files by `scope` and `format`.
+- `grants` keys (`shell`, `filesystem`, …) hold either a JSON-ish `patch` or a
+  raw `template`. Both may interpolate `${tool}` and `${workspaceRoot}`.
+- `prerequisites` capture modes/gates (folder trust, Auto-Run, sandbox mode)
+  that must be set before allow rules take effect.

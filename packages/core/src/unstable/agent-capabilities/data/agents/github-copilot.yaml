@@ -32,3 +32,41 @@ instructions:
   sources:
     - https://code.visualstudio.com/docs/copilot/customization/custom-instructions
   lastVerified: 2026-05-16
+
+permissions:
+  support: standard
+  scopes: [user, project]
+  mechanism: [config-file]
+  configFiles:
+    - scope: user
+      path: "~/Library/Application Support/Code/User/settings.json"
+      format: vscode-settings
+    - scope: project
+      path: .vscode/settings.json
+      format: vscode-settings
+  grammar:
+    style: regex
+    example: '"/^axm(\\s|$)/": true'
+    notes: >
+      chat.tools.terminal.autoApprove keys are literal command names or /regex/
+      patterns mapping to bool. Default deny rules for rm, chmod, etc. remain
+      active unless chat.tools.terminal.ignoreDefaultAutoApproveRules is set.
+  cliFlags: []
+  grants:
+    shell:
+      target: .vscode/settings.json
+      patch:
+        chat.tools.terminal.autoApprove:
+          "${tool}": true
+          "/^${tool}(\\s|$)/": true
+    filesystem:
+      target: .vscode/settings.json
+      patch:
+        chat.tools.edits.autoApprove:
+          "**/*": true
+  sources:
+    - https://code.visualstudio.com/docs/copilot/reference/copilot-settings
+    - https://code.visualstudio.com/docs/copilot/chat/chat-agent-mode
+    - https://code.visualstudio.com/docs/copilot/agents/agent-tools
+    - https://docs.github.com/en/copilot/concepts/agents/coding-agent
+  lastVerified: 2026-05-18

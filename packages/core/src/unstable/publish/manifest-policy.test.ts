@@ -46,6 +46,7 @@ describe("manifestFilenameForType", () => {
     expect(manifestFilenameForType("mcp-server")).toBe("mcp-server.json");
     expect(manifestFilenameForType("subagent")).toBe("subagent.json");
     expect(manifestFilenameForType("pack")).toBe("pack.json");
+    expect(manifestFilenameForType("file")).toBe("context-files.json");
   });
 });
 
@@ -164,6 +165,33 @@ describe("resolveManifest", () => {
       });
 
       expect(resolved.identity.name).toBe("my-pack");
+    }),
+  );
+
+  it.effect("resolves a valid context files manifest", () =>
+    Effect.gen(function* () {
+      const manifest = JSON.stringify({
+        owner: "@acme",
+        type: "file",
+        name: "baseline-docs",
+        version: "1.0.0",
+        contents: [
+          {
+            source: { kind: "static", path: "README.md" },
+            target: "README.md",
+            mode: "sync-once",
+          },
+        ],
+      });
+
+      const resolved = yield* resolveManifest({
+        type: "file",
+        entries: [makeEntry("context-files.json"), makeEntry("src/README.md")],
+        readEntry: makeReadEntry({ "context-files.json": manifest }),
+      });
+
+      expect(resolved.identity.name).toBe("baseline-docs");
+      expect(resolved.identity.type).toBe("file");
     }),
   );
 

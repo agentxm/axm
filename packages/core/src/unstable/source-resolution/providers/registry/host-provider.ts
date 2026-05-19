@@ -210,7 +210,7 @@ const toExtensionRef = (
   entry: RegistryExtensionManifest,
   source: RegistrySource,
 ): Option.Option<ExtensionRef> => {
-  if (!isInstallableExtensionType(entry.type)) {
+  if (entry.type !== "file" && !isInstallableExtensionType(entry.type)) {
     return Option.none();
   }
 
@@ -271,6 +271,14 @@ const toExtensionRef = (
         source,
         ...details,
       });
+    case "file":
+      return Option.some({
+        type: "file",
+        refType: "registry" as const,
+        file: { name: entry.name },
+        source,
+        ...details,
+      });
     case "pack":
       return Option.some({
         type: "pack",
@@ -295,6 +303,8 @@ const refName = (ref: ExtensionRef): ExtensionName => {
       return ref.pack.name;
     case "subagent":
       return ref.subagent.name;
+    case "file":
+      return ref.file.name;
   }
 };
 

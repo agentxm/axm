@@ -113,6 +113,14 @@ export type SubagentExtensionRefBase<
 };
 
 /** @experimental */
+export type ContextFilesExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"file", TRefType, TSource> & {
+  readonly file: { readonly name: ExtensionName };
+};
+
+/** @experimental */
 export type PackRefBase<TRefType extends RefType, TSource extends Source> = ExtensionRefBase<
   "pack",
   TRefType,

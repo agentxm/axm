@@ -34,6 +34,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
+  type FileLockEntry,
   type RegistryPackLockEntry,
   ResolvedExtensionMapSchema,
   type ResolvedExtensionMap,
@@ -166,6 +167,17 @@ export const makeBaseWorkspaceMock = (
     addConfiguredSource: () => Effect.void,
     getIgnoredSkillPatterns: emptyArr,
     getConfiguredSkillEntries: () => Effect.succeed({}),
+    getConfiguredFileEntries: () => Effect.succeed({}),
+    getWorkspaceVars: () => Effect.succeed({}),
+    getLockedFiles: () => Effect.succeed({}),
+    getLockedFile: () => Effect.succeed(Option.none<FileLockEntry>()),
+    setFile: () => Effect.void,
+    setFileLock: () => Effect.void,
+    removeFile: () => Effect.void,
+    removeFileSettings: () => Effect.void,
+    removeFileLock: () => Effect.void,
+    updateFileEntry: () => Effect.void,
+    setFileEntry: () => Effect.void,
     getIgnoredCommandPatterns: emptyArr,
     getIgnoredMcpServerPatterns: emptyArr,
     getIgnoredPackPatterns: emptyArr,
@@ -262,11 +274,13 @@ export interface WriteWorkspaceFilesOptions {
   readonly owner?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly commands?: Record<string, unknown> | undefined;
+  readonly files?: Record<string, unknown> | undefined;
   readonly "mcp-servers"?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
   readonly lockfileSkills?: Record<string, unknown> | undefined;
   readonly lockfileCommands?: Record<string, unknown> | undefined;
+  readonly lockfileFiles?: Record<string, unknown> | undefined;
   readonly lockfileMcpServers?: Record<string, unknown> | undefined;
   readonly lockfilePacks?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
@@ -279,6 +293,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(opts.owner && { owner: opts.owner }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
+    ...(hasEntries(opts.files) && { files: opts.files }),
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
     ...(hasEntries(opts["mcp-servers"]) && { "mcp-servers": opts["mcp-servers"] }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
@@ -289,6 +304,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     lockfileVersion: 1,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
+    ...(hasEntries(opts.lockfileFiles) && { files: opts.lockfileFiles }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
     ...(hasEntries(opts.lockfileMcpServers) && { "mcp-servers": opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),

@@ -36,7 +36,15 @@ const TESTUSER = normalizeHandle("@testuser");
 // -----------------------------------------------------------------------------
 
 /** Create an initialized workspace with settings + lockfile + registry source. */
-const initWorkspace = (axmDir: string, registryRoot: string) => {
+const initWorkspace = (
+  axmDir: string,
+  registryRoot: string,
+  sources?: ReadonlyArray<{
+    readonly name: string;
+    readonly type: "registry";
+    readonly location: URL;
+  }>,
+) => {
   fs.mkdirSync(axmDir, { recursive: true });
   fs.mkdirSync(registryRoot, { recursive: true });
   fs.writeFileSync(
@@ -44,7 +52,9 @@ const initWorkspace = (axmDir: string, registryRoot: string) => {
     JSON.stringify({
       profile: "@test",
       agents: ["claude-code"],
-      sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
+      sources: sources ?? [
+        { name: "local", type: "registry", location: new URL(`file://${registryRoot}`) },
+      ],
     }),
   );
   fs.writeFileSync(
@@ -278,6 +288,40 @@ describe("packs publish.handler", () => {
               path.join(registryRoot, "extensions", "@test", "packs", "offline-pack", "index.json"),
             ),
           ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("previews against a remote registry without requiring auth", () => {
+      const { provide } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "preview-pack", {
+        name: "@test/packs/preview-pack",
+        version: "1.0.0",
+        dependencies: {},
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, [
+        {
+          name: "remote",
+          type: "registry",
+          location: new URL("https://registry.example.test"),
+        },
+      ]);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/preview-pack", {
+              force: true,
+              preview: true,
+            }),
+          );
+
+          expect(
+            fs.existsSync(path.join(registryRoot, "extensions", "@test", "packs", "preview-pack")),
+          ).toBe(false);
         }),
       );
     });

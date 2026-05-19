@@ -9,6 +9,7 @@ export type CommandOutcome = "applied" | "previewed" | "no-op" | "cancelled";
 export type SubjectType =
   | "skill"
   | "command"
+  | "file"
   | "subagent"
   | "pack"
   | "mcp-server"

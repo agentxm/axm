@@ -133,6 +133,11 @@ export const handlePublish = Effect.fn("SubagentsPublish.handle")(function* (
   args: PublishHandlerArgs,
 ) {
   const targetRegistry = yield* resolveTargetRegistry(args.registry);
+  if (args.preview) {
+    yield* publishEffect(args, targetRegistry);
+    return;
+  }
+
   yield* withAuthGuard(publishEffect(args, targetRegistry), {
     registryUrl: targetRegistry.registryUrl,
   });

@@ -28,6 +28,14 @@ import { type Lockfile, LockfileSchema } from "./schema.js";
  */
 export const LOCKFILE_NAME = "axm-lock.yaml";
 
+/**
+ * Pure lockfile transformation used to batch multiple lockfile updates before
+ * one atomic write.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type LockfileUpdate = (lockfile: Lockfile) => Lockfile;
+
 // -----------------------------------------------------------------------------
 // Internal Helpers
 // -----------------------------------------------------------------------------
@@ -112,4 +120,33 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
         }),
       ),
     );
+  });
+
+/**
+ * Applies lockfile updates in order without writing to disk.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const applyLockfileUpdates = (
+  lockfile: Lockfile,
+  updates: ReadonlyArray<LockfileUpdate>,
+): Lockfile => updates.reduce((current, update) => update(current), lockfile);
+
+/**
+ * Applies a batch of lockfile updates and writes the result once.
+ *
+ * This is intended for sync flows that discover multiple render-hash changes
+ * while reconciling context files package targets.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const commitLockfileUpdates = (
+  axmDir: string,
+  lockfile: Lockfile,
+  updates: ReadonlyArray<LockfileUpdate>,
+) =>
+  Effect.gen(function* () {
+    const updated = applyLockfileUpdates(lockfile, updates);
+    yield* writeLockfile(axmDir, updated);
+    return updated;
   });

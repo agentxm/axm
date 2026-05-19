@@ -1,6 +1,6 @@
 /**
- * Canonical-extensions scanner: enumerates `.axm/extensions/<owner>/<type-plural>/src/<name>`
- * (canonical AXM) and `.axm/extensions/external/<type-plural>/<name>`
+ * Canonical-extensions scanner: enumerates `.axm/extensions/<owner>/<local-type>/src/<name>`
+ * (canonical AXM) and `.axm/extensions/external/<local-type>/<name>`
  * (external AXM) materializations across all extension types.
  *
  * Per Decision 5 of the workspace read-model design, scanner output is
@@ -33,13 +33,7 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import {
-  type ExtensionType,
-  type ExtensionTypePlural,
-  decodeExtensionNameSync,
-  isExtensionTypePlural,
-  toExtensionType,
-} from "../../../extensions/common.js";
+import { type ExtensionType, decodeExtensionNameSync } from "../../../extensions/common.js";
 import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
 import type { Diagnostics } from "../diagnostics.js";
@@ -107,8 +101,26 @@ const EXTERNAL_OWNER_SEGMENT = "external";
 const isOwnerSegment = (entry: string): boolean =>
   entry.length > 0 && entry !== EXTERNAL_OWNER_SEGMENT;
 
-const asExtensionTypePlural = (entry: string): ExtensionTypePlural | null =>
-  isExtensionTypePlural(entry) ? entry : null;
+const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
+  switch (entry) {
+    case "skills":
+      return "skill";
+    case "commands":
+      return "command";
+    case "mcp-servers":
+      return "mcp-server";
+    case "subagents":
+      return "subagent";
+    case "context-files":
+      return "file";
+    case "rules":
+      return "rule";
+    case "packs":
+      return "pack";
+    default:
+      return null;
+  }
+};
 
 /**
  * Build one occurrence record from a discovered subject directory. Probes
@@ -171,12 +183,11 @@ const scanCanonicalForOwner = (
       typeDirs,
       (typeDirAbsolute) =>
         Effect.gen(function* () {
-          const typePlural = asExtensionTypePlural(path.basename(typeDirAbsolute));
-          if (typePlural === null) {
+          const extensionType = extensionTypeFromLocalDir(path.basename(typeDirAbsolute));
+          if (extensionType === null) {
             const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
             return empty;
           }
-          const extensionType: ExtensionType = toExtensionType(typePlural);
           const directSrcDir = path.join(typeDirAbsolute, "src");
           const directNameCandidates = yield* childEntries(
             SCANNER_NAME,
@@ -260,12 +271,11 @@ const scanExternal = (
       typeDirs,
       (typeDirAbsolute) =>
         Effect.gen(function* () {
-          const typePlural = asExtensionTypePlural(path.basename(typeDirAbsolute));
-          if (typePlural === null) {
+          const extensionType = extensionTypeFromLocalDir(path.basename(typeDirAbsolute));
+          if (extensionType === null) {
             const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
             return empty;
           }
-          const extensionType: ExtensionType = toExtensionType(typePlural);
           const nameCandidates = yield* childEntries(
             SCANNER_NAME,
             fs,

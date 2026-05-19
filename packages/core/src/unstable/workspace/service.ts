@@ -28,6 +28,7 @@ import {
   makeRegistryPackLockEntry,
   writeLockfile,
   type RegistryPackLockEntry,
+  type FilesLockMap,
   type SubagentsLockMap,
 } from "../lockfile/index.js";
 import type { Lockfile } from "../lockfile/schema.js";
@@ -47,6 +48,8 @@ import {
   type CommandEntry,
   type CommandsMap,
   createDefaultSettings,
+  type FileEntry,
+  type FilesMap,
   type McpServerEntry,
   type McpServersMap,
   type SkillEntry,
@@ -83,6 +86,7 @@ import {
   type SetSkillArgs,
   type SetPackArgs,
   type SetCommandArgs,
+  type SetFileArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
   type SkillPathSource,
@@ -468,6 +472,178 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((s): McpServersMap => s.mcpServers ?? {}),
           Effect.withSpan("WorkspaceMutations.getConfiguredMcpServerEntries"),
         ),
+
+      getConfiguredFileEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): FilesMap => s.files ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredFileEntries"),
+        ),
+
+      getWorkspaceVars: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => s.vars ?? {}),
+          Effect.withSpan("WorkspaceMutations.getWorkspaceVars"),
+        ),
+
+      getLockedFiles: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.files ?? {})),
+
+      getLockedFile: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromUndefinedOr((lf.files ?? {})[name])),
+        ),
+
+      setFile: ({ name, lockEntry, versionRange }: SetFileArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const source =
+              lockEntry.type === "registry"
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "file",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
+                : printSourceParams(lockEntryToSourceParams(lockEntry));
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentFiles: FilesMap = currentSettings.files ?? {};
+            const currentEntry = currentFiles[name];
+            const authored = currentEntry?.authored ?? false;
+            const inputs = currentEntry?.inputs ?? {};
+            const updatedSettings = {
+              ...currentSettings,
+              files: {
+                ...currentFiles,
+                [name]: { source, enabled: true, authored, inputs },
+              },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedFiles = currentLockfile.files ?? {};
+            const previous = currentLockedFiles[name];
+            const updatedLockfile = {
+              ...currentLockfile,
+              files: {
+                ...currentLockedFiles,
+                [name]: {
+                  ...lockEntry,
+                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setFile")),
+
+      setFileLock: ({ name, lockEntry }: SetFileArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedFiles = currentLockfile.files ?? {};
+            const previous = currentLockedFiles[name];
+            const updatedLockfile = {
+              ...currentLockfile,
+              files: {
+                ...currentLockedFiles,
+                [name]: {
+                  ...lockEntry,
+                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setFileLock")),
+
+      removeFile: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentFiles: FilesMap = currentSettings.files ?? {};
+            const remainingSettings =
+              name in currentFiles
+                ? (() => {
+                    const { [name]: _, ...remainingFiles } = currentFiles;
+                    void _;
+                    return { ...currentSettings, files: remainingFiles };
+                  })()
+                : currentSettings;
+
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedFiles = currentLockfile.files ?? {};
+            const remainingLockfile =
+              name in currentLockedFiles
+                ? (() => {
+                    const { [name]: _, ...remainingFiles } = currentLockedFiles;
+                    void _;
+                    return { ...currentLockfile, files: remainingFiles };
+                  })()
+                : currentLockfile;
+
+            yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
+            yield* writeLockfile(workspaceDir, remainingLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeFile")),
+
+      removeFileSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentFiles: FilesMap = currentSettings.files ?? {};
+            if (!(name in currentFiles)) return;
+            const { [name]: _, ...remainingFiles } = currentFiles;
+            void _;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              files: remainingFiles,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeFileSettings")),
+
+      removeFileLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedFiles: FilesLockMap = currentLockfile.files ?? {};
+            if (!(name in currentLockedFiles)) return;
+            const { [name]: _, ...remainingFiles } = currentLockedFiles;
+            void _;
+            yield* writeLockfile(workspaceDir, {
+              ...currentLockfile,
+              files: remainingFiles,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeFileLock")),
+
+      updateFileEntry: (name: string, updater: (entry: FileEntry) => FileEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentFiles: FilesMap = currentSettings.files ?? {};
+            const existingEntry = currentFiles[name];
+            if (existingEntry === undefined) return;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              files: { ...currentFiles, [name]: updater(existingEntry) },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.updateFileEntry")),
+
+      setFileEntry: (name: string, entry: FileEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentFiles: FilesMap = currentSettings.files ?? {};
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              files: { ...currentFiles, [name]: entry },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setFileEntry")),
 
       getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
 
@@ -1356,7 +1532,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ? packEntry.resolvedSkills
                 : target.type === "command"
                   ? packEntry.resolvedCommands
-                  : packEntry.resolvedMcpServers;
+                  : target.type === "mcp-server"
+                    ? packEntry.resolvedMcpServers
+                    : (packEntry.resolvedFiles ?? {});
 
             // Check if any FQN key in the resolved map ends with the target name
             for (const fqn of Object.keys(resolvedMap)) {
@@ -1409,6 +1587,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   ...currentLockfile,
                   mcpServers: {
                     ...mcpServers,
+                    [target.name]: { ...entry, retainedByPack: true },
+                  },
+                };
+                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                break;
+              }
+              case "file": {
+                const files = currentLockfile.files ?? {};
+                const entry = files[target.name];
+                if (entry === undefined) return;
+                const updatedLockfile = {
+                  ...currentLockfile,
+                  files: {
+                    ...files,
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };

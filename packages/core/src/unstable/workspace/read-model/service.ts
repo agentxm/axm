@@ -26,16 +26,16 @@ import {
 } from "./errors.js";
 import {
   makeCommandExtensionsApi,
-  makeFileExtensionsApi,
+  makeContextFilesExtensionsApi,
   makeMcpServerExtensionsApi,
   makePackExtensionsApi,
   makeRuleExtensionsApi,
   makeSkillExtensionsApi,
   makeSubagentExtensionsApi,
   type CommandExtensionsApi,
-  type FileExtensionsApi,
+  type ContextFilesExtensionsApi,
   type InstalledPackForCommands,
-  type InstalledPackForFiles,
+  type InstalledPackForContextFiles,
   type InstalledPackForMcpServers,
   type InstalledPackForRules,
   type InstalledPackForSkills,
@@ -102,7 +102,7 @@ export interface WorkspaceReadModel {
   readonly commands: CommandExtensionsApi;
   readonly mcpServers: McpServerExtensionsApi;
   readonly subagents: SubagentExtensionsApi;
-  readonly files: FileExtensionsApi;
+  readonly files: ContextFilesExtensionsApi;
   readonly rules: RuleExtensionsApi;
   readonly packs: PackExtensionsApi;
   readonly agents: ScopedAgentsApi;
@@ -380,9 +380,8 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       ),
     );
 
-  const filesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>> = Effect.succeed(
-    [],
-  );
+  const filesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForContextFiles>> =
+    Effect.succeed([]);
   const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> = Effect.succeed(
     [],
   );
@@ -423,7 +422,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     diagnostics,
   });
 
-  const files = yield* makeFileExtensionsApi({
+  const files = yield* makeContextFilesExtensionsApi({
     scope,
     scanners: { canonical: canonicalScanner },
     installedPacks: filesInstalledPacks,

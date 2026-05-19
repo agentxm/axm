@@ -12,7 +12,11 @@
 export type {
   CommandLockEntry,
   CommandsLockMap,
+  FileLockEntry,
+  FileResolvedInputsMap,
+  FilesLockMap,
   Lockfile,
+  MaterializedFileTarget,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
@@ -28,9 +32,13 @@ export type {
 export {
   CommandLockEntrySchema,
   CommandsLockMapSchema,
+  FileLockEntrySchema,
+  FileResolvedInputsMapSchema,
+  FilesLockMapSchema,
   LOCKFILE_VERSION,
   makeRegistryPackLockEntry,
   LockfileSchema,
+  MaterializedFileTargetSchema,
   McpServerLockEntrySchema,
   McpServersLockMapSchema,
   PackLockEntrySchema,
@@ -45,8 +53,9 @@ export {
 
 // Lockfile I/O and utilities
 export { LOCKFILE_NAME } from "./lockfile.js";
+export type { LockfileUpdate } from "./lockfile.js";
 
-export { writeLockfile } from "./lockfile.js";
+export { applyLockfileUpdates, commitLockfileUpdates, writeLockfile } from "./lockfile.js";
 export { migrateLegacyUniversalSkillArtifacts } from "./migration.js";
 export {
   validateExactResolvedVersion,

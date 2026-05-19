@@ -127,6 +127,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
       expect(output).toContain("CORE\n  skills        Manage agent skills");
+      expect(output).toContain("  context-files Manage context files");
       expect(output).toContain("  agents        Configure coding-agent targets");
       expect(output).toContain("START HERE\n  help, setup");
       expect(output).toContain("AUTH\n  login");

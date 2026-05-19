@@ -9,6 +9,10 @@ describe("print", () => {
     expect(print({ type: "local", path: "./my/skills" })).toBe("./my/skills");
   });
 
+  it("keeps bare relative paths unambiguous", () => {
+    expect(print({ type: "local", path: "my/skills" })).toBe("./my/skills");
+  });
+
   it("formats absolute path", () => {
     expect(print({ type: "local", path: "/home/user/skills" })).toBe("/home/user/skills");
   });

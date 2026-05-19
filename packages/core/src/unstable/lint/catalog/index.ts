@@ -19,6 +19,7 @@ import { packRules } from "./pack.js";
 import { commandRules } from "./command.js";
 import { subagentRules } from "./subagent.js";
 import { mcpServerRules } from "./mcp-server.js";
+import { contextFilesRules } from "./context-files.js";
 import { workspaceRules } from "./workspace.js";
 
 export { skillRules } from "./skill.js";
@@ -26,6 +27,7 @@ export { packRules } from "./pack.js";
 export { commandRules } from "./command.js";
 export { subagentRules } from "./subagent.js";
 export { mcpServerRules } from "./mcp-server.js";
+export { contextFilesRules } from "./context-files.js";
 export { workspaceRules } from "./workspace.js";
 
 // Phase 3a accessor + context-builder helpers.
@@ -47,6 +49,19 @@ export {
   type PackAccessorPlatform,
 } from "./pack-accessor/platform.js";
 export { buildPackRuleContexts, type InstalledPackInfo } from "./pack-accessor/contexts.js";
+
+export {
+  makePlatformContextFilesAccessor,
+  type ContextFilesAccessorPlatform,
+} from "./context-files-accessor/platform.js";
+export {
+  makeVftContextFilesAccessor,
+  type ContextFilesVFTNode,
+} from "./context-files-accessor/vft.js";
+export {
+  buildContextFilesRuleContexts,
+  type InstalledContextFilesInfo,
+} from "./context-files-accessor/contexts.js";
 
 // Phase 3c workspace read-model builder helpers.
 export {
@@ -86,5 +101,6 @@ export const allCatalogRuleIds: ReadonlyArray<string> = [
   ...commandRules.map((r) => r.id),
   ...subagentRules.map((r) => r.id),
   ...mcpServerRules.map((r) => r.id),
+  ...contextFilesRules.map((r) => r.id),
   ...workspaceRules.map((r) => r.id),
 ];

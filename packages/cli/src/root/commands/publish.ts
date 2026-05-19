@@ -38,7 +38,7 @@ import {
 } from "../../json-output.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { toJobStepResult } from "./job-step-result.js";
 
 export interface CommandsPublishHandlerArgs {
@@ -144,6 +144,11 @@ export const handleCommandsPublish = Effect.fn("CommandsPublish.handle")(functio
   args: CommandsPublishHandlerArgs,
 ) {
   const targetRegistry = yield* resolveTargetRegistry(args.registry);
+  if (args.preview) {
+    yield* publishEffect(args, targetRegistry);
+    return;
+  }
+
   yield* withAuthGuard(publishEffect(args, targetRegistry), {
     registryUrl: targetRegistry.registryUrl,
   });
@@ -302,23 +307,25 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     { successMessage: `Validated ${extensionNames.length} extension(s)` },
   );
 
-  yield* renderer.withSpinner(
-    "Checking published versions...",
-    () =>
-      Effect.forEach(
-        extensionNames,
-        (extName) =>
-          checkPublishVersionPreflight({
-            fqn: extName,
-            type: "command",
-            registryName: targetRegistry.registryName,
-            registryUrl: targetRegistry.registryUrl,
-            force: args.force,
-          }),
-        { concurrency: "unbounded" },
-      ),
-    { successMessage: "Version check complete" },
-  );
+  if (!args.preview) {
+    yield* renderer.withSpinner(
+      "Checking published versions...",
+      () =>
+        Effect.forEach(
+          extensionNames,
+          (extName) =>
+            checkPublishVersionPreflight({
+              fqn: extName,
+              type: "command",
+              registryName: targetRegistry.registryName,
+              registryUrl: targetRegistry.registryUrl,
+              force: args.force,
+            }),
+          { concurrency: "unbounded" },
+        ),
+      { successMessage: "Version check complete" },
+    );
+  }
 
   // Step 4: Build multi-step plan with inline run closures
   const steps: ReadonlyArray<PlannedJobStep> = extensionNames.map((extName): PlannedJobStep => {
@@ -419,11 +426,16 @@ const publishConfig = {
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ extensions, registry, yes, force, preview }) =>
-    handleCommandsPublish({ extensions: [...extensions], registry, yes, force, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withAuthRuntime("commands publish"),
-    ),
+  ({ extensions, registry, yes, force, preview }) => {
+    const program = handleCommandsPublish({
+      extensions: [...extensions],
+      registry,
+      yes,
+      force,
+      preview,
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE));
+    return program.pipe(Effect.provide(AuthLayer), withRuntime("commands publish"));
+  },
 ).pipe(
   withArgvTracking(publishConfig),
   Command.withDescription("Publish command extensions to a registry"),

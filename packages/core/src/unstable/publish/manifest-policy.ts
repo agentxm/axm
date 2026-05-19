@@ -10,6 +10,10 @@ import {
   type ExtensionName,
   type ExtensionType,
 } from "../extensions/common.js";
+import {
+  ContextFilesManifestSchema,
+  CONTEXT_FILES_MANIFEST_FILENAME,
+} from "../context-files/manifest-schema.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
 import {
   McpServerManifestSchema,
@@ -53,6 +57,8 @@ export const manifestFilenameForType = (type: string): string | undefined => {
       return SUBAGENT_MANIFEST_FILENAME;
     case "pack":
       return PACK_MANIFEST_FILENAME;
+    case "file":
+      return CONTEXT_FILES_MANIFEST_FILENAME;
     default:
       return undefined;
   }
@@ -84,6 +90,8 @@ export const manifestSchemaForType = (type: string) => {
       return SubagentManifestSchema;
     case "pack":
       return PackManifestSchema;
+    case "file":
+      return ContextFilesManifestSchema;
     default:
       return undefined;
   }

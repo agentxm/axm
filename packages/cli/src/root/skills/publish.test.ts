@@ -275,6 +275,41 @@ describe("publish.handler", () => {
         }),
       );
     });
+
+    it.effect("previews against a remote registry without requiring auth", () => {
+      const { provide } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "preview-skill", {
+        name: "@test/skills/preview-skill",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
+        {
+          name: "remote",
+          type: "registry",
+          location: new URL("https://registry.example.test"),
+        },
+      ]);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/skills/preview-skill"], {
+              preview: true,
+            }),
+          );
+
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@test", "skills", "preview-skill"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
   });
 
   describe("publish with default registry", () => {

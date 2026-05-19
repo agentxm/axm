@@ -61,6 +61,7 @@ const buildSetPackArgs = (
       resolvedCommands: resolved.resolvedCommands,
       resolvedMcpServers: resolved.resolvedMcpServers,
       resolvedSubagents: resolved.resolvedSubagents,
+      resolvedFiles: resolved.resolvedFiles,
       versionRange,
     } satisfies SetPackArgs;
   });

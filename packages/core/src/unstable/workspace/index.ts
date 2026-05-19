@@ -59,6 +59,7 @@ export {
 // Configured entry resolution
 export {
   resolveConfiguredCommand,
+  resolveConfiguredFile,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredSkill,
@@ -66,6 +67,7 @@ export {
   type ConfiguredEntryFailureReason,
   type ResolvedConfiguredCommand,
   type ResolvedConfiguredEntry,
+  type ResolvedConfiguredFile,
   type ResolvedConfiguredMcpServer,
   type ResolvedConfiguredPack,
   type ResolvedConfiguredSkill,
@@ -141,6 +143,7 @@ export {
   type SetSkillArgs,
   type SetPackArgs,
   type SetCommandArgs,
+  type SetFileArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
   type SkillPathSource,
@@ -154,6 +157,7 @@ export {
   type CommandExtensionTarget,
   type McpServerExtensionTarget,
   type SubagentExtensionTarget,
+  type ContextFilesExtensionTarget,
 } from "./service-interface.js";
 
 // Workspace mutation service implementation (layer)

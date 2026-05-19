@@ -1,15 +1,15 @@
 /**
- * File subject module: declared/resolved/actual payloads, scanner composition,
+ * Context files subject module: declared/resolved/actual payloads, scanner composition,
  * and projections via the shared helper.
  *
- * Files have no `settings.json` entry shape and no `axm-lock.yaml` entry
+ * Context files have no `settings.json` entry shape and no `axm-lock.yaml` entry
  * shape in v1; `declared` and `resolved` cells therefore return
  * `Option.none()` permanently. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "file"`); no agent registers a
- * file rendering directory.
+ * context files rendering directory.
  *
  * The projection helper still owns ignored/unmanaged behavior: a canonical
- * file occurrence whose name matches an ignored pattern produces an ignored
+ * context files occurrence whose name matches an ignored pattern produces an ignored
  * row; otherwise it surfaces in `unmanaged`.
  */
 
@@ -37,7 +37,7 @@ import {
 // Detection origin
 // ---------------------------------------------------------------------------
 
-export type FileDetectionOrigin =
+export type ContextFilesDetectionOrigin =
   | { readonly _tag: "canonical-axm-file" }
   | { readonly _tag: "external-axm-file" };
 
@@ -46,53 +46,59 @@ export type FileDetectionOrigin =
 // ---------------------------------------------------------------------------
 
 /**
- * v1 has no settings entry for files; the declared payload type is `never[]`
+ * v1 has no settings entry for context files; the declared payload type is `never[]`
  * effectively, but the helper still wants a typed array shape.
  */
-export type DeclaredFile = never;
-export type DeclaredFiles = ReadonlyArray<DeclaredFile>;
+export type DeclaredContextFilesPackage = never;
+export type DeclaredContextFiles = ReadonlyArray<DeclaredContextFilesPackage>;
 
-export type ResolvedFile = never;
-export type ResolvedFiles = ReadonlyArray<ResolvedFile>;
+export type ResolvedContextFilesPackage = never;
+export type ResolvedContextFiles = ReadonlyArray<ResolvedContextFilesPackage>;
 
-export interface ActualFile {
+export interface ActualContextFilesPackage {
   readonly key: ExtensionKey<"file">;
-  readonly origin: FileDetectionOrigin;
+  readonly origin: ContextFilesDetectionOrigin;
   readonly contentRoot: string;
   readonly packageRoot: string | null;
 }
-export type ActualFiles = ReadonlyArray<ActualFile>;
+export type ActualContextFiles = ReadonlyArray<ActualContextFilesPackage>;
 
-export interface FilePackMember {
+export interface ContextFilesPackMember {
   readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
 
-export interface InstalledFile {
+export interface InstalledContextFilesPackage {
   readonly key: ExtensionKey<"file">;
-  readonly installationOrigin: InstallationOrigin<DeclaredFile, FilePackMember>;
+  readonly installationOrigin: InstallationOrigin<
+    DeclaredContextFilesPackage,
+    ContextFilesPackMember
+  >;
   readonly activation: ActivationState;
-  readonly resolved: Option.Option<ResolvedFile>;
-  readonly actual: ReadonlyArray<ActualFile>;
+  readonly resolved: Option.Option<ResolvedContextFilesPackage>;
+  readonly actual: ReadonlyArray<ActualContextFilesPackage>;
   readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
-export interface UnmanagedFile {
+export interface UnmanagedContextFilesPackage {
   readonly key: ExtensionKey<"file">;
-  readonly actual: ActualFile;
+  readonly actual: ActualContextFilesPackage;
 }
 
-export type IgnoredFileCandidate = {
+export type IgnoredContextFilesCandidate = {
   readonly key: ExtensionKey<"file">;
   readonly reason: "actual-ignored";
-  readonly actual: ActualFile;
+  readonly actual: ActualContextFilesPackage;
 };
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualFile => {
+const canonicalToActual = (
+  occ: CanonicalExtensionOccurrence,
+  scope: Scope,
+): ActualContextFilesPackage => {
   const isExternal = occ.origin === "external-axm";
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
@@ -107,33 +113,35 @@ const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): Act
 // Public API
 // ---------------------------------------------------------------------------
 
-export interface FileScanners {
+export interface ContextFilesScanners {
   readonly canonical: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
 }
 
-export interface InstalledPackForFiles {
+export interface InstalledPackForContextFiles {
   readonly ref: InstalledPackRef;
-  readonly files: ReadonlyArray<FilePackMember>;
+  readonly files: ReadonlyArray<ContextFilesPackMember>;
 }
 
-export interface FileExtensionsApiDeps {
+export interface ContextFilesExtensionsApiDeps {
   readonly scope: Scope;
-  readonly scanners: FileScanners;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>>;
+  readonly scanners: ContextFilesScanners;
+  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForContextFiles>>;
   readonly ignoredNames: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
-export interface FileExtensionsApi {
-  readonly declared: Effect.Effect<Option.Option<DeclaredFiles>>;
-  readonly resolved: Effect.Effect<Option.Option<ResolvedFiles>>;
-  readonly actual: Effect.Effect<ActualFiles>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledFile>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledFile>>;
-  readonly declaredByName: (name: string) => Effect.Effect<Option.Option<DeclaredFile>>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledFile>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedFile>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredFileCandidate>>;
+export interface ContextFilesExtensionsApi {
+  readonly declared: Effect.Effect<Option.Option<DeclaredContextFiles>>;
+  readonly resolved: Effect.Effect<Option.Option<ResolvedContextFiles>>;
+  readonly actual: Effect.Effect<ActualContextFiles>;
+  readonly installed: Effect.Effect<ReadonlyArray<InstalledContextFilesPackage>>;
+  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledContextFilesPackage>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredContextFilesPackage>>;
+  readonly active: Effect.Effect<ReadonlyArray<InstalledContextFilesPackage>>;
+  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedContextFilesPackage>>;
+  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredContextFilesCandidate>>;
 }
 
 const SUBJECT_KEY = "file";
@@ -144,19 +152,19 @@ const orphanResolvedWarning = (name: string): Warning => ({
   code: "orphan-resolved",
 });
 
-const filePolicy = (
+const contextFilesPolicy = (
   scope: Scope,
 ): SubjectPolicy<
-  DeclaredFiles,
-  ResolvedFiles,
-  ActualFiles,
-  // `never` rather than `FilePackMember`: v1 emits no file pack members, so
+  DeclaredContextFiles,
+  ResolvedContextFiles,
+  ActualContextFiles,
+  // `never` rather than `ContextFilesPackMember`: v1 emits no file pack members, so
   // the projection helper never invokes pack-member callbacks. The narrower
   // `never` lets `buildPackMemberIgnoredRow` be implemented without a throw.
   never,
-  InstalledFile,
-  UnmanagedFile,
-  IgnoredFileCandidate
+  InstalledContextFilesPackage,
+  UnmanagedContextFilesPackage,
+  IgnoredContextFilesCandidate
 > => ({
   declaredEntries: () => [],
   declaredName: (entry) => entry,
@@ -185,7 +193,7 @@ const filePolicy = (
     key: { scope, type: "file", name: entry.key.name },
     actual: entry,
   }),
-  // `DeclaredFile = never` (files have no settings entry shape), so
+  // `DeclaredContextFilesPackage = never` (context files have no settings entry shape), so
   // `input.declared` has type `never` and `return input.declared` satisfies
   // any `TIgnored` statically. The body is uninhabitable at runtime.
   buildDeclaredIgnoredRow: (input) => input.declared,
@@ -202,19 +210,23 @@ const filePolicy = (
 });
 
 /**
- * Build the file subject API. Returns an `Effect` because the projection
+ * Build the context files subject API. Returns an `Effect` because the projection
  * cell is wrapped in `Effect.cached` so the four derived cells share one
  * in-flight execution per scope, mirroring `state.ts`.
  */
-export const makeFileExtensionsApi = (
-  deps: FileExtensionsApiDeps,
-): Effect.Effect<FileExtensionsApi> =>
+export const makeContextFilesExtensionsApi = (
+  deps: ContextFilesExtensionsApiDeps,
+): Effect.Effect<ContextFilesExtensionsApi> =>
   Effect.gen(function* () {
     const { scope, scanners, ignoredNames, diagnostics } = deps;
 
-    const declared: FileExtensionsApi["declared"] = Effect.succeed(Option.none<DeclaredFiles>());
-    const resolved: FileExtensionsApi["resolved"] = Effect.succeed(Option.none<ResolvedFiles>());
-    const actual: FileExtensionsApi["actual"] = Effect.gen(function* () {
+    const declared: ContextFilesExtensionsApi["declared"] = Effect.succeed(
+      Option.none<DeclaredContextFiles>(),
+    );
+    const resolved: ContextFilesExtensionsApi["resolved"] = Effect.succeed(
+      Option.none<ResolvedContextFiles>(),
+    );
+    const actual: ContextFilesExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       return filterMapOccurrences(canonical, "file", (occ) => canonicalToActual(occ, scope));
     });
@@ -238,7 +250,7 @@ export const makeFileExtensionsApi = (
         packMembers: (pack) => pack.members,
         packRef: (pack) => pack.ref,
         ignoredNames,
-        policy: filePolicy(scope),
+        policy: contextFilesPolicy(scope),
         diagnostics,
       }),
     );
@@ -254,5 +266,5 @@ export const makeFileExtensionsApi = (
       resolved,
       actual,
       declaredByName: () => Effect.succeed(Option.none()),
-    } satisfies FileExtensionsApi;
+    } satisfies ContextFilesExtensionsApi;
   });

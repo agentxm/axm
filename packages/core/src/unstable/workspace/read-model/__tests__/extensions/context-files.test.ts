@@ -1,10 +1,10 @@
 /**
- * File subject module tests.
+ * Context files subject module tests.
  *
- * Files have no settings entry shape and no lockfile entry shape in v1, so
+ * Context files have no settings entry shape and no lockfile entry shape in v1, so
  * declared and resolved are always `Option.none()`. Actual occurrences come
  * exclusively from the canonical-extensions scanner (`type === "file"`); no
- * agent registers a file rendering directory.
+ * agent registers a context files rendering directory.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import { makeCanonicalOccurrence } from "../../__fixtures__/occurrences.js";
 import { makeDiagnostics, type Warning } from "../../diagnostics.js";
-import { makeFileExtensionsApi } from "../../extensions/file.js";
+import { makeContextFilesExtensionsApi } from "../../extensions/context-files.js";
 import type { CanonicalExtensionOccurrence } from "../../scanners/types.js";
 
 const harness = (params: {
@@ -23,7 +23,7 @@ const harness = (params: {
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
     const diagnostics = makeDiagnostics(ref);
-    return yield* makeFileExtensionsApi({
+    return yield* makeContextFilesExtensionsApi({
       scope: "project",
       scanners: { canonical: Effect.succeed(params.canonicalOccurrences ?? []) },
       installedPacks: Effect.succeed([]),
@@ -32,7 +32,7 @@ const harness = (params: {
     });
   });
 
-describe("makeFileExtensionsApi", () => {
+describe("makeContextFilesExtensionsApi", () => {
   it.effect("declared and resolved are always Option.none()", () =>
     Effect.gen(function* () {
       const api = yield* harness({});
@@ -53,7 +53,7 @@ describe("makeFileExtensionsApi", () => {
             origin: "canonical-axm",
             name: "license",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/files/src/license",
+            contentLocation: "/ws/.axm/extensions/@owner/context-files/src/license",
           }),
         ],
       });
@@ -92,7 +92,7 @@ describe("makeFileExtensionsApi", () => {
             origin: "external-axm",
             name: "readme",
             owner: null,
-            contentLocation: "/ws/.axm/extensions/external/files/readme",
+            contentLocation: "/ws/.axm/extensions/external/context-files/readme",
           }),
         ],
       });

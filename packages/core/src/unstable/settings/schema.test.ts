@@ -8,6 +8,8 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
   CommandsMapSchema,
+  FileEntrySchema,
+  FilesMapSchema,
   McpServersMapSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,
@@ -77,6 +79,44 @@ describe("Settings schema", () => {
       const encoded = Schema.encodeSync(SettingsSchema)(decoded);
 
       expect(encoded).toEqual(input);
+    });
+
+    it("accepts workspace vars and file entries with scalar inputs", () => {
+      const input = {
+        vars: {
+          projectName: "AgentXM",
+          strict: true,
+          maxDepth: 3,
+        },
+        files: {
+          "workspace-baseline": {
+            source: "@acme/files/workspace-baseline@^1.0.0",
+            inputs: {
+              projectName: "AgentXM",
+              strict: true,
+            },
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
+
+      expect(result.vars).toEqual({
+        projectName: "AgentXM",
+        strict: true,
+        maxDepth: 3,
+      });
+      expect(result.files).toEqual({
+        "workspace-baseline": {
+          source: "@acme/files/workspace-baseline@^1.0.0",
+          enabled: true,
+          authored: false,
+          inputs: {
+            projectName: "AgentXM",
+            strict: true,
+          },
+        },
+      });
     });
   });
 
@@ -583,6 +623,58 @@ describe("Settings schema", () => {
       const input = { "my@skill": "@wayne/skills/skill@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(SkillsMapSchema)(input)).toThrow();
+    });
+  });
+
+  describe("files at root level", () => {
+    it("accepts compact file entries", () => {
+      const input = {
+        files: {
+          baseline: "@wayne/files/baseline@^1.0.0",
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
+
+      expect(result.files).toEqual({
+        baseline: {
+          source: "@wayne/files/baseline@^1.0.0",
+          enabled: true,
+          authored: false,
+          inputs: {},
+        },
+      });
+    });
+
+    it("encodes default file entries as compact strings", () => {
+      const decoded = Schema.decodeUnknownSync(FileEntrySchema)("@wayne/files/baseline@^1.0.0");
+      const encoded = Schema.encodeSync(FileEntrySchema)(decoded);
+
+      expect(encoded).toBe("@wayne/files/baseline@^1.0.0");
+    });
+
+    it("encodes file entries with inputs as objects", () => {
+      const decoded = Schema.decodeUnknownSync(FileEntrySchema)({
+        source: "@wayne/files/baseline@^1.0.0",
+        inputs: { projectName: "batcave" },
+      });
+      const encoded = Schema.encodeSync(FileEntrySchema)(decoded);
+
+      expect(encoded).toEqual({
+        source: "@wayne/files/baseline@^1.0.0",
+        inputs: { projectName: "batcave" },
+      });
+    });
+
+    it("rejects unsupported structured input values", () => {
+      const input = {
+        baseline: {
+          source: "@wayne/files/baseline@^1.0.0",
+          inputs: { nested: { value: "nope" } },
+        },
+      };
+
+      expect(() => Schema.decodeUnknownSync(FilesMapSchema)(input)).toThrow();
     });
   });
 

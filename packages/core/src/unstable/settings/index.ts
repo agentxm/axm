@@ -15,6 +15,9 @@ export type {
   CommandsConfig,
   CommandEntry,
   CommandsMap,
+  FileEntry,
+  FileInputValuesMap,
+  FilesMap,
   GitHubSourceHostConfig,
   GitLabSourceHostConfig,
   McpServersConfig,
@@ -32,12 +35,17 @@ export type {
   SubagentEntry,
   SubagentsMap,
   SourceHostConfig,
+  WorkspaceVarsMap,
 } from "./schema.js";
 export {
   CommandEntryObjectSchema,
   CommandEntrySchema,
   CommandsConfigSchema,
   CommandsMapSchema,
+  FileEntryObjectSchema,
+  FileEntrySchema,
+  FileInputValuesMapSchema,
+  FilesMapSchema,
   McpServersConfigSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,
@@ -57,6 +65,7 @@ export {
   SubagentEntrySchema,
   SubagentsMapSchema,
   SourceHostConfigSchema,
+  WorkspaceVarsMapSchema,
 } from "./schema.js";
 
 // Ignored patterns

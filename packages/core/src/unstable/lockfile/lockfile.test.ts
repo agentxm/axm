@@ -4,9 +4,10 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import type { Lockfile, SkillLockEntry } from "./schema.js";
-import { writeLockfile } from "./lockfile.js";
+import { MaterializedFileTargetSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
+import { applyLockfileUpdates, commitLockfileUpdates, writeLockfile } from "./lockfile.js";
 
 describe("lockfile", () => {
   let tempDir: string;
@@ -35,6 +36,8 @@ describe("lockfile", () => {
     updatedAt: new Date("2026-01-28T10:00:00.000Z"),
     ...overrides,
   });
+
+  const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
   describe("writeLockfile", () => {
     it.effect("creates directory if it does not exist", () =>
@@ -98,6 +101,94 @@ describe("lockfile", () => {
 
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
           expect(result.skills["commit"]).toBeDefined();
+        }),
+      ),
+    );
+  });
+
+  describe("batched updates", () => {
+    it("applies lockfile updates in order without writing", () => {
+      const lockfile: Lockfile = {
+        lockfileVersion: 2,
+        skills: {},
+        files: {},
+      };
+
+      const updated = applyLockfileUpdates(lockfile, [
+        (current) => ({
+          ...current,
+          files: {
+            ...current.files,
+            baseline: {
+              type: "local",
+              path: "./context-files/baseline",
+              installedAt: new Date("2026-01-28T10:00:00.000Z"),
+              updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+              materializedTargets: [
+                decodeMaterializedTarget({ target: "README.md", mode: "sync-always" }),
+              ],
+            },
+          },
+        }),
+        (current) => {
+          const baseline = current.files?.["baseline"];
+          if (baseline === undefined) return current;
+          return {
+            ...current,
+            files: {
+              ...current.files,
+              baseline: {
+                ...baseline,
+                materializedTargets: [
+                  decodeMaterializedTarget({
+                    target: "README.md",
+                    mode: "sync-always",
+                    renderHash: "abc123",
+                  }),
+                ],
+              },
+            },
+          };
+        },
+      ]);
+
+      expect(updated.files?.["baseline"]?.materializedTargets?.[0]?.renderHash).toBe("abc123");
+      expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(false);
+    });
+
+    it.effect("commits batched lockfile updates with one write", () =>
+      withContext(
+        Effect.gen(function* () {
+          const lockfile: Lockfile = {
+            lockfileVersion: 2,
+            skills: {},
+            files: {},
+          };
+
+          yield* commitLockfileUpdates(axmDir, lockfile, [
+            (current) => ({
+              ...current,
+              files: {
+                ...current.files,
+                baseline: {
+                  type: "local",
+                  path: "./context-files/baseline",
+                  installedAt: new Date("2026-01-28T10:00:00.000Z"),
+                  updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+                  materializedTargets: [
+                    decodeMaterializedTarget({
+                      target: "README.md",
+                      mode: "managed-region",
+                      region: "toc",
+                    }),
+                  ],
+                },
+              },
+            }),
+          ]);
+
+          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(result.files.baseline.materializedTargets[0].region).toBe("toc");
         }),
       ),
     );

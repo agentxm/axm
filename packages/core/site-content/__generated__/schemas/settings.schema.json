@@ -66,6 +66,42 @@
       "description": "Supported coding agent identifier used in `.axm/settings.json` `agents`.",
       "examples": ["claude-code", "codex", "cursor"]
     },
+    "InstructionsConfig": {
+      "type": "object",
+      "properties": {
+        "fileName": {
+          "type": "string",
+          "description": "Source-of-truth instruction file name.",
+          "default": "AGENTS.md",
+          "examples": ["AGENTS.md"]
+        },
+        "gitignore": {
+          "type": "string",
+          "enum": ["managed", "local", "off"],
+          "description": "Whether AXM manages propagated instruction-file ignore entries in .gitignore, .git/info/exclude, or neither.",
+          "default": "off",
+          "examples": ["off", "managed", "local"]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Instructions Config",
+      "description": "Instruction-file management settings for configured agents."
+    },
+    "AgentsConfig": {
+      "type": "object",
+      "properties": {
+        "instructions": {
+          "anyOf": [
+            { "type": "boolean", "enum": [false] },
+            { "$ref": "#/definitions/InstructionsConfig" },
+            { "type": "null" }
+          ],
+          "description": "Instruction-file management: false for manual, object for enabled, null or absent for unset.",
+          "examples": [false, { "fileName": "AGENTS.md", "gitignore": "off" }]
+        }
+      },
+      "additionalProperties": false
+    },
     "SourceName": {
       "type": "string",
       "allOf": [
@@ -598,6 +634,10 @@
           "examples": [["claude-code", "codex"]],
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/ConfigurableAgentId" }
+        },
+        "agentsConfig": {
+          "anyOf": [{ "$ref": "#/definitions/AgentsConfig" }],
+          "description": "Feature-level options for coding-agent harness management."
         },
         "sources": {
           "type": "array",

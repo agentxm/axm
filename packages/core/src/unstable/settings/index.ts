@@ -10,6 +10,7 @@
 
 // Schema types and schemas
 export type {
+  AgentsConfig,
   AzureReposSourceHostConfig,
   BitbucketSourceHostConfig,
   CommandsConfig,
@@ -20,6 +21,8 @@ export type {
   FilesMap,
   GitHubSourceHostConfig,
   GitLabSourceHostConfig,
+  InstructionsConfig,
+  InstructionsConfigValue,
   McpServersConfig,
   McpServerEntry,
   McpServersMap,
@@ -38,6 +41,7 @@ export type {
   WorkspaceVarsMap,
 } from "./schema.js";
 export {
+  AgentsConfigSchema,
   CommandEntryObjectSchema,
   CommandEntrySchema,
   CommandsConfigSchema,
@@ -46,6 +50,7 @@ export {
   FileEntrySchema,
   FileInputValuesMapSchema,
   FilesMapSchema,
+  InstructionsConfigSchema,
   McpServersConfigSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,

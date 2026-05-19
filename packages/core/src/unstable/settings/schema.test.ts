@@ -166,6 +166,42 @@ describe("Settings schema", () => {
     });
   });
 
+  describe("agentsConfig.instructions", () => {
+    it("accepts enabled instruction-file management config", () => {
+      const input = {
+        agentsConfig: {
+          instructions: {
+            fileName: "AGENTS.md",
+            gitignore: "managed",
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
+
+      expect(result.agentsConfig?.instructions).toEqual({
+        fileName: "AGENTS.md",
+        gitignore: "managed",
+      });
+    });
+
+    it("accepts explicit manual instruction-file management", () => {
+      const result = Schema.decodeUnknownSync(SettingsSchema)({
+        agentsConfig: { instructions: false },
+      });
+
+      expect(result.agentsConfig?.instructions).toBe(false);
+    });
+
+    it("normalizes null instruction-file management to absent", () => {
+      const result = Schema.decodeUnknownSync(SettingsSchema)({
+        agentsConfig: { instructions: null },
+      });
+
+      expect(result.agentsConfig).toEqual({});
+    });
+  });
+
   describe("SourceHostConfigSchema", () => {
     describe("github variant", () => {
       it("accepts valid github source config", () => {

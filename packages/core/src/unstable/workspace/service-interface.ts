@@ -38,6 +38,7 @@ import type {
   CommandEntry,
   FileEntry,
   FilesMap,
+  InstructionsConfigValue,
   McpServerEntry,
   McpServersMap,
   PackEntry,
@@ -344,6 +345,15 @@ export interface WorkspaceMutationsService {
   readonly getConfiguredSkillEntries: () => Effect.Effect<SkillsMap, AppError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
   readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, AppError>;
+  /** Read settings and return instruction-file config, defaulting to unset. */
+  readonly getInstructionsConfig: () => Effect.Effect<
+    Option.Option<InstructionsConfigValue>,
+    AppError
+  >;
+  /** Set instruction-file config. Use false for explicit manual mode. Serialized by semaphore. */
+  readonly setInstructionsConfig: (
+    config: InstructionsConfigValue,
+  ) => Effect.Effect<void, AppError>;
   /** Read settings and return configured MCP server entries, defaulting to `{}`. */
   readonly getConfiguredMcpServerEntries: () => Effect.Effect<McpServersMap, AppError>;
   /** Read settings and return configured files, defaulting to `{}`. */

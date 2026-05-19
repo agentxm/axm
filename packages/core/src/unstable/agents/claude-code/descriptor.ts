@@ -25,4 +25,9 @@ export const descriptor: AgentDescriptor = {
   subagents: {
     dir: ".claude/agents",
   },
+  instructions: {
+    kind: "own-file",
+    file: "CLAUDE.md",
+    importSyntax: "at-path",
+  },
 };

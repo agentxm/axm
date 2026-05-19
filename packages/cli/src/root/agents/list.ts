@@ -1,7 +1,14 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { AGENTS, CONFIGURABLE_AGENT_IDS, detectAgents } from "@agentxm/client-core/unstable/agents";
+import {
+  AGENTS,
+  CONFIGURABLE_AGENT_IDS,
+  detectAgents,
+  getInstructionsStatus,
+  resolveInstructionsConfig,
+} from "@agentxm/client-core/unstable/agents";
 import {
   CliRenderer,
   registerEntity,
@@ -22,6 +29,7 @@ interface AgentListItem {
   readonly name: string;
   readonly configured: boolean;
   readonly detected: boolean;
+  readonly instructions: string;
 }
 
 const AgentListItemSchema = Schema.Struct({
@@ -29,6 +37,7 @@ const AgentListItemSchema = Schema.Struct({
   name: Schema.String,
   configured: Schema.Boolean,
   detected: Schema.Boolean,
+  instructions: Schema.String,
 });
 
 const AgentsListOutputSchema = Schema.Struct({
@@ -45,6 +54,7 @@ const AgentListTable = {
     name: { header: "Agent" },
     configured: { header: "Configured", render: (value: boolean) => (value ? "yes" : "no") },
     detected: { header: "Detected", render: (value: boolean) => (value ? "yes" : "no") },
+    instructions: { header: "Instructions" },
   },
 } as const satisfies TableView<AgentListItem>;
 
@@ -64,6 +74,17 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
   );
   const configuredSet = new Set(configured);
   const detectedSet = new Set(detected);
+  const instructionsConfig = yield* ws.getInstructionsConfig();
+  const instructionStatuses =
+    Option.isSome(instructionsConfig) && instructionsConfig.value !== false
+      ? yield* getInstructionsStatus({
+          workspaceRoot: ws.baseDir,
+          configuredAgents: configured,
+          config: resolveInstructionsConfig(instructionsConfig.value),
+        }).pipe(
+          Effect.map((status) => new Map(status.items.map((item) => [item.agentId, item.health]))),
+        )
+      : new Map<string, string>();
 
   const baseIds =
     args.available || args.detected
@@ -77,6 +98,7 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
       name: AGENTS[id].name,
       configured: configuredSet.has(id),
       detected: detectedSet.has(id),
+      instructions: configuredSet.has(id) ? (instructionStatuses.get(id) ?? "manual") : "-",
     }));
 
   const output = {

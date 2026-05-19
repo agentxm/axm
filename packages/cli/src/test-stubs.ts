@@ -183,6 +183,8 @@ export const makeBaseWorkspaceMock = (
     getIgnoredPackPatterns: emptyArr,
     getConfiguredPackEntries: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
+    getInstructionsConfig: () => Effect.succeed(Option.none()),
+    setInstructionsConfig: () => Effect.void,
     getLockedSkills: () => Effect.succeed({}),
     getLockedSkill: () => Effect.succeed(Option.none()),
     getSkillDir: () =>

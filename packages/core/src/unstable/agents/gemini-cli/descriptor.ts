@@ -25,4 +25,8 @@ export const descriptor: AgentDescriptor = {
   subagents: {
     dir: ".gemini/agents",
   },
+  instructions: {
+    kind: "own-file",
+    file: "GEMINI.md",
+  },
 };

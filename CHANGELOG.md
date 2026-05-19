@@ -1,3 +1,14 @@
+## 0.11.3 (2026-05-19)
+
+### 🩹 Fixes
+
+- Complete skills, subagents, and commands capability data for codex, cursor, gemini-cli, github-copilot, and windsurf; clarify standard vs bridged support semantics in the catalog schema. ([8ce55559](https://github.com/agentxm/axm/commit/8ce55559))
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Craig Smitham
+
 ## 0.11.2 (2026-05-16)
 
 ### 🩹 Fixes

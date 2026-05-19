@@ -9,6 +9,7 @@
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import { ConfigurableAgentIdSchema, EXTENSION_NAME_PATTERN } from "../extensions/common.js";
+import { FileInputValueSchema } from "../context-files/manifest-schema.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LintConfigSchema } from "../lint/config.js";
 
@@ -247,6 +248,44 @@ export const TelemetryModeSchema = Schema.Union([
 /** @experimental */
 export type TelemetryMode = Schema.Schema.Type<typeof TelemetryModeSchema>;
 
+/**
+ * Context files input and workspace variable values.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FileInputValuesMapSchema = Schema.Record(Schema.String, FileInputValueSchema).annotate(
+  {
+    identifier: "ContextFilesInputValuesMap",
+    title: "Context Files Input Values Map",
+    description: "Scalar values supplied to a context files package entry.",
+  },
+);
+
+/** @experimental */
+export type FileInputValuesMap = Schema.Schema.Type<typeof FileInputValuesMapSchema>;
+
+/**
+ * Workspace variables available to file templates as `${vars.*}`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const WorkspaceVarsMapSchema = Schema.Record(Schema.String, FileInputValueSchema).annotate({
+  identifier: "WorkspaceVarsMap",
+  title: "Workspace Vars Map",
+  description: "Scalar workspace variables available to context files templates.",
+});
+
+/** @experimental */
+export type WorkspaceVarsMap = Schema.Schema.Type<typeof WorkspaceVarsMapSchema>;
+
+type FileEntryObject = EnabledEntryObject & {
+  readonly inputs?: FileInputValuesMap | undefined;
+};
+
+type FileEntryCanonical = EnabledEntry & {
+  readonly inputs: FileInputValuesMap;
+};
+
 const compactOrVerboseEntry = <
   ObjectEntry extends AuthoredEntryObject,
   CanonicalEntry extends AuthoredEntry,
@@ -460,6 +499,104 @@ export const CommandsMapSchema = Schema.Record(ExtensionMapKeySchema, CommandEnt
  * @experimental This API is unstable and may change without notice.
  */
 export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
+
+// -----------------------------------------------------------------------------
+// File Entry Schemas
+// -----------------------------------------------------------------------------
+
+/**
+ * Managed context files package with source, optional config flags, and input values.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FileEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("context files package", "files"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+  inputs: Schema.optionalKey(FileInputValuesMapSchema),
+}).annotate({
+  title: "Context Files Entry Object",
+  description:
+    "A context files package entry with source, optional flags, and scalar input values.",
+});
+
+/**
+ * Union of context files package entry forms: plain source string or object with source, flags, and inputs.
+ *
+ * Decodes to canonical `{ source, enabled, authored, inputs }` form; encodes
+ * back to a plain source string when all metadata is default and no inputs are
+ * set.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FileEntrySchema = compactOrVerboseEntry(
+  FileEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    authored: Schema.Boolean,
+    inputs: FileInputValuesMapSchema,
+  }),
+  {
+    decode: (entry: string | FileEntryObject): FileEntryCanonical =>
+      typeof entry === "string"
+        ? { source: entry, enabled: true, authored: false, inputs: {} }
+        : {
+            source: entry.source,
+            enabled: entry.enabled ?? true,
+            authored: entry.authored ?? false,
+            inputs: entry.inputs ?? {},
+          },
+    encode: (entry: FileEntryCanonical): string | FileEntryObject => {
+      const hasInputs = Object.keys(entry.inputs).length > 0;
+      if (entry.enabled && !entry.authored && !hasInputs) return entry.source;
+      const obj: {
+        source: string;
+        enabled?: boolean;
+        authored?: boolean;
+        inputs?: FileInputValuesMap;
+      } = { source: entry.source };
+      if (!entry.enabled) obj.enabled = false;
+      if (entry.authored) obj.authored = true;
+      if (hasInputs) obj.inputs = entry.inputs;
+      return obj;
+    },
+  },
+  {
+    identifier: "ContextFilesEntry",
+    title: "Context Files Entry",
+    description:
+      "A context files package entry: a source string, or an object with source plus optional flags and inputs.",
+    examples: [
+      "@acme/files/workspace-baseline@^1.0.0",
+      {
+        source: "@acme/files/workspace-baseline@^1.0.0",
+        inputs: { projectName: "agentxm" },
+      },
+    ],
+  },
+);
+
+/** @experimental */
+export type FileEntry = Schema.Schema.Type<typeof FileEntrySchema>;
+
+/**
+ * Files map - maps context files package names to file entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FilesMapSchema = Schema.Record(ExtensionMapKeySchema, FileEntrySchema).annotate({
+  identifier: "ContextFilesMap",
+  title: "Context Files Map",
+  description: "A map of context files package names to context files package entries.",
+});
+
+/** @experimental */
+export type FilesMap = Schema.Schema.Type<typeof FilesMapSchema>;
+
+// -----------------------------------------------------------------------------
+// MCP Server Entry Schemas
+// -----------------------------------------------------------------------------
 
 /**
  * MCP server entry object with source.
@@ -842,11 +979,13 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "telemetry",
   "owner",
   "sources",
+  "vars",
   "agents",
   "skills",
   "skillsConfig",
   "commands",
   "commandsConfig",
+  "files",
   "subagents",
   "subagentsConfig",
   "packs",
@@ -862,11 +1001,13 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * Settings define workspace configuration for AXM including:
  * - owner: Workspace owner handle used for new/scaffold and reconciliation of non-registry sources
  * - sources: Source provider configurations
+ * - vars: Scalar workspace variables available to context files templates
  * - agents: List of agent IDs to sync extensions to
  * - skills: Desired skills by name to source string
  * - skillsConfig: Feature-level configuration for skills
  * - commands: Desired commands by name to version specifier
  * - commandsConfig: Feature-level configuration for commands
+ * - files: Desired context files packages by name to source string or input config
  * - subagents: Desired subagents by name to version specifier
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
@@ -907,6 +1048,11 @@ export const SettingsSchema = Schema.Struct({
       description: "Named source hosts used to resolve source-scheme entry references.",
     }),
   ),
+  vars: Schema.optionalKey(
+    Schema.Union([WorkspaceVarsMapSchema]).annotate({
+      description: "Scalar workspace variables available to context files templates.",
+    }),
+  ),
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
       description:
@@ -927,6 +1073,12 @@ export const SettingsSchema = Schema.Struct({
   commandsConfig: Schema.optionalKey(
     Schema.Union([CommandsConfigSchema]).annotate({
       description: "Feature-level options for command management.",
+    }),
+  ),
+  files: Schema.optionalKey(
+    Schema.Union([FilesMapSchema]).annotate({
+      description:
+        "Your installed context files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or scalar `inputs`.",
     }),
   ),
   subagents: Schema.optionalKey(
@@ -987,6 +1139,15 @@ export const SettingsSchema = Schema.Struct({
       skills: {
         "code-review": "@acme/skills/code-review@^1.0.0",
         "legacy-rules": { source: "@acme/skills/legacy-rules@^1.0.0", enabled: false },
+      },
+      vars: {
+        projectName: "agentxm",
+      },
+      files: {
+        "workspace-baseline": {
+          source: "@acme/files/workspace-baseline@^1.0.0",
+          inputs: { projectName: "AgentXM" },
+        },
       },
       skillsConfig: {
         ignore: ["local-*"],

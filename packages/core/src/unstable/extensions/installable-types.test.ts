@@ -20,6 +20,7 @@ describe("installable extension types", () => {
       "command",
       "mcp-server",
       "subagent",
+      "file",
       "pack",
     ]);
   });
@@ -30,6 +31,7 @@ describe("installable extension types", () => {
       "commands",
       "mcp-servers",
       "subagents",
+      "files",
       "packs",
     ]);
   });
@@ -37,14 +39,14 @@ describe("installable extension types", () => {
   it("guards installable singular types", () => {
     expect(isInstallableExtensionType("skill")).toBe(true);
     expect(isInstallableExtensionType("mcp-server")).toBe(true);
-    expect(isInstallableExtensionType("file")).toBe(false);
+    expect(isInstallableExtensionType("file")).toBe(true);
     expect(isInstallableExtensionType("rule")).toBe(false);
   });
 
   it("guards installable plural segments", () => {
     expect(isInstallableExtensionTypePlural("skills")).toBe(true);
     expect(isInstallableExtensionTypePlural("mcp-servers")).toBe(true);
-    expect(isInstallableExtensionTypePlural("files")).toBe(false);
+    expect(isInstallableExtensionTypePlural("files")).toBe(true);
     expect(isInstallableExtensionTypePlural("rules")).toBe(false);
     expect(isInstallableExtensionTypePlural(undefined)).toBe(false);
   });
@@ -52,8 +54,10 @@ describe("installable extension types", () => {
   it("maps between singular and plural installable types", () => {
     expect(toInstallableExtensionType("skills")).toBe("skill");
     expect(toInstallableExtensionType("packs")).toBe("pack");
+    expect(toInstallableExtensionType("files")).toBe("file");
     expect(toInstallableExtensionTypePlural("command")).toBe("commands");
     expect(toInstallableExtensionTypePlural("subagent")).toBe("subagents");
+    expect(toInstallableExtensionTypePlural("file")).toBe("files");
   });
 
   it("exposes installable type schemas", () => {
@@ -61,7 +65,7 @@ describe("installable extension types", () => {
       Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("skill")),
     ).toBe(true);
     expect(
-      Result.isFailure(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("file")),
+      Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("file")),
     ).toBe(true);
     expect(
       Result.isSuccess(

@@ -16,6 +16,8 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "subagent-schema": "JSON Schema for a subagent extension manifest.",
   commands: "How command extensions work and how AXM installs and manages them.",
   "command-schema": "JSON Schema for a command extension manifest.",
+  "context-files": "How context files packages work and how AXM materializes them.",
+  "context-files-schema": "JSON Schema for a context files manifest.",
   packs: "How packs bundle multiple extensions for one-step install.",
   "pack-schema": "JSON Schema for a pack manifest.",
   "package-extensions": "How AXM links registry extensions to ecosystem packages.",

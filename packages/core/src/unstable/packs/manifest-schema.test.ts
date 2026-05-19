@@ -49,11 +49,13 @@ describe("PackManifestSchema", () => {
         "@wayne/commands/batcomputer-sync": "^1.0.0",
         "@wayne/mcp-servers/batcomputer": "^3.0.0",
         "@wayne/subagents/robin": "^1.0.0",
+        "@wayne/files/workspace-baseline": "^1.0.0",
       },
     };
     const result = decode(input);
     expect(result.dependencies["@wayne/commands/batcomputer-sync"]).toBe("^1.0.0");
     expect(result.dependencies["@wayne/subagents/robin"]).toBe("^1.0.0");
+    expect(result.dependencies["@wayne/files/workspace-baseline"]).toBe("^1.0.0");
   });
 
   it("accepts manifest with subagent dependencies", () => {

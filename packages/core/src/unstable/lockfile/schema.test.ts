@@ -4,6 +4,7 @@ import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
   LOCKFILE_VERSION,
   CommandLockEntrySchema,
+  FileLockEntrySchema,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
@@ -146,6 +147,71 @@ describe("lockfile schema", () => {
       };
 
       expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
+    });
+
+    it("accepts file lock entries with resolved inputs and materialized targets", () => {
+      const input = {
+        lockfileVersion: LOCKFILE_VERSION,
+        skills: {},
+        files: {
+          baseline: {
+            type: "registry",
+            owner: "@acme",
+            name: "baseline",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-abc123",
+            sourceName: "default",
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+            resolvedInputs: {
+              projectName: "AgentXM",
+              strict: true,
+              maxDepth: 3,
+            },
+            materializedTargets: [
+              {
+                target: "README.md",
+                mode: "managed-region",
+                region: "workspace-index",
+                renderHash: "abc123",
+              },
+              {
+                target: ".editorconfig",
+                mode: "sync-always",
+                renderHash: "def456",
+              },
+            ],
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.files?.["baseline"]?.type).toBe("registry");
+      expect(result.files?.["baseline"]?.materializedTargets).toHaveLength(2);
+      expect(result.files?.["baseline"]?.resolvedInputs).toEqual({
+        projectName: "AgentXM",
+        strict: true,
+        maxDepth: 3,
+      });
+    });
+
+    it("rejects file lock entries with absolute target paths", () => {
+      const input = {
+        type: "local",
+        path: "./context-files/baseline",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        materializedTargets: [
+          {
+            target: "/tmp/README.md",
+            mode: "sync-always",
+            renderHash: "abc123",
+          },
+        ],
+      };
+
+      expect(() => Schema.decodeUnknownSync(FileLockEntrySchema)(input)).toThrow();
     });
 
     it("accepts valid skill lock entry with GitHub source", () => {

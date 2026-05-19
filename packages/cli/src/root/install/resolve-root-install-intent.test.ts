@@ -12,6 +12,7 @@ describe("resolveRootInstallIntent", () => {
         { source: "@acme/commands/release-notes@^1.2.0", type: "command" },
         { source: "@acme/mcp-servers/dev-server", type: "mcp-server" },
         { source: "@acme/subagents/researcher", type: "subagent" },
+        { source: "@acme/files/policy", type: "file" },
         { source: "@acme/packs/frontend-tools", type: "pack" },
       ] as const;
 
@@ -66,18 +67,6 @@ describe("resolveRootInstallIntent", () => {
     }),
   );
 
-  it.effect("rejects unsupported plural types", () =>
-    Effect.gen(function* () {
-      const error = yield* resolveRootInstallIntent("@acme/files/policy").pipe(Effect.flip);
-      const appError = getAppError(error);
-
-      expect(appError.code).toBe("usage");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcp-servers, subagents, packs");
-    }),
-  );
-
   it.effect("rejects unknown plural types", () =>
     Effect.gen(function* () {
       const error = yield* resolveRootInstallIntent("@acme/widgets/policy").pipe(Effect.flip);
@@ -86,7 +75,7 @@ describe("resolveRootInstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcp-servers, subagents, packs");
+      ).toContain("skills, commands, mcp-servers, subagents, files, packs");
     }),
   );
 });

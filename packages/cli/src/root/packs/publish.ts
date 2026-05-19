@@ -49,7 +49,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 
 export interface PublishPackHandlerArgs {
@@ -135,6 +135,11 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
   const targetRegistry = yield* resolveTargetRegistry(args.registry);
+  if (args.preview) {
+    yield* publishPackEffect(args, targetRegistry);
+    return;
+  }
+
   yield* withAuthGuard(publishPackEffect(args, targetRegistry), {
     registryUrl: targetRegistry.registryUrl,
   });
@@ -512,11 +517,17 @@ const publishConfig = {
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ pack, registry, includeDependencies, yes, force, preview }) =>
-    handlePublishPack({ pack, registry, includeDependencies, yes, force, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withAuthRuntime("packs publish"),
-    ),
+  ({ pack, registry, includeDependencies, yes, force, preview }) => {
+    const program = handlePublishPack({
+      pack,
+      registry,
+      includeDependencies,
+      yes,
+      force,
+      preview,
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE));
+    return program.pipe(Effect.provide(AuthLayer), withRuntime("packs publish"));
+  },
 ).pipe(
   withArgvTracking(publishConfig),
   Command.withDescription("Publish a pack to a registry"),

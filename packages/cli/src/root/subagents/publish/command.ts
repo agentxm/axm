@@ -1,9 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as Effect from "effect/Effect";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { handlePublish } from "./handler.js";
-import { withAuthRuntime, withWorkspace } from "../../../runtime.js";
+import { AuthLayer, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const publishConfig = {
   extensions: Argument.string("extensions").pipe(
@@ -26,11 +27,16 @@ const publishConfig = {
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ extensions, registry, yes, force, preview }) =>
-    handlePublish({ extensions: [...extensions], registry, yes, force, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withAuthRuntime("subagents publish"),
-    ),
+  ({ extensions, registry, yes, force, preview }) => {
+    const program = handlePublish({
+      extensions: [...extensions],
+      registry,
+      yes,
+      force,
+      preview,
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE));
+    return program.pipe(Effect.provide(AuthLayer), withRuntime("subagents publish"));
+  },
 ).pipe(
   withArgvTracking(publishConfig),
   Command.withDescription("Publish subagents to a registry"),

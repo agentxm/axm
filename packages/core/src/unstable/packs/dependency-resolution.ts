@@ -30,10 +30,11 @@ export interface ResolvedPackDependencies {
   readonly resolvedCommands: ResolvedExtensionMap;
   readonly resolvedMcpServers: ResolvedExtensionMap;
   readonly resolvedSubagents: ResolvedExtensionMap;
+  readonly resolvedFiles: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
 
-type SupportedPackDependencyType = "skill" | "command" | "mcp-server" | "subagent";
+type SupportedPackDependencyType = "skill" | "command" | "mcp-server" | "subagent" | "file";
 
 const registrySourceForDependency = (
   pack: PackRef,
@@ -133,6 +134,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
   const commands: Array<readonly [string, VersionRange]> = [];
   const mcpServers: Array<readonly [string, VersionRange]> = [];
   const subagents: Array<readonly [string, VersionRange]> = [];
+  const files: Array<readonly [string, VersionRange]> = [];
   const unsupported: string[] = [];
 
   for (const [fqn, constraint] of Object.entries(dependencies)) {
@@ -151,6 +153,8 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
         subagents.push([fqn, constraint]);
         break;
       case "file":
+        files.push([fqn, constraint]);
+        break;
       case "rule":
       case "pack":
         unsupported.push(fqn);
@@ -158,7 +162,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
     }
   }
 
-  return { skills, commands, mcpServers, subagents, unsupported };
+  return { skills, commands, mcpServers, subagents, files, unsupported };
 };
 
 export const resolvePackDependencies = (
@@ -198,12 +202,14 @@ export const resolvePackDependencies = (
       "subagent",
       sources,
     );
+    const resolvedFiles = yield* resolveDependencyGroup(pack, dependencies.files, "file", sources);
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),
       resolvedCommands: toResolvedMap(resolvedCommands),
       resolvedMcpServers: toResolvedMap(resolvedMcpServers),
       resolvedSubagents: toResolvedMap(resolvedSubagents),
+      resolvedFiles: toResolvedMap(resolvedFiles),
       dependencyRefs: [
         ...resolvedSkills.map((dependency) =>
           buildRegistrySkillRef(
@@ -241,6 +247,7 @@ export const resolvePackDependencies = (
             dependency.ref.packages,
           ),
         ),
+        ...resolvedFiles.map((dependency) => dependency.ref),
       ],
     };
   });

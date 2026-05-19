@@ -21,6 +21,7 @@ import { CommandManifestSchema } from "../../core/src/unstable/commands/index.js
 import { McpServerManifestSchema } from "../../core/src/unstable/mcp-servers/index.js";
 import { SubagentManifestSchema } from "../../core/src/unstable/subagents/index.js";
 import { PackManifestSchema } from "../../core/src/unstable/packs/index.js";
+import { ContextFilesManifestSchema } from "../../core/src/unstable/context-files/index.js";
 import { LockfileSchema } from "../../core/src/unstable/lockfile/index.js";
 import { AxmPackageMetaSchema } from "../../core/src/unstable/packaging/index.js";
 import { SettingsSchema } from "../../core/src/unstable/settings/index.js";
@@ -69,6 +70,11 @@ const schemas: SchemaConfig[] = [
   {
     name: "pack.schema.json",
     schema: PackManifestSchema,
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
+  },
+  {
+    name: "context-files.schema.json",
+    schema: ContextFilesManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {

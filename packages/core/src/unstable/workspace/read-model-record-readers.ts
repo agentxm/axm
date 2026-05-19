@@ -80,13 +80,19 @@ export const makeReadModelRecordReaders = (args: {
   const packMemberNames = (
     packs: ReadonlyArray<{
       readonly lockEntry: {
-        readonly resolvedSkills?: Readonly<Record<string, unknown>>;
-        readonly resolvedCommands?: Readonly<Record<string, unknown>>;
-        readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
-        readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
+        readonly resolvedSkills?: Readonly<Record<string, unknown>> | undefined;
+        readonly resolvedCommands?: Readonly<Record<string, unknown>> | undefined;
+        readonly resolvedMcpServers?: Readonly<Record<string, unknown>> | undefined;
+        readonly resolvedSubagents?: Readonly<Record<string, unknown>> | undefined;
+        readonly resolvedFiles?: Readonly<Record<string, unknown>> | undefined;
       };
     }>,
-    key: "resolvedSkills" | "resolvedCommands" | "resolvedMcpServers" | "resolvedSubagents",
+    key:
+      | "resolvedSkills"
+      | "resolvedCommands"
+      | "resolvedMcpServers"
+      | "resolvedSubagents"
+      | "resolvedFiles",
   ): ReadonlyArray<ExtensionName> => {
     const names: Array<ExtensionName> = [];
     for (const pack of packs) {
@@ -283,6 +289,23 @@ export const makeReadModelRecordReaders = (args: {
               packMemberNames: packMemberNames(
                 Option.getOrElse(packs, () => []),
                 "resolvedSubagents",
+              ),
+            });
+          }
+          case "file": {
+            const installed = yield* scoped.files.installed;
+            const resolved = yield* scoped.files.resolved;
+            const packs = yield* scoped.packs.resolved;
+            const unmanaged = yield* scoped.files.unmanaged;
+            return collectReadModelRecordRows({
+              type,
+              installed,
+              resolved,
+              unmanaged,
+              ignored: [],
+              packMemberNames: packMemberNames(
+                Option.getOrElse(packs, () => []),
+                "resolvedFiles",
               ),
             });
           }

@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
+import { contextFilesPackagesInDir } from "../../context-files/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { SourceHostProvider, LocalSource } from "../../sources/index.js";
 
@@ -37,35 +38,69 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const discovered = yield* skillsInDir(source.path, Option.none(), {
-        fullDepth: false,
-        includeInternal: false,
-      }).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "network",
-            detail: `Failed to discover skills`,
-            cause: error,
-          }),
-        ),
-      );
+      const skillRefs =
+        options.type === "file"
+          ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
+          : skillsInDir(source.path, Option.none(), {
+              fullDepth: false,
+              includeInternal: false,
+            }).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "network",
+                  detail: `Failed to discover skills`,
+                  cause: error,
+                }),
+              ),
+              Effect.map((discovered) =>
+                Array.map(
+                  discovered,
+                  (d): ExtensionRef => ({
+                    type: "skill",
+                    refType: "local",
+                    skill: {
+                      name: decodeExtensionNameSync(d.skill.name),
+                      description: Option.some(d.skill.description),
+                      metadata: d.skill.metadata,
+                    },
+                    source,
+                    location: d.location,
+                  }),
+                ),
+              ),
+            );
 
-      // Map to ExtensionRef with LocalRefDetails
-      const mapped: ReadonlyArray<ExtensionRef> = Array.map(discovered, (d) => ({
-        type: "skill" as const,
-        refType: "local" as const,
-        skill: {
-          name: decodeExtensionNameSync(d.skill.name),
-          description: Option.some(d.skill.description),
-          metadata: d.skill.metadata,
-        },
-        source,
-        location: d.location,
-      }));
+      const fileRefs =
+        options.type !== "file" && options.type !== "*"
+          ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
+          : contextFilesPackagesInDir(source.path, { fullDepth: false }).pipe(
+              Effect.map((discovered) =>
+                Array.map(
+                  discovered,
+                  (d): ExtensionRef => ({
+                    type: "file",
+                    refType: "local",
+                    file: { name: d.manifest.name },
+                    source,
+                    location: d.location,
+                  }),
+                ),
+              ),
+            );
 
+      const mapped = [...(yield* skillRefs), ...(yield* fileRefs)];
       if (options.names.length === 0) return mapped;
       const nameSet = new Set(options.names);
-      return mapped.filter((r) => r.type === "skill" && nameSet.has(r.skill.name));
+      return mapped.filter((r) => {
+        switch (r.type) {
+          case "skill":
+            return nameSet.has(r.skill.name);
+          case "file":
+            return nameSet.has(r.file.name);
+          default:
+            return false;
+        }
+      });
     }),
 
   fetch: (_source, ref) => {

@@ -21,6 +21,10 @@ import {
 } from "@agentxm/client-core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import {
+  ContextFilesManager,
+  type ContextFilesExtensionRef,
+} from "@agentxm/client-core/unstable/context-files";
+import {
   McpServerManager,
   type McpServerExtensionRef,
 } from "@agentxm/client-core/unstable/mcp-servers";
@@ -97,6 +101,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const packMgr = yield* PackManager;
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
+    const contextFilesManager = yield* ContextFilesManager;
     const mcpServerMgr = yield* McpServerManager;
     const subagentMgr = yield* SubagentManager;
 
@@ -194,11 +199,13 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const lockedSkills = yield* ws.getLockedSkills();
         const lockedCommands = yield* ws.getLockedCommands();
         const lockedMcpServers = yield* ws.getLockedMcpServers();
+        const lockedFiles = yield* ws.getLockedFiles();
         const lockfile = {
           lockfileVersion: LOCKFILE_VERSION,
           skills: lockedSkills,
           commands: lockedCommands,
           mcpServers: lockedMcpServers,
+          files: lockedFiles,
           packs: lockedPacks,
         };
 
@@ -207,12 +214,14 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const configuredCommands = yield* ws.records.getConfiguredCommands();
         const configuredMcpServers = yield* ws.records.getConfiguredMcpServers();
         const configuredSubagents = yield* ws.records.getConfiguredSubagents();
+        const configuredFiles = yield* ws.getConfiguredFileEntries();
 
         const settings: UninstallSettingsContext = {
           skills: Object.fromEntries(Object.keys(configuredSkills).map((k) => [k, k])),
           commands: Object.fromEntries(Object.keys(configuredCommands).map((k) => [k, k])),
           mcpServers: Object.fromEntries(Object.keys(configuredMcpServers).map((k) => [k, k])),
           subagents: Object.fromEntries(Object.keys(configuredSubagents).map((k) => [k, k])),
+          files: Object.fromEntries(Object.keys(configuredFiles).map((k) => [k, k])),
         };
 
         // Expand each pack and collect all targets, deduplicating by type+name
@@ -221,7 +230,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         for (const pack of intent.packsToUninstall) {
           const targets = yield* expandPackUninstallTargets({
             pack,
-            supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent"],
+            supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent", "file"],
             lockfile,
             settings,
           });
@@ -268,6 +277,16 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             return buildUninstallOperation<SubagentExtensionRef>(subagentMgr, retentionPolicy, {
               target,
             });
+          }
+
+          if (target.type === "file") {
+            return buildUninstallOperation<ContextFilesExtensionRef>(
+              contextFilesManager,
+              retentionPolicy,
+              {
+                target,
+              },
+            );
           }
 
           return {

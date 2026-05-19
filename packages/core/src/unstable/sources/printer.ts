@@ -6,7 +6,12 @@
  */
 
 import * as Option from "effect/Option";
-import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/schema.js";
+import type {
+  CommandLockEntry,
+  FileLockEntry,
+  McpServerLockEntry,
+  SkillLockEntry,
+} from "../lockfile/schema.js";
 import { print as azurereposPrint } from "../source-resolution/providers/azurerepos/index.js";
 import { print as bitbucketPrint } from "../source-resolution/providers/bitbucket/index.js";
 import { print as githubPrint } from "../source-resolution/providers/github/index.js";
@@ -14,7 +19,7 @@ import { print as gitlabPrint } from "../source-resolution/providers/gitlab/inde
 import { print as localPrint } from "../source-resolution/providers/local-parser/index.js";
 import type { SourceParams } from "./types.js";
 
-type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry;
+type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | FileLockEntry;
 
 /**
  * Print source params as their canonical shorthand string.

@@ -283,6 +283,42 @@ describe("subagents-publish.handler", () => {
         }),
       );
     });
+
+    it.effect("previews against a remote registry without requiring auth", () => {
+      const { provide } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedSubagent(tempDir, "@test", "preview-subagent", {
+        name: "@test/subagents/preview-subagent",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
+        {
+          name: "remote",
+          type: "registry",
+          location: new URL("https://registry.example.test"),
+        },
+      ]);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/subagents/preview-subagent"], {
+              force: true,
+              preview: true,
+            }),
+          );
+
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@test", "subagents", "preview-subagent"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
   });
 
   describe("publish with default registry", () => {

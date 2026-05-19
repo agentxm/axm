@@ -16,6 +16,7 @@ import { SkillManifestSchema } from "../skills/manifest-schema.js";
 import { CommandManifestSchema } from "../commands/manifest-schema.js";
 import { McpServerManifestSchema } from "../mcp-servers/manifest-schema.js";
 import { PackManifestSchema } from "../packs/manifest-schema.js";
+import { ContextFilesManifestSchema } from "../context-files/manifest-schema.js";
 
 const CORE_UNSTABLE = path.join(import.meta.dirname, "..");
 
@@ -84,5 +85,17 @@ describe("example files", () => {
     expect(result.type).toBe("pack");
     expect(result.name).toBe("fullstack-pack");
     expect(result.dependencies["@acme/skills/code-review"]).toBe("^1.0.0");
+  });
+
+  it("context-files.example.json conforms to ContextFilesManifestSchema", () => {
+    const example = readJsonFile(
+      path.join(CORE_UNSTABLE, "context-files/context-files.example.json"),
+    );
+    const result = Schema.decodeUnknownSync(ContextFilesManifestSchema)(example);
+    expect(result).toBeDefined();
+    expect(result.owner).toBe("@acme");
+    expect(result.type).toBe("file");
+    expect(result.name).toBe("workspace-baseline");
+    expect(result.contents).toHaveLength(2);
   });
 });

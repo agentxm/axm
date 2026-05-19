@@ -147,7 +147,7 @@ describe("canonical-extensions scanner", () => {
         project: {
           axmExtensions: {
             "@owner/skills/src/some-skill/SKILL.md": "# ok\n",
-            // "stuff" is not an ExtensionTypePlural; the scanner should skip it.
+            // "stuff" is not a local extension type directory; the scanner should skip it.
             "@owner/stuff/src/junk/file.txt": "junk",
           },
         },
@@ -164,7 +164,7 @@ describe("canonical-extensions scanner", () => {
         "commands",
         "mcp-servers",
         "subagents",
-        "files",
+        "context-files",
         "rules",
         "packs",
       ] as const;

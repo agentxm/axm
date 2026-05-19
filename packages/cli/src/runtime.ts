@@ -27,6 +27,7 @@ import {
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { ContextFilesManagerLive } from "@agentxm/client-core/unstable/context-files";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
@@ -41,6 +42,8 @@ import {
 } from "@agentxm/client-core/unstable/auth";
 import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
+import { InstallContextFilesCommandWorkflowActionsLive } from "./root/context-files/install/command-actions.js";
+import { UninstallContextFilesCommandWorkflowActionsLive } from "./root/context-files/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcp-servers/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcp-servers/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -97,7 +100,7 @@ const AuthMiddlewareWrappedLayer = Layer.provide(
   Layer.mergeAll(AuthServicesLayer, PlatformLayer),
 );
 
-const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrappedLayer);
+export const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrappedLayer);
 
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
@@ -205,6 +208,13 @@ const makeWorkspaceProgramLayer = (
     ),
     CommandManagerLive,
   );
+  const filesLayer = Layer.provideMerge(
+    Layer.mergeAll(
+      InstallContextFilesCommandWorkflowActionsLive,
+      UninstallContextFilesCommandWorkflowActionsLive,
+    ),
+    ContextFilesManagerLive,
+  );
   const mcpServersLayer = Layer.provideMerge(
     Layer.mergeAll(
       InstallMcpServerCommandWorkflowActionsLive,
@@ -232,6 +242,7 @@ const makeWorkspaceProgramLayer = (
   );
   const coreExtensions = Layer.mergeAll(
     commandsLayer,
+    filesLayer,
     mcpServersLayer,
     skillsLayer,
     subagentsLayer,

@@ -756,6 +756,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     commandContexts: view.commandContexts,
     subagentContexts: view.subagentContexts,
     mcpServerContexts: view.mcpServerContexts,
+    fileContexts: view.fileContexts,
     workspaceContext,
     config,
   });

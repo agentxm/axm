@@ -16,6 +16,10 @@ import type * as Scope from "effect/Scope";
 import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
+import {
+  contextFilesPackagesInDir,
+  type ContextFilesExtensionRef,
+} from "../../context-files/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
@@ -82,50 +86,94 @@ export const createGitHostingSourceHostProvider = <
 
       yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(ref));
 
-      const oldRefs = yield* skillsInDir(tempDir, subPath, {
-        fullDepth: false,
-        includeInternal: false,
-      }).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "network",
-            detail: "Failed to discover skills",
-            cause: error,
-          }),
-        ),
-      );
+      const refs =
+        options.type === "file"
+          ? []
+          : yield* skillsInDir(tempDir, subPath, {
+              fullDepth: false,
+              includeInternal: false,
+            }).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "network",
+                  detail: "Failed to discover skills",
+                  cause: error,
+                }),
+              ),
+              Effect.flatMap((oldRefs) =>
+                Effect.forEach(
+                  oldRefs,
+                  (d) =>
+                    Effect.gen(function* () {
+                      const skillPath = fileUrlToPath(d.location);
+                      const relativeDir = path.relative(tempDir, skillPath);
+                      const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
+                      const ref: SkillExtensionRef = {
+                        type: "skill" as const,
+                        refType: "git-hosted" as const,
+                        skill: {
+                          name: decodeExtensionNameSync(d.skill.name),
+                          description: Option.some(d.skill.description),
+                          metadata: d.skill.metadata,
+                        },
+                        source,
+                        location: d.location,
+                        gitTreeSha: Option.some(gitTreeSha),
+                      };
+                      return ref;
+                    }),
+                  { concurrency: "unbounded" },
+                ),
+              ),
+            );
 
-      // Enrich with tree SHAs and wrap as ExtensionRef
-      const refs = yield* Effect.forEach(
-        oldRefs,
-        (d) =>
-          Effect.gen(function* () {
-            const skillPath = fileUrlToPath(d.location);
-            const relativeDir = path.relative(tempDir, skillPath);
-            const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-            // Assertion needed: TS can't prove generic S narrows to a concrete ExtensionRef source variant.
-            // The `source` parameter is typed as S (a git hosting source), but ExtensionRef requires
-            // a specific source type. satisfies won't work here due to the generic type parameter.
-            const ref: SkillExtensionRef = {
-              type: "skill" as const,
-              refType: "git-hosted" as const,
-              skill: {
-                name: decodeExtensionNameSync(d.skill.name),
-                description: Option.some(d.skill.description),
-                metadata: d.skill.metadata,
-              },
-              source,
-              location: d.location,
-              gitTreeSha: Option.some(gitTreeSha),
-            };
-            return ref;
-          }),
-        { concurrency: "unbounded" },
-      );
+      const fileSearchRoot = Option.match(subPath, {
+        onNone: () => tempDir,
+        onSome: (value) => path.join(tempDir, value),
+      });
 
-      if (options.names.length === 0) return refs;
+      const fileRefs =
+        options.type !== "file" && options.type !== "*"
+          ? []
+          : yield* contextFilesPackagesInDir(fileSearchRoot, {
+              fullDepth: false,
+            }).pipe(
+              Effect.flatMap((discovered) =>
+                Effect.forEach(
+                  discovered,
+                  (d) =>
+                    Effect.gen(function* () {
+                      const filePath = fileUrlToPath(d.location);
+                      const relativeDir = path.relative(tempDir, filePath);
+                      const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
+                      const ref: ContextFilesExtensionRef = {
+                        type: "file" as const,
+                        refType: "git-hosted" as const,
+                        file: { name: d.manifest.name },
+                        source,
+                        location: d.location,
+                        gitTreeSha: Option.some(gitTreeSha),
+                      };
+                      return ref;
+                    }),
+                  { concurrency: "unbounded" },
+                ),
+              ),
+            );
+
+      const allRefs = [...refs, ...fileRefs];
+      if (options.names.length === 0) return allRefs;
       const nameSet = new Set(options.names);
-      return refs.filter((r) => r.type === "skill" && nameSet.has(r.skill.name));
+      return allRefs.filter((r) => {
+        switch (r.type) {
+          case "skill":
+            return nameSet.has(r.skill.name);
+          case "file":
+            return nameSet.has(r.file.name);
+          default:
+            return false;
+        }
+      });
     }),
 
   fetch: (_source, _ref) => {

@@ -347,6 +347,40 @@ describe("commands-publish.handler", () => {
         }),
       );
     });
+
+    it.effect("previews against a remote registry without requiring auth", () => {
+      const { provide } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedCommandExtension(tempDir, "@test", "preview-cmd", {
+        name: "@test/commands/preview-cmd",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
+        {
+          name: "remote",
+          type: "registry",
+          location: new URL("https://registry.example.test"),
+        },
+      ]);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleCommandsPublish(
+            defaultArgs(["@test/commands/preview-cmd"], {
+              preview: true,
+            }),
+          );
+
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@test", "commands", "preview-cmd"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
   });
 
   describe("missing manifest error", () => {

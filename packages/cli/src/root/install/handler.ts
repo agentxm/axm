@@ -16,6 +16,10 @@ import {
   type InstallMcpServerHandlerArgs,
 } from "../mcp-servers/install/command-actions.js";
 import {
+  InstallContextFilesCommandWorkflowActions,
+  type InstallContextFilesHandlerArgs,
+} from "../context-files/install/command-actions.js";
+import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
 } from "../packs/install/command-actions.js";
@@ -23,6 +27,7 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import { resolveRootInstallIntent, type RootInstallIntent } from "./resolve-root-install-intent.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
+import { runContextFilesWorkspaceGeneratorPhase } from "../context-files/workspace-generator-phase.js";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
@@ -59,6 +64,11 @@ const runInstallIntent = (intent: RootInstallIntent, args: RootInstallFlags) =>
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(mcpArgs, actions, args);
       }
+      case "file": {
+        const actions = yield* InstallContextFilesCommandWorkflowActions;
+        const fileArgs: InstallContextFilesHandlerArgs = { source: intent.source };
+        return yield* runInstallCommandWorkflow(fileArgs, actions, args);
+      }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
@@ -89,6 +99,9 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
       Effect.gen(function* () {
         const intent = yield* resolveRootInstallIntent(source);
         const resolution = yield* runInstallIntent(intent, args);
+        if (!args.preview && (intent.type === "file" || intent.type === "pack")) {
+          yield* runContextFilesWorkspaceGeneratorPhase({ dryRun: false });
+        }
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
             planResolutionToSummary(resolution, {

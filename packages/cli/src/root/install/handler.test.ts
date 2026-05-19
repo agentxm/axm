@@ -12,6 +12,10 @@ import {
   type InstallCommandHandlerArgs,
 } from "../commands/install/command-actions.js";
 import {
+  InstallContextFilesCommandWorkflowActions,
+  type InstallContextFilesHandlerArgs,
+} from "../context-files/install/command-actions.js";
+import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "../mcp-servers/install/command-actions.js";
@@ -134,6 +138,24 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("mcp-server")),
     };
 
+    const contextFilesActions = {
+      parseArgs: (args: InstallContextFilesHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({
+            type: "context-files",
+            source: args.source,
+            yes: false,
+            force: false,
+            preview: true,
+          });
+          return {};
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({}),
+      buildPlan: () => Effect.succeed(makePlan("context-files")),
+    };
+
     const subagentActions = {
       parseArgs: (args: InstallSubagentSourceHandlerArgs) =>
         Effect.sync(() => {
@@ -195,6 +217,13 @@ describe("root install handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
+        InstallContextFilesCommandWorkflowActions,
+        contextFilesActions as unknown as ServiceMap.Service.Shape<
+          typeof InstallContextFilesCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
         InstallSubagentCommandWorkflowActions,
         subagentActions as unknown as ServiceMap.Service.Shape<
           typeof InstallSubagentCommandWorkflowActions
@@ -230,6 +259,7 @@ describe("root install handler", () => {
         "@acme/skills/code-review",
         "@acme/commands/release-notes",
         "@acme/mcp-servers/dev-server",
+        "@acme/files/workspace-baseline",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
       ] as const;
@@ -242,6 +272,7 @@ describe("root install handler", () => {
         { type: "skill", source: "@acme/skills/code-review", ...flags },
         { type: "command", source: "@acme/commands/release-notes", ...flags },
         { type: "mcp-server", source: "@acme/mcp-servers/dev-server", ...flags },
+        { type: "context-files", source: "@acme/files/workspace-baseline", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);

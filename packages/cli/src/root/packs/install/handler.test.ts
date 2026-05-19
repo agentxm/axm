@@ -40,6 +40,7 @@ import type { PackInstallHandlerArgs } from "./handler.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { ContextFilesManagerLive } from "@agentxm/client-core/unstable/context-files";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -162,6 +163,7 @@ describe("packs install handler", () => {
       PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
+      ContextFilesManagerLive,
       McpServerManagerLive,
       SubagentManagerLive,
     );
@@ -210,6 +212,7 @@ describe("packs install handler", () => {
       PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
+      ContextFilesManagerLive,
       McpServerManagerLive,
       SubagentManagerLive,
     );

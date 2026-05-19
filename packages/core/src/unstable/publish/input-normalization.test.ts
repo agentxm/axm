@@ -132,4 +132,41 @@ describe("normalizePublishInput", () => {
       expect(result.type).toBe("pack");
     }),
   );
+
+  it.effect("normalizes file publish input", () =>
+    Effect.gen(function* () {
+      const zip = buildZip([
+        {
+          fileName: "context-files.json",
+          content: textContent(
+            JSON.stringify({
+              owner: "@acme",
+              type: "file",
+              name: "baseline-docs",
+              version: "1.0.0",
+              contents: [
+                {
+                  source: { kind: "static", path: "README.md" },
+                  target: "README.md",
+                  mode: "sync-once",
+                },
+              ],
+            }),
+          ),
+        },
+        { fileName: "src/README.md", content: textContent("# docs") },
+      ]);
+
+      const result = yield* normalizePublishInput({
+        declaredIdentity: makeDeclaredIdentity({
+          type: "file",
+          name: extensionName("baseline-docs"),
+        }),
+        archive: makeBody(zip),
+      });
+
+      expect(result.type).toBe("file");
+      expect(result.manifest.fileName).toBe("context-files.json");
+    }),
+  );
 });

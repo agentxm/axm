@@ -36,6 +36,8 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "subagent-schema",
   "commands",
   "command-schema",
+  "context-files",
+  "context-files-schema",
   "packs",
   "pack-schema",
   "package-extensions",

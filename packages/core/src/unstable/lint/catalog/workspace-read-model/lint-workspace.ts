@@ -34,11 +34,13 @@ import {
 import type { WorkspaceRootEscape } from "../../../workspace/read-model/errors.js";
 import type {
   ActualCommand,
+  ActualContextFilesPackage,
   ActualMcpServer,
   ActualPack,
   ActualSkill,
   ActualSubagent,
   InstalledCommand,
+  InstalledContextFilesPackage,
   InstalledMcpServer,
   InstalledPack,
   InstalledSkill,
@@ -46,6 +48,7 @@ import type {
 } from "../../../workspace/read-model/extensions/index.js";
 import type {
   CommandRuleContext,
+  ContextFilesRuleContext,
   McpServerRuleContext,
   SubagentRuleContext,
   WorkspaceRuleContext,
@@ -54,8 +57,10 @@ import type { InstalledSkillInfo } from "../skill-accessor/contexts.js";
 import type { InstalledPackInfo } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
+import { makePlatformContextFilesAccessor } from "../context-files-accessor/platform.js";
 import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
 import { COMMAND_MANIFEST_FILENAME } from "../../../commands/manifest-schema.js";
+import { CONTEXT_FILES_MANIFEST_FILENAME } from "../../../context-files/manifest-schema.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcp-servers/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "../../../skills/manifest-schema.js";
@@ -79,6 +84,7 @@ export interface LintWorkspaceView {
   readonly commandContexts: ReadonlyArray<CommandRuleContext>;
   readonly subagentContexts: ReadonlyArray<SubagentRuleContext>;
   readonly mcpServerContexts: ReadonlyArray<McpServerRuleContext>;
+  readonly fileContexts: ReadonlyArray<ContextFilesRuleContext>;
 }
 
 // -----------------------------------------------------------------------------
@@ -186,13 +192,14 @@ const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
 ): Effect.Effect<LintWorkspaceView> =>
   Effect.gen(function* () {
-    const [skills, packs, commands, subagents, mcpServers] = yield* Effect.all(
+    const [skills, packs, commands, subagents, mcpServers, files] = yield* Effect.all(
       [
         args.readModel.skills.installed,
         args.readModel.packs.installed,
         args.readModel.commands.installed,
         args.readModel.subagents.installed,
         args.readModel.mcpServers.installed,
+        args.readModel.files.installed,
       ],
       { concurrency: "unbounded" },
     );
@@ -215,6 +222,10 @@ const buildLintWorkspaceView = (
       const context = installedMcpServerToContext(args, mcpServer);
       return context === undefined ? [] : [context];
     });
+    const fileContexts = files.flatMap((file) => {
+      const context = installedFileToContext(args, file);
+      return context === undefined ? [] : [context];
+    });
 
     const [
       installedSkillsWithJson,
@@ -222,6 +233,7 @@ const buildLintWorkspaceView = (
       commandContextsWithJson,
       subagentContextsWithJson,
       mcpServerContextsWithJson,
+      fileContextsWithJson,
     ] = yield* Effect.all(
       [
         populateSkillManifestJson(installedSkills),
@@ -229,6 +241,7 @@ const buildLintWorkspaceView = (
         populateCommandManifestJson(commandContexts),
         populateSubagentManifestJson(subagentContexts),
         populateMcpServerManifestJson(mcpServerContexts),
+        populateContextFilesManifestJson(fileContexts),
       ],
       { concurrency: "unbounded" },
     );
@@ -239,6 +252,7 @@ const buildLintWorkspaceView = (
       commandContexts: commandContextsWithJson,
       subagentContexts: subagentContextsWithJson,
       mcpServerContexts: mcpServerContextsWithJson,
+      fileContexts: fileContextsWithJson,
     };
   });
 
@@ -306,6 +320,22 @@ const populateMcpServerManifestJson = (
       Effect.gen(function* () {
         const mcpServerJson = yield* readManifestJson(context.files, MCP_SERVER_MANIFEST_FILENAME);
         return { ...context, subject: { mcpServerJson } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateContextFilesManifestJson = (
+  fileContexts: ReadonlyArray<ContextFilesRuleContext>,
+): Effect.Effect<ReadonlyArray<ContextFilesRuleContext>> =>
+  Effect.forEach(
+    fileContexts,
+    (context) =>
+      Effect.gen(function* () {
+        const contextFilesJson = yield* readManifestJson(
+          context.files,
+          CONTEXT_FILES_MANIFEST_FILENAME,
+        );
+        return { ...context, subject: { contextFilesJson } };
       }),
     { concurrency: "unbounded" },
   );
@@ -443,6 +473,21 @@ const installedMcpServerToContext = (
   };
 };
 
+const installedFileToContext = (
+  args: BuildLintWorkspaceViewArgs,
+  file: InstalledContextFilesPackage,
+): ContextFilesRuleContext | undefined => {
+  const root = filePackageRoot(args, file);
+  if (root === undefined) {
+    return undefined;
+  }
+  return {
+    subject: { contextFilesJson: undefined },
+    files: makePlatformContextFilesAccessor(args.platform, root),
+    displayRoot: relativeDisplayRoot(args, root),
+  };
+};
+
 const chooseSkillActual = (actual: ReadonlyArray<ActualSkill>): ActualSkill | undefined =>
   actual.find((entry) => entry.origin._tag !== "agent-skill-dir") ?? actual[0];
 
@@ -457,6 +502,10 @@ const chooseSubagentActual = (actual: ReadonlyArray<ActualSubagent>): ActualSuba
 const chooseMcpServerActual = (
   actual: ReadonlyArray<ActualMcpServer>,
 ): ActualMcpServer | undefined => actual.find((entry) => entry.contentRoot !== null);
+
+const chooseContextFilesActual = (
+  actual: ReadonlyArray<ActualContextFilesPackage>,
+): ActualContextFilesPackage | undefined => actual.find((entry) => entry.packageRoot !== null);
 
 const commandPackageRoot = (
   args: BuildLintWorkspaceViewArgs,
@@ -546,6 +595,21 @@ const mcpServerPackageRoot = (
   }
 
   return undefined;
+};
+
+const filePackageRoot = (
+  args: BuildLintWorkspaceViewArgs,
+  file: InstalledContextFilesPackage,
+): string | undefined => {
+  const actual = chooseContextFilesActual(file.actual);
+  if (actual?.packageRoot !== undefined && actual.packageRoot !== null) {
+    return actual.packageRoot;
+  }
+
+  return args.platform.path.resolve(
+    args.workspaceRoot,
+    `.axm/extensions/external/context-files/${file.key.name}`,
+  );
 };
 
 const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {

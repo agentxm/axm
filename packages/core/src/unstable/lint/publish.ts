@@ -21,6 +21,14 @@ import { manifestSchemaValidRule as subagentManifestSchemaValidRule } from "./ca
 import { manifestKeysRecognizedRule as mcpServerManifestKeysRecognizedRule } from "./catalog/mcp-server/manifest-keys-recognized.js";
 import { manifestPresentRule as mcpServerManifestPresentRule } from "./catalog/mcp-server/manifest-present.js";
 import { manifestSchemaValidRule as mcpServerManifestSchemaValidRule } from "./catalog/mcp-server/manifest-schema-valid.js";
+import { generatorValidRule as contextFilesGeneratorValidRule } from "./catalog/context-files/generator-valid.js";
+import { manifestKeysRecognizedRule as contextFilesManifestKeysRecognizedRule } from "./catalog/context-files/manifest-keys-recognized.js";
+import { manifestPresentRule as contextFilesManifestPresentRule } from "./catalog/context-files/manifest-present.js";
+import { manifestSchemaValidRule as contextFilesManifestSchemaValidRule } from "./catalog/context-files/manifest-schema-valid.js";
+import { markerValidRule as contextFilesMarkerValidRule } from "./catalog/context-files/marker-valid.js";
+import { packageValidRule as contextFilesPackageValidRule } from "./catalog/context-files/package-valid.js";
+import { targetValidRule as contextFilesTargetValidRule } from "./catalog/context-files/target-valid.js";
+import { templateValidRule as contextFilesTemplateValidRule } from "./catalog/context-files/template-valid.js";
 import { frontmatterParseableRule as skillFrontmatterParseableRule } from "./catalog/skill/frontmatter-parseable.js";
 import { manifestKeysRecognizedRule as skillManifestKeysRecognizedRule } from "./catalog/skill/manifest-keys-recognized.js";
 import { manifestPresentRule as skillManifestPresentRule } from "./catalog/skill/manifest-present.js";
@@ -28,6 +36,7 @@ import { manifestSchemaValidRule as skillManifestSchemaValidRule } from "./catal
 import { skillMdPresentRule } from "./catalog/skill/skill-md-present.js";
 import type {
   CommandRuleContext,
+  ContextFilesRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
@@ -43,6 +52,9 @@ export type {
   CommandContent,
   CommandFileAccessor,
   CommandRuleContext,
+  ContextFilesContent,
+  ContextFilesAccessor,
+  ContextFilesRuleContext,
   McpServerContent,
   McpServerFileAccessor,
   McpServerRuleContext,
@@ -57,6 +69,10 @@ export type {
   SubagentRuleContext,
 } from "./context.js";
 export type { LintFinding, LintRule } from "./rule.js";
+export {
+  makeVftContextFilesAccessor,
+  type ContextFilesVFTNode,
+} from "./catalog/context-files-accessor/vft.js";
 export { makeVftPackFileAccessor, type PackVFTNode } from "./catalog/pack-accessor/vft.js";
 export {
   makeVftSkillFileAccessor,
@@ -106,4 +122,15 @@ export const mcpServerRules: ReadonlyArray<LintRule<McpServerRuleContext>> = [
   mcpServerManifestPresentRule,
   mcpServerManifestSchemaValidRule,
   mcpServerManifestKeysRecognizedRule,
+];
+
+export const contextFilesRules: ReadonlyArray<LintRule<ContextFilesRuleContext>> = [
+  contextFilesManifestPresentRule,
+  contextFilesManifestSchemaValidRule,
+  contextFilesManifestKeysRecognizedRule,
+  contextFilesPackageValidRule,
+  contextFilesTargetValidRule,
+  contextFilesTemplateValidRule,
+  contextFilesGeneratorValidRule,
+  contextFilesMarkerValidRule,
 ];

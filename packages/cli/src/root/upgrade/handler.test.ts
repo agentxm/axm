@@ -215,7 +215,7 @@ describe("makeDownloadUrl", () => {
 
 describe("handleUpgrade", () => {
   describe("homebrew upgrades", () => {
-    it.effect("runs brew upgrade and verifies the upgraded binary", () => {
+    it.effect("runs brew upgrade and verifies axm resolved on PATH", () => {
       const subprocess = makeMockSubprocess((invocation) => {
         if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
           return commandResult({ stdout: "agentxm/tap\n" });
@@ -240,9 +240,13 @@ describe("handleUpgrade", () => {
           ).toBe(true);
           expect(
             subprocess.calls.some(
-              (call) => call.command === process.execPath && call.args.join(" ") === "--version",
+              (call) => call.command === "axm" && call.args.join(" ") === "--version",
             ),
           ).toBe(true);
+          // Regression: verify `axm` resolved on PATH, never the stale
+          // `process.execPath` — `brew upgrade` removes the old Cellar
+          // directory, so spawning that path fails on a successful upgrade.
+          expect(subprocess.calls.some((call) => call.command === process.execPath)).toBe(false);
         }),
       );
     });
@@ -397,7 +401,7 @@ describe("handleUpgrade", () => {
             return commandResult({ stdout: "agentxm/tap\n" });
           }
           // `axm --version` still reports the pre-upgrade version: brew was a no-op
-          if (invocation.command === process.execPath) {
+          if (invocation.command === "axm") {
             return commandResult({ stdout: `${LOCAL_VERSION}\n` });
           }
           return commandResult();
@@ -441,6 +445,14 @@ describe("handleUpgrade", () => {
                 call.command === "npm" && call.args.join(" ") === "install -g axm.sh@99.0.0",
             ),
           ).toBe(true);
+          // Regression: verify `axm` resolved on PATH, never `process.execPath`
+          // — `npm install -g` replaces the running binary's file in place.
+          expect(
+            subprocess.calls.some(
+              (call) => call.command === "axm" && call.args.join(" ") === "--version",
+            ),
+          ).toBe(true);
+          expect(subprocess.calls.some((call) => call.command === process.execPath)).toBe(false);
         }),
       );
     });

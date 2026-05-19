@@ -49,6 +49,16 @@ const BREW_REINSTALL_COMMAND = "brew reinstall agentxm/tap/axm";
 const NPM_PACKAGE = "axm.sh";
 const HOMEBREW_ENV = { HOMEBREW_NO_AUTO_UPDATE: "1" } as const;
 
+/**
+ * Command name verified after a delegated (Homebrew/npm) upgrade. The subprocess
+ * spawner resolves it on `PATH`. Deliberately not `process.execPath`: a Homebrew
+ * or npm upgrade replaces — and removes — the running binary's file (for
+ * Homebrew, the whole old `/Cellar/` directory), so spawning `process.execPath`
+ * afterward fails even when the upgrade succeeded. Resolving `axm` on `PATH`
+ * also verifies exactly what the user gets on their next run.
+ */
+const AXM_COMMAND = "axm";
+
 interface PlatformBinaryInfo {
   readonly binaryName: string;
   readonly platform: string;
@@ -279,15 +289,16 @@ type UpgradeCheck =
   | { readonly _tag: "Unverifiable" };
 
 /**
- * Run the just-installed `axm --version` and classify what it reports against
- * the version we expected and the version we started from. Never renders — the
- * caller decides what to say.
+ * Run `axm --version` (resolved on `PATH`, see {@link AXM_COMMAND}) after a
+ * delegated upgrade and classify what it reports against the version we expected
+ * and the version we started from. Never renders — the caller decides what to
+ * say.
  */
 const checkUpgradedVersion = (
   targetVersion: string,
   localVersion: string,
 ): Effect.Effect<UpgradeCheck, never, Subprocess> =>
-  verifyBinary(process.execPath).pipe(
+  verifyBinary(AXM_COMMAND).pipe(
     Effect.map((reported): UpgradeCheck => {
       if (reported === targetVersion) return { _tag: "Verified" };
       if (reported === localVersion) return { _tag: "Unchanged", reported };

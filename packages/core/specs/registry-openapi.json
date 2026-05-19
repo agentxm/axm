@@ -73,14 +73,19 @@
                 "properties": {
                   "client_id": {
                     "type": "string",
-                    "enum": ["axm-cli"],
-                    "description": "OAuth client identifier. Must be 'axm-cli'."
+                    "allOf": [
+                      {
+                        "minLength": 1,
+                        "description": "OAuth public client identifier.",
+                        "examples": ["example-client"]
+                      }
+                    ]
                   },
                   "scope": {
                     "anyOf": [
                       {
                         "type": "string",
-                        "description": "Ignored for axm-cli. Sessions always use full user authority."
+                        "description": "Optional space-delimited registry scopes requested by the client."
                       },
                       { "type": "null" }
                     ]
@@ -160,8 +165,13 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "description": "OAuth client identifier.",
-                        "examples": ["axm-cli"]
+                        "allOf": [
+                          {
+                            "minLength": 1,
+                            "description": "OAuth client identifier.",
+                            "examples": ["example-client"]
+                          }
+                        ]
                       },
                       { "type": "null" }
                     ]
@@ -204,162 +214,6 @@
                   }
                 },
                 "required": ["grant_type"],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/v1/auth/device/token": {
-      "post": {
-        "tags": ["Auth"],
-        "operationId": "Auth.exchangeDeviceCode",
-        "parameters": [],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "access_token": { "type": "string" },
-                    "refresh_token": { "type": "string" },
-                    "token_type": { "type": "string", "enum": ["Bearer"] },
-                    "expires_in": { "type": "integer" },
-                    "expires_at": { "type": "string" },
-                    "scope": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                  },
-                  "required": [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in",
-                    "expires_at"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "TokenOAuthError | DecodeErrorResponse",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TokenOAuthError" } },
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          }
-        },
-        "summary": "Deprecated: exchange device code for access token",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "grant_type": {
-                    "type": "string",
-                    "description": "OAuth grant type. Must be 'urn:ietf:params:oauth:grant-type:device_code'.",
-                    "examples": ["urn:ietf:params:oauth:grant-type:device_code"]
-                  },
-                  "device_code": {
-                    "type": "string",
-                    "description": "The device verification code received from the /device/code endpoint."
-                  },
-                  "client_id": {
-                    "type": "string",
-                    "description": "OAuth client identifier, e.g. 'axm-cli'.",
-                    "examples": ["axm-cli"]
-                  }
-                },
-                "required": ["grant_type", "device_code", "client_id"],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/v1/auth/cli/token": {
-      "post": {
-        "tags": ["Auth"],
-        "operationId": "Auth.exchangeCliAuthorizationCode",
-        "parameters": [],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "access_token": { "type": "string" },
-                    "refresh_token": { "type": "string" },
-                    "token_type": { "type": "string", "enum": ["Bearer"] },
-                    "expires_in": { "type": "integer" },
-                    "expires_at": { "type": "string" },
-                    "scope": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                  },
-                  "required": [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in",
-                    "expires_at"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "TokenOAuthError | DecodeErrorResponse",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TokenOAuthError" } },
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          }
-        },
-        "summary": "Deprecated: exchange AXM CLI authorization code for access token",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "grant_type": {
-                    "type": "string",
-                    "description": "OAuth grant type. Must be 'authorization_code'.",
-                    "examples": ["authorization_code"]
-                  },
-                  "code": {
-                    "type": "string",
-                    "description": "Authorization code returned to the loopback callback."
-                  },
-                  "code_verifier": {
-                    "type": "string",
-                    "description": "PKCE verifier generated by the CLI."
-                  },
-                  "client_id": {
-                    "type": "string",
-                    "description": "OAuth client identifier, e.g. 'axm-cli'.",
-                    "examples": ["axm-cli"]
-                  },
-                  "redirect_uri": {
-                    "type": "string",
-                    "description": "Loopback redirect URI the authorization code was bound to."
-                  }
-                },
-                "required": ["grant_type", "code", "code_verifier", "client_id", "redirect_uri"],
                 "additionalProperties": false
               }
             }
@@ -1453,6 +1307,464 @@
         "summary": "Remove a member from a team"
       }
     },
+    "/v1/lists/{owner}": {
+      "get": {
+        "tags": ["Lists"],
+        "operationId": "Lists.listLists",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "ListCollection",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ListCollection" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Returns the public listed lists for an owner, widened by caller visibility when authenticated.",
+        "summary": "List curated extension lists"
+      },
+      "post": {
+        "tags": ["Lists"],
+        "operationId": "Lists.createList",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "List",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/List" } } }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Creates a list under a user or organization handle.",
+        "summary": "Create a curated extension list",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateListBody" } }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/lists/{owner}/{name}": {
+      "get": {
+        "tags": ["Lists"],
+        "operationId": "Lists.getList",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          { "name": "name", "in": "path", "schema": { "type": "string" }, "required": true }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "ListDetail",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ListDetail" } }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Returns a list and its items. Items are filtered by extension visibility for the caller.",
+        "summary": "Get a curated extension list"
+      },
+      "patch": {
+        "tags": ["Lists"],
+        "operationId": "Lists.updateList",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          { "name": "name", "in": "path", "schema": { "type": "string" }, "required": true }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "List",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/List" } } }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Updates list metadata, visibility, listed state, or name.",
+        "summary": "Update a curated extension list",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateListBody" } }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["Lists"],
+        "operationId": "Lists.deleteList",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          { "name": "name", "in": "path", "schema": { "type": "string" }, "required": true }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Deletes a list and its items.",
+        "summary": "Delete a curated extension list"
+      }
+    },
+    "/v1/lists/{owner}/{name}/items": {
+      "post": {
+        "tags": ["Lists"],
+        "operationId": "Lists.addListItem",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          { "name": "name", "in": "path", "schema": { "type": "string" }, "required": true }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "ListItem",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ListItem" } }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Adds an extension reference to a list with an optional curator note.",
+        "summary": "Add an extension to a list",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AddListItemBody" } }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/lists/{owner}/{name}/items/{type}/{extensionName}": {
+      "delete": {
+        "tags": ["Lists"],
+        "operationId": "Lists.removeListItem",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          { "name": "name", "in": "path", "schema": { "type": "string" }, "required": true },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionType" },
+            "required": true
+          },
+          {
+            "name": "extensionName",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "extensionOwner",
+            "in": "query",
+            "schema": { "anyOf": [{ "$ref": "#/components/schemas/Handle" }, { "type": "null" }] },
+            "required": false
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Removes an extension reference from a list. When extensionOwner is omitted, the list owner is used.",
+        "summary": "Remove an extension from a list"
+      }
+    },
     "/v1/extensions/{owner}": {
       "get": {
         "tags": ["Extensions"],
@@ -2154,43 +2466,6 @@
         ],
         "security": [{ "bearer": [] }],
         "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "owner": { "$ref": "#/components/schemas/Handle" },
-                    "type": { "$ref": "#/components/schemas/ExtensionType" },
-                    "name": { "$ref": "#/components/schemas/ExtensionName" },
-                    "version": { "$ref": "#/components/schemas/Version" },
-                    "integrity": { "type": "string", "readOnly": true },
-                    "sha256_hex": { "type": "string", "readOnly": true },
-                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
-                    "publish_status": {
-                      "type": "string",
-                      "enum": ["pending", "available", "failed"],
-                      "readOnly": true
-                    },
-                    "links": { "$ref": "#/components/schemas/ExtensionLinks" }
-                  },
-                  "required": [
-                    "owner",
-                    "type",
-                    "name",
-                    "version",
-                    "integrity",
-                    "sha256_hex",
-                    "published_at",
-                    "publish_status",
-                    "links"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
           "201": {
             "description": "Success",
             "content": {
@@ -4534,6 +4809,75 @@
         "additionalProperties": false,
         "title": "Change Team Member Role Body"
       },
+      "ListId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^list_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "List ID",
+            "description": "Identifies a handle-scoped curated extension collection in the registry.",
+            "examples": ["list_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "ListVisibility": {
+        "type": "string",
+        "enum": ["public", "internal", "private"],
+        "title": "List Visibility"
+      },
+      "List": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ListId" },
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "visibility": { "$ref": "#/components/schemas/ListVisibility" },
+          "listed": { "type": "boolean" },
+          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
+          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+        },
+        "required": [
+          "id",
+          "owner",
+          "name",
+          "title",
+          "description",
+          "visibility",
+          "listed",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "title": "List"
+      },
+      "ListCollection": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/List" } }
+        },
+        "required": ["items"],
+        "additionalProperties": false,
+        "title": "List Collection"
+      },
+      "ListItemId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^litem_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "List Item ID",
+            "description": "Identifies an ordered extension membership inside a curated registry list.",
+            "examples": ["litem_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "ExtensionType": {
+        "type": "string",
+        "enum": ["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"],
+        "title": "Extension Type",
+        "description": "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack."
+      },
       "ExtensionName": {
         "type": "string",
         "allOf": [
@@ -4546,11 +4890,115 @@
           }
         ]
       },
-      "ExtensionType": {
-        "type": "string",
-        "enum": ["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"],
-        "title": "Extension Type",
-        "description": "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack."
+      "ListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ListItemId" },
+          "extensionOwner": { "$ref": "#/components/schemas/Handle" },
+          "extensionType": { "$ref": "#/components/schemas/ExtensionType" },
+          "extensionName": { "$ref": "#/components/schemas/ExtensionName" },
+          "position": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  { "type": "number" },
+                  { "type": "string", "enum": ["NaN"] },
+                  { "type": "string", "enum": ["Infinity"] },
+                  { "type": "string", "enum": ["-Infinity"] }
+                ]
+              },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          },
+          "note": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
+        },
+        "required": [
+          "id",
+          "extensionOwner",
+          "extensionType",
+          "extensionName",
+          "position",
+          "note",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "title": "List Item"
+      },
+      "ListDetail": {
+        "type": "object",
+        "properties": {
+          "list": { "$ref": "#/components/schemas/List" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/ListItem" } }
+        },
+        "required": ["list", "items"],
+        "additionalProperties": false,
+        "title": "List Detail"
+      },
+      "CreateListBody": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "description": {
+            "anyOf": [{ "anyOf": [{ "type": "string" }, { "type": "null" }] }, { "type": "null" }]
+          },
+          "visibility": {
+            "anyOf": [{ "$ref": "#/components/schemas/ListVisibility" }, { "type": "null" }]
+          },
+          "listed": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        },
+        "required": ["name", "title"],
+        "additionalProperties": false,
+        "title": "Create List Body"
+      },
+      "UpdateListBody": {
+        "type": "object",
+        "properties": {
+          "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "title": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "description": {
+            "anyOf": [{ "anyOf": [{ "type": "string" }, { "type": "null" }] }, { "type": "null" }]
+          },
+          "visibility": {
+            "anyOf": [{ "$ref": "#/components/schemas/ListVisibility" }, { "type": "null" }]
+          },
+          "listed": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        },
+        "additionalProperties": false,
+        "title": "Update List Body"
+      },
+      "AddListItemBody": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "note": {
+            "anyOf": [{ "anyOf": [{ "type": "string" }, { "type": "null" }] }, { "type": "null" }]
+          },
+          "position": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["NaN"] },
+                      { "type": "string", "enum": ["Infinity"] },
+                      { "type": "string", "enum": ["-Infinity"] }
+                    ]
+                  },
+                  { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                ]
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["owner", "type", "name"],
+        "additionalProperties": false,
+        "title": "Add List Item Body"
       },
       "Version": {
         "type": "string",
@@ -5067,6 +5515,7 @@
     { "name": "Tokens" },
     { "name": "Owners" },
     { "name": "OrgsTeams" },
+    { "name": "Lists" },
     { "name": "Extensions" },
     { "name": "Collaborators" },
     { "name": "TeamGrants" },

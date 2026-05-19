@@ -136,6 +136,14 @@ const makeManifest = (overrides?: {
   packages: [],
 });
 
+const unsupportedListOperation = () =>
+  Effect.fail(
+    makeAppError({
+      code: "internal",
+      detail: "list operation not implemented",
+    }),
+  );
+
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensionsByScope: () => Effect.succeed(toResult([])),
@@ -151,6 +159,13 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   publishExtension: () => Effect.succeed({ published: true } as const),
   extensionExists: () => Effect.succeed({ exists: false }),
   discoverPackages: () => Effect.succeed({ results: [] }),
+  listLists: unsupportedListOperation,
+  getList: unsupportedListOperation,
+  createList: unsupportedListOperation,
+  updateList: unsupportedListOperation,
+  deleteList: unsupportedListOperation,
+  addListItem: unsupportedListOperation,
+  removeListItem: unsupportedListOperation,
   ...overrides,
 });
 
@@ -204,6 +219,13 @@ const createFailingClient = (): RegistryClient => ({
         detail: "remote registry not yet supported",
       }),
     ),
+  listLists: unsupportedListOperation,
+  getList: unsupportedListOperation,
+  createList: unsupportedListOperation,
+  updateList: unsupportedListOperation,
+  deleteList: unsupportedListOperation,
+  addListItem: unsupportedListOperation,
+  removeListItem: unsupportedListOperation,
 });
 
 const expectRegistrySkillRef = (ref: ExtensionRef): RegistrySkillRef => {

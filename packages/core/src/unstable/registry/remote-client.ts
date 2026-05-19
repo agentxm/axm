@@ -31,6 +31,8 @@ import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } 
 import { DiscoverPackagesResponseSchema } from "./discover-schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
+  AddRegistryListItemArgs,
+  CreateRegistryListArgs,
   DiscoverPackagesArgs,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
@@ -44,6 +46,9 @@ import type {
   PublishExtensionResponse,
   RegistryClient,
   RegistryExtensionManifest,
+  RegistryListRef,
+  RemoveRegistryListItemArgs,
+  UpdateRegistryListArgs,
 } from "./client.js";
 import {
   isRegistryClientError,
@@ -241,6 +246,29 @@ export const createRemoteRegistryClient = (
     return makeAppError({
       code: "internal",
       detail: "Remote discovery failed",
+      cause: e,
+    });
+  };
+
+  const mapListError = (e: unknown, action: string): AppError => {
+    if (isHttpClientError(e)) {
+      return mapNetworkError(e, `Failed to connect to remote registry list endpoint`, baseUrl);
+    }
+
+    if (isSchemaError(e)) {
+      return mapResponseSchemaError(
+        e,
+        `Remote list ${action} response does not match expected schema`,
+      );
+    }
+
+    if (isAnyRegistryClientError(e)) {
+      return registryClientErrorToAppError(e);
+    }
+
+    return makeAppError({
+      code: "internal",
+      detail: `Remote list ${action} failed`,
       cause: e,
     });
   };
@@ -728,6 +756,41 @@ export const createRemoteRegistryClient = (
     );
   };
 
+  const listLists = (owner: Handle) =>
+    client.ListsListLists(owner, undefined).pipe(Effect.mapError((e) => mapListError(e, "list")));
+
+  const getList = (args: RegistryListRef) =>
+    client
+      .ListsGetList(args.owner, args.name, undefined)
+      .pipe(Effect.mapError((e) => mapListError(e, "get")));
+
+  const createList = (args: CreateRegistryListArgs) =>
+    client
+      .ListsCreateList(args.owner, { payload: args.payload })
+      .pipe(Effect.mapError((e) => mapListError(e, "create")));
+
+  const updateList = (args: UpdateRegistryListArgs) =>
+    client
+      .ListsUpdateList(args.owner, args.name, { payload: args.payload })
+      .pipe(Effect.mapError((e) => mapListError(e, "update")));
+
+  const deleteList = (args: RegistryListRef) =>
+    client
+      .ListsDeleteList(args.owner, args.name, undefined)
+      .pipe(Effect.mapError((e) => mapListError(e, "delete")));
+
+  const addListItem = (args: AddRegistryListItemArgs) =>
+    client
+      .ListsAddListItem(args.owner, args.name, { payload: args.payload })
+      .pipe(Effect.mapError((e) => mapListError(e, "add item")));
+
+  const removeListItem = (args: RemoveRegistryListItemArgs) =>
+    client
+      .ListsRemoveListItem(args.owner, args.name, args.extensionType, args.extensionName, {
+        params: { extensionOwner: args.extensionOwner },
+      })
+      .pipe(Effect.mapError((e) => mapListError(e, "remove item")));
+
   return {
     getExtensionIndex,
     getExtensionsByScope,
@@ -736,5 +799,12 @@ export const createRemoteRegistryClient = (
     publishExtension,
     extensionExists,
     discoverPackages,
+    listLists,
+    getList,
+    createList,
+    updateList,
+    deleteList,
+    addListItem,
+    removeListItem,
   };
 };

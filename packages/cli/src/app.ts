@@ -45,6 +45,7 @@ import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
 import { helpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
+import { listsCommand } from "./root/lists/command.js";
 import { versionCommand } from "./root/shared/version-command.js";
 
 const ROOT_COMMAND = "axm";
@@ -88,6 +89,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         uninstallCommand,
         outdatedCommand,
         viewCommand,
+        listsCommand,
         versionCommand,
       ],
     },

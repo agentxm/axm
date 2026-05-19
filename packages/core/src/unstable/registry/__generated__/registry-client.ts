@@ -430,13 +430,24 @@ export const ChangeTeamMemberRoleBody = Schema.Struct({
       "Role within a team — 'admin' manages membership and grants; 'member' inherits grants.",
   }),
 }).annotate({ title: "Change Team Member Role Body" });
-export type ExtensionName = string;
-export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
-  Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"), {
-    title: "Extension Name",
-    description:
-      "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-    examples: ["my-skill", "code-review", "prettier"],
+export type ListId = string;
+export const ListId = Schema.String.check(
+  Schema.isPattern(new RegExp("^list_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "List ID",
+    description: "Identifies a handle-scoped curated extension collection in the registry.",
+    examples: ["list_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type ListVisibility = "public" | "internal" | "private";
+export const ListVisibility = Schema.Literals(["public", "internal", "private"]).annotate({
+  title: "List Visibility",
+});
+export type ListItemId = string;
+export const ListItemId = Schema.String.check(
+  Schema.isPattern(new RegExp("^litem_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "List Item ID",
+    description: "Identifies an ordered extension membership inside a curated registry list.",
+    examples: ["litem_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
 export type ExtensionType =
@@ -460,6 +471,15 @@ export const ExtensionType = Schema.Literals([
   description:
     "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack.",
 });
+export type ExtensionName = string;
+export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
+  Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"), {
+    title: "Extension Name",
+    description:
+      "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+    examples: ["my-skill", "code-review", "prettier"],
+  }),
+);
 export type Version = string;
 export const Version = Schema.String.check(
   Schema.isPattern(
@@ -1023,6 +1043,121 @@ export const TeamMembership = Schema.Struct({
   addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
   addedBy: UserIdRef,
 }).annotate({ title: "Team Membership" });
+export type List = {
+  readonly id: ListId;
+  readonly owner: Handle;
+  readonly name: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly visibility: ListVisibility;
+  readonly listed: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+export const List = Schema.Struct({
+  id: ListId,
+  owner: Handle,
+  name: Schema.String,
+  title: Schema.String,
+  description: Schema.Union([Schema.String, Schema.Null]),
+  visibility: ListVisibility,
+  listed: Schema.Boolean,
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "List" });
+export type CreateListBody = {
+  readonly name: string;
+  readonly title: string;
+  readonly description?: string | null | null;
+  readonly visibility?: ListVisibility | null;
+  readonly listed?: boolean | null;
+};
+export const CreateListBody = Schema.Struct({
+  name: Schema.String,
+  title: Schema.String,
+  description: Schema.optionalKey(
+    Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null]),
+  ),
+  visibility: Schema.optionalKey(Schema.Union([ListVisibility, Schema.Null])),
+  listed: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Null])),
+}).annotate({ title: "Create List Body" });
+export type UpdateListBody = {
+  readonly name?: string | null;
+  readonly title?: string | null;
+  readonly description?: string | null | null;
+  readonly visibility?: ListVisibility | null;
+  readonly listed?: boolean | null;
+};
+export const UpdateListBody = Schema.Struct({
+  name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  title: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  description: Schema.optionalKey(
+    Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null]),
+  ),
+  visibility: Schema.optionalKey(Schema.Union([ListVisibility, Schema.Null])),
+  listed: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Null])),
+}).annotate({ title: "Update List Body" });
+export type ListItem = {
+  readonly id: ListItemId;
+  readonly extensionOwner: Handle;
+  readonly extensionType: ExtensionType;
+  readonly extensionName: ExtensionName;
+  readonly position: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
+  readonly note: string | null;
+  readonly createdAt: string;
+};
+export const ListItem = Schema.Struct({
+  id: ListItemId,
+  extensionOwner: Handle,
+  extensionType: ExtensionType,
+  extensionName: ExtensionName,
+  position: Schema.Union([
+    Schema.Union([
+      Schema.Number.check(Schema.isFinite()),
+      Schema.Literal("NaN"),
+      Schema.Literal("Infinity"),
+      Schema.Literal("-Infinity"),
+    ]),
+    Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+  ]),
+  note: Schema.Union([Schema.String, Schema.Null]),
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "List Item" });
+export type AddListItemBody = {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly note?: string | null | null;
+  readonly position?:
+    | number
+    | "NaN"
+    | "Infinity"
+    | "-Infinity"
+    | "Infinity"
+    | "-Infinity"
+    | "NaN"
+    | null;
+};
+export const AddListItemBody = Schema.Struct({
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  note: Schema.optionalKey(Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null])),
+  position: Schema.optionalKey(
+    Schema.Union([
+      Schema.Union([
+        Schema.Union([
+          Schema.Number.check(Schema.isFinite()),
+          Schema.Literal("NaN"),
+          Schema.Literal("Infinity"),
+          Schema.Literal("-Infinity"),
+        ]),
+        Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+      ]),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({ title: "Add List Item Body" });
 export type PublishIdentity = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1150,6 +1285,14 @@ export const TeamMembershipList = Schema.Struct({
   items: Schema.Array(TeamMembership),
   nextCursor: Schema.Union([Schema.String, Schema.Null]),
 }).annotate({ title: "Team Membership List" });
+export type ListCollection = { readonly items: ReadonlyArray<List> };
+export const ListCollection = Schema.Struct({ items: Schema.Array(List) }).annotate({
+  title: "List Collection",
+});
+export type ListDetail = { readonly list: List; readonly items: ReadonlyArray<ListItem> };
+export const ListDetail = Schema.Struct({ list: List, items: Schema.Array(ListItem) }).annotate({
+  title: "List Detail",
+});
 export type ExtensionIdentityMismatchError = {
   readonly kind: "ExtensionIdentityMismatchError";
   readonly type: string;
@@ -1226,17 +1369,20 @@ export const MetaGet200 = MetaResponse;
 export type MetaGet400 = DecodeErrorResponse;
 export const MetaGet400 = DecodeErrorResponse;
 export type AuthIssueDeviceCodeRequestFormUrlEncoded = {
-  readonly client_id: "axm-cli";
+  readonly client_id: string;
   readonly scope?: string | null;
 };
 export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.Struct({
-  client_id: Schema.Literal("axm-cli").annotate({
-    description: "OAuth client identifier. Must be 'axm-cli'.",
-  }),
+  client_id: Schema.String.check(
+    Schema.isMinLength(1, {
+      description: "OAuth public client identifier.",
+      examples: ["example-client"],
+    }),
+  ),
   scope: Schema.optionalKey(
     Schema.Union([
       Schema.String.annotate({
-        description: "Ignored for axm-cli. Sessions always use full user authority.",
+        description: "Optional space-delimited registry scopes requested by the client.",
       }),
       Schema.Null,
     ]),
@@ -1283,7 +1429,12 @@ export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
   ),
   client_id: Schema.optionalKey(
     Schema.Union([
-      Schema.String.annotate({ description: "OAuth client identifier.", examples: ["axm-cli"] }),
+      Schema.String.check(
+        Schema.isMinLength(1, {
+          description: "OAuth client identifier.",
+          examples: ["example-client"],
+        }),
+      ),
       Schema.Null,
     ]),
   ),
@@ -1324,87 +1475,6 @@ export type AuthExchangeToken400 = ProblemDetails | DecodeErrorResponse | TokenO
 export const AuthExchangeToken400 = Schema.Union([
   Schema.Union([ProblemDetails, DecodeErrorResponse]),
   TokenOAuthError,
-]);
-export type AuthExchangeDeviceCodeRequestFormUrlEncoded = {
-  readonly grant_type: string;
-  readonly device_code: string;
-  readonly client_id: string;
-};
-export const AuthExchangeDeviceCodeRequestFormUrlEncoded = Schema.Struct({
-  grant_type: Schema.String.annotate({
-    description: "OAuth grant type. Must be 'urn:ietf:params:oauth:grant-type:device_code'.",
-    examples: ["urn:ietf:params:oauth:grant-type:device_code"],
-  }),
-  device_code: Schema.String.annotate({
-    description: "The device verification code received from the /device/code endpoint.",
-  }),
-  client_id: Schema.String.annotate({
-    description: "OAuth client identifier, e.g. 'axm-cli'.",
-    examples: ["axm-cli"],
-  }),
-});
-export type AuthExchangeDeviceCode200 = {
-  readonly access_token: string;
-  readonly refresh_token: string;
-  readonly token_type: "Bearer";
-  readonly expires_in: number;
-  readonly expires_at: string;
-  readonly scope?: string | null;
-};
-export const AuthExchangeDeviceCode200 = Schema.Struct({
-  access_token: Schema.String,
-  refresh_token: Schema.String,
-  token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.check(Schema.isInt()),
-  expires_at: Schema.String,
-  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
-export type AuthExchangeDeviceCode400 = TokenOAuthError | DecodeErrorResponse;
-export const AuthExchangeDeviceCode400 = Schema.Union([TokenOAuthError, DecodeErrorResponse]);
-export type AuthExchangeCliAuthorizationCodeRequestFormUrlEncoded = {
-  readonly grant_type: string;
-  readonly code: string;
-  readonly code_verifier: string;
-  readonly client_id: string;
-  readonly redirect_uri: string;
-};
-export const AuthExchangeCliAuthorizationCodeRequestFormUrlEncoded = Schema.Struct({
-  grant_type: Schema.String.annotate({
-    description: "OAuth grant type. Must be 'authorization_code'.",
-    examples: ["authorization_code"],
-  }),
-  code: Schema.String.annotate({
-    description: "Authorization code returned to the loopback callback.",
-  }),
-  code_verifier: Schema.String.annotate({ description: "PKCE verifier generated by the CLI." }),
-  client_id: Schema.String.annotate({
-    description: "OAuth client identifier, e.g. 'axm-cli'.",
-    examples: ["axm-cli"],
-  }),
-  redirect_uri: Schema.String.annotate({
-    description: "Loopback redirect URI the authorization code was bound to.",
-  }),
-});
-export type AuthExchangeCliAuthorizationCode200 = {
-  readonly access_token: string;
-  readonly refresh_token: string;
-  readonly token_type: "Bearer";
-  readonly expires_in: number;
-  readonly expires_at: string;
-  readonly scope?: string | null;
-};
-export const AuthExchangeCliAuthorizationCode200 = Schema.Struct({
-  access_token: Schema.String,
-  refresh_token: Schema.String,
-  token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.check(Schema.isInt()),
-  expires_at: Schema.String,
-  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
-export type AuthExchangeCliAuthorizationCode400 = TokenOAuthError | DecodeErrorResponse;
-export const AuthExchangeCliAuthorizationCode400 = Schema.Union([
-  TokenOAuthError,
-  DecodeErrorResponse,
 ]);
 export type AuthRefreshTokenRequestFormUrlEncoded = {
   readonly grant_type: "refresh_token";
@@ -1645,6 +1715,84 @@ export type OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
 export const OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
 export type OrgsTeamsChangeTeamMemberRole404 = ProblemDetails;
 export const OrgsTeamsChangeTeamMemberRole404 = ProblemDetails;
+export type ListsListLists200 = ListCollection;
+export const ListsListLists200 = ListCollection;
+export type ListsListLists400 = DecodeErrorResponse;
+export const ListsListLists400 = DecodeErrorResponse;
+export type ListsListLists404 = ProblemDetails;
+export const ListsListLists404 = ProblemDetails;
+export type ListsCreateListRequestJson = CreateListBody;
+export const ListsCreateListRequestJson = CreateListBody;
+export type ListsCreateList200 = List;
+export const ListsCreateList200 = List;
+export type ListsCreateList400 = ProblemDetails | DecodeErrorResponse;
+export const ListsCreateList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ListsCreateList401 = ProblemDetails;
+export const ListsCreateList401 = ProblemDetails;
+export type ListsCreateList403 = ForbiddenError;
+export const ListsCreateList403 = ForbiddenError;
+export type ListsCreateList404 = ProblemDetails;
+export const ListsCreateList404 = ProblemDetails;
+export type ListsCreateList409 = ProblemDetails;
+export const ListsCreateList409 = ProblemDetails;
+export type ListsCreateList422 = ProblemDetails;
+export const ListsCreateList422 = ProblemDetails;
+export type ListsGetList200 = ListDetail;
+export const ListsGetList200 = ListDetail;
+export type ListsGetList400 = ProblemDetails | DecodeErrorResponse;
+export const ListsGetList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ListsGetList404 = ProblemDetails;
+export const ListsGetList404 = ProblemDetails;
+export type ListsDeleteList400 = ProblemDetails | DecodeErrorResponse;
+export const ListsDeleteList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ListsDeleteList401 = ProblemDetails;
+export const ListsDeleteList401 = ProblemDetails;
+export type ListsDeleteList403 = ForbiddenError;
+export const ListsDeleteList403 = ForbiddenError;
+export type ListsDeleteList404 = ProblemDetails;
+export const ListsDeleteList404 = ProblemDetails;
+export type ListsUpdateListRequestJson = UpdateListBody;
+export const ListsUpdateListRequestJson = UpdateListBody;
+export type ListsUpdateList200 = List;
+export const ListsUpdateList200 = List;
+export type ListsUpdateList400 = ProblemDetails | DecodeErrorResponse;
+export const ListsUpdateList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ListsUpdateList401 = ProblemDetails;
+export const ListsUpdateList401 = ProblemDetails;
+export type ListsUpdateList403 = ForbiddenError;
+export const ListsUpdateList403 = ForbiddenError;
+export type ListsUpdateList404 = ProblemDetails;
+export const ListsUpdateList404 = ProblemDetails;
+export type ListsUpdateList409 = ProblemDetails;
+export const ListsUpdateList409 = ProblemDetails;
+export type ListsUpdateList422 = ProblemDetails;
+export const ListsUpdateList422 = ProblemDetails;
+export type ListsAddListItemRequestJson = AddListItemBody;
+export const ListsAddListItemRequestJson = AddListItemBody;
+export type ListsAddListItem200 = ListItem;
+export const ListsAddListItem200 = ListItem;
+export type ListsAddListItem400 = ProblemDetails | DecodeErrorResponse;
+export const ListsAddListItem400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ListsAddListItem401 = ProblemDetails;
+export const ListsAddListItem401 = ProblemDetails;
+export type ListsAddListItem403 = ForbiddenError;
+export const ListsAddListItem403 = ForbiddenError;
+export type ListsAddListItem404 = ProblemDetails;
+export const ListsAddListItem404 = ProblemDetails;
+export type ListsAddListItem409 = ProblemDetails;
+export const ListsAddListItem409 = ProblemDetails;
+export type ListsRemoveListItemParams = { readonly extensionOwner?: Handle | null };
+export const ListsRemoveListItemParams = Schema.Struct({
+  extensionOwner: Schema.optionalKey(Schema.Union([Handle, Schema.Null])),
+});
+export type ListsRemoveListItem400 = ProblemDetails | DecodeErrorResponse;
+export const ListsRemoveListItem400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ListsRemoveListItem401 = ProblemDetails;
+export const ListsRemoveListItem401 = ProblemDetails;
+export type ListsRemoveListItem403 = ForbiddenError;
+export const ListsRemoveListItem403 = ForbiddenError;
+export type ListsRemoveListItem404 = ProblemDetails;
+export const ListsRemoveListItem404 = ProblemDetails;
 export type ExtensionsListByOwner200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: ExtensionName;
@@ -1859,28 +2007,6 @@ export type ExtensionsPublishVersionRequestFormData = {
 export const ExtensionsPublishVersionRequestFormData = Schema.Struct({
   archive: Schema.String.annotate({ description: "Extension archive multipart file part." }),
   integrity: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
-export type ExtensionsPublishVersion200 = {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-  readonly integrity: string;
-  readonly sha256_hex: string;
-  readonly published_at: IsoDateTimeString;
-  readonly publish_status: "pending" | "available" | "failed";
-  readonly links: ExtensionLinks;
-};
-export const ExtensionsPublishVersion200 = Schema.Struct({
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-  version: Version,
-  integrity: Schema.String.annotate({ readOnly: true }),
-  sha256_hex: Schema.String.annotate({ readOnly: true }),
-  published_at: IsoDateTimeString,
-  publish_status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
-  links: ExtensionLinks,
 });
 export type ExtensionsPublishVersion201 = {
   readonly owner: Handle;
@@ -2515,31 +2641,6 @@ export const make = (
           }),
         ),
       ),
-    AuthExchangeDeviceCode: (options) =>
-      HttpClientRequest.post(`/v1/auth/device/token`).pipe(
-        HttpClientRequest.bodyUrlParams(options.payload as any),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthExchangeDeviceCode200),
-            "400": decodeError("AuthExchangeDeviceCode400", AuthExchangeDeviceCode400),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    AuthExchangeCliAuthorizationCode: (options) =>
-      HttpClientRequest.post(`/v1/auth/cli/token`).pipe(
-        HttpClientRequest.bodyUrlParams(options.payload as any),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthExchangeCliAuthorizationCode200),
-            "400": decodeError(
-              "AuthExchangeCliAuthorizationCode400",
-              AuthExchangeCliAuthorizationCode400,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
     AuthRefreshToken: (options) =>
       HttpClientRequest.post(`/v1/auth/token/refresh`).pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
@@ -2799,6 +2900,104 @@ export const make = (
           }),
         ),
       ),
+    ListsListLists: (owner, options) =>
+      HttpClientRequest.get(`/v1/lists/${owner}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ListsListLists200),
+            "400": decodeError("ListsListLists400", ListsListLists400),
+            "404": decodeError("ListsListLists404", ListsListLists404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ListsCreateList: (owner, options) =>
+      HttpClientRequest.post(`/v1/lists/${owner}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ListsCreateList200),
+            "400": decodeError("ListsCreateList400", ListsCreateList400),
+            "401": decodeError("ListsCreateList401", ListsCreateList401),
+            "403": decodeError("ListsCreateList403", ListsCreateList403),
+            "404": decodeError("ListsCreateList404", ListsCreateList404),
+            "409": decodeError("ListsCreateList409", ListsCreateList409),
+            "422": decodeError("ListsCreateList422", ListsCreateList422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ListsGetList: (owner, name, options) =>
+      HttpClientRequest.get(`/v1/lists/${owner}/${name}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ListsGetList200),
+            "400": decodeError("ListsGetList400", ListsGetList400),
+            "404": decodeError("ListsGetList404", ListsGetList404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ListsDeleteList: (owner, name, options) =>
+      HttpClientRequest.delete(`/v1/lists/${owner}/${name}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError("ListsDeleteList400", ListsDeleteList400),
+            "401": decodeError("ListsDeleteList401", ListsDeleteList401),
+            "403": decodeError("ListsDeleteList403", ListsDeleteList403),
+            "404": decodeError("ListsDeleteList404", ListsDeleteList404),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ListsUpdateList: (owner, name, options) =>
+      HttpClientRequest.patch(`/v1/lists/${owner}/${name}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ListsUpdateList200),
+            "400": decodeError("ListsUpdateList400", ListsUpdateList400),
+            "401": decodeError("ListsUpdateList401", ListsUpdateList401),
+            "403": decodeError("ListsUpdateList403", ListsUpdateList403),
+            "404": decodeError("ListsUpdateList404", ListsUpdateList404),
+            "409": decodeError("ListsUpdateList409", ListsUpdateList409),
+            "422": decodeError("ListsUpdateList422", ListsUpdateList422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ListsAddListItem: (owner, name, options) =>
+      HttpClientRequest.post(`/v1/lists/${owner}/${name}/items`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ListsAddListItem200),
+            "400": decodeError("ListsAddListItem400", ListsAddListItem400),
+            "401": decodeError("ListsAddListItem401", ListsAddListItem401),
+            "403": decodeError("ListsAddListItem403", ListsAddListItem403),
+            "404": decodeError("ListsAddListItem404", ListsAddListItem404),
+            "409": decodeError("ListsAddListItem409", ListsAddListItem409),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ListsRemoveListItem: (owner, name, type, extensionName, options) =>
+      HttpClientRequest.delete(`/v1/lists/${owner}/${name}/items/${type}/${extensionName}`).pipe(
+        HttpClientRequest.setUrlParams({
+          extensionOwner: options?.params?.["extensionOwner"] as any,
+        }),
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError("ListsRemoveListItem400", ListsRemoveListItem400),
+            "401": decodeError("ListsRemoveListItem401", ListsRemoveListItem401),
+            "403": decodeError("ListsRemoveListItem403", ListsRemoveListItem403),
+            "404": decodeError("ListsRemoveListItem404", ListsRemoveListItem404),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     ExtensionsListByOwner: (owner, options) =>
       HttpClientRequest.get(`/v1/extensions/${owner}`).pipe(
         withResponse(options?.config)(
@@ -2874,8 +3073,7 @@ export const make = (
         HttpClientRequest.bodyFormData(options.payload as any),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
-            "200": decodeSuccess(ExtensionsPublishVersion200),
-            "201": decodeSuccess(ExtensionsPublishVersion201),
+            "2xx": decodeSuccess(ExtensionsPublishVersion201),
             "400": decodeError("ExtensionsPublishVersion400", ExtensionsPublishVersion400),
             "401": decodeError("ExtensionsPublishVersion401", ExtensionsPublishVersion401),
             "403": decodeError("ExtensionsPublishVersion403", ExtensionsPublishVersion403),
@@ -3222,33 +3420,6 @@ export interface RegistryClient {
     | RegistryClientError<"AuthExchangeToken400", typeof AuthExchangeToken400.Type>
   >;
   /**
-   * Deprecated: exchange device code for access token
-   */
-  readonly AuthExchangeDeviceCode: <Config extends OperationConfig>(options: {
-    readonly payload: typeof AuthExchangeDeviceCodeRequestFormUrlEncoded.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof AuthExchangeDeviceCode200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"AuthExchangeDeviceCode400", typeof AuthExchangeDeviceCode400.Type>
-  >;
-  /**
-   * Deprecated: exchange AXM CLI authorization code for access token
-   */
-  readonly AuthExchangeCliAuthorizationCode: <Config extends OperationConfig>(options: {
-    readonly payload: typeof AuthExchangeCliAuthorizationCodeRequestFormUrlEncoded.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof AuthExchangeCliAuthorizationCode200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "AuthExchangeCliAuthorizationCode400",
-        typeof AuthExchangeCliAuthorizationCode400.Type
-      >
-  >;
-  /**
    * Deprecated: exchange refresh token
    */
   readonly AuthRefreshToken: <Config extends OperationConfig>(options: {
@@ -3559,6 +3730,133 @@ export interface RegistryClient {
       >
   >;
   /**
+   * Returns the public listed lists for an owner, widened by caller visibility when authenticated.
+   */
+  readonly ListsListLists: <Config extends OperationConfig>(
+    owner: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ListsListLists200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ListsListLists400", typeof ListsListLists400.Type>
+    | RegistryClientError<"ListsListLists404", typeof ListsListLists404.Type>
+  >;
+  /**
+   * Creates a list under a user or organization handle.
+   */
+  readonly ListsCreateList: <Config extends OperationConfig>(
+    owner: string,
+    options: {
+      readonly payload: typeof ListsCreateListRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ListsCreateList200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ListsCreateList400", typeof ListsCreateList400.Type>
+    | RegistryClientError<"ListsCreateList401", typeof ListsCreateList401.Type>
+    | RegistryClientError<"ListsCreateList403", typeof ListsCreateList403.Type>
+    | RegistryClientError<"ListsCreateList404", typeof ListsCreateList404.Type>
+    | RegistryClientError<"ListsCreateList409", typeof ListsCreateList409.Type>
+    | RegistryClientError<"ListsCreateList422", typeof ListsCreateList422.Type>
+  >;
+  /**
+   * Returns a list and its items. Items are filtered by extension visibility for the caller.
+   */
+  readonly ListsGetList: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ListsGetList200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ListsGetList400", typeof ListsGetList400.Type>
+    | RegistryClientError<"ListsGetList404", typeof ListsGetList404.Type>
+  >;
+  /**
+   * Deletes a list and its items.
+   */
+  readonly ListsDeleteList: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ListsDeleteList400", typeof ListsDeleteList400.Type>
+    | RegistryClientError<"ListsDeleteList401", typeof ListsDeleteList401.Type>
+    | RegistryClientError<"ListsDeleteList403", typeof ListsDeleteList403.Type>
+    | RegistryClientError<"ListsDeleteList404", typeof ListsDeleteList404.Type>
+  >;
+  /**
+   * Updates list metadata, visibility, listed state, or name.
+   */
+  readonly ListsUpdateList: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: {
+      readonly payload: typeof ListsUpdateListRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ListsUpdateList200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ListsUpdateList400", typeof ListsUpdateList400.Type>
+    | RegistryClientError<"ListsUpdateList401", typeof ListsUpdateList401.Type>
+    | RegistryClientError<"ListsUpdateList403", typeof ListsUpdateList403.Type>
+    | RegistryClientError<"ListsUpdateList404", typeof ListsUpdateList404.Type>
+    | RegistryClientError<"ListsUpdateList409", typeof ListsUpdateList409.Type>
+    | RegistryClientError<"ListsUpdateList422", typeof ListsUpdateList422.Type>
+  >;
+  /**
+   * Adds an extension reference to a list with an optional curator note.
+   */
+  readonly ListsAddListItem: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: {
+      readonly payload: typeof ListsAddListItemRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ListsAddListItem200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ListsAddListItem400", typeof ListsAddListItem400.Type>
+    | RegistryClientError<"ListsAddListItem401", typeof ListsAddListItem401.Type>
+    | RegistryClientError<"ListsAddListItem403", typeof ListsAddListItem403.Type>
+    | RegistryClientError<"ListsAddListItem404", typeof ListsAddListItem404.Type>
+    | RegistryClientError<"ListsAddListItem409", typeof ListsAddListItem409.Type>
+  >;
+  /**
+   * Removes an extension reference from a list. When extensionOwner is omitted, the list owner is used.
+   */
+  readonly ListsRemoveListItem: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    type: string,
+    extensionName: string,
+    options:
+      | {
+          readonly params?: typeof ListsRemoveListItemParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ListsRemoveListItem400", typeof ListsRemoveListItem400.Type>
+    | RegistryClientError<"ListsRemoveListItem401", typeof ListsRemoveListItem401.Type>
+    | RegistryClientError<"ListsRemoveListItem403", typeof ListsRemoveListItem403.Type>
+    | RegistryClientError<"ListsRemoveListItem404", typeof ListsRemoveListItem404.Type>
+  >;
+  /**
    * List owner extensions
    */
   readonly ExtensionsListByOwner: <Config extends OperationConfig>(
@@ -3679,10 +3977,7 @@ export interface RegistryClient {
       readonly config?: Config | undefined;
     },
   ) => Effect.Effect<
-    WithOptionalResponse<
-      typeof ExtensionsPublishVersion200.Type | typeof ExtensionsPublishVersion201.Type,
-      Config
-    >,
+    WithOptionalResponse<typeof ExtensionsPublishVersion201.Type, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsPublishVersion400", typeof ExtensionsPublishVersion400.Type>

@@ -50,6 +50,7 @@ import {
   createDefaultSettings,
   type FileEntry,
   type FilesMap,
+  type InstructionsConfigValue,
   type McpServerEntry,
   type McpServersMap,
   type SkillEntry,
@@ -466,6 +467,25 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((s) => s.agents ?? []),
           Effect.withSpan("WorkspaceMutations.getConfiguredAgents"),
         ),
+
+      getInstructionsConfig: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => Option.fromUndefinedOr(s.agentsConfig?.instructions)),
+          Effect.withSpan("WorkspaceMutations.getInstructionsConfig"),
+        ),
+
+      setInstructionsConfig: (config: InstructionsConfigValue) =>
+        withMutex(
+          Effect.gen(function* () {
+            const current = yield* readSettingsSafe(workspaceDir);
+            const currentAgentsConfig = current.agentsConfig ?? {};
+            const updatedSettings: Settings = {
+              ...current,
+              agentsConfig: { ...currentAgentsConfig, instructions: config },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setInstructionsConfig")),
 
       getConfiguredMcpServerEntries: () =>
         readSettingsSafe(workspaceDir).pipe(

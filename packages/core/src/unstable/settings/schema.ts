@@ -1002,6 +1002,88 @@ export const PacksConfigSchema = Schema.Struct({
 export type PacksConfig = Schema.Schema.Type<typeof PacksConfigSchema>;
 
 /**
+ * Workspace instruction-file propagation settings.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const InstructionsConfigSchema = Schema.Struct({
+  fileName: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "Source-of-truth instruction file name.",
+      default: "AGENTS.md",
+      examples: ["AGENTS.md"],
+    }),
+  ),
+  gitignore: Schema.optionalKey(
+    Schema.Literals(["managed", "local", "off"]).annotate({
+      description:
+        "Whether AXM manages propagated instruction-file ignore entries in .gitignore, .git/info/exclude, or neither.",
+      default: "off",
+      examples: ["off", "managed", "local"],
+    }),
+  ),
+}).annotate({
+  identifier: "InstructionsConfig",
+  title: "Instructions Config",
+  description: "Instruction-file management settings for configured agents.",
+});
+
+/** @experimental */
+export type InstructionsConfig = Schema.Schema.Type<typeof InstructionsConfigSchema>;
+
+/** @experimental */
+export type InstructionsConfigValue = false | InstructionsConfig;
+
+type AgentsConfigInput = {
+  readonly instructions?: InstructionsConfigValue | null;
+};
+
+/**
+ * Agent harness feature config.
+ *
+ * `instructions: null` decodes to an absent key so setup can treat null and
+ * unset consistently.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const AgentsConfigSchema = Schema.Struct({
+  instructions: Schema.optionalKey(
+    Schema.Union([Schema.Literal(false), InstructionsConfigSchema, Schema.Null]).annotate({
+      description:
+        "Instruction-file management: false for manual, object for enabled, null or absent for unset.",
+      examples: [false, { fileName: "AGENTS.md", gitignore: "off" }],
+    }),
+  ),
+})
+  .pipe(
+    Schema.decodeTo(
+      Schema.Struct({
+        instructions: Schema.optionalKey(
+          Schema.Union([Schema.Literal(false), InstructionsConfigSchema]),
+        ),
+      }),
+      SchemaTransformation.transform<
+        { readonly instructions?: InstructionsConfigValue },
+        AgentsConfigInput
+      >({
+        decode: (config) => {
+          if (config.instructions === null || config.instructions === undefined) return {};
+          return { instructions: config.instructions };
+        },
+        encode: (config) => config,
+      }),
+    ),
+  )
+  .annotate({
+    identifier: "AgentsConfig",
+    title: "Agents Config",
+    description: "Feature-level configuration for coding-agent harness management.",
+  });
+
+/** @experimental */
+export type AgentsConfig = Schema.Schema.Type<typeof AgentsConfigSchema>;
+
+/**
  * Canonical key order for settings properties.
  *
  * Used by `writeSettings` to ensure properties
@@ -1016,6 +1098,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "sources",
   "vars",
   "agents",
+  "agentsConfig",
   "skills",
   "skillsConfig",
   "commands",
@@ -1077,6 +1160,11 @@ export const SettingsSchema = Schema.Struct({
         examples: [["claude-code", "codex"]],
       })
       .check(Schema.isUnique()),
+  ),
+  agentsConfig: Schema.optionalKey(
+    Schema.Union([AgentsConfigSchema]).annotate({
+      description: "Feature-level options for coding-agent harness management.",
+    }),
   ),
   sources: Schema.optionalKey(
     Schema.Array(SourceHostConfigSchema).annotate({

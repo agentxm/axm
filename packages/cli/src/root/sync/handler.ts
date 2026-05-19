@@ -11,6 +11,8 @@ import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import {
   CodingAgentRepository,
+  resolveInstructionsConfig,
+  syncInstructions,
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -280,6 +282,30 @@ const reportWorkspaceGeneratorDryRun = Effect.fn("Sync.reportWorkspaceGeneratorD
   );
 });
 
+const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function* (
+  dryRun: boolean,
+) {
+  const ws = yield* WorkspaceMutations;
+  const renderer = yield* CliRenderer;
+  const config = yield* ws.getInstructionsConfig();
+  if (Option.isNone(config) || config.value === false) return;
+
+  const configuredAgents = yield* ws.getConfiguredAgents();
+  const result = yield* syncInstructions({
+    workspaceRoot: ws.baseDir,
+    configuredAgents,
+    config: resolveInstructionsConfig(config.value),
+    force: false,
+    dryRun,
+  });
+  if (result.written.length === 0) return;
+  if (dryRun) {
+    yield* renderer.info(`Would update ${result.written.length} instruction file(s)`);
+    return;
+  }
+  yield* renderer.success(`Updated ${result.written.length} instruction file(s)`);
+});
+
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
   const renderer = yield* CliRenderer;
   const { steps, expectedSubagentNames } = yield* collectMaterializeSteps();
@@ -297,8 +323,10 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
           `Rendered ${workspaceRegions.renderedRegions} workspace generator ${regionLabel(workspaceRegions.renderedRegions)} across ${workspaceRegions.changedFiles} ${fileLabel(workspaceRegions.changedFiles)}`,
         );
       }
+      yield* renderInstructionPhase(args.dryRun);
       return;
     }
+    yield* renderInstructionPhase(args.dryRun);
     if (!args.dryRun) {
       yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
     }
@@ -324,6 +352,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
       workspaceRegions.changedFiles,
       workspaceRegions.renderedRegions,
     );
+    yield* renderInstructionPhase(true);
     yield* emitPlanResolutionResult("sync", previewPlan(plan));
     return;
   }
@@ -336,6 +365,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
       `Rendered ${workspaceRegions.renderedRegions} workspace generator ${regionLabel(workspaceRegions.renderedRegions)} across ${workspaceRegions.changedFiles} ${fileLabel(workspaceRegions.changedFiles)}`,
     );
   }
+  yield* renderInstructionPhase(false);
   yield* displayPlan(executed);
   yield* emitPlanResolutionResult("sync", executed);
 });

@@ -25,4 +25,7 @@ export const descriptor: AgentDescriptor = {
   subagents: {
     dir: ".codex/agents",
   },
+  instructions: {
+    kind: "agents-md",
+  },
 };

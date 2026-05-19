@@ -55,6 +55,16 @@ export interface AgentSubagentsDescriptor {
 }
 
 // -----------------------------------------------------------------------------
+// Agent Instruction File Configuration
+// -----------------------------------------------------------------------------
+
+/** @experimental */
+export type AgentInstructionsDescriptor =
+  | { readonly kind: "agents-md" }
+  | { readonly kind: "own-file"; readonly file: string; readonly importSyntax?: "at-path" }
+  | { readonly kind: "rules-dir"; readonly dir: string; readonly format: "frontmatter" };
+
+// -----------------------------------------------------------------------------
 // Agent Identifiers
 // -----------------------------------------------------------------------------
 
@@ -161,6 +171,8 @@ export interface AgentDescriptor {
   readonly commands?: AgentCommandsDescriptor;
   /** Subagents installation configuration (optional — not all agents support subagents) */
   readonly subagents?: AgentSubagentsDescriptor;
+  /** Workspace instruction-file convention for this coding agent. */
+  readonly instructions?: AgentInstructionsDescriptor;
 }
 
 // -----------------------------------------------------------------------------

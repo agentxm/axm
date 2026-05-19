@@ -20,11 +20,28 @@ export type {
   AgentCommandsDescriptor,
   AgentDescriptor,
   AgentId,
+  AgentInstructionsDescriptor,
   ConfigurableAgentId,
   AgentRegistry,
   AgentSkillsDescriptor,
   AgentSubagentsDescriptor,
 } from "./types.js";
+
+export {
+  getInstructionsStatus,
+  normalizeMarkdownBody,
+  probeSymlinkSupport,
+  resolveInstructionMechanism,
+  resolveInstructionsConfig,
+  syncInstructions,
+  type InstructionGitignoreMode,
+  type InstructionHealth,
+  type InstructionMechanism,
+  type InstructionsStatus,
+  type InstructionsSyncResult,
+  type InstructionStatusItem,
+  type ResolvedInstructionsConfig,
+} from "./instructions.js";
 
 // Coding agent service contracts (used by extension managers)
 export type {

@@ -1,3 +1,13 @@
+## 0.12.0 (2026-05-19)
+
+### 🚀 Features
+
+- Add CLI support for agent instruction file management and curated lists. ([c9e2a393](https://github.com/agentxm/axm/commit/c9e2a393))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.11.3 (2026-05-19)
 
 ### 🩹 Fixes

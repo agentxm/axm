@@ -87,6 +87,19 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       type: "mcp-server",
       name: "managed-mcp",
       version: "1.0.0",
+      server: {
+        name: "io.agentxm.test/managed-mcp",
+        description: "Managed MCP server fixture",
+        version: "1.0.0",
+        packages: [
+          {
+            registryType: "npm",
+            identifier: "@test/managed-mcp",
+            version: "1.0.0",
+            transport: { type: "stdio" },
+          },
+        ],
+      },
     },
   );
 

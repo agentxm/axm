@@ -183,6 +183,19 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
           type: "mcp-server",
           name,
           version,
+          server: {
+            name: `io.agentxm.test/${name}`,
+            description: `Test MCP server ${name}`,
+            version,
+            packages: [
+              {
+                registryType: "npm",
+                identifier: `@test/${name}`,
+                version,
+                transport: { type: "stdio" },
+              },
+            ],
+          },
         },
         null,
         2,

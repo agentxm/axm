@@ -281,7 +281,7 @@ const collectMcpServerPlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     const configured = yield* ws.records.getConfiguredMcpServers();
-    const entries = Object.entries(configured);
+    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
 
     const plans = yield* Effect.forEach(
       entries,

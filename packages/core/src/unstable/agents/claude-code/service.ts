@@ -16,7 +16,7 @@ import {
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
-import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 
 const CLAUDE_DOCS_DEFAULT_DIR = ".claude/skills";
 const CLAUDE_ENV_OVERRIDE = "AXM_CLAUDE_SKILLS_DIR";
@@ -33,12 +33,6 @@ export const CLAUDE_CODE_SUBAGENTS_USER_DIR = ".claude/agents";
 
 const claudeCodeCommandConfig: CommandSyncConfig = {
   agentId: "claude-code",
-};
-
-export const claudeCodeMcpStrategy: MixedStrategyConfig = {
-  configPath: "{workspaceRoot}/.claude/mcp.json",
-  cliAdd: ["claude", "mcp", "add", "{serverName}"],
-  cliRemove: ["claude", "mcp", "remove", "{serverName}"],
 };
 
 export const claudeCodeCodingAgent: CodingAgent = {
@@ -67,8 +61,8 @@ export const claudeCodeCodingAgent: CodingAgent = {
         },
       });
     }),
-  addMcpServer: (args) => addMcpServerMixed(claudeCodeMcpStrategy, args),
-  removeMcpServer: (args) => removeMcpServerMixed(claudeCodeMcpStrategy, args),
+  addMcpServer: (args) => addMcpServerFromManifest("claude-code", args),
+  removeMcpServer: (args) => removeMcpServerFromManifest("claude-code", args),
   resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

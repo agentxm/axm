@@ -76,6 +76,19 @@ describe("publishMcpServer", () => {
       type: "mcp-server",
       name,
       version: "0.1.0",
+      server: {
+        name: `io.github.community/${name}`,
+        description: `MCP server ${name}`,
+        version: "0.1.0",
+        packages: [
+          {
+            registryType: "npm",
+            identifier: `@community/${name}`,
+            version: "0.1.0",
+            transport: { type: "stdio" },
+          },
+        ],
+      },
       ...manifest,
     };
     fs.writeFileSync(

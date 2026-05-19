@@ -137,6 +137,115 @@
       "description": "MCP transport supported by an agent.",
       "examples": ["stdio", "http", "sse"]
     },
+    "McpServersKey": {
+      "type": "string",
+      "enum": ["mcpServers", "servers", "mcp", "mcp_servers", "context_servers"],
+      "title": "MCP Servers Key",
+      "description": "Top-level key containing MCP server entries in an agent config file.",
+      "examples": ["mcpServers", "servers", "mcp"]
+    },
+    "ConfigFileFormat": {
+      "type": "string",
+      "enum": ["json", "jsonc", "toml", "starlark", "vscode-settings"],
+      "title": "Config File Format",
+      "description": "Serialization format used by an agent's permission config file.",
+      "examples": ["json", "toml", "vscode-settings"]
+    },
+    "McpConfigTarget": {
+      "type": "object",
+      "properties": {
+        "scope": { "$ref": "#/definitions/Scope" },
+        "path": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "format": { "$ref": "#/definitions/ConfigFileFormat" }
+      },
+      "required": ["scope", "path", "format"],
+      "additionalProperties": false,
+      "title": "MCP Config Target",
+      "description": "A config file target where MCP server entries can be written."
+    },
+    "McpTypeFieldValueMap": {
+      "type": "object",
+      "properties": {
+        "streamable-http": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "sse": { "type": "string", "allOf": [{ "minLength": 1 }] }
+      },
+      "required": ["streamable-http", "sse"],
+      "additionalProperties": false,
+      "title": "MCP Type Field Value Map",
+      "description": "Agent discriminator values by upstream remote transport."
+    },
+    "McpTypeField": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "value": {
+          "anyOf": [
+            { "type": "string", "allOf": [{ "minLength": 1 }] },
+            { "$ref": "#/definitions/McpTypeFieldValueMap" }
+          ]
+        }
+      },
+      "required": ["name", "value"],
+      "additionalProperties": false,
+      "title": "MCP Type Field",
+      "description": "Optional per-entry transport discriminator field."
+    },
+    "McpStdioDialect": {
+      "type": "object",
+      "properties": {
+        "typeField": { "anyOf": [{ "$ref": "#/definitions/McpTypeField" }, { "type": "null" }] },
+        "command": { "type": "string", "enum": ["split", "array"] },
+        "envKey": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["command"],
+      "additionalProperties": false,
+      "title": "MCP Stdio Dialect",
+      "description": "How an agent represents local stdio MCP server entries."
+    },
+    "McpUrlKeyMap": {
+      "type": "object",
+      "properties": {
+        "streamable-http": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "sse": { "type": "string", "allOf": [{ "minLength": 1 }] }
+      },
+      "required": ["streamable-http", "sse"],
+      "additionalProperties": false,
+      "title": "MCP URL Key Map",
+      "description": "Agent URL field names by upstream remote transport."
+    },
+    "McpRemoteDialect": {
+      "type": "object",
+      "properties": {
+        "typeField": { "anyOf": [{ "$ref": "#/definitions/McpTypeField" }, { "type": "null" }] },
+        "urlKey": { "$ref": "#/definitions/McpUrlKeyMap" },
+        "headersKey": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["urlKey"],
+      "additionalProperties": false,
+      "title": "MCP Remote Dialect",
+      "description": "How an agent represents remote MCP server entries."
+    },
+    "McpConfig": {
+      "type": "object",
+      "properties": {
+        "serversKey": { "$ref": "#/definitions/McpServersKey" },
+        "nativeEnabled": { "type": "boolean" },
+        "targets": { "type": "array", "items": { "$ref": "#/definitions/McpConfigTarget" } },
+        "stdio": { "anyOf": [{ "$ref": "#/definitions/McpStdioDialect" }, { "type": "null" }] },
+        "remote": { "anyOf": [{ "$ref": "#/definitions/McpRemoteDialect" }, { "type": "null" }] },
+        "transform": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "required": ["serversKey", "nativeEnabled", "targets"],
+      "additionalProperties": false,
+      "title": "MCP Config",
+      "description": "Prescriptive config writer metadata for an agent's MCP support."
+    },
     "McpCapability": {
       "type": "object",
       "properties": {
@@ -168,7 +277,8 @@
           "type": "array",
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/McpTransport" }
-        }
+        },
+        "config": { "anyOf": [{ "$ref": "#/definitions/McpConfig" }, { "type": "null" }] }
       },
       "required": ["support", "scopes", "transports"],
       "additionalProperties": false,
@@ -289,13 +399,6 @@
       "title": "Permission Mechanism",
       "description": "How an agent exposes permission configuration.",
       "examples": ["config-file", "cli-flag", "ui-only"]
-    },
-    "ConfigFileFormat": {
-      "type": "string",
-      "enum": ["json", "jsonc", "toml", "starlark", "vscode-settings"],
-      "title": "Config File Format",
-      "description": "Serialization format used by an agent's permission config file.",
-      "examples": ["json", "toml", "vscode-settings"]
     },
     "ConfigFileLocation": {
       "type": "object",

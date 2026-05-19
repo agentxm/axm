@@ -45,10 +45,13 @@ export type ResolveSkillsDirOutcome =
  */
 export interface AddMcpServerArgs {
   readonly workspaceRoot: string;
+  readonly scope?: WorkspaceScope;
   readonly serverName: string;
   readonly canonicalPath: string;
   readonly owner: Handle;
   readonly resolvedVersion: string;
+  readonly enabled?: boolean;
+  readonly configValues?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -56,7 +59,9 @@ export interface AddMcpServerArgs {
  */
 export interface RemoveMcpServerArgs {
   readonly workspaceRoot: string;
+  readonly scope?: WorkspaceScope;
   readonly serverName: string;
+  readonly disableOnly?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +199,8 @@ export type McpServerSyncOutcome =
     }
   | { readonly _tag: "unsupported"; readonly reason: string }
   | { readonly _tag: "disabled"; readonly reason: string }
+  | { readonly _tag: "nothing-runnable"; readonly reason: string }
+  | { readonly _tag: "needs-input"; readonly reason: string }
   | { readonly _tag: "misconfigured"; readonly reason: string }
   | { readonly _tag: "failed"; readonly reason: string };
 

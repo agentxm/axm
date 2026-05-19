@@ -37,6 +37,19 @@ mcp:
   support: standard
   scopes: [user, project]
   transports: [stdio, http, sse]
+  config:
+    serversKey: servers
+    nativeEnabled: false
+    targets:
+      - { scope: project, path: .vscode/mcp.json, format: json }
+    stdio:
+      typeField: { name: type, value: stdio }
+      command: split
+      envKey: env
+    remote:
+      typeField: { name: type, value: { streamable-http: http, sse: sse } }
+      urlKey: { streamable-http: url, sse: url }
+      headersKey: headers
   sources:
     - https://docs.github.com/en/copilot/concepts/agents/coding-agent/mcp-and-coding-agent
   lastVerified: 2026-05-16

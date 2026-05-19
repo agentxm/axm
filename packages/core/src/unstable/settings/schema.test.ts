@@ -631,7 +631,12 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.mcpServers).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
+        batcomputer: {
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: false,
+          enabled: true,
+          env: {},
+        },
       });
     });
 
@@ -662,7 +667,12 @@ describe("Settings schema", () => {
         "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
       });
       expect(result.mcpServers).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
+        batcomputer: {
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: false,
+          enabled: true,
+          env: {},
+        },
       });
     });
 
@@ -811,7 +821,12 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
       expect(result).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
+        batcomputer: {
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: false,
+          enabled: true,
+          env: {},
+        },
       });
     });
 
@@ -820,7 +835,12 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
       expect(result).toEqual({
-        batcomputer: { source: "@wayne/mcp-servers/batcomputer", authored: false },
+        batcomputer: {
+          source: "@wayne/mcp-servers/batcomputer",
+          authored: false,
+          enabled: true,
+          env: {},
+        },
       });
     });
 
@@ -841,6 +861,8 @@ describe("Settings schema", () => {
         expect(result).toEqual({
           source: "@wayne/mcp-servers/batcomputer",
           authored: false,
+          enabled: true,
+          env: {},
         });
       });
 
@@ -852,6 +874,8 @@ describe("Settings schema", () => {
         expect(result).toEqual({
           source: "@wayne/mcp-servers/batcomputer",
           authored: false,
+          enabled: true,
+          env: {},
         });
       });
 
@@ -864,6 +888,8 @@ describe("Settings schema", () => {
         expect(result).toEqual({
           source: "@wayne/mcp-servers/batcomputer",
           authored: true,
+          enabled: true,
+          env: {},
         });
       });
 
@@ -876,7 +902,9 @@ describe("Settings schema", () => {
       it("encodes non-authored entry to string", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
           source: "@wayne/mcp-servers/batcomputer",
+          enabled: true,
           authored: false,
+          env: {},
         });
         expect(result).toBe("@wayne/mcp-servers/batcomputer");
       });
@@ -884,7 +912,9 @@ describe("Settings schema", () => {
       it("encodes authored entry to object", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
           source: "@wayne/mcp-servers/batcomputer",
+          enabled: true,
           authored: true,
+          env: {},
         });
         expect(result).toEqual({
           source: "@wayne/mcp-servers/batcomputer",

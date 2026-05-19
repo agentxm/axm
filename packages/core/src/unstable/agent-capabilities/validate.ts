@@ -107,6 +107,39 @@ const validateCapability = (
       });
     }
   }
+
+  if (kind === "mcp" && "transports" in capability) {
+    const config = capability.config;
+    if (capability.support === "standard" && config === undefined) {
+      issues.push({
+        path: `${prefix}.config`,
+        message: "Standard MCP support must declare config.",
+      });
+    }
+    if (capability.support !== "standard" && config !== undefined) {
+      issues.push({
+        path: `${prefix}.config`,
+        message: "MCP config is only valid for standard support.",
+      });
+    }
+    if (config !== undefined) {
+      if (capability.transports.includes("stdio") && config.stdio === undefined) {
+        issues.push({
+          path: `${prefix}.config.stdio`,
+          message: "MCP stdio config is required when stdio transport is supported.",
+        });
+      }
+      if (
+        (capability.transports.includes("http") || capability.transports.includes("sse")) &&
+        config.remote === undefined
+      ) {
+        issues.push({
+          path: `${prefix}.config.remote`,
+          message: "MCP remote config is required when http or sse transport is supported.",
+        });
+      }
+    }
+  }
 };
 
 /** @experimental This API is unstable and may change without notice. */

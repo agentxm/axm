@@ -27,6 +27,7 @@ import { kiloCodingAgent } from "./kilo/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
 import { rooCodingAgent } from "./roo/service.js";
+import { windsurfCodingAgent } from "./windsurf/service.js";
 import { AGENTS } from "./registry.js";
 import { AGENT_IDS, isConfigurableAgentId } from "./types.js";
 import type { AgentDescriptor, AgentId } from "./types.js";
@@ -111,6 +112,8 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
       return Effect.succeed(opencodeCodingAgent);
     case "roo":
       return Effect.succeed(rooCodingAgent);
+    case "windsurf":
+      return Effect.succeed(windsurfCodingAgent);
     default:
       return isKnownAgentId(id)
         ? Effect.succeed(codingAgentFromDescriptor(AGENTS[id]))

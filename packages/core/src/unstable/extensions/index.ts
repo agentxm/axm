@@ -160,6 +160,7 @@ export {
   targetFromRef,
   toLabel,
   toLabelWithCompanions,
+  toStepKey,
 } from "./operations.js";
 
 export {

@@ -14,7 +14,7 @@ import {
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
-import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 
 /** @experimental */
 export const CODEX_COMMANDS_USER_DIR = ".codex/prompts";
@@ -28,12 +28,6 @@ const codexCommandConfig: CommandSyncConfig = {
   agentId: "codex",
 };
 
-export const codexMcpStrategy: MixedStrategyConfig = {
-  configPath: "{workspaceRoot}/.codex/mcp.json",
-  cliAdd: ["codex", "mcp", "add", "{serverName}"],
-  cliRemove: ["codex", "mcp", "remove", "{serverName}"],
-};
-
 export const codexCodingAgent: CodingAgent = {
   id: "codex",
   resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
@@ -44,8 +38,8 @@ export const codexCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, ".codex/skills"),
       } as const;
     }),
-  addMcpServer: (args) => addMcpServerMixed(codexMcpStrategy, args),
-  removeMcpServer: (args) => removeMcpServerMixed(codexMcpStrategy, args),
+  addMcpServer: (args) => addMcpServerFromManifest("codex", args),
+  removeMcpServer: (args) => removeMcpServerFromManifest("codex", args),
   resolveEffectiveCommandsDir: ({ scope }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

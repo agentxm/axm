@@ -83,6 +83,7 @@ const summarizeAgentSync = (
 
 const syncConfiguredAgentsOnUninstall = (args: {
   readonly wsBaseDir: string;
+  readonly scope: "project" | "user";
   readonly strict: boolean;
   readonly serverName: string;
 }) =>
@@ -113,6 +114,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
         agent
           .removeMcpServer({
             workspaceRoot: args.wsBaseDir,
+            scope: args.scope,
             serverName: args.serverName,
           })
           .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
@@ -155,6 +157,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
       ({ outcome }) =>
         outcome._tag === "unsupported" ||
         outcome._tag === "disabled" ||
+        outcome._tag === "needs-input" ||
         outcome._tag === "failed" ||
         outcome._tag === "fallback",
     );
@@ -237,6 +240,7 @@ export const uninstallMcpServer: (
 
     const agentSync = yield* syncConfiguredAgentsOnUninstall({
       wsBaseDir: ws.baseDir,
+      scope: ws.scope,
       strict: strictAgentSync,
       serverName: op.args.serverName,
     });

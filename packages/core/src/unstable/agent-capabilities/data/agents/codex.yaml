@@ -38,6 +38,20 @@ mcp:
   support: standard
   scopes: [user, project]
   transports: [stdio, http]
+  config:
+    serversKey: mcp_servers
+    nativeEnabled: true
+    targets:
+      - { scope: project, path: .codex/config.toml, format: toml }
+      - { scope: user, path: "~/.codex/config.toml", format: toml }
+    stdio:
+      command: split
+      envKey: env
+    remote:
+      typeField: { name: type, value: { streamable-http: streamable-http, sse: sse } }
+      urlKey: { streamable-http: url, sse: url }
+      headersKey: http_headers
+    transform: codex-toml
   sources:
     - https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers
   lastVerified: 2026-05-16

@@ -36,6 +36,14 @@ mcp:
   support: standard
   scopes: [user, project]
   transports: [stdio]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: false
+    targets:
+      - { scope: user, path: "~/.codeium/windsurf/mcp_config.json", format: json }
+    stdio:
+      command: split
+      envKey: env
   sources:
     - https://docs.windsurf.com/windsurf/cascade/mcp
   lastVerified: 2026-05-16

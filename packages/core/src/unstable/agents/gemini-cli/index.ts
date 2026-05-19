@@ -6,4 +6,4 @@
  */
 
 export { descriptor } from "./descriptor.js";
-export { geminiCliCodingAgent, geminiCliMcpStrategy } from "./service.js";
+export { geminiCliCodingAgent } from "./service.js";

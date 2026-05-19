@@ -16,7 +16,7 @@ import {
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
-import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 
 const GEMINI_DOCS_DEFAULT_DIR = ".gemini/skills";
 const GEMINI_ENV_OVERRIDE = "AXM_GEMINI_CLI_SKILLS_DIR";
@@ -31,12 +31,6 @@ export const GEMINI_CLI_SUBAGENTS_USER_DIR = ".gemini/agents";
 
 const geminiCommandConfig: CommandSyncConfig = {
   agentId: "gemini-cli",
-};
-
-export const geminiCliMcpStrategy: MixedStrategyConfig = {
-  configPath: "{workspaceRoot}/.gemini/mcp.json",
-  cliAdd: ["gemini", "mcp", "add", "{serverName}"],
-  cliRemove: ["gemini", "mcp", "remove", "{serverName}"],
 };
 
 export const geminiCliCodingAgent: CodingAgent = {
@@ -65,8 +59,8 @@ export const geminiCliCodingAgent: CodingAgent = {
         },
       });
     }),
-  addMcpServer: (args) => addMcpServerMixed(geminiCliMcpStrategy, args),
-  removeMcpServer: (args) => removeMcpServerMixed(geminiCliMcpStrategy, args),
+  addMcpServer: (args) => addMcpServerFromManifest("gemini-cli", args),
+  removeMcpServer: (args) => removeMcpServerFromManifest("gemini-cli", args),
   resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

@@ -519,6 +519,7 @@ describe("uninstallMcpServer", () => {
           expect(removeSpy).toHaveBeenCalledOnce();
           expect(removeSpy).toHaveBeenCalledWith({
             workspaceRoot: path.join(tmpDir, "project"),
+            scope: "project",
             serverName: "chrome-devtools-mcp",
           });
         }),

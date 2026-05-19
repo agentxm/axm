@@ -40,6 +40,7 @@ describe("agent capability catalog validation", () => {
       "cursor",
       "gemini-cli",
       "github-copilot",
+      "opencode",
       "pi",
       "windsurf",
     ]);
@@ -135,5 +136,62 @@ describe("agent capability catalog validation", () => {
         message: "Capability claims require lastVerified.",
       },
     ]);
+  });
+
+  it("requires config for standard MCP support", () => {
+    const agent = makeAgent({
+      id: "sample-agent",
+      name: "Sample Agent",
+      vendor: "Example",
+      homepage: "https://example.com",
+      interfaces: ["cli"],
+      mcp: {
+        support: "standard",
+        scopes: ["project"],
+        transports: ["stdio"],
+        sources: ["https://example.com/docs"],
+        lastVerified: "2026-05-18",
+      },
+    });
+
+    expect(validateCatalogSources([{ filename: "sample-agent.yaml", agent }])).toContainEqual({
+      path: "sample-agent.yaml:mcp.config",
+      message: "Standard MCP support must declare config.",
+    });
+  });
+
+  it("requires MCP config coverage for declared transports", () => {
+    const agent = makeAgent({
+      id: "sample-agent",
+      name: "Sample Agent",
+      vendor: "Example",
+      homepage: "https://example.com",
+      interfaces: ["cli"],
+      mcp: {
+        support: "standard",
+        scopes: ["project"],
+        transports: ["stdio", "http"],
+        config: {
+          serversKey: "mcpServers",
+          nativeEnabled: false,
+          targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+        },
+        sources: ["https://example.com/docs"],
+        lastVerified: "2026-05-18",
+      },
+    });
+
+    expect(validateCatalogSources([{ filename: "sample-agent.yaml", agent }])).toEqual(
+      expect.arrayContaining([
+        {
+          path: "sample-agent.yaml:mcp.config.stdio",
+          message: "MCP stdio config is required when stdio transport is supported.",
+        },
+        {
+          path: "sample-agent.yaml:mcp.config.remote",
+          message: "MCP remote config is required when http or sse transport is supported.",
+        },
+      ]),
+    );
   });
 });

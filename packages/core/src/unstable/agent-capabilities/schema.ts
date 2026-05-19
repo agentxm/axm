@@ -194,22 +194,6 @@ export const CommandsCapabilitySchema = Schema.Struct({
 export type CommandsCapability = Schema.Schema.Type<typeof CommandsCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  transports: Schema.Array(McpTransportSchema).pipe(
-    Schema.annotateKey({ messageMissingKey: "MCP transports are required" }),
-    Schema.check(Schema.isUnique()),
-  ),
-}).annotate({
-  identifier: "McpCapability",
-  title: "MCP Capability",
-  description: "Agent support for MCP server extensions.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type McpCapability = Schema.Schema.Type<typeof McpCapabilitySchema>;
-
-/** @experimental This API is unstable and may change without notice. */
 export const SubagentsCapabilitySchema = Schema.Struct(ScopedCapabilityBaseFields).annotate({
   identifier: "SubagentsCapability",
   title: "Subagents Capability",
@@ -267,6 +251,140 @@ export const ConfigFileFormatSchema = Schema.Literals([
 
 /** @experimental This API is unstable and may change without notice. */
 export type ConfigFileFormat = Schema.Schema.Type<typeof ConfigFileFormatSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpServersKeySchema = Schema.Literals([
+  "mcpServers",
+  "servers",
+  "mcp",
+  "mcp_servers",
+  "context_servers",
+]).annotate({
+  identifier: "McpServersKey",
+  title: "MCP Servers Key",
+  description: "Top-level key containing MCP server entries in an agent config file.",
+  examples: ["mcpServers", "servers", "mcp"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpServersKey = Schema.Schema.Type<typeof McpServersKeySchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpConfigTargetSchema = Schema.Struct({
+  scope: ScopeSchema,
+  path: Schema.NonEmptyString,
+  format: ConfigFileFormatSchema,
+}).annotate({
+  identifier: "McpConfigTarget",
+  title: "MCP Config Target",
+  description: "A config file target where MCP server entries can be written.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpConfigTarget = Schema.Schema.Type<typeof McpConfigTargetSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpTypeFieldValueMapSchema = Schema.Struct({
+  "streamable-http": Schema.NonEmptyString,
+  sse: Schema.NonEmptyString,
+}).annotate({
+  identifier: "McpTypeFieldValueMap",
+  title: "MCP Type Field Value Map",
+  description: "Agent discriminator values by upstream remote transport.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpTypeFieldValueMap = Schema.Schema.Type<typeof McpTypeFieldValueMapSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpTypeFieldSchema = Schema.Struct({
+  name: Schema.NonEmptyString,
+  value: Schema.Union([Schema.NonEmptyString, McpTypeFieldValueMapSchema]),
+}).annotate({
+  identifier: "McpTypeField",
+  title: "MCP Type Field",
+  description: "Optional per-entry transport discriminator field.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpTypeField = Schema.Schema.Type<typeof McpTypeFieldSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpStdioDialectSchema = Schema.Struct({
+  typeField: Schema.optional(McpTypeFieldSchema),
+  command: Schema.Literals(["split", "array"]),
+  envKey: Schema.optional(Schema.NonEmptyString),
+}).annotate({
+  identifier: "McpStdioDialect",
+  title: "MCP Stdio Dialect",
+  description: "How an agent represents local stdio MCP server entries.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpStdioDialect = Schema.Schema.Type<typeof McpStdioDialectSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpUrlKeyMapSchema = Schema.Struct({
+  "streamable-http": Schema.NonEmptyString,
+  sse: Schema.NonEmptyString,
+}).annotate({
+  identifier: "McpUrlKeyMap",
+  title: "MCP URL Key Map",
+  description: "Agent URL field names by upstream remote transport.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpUrlKeyMap = Schema.Schema.Type<typeof McpUrlKeyMapSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpRemoteDialectSchema = Schema.Struct({
+  typeField: Schema.optional(McpTypeFieldSchema),
+  urlKey: McpUrlKeyMapSchema,
+  headersKey: Schema.optional(Schema.NonEmptyString),
+}).annotate({
+  identifier: "McpRemoteDialect",
+  title: "MCP Remote Dialect",
+  description: "How an agent represents remote MCP server entries.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpRemoteDialect = Schema.Schema.Type<typeof McpRemoteDialectSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpConfigSchema = Schema.Struct({
+  serversKey: McpServersKeySchema,
+  nativeEnabled: Schema.Boolean,
+  targets: Schema.Array(McpConfigTargetSchema).pipe(
+    Schema.annotateKey({ messageMissingKey: "MCP config targets are required" }),
+  ),
+  stdio: Schema.optional(McpStdioDialectSchema),
+  remote: Schema.optional(McpRemoteDialectSchema),
+  transform: Schema.optional(Schema.NonEmptyString),
+}).annotate({
+  identifier: "McpConfig",
+  title: "MCP Config",
+  description: "Prescriptive config writer metadata for an agent's MCP support.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpConfig = Schema.Schema.Type<typeof McpConfigSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpCapabilitySchema = Schema.Struct({
+  ...ScopedCapabilityBaseFields,
+  transports: Schema.Array(McpTransportSchema).pipe(
+    Schema.annotateKey({ messageMissingKey: "MCP transports are required" }),
+    Schema.check(Schema.isUnique()),
+  ),
+  config: Schema.optional(McpConfigSchema),
+}).annotate({
+  identifier: "McpCapability",
+  title: "MCP Capability",
+  description: "Agent support for MCP server extensions.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpCapability = Schema.Schema.Type<typeof McpCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const PermissionMechanismSchema = Schema.Literals([

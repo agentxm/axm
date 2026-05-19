@@ -26,11 +26,12 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
-  McpServerManager,
+  installMcpServer,
   type McpServerExtensionRef,
 } from "@agentxm/client-core/unstable/mcp-servers";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
-import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
@@ -41,6 +42,8 @@ import { parseRegistryInstallTarget } from "../../shared/registry-install-target
 
 export interface InstallMcpServerHandlerArgs {
   readonly source: string;
+  readonly env?: Option.Option<string>;
+  readonly nonInteractive?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -53,6 +56,8 @@ export interface ParsedMcpServerInstallArgs {
   readonly versionRange: Option.Option<string>;
   readonly resolvedInput: string;
   readonly force: boolean;
+  readonly env: Readonly<Record<string, string>>;
+  readonly nonInteractive: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -65,6 +70,27 @@ export interface McpServerInstallSourceRequest {
   readonly serverName: ExtensionName;
   readonly versionRange: Option.Option<string>;
 }
+
+const parseEnvFlag = (
+  env: Option.Option<string>,
+): Effect.Effect<Readonly<Record<string, string>>, AppError> =>
+  Option.match(env, {
+    onNone: () => Effect.succeed({}),
+    onSome: (value) => {
+      const separator = value.indexOf("=");
+      if (separator <= 0) {
+        return Effect.fail(
+          makeAppError({
+            code: "usage",
+            detail: "--env must use KEY=VALUE format",
+          }),
+        );
+      }
+      return Effect.succeed({
+        [value.slice(0, separator)]: value.slice(separator + 1),
+      });
+    },
+  });
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -94,7 +120,8 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
     const ws = yield* WorkspaceMutations;
-    const mcpServerMgr = yield* McpServerManager;
+    const renderer = yield* CliRenderer;
+    const agentRepo = yield* CodingAgentRepository;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
@@ -105,6 +132,8 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
+      Layer.succeed(CliRenderer, renderer),
+      Layer.succeed(CodingAgentRepository, agentRepo),
     );
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
@@ -114,6 +143,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<ParsedMcpServerInstallArgs, AppError> =>
       Effect.gen(function* () {
         const trimmed = args.source.trim();
+        const env = yield* parseEnvFlag(args.env ?? Option.none());
         const parsed = parseRegistryInstallTarget(trimmed, {
           expectedType: "mcp-server",
           allowBareName: true,
@@ -127,6 +157,8 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
               resolvedInput: trimmed,
               force: false,
+              env,
+              nonInteractive: args.nonInteractive ?? false,
             };
           }
 
@@ -156,6 +188,8 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             versionRange: Option.none<string>(),
             resolvedInput: `${owner}/mcp-servers/${parsed.success.name}`,
             force: false,
+            env,
+            nonInteractive: args.nonInteractive ?? false,
           };
         }
 
@@ -297,6 +331,8 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           ref,
           versionRange: parsed.versionRange,
           force: parsed.force,
+          env: parsed.env,
+          nonInteractive: parsed.nonInteractive,
         };
       });
 
@@ -309,10 +345,24 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           {
             concurrency: 1 as const,
             steps: [
-              buildInstallOperation(mcpServerMgr, {
-                ref: intent.ref,
-                versionRange: intent.versionRange,
-              }),
+              {
+                key: `mcp-server:${intent.ref.server.name}`,
+                label: intent.ref.server.name,
+                readiness: "ready" as const,
+                run: provide(
+                  installMcpServer({
+                    name: "install-mcp-server",
+                    args: {
+                      ref: intent.ref,
+                      force: intent.force,
+                      versionRange: intent.versionRange,
+                      skipSettings: Option.none(),
+                      env: Option.some(intent.env ?? {}),
+                      nonInteractive: Option.some(intent.nonInteractive ?? false),
+                    },
+                  }),
+                ),
+              },
             ],
           },
         ],

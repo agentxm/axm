@@ -1,16 +1,13 @@
-import { rmSync, mkdtempSync } from "node:fs";
+import { rmSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { claudeCodeMcpStrategy, claudeCodeCodingAgent } from "./claude-code/service.js";
-import { codexMcpStrategy } from "./codex/service.js";
-import { cursorMcpStrategy } from "./cursor/service.js";
-import { geminiCliMcpStrategy, geminiCliCodingAgent } from "./gemini-cli/service.js";
-import { githubCopilotMcpStrategy } from "./github-copilot/service.js";
-import { opencodeMcpStrategy, opencodeCodingAgent } from "./opencode/service.js";
+import { claudeCodeCodingAgent } from "./claude-code/service.js";
+import { geminiCliCodingAgent } from "./gemini-cli/service.js";
+import { opencodeCodingAgent } from "./opencode/service.js";
 import { handle } from "../test-helpers.js";
 
 const opencodeMcpSyncTimeoutMs = 20_000;
@@ -54,17 +51,41 @@ describe("coding-agent services", () => {
         Effect.gen(function* () {
           const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-opencode-test-"));
           try {
+            const canonicalPath = `${workspaceRoot}/.axm/extensions/mcp/mcp-servers/chrome-devtools-mcp`;
+            mkdirSync(canonicalPath, { recursive: true });
+            writeFileSync(
+              `${canonicalPath}/mcp-server.json`,
+              JSON.stringify({
+                owner: "@mcp",
+                type: "mcp-server",
+                name: "chrome-devtools-mcp",
+                version: "1.0.0",
+                server: {
+                  name: "io.github.mcp/chrome-devtools-mcp",
+                  description: "Chrome DevTools MCP server",
+                  version: "1.0.0",
+                  packages: [
+                    {
+                      registryType: "npm",
+                      identifier: "chrome-devtools-mcp",
+                      version: "1.0.0",
+                      transport: { type: "stdio" },
+                    },
+                  ],
+                },
+              }),
+            );
             const addOutcome = yield* opencodeCodingAgent.addMcpServer({
               workspaceRoot,
               serverName: "chrome-devtools-mcp",
-              canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
+              canonicalPath,
               owner: handle("@mcp"),
               resolvedVersion: "1.0.0",
             });
             expect(addOutcome._tag).toBe("success");
 
             const fs = yield* FileSystem.FileSystem;
-            const addedConfig = yield* fs.readFileString(`${workspaceRoot}/.opencode/mcp.json`);
+            const addedConfig = yield* fs.readFileString(`${workspaceRoot}/opencode.jsonc`);
             expect(addedConfig).toContain('"chrome-devtools-mcp"');
 
             const removeOutcome = yield* opencodeCodingAgent.removeMcpServer({
@@ -73,7 +94,7 @@ describe("coding-agent services", () => {
             });
             expect(removeOutcome._tag).toBe("success");
 
-            const removedConfig = yield* fs.readFileString(`${workspaceRoot}/.opencode/mcp.json`);
+            const removedConfig = yield* fs.readFileString(`${workspaceRoot}/opencode.jsonc`);
             expect(removedConfig).not.toContain('"chrome-devtools-mcp"');
           } finally {
             rmSync(workspaceRoot, { recursive: true, force: true });
@@ -82,36 +103,4 @@ describe("coding-agent services", () => {
       ),
     { timeout: opencodeMcpSyncTimeoutMs },
   );
-
-  it("defines required agent MCP command/config contracts", () => {
-    expect(claudeCodeMcpStrategy).toMatchObject({
-      configPath: "{workspaceRoot}/.claude/mcp.json",
-      cliAdd: ["claude", "mcp", "add", "{serverName}"],
-      cliRemove: ["claude", "mcp", "remove", "{serverName}"],
-    });
-    expect(codexMcpStrategy).toMatchObject({
-      configPath: "{workspaceRoot}/.codex/mcp.json",
-      cliAdd: ["codex", "mcp", "add", "{serverName}"],
-      cliRemove: ["codex", "mcp", "remove", "{serverName}"],
-    });
-    expect(geminiCliMcpStrategy).toMatchObject({
-      configPath: "{workspaceRoot}/.gemini/mcp.json",
-      cliAdd: ["gemini", "mcp", "add", "{serverName}"],
-      cliRemove: ["gemini", "mcp", "remove", "{serverName}"],
-    });
-    expect(githubCopilotMcpStrategy).toMatchObject({
-      configPath: "{workspaceRoot}/.github/mcp.json",
-      cliAdd: ["gh", "copilot", "mcp", "add", "{serverName}"],
-      cliRemove: ["gh", "copilot", "mcp", "remove", "{serverName}"],
-    });
-    expect(cursorMcpStrategy).toMatchObject({
-      configPath: "{workspaceRoot}/.cursor/mcp.json",
-      cliAdd: ["cursor", "mcp", "add", "{serverName}"],
-      cliRemove: ["cursor", "mcp", "remove", "{serverName}"],
-    });
-    expect(opencodeMcpStrategy).toMatchObject({
-      configPath: "{workspaceRoot}/.opencode/mcp.json",
-      verifyCommand: ["opencode", "mcp", "list"],
-    });
-  });
 });

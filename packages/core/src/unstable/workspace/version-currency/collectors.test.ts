@@ -169,6 +169,7 @@ describe("collectMcpServerCurrency", () => {
           Effect.succeed({
             "my-server": {
               source: "@acme/mcp-servers/my-server@^1.0.0",
+              enabled: true,
               packagingKind: "non-native" as const,
             },
           }),
@@ -246,6 +247,7 @@ describe("collectPackCurrency", () => {
           Effect.succeed({
             starter: {
               source: "@acme/packs/starter",
+              enabled: true,
               packagingKind: "non-native" as const,
             },
           }),

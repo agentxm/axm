@@ -36,10 +36,12 @@ import { installMcpServer } from "./install.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
+type SetMcpServerArgs = Parameters<WorkspaceMutationsService["setMcpServer"]>[0];
+
 const makeWorkspaceMock = (
   axmDir: string,
   overrides?: {
-    setMcpServerFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
+    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
   },
 ): WorkspaceMutationsService => {
   const readLf = () => {
@@ -59,8 +61,8 @@ const makeWorkspaceMock = (
     getLockedMcpServer: (name: string) =>
       Effect.succeed(Option.fromUndefinedOr(readLf().mcpServers?.[name])),
     setMcpServer: setMcpServerFn
-      ? (args: { name: string; lockEntry: unknown }) => setMcpServerFn(args)
-      : (args: { name: string; lockEntry: unknown }) =>
+      ? (args: SetMcpServerArgs) => setMcpServerFn(args)
+      : (args: SetMcpServerArgs) =>
           Effect.try({
             try: () => {
               const lf = readLf();
@@ -79,8 +81,8 @@ const makeWorkspaceMock = (
               }),
           }),
     setMcpServerLock: setMcpServerFn
-      ? (args: { name: string; lockEntry: unknown }) => setMcpServerFn(args)
-      : (args: { name: string; lockEntry: unknown }) =>
+      ? (args: SetMcpServerArgs) => setMcpServerFn(args)
+      : (args: SetMcpServerArgs) =>
           Effect.try({
             try: () => {
               const lf = readLf();
@@ -113,7 +115,7 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
 const withServices = (
   axmDir: string,
   wsOverrides?: {
-    setMcpServerFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
+    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => {
@@ -209,6 +211,7 @@ const makeOp = (
     versionRange?: Option.Option<string>;
     skipSettings?: boolean;
     strictAgentSync?: boolean;
+    env?: Readonly<Record<string, string>>;
   } = {},
 ): InstallMcpServerOperation => ({
   name: "install-mcp-server",
@@ -218,6 +221,7 @@ const makeOp = (
     versionRange: overrides.versionRange ?? Option.none(),
     skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
     strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
+    env: Option.fromUndefinedOr(overrides.env),
   },
 });
 
@@ -244,12 +248,39 @@ describe("installMcpServer", () => {
     return { base, axmDir };
   };
 
-  const setupRegistryCanonical = (base: string, owner: string, name = "my-server") => {
+  const setupRegistryCanonical = (
+    base: string,
+    owner: string,
+    name = "my-server",
+    runnable = true,
+  ) => {
     const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcp-servers", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "mcp-server.json"),
-      JSON.stringify({ name, version: "1.0.0" }),
+      JSON.stringify({
+        owner,
+        type: "mcp-server",
+        name,
+        version: "1.0.0",
+        server: {
+          name: `io.github.community/${name}`,
+          description: `MCP server ${name}`,
+          version: "1.0.0",
+          ...(runnable
+            ? {
+                packages: [
+                  {
+                    registryType: "npm",
+                    identifier: `@community/${name}`,
+                    version: "1.0.0",
+                    transport: { type: "stdio" },
+                  },
+                ],
+              }
+            : {}),
+        },
+      }),
     );
     return canonicalPath;
   };
@@ -307,6 +338,62 @@ describe("installMcpServer", () => {
         expect(fs.existsSync(path.join(canonicalPath, "mcp-server.json"))).toBe(true);
       }),
     );
+
+    it.effect("does not persist secret inputs in workspace settings", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(
+          path.join(canonicalPath, "mcp-server.json"),
+          JSON.stringify({
+            owner: "@community",
+            type: "mcp-server",
+            name: "my-server",
+            version: "1.0.0",
+            server: {
+              name: "io.github.community/my-server",
+              description: "MCP server my-server",
+              version: "1.0.0",
+              packages: [
+                {
+                  registryType: "npm",
+                  identifier: "@community/my-server",
+                  version: "1.0.0",
+                  transport: { type: "stdio" },
+                  environmentVariables: [
+                    { name: "PUBLIC_URL", isRequired: true },
+                    { name: "API_TOKEN", isRequired: true, isSecret: true },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+        let persistedEnv: Readonly<Record<string, string>> | undefined;
+
+        const result = yield* installMcpServer(
+          makeOp({
+            ref: makeRegistryRef({ integrity: "" }),
+            env: {
+              PUBLIC_URL: "https://example.test",
+              API_TOKEN: "secret-token",
+            },
+          }),
+        ).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              setMcpServerFn: (args) =>
+                Effect.sync(() => {
+                  persistedEnv = args.env;
+                }),
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+        expect(persistedEnv).toEqual({ PUBLIC_URL: "https://example.test" });
+      }),
+    );
   });
 
   describe("registry install — empty integrity without canonical", () => {
@@ -344,7 +431,7 @@ describe("installMcpServer", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
-        const setMcpServerFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+        const setMcpServerFn = vi.fn((_args: SetMcpServerArgs) => Effect.void);
 
         const result = yield* installMcpServer(
           makeOp({
@@ -372,10 +459,12 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("success");
         expect(setMcpServerFn).toHaveBeenCalledOnce();
-        expect(setMcpServerFn).toHaveBeenCalledWith({
-          name: "my-server",
-          lockEntry: expect.any(Object),
-        });
+        expect(setMcpServerFn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: "my-server",
+            lockEntry: expect.any(Object),
+          }),
+        );
       }),
     );
 
@@ -405,7 +494,7 @@ describe("installMcpServer", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
-        const setMcpServerFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+        const setMcpServerFn = vi.fn((_args: SetMcpServerArgs) => Effect.void);
 
         const result = yield* installMcpServer(
           makeOp({ ref: makeRegistryRef({ integrity: "", version: "1.2.3" }) }),
@@ -413,10 +502,12 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("success");
         expect(setMcpServerFn).toHaveBeenCalledOnce();
-        expect(setMcpServerFn).toHaveBeenCalledWith({
-          name: "my-server",
-          lockEntry: expect.objectContaining({ resolvedVersion: "1.2.3" }),
-        });
+        expect(setMcpServerFn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: "my-server",
+            lockEntry: expect.objectContaining({ resolvedVersion: "1.2.3" }),
+          }),
+        );
       }),
     );
 
@@ -614,6 +705,33 @@ describe("installMcpServer", () => {
       }),
     );
 
+    it.effect("warns without calling agents when manifest has no runnable distributions", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community", "metadata-only", false);
+        const addSpy = vi.fn(() => Effect.succeed({ _tag: "success" as const }));
+
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
+          Effect.succeed([
+            makeCodingAgentStub("claude-code", {
+              resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
+              addMcpServer: addSpy,
+              removeMcpServer: () => Effect.succeed({ _tag: "success" }),
+            }),
+          ]),
+        );
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ name: "metadata-only", integrity: "" }) }),
+        ).pipe(Effect.provide(withServices(axmDir, undefined, mockAgentRepo)));
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("agent-sync=green");
+        expect(addSpy).not.toHaveBeenCalled();
+      }),
+    );
+
     it.effect("keeps green sync when required agent is disabled in best-effort mode", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
@@ -763,10 +881,13 @@ describe("installMcpServer", () => {
           expect(addSpy).toHaveBeenCalledOnce();
           expect(addSpy).toHaveBeenCalledWith({
             workspaceRoot: base,
+            scope: "project",
             serverName: "chrome-devtools-mcp",
             canonicalPath,
             owner: "@community",
             resolvedVersion: "1.0.0",
+            enabled: true,
+            configValues: {},
           });
         }),
     );

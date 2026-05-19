@@ -3,10 +3,9 @@
  * composition (canonical-extensions + mcp-config(workspace) + mcp-config(agent)),
  * and projections via the shared helper.
  *
- * MCP servers do not carry a declared `enabled` flag — activation is
- * `"enabled"` by policy regardless of declared shape (Decision 9). The
- * projection row supplies activation for generic consumers without forcing a
- * no-op declared field.
+ * MCP servers carry a declared `enabled` flag in settings. Disabled servers
+ * remain installed on disk and in the lockfile but are removed from agent
+ * configs unless the target agent has a native enabled toggle.
  */
 
 import * as Effect from "effect/Effect";
@@ -213,8 +212,7 @@ const mcpServerPolicy = (
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
-  // MCP servers have no `enabled` flag — activation is always "enabled".
-  declaredActivation: () => "enabled",
+  declaredActivation: (entry) => (entry.entry.enabled ? "enabled" : "disabled"),
   resolvedEntries: (r) => r,
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,

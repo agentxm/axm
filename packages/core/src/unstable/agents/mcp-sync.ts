@@ -9,8 +9,16 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import { AGENTS_BY_ID, type AgentId as CapabilityAgentId } from "../agent-capabilities/index.js";
 import { envOption } from "../utils/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  MCP_SERVER_MANIFEST_FILENAME,
+  McpServerManifestSchema,
+  type McpServerManifest,
+} from "../mcp-servers/manifest-schema.js";
+import { resolveMcpServer } from "../mcp-servers/resolution.js";
+import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcp-servers/config-writer.js";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,
@@ -371,6 +379,45 @@ const entryFromAddArgs = (args: AddMcpServerArgs) => ({
   canonicalPath: args.canonicalPath,
 });
 
+const isCapabilityAgentId = (id: string): id is CapabilityAgentId => id in AGENTS_BY_ID;
+
+const decodeManifestAt = (
+  manifestPath: string,
+): Effect.Effect<McpServerManifest, AppError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const raw = yield* fs.readFileString(manifestPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to read MCP server manifest: ${manifestPath}`,
+          cause: error,
+        }),
+      ),
+    );
+    const parsed = yield* Effect.try({
+      try: () => {
+        const value: unknown = JSON.parse(raw);
+        return value;
+      },
+      catch: (error) =>
+        makeAppError({
+          code: "validation",
+          detail: `Invalid JSON in MCP server manifest: ${manifestPath}`,
+          cause: error,
+        }),
+    });
+    return yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(parsed).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "validation",
+          detail: `Invalid MCP server manifest: ${manifestPath}`,
+          cause: error,
+        }),
+      ),
+    );
+  });
+
 const fallbackOutcome = (
   fallbackFrom: "unsupported" | "disabled",
   reason: string,
@@ -572,4 +619,126 @@ export const removeMcpServerConfigFirst = (
       args.serverName,
     );
     return yield* verifyConfigFirst(strategy, args);
+  });
+
+export const addMcpServerFromManifest = (
+  agentId: string,
+  args: AddMcpServerArgs,
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    if (!isCapabilityAgentId(agentId)) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} has no MCP capability catalog entry`,
+      } as const;
+    }
+
+    const agent = AGENTS_BY_ID[agentId];
+    const capability = agent.mcp;
+    if (
+      capability === undefined ||
+      capability.support !== "standard" ||
+      capability.config === undefined
+    ) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} does not have standard MCP config support`,
+      } as const;
+    }
+
+    const manifest = yield* decodeManifestAt(
+      path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
+    );
+    const resolution = resolveMcpServer({
+      manifest,
+      capability,
+      values: args.configValues ?? {},
+      enabled: args.enabled ?? true,
+    });
+
+    if (resolution._tag === "nothing-runnable") {
+      return resolution;
+    }
+    if (resolution._tag === "no-distribution") {
+      return {
+        _tag: "unsupported",
+        reason: resolution.reason,
+      } as const;
+    }
+
+    const targets = capability.config.targets.filter(
+      (target) => target.scope === (args.scope ?? "project"),
+    );
+    yield* Effect.forEach(
+      targets,
+      (target) =>
+        writeAgentMcpConfig({
+          workspaceRoot: args.workspaceRoot,
+          serverName: args.serverName,
+          serversKey: capability.config.serversKey,
+          target,
+          entry: resolution.entry,
+        }),
+      { concurrency: "unbounded" },
+    );
+
+    if (resolution._tag === "needs-input") {
+      return {
+        _tag: "needs-input",
+        reason: resolution.warnings.join("; "),
+      } as const;
+    }
+    if (resolution.shimmed) {
+      return {
+        _tag: "fallback",
+        fallbackFrom: "unsupported",
+        reason: resolution.warnings.join("; "),
+      } as const;
+    }
+    return { _tag: "success" } as const;
+  });
+
+export const removeMcpServerFromManifest = (
+  agentId: string,
+  args: RemoveMcpServerArgs,
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    if (!isCapabilityAgentId(agentId)) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} has no MCP capability catalog entry`,
+      } as const;
+    }
+
+    const agent = AGENTS_BY_ID[agentId];
+    const capability = agent.mcp;
+    if (
+      capability === undefined ||
+      capability.support !== "standard" ||
+      capability.config === undefined
+    ) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} does not have standard MCP config support`,
+      } as const;
+    }
+
+    const targets = capability.config.targets.filter(
+      (target) => target.scope === (args.scope ?? "project"),
+    );
+    yield* Effect.forEach(
+      targets,
+      (target) =>
+        removeAgentMcpConfig({
+          workspaceRoot: args.workspaceRoot,
+          serverName: args.serverName,
+          serversKey: capability.config.serversKey,
+          target,
+          nativeEnabled: capability.config.nativeEnabled,
+          disableOnly: args.disableOnly ?? false,
+        }),
+      { concurrency: "unbounded" },
+    );
+    return { _tag: "success" } as const;
   });

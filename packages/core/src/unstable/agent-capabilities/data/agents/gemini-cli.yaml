@@ -32,6 +32,15 @@ mcp:
   support: standard
   scopes: [user, project]
   transports: [stdio]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: false
+    targets:
+      - { scope: project, path: .gemini/settings.json, format: json }
+      - { scope: user, path: "~/.gemini/settings.json", format: json }
+    stdio:
+      command: split
+      envKey: env
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
   lastVerified: 2026-05-16

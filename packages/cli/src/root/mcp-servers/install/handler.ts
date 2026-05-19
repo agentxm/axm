@@ -17,6 +17,8 @@ export interface InstallMcpServerFlags {
 
 export interface McpServerInstallHandlerArgs {
   readonly source: Option.Option<string>;
+  readonly env: Option.Option<string>;
+  readonly nonInteractive: boolean;
 }
 
 export const handleInstallMcpServer = (
@@ -35,7 +37,11 @@ export const handleInstallMcpServer = (
     }
 
     const actions = yield* InstallMcpServerCommandWorkflowActions;
-    const sourceArgs: InstallMcpServerHandlerArgs = { source: args.source.value };
+    const sourceArgs: InstallMcpServerHandlerArgs = {
+      source: args.source.value,
+      env: args.env,
+      nonInteractive: args.nonInteractive,
+    };
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, flags);
     yield* emitPlanResolutionResult("mcp-servers.install", resolution);
   });

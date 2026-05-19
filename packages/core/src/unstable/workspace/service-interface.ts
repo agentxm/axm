@@ -33,6 +33,8 @@ import type {
 } from "../lockfile/index.js";
 import type {
   CommandEntry,
+  McpServerEntry,
+  McpServersMap,
   PackEntry,
   PacksMap,
   SkillEntry,
@@ -275,6 +277,8 @@ export interface SetSubagentArgs {
 export interface SetMcpServerArgs {
   readonly name: string;
   readonly lockEntry: McpServerLockEntry;
+  readonly env?: Readonly<Record<string, string>>;
+  readonly enabled?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -320,6 +324,8 @@ export interface WorkspaceMutationsService {
   readonly getConfiguredSkillEntries: () => Effect.Effect<SkillsMap, AppError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
   readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, AppError>;
+  /** Read settings and return configured MCP server entries, defaulting to `{}`. */
+  readonly getConfiguredMcpServerEntries: () => Effect.Effect<McpServersMap, AppError>;
   /** Read lockfile and return the skills lock map. */
   readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */
@@ -425,6 +431,16 @@ export interface WorkspaceMutationsService {
   readonly setMcpServer: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
   /** Add or update an MCP server in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
   readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
+  /** Update an MCP server entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
+  readonly updateMcpServerEntry: (
+    name: string,
+    updater: (entry: McpServerEntry) => McpServerEntry,
+  ) => Effect.Effect<void, AppError>;
+  /** Create or overwrite an MCP server entry in settings only (no lockfile). Serialized by semaphore. */
+  readonly setMcpServerEntry: (
+    name: string,
+    entry: McpServerEntry,
+  ) => Effect.Effect<void, AppError>;
   /** Remove an MCP server from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removeMcpServer: (name: string) => Effect.Effect<void, AppError>;
   // --- Granular removal methods (settings-only or lockfile-only) ---

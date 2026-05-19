@@ -5,22 +5,13 @@
  */
 
 import { makeProjectOnlyCodingAgent } from "../project-only-agent.js";
-import {
-  addMcpServerConfigFirst,
-  type ConfigFirstStrategy,
-  removeMcpServerConfigFirst,
-} from "../mcp-sync.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 
 /** @experimental */
 export const OPENCODE_COMMANDS_PROJECT_DIR = ".opencode/commands";
 
 /** @experimental */
 export const OPENCODE_SUBAGENTS_PROJECT_DIR = ".opencode/agents";
-
-export const opencodeMcpStrategy: ConfigFirstStrategy = {
-  configPath: "{workspaceRoot}/.opencode/mcp.json",
-  verifyCommand: ["opencode", "mcp", "list"],
-};
 
 export const opencodeCodingAgent = makeProjectOnlyCodingAgent({
   agentId: "opencode",
@@ -29,7 +20,7 @@ export const opencodeCodingAgent = makeProjectOnlyCodingAgent({
   commandsProjectDir: OPENCODE_COMMANDS_PROJECT_DIR,
   subagentsProjectDir: OPENCODE_SUBAGENTS_PROJECT_DIR,
   mcp: {
-    addMcpServer: (args) => addMcpServerConfigFirst(opencodeMcpStrategy, args),
-    removeMcpServer: (args) => removeMcpServerConfigFirst(opencodeMcpStrategy, args),
+    addMcpServer: (args) => addMcpServerFromManifest("opencode", args),
+    removeMcpServer: (args) => removeMcpServerFromManifest("opencode", args),
   },
 });

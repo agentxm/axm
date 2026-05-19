@@ -6,6 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
@@ -116,7 +117,11 @@ describe("agents add.handler", () => {
 
   const makeLayers = (opts?: { readonly machine?: boolean }) => {
     const context = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
-    const fullLayer = Layer.mergeAll(context.fullLayer, emptyManagersLayer);
+    const fullLayer = Layer.mergeAll(
+      context.fullLayer,
+      emptyManagersLayer,
+      CodingAgentRepositoryLive,
+    );
 
     return {
       provide: makeEffectProvide(fullLayer),

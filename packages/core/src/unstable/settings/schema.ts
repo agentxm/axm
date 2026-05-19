@@ -189,6 +189,14 @@ type EnabledEntry = AuthoredEntry & {
   readonly enabled: boolean;
 };
 
+type McpServerEntryObject = EnabledEntryObject & {
+  readonly env?: Readonly<Record<string, string>> | undefined;
+};
+
+type CanonicalMcpServerEntry = EnabledEntry & {
+  readonly env: Readonly<Record<string, string>>;
+};
+
 const ExtensionMapKeySchema = Schema.String.check(
   Schema.isPattern(EXTENSION_NAME_PATTERN, {
     message:
@@ -468,17 +476,24 @@ export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
  */
 export const McpServerEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("MCP server", "mcp-servers"),
+  enabled: enabledFieldSchema,
   authored: authoredFieldSchema,
+  env: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.String).annotate({
+      description:
+        "Resolved MCP server configuration values keyed by environment variable, argument, header, or URL variable name.",
+    }),
+  ),
 }).annotate({
   title: "MCP Server Entry Object",
-  description: "An MCP server entry with source and optional authored flag.",
+  description: "An MCP server entry with source and optional enabled/authored/env fields.",
 });
 
 /**
- * Union of MCP server entry forms: plain source string or object with source + authored.
+ * Union of MCP server entry forms: plain source string or object with source + enabled + authored + env.
  *
- * Decodes to canonical `{ source, authored }` form; encodes back to the most
- * compact JSON representation (plain string when not authored, object otherwise).
+ * Decodes to canonical `{ source, enabled, authored, env }` form; encodes back to the most
+ * compact JSON representation (plain string when enabled, not authored, and env is empty).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -486,24 +501,44 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
   McpServerEntryObjectSchema,
   Schema.Struct({
     source: Schema.String,
+    enabled: Schema.Boolean,
     authored: Schema.Boolean,
+    env: Schema.Record(Schema.String, Schema.String),
   }),
   {
-    decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
+    decode: (entry: string | McpServerEntryObject): CanonicalMcpServerEntry =>
       typeof entry === "string"
-        ? { source: entry, authored: false }
-        : { source: entry.source, authored: entry.authored ?? false },
-    encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
-      entry.authored ? { source: entry.source, authored: true } : entry.source,
+        ? { source: entry, enabled: true, authored: false, env: {} }
+        : {
+            source: entry.source,
+            enabled: entry.enabled ?? true,
+            authored: entry.authored ?? false,
+            env: entry.env ?? {},
+          },
+    encode: (entry: CanonicalMcpServerEntry): string | McpServerEntryObject => {
+      if (entry.enabled && !entry.authored && Object.keys(entry.env).length === 0) {
+        return entry.source;
+      }
+      const obj: {
+        source: string;
+        enabled?: boolean;
+        authored?: boolean;
+        env?: Readonly<Record<string, string>>;
+      } = { source: entry.source };
+      if (!entry.enabled) obj.enabled = false;
+      if (entry.authored) obj.authored = true;
+      if (Object.keys(entry.env).length > 0) obj.env = entry.env;
+      return obj;
+    },
   },
   {
     identifier: "McpServerEntry",
     title: "MCP Server Entry",
     description:
-      "An MCP server entry: a source string, or an object with source plus optional authored flag.",
+      "An MCP server entry: a source string, or an object with source plus optional enabled/authored/env fields.",
     examples: [
       "@acme/mcp-servers/context@^1.0.0",
-      { source: "github:acme/agent-extensions", authored: true },
+      { source: "github:acme/agent-extensions", enabled: false },
     ],
   },
 );
@@ -954,7 +989,7 @@ export const SettingsSchema = Schema.Struct({
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. MCP server entries do not support `enabled` yet.",
+        "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or persisted `env` values.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(

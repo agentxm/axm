@@ -200,6 +200,386 @@
         }
       ]
     },
+    "McpRegistryStdioTransport": {
+      "type": "object",
+      "properties": { "type": { "type": "string", "enum": ["stdio"] } },
+      "required": ["type"],
+      "additionalProperties": false,
+      "title": "MCP Registry Stdio Transport"
+    },
+    "McpRegistryKeyValueInput": {
+      "type": "object",
+      "properties": {
+        "choices": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "format": {
+          "anyOf": [
+            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+            { "type": "null" }
+          ]
+        },
+        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "name": { "type": "string" }
+      },
+      "required": ["name"],
+      "additionalProperties": false,
+      "title": "MCP Registry Key/Value Input",
+      "description": "Named header or environment variable input."
+    },
+    "McpRegistryStreamableHttpTransport": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["streamable-http"] },
+        "url": {
+          "type": "string",
+          "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
+        },
+        "headers": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "title": "MCP Registry Streamable HTTP Transport"
+    },
+    "McpRegistrySseTransport": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["sse"] },
+        "url": {
+          "type": "string",
+          "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
+        },
+        "headers": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "title": "MCP Registry SSE Transport"
+    },
+    "McpRegistryLocalTransport": {
+      "anyOf": [
+        { "$ref": "#/definitions/McpRegistryStdioTransport" },
+        { "$ref": "#/definitions/McpRegistryStreamableHttpTransport" },
+        { "$ref": "#/definitions/McpRegistrySseTransport" }
+      ],
+      "title": "MCP Registry Local Transport"
+    },
+    "McpRegistryPositionalArgument": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "choices": {
+              "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+            },
+            "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "format": {
+              "anyOf": [
+                { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+                { "type": "null" }
+              ]
+            },
+            "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+            "type": { "type": "string", "enum": ["positional"] },
+            "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "valueHint": { "type": "string" }
+          },
+          "required": ["type", "valueHint"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "choices": {
+              "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+            },
+            "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "format": {
+              "anyOf": [
+                { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+                { "type": "null" }
+              ]
+            },
+            "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "value": { "type": "string" },
+            "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+            "type": { "type": "string", "enum": ["positional"] },
+            "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+          },
+          "required": ["value", "type"],
+          "additionalProperties": false
+        }
+      ],
+      "title": "MCP Registry Positional Argument",
+      "description": "A positional command-line argument."
+    },
+    "McpRegistryNamedArgument": {
+      "type": "object",
+      "properties": {
+        "choices": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "format": {
+          "anyOf": [
+            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+            { "type": "null" }
+          ]
+        },
+        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "type": { "type": "string", "enum": ["named"] },
+        "name": { "type": "string" },
+        "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+      },
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "title": "MCP Registry Named Argument",
+      "description": "A named command-line argument."
+    },
+    "McpRegistryArgument": {
+      "anyOf": [
+        { "$ref": "#/definitions/McpRegistryPositionalArgument" },
+        { "$ref": "#/definitions/McpRegistryNamedArgument" }
+      ],
+      "title": "MCP Registry Argument",
+      "description": "Command-line argument metadata from the MCP registry schema."
+    },
+    "McpRegistryPackage": {
+      "type": "object",
+      "properties": {
+        "registryType": { "type": "string" },
+        "identifier": { "type": "string" },
+        "transport": { "$ref": "#/definitions/McpRegistryLocalTransport" },
+        "version": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "registryBaseUrl": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "runtimeHint": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "runtimeArguments": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryArgument" } },
+            { "type": "null" }
+          ]
+        },
+        "packageArguments": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryArgument" } },
+            { "type": "null" }
+          ]
+        },
+        "environmentVariables": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
+            { "type": "null" }
+          ]
+        },
+        "fileSha256": {
+          "anyOf": [
+            { "type": "string", "allOf": [{ "pattern": "^[a-f0-9]{64}$" }] },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["registryType", "identifier", "transport"],
+      "additionalProperties": false,
+      "title": "MCP Registry Package",
+      "description": "Installable MCP server package distribution."
+    },
+    "McpRegistryInput": {
+      "type": "object",
+      "properties": {
+        "choices": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "format": {
+          "anyOf": [
+            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+            { "type": "null" }
+          ]
+        },
+        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
+      },
+      "additionalProperties": false,
+      "title": "MCP Registry Input",
+      "description": "Input metadata from the MCP registry server.json schema."
+    },
+    "McpRegistryRemoteTransport": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["streamable-http"] },
+            "url": {
+              "type": "string",
+              "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
+            },
+            "headers": {
+              "anyOf": [
+                { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
+                { "type": "null" }
+              ]
+            },
+            "variables": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": { "$ref": "#/definitions/McpRegistryInput" }
+                },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["type", "url"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["sse"] },
+            "url": {
+              "type": "string",
+              "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
+            },
+            "headers": {
+              "anyOf": [
+                { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
+                { "type": "null" }
+              ]
+            },
+            "variables": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": { "$ref": "#/definitions/McpRegistryInput" }
+                },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["type", "url"],
+          "additionalProperties": false
+        }
+      ],
+      "title": "MCP Registry Remote Transport"
+    },
+    "McpRegistryRepository": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "source": { "type": "string" },
+        "id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "subfolder": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+      },
+      "required": ["url", "source"],
+      "additionalProperties": false,
+      "title": "MCP Registry Repository",
+      "description": "Repository metadata for an MCP server."
+    },
+    "McpRegistryIcon": {
+      "type": "object",
+      "properties": {
+        "src": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "mimeType": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"]
+            },
+            { "type": "null" }
+          ]
+        },
+        "sizes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": { "type": "string", "allOf": [{ "pattern": "^(\\d+x\\d+|any)$" }] }
+            },
+            { "type": "null" }
+          ]
+        },
+        "theme": { "anyOf": [{ "type": "string", "enum": ["light", "dark"] }, { "type": "null" }] }
+      },
+      "required": ["src"],
+      "additionalProperties": false,
+      "title": "MCP Registry Icon",
+      "description": "Optional icon metadata from the MCP registry schema."
+    },
+    "McpRegistryServerDetail": {
+      "type": "object",
+      "properties": {
+        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "name": {
+          "type": "string",
+          "allOf": [{ "minLength": 1 }, { "pattern": "^[a-zA-Z0-9.-]+\\/[a-zA-Z0-9._-]+$" }]
+        },
+        "description": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "version": { "type": "string" },
+        "title": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "packages": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryPackage" } },
+            { "type": "null" }
+          ]
+        },
+        "remotes": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryRemoteTransport" } },
+            { "type": "null" }
+          ]
+        },
+        "repository": {
+          "anyOf": [{ "$ref": "#/definitions/McpRegistryRepository" }, { "type": "null" }]
+        },
+        "icons": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/McpRegistryIcon" } },
+            { "type": "null" }
+          ]
+        },
+        "websiteUrl": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "_meta": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
+      },
+      "required": ["name", "description", "version"],
+      "additionalProperties": false,
+      "title": "MCP Registry Server Detail",
+      "description": "Verbatim MCP registry server.json ServerDetail embedded in AXM mcp-server.json manifests."
+    },
     "McpServerManifest": {
       "type": "object",
       "properties": {
@@ -282,9 +662,10 @@
           ]
         },
         "type": { "type": "string", "enum": ["mcp-server"] },
-        "name": { "$ref": "#/definitions/ExtensionName" }
+        "name": { "$ref": "#/definitions/ExtensionName" },
+        "server": { "$ref": "#/definitions/McpRegistryServerDetail" }
       },
-      "required": ["owner", "version", "type", "name"],
+      "required": ["owner", "version", "type", "name", "server"],
       "additionalProperties": false,
       "title": "MCP Server Manifest",
       "description": "Extension manifest file for MCP server. Registers a Model Context Protocol server that coding agents can connect to for additional tools and resources."

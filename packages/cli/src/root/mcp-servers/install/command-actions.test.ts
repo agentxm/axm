@@ -13,6 +13,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -47,10 +49,14 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } satisfies ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
+const renderer = TestRenderer.make();
+
 const testLayer = Layer.mergeAll(
   Layer.succeed(WorkspaceMutations, mockWorkspace),
   Layer.succeed(McpServerManager, mockMcpServerManager),
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
+  renderer.layer,
+  CodingAgentRepositoryLive,
   NodeServices.layer,
   TestFlagsLayer(),
 );
@@ -134,13 +140,7 @@ describe("parseMcpServerInstallArgs", () => {
     Effect.gen(function* () {
       const forceActionsLayer = Layer.provide(
         InstallMcpServerCommandWorkflowActionsLive,
-        Layer.mergeAll(
-          Layer.succeed(WorkspaceMutations, mockWorkspace),
-          Layer.succeed(McpServerManager, mockMcpServerManager),
-          Layer.succeed(SourceHostProviders, mockSourceHostProviders),
-          NodeServices.layer,
-          TestFlagsLayer(),
-        ),
+        testLayer,
       );
       const result = yield* Effect.gen(function* () {
         const actions = yield* InstallMcpServerCommandWorkflowActions;

@@ -423,23 +423,33 @@
                 }
               ]
             },
+            "enabled": {
+              "type": "boolean",
+              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
+              "default": true
+            },
             "authored": {
               "type": "boolean",
               "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
+            },
+            "env": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "Resolved MCP server configuration values keyed by environment variable, argument, header, or URL variable name."
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "MCP Server Entry Object",
-          "description": "An MCP server entry with source and optional authored flag."
+          "description": "An MCP server entry with source and optional enabled/authored/env fields."
         }
       ],
       "title": "MCP Server Entry",
-      "description": "An MCP server entry: a source string, or an object with source plus optional authored flag.",
+      "description": "An MCP server entry: a source string, or an object with source plus optional enabled/authored/env fields.",
       "examples": [
         "@acme/mcp-servers/context@^1.0.0",
-        { "source": "github:acme/agent-extensions", "authored": true }
+        { "source": "github:acme/agent-extensions", "enabled": false }
       ]
     },
     "McpServersMap": {
@@ -545,7 +555,7 @@
         },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
-          "description": "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. MCP server entries do not support `enabled` yet."
+          "description": "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or persisted `env` values."
         },
         "mcpServersConfig": {
           "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }],

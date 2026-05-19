@@ -44,6 +44,11 @@ const manifestFixtures = {
     ...baseManifest,
     type: "mcp-server",
     name: "bad-mcp",
+    server: {
+      name: "io.github.acme/bad-mcp",
+      description: "Bad MCP server",
+      version: "1.0.0",
+    },
     unexpectedMcpServerKey: true,
   },
   pack: {

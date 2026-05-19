@@ -107,6 +107,7 @@ const toInstalledCommand = (row: InstalledRow): InstalledCommand =>
 
 const toConfiguredExtensionRef = (row: ConfiguredRow): ConfiguredExtensionRef => ({
   source: row.source,
+  enabled: row.enabled,
   packagingKind: row.packagingKind,
 });
 

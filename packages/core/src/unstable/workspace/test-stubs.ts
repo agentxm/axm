@@ -160,6 +160,7 @@ export const makeBaseWorkspaceMock = (
     getIgnoredPackPatterns: emptyArr,
     getConfiguredPackEntries: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
+    getConfiguredMcpServerEntries: () => Effect.succeed({}),
     getLockedSkills: () => Effect.succeed({}),
     getLockedSkill: () => Effect.succeed(Option.none()),
     getSkillDir: () =>
@@ -201,6 +202,8 @@ export const makeBaseWorkspaceMock = (
     getLockedMcpServer: () => Effect.succeed(Option.none()),
     setMcpServer: () => Effect.void,
     setMcpServerLock: () => Effect.void,
+    updateMcpServerEntry: () => Effect.void,
+    setMcpServerEntry: () => Effect.void,
     removeMcpServer: () => Effect.void,
     removeSkillLock: () => Effect.void,
     removeCommandSettings: () => Effect.void,

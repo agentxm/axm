@@ -47,6 +47,7 @@ import {
   type CommandEntry,
   type CommandsMap,
   createDefaultSettings,
+  type McpServerEntry,
   type McpServersMap,
   type SkillEntry,
   type SubagentEntry,
@@ -460,6 +461,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s) => s.agents ?? []),
           Effect.withSpan("WorkspaceMutations.getConfiguredAgents"),
+        ),
+
+      getConfiguredMcpServerEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): McpServersMap => s.mcpServers ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredMcpServerEntries"),
         ),
 
       getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
@@ -1109,7 +1116,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
         ),
 
-      setMcpServer: ({ name, lockEntry }: SetMcpServerArgs) =>
+      setMcpServer: ({ name, lockEntry, env, enabled }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
@@ -1118,9 +1125,19 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const authored = currentMcpServers[name]?.authored ?? false;
+            const currentEnabled = currentMcpServers[name]?.enabled ?? true;
+            const currentEnv = currentMcpServers[name]?.env ?? {};
             const updatedSettings = {
               ...currentSettings,
-              mcpServers: { ...currentMcpServers, [name]: { source, authored } },
+              mcpServers: {
+                ...currentMcpServers,
+                [name]: {
+                  source,
+                  enabled: enabled ?? currentEnabled,
+                  authored,
+                  env: env ?? currentEnv,
+                },
+              },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1158,6 +1175,39 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               },
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      updateMcpServerEntry: (name: string, updater: (entry: McpServerEntry) => McpServerEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
+            const currentEntry = yield* getEntryOrFail(
+              currentMcpServers,
+              name,
+              "not_found",
+              `MCP server "${name}" not found in settings`,
+            );
+            const updated = updater(currentEntry);
+            const updatedSettings = {
+              ...currentSettings,
+              mcpServers: { ...currentMcpServers, [name]: updated },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      setMcpServerEntry: (name: string, entry: McpServerEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
+            const updatedSettings = {
+              ...currentSettings,
+              mcpServers: { ...currentMcpServers, [name]: entry },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 

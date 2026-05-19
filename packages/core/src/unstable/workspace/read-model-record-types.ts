@@ -116,8 +116,8 @@ export type InstalledSubagent =
 // Generic extension ref read-model records (MCP servers, packs)
 // ---------------------------------------------------------------------------
 
-/** MCP servers and packs do not have `enabled` — use `ExtensionRef` shapes. */
-export type ConfiguredExtensionRef = ConfiguredExtensionState;
+/** MCP servers and packs use generic extension refs; packs are always enabled. */
+export type ConfiguredExtensionRef = ConfiguredExtensionState<EnabledState>;
 
 export type ImplicitExtensionRef = ImplicitExtensionState;
 

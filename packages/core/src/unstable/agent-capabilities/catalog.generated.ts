@@ -13,6 +13,7 @@ export const AGENT_IDS = [
   "cursor",
   "gemini-cli",
   "github-copilot",
+  "opencode",
   "pi",
   "windsurf",
 ] as const;
@@ -65,6 +66,39 @@ export const AGENTS = [
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "stdio",
+          },
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -179,6 +213,41 @@ export const AGENTS = [
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp_servers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".codex/config.toml",
+            format: "toml",
+          },
+          {
+            scope: "user",
+            path: "~/.codex/config.toml",
+            format: "toml",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "streamable-http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "http_headers",
+        },
+        transform: "codex-toml",
+      },
     },
     subagents: {
       support: "bridged",
@@ -312,6 +381,28 @@ export const AGENTS = [
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".cursor/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -465,6 +556,26 @@ export const AGENTS = [
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".gemini/settings.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.gemini/settings.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -591,6 +702,39 @@ export const AGENTS = [
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "servers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".vscode/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "stdio",
+          },
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -655,6 +799,64 @@ export const AGENTS = [
               "**/*": true,
             },
           },
+        },
+      },
+    },
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    vendor: "SST",
+    homepage: "https://opencode.ai",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "OpenCode documentation",
+        url: "https://opencode.ai/docs",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://opencode.ai/docs/mcp-servers/", "https://opencode.ai/docs/config/"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: "opencode.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "user",
+            path: "~/.config/opencode/opencode.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "local",
+          },
+          command: "array",
+          envKey: "environment",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "remote",
+              sse: "remote",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
         },
       },
     },
@@ -763,6 +965,21 @@ export const AGENTS = [
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.codeium/windsurf/mcp_config.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
     },
     subagents: {
       support: "unsupported",
@@ -867,6 +1084,39 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "stdio",
+          },
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -981,6 +1231,41 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp_servers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".codex/config.toml",
+            format: "toml",
+          },
+          {
+            scope: "user",
+            path: "~/.codex/config.toml",
+            format: "toml",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "streamable-http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "http_headers",
+        },
+        transform: "codex-toml",
+      },
     },
     subagents: {
       support: "bridged",
@@ -1114,6 +1399,28 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".cursor/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -1267,6 +1574,26 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".gemini/settings.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.gemini/settings.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -1393,6 +1720,39 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "servers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".vscode/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "stdio",
+          },
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
     },
     subagents: {
       support: "bridged",
@@ -1457,6 +1817,64 @@ export const AGENTS_BY_ID = {
               "**/*": true,
             },
           },
+        },
+      },
+    },
+  },
+  opencode: {
+    id: "opencode",
+    name: "OpenCode",
+    vendor: "SST",
+    homepage: "https://opencode.ai",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "OpenCode documentation",
+        url: "https://opencode.ai/docs",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://opencode.ai/docs/mcp-servers/", "https://opencode.ai/docs/config/"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: "opencode.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "user",
+            path: "~/.config/opencode/opencode.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "local",
+          },
+          command: "array",
+          envKey: "environment",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "remote",
+              sse: "remote",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
         },
       },
     },
@@ -1565,6 +1983,21 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.codeium/windsurf/mcp_config.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
     },
     subagents: {
       support: "unsupported",

@@ -40,6 +40,7 @@ const makeWorkspaceMock = (
       Effect.succeed({
         "my-pack": {
           source: "@myorg/packs/my-pack",
+          enabled: true,
           packagingKind: "non-native" as const,
         },
       }),

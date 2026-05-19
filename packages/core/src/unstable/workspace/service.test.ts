@@ -1592,6 +1592,7 @@ describe("WorkspaceMutationsService", () => {
         expect(packs).toEqual({
           "starter-pack": {
             source: "@acme/packs/starter-pack",
+            enabled: true,
             packagingKind: "native",
           },
         });
@@ -1625,6 +1626,7 @@ describe("WorkspaceMutationsService", () => {
           "starter-pack": {
             lifecycle: "configured",
             source: "@acme/packs/starter-pack",
+            enabled: true,
             packagingKind: "native",
           },
         });
@@ -2281,6 +2283,7 @@ describe("WorkspaceMutationsService", () => {
 
         expect(servers["my-mcp"]).toEqual({
           source: "github:acme/my-mcp",
+          enabled: true,
           packagingKind: "non-native",
         });
       }),

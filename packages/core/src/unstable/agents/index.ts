@@ -93,15 +93,15 @@ export {
 
 // Agent service implementations
 export { augmentCodingAgent } from "./augment/service.js";
-export { claudeCodeCodingAgent, claudeCodeMcpStrategy } from "./claude-code/service.js";
-export { codexCodingAgent, codexMcpStrategy } from "./codex/service.js";
-export { cursorCodingAgent, cursorMcpStrategy } from "./cursor/service.js";
-export { geminiCliCodingAgent, geminiCliMcpStrategy } from "./gemini-cli/service.js";
-export { githubCopilotCodingAgent, githubCopilotMcpStrategy } from "./github-copilot/service.js";
+export { claudeCodeCodingAgent } from "./claude-code/service.js";
+export { codexCodingAgent } from "./codex/service.js";
+export { cursorCodingAgent } from "./cursor/service.js";
+export { geminiCliCodingAgent } from "./gemini-cli/service.js";
+export { githubCopilotCodingAgent } from "./github-copilot/service.js";
 export { junieCodingAgent } from "./junie/service.js";
 export { kiloCodingAgent } from "./kilo/service.js";
 export { kiroCliCodingAgent } from "./kiro-cli/service.js";
-export { opencodeCodingAgent, opencodeMcpStrategy } from "./opencode/service.js";
+export { opencodeCodingAgent } from "./opencode/service.js";
 export { rooCodingAgent } from "./roo/service.js";
 
 // Repository implementation

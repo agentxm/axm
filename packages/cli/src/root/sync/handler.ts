@@ -6,7 +6,13 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as ServiceMap from "effect/Context";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
@@ -16,9 +22,13 @@ import {
   configuredSkillsToDiskRefs,
   configuredSubagentsToDiskRefs,
   parseRegistrySourceRef,
+  targetFromRef,
+  toLabelWithCompanions,
+  toStepKey,
   type ExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
+import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
+import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcp-servers";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import {
   applyPlan,
@@ -47,11 +57,11 @@ const dependencyEntries = (
   dependencies: Readonly<Record<string, unknown>>,
   type: ExtensionTypePlural,
 ) => {
-  const entries: Record<string, { source: string; packagingKind: "native" }> = {};
+  const entries: Record<string, { source: string; enabled: boolean; packagingKind: "native" }> = {};
   for (const fqn of Object.keys(dependencies)) {
     const parsed = parseRegistrySourceRef(fqn);
     if (parsed !== undefined && parsed.type === type) {
-      entries[parsed.name] = { source: fqn, packagingKind: "native" };
+      entries[parsed.name] = { source: fqn, enabled: true, packagingKind: "native" };
     }
   }
   return entries;
@@ -71,12 +81,54 @@ const enabledDependencyEntries = (
   return entries;
 };
 
+const buildMcpServerSyncOperation = ({
+  ref,
+  fs,
+  path,
+  ws,
+  renderer,
+  agentRepo,
+}: {
+  readonly ref: McpServerExtensionRef;
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+  readonly renderer: ServiceMap.Service.Shape<typeof CliRenderer>;
+  readonly agentRepo: CodingAgentRepositoryService;
+}): PlannedJobStep => {
+  const target = targetFromRef(ref);
+  const run = installMcpServer({
+    name: "install-mcp-server",
+    args: {
+      ref,
+      force: false,
+      versionRange: Option.none(),
+      skipSettings: Option.some(true),
+    },
+  }).pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.provideService(WorkspaceMutations, ws),
+    Effect.provideService(CliRenderer, renderer),
+    Effect.provideService(CodingAgentRepository, agentRepo),
+  );
+
+  return {
+    key: toStepKey(target),
+    label: toLabelWithCompanions(target, ref.refType === "registry" ? ref.packages : []),
+    readiness: "ready",
+    run,
+  };
+};
+
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* () {
   const skillManager = yield* SkillManager;
   const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
   const packManager = yield* PackManager;
+  const renderer = yield* CliRenderer;
+  const agentRepo = yield* CodingAgentRepository;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -148,10 +200,12 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...packCommandRefs
         .filter((ref) => !directCommandNames.has(ref.command.name))
         .map((ref) => buildMaterializeOperation(commandManager, { ref })),
-      ...mcpServerRefs.map((ref) => buildMaterializeOperation(mcpServerManager, { ref })),
+      ...mcpServerRefs.map((ref) =>
+        buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo }),
+      ),
       ...packMcpServerRefs
         .filter((ref) => !directMcpServerNames.has(ref.server.name))
-        .map((ref) => buildMaterializeOperation(mcpServerManager, { ref })),
+        .map((ref) => buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo })),
       ...materializedSubagentRefs.map((ref) => buildMaterializeOperation(subagentManager, { ref })),
     ] satisfies ReadonlyArray<PlannedJobStep>,
   };

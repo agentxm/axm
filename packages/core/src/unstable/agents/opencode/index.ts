@@ -6,4 +6,4 @@
  */
 
 export { descriptor } from "./descriptor.js";
-export { opencodeCodingAgent, opencodeMcpStrategy } from "./service.js";
+export { opencodeCodingAgent } from "./service.js";

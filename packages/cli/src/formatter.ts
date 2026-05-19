@@ -1,6 +1,6 @@
 /**
- * Custom CLI output formatter that suppresses global flags on subcommand help
- * and appends a "learn more" footer from command annotations.
+ * Custom CLI output formatter that renders compact root help and appends a
+ * "learn more" footer from command annotations.
  */
 
 import * as Option from "effect/Option";
@@ -11,6 +11,8 @@ import { CliOutput } from "effect/unstable/cli";
 
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 
+type ArgDoc = NonNullable<HelpDoc["args"]>[number];
+
 /**
  * Annotation key for "learn more" footer text.
  * Attach to commands via `Command.annotate(LearnMore, "...")`.
@@ -18,6 +20,8 @@ import { BRANDING } from "@agentxm/client-core/unstable/branding";
 export const LearnMore: ServiceMap.Reference<string> = ServiceMap.Reference("axm/learn-more", {
   defaultValue: () => "",
 });
+
+const LEARN_MORE_INLINE_COMMAND_WIDTH = 40;
 
 /**
  * Builds a `LEARN MORE` footer string from `axm help <topic>` rows, with the
@@ -27,8 +31,15 @@ export const LearnMore: ServiceMap.Reference<string> = ServiceMap.Reference("axm
 export const formatLearnMore = (
   rows: ReadonlyArray<readonly [command: string, description: string]>,
 ): string => {
-  const width = rows.reduce((max, [command]) => Math.max(max, command.length), 0);
-  const lines = rows.map(([command, description]) => `  ${command.padEnd(width)}  ${description}`);
+  const width = Math.min(
+    rows.reduce((max, [command]) => Math.max(max, command.length), 0),
+    LEARN_MORE_INLINE_COMMAND_WIDTH,
+  );
+  const lines = rows.flatMap(([command, description]) =>
+    command.length > LEARN_MORE_INLINE_COMMAND_WIDTH
+      ? [`  ${command}`, `    ${description}`]
+      : [`  ${command.padEnd(width)}  ${description}`],
+  );
   return ["LEARN MORE", ...lines].join("\n");
 };
 
@@ -46,25 +57,8 @@ const isSubcommandDoc = (doc: HelpDoc): boolean => {
   return tokens.length > 1;
 };
 
-const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
-  if (!isSubcommandDoc(doc)) {
-    return doc.globalFlags;
-  }
-
-  const globalFlags = doc.globalFlags?.filter((flag) => flag.name === "json");
-  return globalFlags !== undefined && globalFlags.length > 0 ? globalFlags : undefined;
-};
-
 const getLearnMore = (doc: HelpDoc): string =>
   ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
-
-const getAdjustedHelpDoc = (doc: HelpDoc): HelpDoc => {
-  if (!isSubcommandDoc(doc)) return doc;
-
-  const visibleGlobalFlags = getVisibleGlobalFlags(doc);
-  const { globalFlags: _globalFlags, ...rest } = doc;
-  return visibleGlobalFlags === undefined ? rest : { ...rest, globalFlags: visibleGlobalFlags };
-};
 
 type JsonFlagDoc = {
   readonly name: string;
@@ -113,6 +107,7 @@ type JsonHelpDoc = {
 
 type RootSubcommandDoc = {
   readonly name: string;
+  readonly alias?: string | undefined;
   readonly shortDescription?: string | undefined;
   readonly description?: string | undefined;
 };
@@ -177,23 +172,22 @@ const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
 });
 
 const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
-  const adjusted = getAdjustedHelpDoc(doc);
   const learnMore = getLearnMore(doc);
 
   return {
     type: "help",
-    description: adjusted.description,
-    usage: adjusted.usage,
-    flags: adjusted.flags.map(toJsonFlagDoc),
-    globalFlags: adjusted.globalFlags?.map(toJsonFlagDoc),
-    args: adjusted.args?.map((arg) => ({
+    description: doc.description,
+    usage: doc.usage,
+    flags: doc.flags.map(toJsonFlagDoc),
+    globalFlags: doc.globalFlags?.map(toJsonFlagDoc),
+    args: doc.args?.map((arg) => ({
       name: arg.name,
       type: arg.type,
       required: arg.required,
       variadic: arg.variadic,
       description: Option.getOrUndefined(arg.description),
     })),
-    subcommands: adjusted.subcommands?.map((group) => ({
+    subcommands: doc.subcommands?.map((group) => ({
       group: group.group,
       commands: group.commands.map((command) => ({
         name: command.name,
@@ -202,7 +196,7 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
         description: command.description,
       })),
     })),
-    examples: adjusted.examples?.map((example) => ({
+    examples: doc.examples?.map((example) => ({
       command: example.command,
       description: example.description,
     })),
@@ -227,7 +221,6 @@ const CORE_COMMANDS = [
   "agents",
 ];
 const CORE_GROUP_LABEL = "CORE";
-const CORE_COLUMN_WIDTH = 14;
 
 /** Compact group that should render above the descriptive Core block. */
 const LEADING_COMPACT_GROUP = "GETTING STARTED";
@@ -255,6 +248,7 @@ const GLOBAL_FLAGS_LABEL = "GLOBAL FLAGS";
 
 /** Target line width for wrapping the compact command lists. */
 const ROOT_HELP_WIDTH = 80;
+const TABLE_HELP_WIDTH = 78;
 
 /**
  * Groups command names into rows whose rendered width — a leading `indent`,
@@ -314,17 +308,30 @@ const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
   whoami: "Show the signed-in account",
 };
 
-interface RootHelpColors {
+const formatSubcommandName = (name: string, alias: string | undefined): string =>
+  alias === undefined ? name : `${name}, ${alias}`;
+
+const rootCommandDisplayName = (
+  command: string,
+  docs: ReadonlyMap<string, RootSubcommandDoc>,
+): string => {
+  const doc = docs.get(command);
+  return formatSubcommandName(command, doc?.alias);
+};
+
+interface HelpColors {
   readonly bold: (text: string) => string;
   readonly cyan: (text: string) => string;
+  readonly dim: (text: string) => string;
   readonly green: (text: string) => string;
 }
 
-const makeRootHelpColors = (enabled: boolean): RootHelpColors => {
+const makeHelpColors = (enabled: boolean): HelpColors => {
   if (!enabled) {
     return {
       bold: (text) => text,
       cyan: (text) => text,
+      dim: (text) => text,
       green: (text) => text,
     };
   }
@@ -332,6 +339,7 @@ const makeRootHelpColors = (enabled: boolean): RootHelpColors => {
   return {
     bold: (text) => `\u001b[1m${text}\u001b[0m`,
     cyan: (text) => `\u001b[36m${text}\u001b[0m`,
+    dim: (text) => `\u001b[2m${text}\u001b[0m`,
     green: (text) => `\u001b[32m${text}\u001b[0m`,
   };
 };
@@ -347,12 +355,19 @@ const rootCommandDescription = (
   return doc?.shortDescription ?? doc?.description ?? "";
 };
 
-const renderCommandRow = (command: string, description: string, colors: RootHelpColors): string => {
-  const padding = " ".repeat(Math.max(1, CORE_COLUMN_WIDTH - command.length));
-  return `  ${colors.cyan(command)}${padding}${description}`;
+const renderCommandRow = (
+  command: string,
+  description: string,
+  columnWidth: number,
+  docs: ReadonlyMap<string, RootSubcommandDoc>,
+  colors: HelpColors,
+): string => {
+  const displayName = rootCommandDisplayName(command, docs);
+  const padding = " ".repeat(Math.max(1, columnWidth - displayName.length));
+  return `  ${colors.cyan(displayName)}${padding}${description}`;
 };
 
-const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
+const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
   const commandDocs = new Map(
     (doc.subcommands ?? []).flatMap((group) =>
       group.commands.map((command) => [command.name, command]),
@@ -362,10 +377,22 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
   const renderCoreGroup = (commands: ReadonlyArray<string>): ReadonlyArray<string> => {
     if (commands.length === 0) return [];
 
+    const columnWidth =
+      commands.reduce(
+        (max, command) => Math.max(max, rootCommandDisplayName(command, commandDocs).length),
+        0,
+      ) + 1;
+
     return [
       colors.bold(CORE_GROUP_LABEL),
       ...commands.map((command) =>
-        renderCommandRow(command, rootCommandDescription(command, commandDocs), colors),
+        renderCommandRow(
+          command,
+          rootCommandDescription(command, commandDocs),
+          columnWidth,
+          commandDocs,
+          colors,
+        ),
       ),
     ];
   };
@@ -430,6 +457,173 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
   ].join("\n");
 };
 
+type HelpRow = {
+  readonly left: string;
+  readonly right: string;
+};
+
+const wrapText = (text: string, width: number): ReadonlyArray<string> => {
+  if (text.length <= width) return [text];
+
+  const words = text.split(/\s+/).filter((word) => word.length > 0);
+  const lines: Array<string> = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const candidate = current.length === 0 ? word : `${current} ${word}`;
+    if (candidate.length <= width) {
+      current = candidate;
+      return;
+    }
+    if (current.length > 0) lines.push(current);
+    current = word;
+  });
+
+  if (current.length > 0) lines.push(current);
+  return lines.length > 0 ? lines : [text];
+};
+
+const renderWrappedRows = (
+  rows: ReadonlyArray<HelpRow>,
+  colors: HelpColors,
+  colorizeLeft: (text: string) => string,
+): ReadonlyArray<string> => {
+  if (rows.length === 0) return [];
+
+  const leftWidth =
+    rows.reduce((max, row) => Math.max(max, row.left.length), 0) + SECTION_INDENT.length;
+  const rightWidth = Math.max(24, TABLE_HELP_WIDTH - SECTION_INDENT.length - leftWidth);
+
+  return rows.flatMap((row) => {
+    const rightLines = wrapText(row.right, rightWidth);
+    const leftPadding = " ".repeat(Math.max(1, leftWidth - row.left.length));
+    const continuation = `${SECTION_INDENT}${" ".repeat(leftWidth)}`;
+
+    return rightLines.map((line, index) =>
+      index === 0
+        ? `${SECTION_INDENT}${colorizeLeft(row.left)}${leftPadding}${line}`
+        : `${continuation}${line}`,
+    );
+  });
+};
+
+const formatFlagName = (flag: FlagDoc): string => {
+  const names = [`--${flag.name}`];
+  flag.aliases.forEach((alias) => {
+    names.push(alias.startsWith("-") ? alias : alias.length === 1 ? `-${alias}` : `--${alias}`);
+  });
+  return names.join(", ");
+};
+
+const formatArgName = (arg: ArgDoc): string => {
+  const name = arg.variadic ? `${arg.name}...` : arg.name;
+  return arg.required ? `<${name}>` : `[<${name}>]`;
+};
+
+const formatArgDescription = (arg: ArgDoc): string => {
+  const description = Option.getOrElse(arg.description, () => "");
+  return arg.required ? description : `${description} (optional)`;
+};
+
+const renderSection = (
+  label: string,
+  lines: ReadonlyArray<string>,
+  colors: HelpColors,
+): ReadonlyArray<string> => (lines.length === 0 ? [] : [colors.bold(label), ...lines]);
+
+const renderSubcommandHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
+  const sections: Array<ReadonlyArray<string>> = [];
+
+  if (doc.description !== "") {
+    sections.push(renderSection("DESCRIPTION", [`  ${doc.description}`], colors));
+  }
+
+  sections.push(renderSection("USAGE", [`  ${colors.cyan(doc.usage)}`], colors));
+
+  if (doc.args !== undefined && doc.args.length > 0) {
+    sections.push(
+      renderSection(
+        "ARGUMENTS",
+        renderWrappedRows(
+          doc.args.map((arg) => ({
+            left: formatArgName(arg),
+            right: formatArgDescription(arg),
+          })),
+          colors,
+          colors.cyan,
+        ),
+        colors,
+      ),
+    );
+  }
+
+  if (doc.flags.length > 0) {
+    sections.push(
+      renderSection(
+        "FLAGS",
+        renderWrappedRows(
+          doc.flags.map((flag) => ({
+            left: formatFlagName(flag),
+            right: Option.getOrElse(flag.description, () => ""),
+          })),
+          colors,
+          colors.green,
+        ),
+        colors,
+      ),
+    );
+  }
+
+  if (doc.globalFlags !== undefined && doc.globalFlags.length > 0) {
+    sections.push(
+      renderSection(
+        GLOBAL_FLAGS_LABEL,
+        renderWrappedRows(
+          doc.globalFlags.map((flag) => ({
+            left: formatFlagName(flag),
+            right: Option.getOrElse(flag.description, () => ""),
+          })),
+          colors,
+          colors.green,
+        ),
+        colors,
+      ),
+    );
+  }
+
+  for (const group of doc.subcommands ?? []) {
+    const label = group.group === undefined ? "SUBCOMMANDS" : groupLabel(group.group);
+    sections.push(
+      renderSection(
+        label,
+        renderWrappedRows(
+          group.commands.map((command) => ({
+            left: formatSubcommandName(command.name, command.alias),
+            right: command.shortDescription ?? command.description ?? "",
+          })),
+          colors,
+          colors.cyan,
+        ),
+        colors,
+      ),
+    );
+  }
+
+  if (doc.examples !== undefined && doc.examples.length > 0) {
+    const examples = doc.examples.flatMap((example, index) => [
+      ...(index > 0 ? [""] : []),
+      ...(example.description === undefined ? [] : [`  ${colors.dim(`# ${example.description}`)}`]),
+      `  ${colors.cyan(example.command)}`,
+    ]);
+    sections.push(renderSection("EXAMPLES", examples, colors));
+  }
+
+  return sections
+    .filter((section) => section.length > 0)
+    .flatMap((section, index) => (index === 0 ? [...section] : ["", ...section]))
+    .join("\n");
+};
+
 // ---------------------------------------------------------------------------
 // Formatter
 // ---------------------------------------------------------------------------
@@ -438,7 +632,7 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: RootHelpColors): string => {
  * Creates a custom CLI output formatter that wraps the Effect default
  * formatter with axm-specific adjustments:
  *
- * 1. Global flag suppression on subcommand help output
+ * 1. Compact branded root help output
  * 2. "Learn more" footer from the {@link LearnMore} command annotation
  */
 export const makeAxmFormatter = (options?: {
@@ -447,7 +641,7 @@ export const makeAxmFormatter = (options?: {
 }): CliOutput.Formatter => {
   const colorsEnabled = options?.colors ?? true;
   const base = CliOutput.defaultFormatter({ colors: colorsEnabled });
-  const rootHelpColors = makeRootHelpColors(colorsEnabled);
+  const helpColors = makeHelpColors(colorsEnabled);
   const json = options?.json === true;
 
   return {
@@ -458,10 +652,9 @@ export const makeAxmFormatter = (options?: {
         return JSON.stringify(Schema.encodeSync(JsonHelpDocSchema)(toJsonHelpDoc(doc)), null, 2);
       }
 
-      const adjusted = getAdjustedHelpDoc(doc);
       let output = isSubcommandDoc(doc)
-        ? base.formatHelpDoc(adjusted)
-        : renderRootHelpDoc(adjusted, rootHelpColors);
+        ? renderSubcommandHelpDoc(doc, helpColors)
+        : renderRootHelpDoc(doc, helpColors);
 
       const learnMore = getLearnMore(doc);
       if (learnMore !== "") {

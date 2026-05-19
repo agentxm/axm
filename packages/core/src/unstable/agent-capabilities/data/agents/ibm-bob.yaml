@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: ibm-bob
+name: IBM Bob
+vendor: IBM
+homepage: https://bob.ibm.com
+interfaces: [ide-extension, cli]
+docs:
+  - label: IBM Bob documentation
+    url: https://bob.ibm.com/docs/ide
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http, sse]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: false
+    targets:
+      - { scope: user, path: "~/.bob/mcp_settings.json", format: json }
+      - { scope: project, path: .bob/mcp.json, format: json }
+    stdio:
+      command: split
+      envKey: env
+    remote:
+      urlKey: { streamable-http: url, sse: url }
+      headersKey: headers
+  notes: >
+    Project servers live in .bob/mcp.json; user servers in
+    ~/.bob/mcp_settings.json. Both files key entries under mcpServers. Remote
+    entries carry a url field with no type discriminator; SSE is documented as
+    legacy alongside streamable HTTP.
+  sources:
+    - https://bob.ibm.com/docs/ide/configuration/mcp/mcp-in-bob
+  lastVerified: 2026-05-19
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  notes: >
+    Bob custom modes are YAML entries (slug, name, roleDefinition, groups,
+    customInstructions) in .bob/custom_modes.yaml (project) or the global
+    custom_modes.yaml (user). Recorded as bridged because subagent-style
+    extensions have no industry spec standard.
+  sources:
+    - https://bob.ibm.com/docs/ide/configuration/custom-modes
+  lastVerified: 2026-05-19
+
+instructions:
+  support: standard
+  scopes: [project]
+  files: [AGENTS.md]
+  nestedDiscovery: false
+  notes: >
+    Bob automatically loads AGENTS.md from the workspace root.
+  sources:
+    - https://bob.ibm.com/docs/ide/configuration/rules
+  lastVerified: 2026-05-19
+
+rules:
+  support: bridged
+  scopes: [user, project]
+  directory: .bob/rules
+  notes: >
+    Custom rules load from .bob/rules (project) and ~/.bob/rules (user). The
+    legacy single-file .bobrules and mode-scoped .bob/rules-{mode} directories
+    are also supported.
+  sources:
+    - https://bob.ibm.com/docs/ide/configuration/rules
+  lastVerified: 2026-05-19

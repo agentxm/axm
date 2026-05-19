@@ -36,11 +36,18 @@ describe("agent capability derivation", () => {
   });
 
   it("finds agents that work with one extension type", () => {
-    expect(worksOn("rule", AGENTS).map((agent) => agent.id)).toEqual(["cursor", "windsurf"]);
+    expect(worksOn("rule", AGENTS).map((agent) => agent.id)).toEqual([
+      "cursor",
+      "ibm-bob",
+      "windsurf",
+    ]);
   });
 
   it("requires every requested type for multi-type compatibility", () => {
-    expect(worksOnAll(["rule", "subagent"], AGENTS).map((agent) => agent.id)).toEqual(["cursor"]);
+    expect(worksOnAll(["rule", "subagent"], AGENTS).map((agent) => agent.id)).toEqual([
+      "cursor",
+      "ibm-bob",
+    ]);
   });
 
   it("derives pack compatibility from all member types", () => {
@@ -48,7 +55,16 @@ describe("agent capability derivation", () => {
       worksOnExtension({ type: "pack", memberTypes: ["mcp-server", "file"] }, AGENTS).map(
         (agent) => agent.id,
       ),
-    ).toEqual(["claude-code", "codex", "cursor", "gemini-cli", "github-copilot", "windsurf"]);
+    ).toEqual([
+      "claude-code",
+      "codex",
+      "cursor",
+      "gemini-cli",
+      "github-copilot",
+      "grok-cli",
+      "ibm-bob",
+      "windsurf",
+    ]);
   });
 
   it("does not treat empty packs as vacuously compatible", () => {

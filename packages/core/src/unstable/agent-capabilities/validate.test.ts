@@ -40,6 +40,8 @@ describe("agent capability catalog validation", () => {
       "cursor",
       "gemini-cli",
       "github-copilot",
+      "grok-cli",
+      "ibm-bob",
       "opencode",
       "pi",
       "windsurf",

@@ -49,6 +49,7 @@ import { agentModule as droid, type DroidNativeConfig } from "./droid.js";
 import { agentModule as geminiCli, type GeminiCliNativeConfig } from "./gemini-cli.js";
 import { agentModule as githubCopilot, type GithubCopilotNativeConfig } from "./github-copilot.js";
 import { agentModule as goose, type GooseNativeConfig } from "./goose.js";
+import { agentModule as grokCli, type GrokCliNativeConfig } from "./grok-cli.js";
 import { agentModule as iflowCli, type IflowCliNativeConfig } from "./iflow-cli.js";
 import { agentModule as junie, type JunieNativeConfig } from "./junie.js";
 import { agentModule as kilo, type KiloNativeConfig } from "./kilo.js";
@@ -132,6 +133,7 @@ const registeredAgentModulesById = {
   "gemini-cli": geminiCli,
   "github-copilot": githubCopilot,
   goose,
+  "grok-cli": grokCli,
   "iflow-cli": iflowCli,
   junie,
   kilo,
@@ -196,6 +198,7 @@ export type {
   GeminiCliNativeConfig,
   GithubCopilotNativeConfig,
   GooseNativeConfig,
+  GrokCliNativeConfig,
   IflowCliNativeConfig,
   JunieNativeConfig,
   KiloNativeConfig,

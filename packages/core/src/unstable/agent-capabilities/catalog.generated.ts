@@ -13,6 +13,8 @@ export const AGENT_IDS = [
   "cursor",
   "gemini-cli",
   "github-copilot",
+  "grok-cli",
+  "ibm-bob",
   "opencode",
   "pi",
   "windsurf",
@@ -801,6 +803,123 @@ export const AGENTS = [
           },
         },
       },
+    },
+  },
+  {
+    id: "grok-cli",
+    name: "Grok CLI",
+    vendor: "xAI",
+    homepage: "https://x.ai/cli",
+    interfaces: ["cli"],
+    family: "xai",
+    docs: [
+      {
+        label: "Grok CLI documentation",
+        url: "https://docs.x.ai/build/overview",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Reads SKILL.md Agent Skills from project (.grok/skills) and user (~/.grok/skills, ~/.agents/skills) locations, plus additional paths configured via [skills] in ~/.grok/config.toml.\n",
+      sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      directory: ".grok/skills",
+    },
+    mcp: {
+      support: "bridged",
+      notes:
+        "MCP servers are managed with `grok mcp add/remove/list` or under the mcpServers key in .grok/settings.json. Recorded as bridged because the prescriptive config dialect has not been verified against xAI docs.\n",
+      sources: ["https://docs.x.ai/build/modes-and-commands"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+    },
+    instructions: {
+      support: "standard",
+      notes:
+        "AGENTS.md files are merged from the git root down to the working directory, with AGENTS.override.md taking precedence per directory.\n",
+      sources: ["https://docs.x.ai/build/overview"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "ibm-bob",
+    name: "IBM Bob",
+    vendor: "IBM",
+    homepage: "https://bob.ibm.com",
+    interfaces: ["ide-extension", "cli"],
+    docs: [
+      {
+        label: "IBM Bob documentation",
+        url: "https://bob.ibm.com/docs/ide",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      notes:
+        "Project servers live in .bob/mcp.json; user servers in ~/.bob/mcp_settings.json. Both files key entries under mcpServers. Remote entries carry a url field with no type discriminator; SSE is documented as legacy alongside streamable HTTP.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/mcp/mcp-in-bob"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.bob/mcp_settings.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".bob/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Bob custom modes are YAML entries (slug, name, roleDefinition, groups, customInstructions) in .bob/custom_modes.yaml (project) or the global custom_modes.yaml (user). Recorded as bridged because subagent-style extensions have no industry spec standard.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      notes: "Bob automatically loads AGENTS.md from the workspace root.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
+      lastVerified: "2026-05-19",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+    rules: {
+      support: "bridged",
+      notes:
+        "Custom rules load from .bob/rules (project) and ~/.bob/rules (user). The legacy single-file .bobrules and mode-scoped .bob/rules-{mode} directories are also supported.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      directory: ".bob/rules",
     },
   },
   {
@@ -1819,6 +1938,123 @@ export const AGENTS_BY_ID = {
           },
         },
       },
+    },
+  },
+  "grok-cli": {
+    id: "grok-cli",
+    name: "Grok CLI",
+    vendor: "xAI",
+    homepage: "https://x.ai/cli",
+    interfaces: ["cli"],
+    family: "xai",
+    docs: [
+      {
+        label: "Grok CLI documentation",
+        url: "https://docs.x.ai/build/overview",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Reads SKILL.md Agent Skills from project (.grok/skills) and user (~/.grok/skills, ~/.agents/skills) locations, plus additional paths configured via [skills] in ~/.grok/config.toml.\n",
+      sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      directory: ".grok/skills",
+    },
+    mcp: {
+      support: "bridged",
+      notes:
+        "MCP servers are managed with `grok mcp add/remove/list` or under the mcpServers key in .grok/settings.json. Recorded as bridged because the prescriptive config dialect has not been verified against xAI docs.\n",
+      sources: ["https://docs.x.ai/build/modes-and-commands"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+    },
+    instructions: {
+      support: "standard",
+      notes:
+        "AGENTS.md files are merged from the git root down to the working directory, with AGENTS.override.md taking precedence per directory.\n",
+      sources: ["https://docs.x.ai/build/overview"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  "ibm-bob": {
+    id: "ibm-bob",
+    name: "IBM Bob",
+    vendor: "IBM",
+    homepage: "https://bob.ibm.com",
+    interfaces: ["ide-extension", "cli"],
+    docs: [
+      {
+        label: "IBM Bob documentation",
+        url: "https://bob.ibm.com/docs/ide",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      notes:
+        "Project servers live in .bob/mcp.json; user servers in ~/.bob/mcp_settings.json. Both files key entries under mcpServers. Remote entries carry a url field with no type discriminator; SSE is documented as legacy alongside streamable HTTP.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/mcp/mcp-in-bob"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.bob/mcp_settings.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".bob/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      notes:
+        "Bob custom modes are YAML entries (slug, name, roleDefinition, groups, customInstructions) in .bob/custom_modes.yaml (project) or the global custom_modes.yaml (user). Recorded as bridged because subagent-style extensions have no industry spec standard.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      notes: "Bob automatically loads AGENTS.md from the workspace root.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
+      lastVerified: "2026-05-19",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+    rules: {
+      support: "bridged",
+      notes:
+        "Custom rules load from .bob/rules (project) and ~/.bob/rules (user). The legacy single-file .bobrules and mode-scoped .bob/rules-{mode} directories are also supported.\n",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
+      lastVerified: "2026-05-19",
+      scopes: ["user", "project"],
+      directory: ".bob/rules",
     },
   },
   opencode: {

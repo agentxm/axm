@@ -3,7 +3,7 @@ import * as ServiceMap from "effect/Context";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
-import { LearnMore, makeAxmFormatter } from "./formatter.js";
+import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
 
 const makeHelpDoc = (overrides: Partial<HelpDoc> = {}): HelpDoc => ({
   description: "",
@@ -34,7 +34,7 @@ describe("makeAxmFormatter", () => {
     },
   ];
 
-  describe("global flag suppression", () => {
+  describe("global flag display", () => {
     it("omits the global flag table from compact root help but lists flag names", () => {
       const doc = makeHelpDoc({
         usage: "axm [flags]",
@@ -44,7 +44,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");
     });
 
-    it("preserves only --json on subcommand help", () => {
+    it("preserves all global flags on subcommand help", () => {
       const doc = makeHelpDoc({
         usage: "axm setup [flags]",
         globalFlags,
@@ -52,10 +52,10 @@ describe("makeAxmFormatter", () => {
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("GLOBAL FLAGS");
       expect(output).toContain("--json");
-      expect(output).not.toContain("--verbose");
+      expect(output).toContain("--verbose");
     });
 
-    it("preserves only --json on nested subcommand help", () => {
+    it("preserves all global flags on nested subcommand help", () => {
       const doc = makeHelpDoc({
         usage: "axm skills install [flags]",
         globalFlags,
@@ -63,7 +63,7 @@ describe("makeAxmFormatter", () => {
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("GLOBAL FLAGS");
       expect(output).toContain("--json");
-      expect(output).not.toContain("--verbose");
+      expect(output).toContain("--verbose");
     });
   });
 
@@ -100,6 +100,24 @@ describe("makeAxmFormatter", () => {
       const lastNonEmpty = lines.filter((l) => l.trim() !== "").pop() ?? "";
       expect(lastNonEmpty).not.toBe("");
     });
+
+    it("puts long learn more commands on their own line", () => {
+      const annotations = ServiceMap.make(
+        LearnMore,
+        formatLearnMore([
+          [
+            "axm context-files install @acme/files/workspace-baseline",
+            "Install a context files package",
+          ],
+        ]),
+      );
+      const doc = makeHelpDoc({ annotations });
+      const output = formatter.formatHelpDoc(doc);
+
+      expect(output).toContain(
+        "LEARN MORE\n  axm context-files install @acme/files/workspace-baseline\n    Install a context files package",
+      );
+    });
   });
 
   describe("human help rendering", () => {
@@ -107,6 +125,23 @@ describe("makeAxmFormatter", () => {
       const doc = makeHelpDoc({
         usage: "axm <subcommand> [flags]",
         subcommands: [
+          {
+            group: "EXTENSIONS",
+            commands: [
+              {
+                name: "context-files",
+                alias: "files",
+                shortDescription: "Context files",
+                description: "",
+              },
+              {
+                name: "mcp-servers",
+                alias: "mcps",
+                shortDescription: "MCP servers",
+                description: "",
+              },
+            ],
+          },
           {
             group: "GETTING STARTED",
             commands: [
@@ -126,9 +161,10 @@ describe("makeAxmFormatter", () => {
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
-      expect(output).toContain("CORE\n  skills        Manage agent skills");
-      expect(output).toContain("  context-files Manage context files");
-      expect(output).toContain("  agents        Configure coding-agent targets");
+      expect(output).toMatch(/CORE\n {2}skills\s+Manage agent skills/);
+      expect(output).toMatch(/ {2}context-files, files\s+Manage context files/);
+      expect(output).toMatch(/ {2}mcp-servers, mcps\s+Manage MCP server extensions/);
+      expect(output).toMatch(/ {2}agents\s+Configure coding-agent targets/);
       expect(output).toContain("START HERE\n  help, setup");
       expect(output).toContain("AUTH\n  login");
       expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");
@@ -166,6 +202,35 @@ describe("makeAxmFormatter", () => {
       const doc = makeHelpDoc({ usage: "axm setup [flags]" });
       const output = formatter.formatHelpDoc(doc);
       expect(output).not.toContain("▄▀█ ▀▄▀ █▀▄▀█");
+    });
+
+    it("adds a section break before subcommand examples", () => {
+      const doc = makeHelpDoc({
+        usage: "axm context-files <subcommand> [flags]",
+        subcommands: [
+          {
+            group: undefined,
+            commands: [
+              {
+                name: "disable",
+                alias: undefined,
+                shortDescription:
+                  "Disable a context files package without removing sync-once targets",
+                description: "",
+              },
+            ],
+          },
+        ],
+        examples: [
+          {
+            command: "axm context-files install @acme/files/workspace-baseline",
+            description: "Install a context files package",
+          },
+        ],
+      });
+      const output = formatter.formatHelpDoc(doc);
+
+      expect(output).toContain("targets\n\nEXAMPLES");
     });
 
     it("renders Start here above Core, with remaining compact groups after", () => {
@@ -277,6 +342,12 @@ describe("makeAxmFormatter", () => {
           },
         ],
         globalFlags: [
+          {
+            name: "verbose",
+            aliases: [],
+            type: "boolean",
+            required: false,
+          },
           {
             name: "json",
             aliases: [],

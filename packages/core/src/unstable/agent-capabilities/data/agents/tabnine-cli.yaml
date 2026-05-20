@@ -15,7 +15,8 @@ docs:
   - label: Tabnine CLI
     url: https://www.tabnine.com/platform-cli/
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -24,7 +25,7 @@ skills:
     - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
   lastVerified: 2026-05-20
 commands:
-  support: bridged
+  notes: No industry spec for slash commands yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project

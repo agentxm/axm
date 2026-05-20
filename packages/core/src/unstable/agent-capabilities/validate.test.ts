@@ -10,7 +10,8 @@ import { AgentSchema, type Agent } from "./schema.js";
 import { validateCatalogSources, type CatalogSource } from "./validate.js";
 
 const AGENTS_DIR = path.join(import.meta.dirname, "data/agents");
-const decodeAgent = Schema.decodeUnknownSync(AgentSchema);
+const decodeAgent = (input: unknown): Agent =>
+  Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 
 const readYamlAgent = (filename: string): CatalogSource => {
   const document = YAML.parseDocument(fs.readFileSync(path.join(AGENTS_DIR, filename), "utf8"));
@@ -62,7 +63,45 @@ describe("agent capability catalog validation", () => {
     });
   });
 
-  it("enforces standard instructions include AGENTS.md", () => {
+  it("rejects spec axes on non-spec capabilities", () => {
+    expect(() =>
+      makeAgent({
+        id: "sample-agent",
+        name: "Sample Agent",
+        vendor: "Example",
+        homepage: "https://example.com",
+        interfaces: ["cli"],
+        commands: {
+          standardsCompliance: "full",
+          convention: "vendor",
+          scopes: ["project"],
+          directory: ".sample/commands",
+          sources: ["https://example.com/docs"],
+          lastVerified: "2026-05-16",
+        },
+      }),
+    ).toThrow("standardsCompliance");
+  });
+
+  it("requires spec axes on spec-tracked capabilities", () => {
+    expect(() =>
+      makeAgent({
+        id: "sample-agent",
+        name: "Sample Agent",
+        vendor: "Example",
+        homepage: "https://example.com",
+        interfaces: ["cli"],
+        skills: {
+          scopes: ["project"],
+          directory: ".sample/skills",
+          sources: ["https://example.com/docs"],
+          lastVerified: "2026-05-16",
+        },
+      }),
+    ).toThrow("standardsCompliance");
+  });
+
+  it("validates instruction kind invariants", () => {
     const agent = makeAgent({
       id: "sample-agent",
       name: "Sample Agent",
@@ -70,7 +109,8 @@ describe("agent capability catalog validation", () => {
       homepage: "https://example.com",
       interfaces: ["cli"],
       instructions: {
-        support: "standard",
+        standardsCompliance: "full",
+        convention: "universal",
         scopes: ["project"],
         kind: "agents-md",
         files: ["SAMPLE.md"],
@@ -81,32 +121,8 @@ describe("agent capability catalog validation", () => {
     });
 
     expect(validateCatalogSources([{ filename: "sample-agent.yaml", agent }])).toContainEqual({
-      path: "sample-agent.yaml:instructions",
-      message: "Standard instructions support must include AGENTS.md.",
-    });
-  });
-
-  it("enforces bridged instructions omit AGENTS.md", () => {
-    const agent = makeAgent({
-      id: "sample-agent",
-      name: "Sample Agent",
-      vendor: "Example",
-      homepage: "https://example.com",
-      interfaces: ["cli"],
-      instructions: {
-        support: "bridged",
-        scopes: ["project"],
-        kind: "own-file",
-        files: ["AGENTS.md", "SAMPLE.md"],
-        nestedDiscovery: false,
-        sources: ["https://example.com/docs"],
-        lastVerified: "2026-05-16",
-      },
-    });
-
-    expect(validateCatalogSources([{ filename: "sample-agent.yaml", agent }])).toContainEqual({
-      path: "sample-agent.yaml:instructions",
-      message: "Bridged instructions support must not include AGENTS.md.",
+      path: "sample-agent.yaml:instructions.files",
+      message: 'instructions.kind "agents-md" requires files [AGENTS.md].',
     });
   });
 
@@ -118,7 +134,8 @@ describe("agent capability catalog validation", () => {
       homepage: "https://example.com",
       interfaces: ["cli"],
       skills: {
-        support: "standard",
+        standardsCompliance: "full",
+        convention: "vendor",
         scopes: ["project"],
       },
     });
@@ -135,7 +152,27 @@ describe("agent capability catalog validation", () => {
     ]);
   });
 
-  it("requires config for standard MCP support", () => {
+  it("requires command directory when commands are available", () => {
+    const agent = makeAgent({
+      id: "sample-agent",
+      name: "Sample Agent",
+      vendor: "Example",
+      homepage: "https://example.com",
+      interfaces: ["cli"],
+      commands: {
+        scopes: ["project"],
+        sources: ["https://example.com/docs"],
+        lastVerified: "2026-05-16",
+      },
+    });
+
+    expect(validateCatalogSources([{ filename: "sample-agent.yaml", agent }])).toContainEqual({
+      path: "sample-agent.yaml:commands.directory",
+      message: "Supported commands require directory.",
+    });
+  });
+
+  it("requires config for full MCP standards compliance", () => {
     const agent = makeAgent({
       id: "sample-agent",
       name: "Sample Agent",
@@ -143,7 +180,8 @@ describe("agent capability catalog validation", () => {
       homepage: "https://example.com",
       interfaces: ["cli"],
       mcp: {
-        support: "standard",
+        standardsCompliance: "full",
+        convention: "universal",
         scopes: ["project"],
         transports: ["stdio"],
         sources: ["https://example.com/docs"],
@@ -153,7 +191,7 @@ describe("agent capability catalog validation", () => {
 
     expect(validateCatalogSources([{ filename: "sample-agent.yaml", agent }])).toContainEqual({
       path: "sample-agent.yaml:mcp.config",
-      message: "Standard MCP support must declare config.",
+      message: "Full MCP standards compliance must declare config.",
     });
   });
 
@@ -165,7 +203,8 @@ describe("agent capability catalog validation", () => {
       homepage: "https://example.com",
       interfaces: ["cli"],
       mcp: {
-        support: "standard",
+        standardsCompliance: "full",
+        convention: "universal",
         scopes: ["project"],
         transports: ["stdio", "http"],
         config: {

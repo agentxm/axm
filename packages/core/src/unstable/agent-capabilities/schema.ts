@@ -29,29 +29,48 @@ export const AgentIdFromYamlSchema = Schema.NonEmptyString.pipe(
 export type AgentIdFromYaml = Schema.Schema.Type<typeof AgentIdFromYamlSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const SupportLevelSchema = Schema.Literals([
-  "standard",
-  "bridged",
+export const StandardsComplianceSchema = Schema.Literals([
+  "full",
+  "parity",
+  "partial",
+  "none",
+]).annotate({
+  identifier: "StandardsCompliance",
+  title: "Standards Compliance",
+  description: "How well a spec-tracked capability's native format matches the named spec.",
+  examples: ["full", "parity", "partial"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type StandardsCompliance = Schema.Schema.Type<typeof StandardsComplianceSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const ConventionSchema = Schema.Literals(["universal", "vendor"]).annotate({
+  identifier: "Convention",
+  title: "Convention",
+  description:
+    "Whether a spec-tracked capability uses the spec-defined or community-standard location.",
+  examples: ["universal", "vendor"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type Convention = Schema.Schema.Type<typeof ConventionSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const CapabilityLifecycleSchema = Schema.Literals([
+  "available",
   "planned",
   "unsupported",
   "unknown",
 ]).annotate({
-  identifier: "SupportLevel",
-  title: "Support Level",
-  description:
-    "How an agent supports a capability. `standard`: the agent natively conforms to " +
-    "an industry spec standard for the capability (e.g. the Agent Skills `SKILL.md` " +
-    "format). `bridged`: the capability works through an AXM adapter that maps it to " +
-    "the agent's native format — this is the ceiling for capabilities that have no " +
-    "industry spec standard yet, such as subagents and commands. `planned`: AXM " +
-    "support is intended but not yet available. `unsupported`: an authoritative " +
-    "source confirms the agent lacks the capability. `unknown`: support has not been " +
-    "verified, normally expressed by omitting the capability section entirely.",
-  examples: ["standard", "bridged", "unknown"],
+  identifier: "CapabilityLifecycle",
+  title: "Capability Lifecycle",
+  description: "State of AXM's integration with an agent capability.",
+  examples: ["available", "unsupported", "unknown"],
 });
 
 /** @experimental This API is unstable and may change without notice. */
-export type SupportLevel = Schema.Schema.Type<typeof SupportLevelSchema>;
+export type CapabilityLifecycle = Schema.Schema.Type<typeof CapabilityLifecycleSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const ScopeSchema = Schema.Literals(["user", "project"]).annotate({
@@ -149,8 +168,8 @@ export const LastVerifiedDateSchema = Schema.NonEmptyString.pipe(
 export type LastVerifiedDate = Schema.Schema.Type<typeof LastVerifiedDateSchema>;
 
 const CapabilityBaseFields = {
-  support: SupportLevelSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "support level is required" }),
+  lifecycle: CapabilityLifecycleSchema.pipe(
+    Schema.withDecodingDefaultType(Effect.succeed("available")),
   ),
   notes: Schema.optional(Schema.NonEmptyString),
   docs: Schema.optional(Schema.Array(DocLinkSchema)),
@@ -176,6 +195,15 @@ const ScopedCapabilityBaseFields = {
   ),
 };
 
+const SpecTrackedCapabilityFields = {
+  standardsCompliance: StandardsComplianceSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "standardsCompliance is required" }),
+  ),
+  convention: ConventionSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "convention is required" }),
+  ),
+};
+
 /** @experimental This API is unstable and may change without notice. */
 export const ScopedCapabilityBaseSchema = Schema.Struct(ScopedCapabilityBaseFields).annotate({
   identifier: "ScopedCapabilityBase",
@@ -189,6 +217,7 @@ export type ScopedCapabilityBase = Schema.Schema.Type<typeof ScopedCapabilityBas
 /** @experimental This API is unstable and may change without notice. */
 export const SkillsCapabilitySchema = Schema.Struct({
   ...ScopedCapabilityBaseFields,
+  ...SpecTrackedCapabilityFields,
   directory: Schema.optional(Schema.NonEmptyString),
 }).annotate({
   identifier: "SkillsCapability",
@@ -266,6 +295,7 @@ export type InstructionsImportSyntax = Schema.Schema.Type<typeof InstructionsImp
 /** @experimental This API is unstable and may change without notice. */
 export const InstructionsCapabilitySchema = Schema.Struct({
   ...ScopedCapabilityBaseFields,
+  ...SpecTrackedCapabilityFields,
   kind: InstructionsKindSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "instruction kind is required" }),
   ),
@@ -436,6 +466,7 @@ export type McpConfig = Schema.Schema.Type<typeof McpConfigSchema>;
 /** @experimental This API is unstable and may change without notice. */
 export const McpCapabilitySchema = Schema.Struct({
   ...ScopedCapabilityBaseFields,
+  ...SpecTrackedCapabilityFields,
   transports: Schema.Array(McpTransportSchema).pipe(
     Schema.annotateKey({ messageMissingKey: "MCP transports are required" }),
     Schema.check(Schema.isUnique()),

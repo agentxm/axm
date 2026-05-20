@@ -16,7 +16,8 @@ docs:
   - label: ForgeCode skills documentation
     url: https://forgecode.dev/docs/skills/
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -29,7 +30,8 @@ skills:
     - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
   lastVerified: 2026-05-20
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:

@@ -9,7 +9,8 @@ docs:
   - label: iFlow CLI documentation
     url: https://platform.iflow.cn/en/cli
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -18,7 +19,8 @@ skills:
     - https://platform.iflow.cn/en/cli/examples/skill
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -55,7 +57,7 @@ mcp:
     - https://platform.iflow.cn/en/cli/examples/mcp
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -65,7 +67,9 @@ subagents:
   directory: .iflow/agents
   layout: directory
 instructions:
-  support: bridged
+  standardsCompliance: parity
+  convention: vendor
+  notes: Reads IFLOW.md, not the AGENTS.md spec filename.
   scopes:
     - user
     - project

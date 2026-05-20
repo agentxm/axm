@@ -9,7 +9,8 @@ docs:
   - label: MCPJam Inspector documentation
     url: https://docs.mcpjam.com
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

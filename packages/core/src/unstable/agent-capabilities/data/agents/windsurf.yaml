@@ -10,7 +10,8 @@ docs:
   - label: Windsurf documentation
     url: https://docs.windsurf.com
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -22,7 +23,6 @@ skills:
     - https://docs.windsurf.com/windsurf/cascade/skills
   lastVerified: 2026-05-18
 commands:
-  support: bridged
   scopes:
     - user
     - project
@@ -34,7 +34,8 @@ commands:
     - https://docs.windsurf.com/windsurf/cascade/workflows
   lastVerified: 2026-05-18
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -54,7 +55,7 @@ mcp:
     - https://docs.windsurf.com/windsurf/cascade/mcp
   lastVerified: 2026-05-16
 subagents:
-  support: unsupported
+  lifecycle: unsupported
   scopes: []
   notes: >
     Cascade exposes only built-in and internal subagents plus multi-agent sessions; no
@@ -63,7 +64,8 @@ subagents:
     - https://docs.windsurf.com/windsurf/cascade/agents-md
   lastVerified: 2026-05-18
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:
@@ -74,7 +76,7 @@ instructions:
   lastVerified: 2026-05-16
   kind: agents-md
 rules:
-  support: bridged
+  notes: No industry spec for rule files yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -83,7 +85,6 @@ rules:
     - https://docs.windsurf.com/windsurf/cascade/rules
   lastVerified: 2026-05-16
 permissions:
-  support: standard
   scopes:
     - user
   mechanism:

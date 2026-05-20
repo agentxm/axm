@@ -51,7 +51,7 @@ export const buildPermissionSuggestions = (
       onSome: (agentId) => {
         const agent = agentById(agentId);
         const permissions = agent.permissions;
-        if (permissions === undefined || permissions.support === "unsupported") return [];
+        if (permissions === undefined || permissions.lifecycle === "unsupported") return [];
 
         const target = preferredTarget(permissions);
         const example = permissions.grammar?.example;

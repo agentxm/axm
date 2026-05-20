@@ -11,7 +11,8 @@ docs:
   - label: Claude Code documentation
     url: https://docs.claude.com/en/docs/claude-code
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -20,19 +21,19 @@ skills:
     - https://docs.claude.com/en/docs/claude-code/skills
   lastVerified: 2026-05-16
 commands:
-  support: bridged
   scopes:
     - user
     - project
   directory: .claude/commands
   notes: >
-    Custom slash commands are Markdown prompt files under .claude/commands. Recorded as bridged
-    because commands have no industry spec standard.
+    Custom slash commands are Markdown prompt files under .claude/commands. Commands have no
+    industry spec yet.
   sources:
     - https://docs.claude.com/en/docs/claude-code/slash-commands
   lastVerified: 2026-05-18
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -67,7 +68,7 @@ mcp:
     - https://docs.claude.com/en/docs/claude-code/mcp
   lastVerified: 2026-05-16
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -77,7 +78,9 @@ subagents:
   directory: .claude/agents
   layout: directory
 instructions:
-  support: bridged
+  standardsCompliance: parity
+  convention: vendor
+  notes: Reads CLAUDE.md, not the AGENTS.md spec filename.
   scopes:
     - user
     - project
@@ -90,7 +93,6 @@ instructions:
   kind: own-file
   importSyntax: at-path
 permissions:
-  support: standard
   scopes:
     - user
     - project

@@ -15,7 +15,8 @@ docs:
   - label: Code Studio service terms
     url: https://downloads.sfcodestudio.com/sla/v1.0/code_studio_sla.pdf
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

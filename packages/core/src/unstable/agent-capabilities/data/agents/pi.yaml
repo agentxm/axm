@@ -9,7 +9,8 @@ docs:
   - label: Pi coding agent documentation
     url: https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -22,20 +23,21 @@ skills:
     - https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md
   lastVerified: 2026-05-18
 commands:
-  support: bridged
   scopes:
     - user
     - project
   directory: .pi/prompts
   notes: >
     Custom slash commands are Markdown prompt templates with {{variable}} interpolation, expanded
-    via /templatename. Stored in .pi/prompts (project) or ~/.pi/agent/prompts (user). Recorded as
-    bridged because prompt templates have no industry spec standard.
+    via /templatename. Stored in .pi/prompts (project) or ~/.pi/agent/prompts (user). Prompt
+    templates have no industry spec yet.
   sources:
     - https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md
   lastVerified: 2026-05-18
 mcp:
-  support: unsupported
+  lifecycle: unsupported
+  standardsCompliance: none
+  convention: vendor
   scopes: []
   transports: []
   notes: >
@@ -46,7 +48,7 @@ mcp:
     - https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md
   lastVerified: 2026-05-18
 subagents:
-  support: unsupported
+  lifecycle: unsupported
   scopes: []
   notes: >
     Pi has no built-in subagent system by design. Multi-agent workflows are expected to be composed
@@ -55,7 +57,8 @@ subagents:
     - https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md
   lastVerified: 2026-05-18
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -70,7 +73,7 @@ instructions:
   lastVerified: 2026-05-18
   kind: agents-md
 permissions:
-  support: unsupported
+  lifecycle: unsupported
   scopes: []
   mechanism: []
   notes: >

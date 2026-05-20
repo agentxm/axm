@@ -642,12 +642,12 @@ export const addMcpServerFromManifest = (
     const capability = agent.mcp;
     if (
       capability === undefined ||
-      capability.support !== "standard" ||
+      capability.standardsCompliance !== "full" ||
       capability.config === undefined
     ) {
       return {
         _tag: "unsupported",
-        reason: `${agentId} does not have standard MCP config support`,
+        reason: `${agentId} does not have full MCP config support`,
       } as const;
     }
     const config = capability.config;
@@ -718,12 +718,12 @@ export const removeMcpServerFromManifest = (
     const capability = agent.mcp;
     if (
       capability === undefined ||
-      capability.support !== "standard" ||
+      capability.standardsCompliance !== "full" ||
       capability.config === undefined
     ) {
       return {
         _tag: "unsupported",
-        reason: `${agentId} does not have standard MCP config support`,
+        reason: `${agentId} does not have full MCP config support`,
       } as const;
     }
     const config = capability.config;

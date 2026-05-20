@@ -11,7 +11,8 @@ docs:
   - label: GitHub Copilot documentation
     url: https://docs.github.com/en/copilot
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -24,7 +25,6 @@ skills:
     - https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
   lastVerified: 2026-05-18
 commands:
-  support: bridged
   scopes:
     - user
     - project
@@ -36,7 +36,8 @@ commands:
     - https://code.visualstudio.com/docs/copilot/customization/prompt-files
   lastVerified: 2026-05-18
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -71,7 +72,7 @@ mcp:
     - https://docs.github.com/en/copilot/concepts/agents/coding-agent/mcp-and-coding-agent
   lastVerified: 2026-05-16
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -81,7 +82,8 @@ subagents:
   directory: .github/agents
   layout: directory
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:
@@ -92,7 +94,6 @@ instructions:
   lastVerified: 2026-05-16
   kind: agents-md
 permissions:
-  support: standard
   scopes:
     - user
     - project

@@ -24,7 +24,8 @@ const AGENTS_DIR = path.join(CATALOG_ROOT, "data/agents");
 const GENERATED_CATALOG_PATH = path.join(CATALOG_ROOT, "catalog.generated.ts");
 const AGENT_SCHEMA_PATH = path.join(CATALOG_ROOT, "agent.schema.json");
 
-const decodeAgent = Schema.decodeUnknownSync(AgentSchema);
+const decodeAgent = (input: unknown): Agent =>
+  Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 
 const toErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);

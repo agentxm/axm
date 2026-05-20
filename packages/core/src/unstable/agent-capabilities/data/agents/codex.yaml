@@ -11,7 +11,8 @@ docs:
   - label: Codex documentation
     url: https://developers.openai.com/codex
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -24,7 +25,6 @@ skills:
     - https://developers.openai.com/codex/skills
   lastVerified: 2026-05-18
 commands:
-  support: bridged
   scopes:
     - user
   directory: .codex/prompts
@@ -36,7 +36,8 @@ commands:
     - https://developers.openai.com/codex/cli/slash-commands
   lastVerified: 2026-05-18
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -71,7 +72,6 @@ mcp:
     - https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers
   lastVerified: 2026-05-16
 subagents:
-  support: bridged
   scopes:
     - user
     - project
@@ -84,7 +84,8 @@ subagents:
   directory: .codex/agents
   layout: directory
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -96,7 +97,6 @@ instructions:
   lastVerified: 2026-05-16
   kind: agents-md
 permissions:
-  support: standard
   scopes:
     - user
     - project

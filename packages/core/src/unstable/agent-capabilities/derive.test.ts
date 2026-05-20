@@ -19,7 +19,9 @@ const baseAgent = {
   homepage: "https://example.com",
   interfaces: ["cli"],
   skills: {
-    support: "standard",
+    standardsCompliance: "full",
+    convention: "vendor",
+    lifecycle: "available",
     scopes: ["project"],
     directory: ".sample/skills",
   },
@@ -36,7 +38,7 @@ describe("agent capability derivation", () => {
     ]);
   });
 
-  it("counts standard and bridged support as works-with support", () => {
+  it("counts available compliant capabilities as works-with support", () => {
     expect(agentSupportsType(agentById("claude-code"), "file")).toBe(true);
     expect(agentSupportsType(agentById("cursor"), "rule")).toBe(true);
   });
@@ -112,14 +114,17 @@ describe("agent capability derivation", () => {
     expect(
       listCapabilities(agentById("codex")).map((entry) => ({
         type: entry.type,
-        support: entry.capability.support,
+        lifecycle: entry.capability.lifecycle,
+        ...("standardsCompliance" in entry.capability
+          ? { standardsCompliance: entry.capability.standardsCompliance }
+          : {}),
       })),
     ).toEqual([
-      { type: "skill", support: "standard" },
-      { type: "command", support: "bridged" },
-      { type: "mcp-server", support: "standard" },
-      { type: "subagent", support: "bridged" },
-      { type: "file", support: "standard" },
+      { type: "skill", lifecycle: "available", standardsCompliance: "full" },
+      { type: "command", lifecycle: "available" },
+      { type: "mcp-server", lifecycle: "available", standardsCompliance: "full" },
+      { type: "subagent", lifecycle: "available" },
+      { type: "file", lifecycle: "available", standardsCompliance: "full" },
     ]);
   });
 
@@ -129,18 +134,20 @@ describe("agent capability derivation", () => {
         ...baseAgent,
         rootDir: ".sample-root",
         commands: {
-          support: "bridged",
+          lifecycle: "available",
           scopes: ["project"],
           directory: ".sample/commands",
         },
         subagents: {
-          support: "bridged",
+          lifecycle: "available",
           scopes: ["project"],
           directory: ".sample/agents",
           layout: "directory",
         },
         instructions: {
-          support: "bridged",
+          standardsCompliance: "parity",
+          convention: "vendor",
+          lifecycle: "available",
           scopes: ["project"],
           kind: "own-file",
           files: ["SAMPLE.md"],
@@ -165,7 +172,7 @@ describe("agent capability derivation", () => {
         ...baseAgent,
         rootDir: null,
         subagents: {
-          support: "bridged",
+          lifecycle: "available",
           scopes: ["project"],
           directory: ".sample-modes.yaml",
           layout: "file",
@@ -204,7 +211,9 @@ describe("agent capability derivation", () => {
       deriveAgentDescriptor({
         ...baseAgent,
         instructions: {
-          support: "standard",
+          standardsCompliance: "full",
+          convention: "universal",
+          lifecycle: "available",
           scopes: ["project"],
           kind: "agents-md",
           files: ["AGENTS.md"],
@@ -217,14 +226,16 @@ describe("agent capability derivation", () => {
       deriveAgentDescriptor({
         ...baseAgent,
         instructions: {
-          support: "bridged",
+          standardsCompliance: "partial",
+          convention: "vendor",
+          lifecycle: "available",
           scopes: ["project"],
           kind: "rules-dir",
           files: ["RULES.md"],
           nestedDiscovery: false,
         },
         rules: {
-          support: "bridged",
+          lifecycle: "available",
           scopes: ["project"],
           directory: ".sample/rules",
         },

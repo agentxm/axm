@@ -60,12 +60,15 @@
       "title": "Documentation Link",
       "description": "Documentation reference for an agent or capability."
     },
-    "SupportLevel": {
+    "CapabilityLifecycle1": {
       "type": "string",
-      "enum": ["standard", "bridged", "planned", "unsupported", "unknown"],
-      "title": "Support Level",
-      "description": "How an agent supports a capability. `standard`: the agent natively conforms to an industry spec standard for the capability (e.g. the Agent Skills `SKILL.md` format). `bridged`: the capability works through an AXM adapter that maps it to the agent's native format — this is the ceiling for capabilities that have no industry spec standard yet, such as subagents and commands. `planned`: AXM support is intended but not yet available. `unsupported`: an authoritative source confirms the agent lacks the capability. `unknown`: support has not been verified, normally expressed by omitting the capability section entirely.",
-      "examples": ["standard", "bridged", "unknown"]
+      "enum": ["available", "planned", "unsupported", "unknown"],
+      "title": "Capability Lifecycle",
+      "description": "State of AXM's integration with an agent capability.",
+      "examples": ["available", "unsupported", "unknown"]
+    },
+    "CapabilityLifecycle": {
+      "anyOf": [{ "$ref": "#/definitions/CapabilityLifecycle1" }, { "type": "null" }]
     },
     "LastVerifiedDate": {
       "type": "string",
@@ -86,10 +89,24 @@
       "description": "Where a capability can be configured.",
       "examples": ["user", "project"]
     },
+    "StandardsCompliance": {
+      "type": "string",
+      "enum": ["full", "parity", "partial", "none"],
+      "title": "Standards Compliance",
+      "description": "How well a spec-tracked capability's native format matches the named spec.",
+      "examples": ["full", "parity", "partial"]
+    },
+    "Convention": {
+      "type": "string",
+      "enum": ["universal", "vendor"],
+      "title": "Convention",
+      "description": "Whether a spec-tracked capability uses the spec-defined or community-standard location.",
+      "examples": ["universal", "vendor"]
+    },
     "SkillsCapability": {
       "type": "object",
       "properties": {
-        "support": { "$ref": "#/definitions/SupportLevel" },
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
         "notes": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -113,11 +130,13 @@
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/Scope" }
         },
+        "standardsCompliance": { "$ref": "#/definitions/StandardsCompliance" },
+        "convention": { "$ref": "#/definitions/Convention" },
         "directory": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         }
       },
-      "required": ["support", "scopes"],
+      "required": ["scopes", "standardsCompliance", "convention"],
       "additionalProperties": false,
       "title": "Skills Capability",
       "description": "Agent support for Agent Skills-style extensions."
@@ -125,7 +144,7 @@
     "CommandsCapability": {
       "type": "object",
       "properties": {
-        "support": { "$ref": "#/definitions/SupportLevel" },
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
         "notes": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -153,7 +172,7 @@
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         }
       },
-      "required": ["support", "scopes"],
+      "required": ["scopes"],
       "additionalProperties": false,
       "title": "Commands Capability",
       "description": "Agent support for command extensions."
@@ -277,7 +296,7 @@
     "McpCapability": {
       "type": "object",
       "properties": {
-        "support": { "$ref": "#/definitions/SupportLevel" },
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
         "notes": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -301,6 +320,8 @@
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/Scope" }
         },
+        "standardsCompliance": { "$ref": "#/definitions/StandardsCompliance" },
+        "convention": { "$ref": "#/definitions/Convention" },
         "transports": {
           "type": "array",
           "allOf": [{ "uniqueItems": true }],
@@ -308,7 +329,7 @@
         },
         "config": { "anyOf": [{ "$ref": "#/definitions/McpConfig" }, { "type": "null" }] }
       },
-      "required": ["support", "scopes", "transports"],
+      "required": ["scopes", "standardsCompliance", "convention", "transports"],
       "additionalProperties": false,
       "title": "MCP Capability",
       "description": "Agent support for MCP server extensions."
@@ -326,7 +347,7 @@
     "SubagentsCapability": {
       "type": "object",
       "properties": {
-        "support": { "$ref": "#/definitions/SupportLevel" },
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
         "notes": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -355,7 +376,7 @@
         },
         "layout": { "$ref": "#/definitions/SubagentsLayout" }
       },
-      "required": ["support", "scopes"],
+      "required": ["scopes"],
       "additionalProperties": false,
       "title": "Subagents Capability",
       "description": "Agent support for subagent extensions."
@@ -376,7 +397,7 @@
     "InstructionsCapability": {
       "type": "object",
       "properties": {
-        "support": { "$ref": "#/definitions/SupportLevel" },
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
         "notes": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -400,6 +421,8 @@
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/Scope" }
         },
+        "standardsCompliance": { "$ref": "#/definitions/StandardsCompliance" },
+        "convention": { "$ref": "#/definitions/Convention" },
         "kind": { "$ref": "#/definitions/InstructionsKind" },
         "files": {
           "type": "array",
@@ -411,7 +434,14 @@
           "anyOf": [{ "$ref": "#/definitions/InstructionsImportSyntax" }, { "type": "null" }]
         }
       },
-      "required": ["support", "scopes", "kind", "files", "nestedDiscovery"],
+      "required": [
+        "scopes",
+        "standardsCompliance",
+        "convention",
+        "kind",
+        "files",
+        "nestedDiscovery"
+      ],
       "additionalProperties": false,
       "title": "Instructions Capability",
       "description": "Agent support for plain prose instruction files."
@@ -419,7 +449,7 @@
     "RulesCapability": {
       "type": "object",
       "properties": {
-        "support": { "$ref": "#/definitions/SupportLevel" },
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
         "notes": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -447,7 +477,7 @@
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         }
       },
-      "required": ["support", "scopes"],
+      "required": ["scopes"],
       "additionalProperties": false,
       "title": "Rules Capability",
       "description": "Agent support for structured rule files."
@@ -538,7 +568,7 @@
     "PermissionsCapability": {
       "type": "object",
       "properties": {
-        "support": { "$ref": "#/definitions/SupportLevel" },
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
         "notes": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -596,7 +626,7 @@
           ]
         }
       },
-      "required": ["support", "scopes", "mechanism"],
+      "required": ["scopes", "mechanism"],
       "additionalProperties": false,
       "title": "Permissions Capability",
       "description": "How an agent grants tool execution and filesystem access without per-call prompts."

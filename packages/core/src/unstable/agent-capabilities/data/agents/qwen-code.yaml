@@ -10,7 +10,8 @@ docs:
   - label: Qwen Code documentation
     url: https://qwenlm.github.io/qwen-code-docs/
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -19,7 +20,8 @@ skills:
     - https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -54,7 +56,7 @@ mcp:
     - https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project

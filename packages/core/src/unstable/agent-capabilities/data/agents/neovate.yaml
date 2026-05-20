@@ -9,7 +9,8 @@ docs:
   - label: Neovate Code documentation
     url: https://neovateai.dev/docs/features
 skills:
-  support: bridged
+  standardsCompliance: partial
+  convention: vendor
   scopes:
     - user
     - project
@@ -21,7 +22,8 @@ skills:
     - https://neovateai.dev/docs/features
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project

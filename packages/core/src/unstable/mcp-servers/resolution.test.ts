@@ -7,7 +7,9 @@ import { resolveMcpServer } from "./resolution.js";
 const decodeManifest = Schema.decodeUnknownSync(McpServerManifestSchema);
 
 const stdioCapability = {
-  support: "standard",
+  standardsCompliance: "full",
+  convention: "universal",
+  lifecycle: "available",
   scopes: ["project"],
   transports: ["stdio"],
   config: {
@@ -22,7 +24,9 @@ const stdioCapability = {
 } satisfies McpCapability;
 
 const remoteCapability = {
-  support: "standard",
+  standardsCompliance: "full",
+  convention: "universal",
+  lifecycle: "available",
   scopes: ["project"],
   transports: ["http", "stdio"],
   config: {

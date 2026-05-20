@@ -9,7 +9,8 @@ docs:
   - label: Zencoder documentation
     url: https://docs.zencoder.ai
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -18,7 +19,8 @@ skills:
     - https://docs.zencoder.ai/features/agent-skills
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -41,7 +43,7 @@ mcp:
     - https://docs.zencoder.ai/features/integrations-and-mcp
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -51,7 +53,7 @@ subagents:
   directory: .zencoder/agents
   layout: directory
 rules:
-  support: bridged
+  notes: No industry spec for rule files yet; AXM bridges to the agent's native layout.
   scopes:
     - project
   directory: .zencoder/rules

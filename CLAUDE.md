@@ -100,29 +100,30 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 Use `contributing/guides` for topic-level guidance. If a guide goes deeper than
 the summary here, follow the guide.
 
-| Guide                                                                       | When to consult                                                                        |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **Docs & process**                                                          |                                                                                        |
-| [Guides README](contributing/guides/README.md)                              | Before adding a guide, read for template and local conventions                         |
-| [Documentation Guidelines](contributing/guides/documentation-guidelines.md) | Before writing or editing docs, read for audience, flow, and source-of-truth rules     |
-| [Guide Authoring](contributing/guides/guide-authoring.md)                   | Before deciding a topic needs a guide, read for scope and structure                    |
-| [Instructions Guide](contributing/guides/instructions.md)                   | Before choosing README vs CONTRIBUTING vs AGENTS/CLAUDE vs install vs SKILL, read it   |
-| **Delivery**                                                                |                                                                                        |
-| [Releasing Guide](contributing/guides/releasing.md)                         | Before planning or publishing a release, read the release flow                         |
-| [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | Before starting or progressing an OpenSpec change, read for workflow steps             |
-| [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Before proposing, designing, implementing, or verifying a feature, read for checks     |
-| **Implementation**                                                          |                                                                                        |
-| [CLI Design Guide](contributing/guides/cli-design.md)                       | Before designing a CLI command, read for shape, flags, prompts, and handlers           |
-| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                   | Before changing JSON output or renderer boundaries, read for contracts and diagnostics |
-| [Testing Guide](contributing/guides/testing.md)                             | Before writing or reviewing tests, read for levels, E2E scope, and Effect testing      |
-| [Effect Guide](contributing/guides/effect.md)                               | Before writing Effect code, read for core patterns and the skill index                 |
-| [Effect Option Guide](contributing/guides/effect-option.md)                 | When handling optional values in Effect code, read for Option and nullable boundaries  |
-| [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | When translating v3-era examples, read for common v4 renames and migrations            |
-| [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Before designing or translating Effect errors, read for AppError and service patterns  |
-| [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Before building or wiring layers, read for composition and provision rules             |
-| [Workspace Read Model Guide](contributing/guides/workspace-read-model.md)   | Before migrating workspace reads or using context test fixtures                        |
-| [Logging Guide](contributing/guides/logging.md)                             | Before adding structured logs, read for logging conventions                            |
-| [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Before writing or revising TypeScript, read for narrowing and immutability rules       |
+| Guide                                                                       | When to consult                                                                           |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Docs & process**                                                          |                                                                                           |
+| [Guides README](contributing/guides/README.md)                              | Before adding a guide, read for template and local conventions                            |
+| [Documentation Guidelines](contributing/guides/documentation-guidelines.md) | Before writing or editing docs, read for audience, flow, and source-of-truth rules        |
+| [Guide Authoring](contributing/guides/guide-authoring.md)                   | Before deciding a topic needs a guide, read for scope and structure                       |
+| [Instructions Guide](contributing/guides/instructions.md)                   | Before choosing README vs CONTRIBUTING vs AGENTS/CLAUDE vs install vs SKILL, read it      |
+| **Delivery**                                                                |                                                                                           |
+| [Releasing Guide](contributing/guides/releasing.md)                         | Before planning or publishing a release, read the release flow                            |
+| [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | Before starting or progressing an OpenSpec change, read for workflow steps                |
+| [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Before proposing, designing, implementing, or verifying a feature, read for checks        |
+| **Implementation**                                                          |                                                                                           |
+| [CLI Design Guide](contributing/guides/cli-design.md)                       | Before designing a CLI command, read for shape, flags, prompts, and handlers              |
+| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                   | Before changing JSON output or renderer boundaries, read for contracts and diagnostics    |
+| [Testing Guide](contributing/guides/testing.md)                             | Before writing or reviewing tests, read for levels, E2E scope, and Effect testing         |
+| [Effect Guide](contributing/guides/effect.md)                               | Before writing Effect code, read for core patterns and the skill index                    |
+| [Effect Option Guide](contributing/guides/effect-option.md)                 | When handling optional values in Effect code, read for Option and nullable boundaries     |
+| [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | When translating v3-era examples, read for common v4 renames and migrations               |
+| [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Before designing or translating Effect errors, read for AppError and service patterns     |
+| [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Before building or wiring layers, read for composition and provision rules                |
+| [Workspace Read Model Guide](contributing/guides/workspace-read-model.md)   | Before migrating workspace reads or using context test fixtures                           |
+| [Logging Guide](contributing/guides/logging.md)                             | Before adding structured logs, read for logging conventions                               |
+| [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Before writing or revising TypeScript, read for narrowing and immutability rules          |
+| [Agent Capability Model](contributing/guides/agent-capabilities.md)         | Before adding an agent or changing a capability claim, read for the standard/bridged rule |
 
 ## Code Organization
 

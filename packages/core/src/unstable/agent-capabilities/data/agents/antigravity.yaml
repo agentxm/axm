@@ -19,7 +19,8 @@ docs:
   - label: Antigravity CLI overview
     url: https://antigravity.google/docs/cli-overview
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -31,20 +32,19 @@ skills:
     - https://antigravity.google/docs/skills
   lastVerified: 2026-05-20
 commands:
-  support: bridged
   scopes:
     - user
     - project
   directory: .agents/workflows
   notes: >
     Custom slash commands ("workflows") are Markdown files under .agents/workflows (project) or
-    ~/.gemini/antigravity/global_workflows (user). Recorded as bridged because commands have no
-    industry spec standard.
+    ~/.gemini/antigravity/global_workflows (user). Commands have no industry spec yet.
   sources:
     - https://antigravity.google/docs/rules-workflows
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
   transports:
@@ -63,7 +63,8 @@ mcp:
     - https://antigravity.google/docs/mcp
   lastVerified: 2026-05-20
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:
@@ -75,7 +76,6 @@ instructions:
   lastVerified: 2026-05-20
   kind: agents-md
 rules:
-  support: bridged
   scopes:
     - user
     - project

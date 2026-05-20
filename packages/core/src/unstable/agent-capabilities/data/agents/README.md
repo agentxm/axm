@@ -8,28 +8,21 @@ Add one `*.yaml` file per agent. File name must match `id`.
 
 Capability claims require:
 
-- `support`
 - `sources` with authoritative URLs
 - `lastVerified` in `YYYY-MM-DD`
 
 Use `unknown` by omitting a capability. Use `unsupported` only when an
 authoritative source verifies lack of support.
 
-Support levels:
+All capabilities have `lifecycle`, defaulting to `available`.
 
-- `standard` — the agent natively conforms to an industry spec standard for the
-  capability. Only `skills` has such a standard today (the Agent Skills
-  `SKILL.md` format), so only `skills` can be `standard`.
-- `bridged` — the capability works through an AXM adapter that maps it to the
-  agent's native format. This is the ceiling for capabilities with no industry
-  spec standard yet, such as `subagents` and `commands`: even when an agent
-  supports them natively, the catalog records `bridged` rather than `standard`.
-- `planned` — AXM support is intended but not yet available.
+Spec-tracked capabilities (`skills`, `instructions`, `mcp`) also require:
 
-Instructions invariant:
+- `standardsCompliance`: `full`, `parity`, `partial`, or `none`
+- `convention`: `universal` or `vendor`
 
-- `support: standard` means `files` includes `AGENTS.md`
-- `support: bridged` means `files` omits `AGENTS.md`
+Non-spec capabilities (`commands`, `subagents`, `rules`, `permissions`) omit
+those spec axes.
 
 Permissions capability:
 

@@ -9,7 +9,8 @@ docs:
   - label: Cline documentation
     url: https://docs.cline.bot
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -18,7 +19,7 @@ skills:
     - https://docs.cline.bot/customization/skills
   lastVerified: 2026-05-20
 rules:
-  support: bridged
+  notes: No industry spec for rule files yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project

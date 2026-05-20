@@ -10,7 +10,8 @@ docs:
   - label: IBM Bob documentation
     url: https://bob.ibm.com/docs/ide
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -44,21 +45,21 @@ mcp:
     - https://bob.ibm.com/docs/ide/configuration/mcp/mcp-in-bob
   lastVerified: 2026-05-19
 subagents:
-  support: bridged
   scopes:
     - user
     - project
   notes: >
     Bob custom modes are YAML entries (slug, name, roleDefinition, groups, customInstructions) in
-    .bob/custom_modes.yaml (project) or the global custom_modes.yaml (user). Recorded as bridged
-    because subagent-style extensions have no industry spec standard.
+    .bob/custom_modes.yaml (project) or the global custom_modes.yaml (user). Subagent-style
+    extensions have no industry spec yet.
   sources:
     - https://bob.ibm.com/docs/ide/configuration/custom-modes
   lastVerified: 2026-05-19
   directory: .bob/custom_modes.yaml
   layout: file
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:
@@ -71,7 +72,6 @@ instructions:
   lastVerified: 2026-05-19
   kind: agents-md
 rules:
-  support: bridged
   scopes:
     - user
     - project
@@ -84,7 +84,8 @@ rules:
   lastVerified: 2026-05-19
 rootDir: .bob
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

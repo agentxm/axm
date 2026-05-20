@@ -9,7 +9,8 @@ docs:
   - label: Kode Agent repository
     url: https://github.com/shareAI-lab/Kode-Agent
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -18,7 +19,7 @@ skills:
     - https://github.com/shareAI-lab/Kode-Agent
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -28,7 +29,8 @@ subagents:
   directory: .kode/agents
   layout: directory
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:
@@ -39,7 +41,6 @@ instructions:
   lastVerified: 2026-05-20
   kind: agents-md
 permissions:
-  support: standard
   scopes:
     - user
     - project

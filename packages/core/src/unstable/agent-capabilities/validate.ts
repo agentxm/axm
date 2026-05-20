@@ -4,7 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { capabilityKinds, supportLevelWorks } from "./derive.js";
+import { capabilityKinds, capabilityWorks } from "./derive.js";
 import type { CapabilityKind } from "./derive.js";
 import type { Agent, AgentCapability } from "./schema.js";
 
@@ -70,7 +70,7 @@ const validateCapability = (
   capability: AgentCapability,
 ): void => {
   const prefix = `${source.filename}:${kind}`;
-  if (capability.support !== "unknown") {
+  if (capability.lifecycle !== "unknown") {
     if (capability.sources === undefined || capability.sources.length === 0) {
       issues.push({ path: prefix, message: "Capability claims require at least one source." });
     }
@@ -93,7 +93,6 @@ const validateCapability = (
 
   if (kind === "instructions" && "files" in capability) {
     const files = capability.files;
-    const includesAgentsMd = files.includes("AGENTS.md");
     if (capability.kind === "agents-md" && (files.length !== 1 || files[0] !== "AGENTS.md")) {
       issues.push({
         path: `${prefix}.files`,
@@ -112,22 +111,10 @@ const validateCapability = (
         message: 'instructions.kind "rules-dir" requires rules.directory.',
       });
     }
-    if (capability.support === "standard" && !includesAgentsMd) {
-      issues.push({
-        path: prefix,
-        message: "Standard instructions support must include AGENTS.md.",
-      });
-    }
-    if (capability.support === "bridged" && includesAgentsMd) {
-      issues.push({
-        path: prefix,
-        message: "Bridged instructions support must not include AGENTS.md.",
-      });
-    }
   }
 
   if (kind === "subagents" && "layout" in capability) {
-    if (supportLevelWorks(capability.support) && capability.directory === undefined) {
+    if (capabilityWorks(capability) && capability.directory === undefined) {
       issues.push({
         path: `${prefix}.directory`,
         message: "Supported subagents require directory.",
@@ -135,18 +122,28 @@ const validateCapability = (
     }
   }
 
-  if (kind === "mcp" && "transports" in capability) {
-    const config = capability.config;
-    if (capability.support === "standard" && config === undefined) {
+  if (kind === "commands") {
+    const commands = source.agent.commands;
+    if (commands !== undefined && capabilityWorks(commands) && commands.directory === undefined) {
       issues.push({
-        path: `${prefix}.config`,
-        message: "Standard MCP support must declare config.",
+        path: `${prefix}.directory`,
+        message: "Supported commands require directory.",
       });
     }
-    if (capability.support !== "standard" && config !== undefined) {
+  }
+
+  if (kind === "mcp" && "transports" in capability) {
+    const config = capability.config;
+    if (capability.standardsCompliance === "full" && config === undefined) {
       issues.push({
         path: `${prefix}.config`,
-        message: "MCP config is only valid for standard support.",
+        message: "Full MCP standards compliance must declare config.",
+      });
+    }
+    if (capability.standardsCompliance !== "full" && config !== undefined) {
+      issues.push({
+        path: `${prefix}.config`,
+        message: "MCP config is only valid for full standards compliance.",
       });
     }
     if (config !== undefined) {

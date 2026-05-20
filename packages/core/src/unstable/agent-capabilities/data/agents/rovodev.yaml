@@ -15,7 +15,8 @@ docs:
   - label: Rovo Dev CLI skills
     url: https://support.atlassian.com/rovo/docs/extend-rovo-dev-cli-with-agent-skills/
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -27,7 +28,7 @@ skills:
     - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project

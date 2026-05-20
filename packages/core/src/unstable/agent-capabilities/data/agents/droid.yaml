@@ -10,7 +10,8 @@ docs:
   - label: Factory documentation
     url: https://docs.factory.ai
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -19,7 +20,6 @@ skills:
     - https://docs.factory.ai/cli/configuration/skills
   lastVerified: 2026-05-20
 commands:
-  support: bridged
   scopes:
     - project
   directory: .factory/commands
@@ -30,7 +30,8 @@ commands:
     - https://docs.factory.ai/cli/configuration/skills
   lastVerified: 2026-05-20
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project

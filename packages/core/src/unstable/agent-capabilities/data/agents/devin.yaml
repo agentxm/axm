@@ -15,7 +15,8 @@ docs:
   - label: Devin for Terminal skills
     url: https://cli.devin.ai/docs/extensibility/skills/overview
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -28,7 +29,8 @@ skills:
     - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
   lastVerified: 2026-05-20
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project

@@ -10,7 +10,8 @@ docs:
   - label: Kiro CLI documentation
     url: https://kiro.dev/docs/cli/
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -19,7 +20,8 @@ skills:
     - https://kiro.dev/docs/cli/skills/
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -52,7 +54,7 @@ mcp:
     - https://kiro.dev/docs/cli/mcp/
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -62,7 +64,8 @@ subagents:
   directory: .kiro/agents
   layout: directory
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -74,7 +77,7 @@ instructions:
   lastVerified: 2026-05-20
   kind: agents-md
 rules:
-  support: bridged
+  notes: No industry spec for rule files yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -84,7 +87,7 @@ rules:
   lastVerified: 2026-05-20
 rootDir: .kiro
 commands:
-  support: bridged
+  notes: No industry spec for slash commands yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project

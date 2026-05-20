@@ -10,7 +10,8 @@ docs:
   - label: Goose documentation
     url: https://block.github.io/goose/docs
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -43,7 +44,8 @@ mcp:
   lastVerified: 2026-05-20
 rootDir: .goose
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

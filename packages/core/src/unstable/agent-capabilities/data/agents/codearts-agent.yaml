@@ -15,7 +15,8 @@ docs:
   - label: Huawei CodeArts
     url: https://www.huaweicloud.com/intl/en-us/product/codearts.html
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

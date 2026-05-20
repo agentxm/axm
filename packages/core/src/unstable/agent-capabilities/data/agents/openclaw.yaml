@@ -10,7 +10,8 @@ docs:
   - label: OpenClaw documentation
     url: https://docs.openclaw.ai
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

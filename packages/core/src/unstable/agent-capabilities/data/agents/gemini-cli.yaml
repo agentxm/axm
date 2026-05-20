@@ -12,7 +12,8 @@ docs:
   - label: Transitioning Gemini CLI to Antigravity CLI
     url: https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -21,7 +22,6 @@ skills:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
   lastVerified: 2026-05-16
 commands:
-  support: bridged
   scopes:
     - user
     - project
@@ -33,7 +33,8 @@ commands:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md
   lastVerified: 2026-05-18
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -56,7 +57,6 @@ mcp:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
   lastVerified: 2026-05-16
 subagents:
-  support: bridged
   scopes:
     - user
     - project
@@ -69,7 +69,8 @@ subagents:
   directory: .gemini/agents
   layout: directory
 instructions:
-  support: bridged
+  standardsCompliance: parity
+  convention: vendor
   scopes:
     - user
     - project
@@ -85,7 +86,6 @@ instructions:
   lastVerified: 2026-05-20
   kind: own-file
 permissions:
-  support: standard
   scopes:
     - user
     - project

@@ -11,7 +11,8 @@ docs:
   - label: Qoder documentation
     url: https://docs.qoder.com
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -21,7 +22,8 @@ skills:
     - https://docs.qoder.com/extensions/skills
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -57,7 +59,7 @@ mcp:
     - https://docs.qoder.com/user-guide/chat/model-context-protocol
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -67,7 +69,8 @@ subagents:
   directory: .qoder/agents
   layout: directory
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project
@@ -79,7 +82,6 @@ instructions:
   lastVerified: 2026-05-20
   kind: agents-md
 permissions:
-  support: standard
   scopes:
     - user
     - project

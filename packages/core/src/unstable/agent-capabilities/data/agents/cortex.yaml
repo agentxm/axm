@@ -15,7 +15,8 @@ docs:
   - label: Cortex Code CLI extensibility
     url: https://docs.snowflake.com/en/user-guide/cortex-code/extensibility
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

@@ -10,7 +10,8 @@ docs:
   - label: Trae documentation
     url: https://docs.trae.ai
 skills:
-  support: bridged
+  standardsCompliance: partial
+  convention: vendor
   scopes:
     - project
   directory: .trae/skills
@@ -18,7 +19,8 @@ skills:
     - https://github.com/HighMark-31/TRAE-Tips/blob/main/Agents-Rules-Skills.md
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   transports:
@@ -49,7 +51,7 @@ mcp:
     - https://traeide.com/news/6
   lastVerified: 2026-05-20
 rules:
-  support: bridged
+  notes: No industry spec for rule files yet; AXM bridges to the agent's native layout.
   scopes:
     - project
   directory: .trae/rules

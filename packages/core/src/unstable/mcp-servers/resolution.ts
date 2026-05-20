@@ -419,8 +419,8 @@ const resolveRemote = (
 
 export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
   const config = args.capability.config;
-  if (args.capability.support !== "standard" || config === undefined) {
-    return { _tag: "no-distribution", reason: "agent does not have standard MCP config support" };
+  if (args.capability.standardsCompliance !== "full" || config === undefined) {
+    return { _tag: "no-distribution", reason: "agent does not have full MCP config support" };
   }
 
   const hasPackages = (args.manifest.server.packages ?? []).length > 0;

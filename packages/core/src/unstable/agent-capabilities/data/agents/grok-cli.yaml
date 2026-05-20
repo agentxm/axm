@@ -10,7 +10,8 @@ docs:
   - label: Grok CLI documentation
     url: https://docs.x.ai/build/overview
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -23,7 +24,8 @@ skills:
     - https://docs.x.ai/build/features/skills-plugins-marketplaces
   lastVerified: 2026-05-19
 mcp:
-  support: bridged
+  standardsCompliance: partial
+  convention: vendor
   scopes:
     - user
     - project
@@ -33,13 +35,13 @@ mcp:
     - sse
   notes: >
     MCP servers are managed with `grok mcp add/remove/list` or under the mcpServers key in
-    .grok/settings.json. Recorded as bridged because the prescriptive config dialect has not been
-    verified against xAI docs.
+    .grok/settings.json. The prescriptive config dialect has not been verified against xAI docs.
   sources:
     - https://docs.x.ai/build/modes-and-commands
   lastVerified: 2026-05-19
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project

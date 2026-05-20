@@ -9,7 +9,8 @@ docs:
   - label: Replit Agent documentation
     url: https://docs.replit.com/replitai/agent
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   directory: .agents/skills
@@ -17,7 +18,8 @@ skills:
     - https://docs.replit.com/replitai/agent/skills
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   transports:

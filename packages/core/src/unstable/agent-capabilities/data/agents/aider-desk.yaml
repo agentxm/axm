@@ -15,7 +15,8 @@ docs:
   - label: AiderDesk repository
     url: https://github.com/hotovo/aider-desk
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

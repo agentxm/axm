@@ -9,7 +9,8 @@ docs:
   - label: OpenHands documentation
     url: https://docs.openhands.dev
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -18,7 +19,8 @@ skills:
     - https://docs.openhands.dev/overview/skills
   lastVerified: 2026-05-20
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:
@@ -29,7 +31,8 @@ instructions:
   lastVerified: 2026-05-20
   kind: agents-md
 mcp:
-  support: bridged
+  standardsCompliance: partial
+  convention: vendor
   scopes:
     - project
   transports:

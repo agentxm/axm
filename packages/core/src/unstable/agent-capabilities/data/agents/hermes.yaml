@@ -9,7 +9,8 @@ docs:
   - label: Hermes Agent documentation
     url: https://hermes-agent.nousresearch.com/docs
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
   directory: .hermes/skills
@@ -20,20 +21,22 @@ skills:
     - https://hermes-agent.nousresearch.com/docs/user-guide/features/skills
   lastVerified: 2026-05-20
 mcp:
-  support: bridged
+  standardsCompliance: partial
+  convention: vendor
   scopes:
     - user
   transports:
     - stdio
     - http
   notes: >
-    Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. Recorded as bridged
-    because the YAML config dialect is outside AXM's current native MCP writer formats.
+    Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. The YAML config dialect
+    is outside AXM's current native MCP writer formats.
   sources:
     - https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp
   lastVerified: 2026-05-20
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:

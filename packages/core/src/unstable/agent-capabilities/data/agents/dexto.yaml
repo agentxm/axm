@@ -13,7 +13,8 @@ docs:
   - label: Dexto
     url: https://www.dexto.ai
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - user
     - project

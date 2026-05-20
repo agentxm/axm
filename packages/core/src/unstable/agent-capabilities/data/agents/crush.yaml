@@ -9,7 +9,8 @@ docs:
   - label: Crush repository
     url: https://github.com/charmbracelet/crush
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:
@@ -20,7 +21,8 @@ instructions:
   lastVerified: 2026-05-20
   kind: agents-md
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -55,7 +57,8 @@ mcp:
   lastVerified: 2026-05-20
 rootDir: .crush
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

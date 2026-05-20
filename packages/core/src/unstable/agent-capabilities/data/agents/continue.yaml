@@ -9,7 +9,7 @@ docs:
   - label: Continue documentation
     url: https://docs.continue.dev
 commands:
-  support: bridged
+  notes: No industry spec for slash commands yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -18,7 +18,7 @@ commands:
   lastVerified: 2026-05-20
   directory: .continue/commands
 rules:
-  support: bridged
+  notes: No industry spec for rule files yet; AXM bridges to the agent's native layout.
   scopes:
     - user
     - project
@@ -28,7 +28,8 @@ rules:
   lastVerified: 2026-05-20
 rootDir: .continue
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project

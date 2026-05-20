@@ -10,7 +10,8 @@ docs:
   - label: Mistral Vibe documentation
     url: https://docs.mistral.ai/mistral-vibe/overview
 skills:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -19,7 +20,8 @@ skills:
     - https://docs.mistral.ai/mistral-vibe/agents-skills
   lastVerified: 2026-05-20
 mcp:
-  support: standard
+  standardsCompliance: full
+  convention: vendor
   scopes:
     - user
     - project
@@ -55,7 +57,7 @@ mcp:
     - https://docs.mistral.ai/mistral-vibe/terminal/configuration
   lastVerified: 2026-05-20
 subagents:
-  support: bridged
+  notes: No industry spec for subagents yet; AXM bridges to the agent's native layout.
   scopes:
     - user
   sources:
@@ -64,7 +66,8 @@ subagents:
   directory: .vibe/agents
   layout: directory
 instructions:
-  support: standard
+  standardsCompliance: full
+  convention: universal
   scopes:
     - project
   files:

@@ -147,6 +147,7 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
     skills: {
       dir: agent.skills?.directory ?? "",
     },
+    ...(agent.detection === undefined ? {} : { detection: agent.detection }),
     ...(commands === undefined ? {} : { commands }),
     ...(subagents === undefined ? {} : { subagents }),
     ...(instructions === undefined ? {} : { instructions }),

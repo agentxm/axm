@@ -9,6 +9,8 @@ family: google
 docs:
   - label: Gemini CLI documentation
     url: https://github.com/google-gemini/gemini-cli/tree/main/docs
+  - label: Transitioning Gemini CLI to Antigravity CLI
+    url: https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/
 skills:
   support: standard
   scopes:
@@ -74,9 +76,13 @@ instructions:
   files:
     - GEMINI.md
   nestedDiscovery: true
+  notes: >
+    Consumer access (free, AI Pro, AI Ultra) ends 2026-06-18; Antigravity CLI succeeds Gemini CLI
+    for those tiers. Enterprise customers on paid API keys retain access.
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md
-  lastVerified: 2026-05-16
+    - https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/
+  lastVerified: 2026-05-20
   kind: own-file
 permissions:
   support: standard

@@ -21,6 +21,34 @@
       "description": "Primary product interface where the agent runs.",
       "examples": ["cli", "ide-extension"]
     },
+    "Detection": {
+      "type": "object",
+      "properties": {
+        "projectDirs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "allOf": [{ "uniqueItems": true }],
+              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+            },
+            { "type": "null" }
+          ]
+        },
+        "userDirs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "allOf": [{ "uniqueItems": true }],
+              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Detection",
+      "description": "Explicit project and user-scope marker directories used to detect an installed agent."
+    },
     "DocLink": {
       "type": "object",
       "properties": {
@@ -594,6 +622,7 @@
             { "type": "null" }
           ]
         },
+        "detection": { "anyOf": [{ "$ref": "#/definitions/Detection" }, { "type": "null" }] },
         "docs": {
           "anyOf": [
             { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: deepagents
+name: Deep Agents
+vendor: LangChain
+homepage: https://docs.langchain.com/oss/python/deepagents/overview
+interfaces:
+  - cli
+rootDir: null
+detection:
+  userDirs:
+    - ~/.deepagents
+docs:
+  - label: Deep Agents skills documentation
+    url: https://docs.langchain.com/oss/python/deepagents/skills
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  directory: .agents/skills
+  notes: >
+    Deep Agents stores user skills under ~/.deepagents/<agent>/skills. The vercel-labs agent map
+    uses the default agent path ~/.deepagents/agent/skills and the universal project directory.
+  sources:
+    - https://docs.langchain.com/oss/python/deepagents/skills
+    - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+  lastVerified: 2026-05-20

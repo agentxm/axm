@@ -69,6 +69,18 @@ export type AgentInstructionsDescriptor =
   | { readonly kind: "rules-dir"; readonly dir: string; readonly format: "frontmatter" };
 
 // -----------------------------------------------------------------------------
+// Agent Detection Configuration
+// -----------------------------------------------------------------------------
+
+/** @experimental This API is unstable and may change without notice. */
+export interface AgentDetectionDescriptor {
+  /** Marker directories relative to the project root. */
+  readonly projectDirs?: ReadonlyArray<string> | undefined;
+  /** Marker directories relative to the user home, or `$XDG_CONFIG_HOME/...`. */
+  readonly userDirs?: ReadonlyArray<string> | undefined;
+}
+
+// -----------------------------------------------------------------------------
 // Agent Identifiers
 // -----------------------------------------------------------------------------
 
@@ -124,6 +136,8 @@ export interface AgentDescriptor {
   readonly subagents?: AgentSubagentsDescriptor;
   /** Workspace instruction-file convention for this coding agent. */
   readonly instructions?: AgentInstructionsDescriptor;
+  /** Explicit marker directories used by agent detection. */
+  readonly detection?: AgentDetectionDescriptor;
 }
 
 // -----------------------------------------------------------------------------

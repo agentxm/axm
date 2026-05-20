@@ -19,6 +19,7 @@ export { AGENT_IDS, CONFIGURABLE_AGENT_IDS } from "./types.js";
 export type {
   AgentCommandsDescriptor,
   AgentDescriptor,
+  AgentDetectionDescriptor,
   AgentId,
   AgentInstructionsDescriptor,
   ConfigurableAgentId,

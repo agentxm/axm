@@ -34,18 +34,28 @@ import {
 import type { SettingsReadError } from "../errors.js";
 import type { Scope } from "../types.js";
 import { agentModule as adal, type AdalNativeConfig } from "./adal.js";
+import { agentModule as aiderDesk, type AiderDeskNativeConfig } from "./aider-desk.js";
 import { agentModule as amp, type AmpNativeConfig } from "./amp.js";
 import { agentModule as antigravity, type AntigravityNativeConfig } from "./antigravity.js";
 import { agentModule as augment, type AugmentNativeConfig } from "./augment.js";
 import { agentModule as claudeCode, type ClaudeCodeNativeConfig } from "./claude-code.js";
 import { agentModule as cline, type ClineNativeConfig } from "./cline.js";
+import { agentModule as codeartsAgent, type CodeartsAgentNativeConfig } from "./codearts-agent.js";
 import { agentModule as codebuddy, type CodebuddyNativeConfig } from "./codebuddy.js";
+import { agentModule as codemaker, type CodemakerNativeConfig } from "./codemaker.js";
+import { agentModule as codestudio, type CodestudioNativeConfig } from "./codestudio.js";
 import { agentModule as codex, type CodexNativeConfig } from "./codex.js";
 import { agentModule as commandCode, type CommandCodeNativeConfig } from "./command-code.js";
 import { agentModule as continueAgent, type ContinueNativeConfig } from "./continue.js";
+import { agentModule as cortex, type CortexNativeConfig } from "./cortex.js";
 import { agentModule as crush, type CrushNativeConfig } from "./crush.js";
 import { agentModule as cursor, type CursorNativeConfig } from "./cursor.js";
+import { agentModule as deepagents, type DeepagentsNativeConfig } from "./deepagents.js";
+import { agentModule as devin, type DevinNativeConfig } from "./devin.js";
+import { agentModule as dexto, type DextoNativeConfig } from "./dexto.js";
 import { agentModule as droid, type DroidNativeConfig } from "./droid.js";
+import { agentModule as firebender, type FirebenderNativeConfig } from "./firebender.js";
+import { agentModule as forgecode, type ForgecodeNativeConfig } from "./forgecode.js";
 import { agentModule as geminiCli, type GeminiCliNativeConfig } from "./gemini-cli.js";
 import { agentModule as githubCopilot, type GithubCopilotNativeConfig } from "./github-copilot.js";
 import { agentModule as goose, type GooseNativeConfig } from "./goose.js";
@@ -71,8 +81,11 @@ import { agentModule as qoder, type QoderNativeConfig } from "./qoder.js";
 import { agentModule as qwenCode, type QwenCodeNativeConfig } from "./qwen-code.js";
 import { agentModule as replit, type ReplitNativeConfig } from "./replit.js";
 import { agentModule as roo, type RooNativeConfig } from "./roo.js";
+import { agentModule as rovodev, type RovodevNativeConfig } from "./rovodev.js";
+import { agentModule as tabnineCli, type TabnineCliNativeConfig } from "./tabnine-cli.js";
 import { agentModule as trae, type TraeNativeConfig } from "./trae.js";
 import { agentModule as traeCn, type TraeCnNativeConfig } from "./trae-cn.js";
+import { agentModule as warp, type WarpNativeConfig } from "./warp.js";
 import { agentModule as windsurf, type WindsurfNativeConfig } from "./windsurf.js";
 import { agentModule as zencoder, type ZencoderNativeConfig } from "./zencoder.js";
 import type {
@@ -120,18 +133,28 @@ export { defineAgentModule } from "./types.js";
  */
 const registeredAgentModulesById = {
   adal,
+  "aider-desk": aiderDesk,
   amp,
   antigravity,
   augment,
   "claude-code": claudeCode,
   cline,
+  "codearts-agent": codeartsAgent,
   codebuddy,
+  codemaker,
+  codestudio,
   codex,
   "command-code": commandCode,
   continue: continueAgent,
+  cortex,
   crush,
   cursor,
+  deepagents,
+  devin,
+  dexto,
   droid,
+  firebender,
+  forgecode,
   "gemini-cli": geminiCli,
   "github-copilot": githubCopilot,
   goose,
@@ -157,8 +180,11 @@ const registeredAgentModulesById = {
   "qwen-code": qwenCode,
   replit,
   roo,
+  rovodev,
+  "tabnine-cli": tabnineCli,
   trae,
   "trae-cn": traeCn,
+  warp,
   windsurf,
   zencoder,
 };
@@ -187,18 +213,28 @@ export type AgentNativeConfig = NonNullable<
 
 export type {
   AdalNativeConfig,
+  AiderDeskNativeConfig,
   AmpNativeConfig,
   AntigravityNativeConfig,
   AugmentNativeConfig,
   ClaudeCodeNativeConfig,
   ClineNativeConfig,
+  CodeartsAgentNativeConfig,
   CodebuddyNativeConfig,
+  CodemakerNativeConfig,
+  CodestudioNativeConfig,
   CodexNativeConfig,
   CommandCodeNativeConfig,
   ContinueNativeConfig,
+  CortexNativeConfig,
   CrushNativeConfig,
   CursorNativeConfig,
+  DeepagentsNativeConfig,
+  DevinNativeConfig,
+  DextoNativeConfig,
   DroidNativeConfig,
+  FirebenderNativeConfig,
+  ForgecodeNativeConfig,
   GeminiCliNativeConfig,
   GithubCopilotNativeConfig,
   GooseNativeConfig,
@@ -224,8 +260,11 @@ export type {
   QwenCodeNativeConfig,
   ReplitNativeConfig,
   RooNativeConfig,
+  RovodevNativeConfig,
+  TabnineCliNativeConfig,
   TraeNativeConfig,
   TraeCnNativeConfig,
+  WarpNativeConfig,
   WindsurfNativeConfig,
   ZencoderNativeConfig,
 };

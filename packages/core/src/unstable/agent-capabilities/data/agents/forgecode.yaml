@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: forgecode
+name: ForgeCode
+vendor: Tailcall
+homepage: https://forgecode.dev
+interfaces:
+  - cli
+rootDir: .forge
+detection:
+  projectDirs:
+    - .forge
+  userDirs:
+    - ~/.forge
+    - ~/forge
+docs:
+  - label: ForgeCode skills documentation
+    url: https://forgecode.dev/docs/skills/
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  directory: .forge/skills
+  notes: >
+    ForgeCode also reads shared ~/.agents/skills and documents ~/forge/skills as its global skills
+    path; ~/.forge is retained as an install marker from vercel-labs/skills.
+  sources:
+    - https://forgecode.dev/docs/skills/
+    - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+  lastVerified: 2026-05-20
+instructions:
+  support: standard
+  scopes:
+    - project
+  files:
+    - AGENTS.md
+  nestedDiscovery: false
+  sources:
+    - https://forgecode.dev/docs/agents-md/
+  lastVerified: 2026-05-20
+  kind: agents-md

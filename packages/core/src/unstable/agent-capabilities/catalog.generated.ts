@@ -9,18 +9,28 @@ import type { Agent } from "./schema.js";
 /** @experimental This API is unstable and may change without notice. */
 export const AGENT_IDS = [
   "adal",
+  "aider-desk",
   "amp",
   "antigravity",
   "augment",
   "claude-code",
   "cline",
+  "codearts-agent",
   "codebuddy",
+  "codemaker",
+  "codestudio",
   "codex",
   "command-code",
   "continue",
+  "cortex",
   "crush",
   "cursor",
+  "deepagents",
+  "devin",
+  "dexto",
   "droid",
+  "firebender",
+  "forgecode",
   "gemini-cli",
   "github-copilot",
   "goose",
@@ -46,8 +56,11 @@ export const AGENT_IDS = [
   "qwen-code",
   "replit",
   "roo",
+  "rovodev",
+  "tabnine-cli",
   "trae-cn",
   "trae",
+  "warp",
   "windsurf",
   "zencoder",
 ] as const;
@@ -96,6 +109,34 @@ export const AGENTS = [
     },
   },
   {
+    id: "aider-desk",
+    name: "AiderDesk",
+    vendor: "HOTOVO",
+    homepage: "https://github.com/hotovo/aider-desk",
+    interfaces: ["ide-extension"],
+    rootDir: ".aider-desk",
+    detection: {
+      projectDirs: [".aider-desk"],
+      userDirs: ["~/.aider-desk"],
+    },
+    docs: [
+      {
+        label: "AiderDesk repository",
+        url: "https://github.com/hotovo/aider-desk",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: [
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+        "https://github.com/hotovo/aider-desk/issues/568",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".aider-desk/skills",
+    },
+  },
+  {
     id: "amp",
     name: "Amp",
     vendor: "Sourcegraph",
@@ -139,25 +180,69 @@ export const AGENTS = [
     name: "Antigravity",
     vendor: "Google",
     homepage: "https://antigravity.google",
-    interfaces: ["ide-extension"],
+    interfaces: ["cli", "ide-extension"],
     family: "google",
-    rootDir: ".agent",
+    rootDir: null,
+    detection: {
+      projectDirs: [".agents", ".agent"],
+      userDirs: ["~/.gemini/antigravity"],
+    },
     docs: [
       {
         label: "Antigravity documentation",
         url: "https://antigravity.google/docs",
       },
+      {
+        label: "Antigravity CLI overview",
+        url: "https://antigravity.google/docs/cli-overview",
+      },
     ],
     skills: {
       support: "standard",
+      notes:
+        "Antigravity 2.0 defaults to .agents/skills (project) and ~/.gemini/antigravity/skills (user); .agent/skills remains supported for backward compatibility.\n",
       sources: ["https://antigravity.google/docs/skills"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".agent/skills",
+      directory: ".agents/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        'Custom slash commands ("workflows") are Markdown files under .agents/workflows (project) or ~/.gemini/antigravity/global_workflows (user). Recorded as bridged because commands have no industry spec standard.\n',
+      sources: ["https://antigravity.google/docs/rules-workflows"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/workflows",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://antigravity.google/docs/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.gemini/antigravity/mcp_config.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
     },
     instructions: {
       support: "standard",
-      sources: ["https://antigravity.google/docs/project-context"],
+      sources: [
+        "https://antigravity.google/docs/project-context",
+        "https://antigravity.google/docs/rules-workflows",
+      ],
       lastVerified: "2026-05-20",
       scopes: ["project"],
       kind: "agents-md",
@@ -166,10 +251,12 @@ export const AGENTS = [
     },
     rules: {
       support: "bridged",
-      sources: ["https://antigravity.google/docs/rules"],
+      notes:
+        "Antigravity 2.0 reads workspace rules from .agents/rules (project). Global rules live at ~/.gemini/GEMINI.md and may collide with Gemini CLI's global context file.\n",
+      sources: ["https://antigravity.google/docs/rules-workflows"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".agent/rules",
+      directory: ".agents/rules",
     },
   },
   {
@@ -393,6 +480,31 @@ export const AGENTS = [
     },
   },
   {
+    id: "codearts-agent",
+    name: "CodeArts Agent",
+    vendor: "Huawei Cloud",
+    homepage: "https://www.huaweicloud.com/intl/en-us/product/codearts.html",
+    interfaces: ["cli"],
+    rootDir: ".codeartsdoer",
+    detection: {
+      projectDirs: [".codeartsdoer"],
+      userDirs: ["~/.codeartsdoer"],
+    },
+    docs: [
+      {
+        label: "Huawei CodeArts",
+        url: "https://www.huaweicloud.com/intl/en-us/product/codearts.html",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codeartsdoer/skills",
+    },
+  },
+  {
     id: "codebuddy",
     name: "CodeBuddy",
     vendor: "Tencent Cloud",
@@ -432,6 +544,56 @@ export const AGENTS = [
           note: "Bypasses CodeBuddy Code permission prompts.",
         },
       ],
+    },
+  },
+  {
+    id: "codemaker",
+    name: "Codemaker",
+    vendor: "CodeMaker AI",
+    homepage: "https://codemaker.ai",
+    interfaces: ["cli", "ide-extension"],
+    rootDir: ".codemaker",
+    detection: {
+      projectDirs: [".codemaker"],
+      userDirs: ["~/.codemaker"],
+    },
+    docs: [
+      {
+        label: "Codemaker documentation",
+        url: "https://docs.codemaker.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codemaker/skills",
+    },
+  },
+  {
+    id: "codestudio",
+    name: "Code Studio",
+    vendor: "Code Studio",
+    homepage: "https://sfcodestudio.com",
+    interfaces: ["ide-extension"],
+    rootDir: ".codestudio",
+    detection: {
+      projectDirs: [".codestudio"],
+      userDirs: ["~/.codestudio"],
+    },
+    docs: [
+      {
+        label: "Code Studio service terms",
+        url: "https://downloads.sfcodestudio.com/sla/v1.0/code_studio_sla.pdf",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codestudio/skills",
     },
   },
   {
@@ -713,6 +875,34 @@ export const AGENTS = [
     },
   },
   {
+    id: "cortex",
+    name: "Cortex Code",
+    vendor: "Snowflake",
+    homepage: "https://www.snowflake.com/en/product/features/cortex-code",
+    interfaces: ["cli"],
+    rootDir: ".cortex",
+    detection: {
+      projectDirs: [".cortex"],
+      userDirs: ["~/.snowflake/cortex"],
+    },
+    docs: [
+      {
+        label: "Cortex Code CLI extensibility",
+        url: "https://docs.snowflake.com/en/user-guide/cortex-code/extensibility",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: [
+        "https://docs.snowflake.com/en/user-guide/cortex-code/extensibility",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".cortex/skills",
+    },
+  },
+  {
     id: "crush",
     name: "Crush",
     vendor: "Charm",
@@ -966,6 +1156,98 @@ export const AGENTS = [
     },
   },
   {
+    id: "deepagents",
+    name: "Deep Agents",
+    vendor: "LangChain",
+    homepage: "https://docs.langchain.com/oss/python/deepagents/overview",
+    interfaces: ["cli"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.deepagents"],
+    },
+    docs: [
+      {
+        label: "Deep Agents skills documentation",
+        url: "https://docs.langchain.com/oss/python/deepagents/skills",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Deep Agents stores user skills under ~/.deepagents/<agent>/skills. The vercel-labs agent map uses the default agent path ~/.deepagents/agent/skills and the universal project directory.\n",
+      sources: [
+        "https://docs.langchain.com/oss/python/deepagents/skills",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+  },
+  {
+    id: "devin",
+    name: "Devin for Terminal",
+    vendor: "Cognition",
+    homepage: "https://devin.ai",
+    interfaces: ["cli"],
+    rootDir: ".devin",
+    detection: {
+      projectDirs: [".devin"],
+      userDirs: ["$XDG_CONFIG_HOME/devin"],
+    },
+    docs: [
+      {
+        label: "Devin for Terminal skills",
+        url: "https://cli.devin.ai/docs/extensibility/skills/overview",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Devin also reads universal .agents/skills locations; AXM targets the native .devin/skills project path and XDG user path.\n",
+      sources: [
+        "https://cli.devin.ai/docs/extensibility/skills/overview",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".devin/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://cli.devin.ai/docs/extensibility/rules-agents-md"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "dexto",
+    name: "Dexto",
+    vendor: "Dexto",
+    homepage: "https://www.dexto.ai",
+    interfaces: ["cli"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.dexto"],
+    },
+    docs: [
+      {
+        label: "Dexto",
+        url: "https://www.dexto.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+  },
+  {
     id: "droid",
     name: "Droid",
     vendor: "Factory",
@@ -1005,6 +1287,69 @@ export const AGENTS = [
     },
   },
   {
+    id: "firebender",
+    name: "Firebender",
+    vendor: "Firebender",
+    homepage: "https://firebender.com",
+    interfaces: ["ide-extension"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.firebender"],
+    },
+    docs: [
+      {
+        label: "Firebender documentation",
+        url: "https://docs.firebender.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+  },
+  {
+    id: "forgecode",
+    name: "ForgeCode",
+    vendor: "Tailcall",
+    homepage: "https://forgecode.dev",
+    interfaces: ["cli"],
+    rootDir: ".forge",
+    detection: {
+      projectDirs: [".forge"],
+      userDirs: ["~/.forge", "~/forge"],
+    },
+    docs: [
+      {
+        label: "ForgeCode skills documentation",
+        url: "https://forgecode.dev/docs/skills/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "ForgeCode also reads shared ~/.agents/skills and documents ~/forge/skills as its global skills path; ~/.forge is retained as an install marker from vercel-labs/skills.\n",
+      sources: [
+        "https://forgecode.dev/docs/skills/",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".forge/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://forgecode.dev/docs/agents-md/"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+  },
+  {
     id: "gemini-cli",
     name: "Gemini CLI",
     vendor: "Google",
@@ -1016,6 +1361,10 @@ export const AGENTS = [
       {
         label: "Gemini CLI documentation",
         url: "https://github.com/google-gemini/gemini-cli/tree/main/docs",
+      },
+      {
+        label: "Transitioning Gemini CLI to Antigravity CLI",
+        url: "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
       },
     ],
     skills: {
@@ -1075,8 +1424,13 @@ export const AGENTS = [
     },
     instructions: {
       support: "bridged",
-      sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md"],
-      lastVerified: "2026-05-16",
+      notes:
+        "Consumer access (free, AI Pro, AI Ultra) ends 2026-06-18; Antigravity CLI succeeds Gemini CLI for those tiers. Enterprise customers on paid API keys retain access.\n",
+      sources: [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md",
+        "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
+      ],
+      lastVerified: "2026-05-20",
       scopes: ["user", "project"],
       kind: "own-file",
       files: ["GEMINI.md"],
@@ -2835,6 +3189,75 @@ export const AGENTS = [
     },
   },
   {
+    id: "rovodev",
+    name: "Rovo Dev",
+    vendor: "Atlassian",
+    homepage: "https://www.atlassian.com/software/rovo-dev",
+    interfaces: ["cli"],
+    rootDir: ".rovodev",
+    detection: {
+      projectDirs: [".rovodev"],
+      userDirs: ["~/.rovodev"],
+    },
+    docs: [
+      {
+        label: "Rovo Dev CLI skills",
+        url: "https://support.atlassian.com/rovo/docs/extend-rovo-dev-cli-with-agent-skills/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes: "Rovo Dev also reads universal .agents/skills in both project and user scopes.\n",
+      sources: [
+        "https://support.atlassian.com/rovo/docs/extend-rovo-dev-cli-with-agent-skills/",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".rovodev/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://support.atlassian.com/rovo/docs/use-subagents-in-rovo-dev-cli/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".rovodev/agents",
+      layout: "directory",
+    },
+  },
+  {
+    id: "tabnine-cli",
+    name: "Tabnine CLI",
+    vendor: "Tabnine",
+    homepage: "https://www.tabnine.com/platform-cli/",
+    interfaces: ["cli"],
+    rootDir: ".tabnine",
+    detection: {
+      projectDirs: [".tabnine"],
+      userDirs: ["~/.tabnine"],
+    },
+    docs: [
+      {
+        label: "Tabnine CLI",
+        url: "https://www.tabnine.com/platform-cli/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".tabnine/agent/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/commands"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".tabnine/agent/commands",
+    },
+  },
+  {
     id: "trae-cn",
     name: "Trae CN",
     vendor: "ByteDance",
@@ -2962,6 +3385,30 @@ export const AGENTS = [
       lastVerified: "2026-05-20",
       scopes: ["project"],
       directory: ".trae/rules",
+    },
+  },
+  {
+    id: "warp",
+    name: "Warp",
+    vendor: "Warp",
+    homepage: "https://www.warp.dev",
+    interfaces: ["cli"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.warp"],
+    },
+    docs: [
+      {
+        label: "Warp",
+        url: "https://www.warp.dev",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
     },
   },
   {
@@ -3184,6 +3631,34 @@ export const AGENTS_BY_ID = {
       nestedDiscovery: true,
     },
   },
+  "aider-desk": {
+    id: "aider-desk",
+    name: "AiderDesk",
+    vendor: "HOTOVO",
+    homepage: "https://github.com/hotovo/aider-desk",
+    interfaces: ["ide-extension"],
+    rootDir: ".aider-desk",
+    detection: {
+      projectDirs: [".aider-desk"],
+      userDirs: ["~/.aider-desk"],
+    },
+    docs: [
+      {
+        label: "AiderDesk repository",
+        url: "https://github.com/hotovo/aider-desk",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: [
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+        "https://github.com/hotovo/aider-desk/issues/568",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".aider-desk/skills",
+    },
+  },
   amp: {
     id: "amp",
     name: "Amp",
@@ -3228,25 +3703,69 @@ export const AGENTS_BY_ID = {
     name: "Antigravity",
     vendor: "Google",
     homepage: "https://antigravity.google",
-    interfaces: ["ide-extension"],
+    interfaces: ["cli", "ide-extension"],
     family: "google",
-    rootDir: ".agent",
+    rootDir: null,
+    detection: {
+      projectDirs: [".agents", ".agent"],
+      userDirs: ["~/.gemini/antigravity"],
+    },
     docs: [
       {
         label: "Antigravity documentation",
         url: "https://antigravity.google/docs",
       },
+      {
+        label: "Antigravity CLI overview",
+        url: "https://antigravity.google/docs/cli-overview",
+      },
     ],
     skills: {
       support: "standard",
+      notes:
+        "Antigravity 2.0 defaults to .agents/skills (project) and ~/.gemini/antigravity/skills (user); .agent/skills remains supported for backward compatibility.\n",
       sources: ["https://antigravity.google/docs/skills"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".agent/skills",
+      directory: ".agents/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        'Custom slash commands ("workflows") are Markdown files under .agents/workflows (project) or ~/.gemini/antigravity/global_workflows (user). Recorded as bridged because commands have no industry spec standard.\n',
+      sources: ["https://antigravity.google/docs/rules-workflows"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/workflows",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://antigravity.google/docs/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.gemini/antigravity/mcp_config.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
     },
     instructions: {
       support: "standard",
-      sources: ["https://antigravity.google/docs/project-context"],
+      sources: [
+        "https://antigravity.google/docs/project-context",
+        "https://antigravity.google/docs/rules-workflows",
+      ],
       lastVerified: "2026-05-20",
       scopes: ["project"],
       kind: "agents-md",
@@ -3255,10 +3774,12 @@ export const AGENTS_BY_ID = {
     },
     rules: {
       support: "bridged",
-      sources: ["https://antigravity.google/docs/rules"],
+      notes:
+        "Antigravity 2.0 reads workspace rules from .agents/rules (project). Global rules live at ~/.gemini/GEMINI.md and may collide with Gemini CLI's global context file.\n",
+      sources: ["https://antigravity.google/docs/rules-workflows"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".agent/rules",
+      directory: ".agents/rules",
     },
   },
   augment: {
@@ -3481,6 +4002,31 @@ export const AGENTS_BY_ID = {
       directory: ".clinerules",
     },
   },
+  "codearts-agent": {
+    id: "codearts-agent",
+    name: "CodeArts Agent",
+    vendor: "Huawei Cloud",
+    homepage: "https://www.huaweicloud.com/intl/en-us/product/codearts.html",
+    interfaces: ["cli"],
+    rootDir: ".codeartsdoer",
+    detection: {
+      projectDirs: [".codeartsdoer"],
+      userDirs: ["~/.codeartsdoer"],
+    },
+    docs: [
+      {
+        label: "Huawei CodeArts",
+        url: "https://www.huaweicloud.com/intl/en-us/product/codearts.html",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codeartsdoer/skills",
+    },
+  },
   codebuddy: {
     id: "codebuddy",
     name: "CodeBuddy",
@@ -3521,6 +4067,56 @@ export const AGENTS_BY_ID = {
           note: "Bypasses CodeBuddy Code permission prompts.",
         },
       ],
+    },
+  },
+  codemaker: {
+    id: "codemaker",
+    name: "Codemaker",
+    vendor: "CodeMaker AI",
+    homepage: "https://codemaker.ai",
+    interfaces: ["cli", "ide-extension"],
+    rootDir: ".codemaker",
+    detection: {
+      projectDirs: [".codemaker"],
+      userDirs: ["~/.codemaker"],
+    },
+    docs: [
+      {
+        label: "Codemaker documentation",
+        url: "https://docs.codemaker.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codemaker/skills",
+    },
+  },
+  codestudio: {
+    id: "codestudio",
+    name: "Code Studio",
+    vendor: "Code Studio",
+    homepage: "https://sfcodestudio.com",
+    interfaces: ["ide-extension"],
+    rootDir: ".codestudio",
+    detection: {
+      projectDirs: [".codestudio"],
+      userDirs: ["~/.codestudio"],
+    },
+    docs: [
+      {
+        label: "Code Studio service terms",
+        url: "https://downloads.sfcodestudio.com/sla/v1.0/code_studio_sla.pdf",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codestudio/skills",
     },
   },
   codex: {
@@ -3801,6 +4397,34 @@ export const AGENTS_BY_ID = {
       directory: ".continue/rules",
     },
   },
+  cortex: {
+    id: "cortex",
+    name: "Cortex Code",
+    vendor: "Snowflake",
+    homepage: "https://www.snowflake.com/en/product/features/cortex-code",
+    interfaces: ["cli"],
+    rootDir: ".cortex",
+    detection: {
+      projectDirs: [".cortex"],
+      userDirs: ["~/.snowflake/cortex"],
+    },
+    docs: [
+      {
+        label: "Cortex Code CLI extensibility",
+        url: "https://docs.snowflake.com/en/user-guide/cortex-code/extensibility",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: [
+        "https://docs.snowflake.com/en/user-guide/cortex-code/extensibility",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".cortex/skills",
+    },
+  },
   crush: {
     id: "crush",
     name: "Crush",
@@ -4054,6 +4678,98 @@ export const AGENTS_BY_ID = {
       },
     },
   },
+  deepagents: {
+    id: "deepagents",
+    name: "Deep Agents",
+    vendor: "LangChain",
+    homepage: "https://docs.langchain.com/oss/python/deepagents/overview",
+    interfaces: ["cli"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.deepagents"],
+    },
+    docs: [
+      {
+        label: "Deep Agents skills documentation",
+        url: "https://docs.langchain.com/oss/python/deepagents/skills",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Deep Agents stores user skills under ~/.deepagents/<agent>/skills. The vercel-labs agent map uses the default agent path ~/.deepagents/agent/skills and the universal project directory.\n",
+      sources: [
+        "https://docs.langchain.com/oss/python/deepagents/skills",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+  },
+  devin: {
+    id: "devin",
+    name: "Devin for Terminal",
+    vendor: "Cognition",
+    homepage: "https://devin.ai",
+    interfaces: ["cli"],
+    rootDir: ".devin",
+    detection: {
+      projectDirs: [".devin"],
+      userDirs: ["$XDG_CONFIG_HOME/devin"],
+    },
+    docs: [
+      {
+        label: "Devin for Terminal skills",
+        url: "https://cli.devin.ai/docs/extensibility/skills/overview",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Devin also reads universal .agents/skills locations; AXM targets the native .devin/skills project path and XDG user path.\n",
+      sources: [
+        "https://cli.devin.ai/docs/extensibility/skills/overview",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".devin/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://cli.devin.ai/docs/extensibility/rules-agents-md"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  dexto: {
+    id: "dexto",
+    name: "Dexto",
+    vendor: "Dexto",
+    homepage: "https://www.dexto.ai",
+    interfaces: ["cli"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.dexto"],
+    },
+    docs: [
+      {
+        label: "Dexto",
+        url: "https://www.dexto.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+  },
   droid: {
     id: "droid",
     name: "Droid",
@@ -4093,6 +4809,69 @@ export const AGENTS_BY_ID = {
       nestedDiscovery: true,
     },
   },
+  firebender: {
+    id: "firebender",
+    name: "Firebender",
+    vendor: "Firebender",
+    homepage: "https://firebender.com",
+    interfaces: ["ide-extension"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.firebender"],
+    },
+    docs: [
+      {
+        label: "Firebender documentation",
+        url: "https://docs.firebender.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+  },
+  forgecode: {
+    id: "forgecode",
+    name: "ForgeCode",
+    vendor: "Tailcall",
+    homepage: "https://forgecode.dev",
+    interfaces: ["cli"],
+    rootDir: ".forge",
+    detection: {
+      projectDirs: [".forge"],
+      userDirs: ["~/.forge", "~/forge"],
+    },
+    docs: [
+      {
+        label: "ForgeCode skills documentation",
+        url: "https://forgecode.dev/docs/skills/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "ForgeCode also reads shared ~/.agents/skills and documents ~/forge/skills as its global skills path; ~/.forge is retained as an install marker from vercel-labs/skills.\n",
+      sources: [
+        "https://forgecode.dev/docs/skills/",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".forge/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://forgecode.dev/docs/agents-md/"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+  },
   "gemini-cli": {
     id: "gemini-cli",
     name: "Gemini CLI",
@@ -4105,6 +4884,10 @@ export const AGENTS_BY_ID = {
       {
         label: "Gemini CLI documentation",
         url: "https://github.com/google-gemini/gemini-cli/tree/main/docs",
+      },
+      {
+        label: "Transitioning Gemini CLI to Antigravity CLI",
+        url: "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
       },
     ],
     skills: {
@@ -4164,8 +4947,13 @@ export const AGENTS_BY_ID = {
     },
     instructions: {
       support: "bridged",
-      sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md"],
-      lastVerified: "2026-05-16",
+      notes:
+        "Consumer access (free, AI Pro, AI Ultra) ends 2026-06-18; Antigravity CLI succeeds Gemini CLI for those tiers. Enterprise customers on paid API keys retain access.\n",
+      sources: [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md",
+        "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
+      ],
+      lastVerified: "2026-05-20",
       scopes: ["user", "project"],
       kind: "own-file",
       files: ["GEMINI.md"],
@@ -5923,6 +6711,75 @@ export const AGENTS_BY_ID = {
       directory: ".roo/rules",
     },
   },
+  rovodev: {
+    id: "rovodev",
+    name: "Rovo Dev",
+    vendor: "Atlassian",
+    homepage: "https://www.atlassian.com/software/rovo-dev",
+    interfaces: ["cli"],
+    rootDir: ".rovodev",
+    detection: {
+      projectDirs: [".rovodev"],
+      userDirs: ["~/.rovodev"],
+    },
+    docs: [
+      {
+        label: "Rovo Dev CLI skills",
+        url: "https://support.atlassian.com/rovo/docs/extend-rovo-dev-cli-with-agent-skills/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes: "Rovo Dev also reads universal .agents/skills in both project and user scopes.\n",
+      sources: [
+        "https://support.atlassian.com/rovo/docs/extend-rovo-dev-cli-with-agent-skills/",
+        "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".rovodev/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://support.atlassian.com/rovo/docs/use-subagents-in-rovo-dev-cli/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".rovodev/agents",
+      layout: "directory",
+    },
+  },
+  "tabnine-cli": {
+    id: "tabnine-cli",
+    name: "Tabnine CLI",
+    vendor: "Tabnine",
+    homepage: "https://www.tabnine.com/platform-cli/",
+    interfaces: ["cli"],
+    rootDir: ".tabnine",
+    detection: {
+      projectDirs: [".tabnine"],
+      userDirs: ["~/.tabnine"],
+    },
+    docs: [
+      {
+        label: "Tabnine CLI",
+        url: "https://www.tabnine.com/platform-cli/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".tabnine/agent/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/commands"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".tabnine/agent/commands",
+    },
+  },
   "trae-cn": {
     id: "trae-cn",
     name: "Trae CN",
@@ -6051,6 +6908,30 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-20",
       scopes: ["project"],
       directory: ".trae/rules",
+    },
+  },
+  warp: {
+    id: "warp",
+    name: "Warp",
+    vendor: "Warp",
+    homepage: "https://www.warp.dev",
+    interfaces: ["cli"],
+    rootDir: null,
+    detection: {
+      userDirs: ["~/.warp"],
+    },
+    docs: [
+      {
+        label: "Warp",
+        url: "https://www.warp.dev",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
     },
   },
   windsurf: {

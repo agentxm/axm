@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: codemaker
+name: Codemaker
+vendor: CodeMaker AI
+homepage: https://codemaker.ai
+interfaces:
+  - cli
+  - ide-extension
+rootDir: .codemaker
+detection:
+  projectDirs:
+    - .codemaker
+  userDirs:
+    - ~/.codemaker
+docs:
+  - label: Codemaker documentation
+    url: https://docs.codemaker.ai
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  directory: .codemaker/skills
+  sources:
+    - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+  lastVerified: 2026-05-20

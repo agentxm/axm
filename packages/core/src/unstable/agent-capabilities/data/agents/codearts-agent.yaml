@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: codearts-agent
+name: CodeArts Agent
+vendor: Huawei Cloud
+homepage: https://www.huaweicloud.com/intl/en-us/product/codearts.html
+interfaces:
+  - cli
+rootDir: .codeartsdoer
+detection:
+  projectDirs:
+    - .codeartsdoer
+  userDirs:
+    - ~/.codeartsdoer
+docs:
+  - label: Huawei CodeArts
+    url: https://www.huaweicloud.com/intl/en-us/product/codearts.html
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  directory: .codeartsdoer/skills
+  sources:
+    - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+  lastVerified: 2026-05-20

@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
 import { UNIVERSAL_SKILLS_DIR_SEGMENT } from "../extensions/universal-skills-dir.js";
-import { getHome } from "./constants.js";
+import { getConfigHome, getHome } from "./constants.js";
 import { AGENTS } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
 
@@ -47,13 +47,52 @@ const detectionSegments = (agent: AgentDescriptor): ReadonlyArray<string> =>
     ),
   );
 
-const detectAgentInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
+const projectDetectionDirs = (agent: AgentDescriptor): ReadonlyArray<string> =>
+  agent.detection?.projectDirs ?? detectionSegments(agent);
+
+const detectPathsInRootRaw = (paths: ReadonlyArray<string>, rootDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const p = yield* Path.Path;
     const results = yield* Effect.all(
-      detectionSegments(agent).map((segment) => fs.exists(p.join(rootDir, segment))),
-      { concurrency: "unbounded" },
+      paths.map((dir) => fs.exists(p.join(rootDir, dir))),
+      {
+        concurrency: "unbounded",
+      },
+    );
+
+    return results.some((exists) => exists);
+  });
+
+const detectAgentInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
+  detectPathsInRootRaw(projectDetectionDirs(agent), rootDir);
+
+const resolveUserDetectionPath = (marker: string) =>
+  Effect.gen(function* () {
+    const p = yield* Path.Path;
+    if (marker === "$XDG_CONFIG_HOME") return yield* getConfigHome;
+    if (marker.startsWith("$XDG_CONFIG_HOME/")) {
+      const configHome = yield* getConfigHome;
+      return p.join(configHome, marker.slice("$XDG_CONFIG_HOME/".length));
+    }
+
+    const home = yield* getHome;
+    if (marker === "~") return home;
+    if (marker.startsWith("~/")) return p.join(home, marker.slice("~/".length));
+    return p.join(home, marker);
+  });
+
+const detectUserPathsRaw = (paths: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const resolvedPaths = yield* Effect.all(paths.map(resolveUserDetectionPath), {
+      concurrency: "unbounded",
+    });
+    const results = yield* Effect.all(
+      resolvedPaths.map((path) => fs.exists(path)),
+      {
+        concurrency: "unbounded",
+      },
     );
 
     return results.some((exists) => exists);
@@ -85,9 +124,13 @@ export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
 export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
     const home = yield* getHome;
+    const userDirs = agent.detection?.userDirs;
 
     const results = yield* Effect.all(
-      [detectAgentInRootRaw(agent, projectDir), detectAgentInRootRaw(agent, home)],
+      [
+        detectAgentInRootRaw(agent, projectDir),
+        userDirs === undefined ? detectAgentInRootRaw(agent, home) : detectUserPathsRaw(userDirs),
+      ],
       { concurrency: "unbounded" },
     );
 

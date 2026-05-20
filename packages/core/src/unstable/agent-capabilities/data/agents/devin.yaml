@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: devin
+name: Devin for Terminal
+vendor: Cognition
+homepage: https://devin.ai
+interfaces:
+  - cli
+rootDir: .devin
+detection:
+  projectDirs:
+    - .devin
+  userDirs:
+    - $XDG_CONFIG_HOME/devin
+docs:
+  - label: Devin for Terminal skills
+    url: https://cli.devin.ai/docs/extensibility/skills/overview
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  directory: .devin/skills
+  notes: >
+    Devin also reads universal .agents/skills locations; AXM targets the native .devin/skills
+    project path and XDG user path.
+  sources:
+    - https://cli.devin.ai/docs/extensibility/skills/overview
+    - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+  lastVerified: 2026-05-20
+instructions:
+  support: standard
+  scopes:
+    - user
+    - project
+  files:
+    - AGENTS.md
+  nestedDiscovery: true
+  sources:
+    - https://cli.devin.ai/docs/extensibility/rules-agents-md
+  lastVerified: 2026-05-20
+  kind: agents-md

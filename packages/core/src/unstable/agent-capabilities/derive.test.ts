@@ -84,6 +84,7 @@ describe("agent capability derivation", () => {
         (agent) => agent.id,
       ),
     ).toEqual([
+      "antigravity",
       "claude-code",
       "codex",
       "crush",
@@ -181,6 +182,21 @@ describe("agent capability derivation", () => {
 
   it("derives omitted rootDir from the skills directory first segment", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
+  });
+
+  it("derives explicit detection markers", () => {
+    expect(
+      deriveAgentDescriptor({
+        ...baseAgent,
+        detection: {
+          projectDirs: [".sample"],
+          userDirs: ["~/.sample"],
+        },
+      }).detection,
+    ).toEqual({
+      projectDirs: [".sample"],
+      userDirs: ["~/.sample"],
+    });
   });
 
   it("derives agents-md and rules-dir instruction descriptors", () => {

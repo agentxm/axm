@@ -114,6 +114,24 @@ export const DocLinkSchema = Schema.Struct({
 export type DocLink = Schema.Schema.Type<typeof DocLinkSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const DetectionSchema = Schema.Struct({
+  projectDirs: Schema.optional(
+    Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
+  ),
+  userDirs: Schema.optional(
+    Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
+  ),
+}).annotate({
+  identifier: "Detection",
+  title: "Detection",
+  description:
+    "Explicit project and user-scope marker directories used to detect an installed agent.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type Detection = Schema.Schema.Type<typeof DetectionSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export const LastVerifiedDateSchema = Schema.NonEmptyString.pipe(
   Schema.check(
     Schema.isPattern(ISO_DATE_PATTERN, {
@@ -587,6 +605,7 @@ export const AgentSchema = Schema.Struct({
   ),
   family: Schema.optional(Schema.NonEmptyString),
   rootDir: Schema.optional(Schema.NullOr(Schema.NonEmptyString)),
+  detection: Schema.optional(DetectionSchema),
   docs: Schema.optional(Schema.Array(DocLinkSchema)),
   skills: Schema.optional(SkillsCapabilitySchema),
   commands: Schema.optional(CommandsCapabilitySchema),

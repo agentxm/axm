@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: aider-desk
+name: AiderDesk
+vendor: HOTOVO
+homepage: https://github.com/hotovo/aider-desk
+interfaces:
+  - ide-extension
+rootDir: .aider-desk
+detection:
+  projectDirs:
+    - .aider-desk
+  userDirs:
+    - ~/.aider-desk
+docs:
+  - label: AiderDesk repository
+    url: https://github.com/hotovo/aider-desk
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  directory: .aider-desk/skills
+  sources:
+    - https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+    - https://github.com/hotovo/aider-desk/issues/568
+  lastVerified: 2026-05-20

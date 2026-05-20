@@ -314,6 +314,45 @@ describe("detectAgent", () => {
       }),
     );
 
+    it.effect("detects universal-skills agents with explicit user markers", () =>
+      Effect.gen(function* () {
+        const syntheticAgent: AgentDescriptor = {
+          id: "amp",
+          name: "Amp (synthetic)",
+          skills: { dir: ".agents/skills" },
+          detection: {
+            userDirs: ["~/.amp"],
+          },
+        };
+        const markerPath = path.join(home, ".amp");
+        const existingPaths = new Set([markerPath]);
+        const result = yield* detectAgent(syntheticAgent, testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("expands XDG config home in explicit user markers", () =>
+      Effect.gen(function* () {
+        const syntheticAgent: AgentDescriptor = {
+          id: "amp",
+          name: "Amp (synthetic)",
+          skills: { dir: ".agents/skills" },
+          detection: {
+            userDirs: ["$XDG_CONFIG_HOME/devin"],
+          },
+        };
+        const configHome = process.env["XDG_CONFIG_HOME"] ?? path.join(home, ".config");
+        const markerPath = path.join(configHome, "devin");
+        const existingPaths = new Set([markerPath]);
+        const result = yield* detectAgent(syntheticAgent, testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
     it.effect("detects agent with non-universal skills dir normally", () =>
       Effect.gen(function* () {
         // claude-code has skills.dir: ".claude/skills" — not the universal dir.

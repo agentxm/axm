@@ -44,7 +44,11 @@ import { LearnMore, formatLearnMore } from "../formatter.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
-import { AXM_SKILL_JSON, AXM_SKILL_MD, AXM_SKILL_VERSION } from "./setup/bundled-axm-skill.js";
+import {
+  AXM_SKILL_JSON,
+  AXM_SKILL_MD,
+  AXM_SKILL_VERSION,
+} from "../__generated__/bundled-axm-skill.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,

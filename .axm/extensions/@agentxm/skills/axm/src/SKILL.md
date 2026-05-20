@@ -1,7 +1,7 @@
 ---
 name: axm
 description: |
-  AXM - Agent Extension Manager: Use when performing any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover/etc.) involving agent skills, subagents, and slash commands/stored prompts
+  AXM - Agent Extension Manager: Use when performing any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover/etc.) involving agent skills, subagents, slash commands/stored prompts, MCP servers, context files, or packs
 invocable: true
 ---
 
@@ -11,51 +11,78 @@ invocable: true
 
 **MUST follow these rules:**
 
-1. **Choose right output mode**: `--json` for full JSON
+1. **Choose right output mode**: `--json` for full JSON.
 2. **Gate mutating CLI use**: AXM can copy, symlink, and delete AXM-managed files. Before running mutating AXM commands, verify:
    - User explicitly chose to trust AXM for filesystem mutations.
    - Agent sandbox can write every needed target. Codex: use `--sandbox workspace-write` plus `--add-dir <dir>` for extra roots; `read-only` needs explicit escalation. Claude Code: enable workspace/user-dir write permissions.
-   - If trust or permissions are missing, do not run AXM for mutating operations. Tell the user the exact `axm ...` command to run after they configure permissions. Offer option to run CI command via agent prompt if you have the ability to do so with sufficient consent from the user.
-3. **Resolve lint with help topics**: On any `axm lint` finding, read `axm help basic-usage` and the subject topic before acting: `axm help skills` for `skill/*` and `workspace/skills-managed`, `axm help packs` for `pack/*`, and `axm help settings` for workspace/config findings.
-4. **Do not auto-resolve unmanaged skills**: For `workspace/skills-managed`, group related unmanaged skills, then present adopt/fork/ignore/prune choices with a recommended option using the signals in `axm help skills`.
+   - If trust or permissions are missing, do not run AXM for mutating operations. Tell the user the exact `axm ...` command to run after they configure permissions. Offer to run a CI-style command via an agent prompt only with sufficient consent.
+3. **Resolve lint with help topics**: On any `axm lint` finding, read `axm help basic-usage` and the subject topic before acting:
+   - `skill/*` and `workspace/skills-managed` → `axm help skills`
+   - `subagent/*` → `axm help subagents`
+   - `command/*` → `axm help commands`
+   - `mcp-server/*` → `axm help mcp-server-schema`
+   - `context-files/*` → `axm help context-files`
+   - `pack/*` → `axm help packs`
+   - workspace/config findings → `axm help settings`
+4. **Do not auto-resolve unmanaged extensions**: For `workspace/<plural-type>-managed` findings (e.g., `workspace/skills-managed`), group related unmanaged items, then present adopt/fork/ignore/prune choices with a recommended option using the signals in the topic help.
 
 ### CLI Introspection
 
-Navigate unfamiliar commands with `--help`.
-
-## Getting Help
-
-Get help on a topic `axm help [topic]` if you're unsure how to perform a task or encounter any issues you're not clear on how to resolve.
+Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, commands, mcp-server-schema, context-files, packs, settings, exit-codes, etc.).
 
 ## Quick Reference
 
-Append `--json` to any command for machine-readable output. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`);
+`--json` for machine-readable output. `--scope user` targets `$HOME/.axm` instead of the project workspace. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
-| Task                                          | Command                                            |
-| --------------------------------------------- | -------------------------------------------------- |
-| Create a new skill                            | `axm skills new <name>`                            |
-| Create a new subagent                         | `axm subagents new <name>`                         |
-| Create a new command                          | `axm commands new <name>`                          |
-| Create a new extension pack                   | `axm packs new <name>`                             |
-| List installed skills                         | `axm skills list`                                  |
-| List installed subagents                      | `axm subagents list`                               |
-| List installed commands                       | `axm commands list`                                |
-| List configured and detected coding agents    | `axm agents list`                                  |
-| Add / remove a coding agent harness           | `axm agents <add\|remove> <id>`                    |
-| Disable a skill / subagent / command          | `axm <kind> disable <name>`                        |
-| Enable a skill / subagent / command           | `axm <kind> enable <name>`                         |
-| Publish a skill / subagent / command / pack   | `axm <kind> publish <name>`                        |
-| Bump a managed extension's version            | `axm <kind> version <name> <patch\|minor\|major>`  |
-| Add an extension to a pack                    | `axm packs add <pack> <extension>`                 |
-| Remove an extension from a pack               | `axm packs remove <pack> <extension>`              |
-| Unpack a pack into individual entries         | `axm packs unpack <pack>`                          |
-| Install an extension from the registry        | `axm install <fqn>`                                |
-| Reinstall all configured extensions           | `axm install`                                      |
-| Uninstall an extension                        | `axm uninstall <fqn>`                              |
-| Update all extensions to latest               | `axm update`                                       |
-| Update a single extension                     | `axm update <fqn>`                                 |
-| Preview an install / uninstall / update       | `axm <install\|uninstall\|update> [fqn] --preview` |
-| Materialize workspace files from the lockfile | `axm sync`                                         |
-| Show extensions with available updates        | `axm outdated`                                     |
-| View published extension metadata             | `axm view <fqn>`                                   |
-| Reconcile workspace configuration             | `axm lint --fix`                                   |
+`<type>` ∈ {`skills`, `subagents`, `commands`, `mcp-servers`, `context-files`, `packs`}.
+
+### Workspace setup & discovery
+
+| Task                                          | Command                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| Detect agents and create `.axm/settings.json` | `axm setup`                                                              |
+| Find extensions for the current project       | `axm discover`                                                           |
+| Add / remove a coding agent harness           | `axm agents <add\|remove> <id>`                                          |
+| Inspect / sync agent instruction files        | `axm agents instructions [status\|sync\|doctor\|adopt\|enable\|disable]` |
+| Update AXM itself                             | `axm upgrade`                                                            |
+
+### Creating & publishing extensions
+
+| Task                                  | Command                                   |
+| ------------------------------------- | ----------------------------------------- |
+| Scaffold a new extension              | `axm <type> new <name>`                   |
+| Add an extension to a pack            | `axm packs add <pack> <extension>`        |
+| Remove an extension from a pack       | `axm packs remove <pack> <extension>`     |
+| Unpack a pack into individual entries | `axm packs unpack <pack>`                 |
+| Publish an extension                  | `axm <type> publish <name>`               |
+| Bump a managed extension's version    | `axm version <fqn> <patch\|minor\|major>` |
+| Set an exact version                  | `axm version <fqn> set <x.y.z>`           |
+
+### Managing installed extensions
+
+| Task                                   | Command                               |
+| -------------------------------------- | ------------------------------------- |
+| List installed extensions of a type    | `axm <type> list`                     |
+| Disable / enable an extension          | `axm <type> <disable\|enable> <name>` |
+| Install (omit FQN to reinstall all)    | `axm install [<fqn>]`                 |
+| Uninstall                              | `axm uninstall <fqn>`                 |
+| Update (omit FQN to update all)        | `axm update [<fqn>]`                  |
+| Show extensions with available updates | `axm outdated`                        |
+| View published extension metadata      | `axm view <fqn> [version\|versions]`  |
+
+### Workspace state
+
+| Task                                          | Command          |
+| --------------------------------------------- | ---------------- |
+| Materialize workspace files from the lockfile | `axm sync`       |
+| Lint workspace (read-only)                    | `axm lint`       |
+| Reconcile workspace configuration             | `axm lint --fix` |
+| Remove unmanaged extension artifacts          | `axm prune`      |
+
+### Curated lists & auth
+
+| Task                                    | Command                                                       |
+| --------------------------------------- | ------------------------------------------------------------- |
+| Browse / manage curated extension lists | `axm lists <list\|view\|create\|update\|delete\|add\|remove>` |
+| Sign in / out / identity                | `axm <login\|logout\|whoami>`                                 |
+| Manage granular access tokens           | `axm token [create\|list\|revoke]`                            |

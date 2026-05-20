@@ -8,9 +8,15 @@
   "targets": {
     "build": {
       "cache": true,
-      "dependsOn": ["generate-help-topics", "^build"],
+      "dependsOn": ["generate-help-topics", "generate-bundled-axm-skill", "^build"],
       "executor": "@nx/js:tsc",
-      "inputs": ["production", "{projectRoot}/help/topics/*.md", "^production"],
+      "inputs": [
+        "production",
+        "{projectRoot}/help/topics/*.md",
+        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/skill.json",
+        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/src/SKILL.md",
+        "^production"
+      ],
       "outputs": ["{projectRoot}/dist"],
       "options": {
         "main": "packages/cli/src/main.ts",
@@ -67,6 +73,20 @@
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "scripts/generate-help-topics.ts"],
+        "cwd": "packages/cli"
+      }
+    },
+    "generate-bundled-axm-skill": {
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
+        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/skill.json",
+        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/src/SKILL.md"
+      ],
+      "outputs": ["{projectRoot}/src/__generated__/bundled-axm-skill.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-bundled-axm-skill.ts"],
         "cwd": "packages/cli"
       }
     },

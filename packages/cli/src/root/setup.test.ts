@@ -18,7 +18,11 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
 import { expectDefined } from "../test-helpers.js";
-import { AXM_SKILL_JSON, AXM_SKILL_MD, AXM_SKILL_VERSION } from "./setup/bundled-axm-skill.js";
+import {
+  AXM_SKILL_JSON,
+  AXM_SKILL_MD,
+  AXM_SKILL_VERSION,
+} from "../__generated__/bundled-axm-skill.js";
 import { handleSetup, SetupSkillInstaller, SetupSkillInstallerLive } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));

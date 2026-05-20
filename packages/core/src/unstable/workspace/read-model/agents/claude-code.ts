@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/claude-code/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface ClaudeCodeNativeConfig {
@@ -15,5 +15,5 @@ export interface ClaudeCodeNativeConfig {
 
 export const agentModule = defineAgentModule<"claude-code", ClaudeCodeNativeConfig>({
   agentId: "claude-code",
-  descriptor,
+  descriptor: AGENTS["claude-code"],
 });

@@ -3,23 +3,27 @@ id: cline
 name: Cline
 vendor: Cline
 homepage: https://cline.bot
-interfaces: [ide-extension]
+interfaces:
+  - ide-extension
 docs:
   - label: Cline documentation
     url: https://docs.cline.bot
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .cline/skills
   sources:
     - https://docs.cline.bot/customization/skills
   lastVerified: 2026-05-20
-
 rules:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .clinerules
   sources:
     - https://docs.cline.bot/customization/cline-rules
   lastVerified: 2026-05-20
+rootDir: .cline

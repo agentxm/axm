@@ -72,6 +72,7 @@ describe("agent capability catalog validation", () => {
       instructions: {
         support: "standard",
         scopes: ["project"],
+        kind: "agents-md",
         files: ["SAMPLE.md"],
         nestedDiscovery: false,
         sources: ["https://example.com/docs"],
@@ -95,6 +96,7 @@ describe("agent capability catalog validation", () => {
       instructions: {
         support: "bridged",
         scopes: ["project"],
+        kind: "own-file",
         files: ["AGENTS.md", "SAMPLE.md"],
         nestedDiscovery: false,
         sources: ["https://example.com/docs"],

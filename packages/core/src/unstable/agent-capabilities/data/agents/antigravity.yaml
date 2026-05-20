@@ -3,33 +3,39 @@ id: antigravity
 name: Antigravity
 vendor: Google
 homepage: https://antigravity.google
-interfaces: [ide-extension]
+interfaces:
+  - ide-extension
 family: google
 docs:
   - label: Antigravity documentation
     url: https://antigravity.google/docs
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .agent/skills
   sources:
     - https://antigravity.google/docs/skills
   lastVerified: 2026-05-20
-
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://antigravity.google/docs/project-context
   lastVerified: 2026-05-20
-
+  kind: agents-md
 rules:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .agent/rules
   sources:
     - https://antigravity.google/docs/rules
   lastVerified: 2026-05-20
+rootDir: .agent

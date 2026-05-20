@@ -3,80 +3,104 @@ id: github-copilot
 name: GitHub Copilot
 vendor: GitHub
 homepage: https://github.com/features/copilot
-interfaces: [ide-extension, cli]
+interfaces:
+  - ide-extension
+  - cli
 family: github
 docs:
   - label: GitHub Copilot documentation
     url: https://docs.github.com/en/copilot
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .github/skills
   notes: >
-    VS Code agent mode, the Copilot CLI, and the cloud agent read SKILL.md
-    skills from .github/skills (project) and ~/.copilot/skills (user);
-    .claude/skills is also recognized.
+    VS Code agent mode, the Copilot CLI, and the cloud agent read SKILL.md skills from
+    .github/skills (project) and ~/.copilot/skills (user); .claude/skills is also recognized.
   sources:
     - https://code.visualstudio.com/docs/copilot/customization/agent-skills
     - https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
   lastVerified: 2026-05-18
-
 commands:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .github/prompts
   notes: >
-    VS Code Copilot prompt files (.prompt.md) act as slash commands under
-    .github/prompts; the Copilot CLI does not yet support custom commands.
+    VS Code Copilot prompt files (.prompt.md) act as slash commands under .github/prompts; the
+    Copilot CLI does not yet support custom commands.
   sources:
     - https://code.visualstudio.com/docs/copilot/customization/prompt-files
   lastVerified: 2026-05-18
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http, sse]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
+    - sse
   config:
     serversKey: servers
     nativeEnabled: false
     targets:
-      - { scope: project, path: .vscode/mcp.json, format: json }
+      - scope: project
+        path: .vscode/mcp.json
+        format: json
     stdio:
-      typeField: { name: type, value: stdio }
+      typeField:
+        name: type
+        value: stdio
       command: split
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: http, sse: sse } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: http
+          sse: sse
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://docs.github.com/en/copilot/concepts/agents/coding-agent/mcp-and-coding-agent
   lastVerified: 2026-05-16
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://docs.github.com/en/copilot/reference/custom-agents-configuration
   lastVerified: 2026-05-16
-
+  directory: .github/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md, .github/copilot-instructions.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: false
   sources:
     - https://code.visualstudio.com/docs/copilot/customization/custom-instructions
   lastVerified: 2026-05-16
-
+  kind: agents-md
 permissions:
   support: standard
-  scopes: [user, project]
-  mechanism: [config-file]
+  scopes:
+    - user
+    - project
+  mechanism:
+    - config-file
   configFiles:
     - scope: user
-      path: "~/Library/Application Support/Code/User/settings.json"
+      path: ~/Library/Application Support/Code/User/settings.json
       format: vscode-settings
       gitignored: false
     - scope: project
@@ -85,19 +109,19 @@ permissions:
       gitignored: false
   grammar:
     style: regex
-    example: '"/^axm(\\s|$)/": true'
+    example: "\"/^axm(\\\\s|$)/\": true"
     notes: >
-      chat.tools.terminal.autoApprove keys are literal command names or /regex/
-      patterns mapping to bool. Default deny rules for rm, chmod, etc. remain
-      active unless chat.tools.terminal.ignoreDefaultAutoApproveRules is set.
+      chat.tools.terminal.autoApprove keys are literal command names or /regex/ patterns mapping to
+      bool. Default deny rules for rm, chmod, etc. remain active unless
+      chat.tools.terminal.ignoreDefaultAutoApproveRules is set.
   cliFlags: []
   grants:
     shell:
       target: .vscode/settings.json
       patch:
         chat.tools.terminal.autoApprove:
-          "${tool}": true
-          "/^${tool}(\\s|$)/": true
+          ${tool}: true
+          /^${tool}(\s|$)/: true
     filesystem:
       target: .vscode/settings.json
       patch:
@@ -109,3 +133,4 @@ permissions:
     - https://code.visualstudio.com/docs/copilot/agents/agent-tools
     - https://docs.github.com/en/copilot/concepts/agents/coding-agent
   lastVerified: 2026-05-18
+rootDir: .github

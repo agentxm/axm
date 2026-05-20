@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/iflow-cli/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface IflowCliNativeConfig {
@@ -15,5 +15,5 @@ export interface IflowCliNativeConfig {
 
 export const agentModule = defineAgentModule<"iflow-cli", IflowCliNativeConfig>({
   agentId: "iflow-cli",
-  descriptor,
+  descriptor: AGENTS["iflow-cli"],
 });

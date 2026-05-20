@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/trae/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface TraeNativeConfig {
@@ -15,5 +15,5 @@ export interface TraeNativeConfig {
 
 export const agentModule = defineAgentModule<"trae", TraeNativeConfig>({
   agentId: "trae",
-  descriptor,
+  descriptor: AGENTS["trae"],
 });

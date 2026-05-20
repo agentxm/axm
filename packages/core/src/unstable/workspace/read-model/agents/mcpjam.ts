@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/mcpjam/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface McpjamNativeConfig {
@@ -15,5 +15,5 @@ export interface McpjamNativeConfig {
 
 export const agentModule = defineAgentModule<"mcpjam", McpjamNativeConfig>({
   agentId: "mcpjam",
-  descriptor,
+  descriptor: AGENTS["mcpjam"],
 });

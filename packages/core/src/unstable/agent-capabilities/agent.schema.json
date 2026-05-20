@@ -285,6 +285,16 @@
       "title": "MCP Capability",
       "description": "Agent support for MCP server extensions."
     },
+    "SubagentsLayout1": {
+      "type": "string",
+      "enum": ["file", "directory"],
+      "title": "Subagents Layout",
+      "description": "Whether subagents live in a directory or a single opaque file path.",
+      "examples": ["directory", "file"]
+    },
+    "SubagentsLayout": {
+      "anyOf": [{ "$ref": "#/definitions/SubagentsLayout1" }, { "type": "null" }]
+    },
     "SubagentsCapability": {
       "type": "object",
       "properties": {
@@ -311,12 +321,29 @@
           "type": "array",
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/Scope" }
-        }
+        },
+        "directory": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "layout": { "$ref": "#/definitions/SubagentsLayout" }
       },
       "required": ["support", "scopes"],
       "additionalProperties": false,
       "title": "Subagents Capability",
       "description": "Agent support for subagent extensions."
+    },
+    "InstructionsKind": {
+      "type": "string",
+      "enum": ["agents-md", "own-file", "rules-dir"],
+      "title": "Instructions Kind",
+      "description": "Operational instruction-file convention used by the agent.",
+      "examples": ["agents-md", "own-file", "rules-dir"]
+    },
+    "InstructionsImportSyntax": {
+      "anyOf": [{ "type": "string", "enum": ["at-path"] }],
+      "title": "Instructions Import Syntax",
+      "description": "Syntax an agent uses to import another instruction file.",
+      "examples": ["at-path"]
     },
     "InstructionsCapability": {
       "type": "object",
@@ -345,14 +372,18 @@
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/Scope" }
         },
+        "kind": { "$ref": "#/definitions/InstructionsKind" },
         "files": {
           "type": "array",
           "allOf": [{ "uniqueItems": true }],
           "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
         },
-        "nestedDiscovery": { "type": "boolean" }
+        "nestedDiscovery": { "type": "boolean" },
+        "importSyntax": {
+          "anyOf": [{ "$ref": "#/definitions/InstructionsImportSyntax" }, { "type": "null" }]
+        }
       },
-      "required": ["support", "scopes", "files", "nestedDiscovery"],
+      "required": ["support", "scopes", "kind", "files", "nestedDiscovery"],
       "additionalProperties": false,
       "title": "Instructions Capability",
       "description": "Agent support for plain prose instruction files."
@@ -556,6 +587,12 @@
         },
         "family": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "rootDir": {
+          "anyOf": [
+            { "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }] },
+            { "type": "null" }
+          ]
         },
         "docs": {
           "anyOf": [

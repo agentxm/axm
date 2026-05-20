@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/grok-cli/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface GrokCliNativeConfig {
@@ -15,5 +15,5 @@ export interface GrokCliNativeConfig {
 
 export const agentModule = defineAgentModule<"grok-cli", GrokCliNativeConfig>({
   agentId: "grok-cli",
-  descriptor,
+  descriptor: AGENTS["grok-cli"],
 });

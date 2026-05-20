@@ -6,6 +6,10 @@
  */
 
 import type { Record } from "effect";
+import {
+  AGENT_IDS as CONFIGURABLE_AGENT_IDS,
+  type AgentId as ConfigurableAgentId,
+} from "../agent-capabilities/catalog.generated.js";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration
@@ -68,71 +72,17 @@ export type AgentInstructionsDescriptor =
 // Agent Identifiers
 // -----------------------------------------------------------------------------
 
-/**
- * Known agent identifiers - exhaustive list from vercel-labs/skills reference.
- *
- * Single source of truth: `AGENT_IDS` tuple drives both the `AgentId` type
- * and `AgentIdSchema` (in extensions/common.ts) — adding an agent here
- * automatically updates both.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const AGENT_IDS = [
-  "adal",
-  "amp",
-  "antigravity",
-  "augment",
-  "claude-code",
-  "cline",
-  "codebuddy",
-  "codex",
-  "command-code",
-  "continue",
-  "crush",
-  "cursor",
-  "droid",
-  "gemini-cli",
-  "github-copilot",
-  "goose",
-  "grok-cli",
-  "ibm-bob",
-  "iflow-cli",
-  "junie",
-  "kilo",
-  "kimi-cli",
-  "kiro-cli",
-  "kode",
-  "mcpjam",
-  "mistral-vibe",
-  "mux",
-  "neovate",
-  "openclaw",
-  "opencode",
-  "openhands",
-  "pi",
-  "pochi",
-  "qoder",
-  "qwen-code",
-  "replit",
-  "roo",
-  "trae",
-  "trae-cn",
-  "universal",
-  "windsurf",
-  "zencoder",
-] as const;
+/** @experimental This API is unstable and may change without notice. */
+export { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId };
+
+/** @experimental This API is unstable and may change without notice. */
+export const AGENT_IDS = [...CONFIGURABLE_AGENT_IDS, "universal"] as const;
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentId = (typeof AGENT_IDS)[number];
 
 /** @experimental This API is unstable and may change without notice. */
-export type ConfigurableAgentId = Exclude<AgentId, "universal">;
-
-/** @experimental This API is unstable and may change without notice. */
 export const isConfigurableAgentId = (id: AgentId): id is ConfigurableAgentId => id !== "universal";
-
-/** @experimental This API is unstable and may change without notice. */
-export const CONFIGURABLE_AGENT_IDS = AGENT_IDS.filter(isConfigurableAgentId);
 
 // -----------------------------------------------------------------------------
 // Agent Configuration

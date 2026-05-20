@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/opencode/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface OpencodeNativeConfig {
@@ -15,5 +15,5 @@ export interface OpencodeNativeConfig {
 
 export const agentModule = defineAgentModule<"opencode", OpencodeNativeConfig>({
   agentId: "opencode",
-  descriptor,
+  descriptor: AGENTS["opencode"],
 });

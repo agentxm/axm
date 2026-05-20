@@ -3,37 +3,53 @@ id: kimi-cli
 name: Kimi Code CLI
 vendor: Moonshot AI
 homepage: https://github.com/MoonshotAI/kimi-cli
-interfaces: [cli]
+interfaces:
+  - cli
 family: moonshot
 docs:
   - label: Kimi CLI repository
     url: https://github.com/MoonshotAI/kimi-cli
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .agents/skills
   sources:
     - https://github.com/MoonshotAI/kimi-cli
   lastVerified: 2026-05-20
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
   config:
     serversKey: mcpServers
     nativeEnabled: true
     targets:
-      - { scope: user, path: "~/.kimi/mcp.json", format: json }
-      - { scope: project, path: .kimi/mcp.json, format: json }
+      - scope: user
+        path: ~/.kimi/mcp.json
+        format: json
+      - scope: project
+        path: .kimi/mcp.json
+        format: json
     stdio:
       command: split
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: http, sse: http } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: http
+          sse: http
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://github.com/MoonshotAI/kimi-cli
   lastVerified: 2026-05-20
+rootDir: null

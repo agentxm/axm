@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { ExtensionTypeSchema } from "../extensions/common.js";
 
@@ -194,7 +195,22 @@ export const CommandsCapabilitySchema = Schema.Struct({
 export type CommandsCapability = Schema.Schema.Type<typeof CommandsCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const SubagentsCapabilitySchema = Schema.Struct(ScopedCapabilityBaseFields).annotate({
+export const SubagentsLayoutSchema = Schema.Literals(["file", "directory"]).annotate({
+  identifier: "SubagentsLayout",
+  title: "Subagents Layout",
+  description: "Whether subagents live in a directory or a single opaque file path.",
+  examples: ["directory", "file"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type SubagentsLayout = Schema.Schema.Type<typeof SubagentsLayoutSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const SubagentsCapabilitySchema = Schema.Struct({
+  ...ScopedCapabilityBaseFields,
+  directory: Schema.optional(Schema.NonEmptyString),
+  layout: SubagentsLayoutSchema.pipe(Schema.withDecodingDefaultType(Effect.succeed("directory"))),
+}).annotate({
   identifier: "SubagentsCapability",
   title: "Subagents Capability",
   description: "Agent support for subagent extensions.",
@@ -204,8 +220,37 @@ export const SubagentsCapabilitySchema = Schema.Struct(ScopedCapabilityBaseField
 export type SubagentsCapability = Schema.Schema.Type<typeof SubagentsCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const InstructionsKindSchema = Schema.Literals([
+  "agents-md",
+  "own-file",
+  "rules-dir",
+]).annotate({
+  identifier: "InstructionsKind",
+  title: "Instructions Kind",
+  description: "Operational instruction-file convention used by the agent.",
+  examples: ["agents-md", "own-file", "rules-dir"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type InstructionsKind = Schema.Schema.Type<typeof InstructionsKindSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const InstructionsImportSyntaxSchema = Schema.Literals(["at-path"]).annotate({
+  identifier: "InstructionsImportSyntax",
+  title: "Instructions Import Syntax",
+  description: "Syntax an agent uses to import another instruction file.",
+  examples: ["at-path"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type InstructionsImportSyntax = Schema.Schema.Type<typeof InstructionsImportSyntaxSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export const InstructionsCapabilitySchema = Schema.Struct({
   ...ScopedCapabilityBaseFields,
+  kind: InstructionsKindSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "instruction kind is required" }),
+  ),
   files: Schema.Array(Schema.NonEmptyString).pipe(
     Schema.annotateKey({ messageMissingKey: "instruction files are required" }),
     Schema.check(Schema.isUnique()),
@@ -213,6 +258,7 @@ export const InstructionsCapabilitySchema = Schema.Struct({
   nestedDiscovery: Schema.Boolean.pipe(
     Schema.annotateKey({ messageMissingKey: "nestedDiscovery is required" }),
   ),
+  importSyntax: Schema.optional(InstructionsImportSyntaxSchema),
 }).annotate({
   identifier: "InstructionsCapability",
   title: "Instructions Capability",
@@ -540,6 +586,7 @@ export const AgentSchema = Schema.Struct({
     Schema.check(Schema.isUnique()),
   ),
   family: Schema.optional(Schema.NonEmptyString),
+  rootDir: Schema.optional(Schema.NullOr(Schema.NonEmptyString)),
   docs: Schema.optional(Schema.Array(DocLinkSchema)),
   skills: Schema.optional(SkillsCapabilitySchema),
   commands: Schema.optional(CommandsCapabilitySchema),

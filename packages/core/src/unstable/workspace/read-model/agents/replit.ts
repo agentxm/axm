@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/replit/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface ReplitNativeConfig {
@@ -15,5 +15,5 @@ export interface ReplitNativeConfig {
 
 export const agentModule = defineAgentModule<"replit", ReplitNativeConfig>({
   agentId: "replit",
-  descriptor,
+  descriptor: AGENTS["replit"],
 });

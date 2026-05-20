@@ -4,7 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { capabilityKinds } from "./derive.js";
+import { capabilityKinds, supportLevelWorks } from "./derive.js";
 import type { CapabilityKind } from "./derive.js";
 import type { Agent, AgentCapability } from "./schema.js";
 
@@ -94,6 +94,24 @@ const validateCapability = (
   if (kind === "instructions" && "files" in capability) {
     const files = capability.files;
     const includesAgentsMd = files.includes("AGENTS.md");
+    if (capability.kind === "agents-md" && (files.length !== 1 || files[0] !== "AGENTS.md")) {
+      issues.push({
+        path: `${prefix}.files`,
+        message: 'instructions.kind "agents-md" requires files [AGENTS.md].',
+      });
+    }
+    if (capability.kind === "own-file" && files.length !== 1) {
+      issues.push({
+        path: `${prefix}.files`,
+        message: 'instructions.kind "own-file" requires exactly one file.',
+      });
+    }
+    if (capability.kind === "rules-dir" && source.agent.rules?.directory === undefined) {
+      issues.push({
+        path: `${prefix}.kind`,
+        message: 'instructions.kind "rules-dir" requires rules.directory.',
+      });
+    }
     if (capability.support === "standard" && !includesAgentsMd) {
       issues.push({
         path: prefix,
@@ -104,6 +122,15 @@ const validateCapability = (
       issues.push({
         path: prefix,
         message: "Bridged instructions support must not include AGENTS.md.",
+      });
+    }
+  }
+
+  if (kind === "subagents" && "layout" in capability) {
+    if (supportLevelWorks(capability.support) && capability.directory === undefined) {
+      issues.push({
+        path: `${prefix}.directory`,
+        message: "Supported subagents require directory.",
       });
     }
   }

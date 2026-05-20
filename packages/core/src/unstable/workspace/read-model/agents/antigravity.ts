@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/antigravity/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface AntigravityNativeConfig {
@@ -15,5 +15,5 @@ export interface AntigravityNativeConfig {
 
 export const agentModule = defineAgentModule<"antigravity", AntigravityNativeConfig>({
   agentId: "antigravity",
-  descriptor,
+  descriptor: AGENTS["antigravity"],
 });

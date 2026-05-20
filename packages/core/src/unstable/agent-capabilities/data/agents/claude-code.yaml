@@ -3,75 +3,102 @@ id: claude-code
 name: Claude Code
 vendor: Anthropic
 homepage: https://claude.com/claude-code
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 family: anthropic
 docs:
   - label: Claude Code documentation
     url: https://docs.claude.com/en/docs/claude-code
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .claude/skills
   sources:
     - https://docs.claude.com/en/docs/claude-code/skills
   lastVerified: 2026-05-16
-
 commands:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .claude/commands
   notes: >
-    Custom slash commands are Markdown prompt files under .claude/commands.
-    Recorded as bridged because commands have no industry spec standard.
+    Custom slash commands are Markdown prompt files under .claude/commands. Recorded as bridged
+    because commands have no industry spec standard.
   sources:
     - https://docs.claude.com/en/docs/claude-code/slash-commands
   lastVerified: 2026-05-18
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http, sse]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
+    - sse
   config:
     serversKey: mcpServers
     nativeEnabled: false
     targets:
-      - { scope: project, path: .mcp.json, format: json }
+      - scope: project
+        path: .mcp.json
+        format: json
     stdio:
-      typeField: { name: type, value: stdio }
+      typeField:
+        name: type
+        value: stdio
       command: split
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: http, sse: sse } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: http
+          sse: sse
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://docs.claude.com/en/docs/claude-code/mcp
   lastVerified: 2026-05-16
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://docs.claude.com/en/docs/claude-code/sub-agents
   lastVerified: 2026-05-16
-
+  directory: .claude/agents
+  layout: directory
 instructions:
   support: bridged
-  scopes: [user, project]
-  files: [CLAUDE.md]
+  scopes:
+    - user
+    - project
+  files:
+    - CLAUDE.md
   nestedDiscovery: true
   sources:
     - https://docs.claude.com/en/docs/claude-code/memory
   lastVerified: 2026-05-16
-
+  kind: own-file
+  importSyntax: at-path
 permissions:
   support: standard
-  scopes: [user, project]
-  mechanism: [config-file]
+  scopes:
+    - user
+    - project
+  mechanism:
+    - config-file
   configFiles:
     - scope: user
-      path: "~/.claude/settings.json"
+      path: ~/.claude/settings.json
       format: json
       gitignored: false
     - scope: project
@@ -84,26 +111,27 @@ permissions:
       gitignored: true
   grammar:
     style: tool-call
-    example: "Bash(axm:*)"
+    example: Bash(axm:*)
     notes: >
-      Tool(specifier) with * wildcards. Evaluated deny > ask > allow (first match wins).
-      Settings merge across scopes rather than override.
+      Tool(specifier) with * wildcards. Evaluated deny > ask > allow (first match wins). Settings
+      merge across scopes rather than override.
   grants:
     shell:
-      target: "~/.claude/settings.json"
+      target: ~/.claude/settings.json
       patch:
         permissions:
           allow:
-            - "Bash(${tool}:*)"
+            - Bash(${tool}:*)
     filesystem:
-      target: "~/.claude/settings.json"
+      target: ~/.claude/settings.json
       patch:
         permissions:
           allow:
-            - "Read(${workspaceRoot}/**)"
-            - "Write(${workspaceRoot}/**)"
-            - "Edit(${workspaceRoot}/**)"
+            - Read(${workspaceRoot}/**)
+            - Write(${workspaceRoot}/**)
+            - Edit(${workspaceRoot}/**)
   sources:
     - https://docs.claude.com/en/docs/claude-code/iam
     - https://docs.claude.com/en/docs/claude-code/settings
   lastVerified: 2026-05-18
+rootDir: .claude

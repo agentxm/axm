@@ -3,16 +3,20 @@ id: openclaw
 name: OpenClaw
 vendor: OpenClaw
 homepage: https://openclaw.ai
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 docs:
   - label: OpenClaw documentation
     url: https://docs.openclaw.ai
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: skills
   sources:
     - https://docs.openclaw.ai/skills
     - https://github.com/openclaw/openclaw/blob/main/docs/tools/skills.md
   lastVerified: 2026-05-20
+rootDir: null

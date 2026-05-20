@@ -3,74 +3,92 @@ id: gemini-cli
 name: Gemini CLI
 vendor: Google
 homepage: https://github.com/google-gemini/gemini-cli
-interfaces: [cli]
+interfaces:
+  - cli
 family: google
 docs:
   - label: Gemini CLI documentation
     url: https://github.com/google-gemini/gemini-cli/tree/main/docs
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .gemini/skills
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
   lastVerified: 2026-05-16
-
 commands:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .gemini/commands
   notes: >
-    Custom slash commands are TOML files under .gemini/commands (project) or
-    ~/.gemini/commands (user); AXM bridges its command extension format to TOML.
+    Custom slash commands are TOML files under .gemini/commands (project) or ~/.gemini/commands
+    (user); AXM bridges its command extension format to TOML.
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md
   lastVerified: 2026-05-18
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
   config:
     serversKey: mcpServers
     nativeEnabled: false
     targets:
-      - { scope: project, path: .gemini/settings.json, format: json }
-      - { scope: user, path: "~/.gemini/settings.json", format: json }
+      - scope: project
+        path: .gemini/settings.json
+        format: json
+      - scope: user
+        path: ~/.gemini/settings.json
+        format: json
     stdio:
       command: split
       envKey: env
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
   lastVerified: 2026-05-16
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   notes: >
-    Subagents are Markdown files with YAML frontmatter under .gemini/agents
-    (project) or ~/.gemini/agents (user); shipped in Gemini CLI v0.38.1.
+    Subagents are Markdown files with YAML frontmatter under .gemini/agents (project) or
+    ~/.gemini/agents (user); shipped in Gemini CLI v0.38.1.
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md
   lastVerified: 2026-05-18
-
+  directory: .gemini/agents
+  layout: directory
 instructions:
   support: bridged
-  scopes: [user, project]
-  files: [GEMINI.md]
+  scopes:
+    - user
+    - project
+  files:
+    - GEMINI.md
   nestedDiscovery: true
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md
   lastVerified: 2026-05-16
-
+  kind: own-file
 permissions:
   support: standard
-  scopes: [user, project]
-  mechanism: [config-file, cli-flag]
+  scopes:
+    - user
+    - project
+  mechanism:
+    - config-file
+    - cli-flag
   configFiles:
     - scope: user
-      path: "~/.gemini/settings.json"
+      path: ~/.gemini/settings.json
       format: json
       gitignored: false
     - scope: project
@@ -81,22 +99,21 @@ permissions:
     style: prefix
     example: run_shell_command(axm)
     notes: >
-      tools.core is prefix-matched and currently documented in docs/tools/shell.md.
-      The newer Policy Engine is replacing --allowed-tools; tools.core is still
-      functional but transitional.
+      tools.core is prefix-matched and currently documented in docs/tools/shell.md. The newer Policy
+      Engine is replacing --allowed-tools; tools.core is still functional but transitional.
   prerequisites:
     - key: security.folderTrust.enabled
       value: "true"
       scope: user
       note: Untrusted folders disable all auto-acceptance regardless of other settings.
   cliFlags:
-    - flag: "--approval-mode=yolo"
+    - flag: --approval-mode=yolo
       note: Broad bypass; not tool-scoped. Blocked when security.disableYoloMode=true.
-    - flag: "--yolo"
+    - flag: --yolo
       note: Alias for --approval-mode=yolo.
   grants:
     shell:
-      target: "~/.gemini/settings.json"
+      target: ~/.gemini/settings.json
       patch:
         security:
           folderTrust:
@@ -104,10 +121,11 @@ permissions:
           enablePermanentToolApproval: true
         tools:
           core:
-            - "run_shell_command(${tool})"
+            - run_shell_command(${tool})
   sources:
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/settings.md
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/shell.md
     - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/trusted-folders.md
   lastVerified: 2026-05-18
+rootDir: .gemini

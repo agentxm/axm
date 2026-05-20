@@ -3,27 +3,51 @@ id: goose
 name: Goose
 vendor: Block
 homepage: https://block.github.io/goose
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 docs:
   - label: Goose documentation
     url: https://block.github.io/goose/docs
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http, sse]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
+    - sse
   config:
     serversKey: mcpServers
     nativeEnabled: true
     targets:
-      - { scope: user, path: "~/.config/goose/config.yaml", format: json }
+      - scope: user
+        path: ~/.config/goose/config.yaml
+        format: json
     stdio:
       command: split
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: http, sse: sse } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: http
+          sse: sse
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://block.github.io/goose/docs/getting-started/using-extensions
   lastVerified: 2026-05-20
+rootDir: .goose
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  sources:
+    - https://block.github.io/goose/docs
+  lastVerified: 2026-05-20
+  directory: .goose/skills

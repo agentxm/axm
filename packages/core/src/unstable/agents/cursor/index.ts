@@ -5,5 +5,4 @@
  * @packageDocumentation
  */
 
-export { descriptor } from "./descriptor.js";
 export { cursorCodingAgent } from "./service.js";

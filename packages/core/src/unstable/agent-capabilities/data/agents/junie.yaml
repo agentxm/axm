@@ -3,36 +3,77 @@ id: junie
 name: Junie
 vendor: JetBrains
 homepage: https://www.jetbrains.com/junie
-interfaces: [ide-extension]
+interfaces:
+  - ide-extension
 family: jetbrains
 docs:
   - label: Junie documentation
     url: https://www.jetbrains.com/help/junie
-
 rules:
   support: bridged
-  scopes: [project]
+  scopes:
+    - project
   directory: .junie/guidelines.md
   sources:
     - https://www.jetbrains.com/help/junie/customize-guidelines.html
   lastVerified: 2026-05-20
-
 mcp:
   support: standard
-  scopes: [user]
-  transports: [stdio, http, sse]
+  scopes:
+    - user
+  transports:
+    - stdio
+    - http
+    - sse
   config:
     serversKey: mcpServers
     nativeEnabled: true
     targets:
-      - { scope: user, path: "~/.junie/mcp.json", format: json }
+      - scope: user
+        path: ~/.junie/mcp.json
+        format: json
     stdio:
       command: split
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: http, sse: sse } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: http
+          sse: sse
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://www.jetbrains.com/help/junie/mcp.html
   lastVerified: 2026-05-20
+rootDir: .junie
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  sources:
+    - https://www.jetbrains.com/help/junie
+  lastVerified: 2026-05-20
+  directory: .junie/skills
+commands:
+  support: bridged
+  scopes:
+    - user
+    - project
+  sources:
+    - https://www.jetbrains.com/help/junie
+  lastVerified: 2026-05-20
+  directory: .junie/commands
+subagents:
+  support: bridged
+  scopes:
+    - user
+    - project
+  sources:
+    - https://www.jetbrains.com/help/junie
+  lastVerified: 2026-05-20
+  directory: .junie/agents
+  layout: directory

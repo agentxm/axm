@@ -3,48 +3,60 @@ id: zencoder
 name: Zencoder
 vendor: Zencoder
 homepage: https://zencoder.ai
-interfaces: [ide-extension]
+interfaces:
+  - ide-extension
 docs:
   - label: Zencoder documentation
     url: https://docs.zencoder.ai
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .zencoder/skills
   sources:
     - https://docs.zencoder.ai/features/agent-skills
   lastVerified: 2026-05-20
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
   config:
     serversKey: mcpServers
     nativeEnabled: true
     targets:
-      - { scope: user, path: "~/.zencoder/mcp.json", format: json }
-      - { scope: project, path: .zencoder/mcp.json, format: json }
+      - scope: user
+        path: ~/.zencoder/mcp.json
+        format: json
+      - scope: project
+        path: .zencoder/mcp.json
+        format: json
     stdio:
       command: split
       envKey: env
   sources:
     - https://docs.zencoder.ai/features/integrations-and-mcp
   lastVerified: 2026-05-20
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://docs.zencoder.ai/features/agents-overview
   lastVerified: 2026-05-20
-
+  directory: .zencoder/agents
+  layout: directory
 rules:
   support: bridged
-  scopes: [project]
+  scopes:
+    - project
   directory: .zencoder/rules
   sources:
     - https://docs.zencoder.ai/features/agents-overview
     - https://docs.zencoder.ai/learn/10x-engineer/module-03
   lastVerified: 2026-05-20
+rootDir: .zencoder

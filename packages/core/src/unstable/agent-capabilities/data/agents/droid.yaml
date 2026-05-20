@@ -3,35 +3,42 @@ id: droid
 name: Droid
 vendor: Factory
 homepage: https://www.factory.ai
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 docs:
   - label: Factory documentation
     url: https://docs.factory.ai
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .factory/skills
   sources:
     - https://docs.factory.ai/cli/configuration/skills
   lastVerified: 2026-05-20
-
 commands:
   support: bridged
-  scopes: [project]
+  scopes:
+    - project
   directory: .factory/commands
   notes: >
-    Factory documents legacy slash commands as still supported, while skills
-    supersede them for new reusable workflows.
+    Factory documents legacy slash commands as still supported, while skills supersede them for new
+    reusable workflows.
   sources:
     - https://docs.factory.ai/cli/configuration/skills
   lastVerified: 2026-05-20
-
 instructions:
   support: standard
-  scopes: [user, project]
-  files: [AGENTS.md]
+  scopes:
+    - user
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://docs.factory.ai/cli/configuration/agents-md
   lastVerified: 2026-05-20
+  kind: agents-md
+rootDir: .factory

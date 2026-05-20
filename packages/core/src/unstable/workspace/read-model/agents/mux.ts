@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/mux/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface MuxNativeConfig {
@@ -15,5 +15,5 @@ export interface MuxNativeConfig {
 
 export const agentModule = defineAgentModule<"mux", MuxNativeConfig>({
   agentId: "mux",
-  descriptor,
+  descriptor: AGENTS["mux"],
 });

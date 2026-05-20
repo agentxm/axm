@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/github-copilot/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface GithubCopilotNativeConfig {
@@ -15,5 +15,5 @@ export interface GithubCopilotNativeConfig {
 
 export const agentModule = defineAgentModule<"github-copilot", GithubCopilotNativeConfig>({
   agentId: "github-copilot",
-  descriptor,
+  descriptor: AGENTS["github-copilot"],
 });

@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/ibm-bob/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface IbmBobNativeConfig {
@@ -15,5 +15,5 @@ export interface IbmBobNativeConfig {
 
 export const agentModule = defineAgentModule<"ibm-bob", IbmBobNativeConfig>({
   agentId: "ibm-bob",
-  descriptor,
+  descriptor: AGENTS["ibm-bob"],
 });

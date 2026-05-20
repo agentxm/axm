@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/openclaw/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface OpenclawNativeConfig {
@@ -15,5 +15,5 @@ export interface OpenclawNativeConfig {
 
 export const agentModule = defineAgentModule<"openclaw", OpenclawNativeConfig>({
   agentId: "openclaw",
-  descriptor,
+  descriptor: AGENTS["openclaw"],
 });

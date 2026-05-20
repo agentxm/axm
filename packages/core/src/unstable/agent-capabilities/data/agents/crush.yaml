@@ -3,37 +3,63 @@ id: crush
 name: Crush
 vendor: Charm
 homepage: https://charm.land/crush
-interfaces: [cli]
+interfaces:
+  - cli
 docs:
   - label: Crush repository
     url: https://github.com/charmbracelet/crush
-
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md, CRUSH.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: false
   sources:
     - https://github.com/charmbracelet/crush
   lastVerified: 2026-05-20
-
+  kind: agents-md
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
   config:
     serversKey: mcp
     nativeEnabled: true
     targets:
-      - { scope: project, path: crush.json, format: json }
-      - { scope: user, path: "~/.config/crush/crush.json", format: json }
+      - scope: project
+        path: crush.json
+        format: json
+      - scope: user
+        path: ~/.config/crush/crush.json
+        format: json
     stdio:
       command: array
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: http, sse: http } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: http
+          sse: http
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://github.com/charmbracelet/crush
   lastVerified: 2026-05-20
+rootDir: .crush
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  sources:
+    - https://github.com/charmbracelet/crush
+  lastVerified: 2026-05-20
+  directory: .crush/skills

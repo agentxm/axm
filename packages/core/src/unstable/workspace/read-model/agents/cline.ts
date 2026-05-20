@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/cline/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface ClineNativeConfig {
@@ -15,5 +15,5 @@ export interface ClineNativeConfig {
 
 export const agentModule = defineAgentModule<"cline", ClineNativeConfig>({
   agentId: "cline",
-  descriptor,
+  descriptor: AGENTS["cline"],
 });

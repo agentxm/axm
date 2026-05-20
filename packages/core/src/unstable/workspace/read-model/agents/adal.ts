@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/adal/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface AdalNativeConfig {
@@ -15,5 +15,5 @@ export interface AdalNativeConfig {
 
 export const agentModule = defineAgentModule<"adal", AdalNativeConfig>({
   agentId: "adal",
-  descriptor,
+  descriptor: AGENTS["adal"],
 });

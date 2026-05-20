@@ -3,32 +3,42 @@ id: amp
 name: Amp
 vendor: Sourcegraph
 homepage: https://ampcode.com
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 family: sourcegraph
 docs:
   - label: Amp Owner's Manual
     url: https://ampcode.com/manual
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .agents/skills
   sources:
     - https://ampcode.com/manual#agent-skills
   lastVerified: 2026-05-20
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://ampcode.com/manual#subagents
   lastVerified: 2026-05-20
-
+  directory: .agents/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [user, project]
-  files: [AGENTS.md, AGENT.md, CLAUDE.md]
+  scopes:
+    - user
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://ampcode.com/manual#agentsmd
   lastVerified: 2026-05-20
+  kind: agents-md
+rootDir: null

@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/codex/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface CodexNativeConfig {
@@ -15,5 +15,5 @@ export interface CodexNativeConfig {
 
 export const agentModule = defineAgentModule<"codex", CodexNativeConfig>({
   agentId: "codex",
-  descriptor,
+  descriptor: AGENTS["codex"],
 });

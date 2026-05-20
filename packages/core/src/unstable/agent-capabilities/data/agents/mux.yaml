@@ -3,31 +3,41 @@ id: mux
 name: Mux
 vendor: Coder
 homepage: https://mux.coder.com
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 docs:
   - label: Mux documentation
     url: https://mux.coder.com
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .mux/skills
   sources:
     - https://mux.coder.com/agents/agent-skills
   lastVerified: 2026-05-20
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://mux.coder.com/agents
   lastVerified: 2026-05-20
-
+  directory: .mux/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [user, project]
-  files: [AGENTS.md]
+  scopes:
+    - user
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://mux.coder.com/instruction-files
   lastVerified: 2026-05-20
+  kind: agents-md
+rootDir: .mux

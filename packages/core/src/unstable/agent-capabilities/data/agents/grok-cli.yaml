@@ -3,44 +3,54 @@ id: grok-cli
 name: Grok CLI
 vendor: xAI
 homepage: https://x.ai/cli
-interfaces: [cli]
+interfaces:
+  - cli
 family: xai
 docs:
   - label: Grok CLI documentation
     url: https://docs.x.ai/build/overview
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .grok/skills
   notes: >
-    Reads SKILL.md Agent Skills from project (.grok/skills) and user
-    (~/.grok/skills, ~/.agents/skills) locations, plus additional paths
-    configured via [skills] in ~/.grok/config.toml.
+    Reads SKILL.md Agent Skills from project (.grok/skills) and user (~/.grok/skills,
+    ~/.agents/skills) locations, plus additional paths configured via [skills] in
+    ~/.grok/config.toml.
   sources:
     - https://docs.x.ai/build/features/skills-plugins-marketplaces
   lastVerified: 2026-05-19
-
 mcp:
   support: bridged
-  scopes: [user, project]
-  transports: [stdio, http, sse]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
+    - sse
   notes: >
-    MCP servers are managed with `grok mcp add/remove/list` or under the
-    mcpServers key in .grok/settings.json. Recorded as bridged because the
-    prescriptive config dialect has not been verified against xAI docs.
+    MCP servers are managed with `grok mcp add/remove/list` or under the mcpServers key in
+    .grok/settings.json. Recorded as bridged because the prescriptive config dialect has not been
+    verified against xAI docs.
   sources:
     - https://docs.x.ai/build/modes-and-commands
   lastVerified: 2026-05-19
-
 instructions:
   support: standard
-  scopes: [user, project]
-  files: [AGENTS.md]
+  scopes:
+    - user
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   notes: >
-    AGENTS.md files are merged from the git root down to the working
-    directory, with AGENTS.override.md taking precedence per directory.
+    AGENTS.md files are merged from the git root down to the working directory, with
+    AGENTS.override.md taking precedence per directory.
   sources:
     - https://docs.x.ai/build/overview
   lastVerified: 2026-05-19
+  kind: agents-md
+rootDir: .grok

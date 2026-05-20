@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/zencoder/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface ZencoderNativeConfig {
@@ -15,5 +15,5 @@ export interface ZencoderNativeConfig {
 
 export const agentModule = defineAgentModule<"zencoder", ZencoderNativeConfig>({
   agentId: "zencoder",
-  descriptor,
+  descriptor: AGENTS["zencoder"],
 });

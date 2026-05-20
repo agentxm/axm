@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/droid/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface DroidNativeConfig {
@@ -15,5 +15,5 @@ export interface DroidNativeConfig {
 
 export const agentModule = defineAgentModule<"droid", DroidNativeConfig>({
   agentId: "droid",
-  descriptor,
+  descriptor: AGENTS["droid"],
 });

@@ -5,5 +5,4 @@
  * @packageDocumentation
  */
 
-export { descriptor } from "./descriptor.js";
 export { windsurfCodingAgent } from "./service.js";

@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/kilo/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface KiloNativeConfig {
@@ -15,5 +15,5 @@ export interface KiloNativeConfig {
 
 export const agentModule = defineAgentModule<"kilo", KiloNativeConfig>({
   agentId: "kilo",
-  descriptor,
+  descriptor: AGENTS["kilo"],
 });

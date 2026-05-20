@@ -3,44 +3,54 @@ id: kode
 name: Kode
 vendor: shareAI-lab
 homepage: https://github.com/shareAI-lab/Kode-Agent
-interfaces: [cli]
+interfaces:
+  - cli
 docs:
   - label: Kode Agent repository
     url: https://github.com/shareAI-lab/Kode-Agent
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .kode/skills
   sources:
     - https://github.com/shareAI-lab/Kode-Agent
   lastVerified: 2026-05-20
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://github.com/shareAI-lab/Kode-Agent
   lastVerified: 2026-05-20
-
+  directory: .kode/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md, AGENTS.override.md, CLAUDE.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://github.com/shareAI-lab/Kode-Agent
   lastVerified: 2026-05-20
-
+  kind: agents-md
 permissions:
   support: standard
-  scopes: [user, project]
-  mechanism: [cli-flag]
+  scopes:
+    - user
+    - project
+  mechanism:
+    - cli-flag
   cliFlags:
-    - flag: "--safe"
+    - flag: --safe
       note: Enables permission checks instead of Kode's default YOLO mode.
-    - flag: "--dangerously-skip-permissions"
+    - flag: --dangerously-skip-permissions
       note: Explicitly bypasses permission checks.
   sources:
     - https://github.com/shareAI-lab/Kode-Agent
   lastVerified: 2026-05-20
+rootDir: .kode

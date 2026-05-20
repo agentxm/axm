@@ -50,6 +50,7 @@ import { agentModule as geminiCli, type GeminiCliNativeConfig } from "./gemini-c
 import { agentModule as githubCopilot, type GithubCopilotNativeConfig } from "./github-copilot.js";
 import { agentModule as goose, type GooseNativeConfig } from "./goose.js";
 import { agentModule as grokCli, type GrokCliNativeConfig } from "./grok-cli.js";
+import { agentModule as hermes, type HermesNativeConfig } from "./hermes.js";
 import { agentModule as ibmBob, type IbmBobNativeConfig } from "./ibm-bob.js";
 import { agentModule as iflowCli, type IflowCliNativeConfig } from "./iflow-cli.js";
 import { agentModule as junie, type JunieNativeConfig } from "./junie.js";
@@ -135,6 +136,7 @@ const registeredAgentModulesById = {
   "github-copilot": githubCopilot,
   goose,
   "grok-cli": grokCli,
+  hermes,
   "ibm-bob": ibmBob,
   "iflow-cli": iflowCli,
   junie,
@@ -201,6 +203,7 @@ export type {
   GithubCopilotNativeConfig,
   GooseNativeConfig,
   GrokCliNativeConfig,
+  HermesNativeConfig,
   IbmBobNativeConfig,
   IflowCliNativeConfig,
   JunieNativeConfig,

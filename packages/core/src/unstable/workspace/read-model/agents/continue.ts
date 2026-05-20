@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/continue/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface ContinueNativeConfig {
@@ -15,5 +15,5 @@ export interface ContinueNativeConfig {
 
 export const agentModule = defineAgentModule<"continue", ContinueNativeConfig>({
   agentId: "continue",
-  descriptor,
+  descriptor: AGENTS["continue"],
 });

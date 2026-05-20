@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/kimi-cli/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface KimiCliNativeConfig {
@@ -15,5 +15,5 @@ export interface KimiCliNativeConfig {
 
 export const agentModule = defineAgentModule<"kimi-cli", KimiCliNativeConfig>({
   agentId: "kimi-cli",
-  descriptor,
+  descriptor: AGENTS["kimi-cli"],
 });

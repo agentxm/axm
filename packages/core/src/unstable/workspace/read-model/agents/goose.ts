@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/goose/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface GooseNativeConfig {
@@ -15,5 +15,5 @@ export interface GooseNativeConfig {
 
 export const agentModule = defineAgentModule<"goose", GooseNativeConfig>({
   agentId: "goose",
-  descriptor,
+  descriptor: AGENTS["goose"],
 });

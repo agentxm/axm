@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/neovate/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface NeovateNativeConfig {
@@ -15,5 +15,5 @@ export interface NeovateNativeConfig {
 
 export const agentModule = defineAgentModule<"neovate", NeovateNativeConfig>({
   agentId: "neovate",
-  descriptor,
+  descriptor: AGENTS["neovate"],
 });

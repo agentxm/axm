@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/pochi/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface PochiNativeConfig {
@@ -15,5 +15,5 @@ export interface PochiNativeConfig {
 
 export const agentModule = defineAgentModule<"pochi", PochiNativeConfig>({
   agentId: "pochi",
-  descriptor,
+  descriptor: AGENTS["pochi"],
 });

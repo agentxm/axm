@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/gemini-cli/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface GeminiCliNativeConfig {
@@ -15,5 +15,5 @@ export interface GeminiCliNativeConfig {
 
 export const agentModule = defineAgentModule<"gemini-cli", GeminiCliNativeConfig>({
   agentId: "gemini-cli",
-  descriptor,
+  descriptor: AGENTS["gemini-cli"],
 });

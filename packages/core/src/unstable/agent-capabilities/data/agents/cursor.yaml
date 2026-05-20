@@ -3,106 +3,123 @@ id: cursor
 name: Cursor
 vendor: Anysphere
 homepage: https://cursor.com
-interfaces: [ide-extension, cli]
+interfaces:
+  - ide-extension
+  - cli
 family: cursor
 docs:
   - label: Cursor documentation
     url: https://docs.cursor.com
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .cursor/skills
   notes: >
-    Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the
-    cursor-agent CLI; it also loads .claude/skills and .codex/skills for
-    cross-tool compatibility.
+    Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also
+    loads .claude/skills and .codex/skills for cross-tool compatibility.
   sources:
     - https://cursor.com/docs/context/skills
     - https://cursor.com/changelog/2-4
   lastVerified: 2026-05-18
-
 commands:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .cursor/commands
   notes: >
-    Custom commands are Markdown prompt files under .cursor/commands (project)
-    or ~/.cursor/commands (user); documented as a beta feature.
+    Custom commands are Markdown prompt files under .cursor/commands (project) or ~/.cursor/commands
+    (user); documented as a beta feature.
   sources:
     - https://docs.cursor.com/en/agent/chat/commands
     - https://cursor.com/changelog/1-6
   lastVerified: 2026-05-18
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http, sse]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
+    - sse
   config:
     serversKey: mcpServers
     nativeEnabled: false
     targets:
-      - { scope: project, path: .cursor/mcp.json, format: json }
+      - scope: project
+        path: .cursor/mcp.json
+        format: json
     stdio:
       command: split
       envKey: env
     remote:
-      urlKey: { streamable-http: url, sse: url }
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://docs.cursor.com/advanced/model-context-protocol
   lastVerified: 2026-05-16
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   notes: >
-    Custom subagents are Markdown files with YAML frontmatter under
-    .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.
+    Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or
+    ~/.cursor/agents (user); added in Cursor 2.4.
   sources:
     - https://cursor.com/docs/subagents
     - https://cursor.com/changelog/2-4
   lastVerified: 2026-05-18
-
+  directory: .cursor/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md, CLAUDE.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: false
   sources:
     - https://docs.cursor.com/en/cli/using
   lastVerified: 2026-05-16
-
+  kind: agents-md
 rules:
   support: bridged
-  scopes: [project]
+  scopes:
+    - project
   directory: .cursor/rules
   sources:
     - https://docs.cursor.com/en/context/rules
   lastVerified: 2026-05-16
-
 permissions:
   support: standard
-  scopes: [user, project]
-  mechanism: [config-file, ui-only, cli-flag]
+  scopes:
+    - user
+    - project
+  mechanism:
+    - config-file
+    - ui-only
+    - cli-flag
   configFiles:
-    # IDE terminal allowlist (user scope only - no per-project IDE override).
     - scope: user
-      path: "~/.cursor/permissions.json"
+      path: ~/.cursor/permissions.json
       format: json
       gitignored: false
-    # Sandbox supports both user and project scope.
     - scope: user
-      path: "~/.cursor/sandbox.json"
+      path: ~/.cursor/sandbox.json
       format: json
       gitignored: false
     - scope: project
       path: .cursor/sandbox.json
       format: json
       gitignored: false
-    # cursor-agent CLI supports both scopes.
     - scope: user
-      path: "~/.cursor/cli-config.json"
+      path: ~/.cursor/cli-config.json
       format: json
       gitignored: false
     - scope: project
@@ -113,31 +130,31 @@ permissions:
     style: prefix
     example: axm
     notes: >
-      IDE: case-sensitive command prefix in terminalAllowlist. CLI: Tool-call
-      syntax Shell()/Read()/Write() with glob patterns. Deny always beats allow.
+      IDE: case-sensitive command prefix in terminalAllowlist. CLI: Tool-call syntax
+      Shell()/Read()/Write() with glob patterns. Deny always beats allow.
   prerequisites:
-    - key: "Settings > Cursor Settings > Agents > Auto-Run"
-      value: "Run in Sandbox | Run Everything"
+    - key: Settings > Cursor Settings > Agents > Auto-Run
+      value: Run in Sandbox | Run Everything
       scope: user
       note: IDE Auto-Run must be enabled before terminalAllowlist takes effect.
   cliFlags:
-    - flag: "--force"
+    - flag: --force
       note: Bypasses cursor-agent prompts (community-documented; verify against --help).
-    - flag: "--yolo"
+    - flag: --yolo
       note: Bypasses cursor-agent prompts (community-documented; verify against --help).
   grants:
     shell:
-      target: "~/.cursor/permissions.json"
+      target: ~/.cursor/permissions.json
       patch:
         terminalAllowlist:
-          - "${tool}"
+          - ${tool}
     cliShell:
       target: .cursor/cli.json
       patch:
         permissions:
           allow:
-            - "Shell(${tool})"
-            - "Shell(${tool}:*)"
+            - Shell(${tool})
+            - Shell(${tool}:*)
     filesystem:
       target: .cursor/sandbox.json
       patch:
@@ -149,3 +166,4 @@ permissions:
     - https://cursor.com/docs/agent/tools/terminal
     - https://cursor.com/docs/cli/reference/permissions
   lastVerified: 2026-05-18
+rootDir: .cursor

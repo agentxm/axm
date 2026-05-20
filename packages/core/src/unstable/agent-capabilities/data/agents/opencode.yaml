@@ -3,30 +3,75 @@ id: opencode
 name: OpenCode
 vendor: SST
 homepage: https://opencode.ai
-interfaces: [cli]
+interfaces:
+  - cli
 docs:
   - label: OpenCode documentation
     url: https://opencode.ai/docs
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
   config:
     serversKey: mcp
     nativeEnabled: true
     targets:
-      - { scope: project, path: opencode.jsonc, format: jsonc }
-      - { scope: user, path: "~/.config/opencode/opencode.json", format: json }
+      - scope: project
+        path: opencode.jsonc
+        format: jsonc
+      - scope: user
+        path: ~/.config/opencode/opencode.json
+        format: json
     stdio:
-      typeField: { name: type, value: local }
+      typeField:
+        name: type
+        value: local
       command: array
       envKey: environment
     remote:
-      typeField: { name: type, value: { streamable-http: remote, sse: remote } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: remote
+          sse: remote
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://opencode.ai/docs/mcp-servers/
     - https://opencode.ai/docs/config/
   lastVerified: 2026-05-18
+rootDir: .opencode
+skills:
+  support: standard
+  scopes:
+    - user
+    - project
+  sources:
+    - https://opencode.ai/docs
+  lastVerified: 2026-05-20
+  directory: .opencode/skills
+commands:
+  support: bridged
+  scopes:
+    - user
+    - project
+  sources:
+    - https://opencode.ai/docs
+  lastVerified: 2026-05-20
+  directory: .opencode/commands
+subagents:
+  support: bridged
+  scopes:
+    - user
+    - project
+  sources:
+    - https://opencode.ai/docs
+  lastVerified: 2026-05-20
+  directory: .opencode/agents
+  layout: directory

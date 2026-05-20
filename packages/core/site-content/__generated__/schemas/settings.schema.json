@@ -39,6 +39,7 @@
         "github-copilot",
         "goose",
         "grok-cli",
+        "hermes",
         "ibm-bob",
         "iflow-cli",
         "junie",
@@ -59,8 +60,8 @@
         "qwen-code",
         "replit",
         "roo",
-        "trae",
         "trae-cn",
+        "trae",
         "windsurf",
         "zencoder"
       ],

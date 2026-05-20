@@ -25,6 +25,7 @@ export const AGENT_IDS = [
   "github-copilot",
   "goose",
   "grok-cli",
+  "hermes",
   "ibm-bob",
   "iflow-cli",
   "junie",
@@ -70,6 +71,7 @@ export const AGENTS = [
     vendor: "SylphAI",
     homepage: "https://adalagent.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".adal",
     docs: [
       {
         label: "AdaL documentation",
@@ -88,6 +90,7 @@ export const AGENTS = [
       sources: ["https://docs.sylph.ai/features/agent-context-and-agents-md"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -99,6 +102,7 @@ export const AGENTS = [
     homepage: "https://ampcode.com",
     interfaces: ["cli", "ide-extension"],
     family: "sourcegraph",
+    rootDir: null,
     docs: [
       {
         label: "Amp Owner's Manual",
@@ -117,13 +121,16 @@ export const AGENTS = [
       sources: ["https://ampcode.com/manual#subagents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".agents/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://ampcode.com/manual#agentsmd"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      files: ["AGENTS.md", "AGENT.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
   },
@@ -134,6 +141,7 @@ export const AGENTS = [
     homepage: "https://antigravity.google",
     interfaces: ["ide-extension"],
     family: "google",
+    rootDir: ".agent",
     docs: [
       {
         label: "Antigravity documentation",
@@ -152,6 +160,7 @@ export const AGENTS = [
       sources: ["https://antigravity.google/docs/project-context"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -169,6 +178,7 @@ export const AGENTS = [
     vendor: "Augment Code",
     homepage: "https://www.augmentcode.com",
     interfaces: ["ide-extension", "cli"],
+    rootDir: ".augment",
     docs: [
       {
         label: "Augment documentation",
@@ -194,12 +204,15 @@ export const AGENTS = [
       sources: ["https://docs.augmentcode.com/cli/subagents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".augment/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.augmentcode.com/cli/context"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -211,6 +224,7 @@ export const AGENTS = [
     homepage: "https://claude.com/claude-code",
     interfaces: ["cli", "ide-extension"],
     family: "anthropic",
+    rootDir: ".claude",
     docs: [
       {
         label: "Claude Code documentation",
@@ -278,14 +292,18 @@ export const AGENTS = [
       sources: ["https://docs.claude.com/en/docs/claude-code/sub-agents"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      directory: ".claude/agents",
+      layout: "directory",
     },
     instructions: {
       support: "bridged",
       sources: ["https://docs.claude.com/en/docs/claude-code/memory"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      kind: "own-file",
       files: ["CLAUDE.md"],
       nestedDiscovery: true,
+      importSyntax: "at-path",
     },
     permissions: {
       support: "standard",
@@ -352,6 +370,7 @@ export const AGENTS = [
     vendor: "Cline",
     homepage: "https://cline.bot",
     interfaces: ["ide-extension"],
+    rootDir: ".cline",
     docs: [
       {
         label: "Cline documentation",
@@ -379,17 +398,27 @@ export const AGENTS = [
     vendor: "Tencent Cloud",
     homepage: "https://www.codebuddy.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".codebuddy",
     docs: [
       {
         label: "CodeBuddy documentation",
         url: "https://www.codebuddy.ai/docs/ide/Introduction",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://www.codebuddy.ai/docs/ide/Introduction"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codebuddy/skills",
+    },
     subagents: {
       support: "bridged",
       sources: ["https://staging-codebuddy.tencent.com/docs/cli/best-practices"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".codebuddy/agents",
+      layout: "directory",
     },
     permissions: {
       support: "standard",
@@ -412,6 +441,7 @@ export const AGENTS = [
     homepage: "https://developers.openai.com/codex",
     interfaces: ["cli", "ide-extension"],
     family: "openai",
+    rootDir: ".codex",
     docs: [
       {
         label: "Codex documentation",
@@ -425,7 +455,7 @@ export const AGENTS = [
       sources: ["https://developers.openai.com/codex/skills"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
-      directory: ".agents/skills",
+      directory: ".codex/skills",
     },
     commands: {
       support: "bridged",
@@ -437,7 +467,7 @@ export const AGENTS = [
       ],
       lastVerified: "2026-05-18",
       scopes: ["user"],
-      directory: "~/.codex/prompts",
+      directory: ".codex/prompts",
     },
     mcp: {
       support: "standard",
@@ -488,12 +518,15 @@ export const AGENTS = [
       sources: ["https://developers.openai.com/codex/subagents"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
+      directory: ".codex/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -579,6 +612,7 @@ export const AGENTS = [
     vendor: "Command Code",
     homepage: "https://commandcode.ai",
     interfaces: ["cli"],
+    rootDir: ".commandcode",
     docs: [
       {
         label: "Command Code documentation",
@@ -649,17 +683,26 @@ export const AGENTS = [
     vendor: "Continue",
     homepage: "https://www.continue.dev",
     interfaces: ["ide-extension"],
+    rootDir: ".continue",
     docs: [
       {
         label: "Continue documentation",
         url: "https://docs.continue.dev",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.continue.dev"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".continue/skills",
+    },
     commands: {
       support: "bridged",
       sources: ["https://docs.continue.dev/customize/deep-dives/prompt-files"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".continue/commands",
     },
     rules: {
       support: "bridged",
@@ -675,12 +718,20 @@ export const AGENTS = [
     vendor: "Charm",
     homepage: "https://charm.land/crush",
     interfaces: ["cli"],
+    rootDir: ".crush",
     docs: [
       {
         label: "Crush repository",
         url: "https://github.com/charmbracelet/crush",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/charmbracelet/crush"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".crush/skills",
+    },
     mcp: {
       support: "standard",
       sources: ["https://github.com/charmbracelet/crush"],
@@ -727,7 +778,8 @@ export const AGENTS = [
       sources: ["https://github.com/charmbracelet/crush"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
-      files: ["AGENTS.md", "CRUSH.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
   },
@@ -738,6 +790,7 @@ export const AGENTS = [
     homepage: "https://cursor.com",
     interfaces: ["ide-extension", "cli"],
     family: "cursor",
+    rootDir: ".cursor",
     docs: [
       {
         label: "Cursor documentation",
@@ -801,13 +854,16 @@ export const AGENTS = [
       sources: ["https://cursor.com/docs/subagents", "https://cursor.com/changelog/2-4"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
+      directory: ".cursor/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.cursor.com/en/cli/using"],
       lastVerified: "2026-05-16",
       scopes: ["project"],
-      files: ["AGENTS.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
     rules: {
@@ -915,6 +971,7 @@ export const AGENTS = [
     vendor: "Factory",
     homepage: "https://www.factory.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".factory",
     docs: [
       {
         label: "Factory documentation",
@@ -942,6 +999,7 @@ export const AGENTS = [
       sources: ["https://docs.factory.ai/cli/configuration/agents-md"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -953,6 +1011,7 @@ export const AGENTS = [
     homepage: "https://github.com/google-gemini/gemini-cli",
     interfaces: ["cli"],
     family: "google",
+    rootDir: ".gemini",
     docs: [
       {
         label: "Gemini CLI documentation",
@@ -1011,12 +1070,15 @@ export const AGENTS = [
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
+      directory: ".gemini/agents",
+      layout: "directory",
     },
     instructions: {
       support: "bridged",
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      kind: "own-file",
       files: ["GEMINI.md"],
       nestedDiscovery: true,
     },
@@ -1094,6 +1156,7 @@ export const AGENTS = [
     homepage: "https://github.com/features/copilot",
     interfaces: ["ide-extension", "cli"],
     family: "github",
+    rootDir: ".github",
     docs: [
       {
         label: "GitHub Copilot documentation",
@@ -1168,13 +1231,16 @@ export const AGENTS = [
       sources: ["https://docs.github.com/en/copilot/reference/custom-agents-configuration"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      directory: ".github/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://code.visualstudio.com/docs/copilot/customization/custom-instructions"],
       lastVerified: "2026-05-16",
       scopes: ["project"],
-      files: ["AGENTS.md", ".github/copilot-instructions.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
     permissions: {
@@ -1236,12 +1302,20 @@ export const AGENTS = [
     vendor: "Block",
     homepage: "https://block.github.io/goose",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".goose",
     docs: [
       {
         label: "Goose documentation",
         url: "https://block.github.io/goose/docs",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://block.github.io/goose/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".goose/skills",
+    },
     mcp: {
       support: "standard",
       sources: ["https://block.github.io/goose/docs/getting-started/using-extensions"],
@@ -1286,6 +1360,7 @@ export const AGENTS = [
     homepage: "https://x.ai/cli",
     interfaces: ["cli"],
     family: "xai",
+    rootDir: ".grok",
     docs: [
       {
         label: "Grok CLI documentation",
@@ -1317,6 +1392,50 @@ export const AGENTS = [
       sources: ["https://docs.x.ai/build/overview"],
       lastVerified: "2026-05-19",
       scopes: ["user", "project"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "hermes",
+    name: "Hermes Agent",
+    vendor: "Nous Research",
+    homepage: "https://hermes-agent.nousresearch.com",
+    interfaces: ["cli"],
+    rootDir: ".hermes",
+    docs: [
+      {
+        label: "Hermes Agent documentation",
+        url: "https://hermes-agent.nousresearch.com/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Hermes reads SKILL.md skills from ~/.hermes/skills as the source of truth. Additional external skill directories can be configured in ~/.hermes/config.yaml for shared team use.\n",
+      sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      directory: ".hermes/skills",
+    },
+    mcp: {
+      support: "bridged",
+      notes:
+        "Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. Recorded as bridged because the YAML config dialect is outside AXM's current native MCP writer formats.\n",
+      sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      transports: ["stdio", "http"],
+    },
+    instructions: {
+      support: "standard",
+      notes:
+        "Hermes reads AGENTS.md as a recursive project instruction source. .hermes.md or HERMES.md are higher-priority native alternatives at the git root, but AGENTS.md is the cross-tool standard AXM writes.\n",
+      sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/configuration"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -1327,12 +1446,20 @@ export const AGENTS = [
     vendor: "IBM",
     homepage: "https://bob.ibm.com",
     interfaces: ["ide-extension", "cli"],
+    rootDir: ".bob",
     docs: [
       {
         label: "IBM Bob documentation",
         url: "https://bob.ibm.com/docs/ide",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://bob.ibm.com/docs/ide"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".bob/skills",
+    },
     mcp: {
       support: "standard",
       notes:
@@ -1376,6 +1503,8 @@ export const AGENTS = [
       sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
       lastVerified: "2026-05-19",
       scopes: ["user", "project"],
+      directory: ".bob/custom_modes.yaml",
+      layout: "file",
     },
     instructions: {
       support: "standard",
@@ -1383,6 +1512,7 @@ export const AGENTS = [
       sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
       lastVerified: "2026-05-19",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
@@ -1402,6 +1532,7 @@ export const AGENTS = [
     vendor: "XinLiu AI",
     homepage: "https://iflow.cn",
     interfaces: ["cli"],
+    rootDir: ".iflow",
     docs: [
       {
         label: "iFlow CLI documentation",
@@ -1465,12 +1596,15 @@ export const AGENTS = [
       sources: ["https://platform.iflow.cn/en/cli/examples/subagent"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".iflow/agents",
+      layout: "directory",
     },
     instructions: {
       support: "bridged",
       sources: ["https://platform.iflow.cn/en/cli/configuration/iflow"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "own-file",
       files: ["IFLOW.md"],
       nestedDiscovery: true,
     },
@@ -1482,12 +1616,27 @@ export const AGENTS = [
     homepage: "https://www.jetbrains.com/junie",
     interfaces: ["ide-extension"],
     family: "jetbrains",
+    rootDir: ".junie",
     docs: [
       {
         label: "Junie documentation",
         url: "https://www.jetbrains.com/help/junie",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://www.jetbrains.com/help/junie"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".junie/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://www.jetbrains.com/help/junie"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".junie/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://www.jetbrains.com/help/junie/mcp.html"],
@@ -1524,6 +1673,14 @@ export const AGENTS = [
         },
       },
     },
+    subagents: {
+      support: "bridged",
+      sources: ["https://www.jetbrains.com/help/junie"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".junie/agents",
+      layout: "directory",
+    },
     rules: {
       support: "bridged",
       sources: ["https://www.jetbrains.com/help/junie/customize-guidelines.html"],
@@ -1538,6 +1695,7 @@ export const AGENTS = [
     vendor: "Kilo",
     homepage: "https://kilo.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".kilocode",
     docs: [
       {
         label: "Kilo Code documentation",
@@ -1549,7 +1707,7 @@ export const AGENTS = [
       sources: ["https://kilo.ai/docs/customize/skills"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".kilo/skills",
+      directory: ".kilocode/skills",
     },
     commands: {
       support: "bridged",
@@ -1613,13 +1771,16 @@ export const AGENTS = [
       sources: ["https://kilo.ai/docs/customize/custom-subagents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".kilo/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://kilo.ai/docs/agent-behavior/custom-instructions"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      files: ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
   },
@@ -1630,6 +1791,7 @@ export const AGENTS = [
     homepage: "https://github.com/MoonshotAI/kimi-cli",
     interfaces: ["cli"],
     family: "moonshot",
+    rootDir: null,
     docs: [
       {
         label: "Kimi CLI repository",
@@ -1692,6 +1854,7 @@ export const AGENTS = [
     homepage: "https://kiro.dev",
     interfaces: ["cli"],
     family: "amazon",
+    rootDir: ".kiro",
     docs: [
       {
         label: "Kiro CLI documentation",
@@ -1704,6 +1867,13 @@ export const AGENTS = [
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
       directory: ".kiro/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://kiro.dev/docs/cli/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kiro/prompts",
     },
     mcp: {
       support: "standard",
@@ -1750,12 +1920,15 @@ export const AGENTS = [
       sources: ["https://kiro.dev/docs/cli/custom-agents/configuration-reference/"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".kiro/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://kiro.dev/docs/cli/steering/"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -1773,6 +1946,7 @@ export const AGENTS = [
     vendor: "shareAI-lab",
     homepage: "https://github.com/shareAI-lab/Kode-Agent",
     interfaces: ["cli"],
+    rootDir: ".kode",
     docs: [
       {
         label: "Kode Agent repository",
@@ -1791,13 +1965,16 @@ export const AGENTS = [
       sources: ["https://github.com/shareAI-lab/Kode-Agent"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".kode/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://github.com/shareAI-lab/Kode-Agent"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
-      files: ["AGENTS.md", "AGENTS.override.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
     permissions: {
@@ -1824,6 +2001,7 @@ export const AGENTS = [
     vendor: "MCPJam",
     homepage: "https://www.mcpjam.com",
     interfaces: ["ide-extension"],
+    rootDir: ".mcpjam",
     docs: [
       {
         label: "MCPJam Inspector documentation",
@@ -1845,6 +2023,7 @@ export const AGENTS = [
     homepage: "https://docs.mistral.ai/mistral-vibe/overview",
     interfaces: ["cli"],
     family: "mistral",
+    rootDir: ".vibe",
     docs: [
       {
         label: "Mistral Vibe documentation",
@@ -1907,12 +2086,15 @@ export const AGENTS = [
       sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
       lastVerified: "2026-05-20",
       scopes: ["user"],
+      directory: ".vibe/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
@@ -1923,6 +2105,7 @@ export const AGENTS = [
     vendor: "Coder",
     homepage: "https://mux.coder.com",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".mux",
     docs: [
       {
         label: "Mux documentation",
@@ -1941,12 +2124,15 @@ export const AGENTS = [
       sources: ["https://mux.coder.com/agents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".mux/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://mux.coder.com/instruction-files"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -1957,6 +2143,7 @@ export const AGENTS = [
     vendor: "Ant Group",
     homepage: "https://neovateai.dev",
     interfaces: ["cli"],
+    rootDir: ".neovate",
     docs: [
       {
         label: "Neovate Code documentation",
@@ -2020,6 +2207,7 @@ export const AGENTS = [
     vendor: "OpenClaw",
     homepage: "https://openclaw.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: null,
     docs: [
       {
         label: "OpenClaw documentation",
@@ -2043,12 +2231,27 @@ export const AGENTS = [
     vendor: "SST",
     homepage: "https://opencode.ai",
     interfaces: ["cli"],
+    rootDir: ".opencode",
     docs: [
       {
         label: "OpenCode documentation",
         url: "https://opencode.ai/docs",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://opencode.ai/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".opencode/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://opencode.ai/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".opencode/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://opencode.ai/docs/mcp-servers/", "https://opencode.ai/docs/config/"],
@@ -2094,6 +2297,14 @@ export const AGENTS = [
         },
       },
     },
+    subagents: {
+      support: "bridged",
+      sources: ["https://opencode.ai/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".opencode/agents",
+      layout: "directory",
+    },
   },
   {
     id: "openhands",
@@ -2101,6 +2312,7 @@ export const AGENTS = [
     vendor: "All Hands AI",
     homepage: "https://www.all-hands.dev",
     interfaces: ["cli"],
+    rootDir: ".openhands",
     docs: [
       {
         label: "OpenHands documentation",
@@ -2112,7 +2324,7 @@ export const AGENTS = [
       sources: ["https://docs.openhands.dev/overview/skills"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".agents/skills",
+      directory: ".openhands/skills",
     },
     mcp: {
       support: "bridged",
@@ -2129,7 +2341,8 @@ export const AGENTS = [
       sources: ["https://docs.openhands.dev/overview/skills"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
-      files: ["AGENTS.md", "GEMINI.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
   },
@@ -2139,6 +2352,7 @@ export const AGENTS = [
     vendor: "Mario Zechner",
     homepage: "https://github.com/badlogic/pi-mono",
     interfaces: ["cli"],
+    rootDir: ".pi",
     docs: [
       {
         label: "Pi coding agent documentation",
@@ -2179,6 +2393,7 @@ export const AGENTS = [
       sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
       lastVerified: "2026-05-18",
       scopes: [],
+      layout: "directory",
     },
     instructions: {
       support: "standard",
@@ -2187,7 +2402,8 @@ export const AGENTS = [
       sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
-      files: ["AGENTS.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
     permissions: {
@@ -2206,6 +2422,7 @@ export const AGENTS = [
     vendor: "TabbyML",
     homepage: "https://getpochi.com",
     interfaces: ["ide-extension"],
+    rootDir: ".pochi",
     docs: [
       {
         label: "Pochi documentation",
@@ -2268,6 +2485,7 @@ export const AGENTS = [
     homepage: "https://qoder.com",
     interfaces: ["cli", "ide-extension"],
     family: "alibaba",
+    rootDir: ".qoder",
     docs: [
       {
         label: "Qoder documentation",
@@ -2330,12 +2548,15 @@ export const AGENTS = [
       sources: ["https://docs.qoder.com/en/cli/subagent"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".qoder/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.qoder.com/cli/using-cli"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
@@ -2408,6 +2629,7 @@ export const AGENTS = [
     homepage: "https://qwenlm.github.io/qwen-code-docs/",
     interfaces: ["cli"],
     family: "alibaba",
+    rootDir: ".qwen",
     docs: [
       {
         label: "Qwen Code documentation",
@@ -2467,6 +2689,8 @@ export const AGENTS = [
       sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".qwen/agents",
+      layout: "directory",
     },
   },
   {
@@ -2475,6 +2699,7 @@ export const AGENTS = [
     vendor: "Replit",
     homepage: "https://replit.com",
     interfaces: ["ide-extension"],
+    rootDir: null,
     docs: [
       {
         label: "Replit Agent documentation",
@@ -2531,6 +2756,7 @@ export const AGENTS = [
     vendor: "Roo Code",
     homepage: "https://roocode.com",
     interfaces: ["ide-extension"],
+    rootDir: ".roo",
     docs: [
       {
         label: "Roo Code documentation",
@@ -2543,6 +2769,13 @@ export const AGENTS = [
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
       directory: ".roo/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.roocode.com"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".roo/commands",
     },
     mcp: {
       support: "standard",
@@ -2590,6 +2823,8 @@ export const AGENTS = [
       sources: ["https://docs.roocode.com/features/custom-modes"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".roomodes",
+      layout: "file",
     },
     rules: {
       support: "bridged",
@@ -2606,6 +2841,7 @@ export const AGENTS = [
     homepage: "https://www.trae.cn",
     interfaces: ["ide-extension"],
     family: "bytedance",
+    rootDir: null,
     docs: [
       {
         label: "Trae CN documentation",
@@ -2670,6 +2906,7 @@ export const AGENTS = [
     homepage: "https://www.trae.ai",
     interfaces: ["ide-extension"],
     family: "bytedance",
+    rootDir: null,
     docs: [
       {
         label: "Trae documentation",
@@ -2734,6 +2971,7 @@ export const AGENTS = [
     homepage: "https://windsurf.com",
     interfaces: ["ide-extension"],
     family: "cognition",
+    rootDir: ".windsurf",
     docs: [
       {
         label: "Windsurf documentation",
@@ -2787,12 +3025,14 @@ export const AGENTS = [
       sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
       lastVerified: "2026-05-18",
       scopes: [],
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
       lastVerified: "2026-05-16",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -2850,6 +3090,7 @@ export const AGENTS = [
     vendor: "Zencoder",
     homepage: "https://zencoder.ai",
     interfaces: ["ide-extension"],
+    rootDir: ".zencoder",
     docs: [
       {
         label: "Zencoder documentation",
@@ -2895,6 +3136,8 @@ export const AGENTS = [
       sources: ["https://docs.zencoder.ai/features/agents-overview"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".zencoder/agents",
+      layout: "directory",
     },
     rules: {
       support: "bridged",
@@ -2917,6 +3160,7 @@ export const AGENTS_BY_ID = {
     vendor: "SylphAI",
     homepage: "https://adalagent.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".adal",
     docs: [
       {
         label: "AdaL documentation",
@@ -2935,6 +3179,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.sylph.ai/features/agent-context-and-agents-md"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -2946,6 +3191,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://ampcode.com",
     interfaces: ["cli", "ide-extension"],
     family: "sourcegraph",
+    rootDir: null,
     docs: [
       {
         label: "Amp Owner's Manual",
@@ -2964,13 +3210,16 @@ export const AGENTS_BY_ID = {
       sources: ["https://ampcode.com/manual#subagents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".agents/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://ampcode.com/manual#agentsmd"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      files: ["AGENTS.md", "AGENT.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
   },
@@ -2981,6 +3230,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://antigravity.google",
     interfaces: ["ide-extension"],
     family: "google",
+    rootDir: ".agent",
     docs: [
       {
         label: "Antigravity documentation",
@@ -2999,6 +3249,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://antigravity.google/docs/project-context"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -3016,6 +3267,7 @@ export const AGENTS_BY_ID = {
     vendor: "Augment Code",
     homepage: "https://www.augmentcode.com",
     interfaces: ["ide-extension", "cli"],
+    rootDir: ".augment",
     docs: [
       {
         label: "Augment documentation",
@@ -3041,12 +3293,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.augmentcode.com/cli/subagents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".augment/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.augmentcode.com/cli/context"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -3058,6 +3313,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://claude.com/claude-code",
     interfaces: ["cli", "ide-extension"],
     family: "anthropic",
+    rootDir: ".claude",
     docs: [
       {
         label: "Claude Code documentation",
@@ -3125,14 +3381,18 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.claude.com/en/docs/claude-code/sub-agents"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      directory: ".claude/agents",
+      layout: "directory",
     },
     instructions: {
       support: "bridged",
       sources: ["https://docs.claude.com/en/docs/claude-code/memory"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      kind: "own-file",
       files: ["CLAUDE.md"],
       nestedDiscovery: true,
+      importSyntax: "at-path",
     },
     permissions: {
       support: "standard",
@@ -3199,6 +3459,7 @@ export const AGENTS_BY_ID = {
     vendor: "Cline",
     homepage: "https://cline.bot",
     interfaces: ["ide-extension"],
+    rootDir: ".cline",
     docs: [
       {
         label: "Cline documentation",
@@ -3226,17 +3487,27 @@ export const AGENTS_BY_ID = {
     vendor: "Tencent Cloud",
     homepage: "https://www.codebuddy.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".codebuddy",
     docs: [
       {
         label: "CodeBuddy documentation",
         url: "https://www.codebuddy.ai/docs/ide/Introduction",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://www.codebuddy.ai/docs/ide/Introduction"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".codebuddy/skills",
+    },
     subagents: {
       support: "bridged",
       sources: ["https://staging-codebuddy.tencent.com/docs/cli/best-practices"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".codebuddy/agents",
+      layout: "directory",
     },
     permissions: {
       support: "standard",
@@ -3259,6 +3530,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://developers.openai.com/codex",
     interfaces: ["cli", "ide-extension"],
     family: "openai",
+    rootDir: ".codex",
     docs: [
       {
         label: "Codex documentation",
@@ -3272,7 +3544,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://developers.openai.com/codex/skills"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
-      directory: ".agents/skills",
+      directory: ".codex/skills",
     },
     commands: {
       support: "bridged",
@@ -3284,7 +3556,7 @@ export const AGENTS_BY_ID = {
       ],
       lastVerified: "2026-05-18",
       scopes: ["user"],
-      directory: "~/.codex/prompts",
+      directory: ".codex/prompts",
     },
     mcp: {
       support: "standard",
@@ -3335,12 +3607,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://developers.openai.com/codex/subagents"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
+      directory: ".codex/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -3426,6 +3701,7 @@ export const AGENTS_BY_ID = {
     vendor: "Command Code",
     homepage: "https://commandcode.ai",
     interfaces: ["cli"],
+    rootDir: ".commandcode",
     docs: [
       {
         label: "Command Code documentation",
@@ -3496,17 +3772,26 @@ export const AGENTS_BY_ID = {
     vendor: "Continue",
     homepage: "https://www.continue.dev",
     interfaces: ["ide-extension"],
+    rootDir: ".continue",
     docs: [
       {
         label: "Continue documentation",
         url: "https://docs.continue.dev",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.continue.dev"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".continue/skills",
+    },
     commands: {
       support: "bridged",
       sources: ["https://docs.continue.dev/customize/deep-dives/prompt-files"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".continue/commands",
     },
     rules: {
       support: "bridged",
@@ -3522,12 +3807,20 @@ export const AGENTS_BY_ID = {
     vendor: "Charm",
     homepage: "https://charm.land/crush",
     interfaces: ["cli"],
+    rootDir: ".crush",
     docs: [
       {
         label: "Crush repository",
         url: "https://github.com/charmbracelet/crush",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/charmbracelet/crush"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".crush/skills",
+    },
     mcp: {
       support: "standard",
       sources: ["https://github.com/charmbracelet/crush"],
@@ -3574,7 +3867,8 @@ export const AGENTS_BY_ID = {
       sources: ["https://github.com/charmbracelet/crush"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
-      files: ["AGENTS.md", "CRUSH.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
   },
@@ -3585,6 +3879,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://cursor.com",
     interfaces: ["ide-extension", "cli"],
     family: "cursor",
+    rootDir: ".cursor",
     docs: [
       {
         label: "Cursor documentation",
@@ -3648,13 +3943,16 @@ export const AGENTS_BY_ID = {
       sources: ["https://cursor.com/docs/subagents", "https://cursor.com/changelog/2-4"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
+      directory: ".cursor/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.cursor.com/en/cli/using"],
       lastVerified: "2026-05-16",
       scopes: ["project"],
-      files: ["AGENTS.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
     rules: {
@@ -3762,6 +4060,7 @@ export const AGENTS_BY_ID = {
     vendor: "Factory",
     homepage: "https://www.factory.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".factory",
     docs: [
       {
         label: "Factory documentation",
@@ -3789,6 +4088,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.factory.ai/cli/configuration/agents-md"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -3800,6 +4100,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://github.com/google-gemini/gemini-cli",
     interfaces: ["cli"],
     family: "google",
+    rootDir: ".gemini",
     docs: [
       {
         label: "Gemini CLI documentation",
@@ -3858,12 +4159,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
+      directory: ".gemini/agents",
+      layout: "directory",
     },
     instructions: {
       support: "bridged",
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      kind: "own-file",
       files: ["GEMINI.md"],
       nestedDiscovery: true,
     },
@@ -3941,6 +4245,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://github.com/features/copilot",
     interfaces: ["ide-extension", "cli"],
     family: "github",
+    rootDir: ".github",
     docs: [
       {
         label: "GitHub Copilot documentation",
@@ -4015,13 +4320,16 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.github.com/en/copilot/reference/custom-agents-configuration"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
+      directory: ".github/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://code.visualstudio.com/docs/copilot/customization/custom-instructions"],
       lastVerified: "2026-05-16",
       scopes: ["project"],
-      files: ["AGENTS.md", ".github/copilot-instructions.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
     permissions: {
@@ -4083,12 +4391,20 @@ export const AGENTS_BY_ID = {
     vendor: "Block",
     homepage: "https://block.github.io/goose",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".goose",
     docs: [
       {
         label: "Goose documentation",
         url: "https://block.github.io/goose/docs",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://block.github.io/goose/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".goose/skills",
+    },
     mcp: {
       support: "standard",
       sources: ["https://block.github.io/goose/docs/getting-started/using-extensions"],
@@ -4133,6 +4449,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://x.ai/cli",
     interfaces: ["cli"],
     family: "xai",
+    rootDir: ".grok",
     docs: [
       {
         label: "Grok CLI documentation",
@@ -4164,6 +4481,50 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.x.ai/build/overview"],
       lastVerified: "2026-05-19",
       scopes: ["user", "project"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  hermes: {
+    id: "hermes",
+    name: "Hermes Agent",
+    vendor: "Nous Research",
+    homepage: "https://hermes-agent.nousresearch.com",
+    interfaces: ["cli"],
+    rootDir: ".hermes",
+    docs: [
+      {
+        label: "Hermes Agent documentation",
+        url: "https://hermes-agent.nousresearch.com/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      notes:
+        "Hermes reads SKILL.md skills from ~/.hermes/skills as the source of truth. Additional external skill directories can be configured in ~/.hermes/config.yaml for shared team use.\n",
+      sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      directory: ".hermes/skills",
+    },
+    mcp: {
+      support: "bridged",
+      notes:
+        "Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. Recorded as bridged because the YAML config dialect is outside AXM's current native MCP writer formats.\n",
+      sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      transports: ["stdio", "http"],
+    },
+    instructions: {
+      support: "standard",
+      notes:
+        "Hermes reads AGENTS.md as a recursive project instruction source. .hermes.md or HERMES.md are higher-priority native alternatives at the git root, but AGENTS.md is the cross-tool standard AXM writes.\n",
+      sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/configuration"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -4174,12 +4535,20 @@ export const AGENTS_BY_ID = {
     vendor: "IBM",
     homepage: "https://bob.ibm.com",
     interfaces: ["ide-extension", "cli"],
+    rootDir: ".bob",
     docs: [
       {
         label: "IBM Bob documentation",
         url: "https://bob.ibm.com/docs/ide",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://bob.ibm.com/docs/ide"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".bob/skills",
+    },
     mcp: {
       support: "standard",
       notes:
@@ -4223,6 +4592,8 @@ export const AGENTS_BY_ID = {
       sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
       lastVerified: "2026-05-19",
       scopes: ["user", "project"],
+      directory: ".bob/custom_modes.yaml",
+      layout: "file",
     },
     instructions: {
       support: "standard",
@@ -4230,6 +4601,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
       lastVerified: "2026-05-19",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
@@ -4249,6 +4621,7 @@ export const AGENTS_BY_ID = {
     vendor: "XinLiu AI",
     homepage: "https://iflow.cn",
     interfaces: ["cli"],
+    rootDir: ".iflow",
     docs: [
       {
         label: "iFlow CLI documentation",
@@ -4312,12 +4685,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://platform.iflow.cn/en/cli/examples/subagent"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".iflow/agents",
+      layout: "directory",
     },
     instructions: {
       support: "bridged",
       sources: ["https://platform.iflow.cn/en/cli/configuration/iflow"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "own-file",
       files: ["IFLOW.md"],
       nestedDiscovery: true,
     },
@@ -4329,12 +4705,27 @@ export const AGENTS_BY_ID = {
     homepage: "https://www.jetbrains.com/junie",
     interfaces: ["ide-extension"],
     family: "jetbrains",
+    rootDir: ".junie",
     docs: [
       {
         label: "Junie documentation",
         url: "https://www.jetbrains.com/help/junie",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://www.jetbrains.com/help/junie"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".junie/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://www.jetbrains.com/help/junie"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".junie/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://www.jetbrains.com/help/junie/mcp.html"],
@@ -4371,6 +4762,14 @@ export const AGENTS_BY_ID = {
         },
       },
     },
+    subagents: {
+      support: "bridged",
+      sources: ["https://www.jetbrains.com/help/junie"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".junie/agents",
+      layout: "directory",
+    },
     rules: {
       support: "bridged",
       sources: ["https://www.jetbrains.com/help/junie/customize-guidelines.html"],
@@ -4385,6 +4784,7 @@ export const AGENTS_BY_ID = {
     vendor: "Kilo",
     homepage: "https://kilo.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".kilocode",
     docs: [
       {
         label: "Kilo Code documentation",
@@ -4396,7 +4796,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://kilo.ai/docs/customize/skills"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".kilo/skills",
+      directory: ".kilocode/skills",
     },
     commands: {
       support: "bridged",
@@ -4460,13 +4860,16 @@ export const AGENTS_BY_ID = {
       sources: ["https://kilo.ai/docs/customize/custom-subagents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".kilo/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://kilo.ai/docs/agent-behavior/custom-instructions"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      files: ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
   },
@@ -4477,6 +4880,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://github.com/MoonshotAI/kimi-cli",
     interfaces: ["cli"],
     family: "moonshot",
+    rootDir: null,
     docs: [
       {
         label: "Kimi CLI repository",
@@ -4539,6 +4943,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://kiro.dev",
     interfaces: ["cli"],
     family: "amazon",
+    rootDir: ".kiro",
     docs: [
       {
         label: "Kiro CLI documentation",
@@ -4551,6 +4956,13 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
       directory: ".kiro/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://kiro.dev/docs/cli/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kiro/prompts",
     },
     mcp: {
       support: "standard",
@@ -4597,12 +5009,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://kiro.dev/docs/cli/custom-agents/configuration-reference/"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".kiro/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://kiro.dev/docs/cli/steering/"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -4620,6 +5035,7 @@ export const AGENTS_BY_ID = {
     vendor: "shareAI-lab",
     homepage: "https://github.com/shareAI-lab/Kode-Agent",
     interfaces: ["cli"],
+    rootDir: ".kode",
     docs: [
       {
         label: "Kode Agent repository",
@@ -4638,13 +5054,16 @@ export const AGENTS_BY_ID = {
       sources: ["https://github.com/shareAI-lab/Kode-Agent"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".kode/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://github.com/shareAI-lab/Kode-Agent"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
-      files: ["AGENTS.md", "AGENTS.override.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
     permissions: {
@@ -4671,6 +5090,7 @@ export const AGENTS_BY_ID = {
     vendor: "MCPJam",
     homepage: "https://www.mcpjam.com",
     interfaces: ["ide-extension"],
+    rootDir: ".mcpjam",
     docs: [
       {
         label: "MCPJam Inspector documentation",
@@ -4692,6 +5112,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://docs.mistral.ai/mistral-vibe/overview",
     interfaces: ["cli"],
     family: "mistral",
+    rootDir: ".vibe",
     docs: [
       {
         label: "Mistral Vibe documentation",
@@ -4754,12 +5175,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
       lastVerified: "2026-05-20",
       scopes: ["user"],
+      directory: ".vibe/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
@@ -4770,6 +5194,7 @@ export const AGENTS_BY_ID = {
     vendor: "Coder",
     homepage: "https://mux.coder.com",
     interfaces: ["cli", "ide-extension"],
+    rootDir: ".mux",
     docs: [
       {
         label: "Mux documentation",
@@ -4788,12 +5213,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://mux.coder.com/agents"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".mux/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://mux.coder.com/instruction-files"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -4804,6 +5232,7 @@ export const AGENTS_BY_ID = {
     vendor: "Ant Group",
     homepage: "https://neovateai.dev",
     interfaces: ["cli"],
+    rootDir: ".neovate",
     docs: [
       {
         label: "Neovate Code documentation",
@@ -4867,6 +5296,7 @@ export const AGENTS_BY_ID = {
     vendor: "OpenClaw",
     homepage: "https://openclaw.ai",
     interfaces: ["cli", "ide-extension"],
+    rootDir: null,
     docs: [
       {
         label: "OpenClaw documentation",
@@ -4890,12 +5320,27 @@ export const AGENTS_BY_ID = {
     vendor: "SST",
     homepage: "https://opencode.ai",
     interfaces: ["cli"],
+    rootDir: ".opencode",
     docs: [
       {
         label: "OpenCode documentation",
         url: "https://opencode.ai/docs",
       },
     ],
+    skills: {
+      support: "standard",
+      sources: ["https://opencode.ai/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".opencode/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://opencode.ai/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".opencode/commands",
+    },
     mcp: {
       support: "standard",
       sources: ["https://opencode.ai/docs/mcp-servers/", "https://opencode.ai/docs/config/"],
@@ -4941,6 +5386,14 @@ export const AGENTS_BY_ID = {
         },
       },
     },
+    subagents: {
+      support: "bridged",
+      sources: ["https://opencode.ai/docs"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".opencode/agents",
+      layout: "directory",
+    },
   },
   openhands: {
     id: "openhands",
@@ -4948,6 +5401,7 @@ export const AGENTS_BY_ID = {
     vendor: "All Hands AI",
     homepage: "https://www.all-hands.dev",
     interfaces: ["cli"],
+    rootDir: ".openhands",
     docs: [
       {
         label: "OpenHands documentation",
@@ -4959,7 +5413,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.openhands.dev/overview/skills"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
-      directory: ".agents/skills",
+      directory: ".openhands/skills",
     },
     mcp: {
       support: "bridged",
@@ -4976,7 +5430,8 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.openhands.dev/overview/skills"],
       lastVerified: "2026-05-20",
       scopes: ["project"],
-      files: ["AGENTS.md", "GEMINI.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
   },
@@ -4986,6 +5441,7 @@ export const AGENTS_BY_ID = {
     vendor: "Mario Zechner",
     homepage: "https://github.com/badlogic/pi-mono",
     interfaces: ["cli"],
+    rootDir: ".pi",
     docs: [
       {
         label: "Pi coding agent documentation",
@@ -5026,6 +5482,7 @@ export const AGENTS_BY_ID = {
       sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
       lastVerified: "2026-05-18",
       scopes: [],
+      layout: "directory",
     },
     instructions: {
       support: "standard",
@@ -5034,7 +5491,8 @@ export const AGENTS_BY_ID = {
       sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
-      files: ["AGENTS.md", "CLAUDE.md"],
+      kind: "agents-md",
+      files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
     permissions: {
@@ -5053,6 +5511,7 @@ export const AGENTS_BY_ID = {
     vendor: "TabbyML",
     homepage: "https://getpochi.com",
     interfaces: ["ide-extension"],
+    rootDir: ".pochi",
     docs: [
       {
         label: "Pochi documentation",
@@ -5115,6 +5574,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://qoder.com",
     interfaces: ["cli", "ide-extension"],
     family: "alibaba",
+    rootDir: ".qoder",
     docs: [
       {
         label: "Qoder documentation",
@@ -5177,12 +5637,15 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.qoder.com/en/cli/subagent"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".qoder/agents",
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.qoder.com/cli/using-cli"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: false,
     },
@@ -5255,6 +5718,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://qwenlm.github.io/qwen-code-docs/",
     interfaces: ["cli"],
     family: "alibaba",
+    rootDir: ".qwen",
     docs: [
       {
         label: "Qwen Code documentation",
@@ -5314,6 +5778,8 @@ export const AGENTS_BY_ID = {
       sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".qwen/agents",
+      layout: "directory",
     },
   },
   replit: {
@@ -5322,6 +5788,7 @@ export const AGENTS_BY_ID = {
     vendor: "Replit",
     homepage: "https://replit.com",
     interfaces: ["ide-extension"],
+    rootDir: null,
     docs: [
       {
         label: "Replit Agent documentation",
@@ -5378,6 +5845,7 @@ export const AGENTS_BY_ID = {
     vendor: "Roo Code",
     homepage: "https://roocode.com",
     interfaces: ["ide-extension"],
+    rootDir: ".roo",
     docs: [
       {
         label: "Roo Code documentation",
@@ -5390,6 +5858,13 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
       directory: ".roo/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.roocode.com"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".roo/commands",
     },
     mcp: {
       support: "standard",
@@ -5437,6 +5912,8 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.roocode.com/features/custom-modes"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".roomodes",
+      layout: "file",
     },
     rules: {
       support: "bridged",
@@ -5453,6 +5930,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://www.trae.cn",
     interfaces: ["ide-extension"],
     family: "bytedance",
+    rootDir: null,
     docs: [
       {
         label: "Trae CN documentation",
@@ -5517,6 +5995,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://www.trae.ai",
     interfaces: ["ide-extension"],
     family: "bytedance",
+    rootDir: null,
     docs: [
       {
         label: "Trae documentation",
@@ -5581,6 +6060,7 @@ export const AGENTS_BY_ID = {
     homepage: "https://windsurf.com",
     interfaces: ["ide-extension"],
     family: "cognition",
+    rootDir: ".windsurf",
     docs: [
       {
         label: "Windsurf documentation",
@@ -5634,12 +6114,14 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
       lastVerified: "2026-05-18",
       scopes: [],
+      layout: "directory",
     },
     instructions: {
       support: "standard",
       sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
       lastVerified: "2026-05-16",
       scopes: ["project"],
+      kind: "agents-md",
       files: ["AGENTS.md"],
       nestedDiscovery: true,
     },
@@ -5697,6 +6179,7 @@ export const AGENTS_BY_ID = {
     vendor: "Zencoder",
     homepage: "https://zencoder.ai",
     interfaces: ["ide-extension"],
+    rootDir: ".zencoder",
     docs: [
       {
         label: "Zencoder documentation",
@@ -5742,6 +6225,8 @@ export const AGENTS_BY_ID = {
       sources: ["https://docs.zencoder.ai/features/agents-overview"],
       lastVerified: "2026-05-20",
       scopes: ["user", "project"],
+      directory: ".zencoder/agents",
+      layout: "directory",
     },
     rules: {
       support: "bridged",

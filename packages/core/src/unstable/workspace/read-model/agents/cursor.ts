@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/cursor/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface CursorNativeConfig {
@@ -15,5 +15,5 @@ export interface CursorNativeConfig {
 
 export const agentModule = defineAgentModule<"cursor", CursorNativeConfig>({
   agentId: "cursor",
-  descriptor,
+  descriptor: AGENTS["cursor"],
 });

@@ -3,62 +3,90 @@ id: kilo
 name: Kilo Code
 vendor: Kilo
 homepage: https://kilo.ai
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 docs:
   - label: Kilo Code documentation
     url: https://kilo.ai/docs
-
 skills:
   support: standard
-  scopes: [user, project]
-  directory: .kilo/skills
+  scopes:
+    - user
+    - project
+  directory: .kilocode/skills
   sources:
     - https://kilo.ai/docs/customize/skills
   lastVerified: 2026-05-20
-
 commands:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .kilo/commands
   sources:
     - https://kilo.ai/docs/customize/workflows
   lastVerified: 2026-05-20
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
   config:
     serversKey: mcp
     nativeEnabled: true
     targets:
-      - { scope: user, path: "~/.config/kilo/kilo.jsonc", format: jsonc }
-      - { scope: project, path: kilo.jsonc, format: jsonc }
-      - { scope: project, path: .kilo/kilo.jsonc, format: jsonc }
+      - scope: user
+        path: ~/.config/kilo/kilo.jsonc
+        format: jsonc
+      - scope: project
+        path: kilo.jsonc
+        format: jsonc
+      - scope: project
+        path: .kilo/kilo.jsonc
+        format: jsonc
     stdio:
-      typeField: { name: type, value: local }
+      typeField:
+        name: type
+        value: local
       command: array
       envKey: environment
     remote:
-      typeField: { name: type, value: { streamable-http: remote, sse: remote } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: remote
+          sse: remote
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://kilo.ai/docs/features/mcp/using-mcp-in-kilo-code
   lastVerified: 2026-05-20
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://kilo.ai/docs/customize/custom-subagents
   lastVerified: 2026-05-20
-
+  directory: .kilo/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [user, project]
-  files: [AGENTS.md, CLAUDE.md, CONTEXT.md]
+  scopes:
+    - user
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://kilo.ai/docs/agent-behavior/custom-instructions
   lastVerified: 2026-05-20
+  kind: agents-md
+rootDir: .kilocode

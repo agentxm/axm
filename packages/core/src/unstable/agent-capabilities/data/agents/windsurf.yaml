@@ -3,82 +3,92 @@ id: windsurf
 name: Windsurf
 vendor: Cognition
 homepage: https://windsurf.com
-interfaces: [ide-extension]
+interfaces:
+  - ide-extension
 family: cognition
 docs:
   - label: Windsurf documentation
     url: https://docs.windsurf.com
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .windsurf/skills
   notes: >
-    Cascade reads SKILL.md skills from .windsurf/skills (project) and
-    ~/.codeium/windsurf/skills (user) with progressive disclosure.
+    Cascade reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills
+    (user) with progressive disclosure.
   sources:
     - https://docs.windsurf.com/windsurf/cascade/skills
   lastVerified: 2026-05-18
-
 commands:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .windsurf/workflows
   notes: >
-    Windsurf Workflows are slash-command-invoked Markdown prompts under
-    .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows
-    (user).
+    Windsurf Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows
+    (project) and ~/.codeium/windsurf/global_workflows (user).
   sources:
     - https://docs.windsurf.com/windsurf/cascade/workflows
   lastVerified: 2026-05-18
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
   config:
     serversKey: mcpServers
     nativeEnabled: false
     targets:
-      - { scope: user, path: "~/.codeium/windsurf/mcp_config.json", format: json }
+      - scope: user
+        path: ~/.codeium/windsurf/mcp_config.json
+        format: json
     stdio:
       command: split
       envKey: env
   sources:
     - https://docs.windsurf.com/windsurf/cascade/mcp
   lastVerified: 2026-05-16
-
 subagents:
   support: unsupported
   scopes: []
   notes: >
-    Cascade exposes only built-in and internal subagents plus multi-agent
-    sessions; no user-authorable custom subagent extension type is documented.
+    Cascade exposes only built-in and internal subagents plus multi-agent sessions; no
+    user-authorable custom subagent extension type is documented.
   sources:
     - https://docs.windsurf.com/windsurf/cascade/agents-md
   lastVerified: 2026-05-18
-
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://docs.windsurf.com/windsurf/cascade/agents-md
   lastVerified: 2026-05-16
-
+  kind: agents-md
 rules:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .windsurf/rules
   sources:
     - https://docs.windsurf.com/windsurf/cascade/rules
   lastVerified: 2026-05-16
-
 permissions:
   support: standard
-  scopes: [user]
-  mechanism: [config-file, ui-only]
+  scopes:
+    - user
+  mechanism:
+    - config-file
+    - ui-only
   configFiles:
     - scope: user
       path: VS Code settings (Settings UI)
@@ -88,12 +98,12 @@ permissions:
     style: prefix
     example: axm
     notes: >
-      windsurf.cascadeCommandsAllowList is prefix-matched. Workspace-scoped
-      override for these keys is not documented; configure at user scope.
-      Teams/Enterprise can merge in lists via the Admin Portal.
+      windsurf.cascadeCommandsAllowList is prefix-matched. Workspace-scoped override for these keys
+      is not documented; configure at user scope. Teams/Enterprise can merge in lists via the Admin
+      Portal.
   prerequisites:
     - key: Cascade auto-execution level
-      value: "allowlist_only | turbo"
+      value: allowlist_only | turbo
       scope: user
       note: Disabled and Auto modes ignore allowlist entries; set via the Windsurf Settings panel.
   grants:
@@ -101,8 +111,9 @@ permissions:
       target: VS Code settings
       patch:
         windsurf.cascadeCommandsAllowList:
-          - "${tool}"
+          - ${tool}
   sources:
     - https://docs.windsurf.com/windsurf/terminal
     - https://docs.windsurf.com/windsurf/cascade
   lastVerified: 2026-05-18
+rootDir: .windsurf

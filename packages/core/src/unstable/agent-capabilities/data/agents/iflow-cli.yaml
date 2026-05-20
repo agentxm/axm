@@ -3,53 +3,77 @@ id: iflow-cli
 name: iFlow CLI
 vendor: XinLiu AI
 homepage: https://iflow.cn
-interfaces: [cli]
+interfaces:
+  - cli
 docs:
   - label: iFlow CLI documentation
     url: https://platform.iflow.cn/en/cli
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .iflow/skills
   sources:
     - https://platform.iflow.cn/en/cli/examples/skill
   lastVerified: 2026-05-20
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, sse]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - sse
   config:
     serversKey: mcpServers
     nativeEnabled: true
     targets:
-      - { scope: user, path: "~/.iflow/settings.json", format: json }
-      - { scope: project, path: .iflow/settings.json, format: json }
+      - scope: user
+        path: ~/.iflow/settings.json
+        format: json
+      - scope: project
+        path: .iflow/settings.json
+        format: json
     stdio:
-      typeField: { name: type, value: stdio }
+      typeField:
+        name: type
+        value: stdio
       command: split
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: sse, sse: sse } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: sse
+          sse: sse
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: headers
   sources:
     - https://platform.iflow.cn/en/cli/examples/mcp
   lastVerified: 2026-05-20
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://platform.iflow.cn/en/cli/examples/subagent
   lastVerified: 2026-05-20
-
+  directory: .iflow/agents
+  layout: directory
 instructions:
   support: bridged
-  scopes: [user, project]
-  files: [IFLOW.md]
+  scopes:
+    - user
+    - project
+  files:
+    - IFLOW.md
   nestedDiscovery: true
   sources:
     - https://platform.iflow.cn/en/cli/configuration/iflow
   lastVerified: 2026-05-20
+  kind: own-file
+rootDir: .iflow

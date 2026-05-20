@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/kiro-cli/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface KiroCliNativeConfig {
@@ -15,5 +15,5 @@ export interface KiroCliNativeConfig {
 
 export const agentModule = defineAgentModule<"kiro-cli", KiroCliNativeConfig>({
   agentId: "kiro-cli",
-  descriptor,
+  descriptor: AGENTS["kiro-cli"],
 });

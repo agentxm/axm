@@ -5,6 +5,12 @@
  */
 
 import type { ExtensionType } from "../extensions/common.js";
+import type {
+  AgentDescriptor,
+  AgentInstructionsDescriptor,
+  AgentSubagentsDescriptor,
+} from "../agents/types.js";
+import { AGENT_IDS, type AgentId } from "./catalog.generated.js";
 import type { Agent, AgentCapability, SupportLevel } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
@@ -68,6 +74,84 @@ export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensio
 /** @experimental This API is unstable and may change without notice. */
 export const supportLevelWorks = (support: SupportLevel): boolean =>
   support === "standard" || support === "bridged";
+
+const catalogAgentIds = new Set<string>(AGENT_IDS);
+
+const isCatalogAgentId = (id: string): id is AgentId => catalogAgentIds.has(id);
+
+const deriveAgentId = (agent: Agent): AgentId => {
+  if (isCatalogAgentId(agent.id)) return agent.id;
+  throw new Error(`Cannot derive descriptor for unknown catalog agent id: ${agent.id}`);
+};
+
+const firstPathSegment = (path: string): string | undefined => path.split("/")[0];
+
+const deriveRootDir = (agent: Agent): string | undefined =>
+  agent.rootDir === null
+    ? undefined
+    : (agent.rootDir ?? firstPathSegment(agent.skills?.directory ?? ""));
+
+const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | undefined => {
+  const subagents = agent.subagents;
+  if (subagents === undefined || !supportLevelWorks(subagents.support)) return undefined;
+  if (subagents.directory === undefined) return undefined;
+  return {
+    dir: subagents.directory,
+    ...(subagents.layout === "file" ? { isFile: true } : {}),
+  };
+};
+
+const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor | undefined => {
+  const instructions = agent.instructions;
+  if (instructions === undefined || !supportLevelWorks(instructions.support)) return undefined;
+
+  switch (instructions.kind) {
+    case "agents-md":
+      return { kind: "agents-md" };
+    case "own-file": {
+      const file = instructions.files[0];
+      if (file === undefined) return undefined;
+      return {
+        kind: "own-file",
+        file,
+        ...(instructions.importSyntax === undefined
+          ? {}
+          : { importSyntax: instructions.importSyntax }),
+      };
+    }
+    case "rules-dir": {
+      const dir = agent.rules?.directory;
+      if (dir === undefined) return undefined;
+      return { kind: "rules-dir", dir, format: "frontmatter" };
+    }
+    default:
+      return instructions.kind satisfies never;
+  }
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
+  const commands =
+    agent.commands !== undefined &&
+    supportLevelWorks(agent.commands.support) &&
+    agent.commands.directory !== undefined
+      ? { dir: agent.commands.directory }
+      : undefined;
+  const subagents = deriveSubagentsDescriptor(agent);
+  const instructions = deriveInstructionsDescriptor(agent);
+
+  return {
+    id: deriveAgentId(agent),
+    name: agent.name,
+    rootDir: deriveRootDir(agent),
+    skills: {
+      dir: agent.skills?.directory ?? "",
+    },
+    ...(commands === undefined ? {} : { commands }),
+    ...(subagents === undefined ? {} : { subagents }),
+    ...(instructions === undefined ? {} : { instructions }),
+  };
+};
 
 /** @experimental This API is unstable and may change without notice. */
 export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing> => {

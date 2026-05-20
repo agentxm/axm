@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/junie/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface JunieNativeConfig {
@@ -15,5 +15,5 @@ export interface JunieNativeConfig {
 
 export const agentModule = defineAgentModule<"junie", JunieNativeConfig>({
   agentId: "junie",
-  descriptor,
+  descriptor: AGENTS["junie"],
 });

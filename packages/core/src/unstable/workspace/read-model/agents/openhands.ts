@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/openhands/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface OpenhandsNativeConfig {
@@ -15,5 +15,5 @@ export interface OpenhandsNativeConfig {
 
 export const agentModule = defineAgentModule<"openhands", OpenhandsNativeConfig>({
   agentId: "openhands",
-  descriptor,
+  descriptor: AGENTS["openhands"],
 });

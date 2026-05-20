@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/qoder/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface QoderNativeConfig {
@@ -15,5 +15,5 @@ export interface QoderNativeConfig {
 
 export const agentModule = defineAgentModule<"qoder", QoderNativeConfig>({
   agentId: "qoder",
-  descriptor,
+  descriptor: AGENTS["qoder"],
 });

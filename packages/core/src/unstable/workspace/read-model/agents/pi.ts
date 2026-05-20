@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/pi/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface PiNativeConfig {
@@ -15,5 +15,5 @@ export interface PiNativeConfig {
 
 export const agentModule = defineAgentModule<"pi", PiNativeConfig>({
   agentId: "pi",
-  descriptor,
+  descriptor: AGENTS["pi"],
 });

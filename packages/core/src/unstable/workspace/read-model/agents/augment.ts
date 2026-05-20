@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/augment/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface AugmentNativeConfig {
@@ -15,5 +15,5 @@ export interface AugmentNativeConfig {
 
 export const agentModule = defineAgentModule<"augment", AugmentNativeConfig>({
   agentId: "augment",
-  descriptor,
+  descriptor: AGENTS["augment"],
 });

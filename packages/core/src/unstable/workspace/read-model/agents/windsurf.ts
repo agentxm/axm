@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/windsurf/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface WindsurfNativeConfig {
@@ -15,5 +15,5 @@ export interface WindsurfNativeConfig {
 
 export const agentModule = defineAgentModule<"windsurf", WindsurfNativeConfig>({
   agentId: "windsurf",
-  descriptor,
+  descriptor: AGENTS["windsurf"],
 });

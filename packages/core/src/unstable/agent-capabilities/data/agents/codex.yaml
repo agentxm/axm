@@ -3,98 +3,122 @@ id: codex
 name: Codex
 vendor: OpenAI
 homepage: https://developers.openai.com/codex
-interfaces: [cli, ide-extension]
+interfaces:
+  - cli
+  - ide-extension
 family: openai
 docs:
   - label: Codex documentation
     url: https://developers.openai.com/codex
-
 skills:
   support: standard
-  scopes: [user, project]
-  directory: .agents/skills
+  scopes:
+    - user
+    - project
+  directory: .codex/skills
   notes: >
-    Reads SKILL.md skills from repository (.agents/skills) and user
-    (~/.agents/skills) locations with progressive disclosure, using the
-    cross-tool Agent Skills convention rather than a .codex/ path.
+    Reads SKILL.md skills from repository (.agents/skills) and user (~/.agents/skills) locations
+    with progressive disclosure, using the cross-tool Agent Skills convention rather than a .codex/
+    path.
   sources:
     - https://developers.openai.com/codex/skills
   lastVerified: 2026-05-18
-
 commands:
   support: bridged
-  scopes: [user]
-  directory: "~/.codex/prompts"
+  scopes:
+    - user
+  directory: .codex/prompts
   notes: >
-    Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts.
-    Deprecated by OpenAI in favor of skills for reusable instructions, and there
-    is no project-scoped command directory.
+    Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts. Deprecated by OpenAI
+    in favor of skills for reusable instructions, and there is no project-scoped command directory.
   sources:
     - https://developers.openai.com/codex/custom-prompts
     - https://developers.openai.com/codex/cli/slash-commands
   lastVerified: 2026-05-18
-
 mcp:
   support: standard
-  scopes: [user, project]
-  transports: [stdio, http]
+  scopes:
+    - user
+    - project
+  transports:
+    - stdio
+    - http
   config:
     serversKey: mcp_servers
     nativeEnabled: true
     targets:
-      - { scope: project, path: .codex/config.toml, format: toml }
-      - { scope: user, path: "~/.codex/config.toml", format: toml }
+      - scope: project
+        path: .codex/config.toml
+        format: toml
+      - scope: user
+        path: ~/.codex/config.toml
+        format: toml
     stdio:
       command: split
       envKey: env
     remote:
-      typeField: { name: type, value: { streamable-http: streamable-http, sse: sse } }
-      urlKey: { streamable-http: url, sse: url }
+      typeField:
+        name: type
+        value:
+          streamable-http: streamable-http
+          sse: sse
+      urlKey:
+        streamable-http: url
+        sse: url
       headersKey: http_headers
     transform: codex-toml
   sources:
     - https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers
   lastVerified: 2026-05-16
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   notes: >
-    Custom agents are standalone TOML files under .codex/agents (project) or
-    ~/.codex/agents (user); a custom agent overrides a built-in of the same name.
+    Custom agents are standalone TOML files under .codex/agents (project) or ~/.codex/agents (user);
+    a custom agent overrides a built-in of the same name.
   sources:
     - https://developers.openai.com/codex/subagents
   lastVerified: 2026-05-18
-
+  directory: .codex/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [user, project]
-  files: [AGENTS.md]
+  scopes:
+    - user
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://github.com/openai/codex/blob/main/docs/agents_md.md
   lastVerified: 2026-05-16
-
+  kind: agents-md
 permissions:
   support: standard
-  scopes: [user, project]
-  mechanism: [config-file, cli-flag]
+  scopes:
+    - user
+    - project
+  mechanism:
+    - config-file
+    - cli-flag
   configFiles:
     - scope: user
-      path: "~/.codex/config.toml"
+      path: ~/.codex/config.toml
       format: toml
       gitignored: false
     - scope: user
-      path: "~/.codex/rules/${tool}.rules"
+      path: ~/.codex/rules/${tool}.rules
       format: starlark
       gitignored: false
   grammar:
     style: starlark-rule
-    example: 'prefix_rule(pattern=["axm"], decision="allow")'
+    example: prefix_rule(pattern=["axm"], decision="allow")
     notes: >
-      Per-command allowlisting is Starlark prefix_rule() in ~/.codex/rules/*.rules.
-      Sandbox and approval mode live separately in config.toml. Most restrictive
-      match wins (forbidden > prompt > allow).
+      Per-command allowlisting is Starlark prefix_rule() in ~/.codex/rules/*.rules. Sandbox and
+      approval mode live separately in config.toml. Most restrictive match wins (forbidden > prompt
+      > allow).
   prerequisites:
     - key: sandbox_mode
       value: workspace-write
@@ -105,13 +129,13 @@ permissions:
       scope: user
       note: Suppresses approval prompts.
   cliFlags:
-    - flag: "--full-auto"
+    - flag: --full-auto
       note: Equivalent one-shot bypass of prompts and sandbox restrictions.
-    - flag: "--sandbox workspace-write"
-    - flag: "--ask-for-approval never"
+    - flag: --sandbox workspace-write
+    - flag: --ask-for-approval never
   grants:
     shell:
-      target: "~/.codex/rules/${tool}.rules"
+      target: ~/.codex/rules/${tool}.rules
       template: |
         prefix_rule(
             pattern = ["${tool}"],
@@ -119,11 +143,12 @@ permissions:
             justification = "${tool} CLI trusted in this workspace.",
         )
     filesystem:
-      target: "~/.codex/config.toml"
+      target: ~/.codex/config.toml
       patch:
         sandbox_mode: workspace-write
         sandbox_workspace_write:
-          writable_roots: ["${workspaceRoot}"]
+          writable_roots:
+            - ${workspaceRoot}
           network_access: true
   sources:
     - https://developers.openai.com/codex/config-reference
@@ -131,3 +156,4 @@ permissions:
     - https://developers.openai.com/codex/security
     - https://developers.openai.com/codex/rules
   lastVerified: 2026-05-18
+rootDir: .codex

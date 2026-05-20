@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/qwen-code/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface QwenCodeNativeConfig {
@@ -15,5 +15,5 @@ export interface QwenCodeNativeConfig {
 
 export const agentModule = defineAgentModule<"qwen-code", QwenCodeNativeConfig>({
   agentId: "qwen-code",
-  descriptor,
+  descriptor: AGENTS["qwen-code"],
 });

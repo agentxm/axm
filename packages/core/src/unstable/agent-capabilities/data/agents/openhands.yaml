@@ -3,33 +3,39 @@ id: openhands
 name: OpenHands
 vendor: All Hands AI
 homepage: https://www.all-hands.dev
-interfaces: [cli]
+interfaces:
+  - cli
 docs:
   - label: OpenHands documentation
     url: https://docs.openhands.dev
-
 skills:
   support: standard
-  scopes: [user, project]
-  directory: .agents/skills
+  scopes:
+    - user
+    - project
+  directory: .openhands/skills
   sources:
     - https://docs.openhands.dev/overview/skills
   lastVerified: 2026-05-20
-
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md, GEMINI.md, CLAUDE.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: false
   sources:
     - https://docs.openhands.dev/overview/skills
   lastVerified: 2026-05-20
-
+  kind: agents-md
 mcp:
   support: bridged
-  scopes: [project]
-  transports: [stdio]
+  scopes:
+    - project
+  transports:
+    - stdio
   sources:
     - https://docs.openhands.dev/sdk/arch/skill
     - https://docs.openhands.dev/sdk/arch/tool-system
   lastVerified: 2026-05-20
+rootDir: .openhands

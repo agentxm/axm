@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/amp/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface AmpNativeConfig {
@@ -15,5 +15,5 @@ export interface AmpNativeConfig {
 
 export const agentModule = defineAgentModule<"amp", AmpNativeConfig>({
   agentId: "amp",
-  descriptor,
+  descriptor: AGENTS["amp"],
 });

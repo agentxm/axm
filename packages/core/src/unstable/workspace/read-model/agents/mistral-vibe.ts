@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/mistral-vibe/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface MistralVibeNativeConfig {
@@ -15,5 +15,5 @@ export interface MistralVibeNativeConfig {
 
 export const agentModule = defineAgentModule<"mistral-vibe", MistralVibeNativeConfig>({
   agentId: "mistral-vibe",
-  descriptor,
+  descriptor: AGENTS["mistral-vibe"],
 });

@@ -3,39 +3,49 @@ id: augment
 name: Augment
 vendor: Augment Code
 homepage: https://www.augmentcode.com
-interfaces: [ide-extension, cli]
+interfaces:
+  - ide-extension
+  - cli
 docs:
   - label: Augment documentation
     url: https://docs.augmentcode.com
-
 skills:
   support: standard
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .augment/rules
   sources:
     - https://docs.augmentcode.com/cli/skills
   lastVerified: 2026-05-20
-
 commands:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   directory: .augment/commands
   sources:
     - https://docs.augmentcode.com/cli/slash-commands
   lastVerified: 2026-05-20
-
 subagents:
   support: bridged
-  scopes: [user, project]
+  scopes:
+    - user
+    - project
   sources:
     - https://docs.augmentcode.com/cli/subagents
   lastVerified: 2026-05-20
-
+  directory: .augment/agents
+  layout: directory
 instructions:
   support: standard
-  scopes: [project]
-  files: [AGENTS.md]
+  scopes:
+    - project
+  files:
+    - AGENTS.md
   nestedDiscovery: true
   sources:
     - https://docs.augmentcode.com/cli/context
   lastVerified: 2026-05-20
+  kind: agents-md
+rootDir: .augment

@@ -1,5 +1,5 @@
 /**
- * roo agent module: typed `nativeConfig` placeholder + projectors.
+ * Hermes agent module: typed `nativeConfig` placeholder + projectors.
  *
  * Per design Decision 3 + Decision 10 of the workspace read-model change. v1
  * ships a placeholder `nativeConfig` shape; later changes can tighten the
@@ -9,11 +9,11 @@
 import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
-export interface RooNativeConfig {
-  readonly agentId: "roo";
+export interface HermesNativeConfig {
+  readonly agentId: "hermes";
 }
 
-export const agentModule = defineAgentModule<"roo", RooNativeConfig>({
-  agentId: "roo",
-  descriptor: AGENTS["roo"],
+export const agentModule = defineAgentModule<"hermes", HermesNativeConfig>({
+  agentId: "hermes",
+  descriptor: AGENTS.hermes,
 });

@@ -6,7 +6,7 @@
  * post-decode native-settings shape without touching `WorkspaceReadModel`.
  */
 
-import { descriptor } from "../../../agents/command-code/descriptor.js";
+import { AGENTS } from "../../../agents/registry.js";
 import { defineAgentModule } from "./types.js";
 
 export interface CommandCodeNativeConfig {
@@ -15,5 +15,5 @@ export interface CommandCodeNativeConfig {
 
 export const agentModule = defineAgentModule<"command-code", CommandCodeNativeConfig>({
   agentId: "command-code",
-  descriptor,
+  descriptor: AGENTS["command-code"],
 });

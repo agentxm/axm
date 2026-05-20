@@ -9,7 +9,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { generateFileIndex, generateTableOfContents } from "./generators.js";
+import {
+  generateFileIndex,
+  generateTableOfContents,
+  isFileIndexColumn,
+  type FileIndexColumn,
+  type FileIndexOptions,
+} from "./generators.js";
 import {
   commentStyleForTarget,
   parseRegionMarker,
@@ -35,6 +41,8 @@ interface WorkspaceGeneratorRegion {
   readonly filePath: string;
   readonly marker: FileRegionMarkerIdentity;
   readonly style: FileCommentStyle;
+  readonly startLine: string;
+  readonly options: Readonly<Record<string, string>>;
 }
 
 interface IgnorePattern {
@@ -140,6 +148,8 @@ const findWorkspaceGeneratorRegions = (
         filePath,
         marker: { region: marker.value.region, generator: marker.value.generator },
         style,
+        startLine: line,
+        options: marker.value.options ?? {},
       },
     ];
   });
@@ -190,6 +200,111 @@ const scanWorkspaceFiles = (
     return nested.flat();
   });
 
+const FILE_INDEX_INLINE_KEYS: ReadonlySet<string> = new Set([
+  "format",
+  "include",
+  "exclude",
+  "maxDepth",
+  "includeHidden",
+  "respectGitignore",
+  "columns",
+]);
+
+const TOC_INLINE_KEYS: ReadonlySet<string> = new Set<string>();
+
+const splitCsv = (value: string): ReadonlyArray<string> =>
+  value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "");
+
+const parseFileIndexOptions = (
+  region: WorkspaceGeneratorRegion,
+): Effect.Effect<FileIndexOptions, AppError> =>
+  Effect.gen(function* () {
+    const result: {
+      format?: FileIndexOptions["format"];
+      include?: ReadonlyArray<string>;
+      exclude?: ReadonlyArray<string>;
+      maxDepth?: number;
+      includeHidden?: boolean;
+      respectGitignore?: boolean;
+      columns?: ReadonlyArray<FileIndexColumn>;
+    } = {};
+    for (const [key, value] of Object.entries(region.options)) {
+      if (!FILE_INDEX_INLINE_KEYS.has(key)) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `Unsupported file-index marker option in ${region.filePath}: ${key}`,
+        });
+      }
+      switch (key) {
+        case "format":
+          if (value !== "list" && value !== "tree" && value !== "table") {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Unsupported file-index format in ${region.filePath}: ${value}`,
+            });
+          }
+          result.format = value;
+          break;
+        case "include":
+          result.include = splitCsv(value);
+          break;
+        case "exclude":
+          result.exclude = splitCsv(value);
+          break;
+        case "maxDepth": {
+          const parsed = Number.parseInt(value, 10);
+          if (!Number.isInteger(parsed) || parsed < 0) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `file-index marker option 'maxDepth' must be a non-negative integer in ${region.filePath}`,
+            });
+          }
+          result.maxDepth = parsed;
+          break;
+        }
+        case "includeHidden":
+          result.includeHidden = value === "true";
+          break;
+        case "respectGitignore":
+          result.respectGitignore = value !== "false";
+          break;
+        case "columns": {
+          const parts = splitCsv(value);
+          const parsed: Array<FileIndexColumn> = [];
+          for (const part of parts) {
+            if (!isFileIndexColumn(part)) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Unknown file-index column in ${region.filePath}: ${part}`,
+              });
+            }
+            parsed.push(part);
+          }
+          result.columns = parsed;
+          break;
+        }
+      }
+    }
+    return result;
+  });
+
+const validateTocOptions = (region: WorkspaceGeneratorRegion): Effect.Effect<void, AppError> => {
+  for (const key of Object.keys(region.options)) {
+    if (!TOC_INLINE_KEYS.has(key)) {
+      return Effect.fail(
+        makeAppError({
+          code: "validation",
+          detail: `Unsupported toc marker option in ${region.filePath}: ${key}`,
+        }),
+      );
+    }
+  }
+  return Effect.void;
+};
+
 const renderRegion = (
   workspaceRoot: string,
   fileContent: string,
@@ -197,9 +312,12 @@ const renderRegion = (
 ): Effect.Effect<string, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     switch (region.marker.generator) {
-      case "file-index":
-        return yield* generateFileIndex(workspaceRoot);
+      case "file-index": {
+        const options = yield* parseFileIndexOptions(region);
+        return yield* generateFileIndex(workspaceRoot, options);
+      }
       case "toc":
+        yield* validateTocOptions(region);
         return generateTableOfContents(fileContent, {
           marker: region.marker,
           style: region.style,
@@ -224,6 +342,7 @@ const replaceRegion = (
         marker: region.marker,
         rendered,
         style: region.style,
+        startLine: region.startLine,
       }),
     catch: (error) =>
       makeAppError({

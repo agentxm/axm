@@ -93,6 +93,51 @@ describe("file region markers", () => {
     expect(stripped).toBe("# Project\ntail");
   });
 
+  it("parses arbitrary key=value options on a start marker", () => {
+    const style = commentStyleForTarget("README.md");
+    if (Option.isNone(style)) return;
+    const parsed = parseRegionMarker(
+      "<!-- axm:start region=docs-index generator=file-index include=docs/*.md format=table columns=fileName,title,description -->",
+      style.value,
+    );
+    expect(Option.isSome(parsed)).toBe(true);
+    if (Option.isSome(parsed)) {
+      expect(parsed.value.region).toBe("docs-index");
+      expect(parsed.value.generator).toBe("file-index");
+      expect(parsed.value.options).toEqual({
+        include: "docs/*.md",
+        format: "table",
+        columns: "fileName,title,description",
+      });
+    }
+  });
+
+  it("preserves the original start marker line when replacing a region", () => {
+    const style = commentStyleForTarget("README.md");
+    if (Option.isNone(style)) return;
+    const startLine =
+      "<!-- axm:start region=docs generator=file-index format=table columns=path,description -->";
+    const original = [
+      "# Project",
+      startLine,
+      "old",
+      "<!-- axm:end region=docs generator=file-index -->",
+      "",
+    ].join("\n");
+
+    const replaced = replaceManagedRegion({
+      content: original,
+      marker: { region: "docs", generator: "file-index" },
+      rendered: "new content",
+      style: style.value,
+      startLine,
+    });
+
+    expect(replaced).toContain(startLine);
+    expect(replaced).toContain("new content");
+    expect(replaced).not.toContain("old");
+  });
+
   it("rejects duplicate matching region starts", () => {
     const style = commentStyleForTarget("README.md");
     if (Option.isNone(style)) return;

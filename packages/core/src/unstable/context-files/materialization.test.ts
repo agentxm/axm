@@ -101,7 +101,7 @@ describe("file materialization", () => {
             kind: "generated",
             generator: {
               name: "file-index",
-              options: { include: "src/**/*.ts", descriptors: true },
+              options: { include: "src/**/*.ts", columns: "path,description" },
             },
           },
         });

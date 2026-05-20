@@ -31,6 +31,22 @@ When `axm lint` reports `workspace/skills-managed`, choose one resolution per sk
 
 Prefer ignore for tool-managed skills. Fork only when you deliberately take ownership away from that tool. See `axm help settings` for `skillsConfig.ignore`.
 
+## Recommended packs
+
+Name the pack(s) your skill is designed to ship with in `skill.json` `recommendedPacks`. Use the bare pack reference — do not include a version range:
+
+```json
+{
+  "recommendedPacks": ["@acme/packs/bricks"]
+}
+```
+
+When a pack lists this skill as a dependency and the skill lists that pack as recommended, the registry marks both sides of the relationship as **official**. Either side may declare alone; the badge appears only when both agree.
+
+Always declare `recommendedPacks` for packs you publish under the same owner that bundle this skill — it costs nothing and earns the Official badge in the registry.
+
+See `axm help packs` for pack authoring and `standalone` semantics.
+
 ## Where to go next
 
 - `axm skills --help` — full skill subcommand surface

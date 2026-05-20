@@ -64,6 +64,22 @@ Do not edit rendered command files directly. Edit the command package source and
 
 If you find an AXM-managed rendered command file in an agent directory, edit the source path named in that file and then run `axm sync`.
 
+## Recommended packs
+
+Name the pack(s) your command is designed to ship with in `command.json` `recommendedPacks`. Use the bare pack reference — do not include a version range:
+
+```json
+{
+  "recommendedPacks": ["@acme/packs/bricks"]
+}
+```
+
+When a pack lists this command as a dependency and the command lists that pack as recommended, the registry marks both sides of the relationship as **official**. Either side may declare alone; the badge appears only when both agree.
+
+Always declare `recommendedPacks` for packs you publish under the same owner that bundle this command — it costs nothing and earns the Official badge in the registry.
+
+See `axm help packs` for pack authoring and `standalone` semantics.
+
 ## Where to go next
 
 - `axm help packs` — bundling command extensions with extension packs

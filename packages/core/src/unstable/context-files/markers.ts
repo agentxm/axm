@@ -20,6 +20,7 @@ export type FileRegionMarkerKind = "start" | "end";
 
 export interface FileRegionMarker extends FileRegionMarkerIdentity {
   readonly kind: FileRegionMarkerKind;
+  readonly options?: Readonly<Record<string, string>> | undefined;
 }
 
 export interface ReplaceManagedRegionArgs {
@@ -27,6 +28,7 @@ export interface ReplaceManagedRegionArgs {
   readonly marker: FileRegionMarkerIdentity;
   readonly rendered: string;
   readonly style: FileCommentStyle;
+  readonly startLine?: string | undefined;
 }
 
 const blockCommentExtensions = new Set([".md", ".mdx", ".html", ".htm", ".xml", ".svg"]);
@@ -147,19 +149,25 @@ export const parseRegionMarker = (
   let region: string | undefined;
   let ext: string | undefined;
   let generator: string | undefined;
+  const options: Record<string, string> = {};
   for (const part of parts.slice(1)) {
-    const [key, value, extra] = part.split("=");
-    if (key === undefined || value === undefined || extra !== undefined) return Option.none();
+    const equalsIndex = part.indexOf("=");
+    if (equalsIndex <= 0 || equalsIndex === part.length - 1) return Option.none();
+    const key = part.slice(0, equalsIndex);
+    const value = part.slice(equalsIndex + 1);
     if (key === "region") region = value;
-    if (key === "ext") ext = value;
-    if (key === "generator") generator = value;
+    else if (key === "ext") ext = value;
+    else if (key === "generator") generator = value;
+    else options[key] = value;
   }
   if (region === undefined) return Option.none();
+  const hasOptions = Object.keys(options).length > 0;
   return Option.some({
     kind: head === "axm:start" ? "start" : "end",
     region,
     ...(ext !== undefined && { ext }),
     ...(generator !== undefined && { generator }),
+    ...(hasOptions && { options }),
   });
 };
 
@@ -219,10 +227,12 @@ export const replaceManagedRegion = ({
   marker,
   rendered,
   style,
+  startLine,
 }: ReplaceManagedRegionArgs): string => {
   const markers = markerLines(marker, style);
+  const startMarker = startLine ?? markers.start;
   const renderedLines = splitLines(rendered);
-  const replacement = [markers.start, ...renderedLines, markers.end];
+  const replacement = [startMarker, ...renderedLines, markers.end];
   const located = findRegion(content, marker, style);
   if (Option.isNone(located)) {
     const suffix = content.endsWith("\n") || content.length === 0 ? "" : "\n";

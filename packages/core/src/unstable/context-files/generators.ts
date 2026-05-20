@@ -19,30 +19,49 @@ export interface TableOfContentsHeading {
   readonly text: string;
 }
 
+export type FileIndexFormat = "list" | "tree" | "table";
+
+export type FileIndexColumn = "path" | "fileName" | "link" | "title" | "description";
+
+export const FILE_INDEX_COLUMNS: ReadonlyArray<FileIndexColumn> = [
+  "path",
+  "fileName",
+  "link",
+  "title",
+  "description",
+];
+
+const FILE_INDEX_COLUMN_SET: ReadonlySet<string> = new Set<string>(FILE_INDEX_COLUMNS);
+
+export const isFileIndexColumn = (value: string): value is FileIndexColumn =>
+  FILE_INDEX_COLUMN_SET.has(value);
+
 export interface FileIndexOptions {
   readonly maxDepth?: number | undefined;
-  readonly format?: "list" | "tree" | undefined;
+  readonly format?: FileIndexFormat | undefined;
   readonly includeHidden?: boolean | undefined;
   readonly include?: ReadonlyArray<string> | undefined;
   readonly exclude?: ReadonlyArray<string> | undefined;
   readonly respectGitignore?: boolean | undefined;
-  readonly descriptors?: boolean | undefined;
+  readonly columns?: ReadonlyArray<FileIndexColumn> | undefined;
 }
 
 interface ResolvedFileIndexOptions {
   readonly maxDepth: number;
-  readonly format: "list" | "tree";
+  readonly format: FileIndexFormat;
   readonly includeHidden: boolean;
   readonly include: ReadonlyArray<string>;
   readonly exclude: ReadonlyArray<string>;
   readonly respectGitignore: boolean;
-  readonly descriptors: boolean;
+  readonly columns: ReadonlyArray<FileIndexColumn>;
+  readonly readsContent: boolean;
   readonly gitignore: ReadonlyArray<IgnorePattern>;
 }
 
 interface FileIndexEntry {
   readonly path: string;
-  readonly descriptor: Option.Option<string>;
+  readonly title: Option.Option<string>;
+  readonly description: Option.Option<string>;
 }
 
 interface IgnorePattern {
@@ -190,7 +209,21 @@ const firstSome = (values: ReadonlyArray<Option.Option<string>>): Option.Option<
   return Option.none();
 };
 
-const descriptorFromMarkdown = (content: string): Option.Option<string> => {
+const frontmatterPattern = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+
+const matchKeyValue = (content: string, key: string): Option.Option<string> => {
+  const pattern = new RegExp(`^${key}\\s*[:=]\\s*["']?(.+?)["']?\\s*$`, "m");
+  const match = pattern.exec(content);
+  const value = match?.[1]?.trim();
+  return value === undefined || value === "" ? Option.none() : Option.some(value);
+};
+
+const markdownFrontmatter = (content: string): Option.Option<string> => {
+  const match = frontmatterPattern.exec(content);
+  return match?.[1] === undefined ? Option.none() : Option.some(match[1]);
+};
+
+const markdownFirstHeading = (content: string): Option.Option<string> => {
   const heading = content
     .split(/\r?\n/)
     .map((line) => headingPattern.exec(line)?.[2]?.trim())
@@ -198,11 +231,30 @@ const descriptorFromMarkdown = (content: string): Option.Option<string> => {
   return heading === undefined ? Option.none() : Option.some(heading);
 };
 
-const descriptorFromJson = (content: string): Option.Option<string> =>
+const titleFromMarkdown = (content: string): Option.Option<string> => {
+  const frontmatter = markdownFrontmatter(content);
+  const fromFrontmatter = Option.isSome(frontmatter)
+    ? matchKeyValue(frontmatter.value, "title")
+    : Option.none<string>();
+  return Option.isSome(fromFrontmatter) ? fromFrontmatter : markdownFirstHeading(content);
+};
+
+const descriptionFromMarkdown = (content: string): Option.Option<string> => {
+  const frontmatter = markdownFrontmatter(content);
+  if (Option.isNone(frontmatter)) return Option.none();
+  return firstSome([
+    matchKeyValue(frontmatter.value, "description"),
+    matchKeyValue(frontmatter.value, "summary"),
+  ]);
+};
+
+const titleFromJson = (content: string): Option.Option<string> =>
+  stringProperty(parseJson(content), "name");
+
+const descriptionFromJson = (content: string): Option.Option<string> =>
   firstSome([
     stringProperty(parseJson(content), "description"),
     stringProperty(parseJson(content), "summary"),
-    stringProperty(parseJson(content), "name"),
   ]);
 
 const parseJson = (content: string): unknown => {
@@ -213,33 +265,52 @@ const parseJson = (content: string): unknown => {
   }
 };
 
-const descriptorFromKeyValue = (content: string): Option.Option<string> => {
-  const match = /^(?:description|summary|title)\s*[:=]\s*["']?(.+?)["']?\s*$/m.exec(content);
-  const descriptor = match?.[1]?.trim();
-  return descriptor === undefined || descriptor === "" ? Option.none() : Option.some(descriptor);
-};
+const titleFromKeyValue = (content: string): Option.Option<string> =>
+  matchKeyValue(content, "title");
 
-const extractDescriptor = (filePath: string, content: string): Option.Option<string> => {
+const descriptionFromKeyValue = (content: string): Option.Option<string> =>
+  firstSome([matchKeyValue(content, "description"), matchKeyValue(content, "summary")]);
+
+const extractTitle = (filePath: string, content: string): Option.Option<string> => {
   const lower = filePath.toLowerCase();
-  if (lower.endsWith(".md") || lower.endsWith(".mdx")) return descriptorFromMarkdown(content);
-  if (lower.endsWith(".json") || lower.endsWith(".jsonc")) return descriptorFromJson(content);
+  if (lower.endsWith(".md") || lower.endsWith(".mdx")) return titleFromMarkdown(content);
+  if (lower.endsWith(".json") || lower.endsWith(".jsonc")) return titleFromJson(content);
   if (lower.endsWith(".yaml") || lower.endsWith(".yml") || lower.endsWith(".toml")) {
-    return descriptorFromKeyValue(content);
+    return titleFromKeyValue(content);
   }
   return Option.none();
 };
 
-const readDescriptor = (
+const extractDescription = (filePath: string, content: string): Option.Option<string> => {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith(".md") || lower.endsWith(".mdx")) return descriptionFromMarkdown(content);
+  if (lower.endsWith(".json") || lower.endsWith(".jsonc")) return descriptionFromJson(content);
+  if (lower.endsWith(".yaml") || lower.endsWith(".yml") || lower.endsWith(".toml")) {
+    return descriptionFromKeyValue(content);
+  }
+  return Option.none();
+};
+
+const readEntryMetadata = (
   filePath: string,
   options: ResolvedFileIndexOptions,
-): Effect.Effect<Option.Option<string>, never, FileSystem.FileSystem> =>
+): Effect.Effect<
+  { readonly title: Option.Option<string>; readonly description: Option.Option<string> },
+  never,
+  FileSystem.FileSystem
+> =>
   Effect.gen(function* () {
-    if (!options.descriptors) return Option.none();
+    if (!options.readsContent) {
+      return { title: Option.none(), description: Option.none() };
+    }
     const fs = yield* FileSystem.FileSystem;
     const content = yield* fs.readFileString(filePath).pipe(Effect.option);
     return Option.match(content, {
-      onNone: () => Option.none(),
-      onSome: (value) => extractDescriptor(filePath, value),
+      onNone: () => ({ title: Option.none<string>(), description: Option.none<string>() }),
+      onSome: (value) => ({
+        title: extractTitle(filePath, value),
+        description: extractDescription(filePath, value),
+      }),
     });
   });
 
@@ -289,36 +360,92 @@ const scanFiles = (
           }
           if (!shouldIncludePath(relativePath, options))
             return [] satisfies ReadonlyArray<FileIndexEntry>;
-          const descriptor = yield* readDescriptor(absolute, options);
-          return [{ path: relativePath, descriptor }] satisfies ReadonlyArray<FileIndexEntry>;
+          const metadata = yield* readEntryMetadata(absolute, options);
+          return [
+            { path: relativePath, title: metadata.title, description: metadata.description },
+          ] satisfies ReadonlyArray<FileIndexEntry>;
         }),
       { concurrency: 1 },
     );
     return nested.flat();
   });
 
-const renderEntryLabel = (entry: FileIndexEntry): string =>
-  Option.match(entry.descriptor, {
-    onNone: () => entry.path,
-    onSome: (descriptor) => `${entry.path} - ${descriptor}`,
-  });
+const columnLabel: Record<FileIndexColumn, string> = {
+  path: "Path",
+  fileName: "File",
+  link: "Link",
+  title: "Title",
+  description: "Description",
+};
 
-const renderList = (files: ReadonlyArray<FileIndexEntry>): string =>
-  files.map((file) => `- ${renderEntryLabel(file)}`).join("\n");
+const basenameOf = (path: string): string => path.split("/").at(-1) ?? path;
 
-const renderTree = (files: ReadonlyArray<FileIndexEntry>): string =>
-  files
+const columnValue = (entry: FileIndexEntry, column: FileIndexColumn): string => {
+  switch (column) {
+    case "path":
+      return entry.path;
+    case "fileName":
+      return basenameOf(entry.path);
+    case "link":
+      return `[${basenameOf(entry.path)}](${entry.path})`;
+    case "title":
+      return Option.getOrElse(entry.title, () => "");
+    case "description":
+      return Option.getOrElse(entry.description, () => "");
+  }
+};
+
+const escapeTableCell = (value: string): string =>
+  value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+
+const joinListColumns = (entry: FileIndexEntry, columns: ReadonlyArray<FileIndexColumn>): string =>
+  columns
+    .map((column) => columnValue(entry, column))
+    .filter((value, index) => index === 0 || value !== "")
+    .join(" - ");
+
+const renderList = (
+  files: ReadonlyArray<FileIndexEntry>,
+  columns: ReadonlyArray<FileIndexColumn>,
+): string => files.map((file) => `- ${joinListColumns(file, columns)}`).join("\n");
+
+const renderTree = (
+  files: ReadonlyArray<FileIndexEntry>,
+  columns: ReadonlyArray<FileIndexColumn>,
+): string => {
+  const treeColumns: ReadonlyArray<FileIndexColumn> =
+    columns[0] === "path" ? ["fileName", ...columns.slice(1)] : columns;
+  return files
     .map((entry) => {
-      const segments = entry.path.split(/[\\/]/);
-      const depth = segments.length - 1;
-      const basename = segments.at(-1) ?? entry.path;
-      const label = Option.match(entry.descriptor, {
-        onNone: () => basename,
-        onSome: (descriptor) => `${basename} - ${descriptor}`,
-      });
-      return `${"  ".repeat(depth)}- ${label}`;
+      const depth = entry.path.split("/").length - 1;
+      return `${"  ".repeat(depth)}- ${joinListColumns(entry, treeColumns)}`;
     })
     .join("\n");
+};
+
+const renderTable = (
+  files: ReadonlyArray<FileIndexEntry>,
+  columns: ReadonlyArray<FileIndexColumn>,
+): string => {
+  const header = `| ${columns.map((column) => columnLabel[column]).join(" | ")} |`;
+  const separator = `| ${columns.map(() => "---").join(" | ")} |`;
+  const rows = files.map(
+    (file) =>
+      `| ${columns.map((column) => escapeTableCell(columnValue(file, column))).join(" | ")} |`,
+  );
+  return [header, separator, ...rows].join("\n");
+};
+
+const defaultColumns = (format: FileIndexFormat): ReadonlyArray<FileIndexColumn> => {
+  switch (format) {
+    case "table":
+      return ["path", "description"];
+    case "tree":
+      return ["fileName"];
+    case "list":
+      return ["path"];
+  }
+};
 
 export const generateFileIndex = (
   workspaceRoot: string,
@@ -327,16 +454,30 @@ export const generateFileIndex = (
   Effect.gen(function* () {
     const gitignore =
       options.respectGitignore === false ? [] : yield* readRootGitignore(workspaceRoot);
-    const resolved = {
+    const format: FileIndexFormat = options.format ?? "list";
+    const columns =
+      options.columns !== undefined && options.columns.length > 0
+        ? options.columns
+        : defaultColumns(format);
+    const readsContent = columns.some((column) => column === "title" || column === "description");
+    const resolved: ResolvedFileIndexOptions = {
       maxDepth: options.maxDepth ?? 5,
-      format: options.format ?? "list",
+      format,
       includeHidden: options.includeHidden ?? false,
       include: options.include ?? [],
       exclude: options.exclude ?? [],
       respectGitignore: options.respectGitignore ?? true,
-      descriptors: options.descriptors ?? false,
+      columns,
+      readsContent,
       gitignore,
     };
     const files = yield* scanFiles(workspaceRoot, workspaceRoot, 0, resolved);
-    return resolved.format === "tree" ? renderTree(files) : renderList(files);
+    switch (resolved.format) {
+      case "table":
+        return renderTable(files, resolved.columns);
+      case "tree":
+        return renderTree(files, resolved.columns);
+      case "list":
+        return renderList(files, resolved.columns);
+    }
   });

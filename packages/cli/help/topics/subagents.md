@@ -76,6 +76,22 @@ If you find an AXM-managed rendered subagent file in an agent directory, edit th
 
 Run `axm subagents publish` to release a new version. Publish validates the manifest, checks that `src/<subagent-name>.md` exists and that its frontmatter `name` matches the manifest, then zips the extension directory, computes its SRI integrity hash, and uploads the version to the target registry. Publish never edits `subagent.json` — whatever is on disk is what gets shipped.
 
+## Recommended packs
+
+Name the pack(s) your subagent is designed to ship with in `subagent.json` `recommendedPacks`. Use the bare pack reference — do not include a version range:
+
+```json
+{
+  "recommendedPacks": ["@acme/packs/bricks"]
+}
+```
+
+When a pack lists this subagent as a dependency and the subagent lists that pack as recommended, the registry marks both sides of the relationship as **official**. Either side may declare alone; the badge appears only when both agree.
+
+Always declare `recommendedPacks` for packs you publish under the same owner that bundle this subagent — it costs nothing and earns the Official badge in the registry.
+
+See `axm help packs` for pack authoring and `standalone` semantics.
+
 ## Where to go next
 
 - `axm subagents --help` — full subagent subcommand surface

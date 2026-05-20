@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { isFileIndexColumn } from "../../../context-files/generators.js";
 import type { FileGeneratorSpec } from "../../../context-files/manifest-schema.js";
 import type { ContextFilesRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
@@ -19,7 +20,7 @@ const fileIndexOptions = new Set([
   "maxDepth",
   "includeHidden",
   "respectGitignore",
-  "descriptors",
+  "columns",
 ]);
 
 export const generatorValidRule: AdvisoryRule<ContextFilesRuleContext> = {
@@ -85,8 +86,10 @@ const validateFileIndexGenerator = (
 ): ReadonlyArray<AdvisoryFinding> => {
   const findings = unknownOptionFindings(entryNumber, generator, fileIndexOptions);
   const format = generator.options?.["format"];
-  if (format !== undefined && format !== "list" && format !== "tree") {
-    findings.push(optionFinding(entryNumber, "file-index", "format", "must be 'list' or 'tree'."));
+  if (format !== undefined && format !== "list" && format !== "tree" && format !== "table") {
+    findings.push(
+      optionFinding(entryNumber, "file-index", "format", "must be 'list', 'tree', or 'table'."),
+    );
   }
   for (const key of ["include", "exclude"]) {
     const value = generator.options?.[key];
@@ -105,10 +108,39 @@ const validateFileIndexGenerator = (
       optionFinding(entryNumber, "file-index", "maxDepth", "must be a non-negative integer."),
     );
   }
-  for (const key of ["includeHidden", "respectGitignore", "descriptors"]) {
+  for (const key of ["includeHidden", "respectGitignore"]) {
     const value = generator.options?.[key];
     if (value !== undefined && typeof value !== "boolean") {
       findings.push(optionFinding(entryNumber, "file-index", key, "must be a boolean."));
+    }
+  }
+  const columns = generator.options?.["columns"];
+  if (columns !== undefined) {
+    if (typeof columns !== "string") {
+      findings.push(
+        optionFinding(
+          entryNumber,
+          "file-index",
+          "columns",
+          "must be a comma-separated string of column names.",
+        ),
+      );
+    } else {
+      const parts = columns
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part !== "");
+      const unknown = parts.find((part) => !isFileIndexColumn(part));
+      if (unknown !== undefined) {
+        findings.push(
+          optionFinding(
+            entryNumber,
+            "file-index",
+            "columns",
+            `contains unknown column '${unknown}'. Allowed: path, fileName, link, title, description.`,
+          ),
+        );
+      }
     }
   }
   return findings;

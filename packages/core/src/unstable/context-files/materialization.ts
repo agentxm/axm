@@ -13,7 +13,13 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
 import { makeWorkspaceRelativePath, type RelativePath } from "../utils/path-types.js";
 import { MaterializedFileTargetSchema, type MaterializedFileTarget } from "../lockfile/schema.js";
-import { generateFileIndex, generateTableOfContents, type FileIndexOptions } from "./generators.js";
+import {
+  generateFileIndex,
+  generateTableOfContents,
+  isFileIndexColumn,
+  type FileIndexColumn,
+  type FileIndexOptions,
+} from "./generators.js";
 import type {
   FileContentSource,
   FileContentsEntry,
@@ -175,9 +181,32 @@ const fileIndexFormat = (
   Option.match(value, {
     onNone: () => Effect.succeed(Option.none()),
     onSome: (format) =>
-      format === "list" || format === "tree"
+      format === "list" || format === "tree" || format === "table"
         ? Effect.succeed(Option.some(format))
         : failValidation(`Unsupported file-index format: ${format}`),
+  });
+
+const fileIndexColumns = (
+  value: Option.Option<string>,
+): Effect.Effect<Option.Option<ReadonlyArray<FileIndexColumn>>, AppError> =>
+  Option.match(value, {
+    onNone: () => Effect.succeed(Option.none()),
+    onSome: (columns) =>
+      Effect.gen(function* () {
+        const parts = columns
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part !== "");
+        if (parts.length === 0) return Option.none<ReadonlyArray<FileIndexColumn>>();
+        const parsed: Array<FileIndexColumn> = [];
+        for (const part of parts) {
+          if (!isFileIndexColumn(part)) {
+            return yield* failValidation(`Unknown file-index column: ${part}`);
+          }
+          parsed.push(part);
+        }
+        return Option.some(parsed);
+      }),
   });
 
 const fileIndexOptions = (
@@ -190,7 +219,7 @@ const fileIndexOptions = (
     const maxDepth = yield* optionalNumberOption(generator, "maxDepth");
     const includeHidden = yield* optionalBooleanOption(generator, "includeHidden");
     const respectGitignore = yield* optionalBooleanOption(generator, "respectGitignore");
-    const descriptors = yield* optionalBooleanOption(generator, "descriptors");
+    const columns = yield* fileIndexColumns(yield* optionalStringOption(generator, "columns"));
     return {
       ...(Option.isSome(format) && { format: format.value }),
       ...(include.length > 0 && { include }),
@@ -198,7 +227,7 @@ const fileIndexOptions = (
       ...(Option.isSome(maxDepth) && { maxDepth: maxDepth.value }),
       ...(Option.isSome(includeHidden) && { includeHidden: includeHidden.value }),
       ...(Option.isSome(respectGitignore) && { respectGitignore: respectGitignore.value }),
-      ...(Option.isSome(descriptors) && { descriptors: descriptors.value }),
+      ...(Option.isSome(columns) && { columns: columns.value }),
     };
   });
 

@@ -81,6 +81,63 @@ describe("workspace generator regions", () => {
     ),
   );
 
+  it.effect("renders inline file-index regions with marker options", () =>
+    run(
+      Effect.gen(function* () {
+        nodeFs.mkdirSync(nodePath.join(tempDir, "docs"), { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(tempDir, "docs", "operations.md"),
+          "---\ntitle: Operations\ndescription: dotnet commands\n---\n",
+        );
+        nodeFs.writeFileSync(nodePath.join(tempDir, "docs", "axm.md"), "# AXM\n");
+        const readmePath = nodePath.join(tempDir, "AGENTS.md");
+        nodeFs.writeFileSync(
+          readmePath,
+          [
+            "# Project",
+            "<!-- axm:start region=docs-index generator=file-index include=docs/*.md format=table columns=fileName,title,description -->",
+            "old",
+            "<!-- axm:end region=docs-index generator=file-index -->",
+            "",
+          ].join("\n"),
+        );
+
+        yield* renderWorkspaceGeneratorRegions({ workspaceRoot: tempDir });
+
+        const agents = nodeFs.readFileSync(readmePath, "utf-8");
+        expect(agents).toContain("| File | Title | Description |");
+        expect(agents).toContain("| --- | --- | --- |");
+        expect(agents).toContain("| axm.md | AXM |  |");
+        expect(agents).toContain("| operations.md | Operations | dotnet commands |");
+        expect(agents).toContain(
+          "<!-- axm:start region=docs-index generator=file-index include=docs/*.md format=table columns=fileName,title,description -->",
+        );
+      }),
+    ),
+  );
+
+  it.effect("rejects unknown marker options", () =>
+    run(
+      Effect.gen(function* () {
+        const readmePath = nodePath.join(tempDir, "README.md");
+        nodeFs.writeFileSync(
+          readmePath,
+          [
+            "<!-- axm:start region=files generator=file-index unsupported=true -->",
+            "<!-- axm:end region=files generator=file-index -->",
+            "",
+          ].join("\n"),
+        );
+
+        const result = yield* Effect.result(
+          renderWorkspaceGeneratorRegions({ workspaceRoot: tempDir }),
+        );
+
+        expect(result._tag).toBe("Failure");
+      }),
+    ),
+  );
+
   it.effect("dry-run reports changes without writing files", () =>
     run(
       Effect.gen(function* () {

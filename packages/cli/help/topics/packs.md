@@ -33,7 +33,7 @@ Packs may not depend on other extension packs. A pack's dependency graph is exac
 
 ## Recommended packs
 
-Extensions that are designed to work with a specific pack should declare it in `recommendedPacks`:
+Extensions that are designed to work with a specific pack should declare it in `recommendedPacks`. Use the bare pack reference — do not include a version range:
 
 ```
 {
@@ -42,6 +42,10 @@ Extensions that are designed to work with a specific pack should declare it in `
    ]
 }
 ```
+
+When a pack lists an extension as a dependency and the extension lists that pack as recommended, the registry marks both sides of the relationship as **official**. Either side may declare alone; the badge appears only when both agree.
+
+When you publish both an extension and a pack that bundles it under the same owner, always declare the pack in the extension's `recommendedPacks` — it costs nothing and earns the Official badge in the registry.
 
 See the individual help topics for each extension type for more details.
 

@@ -37,9 +37,18 @@ describe("agent capability derivation", () => {
 
   it("finds agents that work with one extension type", () => {
     expect(worksOn("rule", AGENTS).map((agent) => agent.id)).toEqual([
+      "antigravity",
+      "cline",
+      "continue",
       "cursor",
       "ibm-bob",
+      "junie",
+      "kiro-cli",
+      "roo",
+      "trae-cn",
+      "trae",
       "windsurf",
+      "zencoder",
     ]);
   });
 
@@ -47,6 +56,9 @@ describe("agent capability derivation", () => {
     expect(worksOnAll(["rule", "subagent"], AGENTS).map((agent) => agent.id)).toEqual([
       "cursor",
       "ibm-bob",
+      "kiro-cli",
+      "roo",
+      "zencoder",
     ]);
   });
 
@@ -58,11 +70,18 @@ describe("agent capability derivation", () => {
     ).toEqual([
       "claude-code",
       "codex",
+      "crush",
       "cursor",
       "gemini-cli",
       "github-copilot",
       "grok-cli",
       "ibm-bob",
+      "iflow-cli",
+      "kilo",
+      "kiro-cli",
+      "mistral-vibe",
+      "openhands",
+      "qoder",
       "windsurf",
     ]);
   });

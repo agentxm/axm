@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: neovate
+name: Neovate
+vendor: Ant Group
+homepage: https://neovateai.dev
+interfaces: [cli]
+docs:
+  - label: Neovate Code documentation
+    url: https://neovateai.dev/docs/features
+
+skills:
+  support: bridged
+  scopes: [user, project]
+  directory: .neovate/skills
+  notes: >
+    Neovate documents on-demand skills as a feature, but current public docs do
+    not describe an Agent Skills-compatible SKILL.md directory.
+  sources:
+    - https://neovateai.dev/docs/features
+  lastVerified: 2026-05-20
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http, sse]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: true
+    targets:
+      - { scope: user, path: "~/.neovate/mcp.json", format: json }
+      - { scope: project, path: .neovate/mcp.json, format: json }
+    stdio:
+      command: split
+      envKey: env
+    remote:
+      typeField: { name: type, value: { streamable-http: http, sse: sse } }
+      urlKey: { streamable-http: url, sse: url }
+      headersKey: headers
+  sources:
+    - https://neovateai.dev/en/docs/mcp/
+  lastVerified: 2026-05-20

@@ -95,6 +95,7 @@ export const AGENT_IDS = [
   "github-copilot",
   "goose",
   "grok-cli",
+  "ibm-bob",
   "iflow-cli",
   "junie",
   "kilo",

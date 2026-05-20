@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: continue
+name: Continue
+vendor: Continue
+homepage: https://www.continue.dev
+interfaces: [ide-extension]
+docs:
+  - label: Continue documentation
+    url: https://docs.continue.dev
+
+commands:
+  support: bridged
+  scopes: [user, project]
+  sources:
+    - https://docs.continue.dev/customize/deep-dives/prompt-files
+  lastVerified: 2026-05-20
+
+rules:
+  support: bridged
+  scopes: [user, project]
+  directory: .continue/rules
+  sources:
+    - https://docs.continue.dev/guides/configuring-models-rules-tools
+  lastVerified: 2026-05-20

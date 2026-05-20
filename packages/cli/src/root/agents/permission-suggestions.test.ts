@@ -14,6 +14,10 @@ describe("buildPermissionSuggestions", () => {
         url: "https://docs.claude.com/en/docs/claude-code/iam",
       },
       {
+        description: "Configure CodeBuddy to allow AXM without per-call prompts",
+        url: "https://staging-codebuddy.tencent.com/docs/cli/reference",
+      },
+      {
         description:
           'Allow AXM in Codex by adding `prefix_rule(pattern=["axm"], decision="allow")` to `~/.codex/rules/${tool}.rules`',
         url: "https://developers.openai.com/codex/config-reference",
@@ -31,6 +35,14 @@ describe("buildPermissionSuggestions", () => {
         description:
           'Allow AXM in GitHub Copilot by adding `"/^axm(\\\\s|$)/": true` to `.vscode/settings.json`',
         url: "https://code.visualstudio.com/docs/copilot/reference/copilot-settings",
+      },
+      {
+        description: "Configure Kode to allow AXM without per-call prompts",
+        url: "https://github.com/shareAI-lab/Kode-Agent",
+      },
+      {
+        description: "Allow AXM in Qoder by adding `Bash(npm run test:*)` to `~/.qoder.json`",
+        url: "https://docs.qoder.com/en/cli/permissions",
       },
       {
         description: "Allow AXM in Windsurf by adding `axm` to `VS Code settings (Settings UI)`",

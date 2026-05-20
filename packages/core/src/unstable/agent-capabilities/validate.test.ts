@@ -4,6 +4,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
+import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
 import { AgentIdSchema, AGENTS } from "./catalog.generated.js";
 import { AgentSchema, type Agent } from "./schema.js";
 import { validateCatalogSources, type CatalogSource } from "./validate.js";
@@ -21,6 +22,7 @@ const readYamlAgent = (filename: string): CatalogSource => {
 };
 
 const makeAgent = (input: unknown): Agent => decodeAgent(input);
+const sortedStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => [...values].sort();
 
 describe("agent capability catalog validation", () => {
   it("decodes and validates every source YAML file", () => {
@@ -34,18 +36,9 @@ describe("agent capability catalog validation", () => {
   });
 
   it("generated agents conform to the schema", () => {
-    expect(AGENTS.map((agent) => decodeAgent(agent).id)).toEqual([
-      "claude-code",
-      "codex",
-      "cursor",
-      "gemini-cli",
-      "github-copilot",
-      "grok-cli",
-      "ibm-bob",
-      "opencode",
-      "pi",
-      "windsurf",
-    ]);
+    expect(sortedStrings(AGENTS.map((agent) => decodeAgent(agent).id))).toEqual(
+      sortedStrings(CONFIGURABLE_AGENT_IDS),
+    );
   });
 
   it("generated AgentIdSchema rejects ids outside the verified catalog", () => {

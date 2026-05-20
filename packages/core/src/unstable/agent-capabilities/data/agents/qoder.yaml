@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: qoder
+name: Qoder
+vendor: Alibaba Cloud
+homepage: https://qoder.com
+interfaces: [cli, ide-extension]
+family: alibaba
+docs:
+  - label: Qoder documentation
+    url: https://docs.qoder.com
+
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .qoder/skills
+  sources:
+    - https://docs.qoder.com/cli/Skills
+    - https://docs.qoder.com/extensions/skills
+  lastVerified: 2026-05-20
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http, sse]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: true
+    targets:
+      - { scope: user, path: "~/.qoder.json", format: json }
+      - { scope: project, path: .mcp.json, format: json }
+    stdio:
+      command: split
+      envKey: env
+    remote:
+      typeField: { name: type, value: { streamable-http: streamable-http, sse: sse } }
+      urlKey: { streamable-http: url, sse: url }
+      headersKey: headers
+  sources:
+    - https://docs.qoder.com/cli/using-cli
+    - https://docs.qoder.com/user-guide/chat/model-context-protocol
+  lastVerified: 2026-05-20
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  sources:
+    - https://docs.qoder.com/en/cli/subagent
+  lastVerified: 2026-05-20
+
+instructions:
+  support: standard
+  scopes: [user, project]
+  files: [AGENTS.md]
+  nestedDiscovery: false
+  sources:
+    - https://docs.qoder.com/cli/using-cli
+  lastVerified: 2026-05-20
+
+permissions:
+  support: standard
+  scopes: [user, project]
+  mechanism: [config-file, cli-flag]
+  configFiles:
+    - scope: user
+      path: "~/.qoder.json"
+      format: json
+      gitignored: false
+    - scope: project
+      path: .qoder/settings.json
+      format: json
+      gitignored: false
+  grammar:
+    style: tool-call
+    example: "Bash(npm run test:*)"
+  cliFlags:
+    - flag: "--permission-mode"
+      note: Chooses the session permission mode.
+    - flag: "--allowed-tools"
+      note: Allows specific tools or tool rules for a run.
+    - flag: "--yolo"
+      note: Skips permission checks.
+  grants:
+    shell:
+      target: "~/.qoder.json"
+      patch:
+        permissions:
+          allow:
+            - "Bash(${tool}:*)"
+    filesystem:
+      target: "~/.qoder.json"
+      patch:
+        permissions:
+          allow:
+            - "Read(${workspaceRoot}/**)"
+            - "Edit(${workspaceRoot}/**)"
+            - "Write(${workspaceRoot}/**)"
+  sources:
+    - https://docs.qoder.com/en/cli/permissions
+  lastVerified: 2026-05-20

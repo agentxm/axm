@@ -9,7 +9,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { AGENTS_BY_ID, type AgentId as CapabilityAgentId } from "../agent-capabilities/index.js";
+import {
+  AGENTS_BY_ID,
+  type Agent,
+  type AgentId as CapabilityAgentId,
+} from "../agent-capabilities/index.js";
 import { envOption } from "../utils/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
@@ -634,7 +638,7 @@ export const addMcpServerFromManifest = (
       } as const;
     }
 
-    const agent = AGENTS_BY_ID[agentId];
+    const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.mcp;
     if (
       capability === undefined ||
@@ -646,6 +650,7 @@ export const addMcpServerFromManifest = (
         reason: `${agentId} does not have standard MCP config support`,
       } as const;
     }
+    const config = capability.config;
 
     const manifest = yield* decodeManifestAt(
       path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
@@ -667,16 +672,14 @@ export const addMcpServerFromManifest = (
       } as const;
     }
 
-    const targets = capability.config.targets.filter(
-      (target) => target.scope === (args.scope ?? "project"),
-    );
+    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
     yield* Effect.forEach(
       targets,
       (target) =>
         writeAgentMcpConfig({
           workspaceRoot: args.workspaceRoot,
           serverName: args.serverName,
-          serversKey: capability.config.serversKey,
+          serversKey: config.serversKey,
           target,
           entry: resolution.entry,
         }),
@@ -711,7 +714,7 @@ export const removeMcpServerFromManifest = (
       } as const;
     }
 
-    const agent = AGENTS_BY_ID[agentId];
+    const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.mcp;
     if (
       capability === undefined ||
@@ -723,19 +726,18 @@ export const removeMcpServerFromManifest = (
         reason: `${agentId} does not have standard MCP config support`,
       } as const;
     }
+    const config = capability.config;
 
-    const targets = capability.config.targets.filter(
-      (target) => target.scope === (args.scope ?? "project"),
-    );
+    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
     yield* Effect.forEach(
       targets,
       (target) =>
         removeAgentMcpConfig({
           workspaceRoot: args.workspaceRoot,
           serverName: args.serverName,
-          serversKey: capability.config.serversKey,
+          serversKey: config.serversKey,
           target,
-          nativeEnabled: capability.config.nativeEnabled,
+          nativeEnabled: config.nativeEnabled,
           disableOnly: args.disableOnly ?? false,
         }),
       { concurrency: "unbounded" },

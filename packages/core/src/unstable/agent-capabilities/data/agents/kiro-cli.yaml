@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: kiro-cli
+name: Kiro CLI
+vendor: AWS
+homepage: https://kiro.dev
+interfaces: [cli]
+family: amazon
+docs:
+  - label: Kiro CLI documentation
+    url: https://kiro.dev/docs/cli/
+
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .kiro/skills
+  sources:
+    - https://kiro.dev/docs/cli/skills/
+  lastVerified: 2026-05-20
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: true
+    targets:
+      - { scope: project, path: .kiro/settings/mcp.json, format: json }
+      - { scope: user, path: "~/.kiro/settings/mcp.json", format: json }
+    stdio:
+      command: split
+      envKey: env
+    remote:
+      typeField: { name: type, value: { streamable-http: http, sse: http } }
+      urlKey: { streamable-http: url, sse: url }
+  sources:
+    - https://kiro.dev/docs/cli/mcp/
+  lastVerified: 2026-05-20
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  sources:
+    - https://kiro.dev/docs/cli/custom-agents/configuration-reference/
+  lastVerified: 2026-05-20
+
+instructions:
+  support: standard
+  scopes: [user, project]
+  files: [AGENTS.md]
+  nestedDiscovery: true
+  sources:
+    - https://kiro.dev/docs/cli/steering/
+  lastVerified: 2026-05-20
+
+rules:
+  support: bridged
+  scopes: [user, project]
+  directory: .kiro/steering
+  sources:
+    - https://kiro.dev/docs/cli/steering/
+  lastVerified: 2026-05-20

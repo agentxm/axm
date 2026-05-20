@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: roo
+name: Roo Code
+vendor: Roo Code
+homepage: https://roocode.com
+interfaces: [ide-extension]
+docs:
+  - label: Roo Code documentation
+    url: https://docs.roocode.com
+
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .roo/skills
+  sources:
+    - https://docs.roocode.com/features/skills
+  lastVerified: 2026-05-20
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: true
+    targets:
+      - { scope: project, path: .roo/mcp.json, format: json }
+      - { scope: user, path: "~/.roo/mcp.json", format: json }
+    stdio:
+      command: split
+      envKey: env
+    remote:
+      typeField: { name: type, value: { streamable-http: http, sse: http } }
+      urlKey: { streamable-http: url, sse: url }
+      headersKey: headers
+  sources:
+    - https://docs.roocode.com/features/mcp/using-mcp-in-roo
+  lastVerified: 2026-05-20
+
+subagents:
+  support: bridged
+  scopes: [user, project]
+  sources:
+    - https://docs.roocode.com/features/custom-modes
+  lastVerified: 2026-05-20
+
+rules:
+  support: bridged
+  scopes: [user, project]
+  directory: .roo/rules
+  sources:
+    - https://docs.roocode.com/features/rules
+  lastVerified: 2026-05-20

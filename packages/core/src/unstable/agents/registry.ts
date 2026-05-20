@@ -24,6 +24,7 @@ import { descriptor as geminiCli } from "./gemini-cli/index.js";
 import { descriptor as githubCopilot } from "./github-copilot/index.js";
 import { descriptor as goose } from "./goose/index.js";
 import { descriptor as grokCli } from "./grok-cli/index.js";
+import { descriptor as ibmBob } from "./ibm-bob/index.js";
 import { descriptor as iflowCli } from "./iflow-cli/index.js";
 import { descriptor as junie } from "./junie/index.js";
 import { descriptor as kilo } from "./kilo/index.js";
@@ -76,6 +77,7 @@ export const AGENTS: AgentRegistry = {
   "github-copilot": githubCopilot,
   goose,
   "grok-cli": grokCli,
+  "ibm-bob": ibmBob,
   "iflow-cli": iflowCli,
   junie,
   kilo,

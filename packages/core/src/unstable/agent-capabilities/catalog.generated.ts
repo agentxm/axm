@@ -8,16 +8,47 @@ import type { Agent } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
 export const AGENT_IDS = [
+  "adal",
+  "amp",
+  "antigravity",
+  "augment",
   "claude-code",
+  "cline",
+  "codebuddy",
   "codex",
+  "command-code",
+  "continue",
+  "crush",
   "cursor",
+  "droid",
   "gemini-cli",
   "github-copilot",
+  "goose",
   "grok-cli",
   "ibm-bob",
+  "iflow-cli",
+  "junie",
+  "kilo",
+  "kimi-cli",
+  "kiro-cli",
+  "kode",
+  "mcpjam",
+  "mistral-vibe",
+  "mux",
+  "neovate",
+  "openclaw",
   "opencode",
+  "openhands",
   "pi",
+  "pochi",
+  "qoder",
+  "qwen-code",
+  "replit",
+  "roo",
+  "trae-cn",
+  "trae",
   "windsurf",
+  "zencoder",
 ] as const;
 
 /** @experimental This API is unstable and may change without notice. */
@@ -33,6 +64,146 @@ export const AgentIdSchema = Schema.Literals([...AGENT_IDS]).annotate({
 
 /** @experimental This API is unstable and may change without notice. */
 export const AGENTS = [
+  {
+    id: "adal",
+    name: "AdaL",
+    vendor: "SylphAI",
+    homepage: "https://adalagent.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "AdaL documentation",
+        url: "https://docs.sylph.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.sylph.ai/features/plugins-and-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".adal/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.sylph.ai/features/agent-context-and-agents-md"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "amp",
+    name: "Amp",
+    vendor: "Sourcegraph",
+    homepage: "https://ampcode.com",
+    interfaces: ["cli", "ide-extension"],
+    family: "sourcegraph",
+    docs: [
+      {
+        label: "Amp Owner's Manual",
+        url: "https://ampcode.com/manual",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://ampcode.com/manual#agent-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://ampcode.com/manual#subagents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://ampcode.com/manual#agentsmd"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md", "AGENT.md", "CLAUDE.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "antigravity",
+    name: "Antigravity",
+    vendor: "Google",
+    homepage: "https://antigravity.google",
+    interfaces: ["ide-extension"],
+    family: "google",
+    docs: [
+      {
+        label: "Antigravity documentation",
+        url: "https://antigravity.google/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://antigravity.google/docs/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agent/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://antigravity.google/docs/project-context"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://antigravity.google/docs/rules"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agent/rules",
+    },
+  },
+  {
+    id: "augment",
+    name: "Augment",
+    vendor: "Augment Code",
+    homepage: "https://www.augmentcode.com",
+    interfaces: ["ide-extension", "cli"],
+    docs: [
+      {
+        label: "Augment documentation",
+        url: "https://docs.augmentcode.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.augmentcode.com/cli/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".augment/rules",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.augmentcode.com/cli/slash-commands"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".augment/commands",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.augmentcode.com/cli/subagents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.augmentcode.com/cli/context"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
   {
     id: "claude-code",
     name: "Claude Code",
@@ -173,6 +344,65 @@ export const AGENTS = [
           },
         },
       },
+    },
+  },
+  {
+    id: "cline",
+    name: "Cline",
+    vendor: "Cline",
+    homepage: "https://cline.bot",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Cline documentation",
+        url: "https://docs.cline.bot",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.cline.bot/customization/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".cline/skills",
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://docs.cline.bot/customization/cline-rules"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".clinerules",
+    },
+  },
+  {
+    id: "codebuddy",
+    name: "CodeBuddy",
+    vendor: "Tencent Cloud",
+    homepage: "https://www.codebuddy.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "CodeBuddy documentation",
+        url: "https://www.codebuddy.ai/docs/ide/Introduction",
+      },
+    ],
+    subagents: {
+      support: "bridged",
+      sources: ["https://staging-codebuddy.tencent.com/docs/cli/best-practices"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    permissions: {
+      support: "standard",
+      sources: ["https://staging-codebuddy.tencent.com/docs/cli/reference"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      mechanism: ["cli-flag"],
+      cliFlags: [
+        {
+          flag: "--dangerously-skip-permissions",
+          note: "Bypasses CodeBuddy Code permission prompts.",
+        },
+      ],
     },
   },
   {
@@ -341,6 +571,164 @@ export const AGENTS = [
           },
         },
       },
+    },
+  },
+  {
+    id: "command-code",
+    name: "Command Code",
+    vendor: "Command Code",
+    homepage: "https://commandcode.ai",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Command Code documentation",
+        url: "https://commandcode.ai/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://commandcode.ai/docs/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".commandcode/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Skills are also surfaced in Command Code's slash menu; custom commands and skills share the same invocation surface.\n",
+      sources: ["https://commandcode.ai/docs/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".commandcode/commands",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://commandcode.ai/features"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".commandcode/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.commandcode/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  {
+    id: "continue",
+    name: "Continue",
+    vendor: "Continue",
+    homepage: "https://www.continue.dev",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Continue documentation",
+        url: "https://docs.continue.dev",
+      },
+    ],
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.continue.dev/customize/deep-dives/prompt-files"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://docs.continue.dev/guides/configuring-models-rules-tools"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".continue/rules",
+    },
+  },
+  {
+    id: "crush",
+    name: "Crush",
+    vendor: "Charm",
+    homepage: "https://charm.land/crush",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Crush repository",
+        url: "https://github.com/charmbracelet/crush",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://github.com/charmbracelet/crush"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: "crush.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.config/crush/crush.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "array",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://github.com/charmbracelet/crush"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md", "CRUSH.md"],
+      nestedDiscovery: false,
     },
   },
   {
@@ -519,6 +907,43 @@ export const AGENTS = [
           },
         },
       },
+    },
+  },
+  {
+    id: "droid",
+    name: "Droid",
+    vendor: "Factory",
+    homepage: "https://www.factory.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Factory documentation",
+        url: "https://docs.factory.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.factory.ai/cli/configuration/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".factory/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Factory documents legacy slash commands as still supported, while skills supersede them for new reusable workflows.\n",
+      sources: ["https://docs.factory.ai/cli/configuration/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".factory/commands",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.factory.ai/cli/configuration/agents-md"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
     },
   },
   {
@@ -806,6 +1231,55 @@ export const AGENTS = [
     },
   },
   {
+    id: "goose",
+    name: "Goose",
+    vendor: "Block",
+    homepage: "https://block.github.io/goose",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Goose documentation",
+        url: "https://block.github.io/goose/docs",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://block.github.io/goose/docs/getting-started/using-extensions"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.config/goose/config.yaml",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  {
     id: "grok-cli",
     name: "Grok CLI",
     vendor: "xAI",
@@ -923,6 +1397,647 @@ export const AGENTS = [
     },
   },
   {
+    id: "iflow-cli",
+    name: "iFlow CLI",
+    vendor: "XinLiu AI",
+    homepage: "https://iflow.cn",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "iFlow CLI documentation",
+        url: "https://platform.iflow.cn/en/cli",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://platform.iflow.cn/en/cli/examples/skill"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".iflow/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://platform.iflow.cn/en/cli/examples/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.iflow/settings.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".iflow/settings.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "stdio",
+          },
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "sse",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://platform.iflow.cn/en/cli/examples/subagent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "bridged",
+      sources: ["https://platform.iflow.cn/en/cli/configuration/iflow"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["IFLOW.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "junie",
+    name: "Junie",
+    vendor: "JetBrains",
+    homepage: "https://www.jetbrains.com/junie",
+    interfaces: ["ide-extension"],
+    family: "jetbrains",
+    docs: [
+      {
+        label: "Junie documentation",
+        url: "https://www.jetbrains.com/help/junie",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://www.jetbrains.com/help/junie/mcp.html"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.junie/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://www.jetbrains.com/help/junie/customize-guidelines.html"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".junie/guidelines.md",
+    },
+  },
+  {
+    id: "kilo",
+    name: "Kilo Code",
+    vendor: "Kilo",
+    homepage: "https://kilo.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Kilo Code documentation",
+        url: "https://kilo.ai/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://kilo.ai/docs/customize/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kilo/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://kilo.ai/docs/customize/workflows"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kilo/commands",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://kilo.ai/docs/features/mcp/using-mcp-in-kilo-code"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.config/kilo/kilo.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "project",
+            path: "kilo.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "project",
+            path: ".kilo/kilo.jsonc",
+            format: "jsonc",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "local",
+          },
+          command: "array",
+          envKey: "environment",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "remote",
+              sse: "remote",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://kilo.ai/docs/customize/custom-subagents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://kilo.ai/docs/agent-behavior/custom-instructions"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "kimi-cli",
+    name: "Kimi Code CLI",
+    vendor: "Moonshot AI",
+    homepage: "https://github.com/MoonshotAI/kimi-cli",
+    interfaces: ["cli"],
+    family: "moonshot",
+    docs: [
+      {
+        label: "Kimi CLI repository",
+        url: "https://github.com/MoonshotAI/kimi-cli",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/MoonshotAI/kimi-cli"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://github.com/MoonshotAI/kimi-cli"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.kimi/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".kimi/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  {
+    id: "kiro-cli",
+    name: "Kiro CLI",
+    vendor: "AWS",
+    homepage: "https://kiro.dev",
+    interfaces: ["cli"],
+    family: "amazon",
+    docs: [
+      {
+        label: "Kiro CLI documentation",
+        url: "https://kiro.dev/docs/cli/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://kiro.dev/docs/cli/skills/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kiro/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://kiro.dev/docs/cli/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".kiro/settings/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.kiro/settings/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://kiro.dev/docs/cli/custom-agents/configuration-reference/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://kiro.dev/docs/cli/steering/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://kiro.dev/docs/cli/steering/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kiro/steering",
+    },
+  },
+  {
+    id: "kode",
+    name: "Kode",
+    vendor: "shareAI-lab",
+    homepage: "https://github.com/shareAI-lab/Kode-Agent",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Kode Agent repository",
+        url: "https://github.com/shareAI-lab/Kode-Agent",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kode/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md", "AGENTS.override.md", "CLAUDE.md"],
+      nestedDiscovery: true,
+    },
+    permissions: {
+      support: "standard",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      mechanism: ["cli-flag"],
+      cliFlags: [
+        {
+          flag: "--safe",
+          note: "Enables permission checks instead of Kode's default YOLO mode.",
+        },
+        {
+          flag: "--dangerously-skip-permissions",
+          note: "Explicitly bypasses permission checks.",
+        },
+      ],
+    },
+  },
+  {
+    id: "mcpjam",
+    name: "MCPJam",
+    vendor: "MCPJam",
+    homepage: "https://www.mcpjam.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "MCPJam Inspector documentation",
+        url: "https://docs.mcpjam.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.mcpjam.com/inspector/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".mcpjam/skills",
+    },
+  },
+  {
+    id: "mistral-vibe",
+    name: "Mistral Vibe",
+    vendor: "Mistral AI",
+    homepage: "https://docs.mistral.ai/mistral-vibe/overview",
+    interfaces: ["cli"],
+    family: "mistral",
+    docs: [
+      {
+        label: "Mistral Vibe documentation",
+        url: "https://docs.mistral.ai/mistral-vibe/overview",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".vibe/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.mistral.ai/mistral-vibe/terminal/configuration"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp_servers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".vibe/config.toml",
+            format: "toml",
+          },
+          {
+            scope: "user",
+            path: "~/.vibe/config.toml",
+            format: "toml",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "transport",
+            value: "stdio",
+          },
+          command: "split",
+        },
+        remote: {
+          typeField: {
+            name: "transport",
+            value: {
+              "streamable-http": "streamable-http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+  },
+  {
+    id: "mux",
+    name: "Mux",
+    vendor: "Coder",
+    homepage: "https://mux.coder.com",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Mux documentation",
+        url: "https://mux.coder.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://mux.coder.com/agents/agent-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".mux/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://mux.coder.com/agents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://mux.coder.com/instruction-files"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  {
+    id: "neovate",
+    name: "Neovate",
+    vendor: "Ant Group",
+    homepage: "https://neovateai.dev",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Neovate Code documentation",
+        url: "https://neovateai.dev/docs/features",
+      },
+    ],
+    skills: {
+      support: "bridged",
+      notes:
+        "Neovate documents on-demand skills as a feature, but current public docs do not describe an Agent Skills-compatible SKILL.md directory.\n",
+      sources: ["https://neovateai.dev/docs/features"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".neovate/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://neovateai.dev/en/docs/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.neovate/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".neovate/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  {
+    id: "openclaw",
+    name: "OpenClaw",
+    vendor: "OpenClaw",
+    homepage: "https://openclaw.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "OpenClaw documentation",
+        url: "https://docs.openclaw.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: [
+        "https://docs.openclaw.ai/skills",
+        "https://github.com/openclaw/openclaw/blob/main/docs/tools/skills.md",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: "skills",
+    },
+  },
+  {
     id: "opencode",
     name: "OpenCode",
     vendor: "SST",
@@ -978,6 +2093,44 @@ export const AGENTS = [
           headersKey: "headers",
         },
       },
+    },
+  },
+  {
+    id: "openhands",
+    name: "OpenHands",
+    vendor: "All Hands AI",
+    homepage: "https://www.all-hands.dev",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "OpenHands documentation",
+        url: "https://docs.openhands.dev",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.openhands.dev/overview/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    mcp: {
+      support: "bridged",
+      sources: [
+        "https://docs.openhands.dev/sdk/arch/skill",
+        "https://docs.openhands.dev/sdk/arch/tool-system",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.openhands.dev/overview/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md", "GEMINI.md", "CLAUDE.md"],
+      nestedDiscovery: false,
     },
   },
   {
@@ -1045,6 +2198,533 @@ export const AGENTS = [
       lastVerified: "2026-05-18",
       scopes: [],
       mechanism: [],
+    },
+  },
+  {
+    id: "pochi",
+    name: "Pochi",
+    vendor: "TabbyML",
+    homepage: "https://getpochi.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Pochi documentation",
+        url: "https://docs.getpochi.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.getpochi.com/skills/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".pochi/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.getpochi.com/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".pochi/mcp.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "user",
+            path: "~/.pochi/mcp.jsonc",
+            format: "jsonc",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  {
+    id: "qoder",
+    name: "Qoder",
+    vendor: "Alibaba Cloud",
+    homepage: "https://qoder.com",
+    interfaces: ["cli", "ide-extension"],
+    family: "alibaba",
+    docs: [
+      {
+        label: "Qoder documentation",
+        url: "https://docs.qoder.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.qoder.com/cli/Skills", "https://docs.qoder.com/extensions/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".qoder/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: [
+        "https://docs.qoder.com/cli/using-cli",
+        "https://docs.qoder.com/user-guide/chat/model-context-protocol",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.qoder.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "streamable-http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.qoder.com/en/cli/subagent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.qoder.com/cli/using-cli"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+    permissions: {
+      support: "standard",
+      sources: ["https://docs.qoder.com/en/cli/permissions"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.qoder.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".qoder/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: "Bash(npm run test:*)",
+      },
+      cliFlags: [
+        {
+          flag: "--permission-mode",
+          note: "Chooses the session permission mode.",
+        },
+        {
+          flag: "--allowed-tools",
+          note: "Allows specific tools or tool rules for a run.",
+        },
+        {
+          flag: "--yolo",
+          note: "Skips permission checks.",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.qoder.json",
+          patch: {
+            permissions: {
+              allow: ["Bash(${tool}:*)"],
+            },
+          },
+        },
+        filesystem: {
+          target: "~/.qoder.json",
+          patch: {
+            permissions: {
+              allow: [
+                "Read(${workspaceRoot}/**)",
+                "Edit(${workspaceRoot}/**)",
+                "Write(${workspaceRoot}/**)",
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    id: "qwen-code",
+    name: "Qwen Code",
+    vendor: "Alibaba Cloud",
+    homepage: "https://qwenlm.github.io/qwen-code-docs/",
+    interfaces: ["cli"],
+    family: "alibaba",
+    docs: [
+      {
+        label: "Qwen Code documentation",
+        url: "https://qwenlm.github.io/qwen-code-docs/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".qwen/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.qwen/settings.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".qwen/settings.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+  },
+  {
+    id: "replit",
+    name: "Replit",
+    vendor: "Replit",
+    homepage: "https://replit.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Replit Agent documentation",
+        url: "https://docs.replit.com/replitai/agent",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.replit.com/replitai/agent/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".agents/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.replit.com/replitai/agent/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".replit/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  {
+    id: "roo",
+    name: "Roo Code",
+    vendor: "Roo Code",
+    homepage: "https://roocode.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Roo Code documentation",
+        url: "https://docs.roocode.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.roocode.com/features/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".roo/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.roocode.com/features/mcp/using-mcp-in-roo"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".roo/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.roo/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.roocode.com/features/custom-modes"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://docs.roocode.com/features/rules"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".roo/rules",
+    },
+  },
+  {
+    id: "trae-cn",
+    name: "Trae CN",
+    vendor: "ByteDance",
+    homepage: "https://www.trae.cn",
+    interfaces: ["ide-extension"],
+    family: "bytedance",
+    docs: [
+      {
+        label: "Trae CN documentation",
+        url: "https://docs.trae.cn",
+      },
+    ],
+    skills: {
+      support: "bridged",
+      sources: ["https://forum.trae.cn/t/topic/8191"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://forum.trae.cn/t/topic/8191"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".trae/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://forum.trae.cn/t/topic/8191"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/rules",
+    },
+  },
+  {
+    id: "trae",
+    name: "Trae",
+    vendor: "ByteDance",
+    homepage: "https://www.trae.ai",
+    interfaces: ["ide-extension"],
+    family: "bytedance",
+    docs: [
+      {
+        label: "Trae documentation",
+        url: "https://docs.trae.ai",
+      },
+    ],
+    skills: {
+      support: "bridged",
+      sources: ["https://github.com/HighMark-31/TRAE-Tips/blob/main/Agents-Rules-Skills.md"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://traeide.com/news/6"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".trae/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://github.com/HighMark-31/TRAE-Tips/blob/main/Agents-Rules-Skills.md"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/rules",
     },
   },
   {
@@ -1164,10 +2844,213 @@ export const AGENTS = [
       },
     },
   },
+  {
+    id: "zencoder",
+    name: "Zencoder",
+    vendor: "Zencoder",
+    homepage: "https://zencoder.ai",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Zencoder documentation",
+        url: "https://docs.zencoder.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.zencoder.ai/features/agent-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".zencoder/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.zencoder.ai/features/integrations-and-mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.zencoder/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".zencoder/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.zencoder.ai/features/agents-overview"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    rules: {
+      support: "bridged",
+      sources: [
+        "https://docs.zencoder.ai/features/agents-overview",
+        "https://docs.zencoder.ai/learn/10x-engineer/module-03",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".zencoder/rules",
+    },
+  },
 ] as const satisfies ReadonlyArray<Agent>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const AGENTS_BY_ID = {
+  adal: {
+    id: "adal",
+    name: "AdaL",
+    vendor: "SylphAI",
+    homepage: "https://adalagent.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "AdaL documentation",
+        url: "https://docs.sylph.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.sylph.ai/features/plugins-and-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".adal/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.sylph.ai/features/agent-context-and-agents-md"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  amp: {
+    id: "amp",
+    name: "Amp",
+    vendor: "Sourcegraph",
+    homepage: "https://ampcode.com",
+    interfaces: ["cli", "ide-extension"],
+    family: "sourcegraph",
+    docs: [
+      {
+        label: "Amp Owner's Manual",
+        url: "https://ampcode.com/manual",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://ampcode.com/manual#agent-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://ampcode.com/manual#subagents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://ampcode.com/manual#agentsmd"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md", "AGENT.md", "CLAUDE.md"],
+      nestedDiscovery: true,
+    },
+  },
+  antigravity: {
+    id: "antigravity",
+    name: "Antigravity",
+    vendor: "Google",
+    homepage: "https://antigravity.google",
+    interfaces: ["ide-extension"],
+    family: "google",
+    docs: [
+      {
+        label: "Antigravity documentation",
+        url: "https://antigravity.google/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://antigravity.google/docs/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agent/skills",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://antigravity.google/docs/project-context"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://antigravity.google/docs/rules"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agent/rules",
+    },
+  },
+  augment: {
+    id: "augment",
+    name: "Augment",
+    vendor: "Augment Code",
+    homepage: "https://www.augmentcode.com",
+    interfaces: ["ide-extension", "cli"],
+    docs: [
+      {
+        label: "Augment documentation",
+        url: "https://docs.augmentcode.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.augmentcode.com/cli/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".augment/rules",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.augmentcode.com/cli/slash-commands"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".augment/commands",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.augmentcode.com/cli/subagents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.augmentcode.com/cli/context"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
   "claude-code": {
     id: "claude-code",
     name: "Claude Code",
@@ -1308,6 +3191,65 @@ export const AGENTS_BY_ID = {
           },
         },
       },
+    },
+  },
+  cline: {
+    id: "cline",
+    name: "Cline",
+    vendor: "Cline",
+    homepage: "https://cline.bot",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Cline documentation",
+        url: "https://docs.cline.bot",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.cline.bot/customization/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".cline/skills",
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://docs.cline.bot/customization/cline-rules"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".clinerules",
+    },
+  },
+  codebuddy: {
+    id: "codebuddy",
+    name: "CodeBuddy",
+    vendor: "Tencent Cloud",
+    homepage: "https://www.codebuddy.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "CodeBuddy documentation",
+        url: "https://www.codebuddy.ai/docs/ide/Introduction",
+      },
+    ],
+    subagents: {
+      support: "bridged",
+      sources: ["https://staging-codebuddy.tencent.com/docs/cli/best-practices"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    permissions: {
+      support: "standard",
+      sources: ["https://staging-codebuddy.tencent.com/docs/cli/reference"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      mechanism: ["cli-flag"],
+      cliFlags: [
+        {
+          flag: "--dangerously-skip-permissions",
+          note: "Bypasses CodeBuddy Code permission prompts.",
+        },
+      ],
     },
   },
   codex: {
@@ -1476,6 +3418,164 @@ export const AGENTS_BY_ID = {
           },
         },
       },
+    },
+  },
+  "command-code": {
+    id: "command-code",
+    name: "Command Code",
+    vendor: "Command Code",
+    homepage: "https://commandcode.ai",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Command Code documentation",
+        url: "https://commandcode.ai/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://commandcode.ai/docs/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".commandcode/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Skills are also surfaced in Command Code's slash menu; custom commands and skills share the same invocation surface.\n",
+      sources: ["https://commandcode.ai/docs/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".commandcode/commands",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://commandcode.ai/features"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".commandcode/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.commandcode/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  continue: {
+    id: "continue",
+    name: "Continue",
+    vendor: "Continue",
+    homepage: "https://www.continue.dev",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Continue documentation",
+        url: "https://docs.continue.dev",
+      },
+    ],
+    commands: {
+      support: "bridged",
+      sources: ["https://docs.continue.dev/customize/deep-dives/prompt-files"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://docs.continue.dev/guides/configuring-models-rules-tools"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".continue/rules",
+    },
+  },
+  crush: {
+    id: "crush",
+    name: "Crush",
+    vendor: "Charm",
+    homepage: "https://charm.land/crush",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Crush repository",
+        url: "https://github.com/charmbracelet/crush",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://github.com/charmbracelet/crush"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: "crush.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.config/crush/crush.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "array",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://github.com/charmbracelet/crush"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md", "CRUSH.md"],
+      nestedDiscovery: false,
     },
   },
   cursor: {
@@ -1654,6 +3754,43 @@ export const AGENTS_BY_ID = {
           },
         },
       },
+    },
+  },
+  droid: {
+    id: "droid",
+    name: "Droid",
+    vendor: "Factory",
+    homepage: "https://www.factory.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Factory documentation",
+        url: "https://docs.factory.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.factory.ai/cli/configuration/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".factory/skills",
+    },
+    commands: {
+      support: "bridged",
+      notes:
+        "Factory documents legacy slash commands as still supported, while skills supersede them for new reusable workflows.\n",
+      sources: ["https://docs.factory.ai/cli/configuration/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".factory/commands",
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.factory.ai/cli/configuration/agents-md"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
     },
   },
   "gemini-cli": {
@@ -1940,6 +4077,55 @@ export const AGENTS_BY_ID = {
       },
     },
   },
+  goose: {
+    id: "goose",
+    name: "Goose",
+    vendor: "Block",
+    homepage: "https://block.github.io/goose",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Goose documentation",
+        url: "https://block.github.io/goose/docs",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://block.github.io/goose/docs/getting-started/using-extensions"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.config/goose/config.yaml",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
   "grok-cli": {
     id: "grok-cli",
     name: "Grok CLI",
@@ -2057,6 +4243,647 @@ export const AGENTS_BY_ID = {
       directory: ".bob/rules",
     },
   },
+  "iflow-cli": {
+    id: "iflow-cli",
+    name: "iFlow CLI",
+    vendor: "XinLiu AI",
+    homepage: "https://iflow.cn",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "iFlow CLI documentation",
+        url: "https://platform.iflow.cn/en/cli",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://platform.iflow.cn/en/cli/examples/skill"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".iflow/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://platform.iflow.cn/en/cli/examples/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.iflow/settings.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".iflow/settings.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "stdio",
+          },
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "sse",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://platform.iflow.cn/en/cli/examples/subagent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "bridged",
+      sources: ["https://platform.iflow.cn/en/cli/configuration/iflow"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["IFLOW.md"],
+      nestedDiscovery: true,
+    },
+  },
+  junie: {
+    id: "junie",
+    name: "Junie",
+    vendor: "JetBrains",
+    homepage: "https://www.jetbrains.com/junie",
+    interfaces: ["ide-extension"],
+    family: "jetbrains",
+    docs: [
+      {
+        label: "Junie documentation",
+        url: "https://www.jetbrains.com/help/junie",
+      },
+    ],
+    mcp: {
+      support: "standard",
+      sources: ["https://www.jetbrains.com/help/junie/mcp.html"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.junie/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://www.jetbrains.com/help/junie/customize-guidelines.html"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".junie/guidelines.md",
+    },
+  },
+  kilo: {
+    id: "kilo",
+    name: "Kilo Code",
+    vendor: "Kilo",
+    homepage: "https://kilo.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Kilo Code documentation",
+        url: "https://kilo.ai/docs",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://kilo.ai/docs/customize/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kilo/skills",
+    },
+    commands: {
+      support: "bridged",
+      sources: ["https://kilo.ai/docs/customize/workflows"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kilo/commands",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://kilo.ai/docs/features/mcp/using-mcp-in-kilo-code"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.config/kilo/kilo.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "project",
+            path: "kilo.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "project",
+            path: ".kilo/kilo.jsonc",
+            format: "jsonc",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "local",
+          },
+          command: "array",
+          envKey: "environment",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "remote",
+              sse: "remote",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://kilo.ai/docs/customize/custom-subagents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://kilo.ai/docs/agent-behavior/custom-instructions"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"],
+      nestedDiscovery: true,
+    },
+  },
+  "kimi-cli": {
+    id: "kimi-cli",
+    name: "Kimi Code CLI",
+    vendor: "Moonshot AI",
+    homepage: "https://github.com/MoonshotAI/kimi-cli",
+    interfaces: ["cli"],
+    family: "moonshot",
+    docs: [
+      {
+        label: "Kimi CLI repository",
+        url: "https://github.com/MoonshotAI/kimi-cli",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/MoonshotAI/kimi-cli"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://github.com/MoonshotAI/kimi-cli"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.kimi/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".kimi/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  "kiro-cli": {
+    id: "kiro-cli",
+    name: "Kiro CLI",
+    vendor: "AWS",
+    homepage: "https://kiro.dev",
+    interfaces: ["cli"],
+    family: "amazon",
+    docs: [
+      {
+        label: "Kiro CLI documentation",
+        url: "https://kiro.dev/docs/cli/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://kiro.dev/docs/cli/skills/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kiro/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://kiro.dev/docs/cli/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".kiro/settings/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.kiro/settings/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://kiro.dev/docs/cli/custom-agents/configuration-reference/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://kiro.dev/docs/cli/steering/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://kiro.dev/docs/cli/steering/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kiro/steering",
+    },
+  },
+  kode: {
+    id: "kode",
+    name: "Kode",
+    vendor: "shareAI-lab",
+    homepage: "https://github.com/shareAI-lab/Kode-Agent",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Kode Agent repository",
+        url: "https://github.com/shareAI-lab/Kode-Agent",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".kode/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md", "AGENTS.override.md", "CLAUDE.md"],
+      nestedDiscovery: true,
+    },
+    permissions: {
+      support: "standard",
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      mechanism: ["cli-flag"],
+      cliFlags: [
+        {
+          flag: "--safe",
+          note: "Enables permission checks instead of Kode's default YOLO mode.",
+        },
+        {
+          flag: "--dangerously-skip-permissions",
+          note: "Explicitly bypasses permission checks.",
+        },
+      ],
+    },
+  },
+  mcpjam: {
+    id: "mcpjam",
+    name: "MCPJam",
+    vendor: "MCPJam",
+    homepage: "https://www.mcpjam.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "MCPJam Inspector documentation",
+        url: "https://docs.mcpjam.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.mcpjam.com/inspector/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".mcpjam/skills",
+    },
+  },
+  "mistral-vibe": {
+    id: "mistral-vibe",
+    name: "Mistral Vibe",
+    vendor: "Mistral AI",
+    homepage: "https://docs.mistral.ai/mistral-vibe/overview",
+    interfaces: ["cli"],
+    family: "mistral",
+    docs: [
+      {
+        label: "Mistral Vibe documentation",
+        url: "https://docs.mistral.ai/mistral-vibe/overview",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".vibe/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.mistral.ai/mistral-vibe/terminal/configuration"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp_servers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".vibe/config.toml",
+            format: "toml",
+          },
+          {
+            scope: "user",
+            path: "~/.vibe/config.toml",
+            format: "toml",
+          },
+        ],
+        stdio: {
+          typeField: {
+            name: "transport",
+            value: "stdio",
+          },
+          command: "split",
+        },
+        remote: {
+          typeField: {
+            name: "transport",
+            value: {
+              "streamable-http": "streamable-http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.mistral.ai/mistral-vibe/agents-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+  },
+  mux: {
+    id: "mux",
+    name: "Mux",
+    vendor: "Coder",
+    homepage: "https://mux.coder.com",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "Mux documentation",
+        url: "https://mux.coder.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://mux.coder.com/agents/agent-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".mux/skills",
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://mux.coder.com/agents"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://mux.coder.com/instruction-files"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+    },
+  },
+  neovate: {
+    id: "neovate",
+    name: "Neovate",
+    vendor: "Ant Group",
+    homepage: "https://neovateai.dev",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "Neovate Code documentation",
+        url: "https://neovateai.dev/docs/features",
+      },
+    ],
+    skills: {
+      support: "bridged",
+      notes:
+        "Neovate documents on-demand skills as a feature, but current public docs do not describe an Agent Skills-compatible SKILL.md directory.\n",
+      sources: ["https://neovateai.dev/docs/features"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".neovate/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://neovateai.dev/en/docs/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.neovate/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".neovate/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  openclaw: {
+    id: "openclaw",
+    name: "OpenClaw",
+    vendor: "OpenClaw",
+    homepage: "https://openclaw.ai",
+    interfaces: ["cli", "ide-extension"],
+    docs: [
+      {
+        label: "OpenClaw documentation",
+        url: "https://docs.openclaw.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: [
+        "https://docs.openclaw.ai/skills",
+        "https://github.com/openclaw/openclaw/blob/main/docs/tools/skills.md",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: "skills",
+    },
+  },
   opencode: {
     id: "opencode",
     name: "OpenCode",
@@ -2113,6 +4940,44 @@ export const AGENTS_BY_ID = {
           headersKey: "headers",
         },
       },
+    },
+  },
+  openhands: {
+    id: "openhands",
+    name: "OpenHands",
+    vendor: "All Hands AI",
+    homepage: "https://www.all-hands.dev",
+    interfaces: ["cli"],
+    docs: [
+      {
+        label: "OpenHands documentation",
+        url: "https://docs.openhands.dev",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.openhands.dev/overview/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".agents/skills",
+    },
+    mcp: {
+      support: "bridged",
+      sources: [
+        "https://docs.openhands.dev/sdk/arch/skill",
+        "https://docs.openhands.dev/sdk/arch/tool-system",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.openhands.dev/overview/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      files: ["AGENTS.md", "GEMINI.md", "CLAUDE.md"],
+      nestedDiscovery: false,
     },
   },
   pi: {
@@ -2180,6 +5045,533 @@ export const AGENTS_BY_ID = {
       lastVerified: "2026-05-18",
       scopes: [],
       mechanism: [],
+    },
+  },
+  pochi: {
+    id: "pochi",
+    name: "Pochi",
+    vendor: "TabbyML",
+    homepage: "https://getpochi.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Pochi documentation",
+        url: "https://docs.getpochi.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.getpochi.com/skills/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".pochi/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.getpochi.com/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".pochi/mcp.jsonc",
+            format: "jsonc",
+          },
+          {
+            scope: "user",
+            path: "~/.pochi/mcp.jsonc",
+            format: "jsonc",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  qoder: {
+    id: "qoder",
+    name: "Qoder",
+    vendor: "Alibaba Cloud",
+    homepage: "https://qoder.com",
+    interfaces: ["cli", "ide-extension"],
+    family: "alibaba",
+    docs: [
+      {
+        label: "Qoder documentation",
+        url: "https://docs.qoder.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.qoder.com/cli/Skills", "https://docs.qoder.com/extensions/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".qoder/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: [
+        "https://docs.qoder.com/cli/using-cli",
+        "https://docs.qoder.com/user-guide/chat/model-context-protocol",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.qoder.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "streamable-http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.qoder.com/en/cli/subagent"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    instructions: {
+      support: "standard",
+      sources: ["https://docs.qoder.com/cli/using-cli"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+    },
+    permissions: {
+      support: "standard",
+      sources: ["https://docs.qoder.com/en/cli/permissions"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.qoder.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".qoder/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: "Bash(npm run test:*)",
+      },
+      cliFlags: [
+        {
+          flag: "--permission-mode",
+          note: "Chooses the session permission mode.",
+        },
+        {
+          flag: "--allowed-tools",
+          note: "Allows specific tools or tool rules for a run.",
+        },
+        {
+          flag: "--yolo",
+          note: "Skips permission checks.",
+        },
+      ],
+      grants: {
+        shell: {
+          target: "~/.qoder.json",
+          patch: {
+            permissions: {
+              allow: ["Bash(${tool}:*)"],
+            },
+          },
+        },
+        filesystem: {
+          target: "~/.qoder.json",
+          patch: {
+            permissions: {
+              allow: [
+                "Read(${workspaceRoot}/**)",
+                "Edit(${workspaceRoot}/**)",
+                "Write(${workspaceRoot}/**)",
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
+  "qwen-code": {
+    id: "qwen-code",
+    name: "Qwen Code",
+    vendor: "Alibaba Cloud",
+    homepage: "https://qwenlm.github.io/qwen-code-docs/",
+    interfaces: ["cli"],
+    family: "alibaba",
+    docs: [
+      {
+        label: "Qwen Code documentation",
+        url: "https://qwenlm.github.io/qwen-code-docs/",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".qwen/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.qwen/settings.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".qwen/settings.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+  },
+  replit: {
+    id: "replit",
+    name: "Replit",
+    vendor: "Replit",
+    homepage: "https://replit.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Replit Agent documentation",
+        url: "https://docs.replit.com/replitai/agent",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.replit.com/replitai/agent/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".agents/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.replit.com/replitai/agent/mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".replit/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+  },
+  roo: {
+    id: "roo",
+    name: "Roo Code",
+    vendor: "Roo Code",
+    homepage: "https://roocode.com",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Roo Code documentation",
+        url: "https://docs.roocode.com",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.roocode.com/features/skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".roo/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.roocode.com/features/mcp/using-mcp-in-roo"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".roo/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "user",
+            path: "~/.roo/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "http",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.roocode.com/features/custom-modes"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://docs.roocode.com/features/rules"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".roo/rules",
+    },
+  },
+  "trae-cn": {
+    id: "trae-cn",
+    name: "Trae CN",
+    vendor: "ByteDance",
+    homepage: "https://www.trae.cn",
+    interfaces: ["ide-extension"],
+    family: "bytedance",
+    docs: [
+      {
+        label: "Trae CN documentation",
+        url: "https://docs.trae.cn",
+      },
+    ],
+    skills: {
+      support: "bridged",
+      sources: ["https://forum.trae.cn/t/topic/8191"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://forum.trae.cn/t/topic/8191"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".trae/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://forum.trae.cn/t/topic/8191"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/rules",
+    },
+  },
+  trae: {
+    id: "trae",
+    name: "Trae",
+    vendor: "ByteDance",
+    homepage: "https://www.trae.ai",
+    interfaces: ["ide-extension"],
+    family: "bytedance",
+    docs: [
+      {
+        label: "Trae documentation",
+        url: "https://docs.trae.ai",
+      },
+    ],
+    skills: {
+      support: "bridged",
+      sources: ["https://github.com/HighMark-31/TRAE-Tips/blob/main/Agents-Rules-Skills.md"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://traeide.com/news/6"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".trae/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
+        },
+      },
+    },
+    rules: {
+      support: "bridged",
+      sources: ["https://github.com/HighMark-31/TRAE-Tips/blob/main/Agents-Rules-Skills.md"],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".trae/rules",
     },
   },
   windsurf: {
@@ -2297,6 +5689,69 @@ export const AGENTS_BY_ID = {
           },
         },
       },
+    },
+  },
+  zencoder: {
+    id: "zencoder",
+    name: "Zencoder",
+    vendor: "Zencoder",
+    homepage: "https://zencoder.ai",
+    interfaces: ["ide-extension"],
+    docs: [
+      {
+        label: "Zencoder documentation",
+        url: "https://docs.zencoder.ai",
+      },
+    ],
+    skills: {
+      support: "standard",
+      sources: ["https://docs.zencoder.ai/features/agent-skills"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      directory: ".zencoder/skills",
+    },
+    mcp: {
+      support: "standard",
+      sources: ["https://docs.zencoder.ai/features/integrations-and-mcp"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+      transports: ["stdio"],
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "user",
+            path: "~/.zencoder/mcp.json",
+            format: "json",
+          },
+          {
+            scope: "project",
+            path: ".zencoder/mcp.json",
+            format: "json",
+          },
+        ],
+        stdio: {
+          command: "split",
+          envKey: "env",
+        },
+      },
+    },
+    subagents: {
+      support: "bridged",
+      sources: ["https://docs.zencoder.ai/features/agents-overview"],
+      lastVerified: "2026-05-20",
+      scopes: ["user", "project"],
+    },
+    rules: {
+      support: "bridged",
+      sources: [
+        "https://docs.zencoder.ai/features/agents-overview",
+        "https://docs.zencoder.ai/learn/10x-engineer/module-03",
+      ],
+      lastVerified: "2026-05-20",
+      scopes: ["project"],
+      directory: ".zencoder/rules",
     },
   },
 } as const satisfies Record<AgentId, Agent>;

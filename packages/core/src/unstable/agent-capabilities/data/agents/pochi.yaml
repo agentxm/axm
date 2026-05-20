@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../agent.schema.json
+id: pochi
+name: Pochi
+vendor: TabbyML
+homepage: https://getpochi.com
+interfaces: [ide-extension]
+docs:
+  - label: Pochi documentation
+    url: https://docs.getpochi.com
+
+skills:
+  support: standard
+  scopes: [user, project]
+  directory: .pochi/skills
+  sources:
+    - https://docs.getpochi.com/skills/
+  lastVerified: 2026-05-20
+
+mcp:
+  support: standard
+  scopes: [user, project]
+  transports: [stdio, http]
+  config:
+    serversKey: mcpServers
+    nativeEnabled: true
+    targets:
+      - { scope: project, path: .pochi/mcp.jsonc, format: jsonc }
+      - { scope: user, path: "~/.pochi/mcp.jsonc", format: jsonc }
+    stdio:
+      command: split
+      envKey: env
+    remote:
+      typeField: { name: type, value: { streamable-http: http, sse: http } }
+      urlKey: { streamable-http: url, sse: url }
+      headersKey: headers
+  sources:
+    - https://docs.getpochi.com/mcp/
+  lastVerified: 2026-05-20

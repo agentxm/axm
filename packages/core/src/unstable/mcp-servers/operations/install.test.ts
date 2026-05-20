@@ -32,6 +32,28 @@ import {
 import type { InstallMcpServerOperation } from "./install.js";
 import { installMcpServer } from "./install.js";
 
+vi.mock("@napi-rs/keyring", () => {
+  const store = new Map<string, string>();
+
+  class Entry {
+    private readonly key: string;
+
+    constructor(service: string, account: string) {
+      this.key = `${service}:${account}`;
+    }
+
+    getPassword(): string | null {
+      return store.get(this.key) ?? null;
+    }
+
+    setPassword(value: string): void {
+      store.set(this.key, value);
+    }
+  }
+
+  return { Entry };
+});
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -339,63 +361,60 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect(
-      "does not persist secret inputs in workspace settings",
-      () =>
-        Effect.gen(function* () {
-          const { axmDir, base } = setupBase();
-          const canonicalPath = setupRegistryCanonical(base, "@community");
-          fs.writeFileSync(
-            path.join(canonicalPath, "mcp-server.json"),
-            JSON.stringify({
-              owner: "@community",
-              type: "mcp-server",
-              name: "my-server",
+    it.effect("does not persist secret inputs in workspace settings", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(
+          path.join(canonicalPath, "mcp-server.json"),
+          JSON.stringify({
+            owner: "@community",
+            type: "mcp-server",
+            name: "my-server",
+            version: "1.0.0",
+            server: {
+              name: "io.github.community/my-server",
+              description: "MCP server my-server",
               version: "1.0.0",
-              server: {
-                name: "io.github.community/my-server",
-                description: "MCP server my-server",
-                version: "1.0.0",
-                packages: [
-                  {
-                    registryType: "npm",
-                    identifier: "@community/my-server",
-                    version: "1.0.0",
-                    transport: { type: "stdio" },
-                    environmentVariables: [
-                      { name: "PUBLIC_URL", isRequired: true },
-                      { name: "API_TOKEN", isRequired: true, isSecret: true },
-                    ],
-                  },
-                ],
-              },
-            }),
-          );
-          let persistedEnv: Readonly<Record<string, string>> | undefined;
+              packages: [
+                {
+                  registryType: "npm",
+                  identifier: "@community/my-server",
+                  version: "1.0.0",
+                  transport: { type: "stdio" },
+                  environmentVariables: [
+                    { name: "PUBLIC_URL", isRequired: true },
+                    { name: "API_TOKEN", isRequired: true, isSecret: true },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+        let persistedEnv: Readonly<Record<string, string>> | undefined;
 
-          const result = yield* installMcpServer(
-            makeOp({
-              ref: makeRegistryRef({ integrity: "" }),
-              env: {
-                PUBLIC_URL: "https://example.test",
-                API_TOKEN: "secret-token",
-              },
+        const result = yield* installMcpServer(
+          makeOp({
+            ref: makeRegistryRef({ integrity: "" }),
+            env: {
+              PUBLIC_URL: "https://example.test",
+              API_TOKEN: "secret-token",
+            },
+          }),
+        ).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              setMcpServerFn: (args) =>
+                Effect.sync(() => {
+                  persistedEnv = args.env;
+                }),
             }),
-          ).pipe(
-            Effect.provide(
-              withServices(axmDir, {
-                setMcpServerFn: (args) =>
-                  Effect.sync(() => {
-                    persistedEnv = args.env;
-                  }),
-              }),
-            ),
-          );
+          ),
+        );
 
-          expect(result.result).toBe("success");
-          expect(persistedEnv).toEqual({ PUBLIC_URL: "https://example.test" });
-        }),
-      { timeout: 15_000 },
+        expect(result.result).toBe("success");
+        expect(persistedEnv).toEqual({ PUBLIC_URL: "https://example.test" });
+      }),
     );
   });
 

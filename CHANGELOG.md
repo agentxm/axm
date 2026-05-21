@@ -1,3 +1,13 @@
+## 0.12.1 (2026-05-21)
+
+### 🩹 Fixes
+
+- Rename context files extension type to context. ([09334bd9](https://github.com/agentxm/axm/commit/09334bd9))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.12.0 (2026-05-19)
 
 ### 🚀 Features

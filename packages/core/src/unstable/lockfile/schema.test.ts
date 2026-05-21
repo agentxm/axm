@@ -4,7 +4,7 @@ import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
   LOCKFILE_VERSION,
   CommandLockEntrySchema,
-  FileLockEntrySchema,
+  ContextLockEntrySchema,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
@@ -149,11 +149,11 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
     });
 
-    it("accepts file lock entries with resolved inputs and materialized targets", () => {
+    it("accepts context lock entries with resolved inputs and materialized targets", () => {
       const input = {
         lockfileVersion: LOCKFILE_VERSION,
         skills: {},
-        files: {
+        context: {
           baseline: {
             type: "registry",
             owner: "@acme",
@@ -187,19 +187,19 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
-      expect(result.files?.["baseline"]?.type).toBe("registry");
-      expect(result.files?.["baseline"]?.materializedTargets).toHaveLength(2);
-      expect(result.files?.["baseline"]?.resolvedInputs).toEqual({
+      expect(result.context?.["baseline"]?.type).toBe("registry");
+      expect(result.context?.["baseline"]?.materializedTargets).toHaveLength(2);
+      expect(result.context?.["baseline"]?.resolvedInputs).toEqual({
         projectName: "AgentXM",
         strict: true,
         maxDepth: 3,
       });
     });
 
-    it("rejects file lock entries with absolute target paths", () => {
+    it("rejects context lock entries with absolute target paths", () => {
       const input = {
         type: "local",
-        path: "./context-files/baseline",
+        path: "./context/baseline",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         materializedTargets: [
@@ -211,7 +211,7 @@ describe("lockfile schema", () => {
         ],
       };
 
-      expect(() => Schema.decodeUnknownSync(FileLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ContextLockEntrySchema)(input)).toThrow();
     });
 
     it("accepts valid skill lock entry with GitHub source", () => {

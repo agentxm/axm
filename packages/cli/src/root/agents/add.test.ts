@@ -8,7 +8,7 @@ import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
-import { ContextFilesManager } from "@agentxm/client-core/unstable/context-files";
+import { ContextManager } from "@agentxm/client-core/unstable/context";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
@@ -58,8 +58,8 @@ const emptyMcpServerManager = {
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof McpServerManager>;
 
-const emptyContextFilesManager = {
-  type: "file",
+const emptyContextManager = {
+  type: "context",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
   listMaterializable: () => Effect.succeed([]),
@@ -68,7 +68,7 @@ const emptyContextFilesManager = {
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
   removeLockfileEntry: () => Effect.void,
-} satisfies ServiceMap.Service.Shape<typeof ContextFilesManager>;
+} satisfies ServiceMap.Service.Shape<typeof ContextManager>;
 
 const emptySubagentManager = {
   type: "subagent",
@@ -98,7 +98,7 @@ const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(SkillManager, emptySkillManager),
   Layer.succeed(CommandManager, emptyCommandManager),
   Layer.succeed(McpServerManager, emptyMcpServerManager),
-  Layer.succeed(ContextFilesManager, emptyContextFilesManager),
+  Layer.succeed(ContextManager, emptyContextManager),
   Layer.succeed(SubagentManager, emptySubagentManager),
   Layer.succeed(PackManager, emptyPackManager),
 );

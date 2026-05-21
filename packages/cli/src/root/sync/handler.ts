@@ -32,9 +32,9 @@ import {
 import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcp-servers";
 import {
-  ContextFilesManager,
+  ContextManager,
   renderWorkspaceGeneratorRegions,
-} from "@agentxm/client-core/unstable/context-files";
+} from "@agentxm/client-core/unstable/context";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import {
   applyPlan,
@@ -49,7 +49,7 @@ import {
   cleanupStaleManagedSubagentFiles,
   displayPlan,
   WorkspaceMutations,
-  resolveConfiguredFile,
+  resolveConfiguredContext,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 
@@ -133,7 +133,8 @@ const configuredFilesToRefs = (
 ) =>
   Effect.forEach(
     Object.entries(entries).filter(([, entry]) => entry.enabled !== false),
-    ([name, entry]) => resolveConfiguredFile(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
+    ([name, entry]) =>
+      resolveConfiguredContext(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
     { concurrency: "unbounded" },
   );
 
@@ -142,7 +143,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
-  const fileManager = yield* ContextFilesManager;
+  const fileManager = yield* ContextManager;
   const packManager = yield* PackManager;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
@@ -198,7 +199,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         configuredFilesToRefs(
           Object.assign(
             {},
-            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "files")),
+            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "context")),
           ),
         ),
       ],

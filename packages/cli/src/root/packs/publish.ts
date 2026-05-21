@@ -484,7 +484,7 @@ const makeDependencyStep = (
           detail: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
         }),
       );
-    case "file":
+    case "context":
     case "rule":
       return Effect.fail(
         makeAppError({

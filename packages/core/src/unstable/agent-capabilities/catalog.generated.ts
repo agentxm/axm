@@ -2954,7 +2954,7 @@ export const AGENTS = [
     instructions: {
       lifecycle: "available",
       notes:
-        "AGENTS.md and CLAUDE.md context files load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
+        "AGENTS.md and CLAUDE.md context load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
       sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],
@@ -6739,7 +6739,7 @@ export const AGENTS_BY_ID = {
     instructions: {
       lifecycle: "available",
       notes:
-        "AGENTS.md and CLAUDE.md context files load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
+        "AGENTS.md and CLAUDE.md context load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
       sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
       lastVerified: "2026-05-18",
       scopes: ["user", "project"],

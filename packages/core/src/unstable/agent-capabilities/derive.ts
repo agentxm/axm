@@ -19,7 +19,7 @@ export const LEAF_EXTENSION_TYPES = [
   "command",
   "mcp-server",
   "subagent",
-  "file",
+  "context",
   "rule",
 ] as const satisfies ReadonlyArray<ExtensionType>;
 
@@ -57,7 +57,7 @@ export const EXTENSION_TYPE_CAPABILITY = {
   command: (agent: Agent) => agent.commands,
   "mcp-server": (agent: Agent) => agent.mcp,
   subagent: (agent: Agent) => agent.subagents,
-  file: (agent: Agent) => agent.instructions,
+  context: (agent: Agent) => agent.instructions,
   rule: (agent: Agent) => agent.rules,
 } satisfies Record<LeafExtensionType, (agent: Agent) => AgentCapability | undefined>;
 

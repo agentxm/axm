@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
-import { contextFilesPackagesInDir } from "../../context-files/index.js";
+import { contextPackagesInDir } from "../../context/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { SourceHostProvider, LocalSource } from "../../sources/index.js";
 
@@ -39,7 +39,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
   find: (source, options) =>
     Effect.gen(function* () {
       const skillRefs =
-        options.type === "file"
+        options.type === "context"
           ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
           : skillsInDir(source.path, Option.none(), {
               fullDepth: false,
@@ -71,14 +71,14 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
             );
 
       const fileRefs =
-        options.type !== "file" && options.type !== "*"
+        options.type !== "context" && options.type !== "*"
           ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
-          : contextFilesPackagesInDir(source.path, { fullDepth: false }).pipe(
+          : contextPackagesInDir(source.path, { fullDepth: false }).pipe(
               Effect.map((discovered) =>
                 Array.map(
                   discovered,
                   (d): ExtensionRef => ({
-                    type: "file",
+                    type: "context",
                     refType: "local",
                     file: { name: d.manifest.name },
                     source,
@@ -95,7 +95,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         switch (r.type) {
           case "skill":
             return nameSet.has(r.skill.name);
-          case "file":
+          case "context":
             return nameSet.has(r.file.name);
           default:
             return false;

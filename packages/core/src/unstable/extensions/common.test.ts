@@ -117,8 +117,8 @@ describe("common schemas", () => {
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("accepts files type segment", () => {
-      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/files/project-rules");
+    it("accepts context type segment", () => {
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/context/project-rules");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
@@ -642,7 +642,7 @@ describe("common schemas", () => {
   });
 
   describe("ExtensionType", () => {
-    it.each(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"] as const)(
+    it.each(["skill", "command", "mcp-server", "subagent", "context", "rule", "pack"] as const)(
       "accepts valid extension type: %s",
       (type) => {
         const result = Schema.decodeUnknownResult(ExtensionTypeSchema)(type);

@@ -16,10 +16,7 @@ import type * as Scope from "effect/Scope";
 import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
-import {
-  contextFilesPackagesInDir,
-  type ContextFilesExtensionRef,
-} from "../../context-files/index.js";
+import { contextPackagesInDir, type ContextExtensionRef } from "../../context/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
@@ -87,7 +84,7 @@ export const createGitHostingSourceHostProvider = <
       yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(ref));
 
       const refs =
-        options.type === "file"
+        options.type === "context"
           ? []
           : yield* skillsInDir(tempDir, subPath, {
               fullDepth: false,
@@ -133,9 +130,9 @@ export const createGitHostingSourceHostProvider = <
       });
 
       const fileRefs =
-        options.type !== "file" && options.type !== "*"
+        options.type !== "context" && options.type !== "*"
           ? []
-          : yield* contextFilesPackagesInDir(fileSearchRoot, {
+          : yield* contextPackagesInDir(fileSearchRoot, {
               fullDepth: false,
             }).pipe(
               Effect.flatMap((discovered) =>
@@ -146,8 +143,8 @@ export const createGitHostingSourceHostProvider = <
                       const filePath = fileUrlToPath(d.location);
                       const relativeDir = path.relative(tempDir, filePath);
                       const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-                      const ref: ContextFilesExtensionRef = {
-                        type: "file" as const,
+                      const ref: ContextExtensionRef = {
+                        type: "context" as const,
                         refType: "git-hosted" as const,
                         file: { name: d.manifest.name },
                         source,
@@ -168,7 +165,7 @@ export const createGitHostingSourceHostProvider = <
         switch (r.type) {
           case "skill":
             return nameSet.has(r.skill.name);
-          case "file":
+          case "context":
             return nameSet.has(r.file.name);
           default:
             return false;

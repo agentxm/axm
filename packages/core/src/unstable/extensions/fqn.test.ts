@@ -39,8 +39,8 @@ describe("parseFqn", () => {
       expected: { owner: "@acme", type: "subagent", name: "reviewer" },
     },
     {
-      input: "@acme/files/project-rules",
-      expected: { owner: "@acme", type: "file", name: "project-rules" },
+      input: "@acme/context/project-rules",
+      expected: { owner: "@acme", type: "context", name: "project-rules" },
     },
     {
       input: "@acme/rules/review-checklist",
@@ -103,8 +103,8 @@ describe("formatFqn", () => {
     expect(formatFqn({ owner: handle("@x"), type: "subagent", name: extensionName("y") })).toBe(
       "@x/subagents/y",
     );
-    expect(formatFqn({ owner: handle("@x"), type: "file", name: extensionName("y") })).toBe(
-      "@x/files/y",
+    expect(formatFqn({ owner: handle("@x"), type: "context", name: extensionName("y") })).toBe(
+      "@x/context/y",
     );
     expect(formatFqn({ owner: handle("@x"), type: "rule", name: extensionName("y") })).toBe(
       "@x/rules/y",
@@ -119,7 +119,7 @@ describe("round-trip", () => {
     "@acme/commands/deploy",
     "@acme/mcp-servers/database",
     "@acme/subagents/reviewer",
-    "@acme/files/project-rules",
+    "@acme/context/project-rules",
     "@acme/rules/review-checklist",
   ].forEach((input) => {
     it.effect(`formatFqn(parseFqn(${input})) === ${input}`, () =>

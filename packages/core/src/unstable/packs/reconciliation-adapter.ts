@@ -122,7 +122,7 @@ const parsePackDependency = (
         order,
         origin: "pack",
       });
-    case "file":
+    case "context":
     case "rule":
     case "pack":
       return Option.none();
@@ -349,7 +349,7 @@ const resolveInstalledDependencyMaps = (
         case "mcp-server":
         case "subagent":
           break;
-        case "file":
+        case "context":
         case "rule":
         case "pack":
           return {

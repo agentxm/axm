@@ -8,7 +8,7 @@
 import * as Option from "effect/Option";
 import type {
   CommandLockEntry,
-  FileLockEntry,
+  ContextLockEntry,
   McpServerLockEntry,
   SkillLockEntry,
 } from "../lockfile/schema.js";
@@ -19,7 +19,7 @@ import { print as gitlabPrint } from "../source-resolution/providers/gitlab/inde
 import { print as localPrint } from "../source-resolution/providers/local-parser/index.js";
 import type { SourceParams } from "./types.js";
 
-type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | FileLockEntry;
+type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | ContextLockEntry;
 
 /**
  * Print source params as their canonical shorthand string.

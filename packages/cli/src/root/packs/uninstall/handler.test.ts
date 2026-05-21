@@ -29,7 +29,7 @@ import {
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { ContextFilesManagerLive } from "@agentxm/client-core/unstable/context-files";
+import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -145,7 +145,7 @@ describe("packs uninstall handler", () => {
       PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
-      ContextFilesManagerLive,
+      ContextManagerLive,
       McpServerManagerLive,
       SubagentManagerLive,
     );

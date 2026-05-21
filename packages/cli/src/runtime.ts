@@ -27,7 +27,7 @@ import {
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { ContextFilesManagerLive } from "@agentxm/client-core/unstable/context-files";
+import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
@@ -42,8 +42,8 @@ import {
 } from "@agentxm/client-core/unstable/auth";
 import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
-import { InstallContextFilesCommandWorkflowActionsLive } from "./root/context-files/install/command-actions.js";
-import { UninstallContextFilesCommandWorkflowActionsLive } from "./root/context-files/uninstall/command-actions.js";
+import { InstallContextCommandWorkflowActionsLive } from "./root/context/install/command-actions.js";
+import { UninstallContextCommandWorkflowActionsLive } from "./root/context/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcp-servers/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcp-servers/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -210,10 +210,10 @@ const makeWorkspaceProgramLayer = (
   );
   const filesLayer = Layer.provideMerge(
     Layer.mergeAll(
-      InstallContextFilesCommandWorkflowActionsLive,
-      UninstallContextFilesCommandWorkflowActionsLive,
+      InstallContextCommandWorkflowActionsLive,
+      UninstallContextCommandWorkflowActionsLive,
     ),
-    ContextFilesManagerLive,
+    ContextManagerLive,
   );
   const mcpServersLayer = Layer.provideMerge(
     Layer.mergeAll(

@@ -12,7 +12,7 @@ describe("resolveRootUpdateIntent", () => {
         { source: "@acme/commands/release-notes@^1.2.0", type: "command" },
         { source: "@acme/mcp-servers/dev-server", type: "mcp-server" },
         { source: "@acme/subagents/researcher", type: "subagent" },
-        { source: "@acme/files/policy", type: "file" },
+        { source: "@acme/context/policy", type: "context" },
         { source: "@acme/packs/frontend-tools", type: "pack" },
       ] as const;
 
@@ -73,7 +73,7 @@ describe("resolveRootUpdateIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcp-servers, subagents, files, packs");
+      ).toContain("skills, commands, mcp-servers, subagents, context, packs");
     }),
   );
 });

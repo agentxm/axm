@@ -21,14 +21,14 @@ import { manifestSchemaValidRule as subagentManifestSchemaValidRule } from "./ca
 import { manifestKeysRecognizedRule as mcpServerManifestKeysRecognizedRule } from "./catalog/mcp-server/manifest-keys-recognized.js";
 import { manifestPresentRule as mcpServerManifestPresentRule } from "./catalog/mcp-server/manifest-present.js";
 import { manifestSchemaValidRule as mcpServerManifestSchemaValidRule } from "./catalog/mcp-server/manifest-schema-valid.js";
-import { generatorValidRule as contextFilesGeneratorValidRule } from "./catalog/context-files/generator-valid.js";
-import { manifestKeysRecognizedRule as contextFilesManifestKeysRecognizedRule } from "./catalog/context-files/manifest-keys-recognized.js";
-import { manifestPresentRule as contextFilesManifestPresentRule } from "./catalog/context-files/manifest-present.js";
-import { manifestSchemaValidRule as contextFilesManifestSchemaValidRule } from "./catalog/context-files/manifest-schema-valid.js";
-import { markerValidRule as contextFilesMarkerValidRule } from "./catalog/context-files/marker-valid.js";
-import { packageValidRule as contextFilesPackageValidRule } from "./catalog/context-files/package-valid.js";
-import { targetValidRule as contextFilesTargetValidRule } from "./catalog/context-files/target-valid.js";
-import { templateValidRule as contextFilesTemplateValidRule } from "./catalog/context-files/template-valid.js";
+import { generatorValidRule as contextGeneratorValidRule } from "./catalog/context/generator-valid.js";
+import { manifestKeysRecognizedRule as contextManifestKeysRecognizedRule } from "./catalog/context/manifest-keys-recognized.js";
+import { manifestPresentRule as contextManifestPresentRule } from "./catalog/context/manifest-present.js";
+import { manifestSchemaValidRule as contextManifestSchemaValidRule } from "./catalog/context/manifest-schema-valid.js";
+import { markerValidRule as contextMarkerValidRule } from "./catalog/context/marker-valid.js";
+import { packageValidRule as contextPackageValidRule } from "./catalog/context/package-valid.js";
+import { targetValidRule as contextTargetValidRule } from "./catalog/context/target-valid.js";
+import { templateValidRule as contextTemplateValidRule } from "./catalog/context/template-valid.js";
 import { frontmatterParseableRule as skillFrontmatterParseableRule } from "./catalog/skill/frontmatter-parseable.js";
 import { manifestKeysRecognizedRule as skillManifestKeysRecognizedRule } from "./catalog/skill/manifest-keys-recognized.js";
 import { manifestPresentRule as skillManifestPresentRule } from "./catalog/skill/manifest-present.js";
@@ -36,7 +36,7 @@ import { manifestSchemaValidRule as skillManifestSchemaValidRule } from "./catal
 import { skillMdPresentRule } from "./catalog/skill/skill-md-present.js";
 import type {
   CommandRuleContext,
-  ContextFilesRuleContext,
+  ContextRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
@@ -52,9 +52,9 @@ export type {
   CommandContent,
   CommandFileAccessor,
   CommandRuleContext,
-  ContextFilesContent,
-  ContextFilesAccessor,
-  ContextFilesRuleContext,
+  ContextContent,
+  ContextAccessor,
+  ContextRuleContext,
   McpServerContent,
   McpServerFileAccessor,
   McpServerRuleContext,
@@ -69,10 +69,7 @@ export type {
   SubagentRuleContext,
 } from "./context.js";
 export type { LintFinding, LintRule } from "./rule.js";
-export {
-  makeVftContextFilesAccessor,
-  type ContextFilesVFTNode,
-} from "./catalog/context-files-accessor/vft.js";
+export { makeVftContextAccessor, type ContextVFTNode } from "./catalog/context-accessor/vft.js";
 export { makeVftPackFileAccessor, type PackVFTNode } from "./catalog/pack-accessor/vft.js";
 export {
   makeVftSkillFileAccessor,
@@ -124,13 +121,13 @@ export const mcpServerRules: ReadonlyArray<LintRule<McpServerRuleContext>> = [
   mcpServerManifestKeysRecognizedRule,
 ];
 
-export const contextFilesRules: ReadonlyArray<LintRule<ContextFilesRuleContext>> = [
-  contextFilesManifestPresentRule,
-  contextFilesManifestSchemaValidRule,
-  contextFilesManifestKeysRecognizedRule,
-  contextFilesPackageValidRule,
-  contextFilesTargetValidRule,
-  contextFilesTemplateValidRule,
-  contextFilesGeneratorValidRule,
-  contextFilesMarkerValidRule,
+export const contextRules: ReadonlyArray<LintRule<ContextRuleContext>> = [
+  contextManifestPresentRule,
+  contextManifestSchemaValidRule,
+  contextManifestKeysRecognizedRule,
+  contextPackageValidRule,
+  contextTargetValidRule,
+  contextTemplateValidRule,
+  contextGeneratorValidRule,
+  contextMarkerValidRule,
 ];

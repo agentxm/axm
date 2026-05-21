@@ -164,7 +164,7 @@ describe("canonical-extensions scanner", () => {
         "commands",
         "mcp-servers",
         "subagents",
-        "context-files",
+        "context",
         "rules",
         "packs",
       ] as const;

@@ -1,6 +1,6 @@
 export {
   resolveConfiguredCommand,
-  resolveConfiguredFile,
+  resolveConfiguredContext,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredSkill,
@@ -15,7 +15,7 @@ export {
   type ConfiguredEntryFailureReason,
   type ResolvedConfiguredCommand,
   type ResolvedConfiguredEntry,
-  type ResolvedConfiguredFile,
+  type ResolvedConfiguredContext,
   type ResolvedConfiguredMcpServer,
   type ResolvedConfiguredPack,
   type ResolvedConfiguredSkill,

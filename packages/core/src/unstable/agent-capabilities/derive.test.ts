@@ -34,12 +34,12 @@ describe("agent capability derivation", () => {
       "command",
       "mcp-server",
       "subagent",
-      "file",
+      "context",
     ]);
   });
 
   it("counts available compliant capabilities as works-with support", () => {
-    expect(agentSupportsType(agentById("claude-code"), "file")).toBe(true);
+    expect(agentSupportsType(agentById("claude-code"), "context")).toBe(true);
     expect(agentSupportsType(agentById("cursor"), "rule")).toBe(true);
   });
 
@@ -82,7 +82,7 @@ describe("agent capability derivation", () => {
 
   it("derives pack compatibility from all member types", () => {
     expect(
-      worksOnExtension({ type: "pack", memberTypes: ["mcp-server", "file"] }, AGENTS).map(
+      worksOnExtension({ type: "pack", memberTypes: ["mcp-server", "context"] }, AGENTS).map(
         (agent) => agent.id,
       ),
     ).toEqual([
@@ -124,7 +124,7 @@ describe("agent capability derivation", () => {
       { type: "command", lifecycle: "available" },
       { type: "mcp-server", lifecycle: "available", standardsCompliance: "full" },
       { type: "subagent", lifecycle: "available" },
-      { type: "file", lifecycle: "available", standardsCompliance: "full" },
+      { type: "context", lifecycle: "available", standardsCompliance: "full" },
     ]);
   });
 

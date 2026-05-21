@@ -143,9 +143,9 @@
       "types": "./dist/src/unstable/packs/index.d.ts",
       "default": "./dist/src/unstable/packs/index.js"
     },
-    "./unstable/context-files": {
-      "types": "./dist/src/unstable/context-files/index.d.ts",
-      "default": "./dist/src/unstable/context-files/index.js"
+    "./unstable/context": {
+      "types": "./dist/src/unstable/context/index.d.ts",
+      "default": "./dist/src/unstable/context/index.js"
     },
     "./unstable/commands": {
       "types": "./dist/src/unstable/commands/index.d.ts",

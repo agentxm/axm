@@ -18,13 +18,13 @@ import * as ServiceMap from "effect/Context";
 import type { AppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
-import type { FileInputValue } from "../context-files/manifest-schema.js";
+import type { FileInputValue } from "../context/manifest-schema.js";
 import type {
   RegistryPackLockEntryArgs,
   CommandLockEntry,
   CommandsLockMap,
-  FileLockEntry,
-  FilesLockMap,
+  ContextLockEntry,
+  ContextLockMap,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
@@ -36,8 +36,8 @@ import type {
 } from "../lockfile/index.js";
 import type {
   CommandEntry,
-  FileEntry,
-  FilesMap,
+  ContextEntry,
+  ContextMap,
   InstructionsConfigValue,
   McpServerEntry,
   McpServersMap,
@@ -120,8 +120,8 @@ export interface SubagentExtensionTarget {
   readonly name: string;
 }
 
-export interface ContextFilesExtensionTarget {
-  readonly type: "file";
+export interface ContextExtensionTarget {
+  readonly type: "context";
   readonly name: string;
 }
 
@@ -134,7 +134,7 @@ export type ExtensionTarget =
   | CommandExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
-  | ContextFilesExtensionTarget;
+  | ContextExtensionTarget;
 
 /**
  * Maps an ExtensionRef type to its corresponding ExtensionTarget type.
@@ -294,11 +294,11 @@ export interface SetMcpServerArgs {
 }
 
 /**
- * Arguments for `setFile` -- bundles the context files package name with the lock entry.
+ * Arguments for `setContext` -- bundles the context package name with the lock entry.
  */
-export interface SetFileArgs {
+export interface SetContextArgs {
   readonly name: string;
-  readonly lockEntry: FileLockEntry;
+  readonly lockEntry: ContextLockEntry;
   readonly versionRange: Option.Option<string>;
 }
 
@@ -356,34 +356,36 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Read settings and return configured MCP server entries, defaulting to `{}`. */
   readonly getConfiguredMcpServerEntries: () => Effect.Effect<McpServersMap, AppError>;
-  /** Read settings and return configured files, defaulting to `{}`. */
-  readonly getConfiguredFileEntries: () => Effect.Effect<FilesMap, AppError>;
-  /** Read settings and return workspace vars available to file templates, defaulting to `{}`. */
+  /** Read settings and return configured context, defaulting to `{}`. */
+  readonly getConfiguredContextEntries: () => Effect.Effect<ContextMap, AppError>;
+  /** Read settings and return workspace vars available to context templates, defaulting to `{}`. */
   readonly getWorkspaceVars: () => Effect.Effect<
     Readonly<Record<string, FileInputValue>>,
     AppError
   >;
-  /** Read lockfile and return the files lock map. */
-  readonly getLockedFiles: () => Effect.Effect<FilesLockMap, AppError>;
-  /** Read lockfile and return the entry for a specific context files package, or Option.none(). */
-  readonly getLockedFile: (name: string) => Effect.Effect<Option.Option<FileLockEntry>, AppError>;
-  /** Add or update a context files package in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setFile: (args: SetFileArgs) => Effect.Effect<void, AppError>;
-  /** Add or update a context files package in lockfile only. Used for pack dependencies. Serialized by semaphore. */
-  readonly setFileLock: (args: SetFileArgs) => Effect.Effect<void, AppError>;
-  /** Remove a context files package from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeFile: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a context files package from settings only. Serialized by semaphore. */
-  readonly removeFileSettings: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a context files package from lockfile only. Serialized by semaphore. */
-  readonly removeFileLock: (name: string) => Effect.Effect<void, AppError>;
-  /** Update a file entry by applying an updater function. Serialized by semaphore. */
-  readonly updateFileEntry: (
+  /** Read lockfile and return the context lock map. */
+  readonly getLockedContext: () => Effect.Effect<ContextLockMap, AppError>;
+  /** Read lockfile and return the entry for a specific context package, or Option.none(). */
+  readonly getLockedContextEntry: (
     name: string,
-    updater: (entry: FileEntry) => FileEntry,
+  ) => Effect.Effect<Option.Option<ContextLockEntry>, AppError>;
+  /** Add or update a context package in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setContext: (args: SetContextArgs) => Effect.Effect<void, AppError>;
+  /** Add or update a context package in lockfile only. Used for pack dependencies. Serialized by semaphore. */
+  readonly setContextLock: (args: SetContextArgs) => Effect.Effect<void, AppError>;
+  /** Remove a context package from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeContext: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a context package from settings only. Serialized by semaphore. */
+  readonly removeContextSettings: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a context package from lockfile only. Serialized by semaphore. */
+  readonly removeContextLock: (name: string) => Effect.Effect<void, AppError>;
+  /** Update a context entry by applying an updater function. Serialized by semaphore. */
+  readonly updateContextEntry: (
+    name: string,
+    updater: (entry: ContextEntry) => ContextEntry,
   ) => Effect.Effect<void, AppError>;
-  /** Create or overwrite a file entry in settings only. Serialized by semaphore. */
-  readonly setFileEntry: (name: string, entry: FileEntry) => Effect.Effect<void, AppError>;
+  /** Create or overwrite a context entry in settings only. Serialized by semaphore. */
+  readonly setContextEntry: (name: string, entry: ContextEntry) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the skills lock map. */
   readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */

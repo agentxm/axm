@@ -214,7 +214,7 @@ const groupLabel = (group: string | undefined): string => {
 const CORE_COMMANDS = [
   "skills",
   "commands",
-  "context-files",
+  "context",
   "mcp-servers",
   "subagents",
   "packs",
@@ -285,7 +285,7 @@ const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
   auth: "Manage registry authentication",
   commands: "Manage slash-command extensions",
   discover: "Find extensions for this project",
-  "context-files": "Manage context files",
+  context: "Manage context",
   help: "Show topic and command help",
   install: "Install extensions from the registry",
   lint: "Check workspace configuration",

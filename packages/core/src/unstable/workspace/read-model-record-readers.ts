@@ -84,7 +84,7 @@ export const makeReadModelRecordReaders = (args: {
         readonly resolvedCommands?: Readonly<Record<string, unknown>> | undefined;
         readonly resolvedMcpServers?: Readonly<Record<string, unknown>> | undefined;
         readonly resolvedSubagents?: Readonly<Record<string, unknown>> | undefined;
-        readonly resolvedFiles?: Readonly<Record<string, unknown>> | undefined;
+        readonly resolvedContext?: Readonly<Record<string, unknown>> | undefined;
       };
     }>,
     key:
@@ -92,7 +92,7 @@ export const makeReadModelRecordReaders = (args: {
       | "resolvedCommands"
       | "resolvedMcpServers"
       | "resolvedSubagents"
-      | "resolvedFiles",
+      | "resolvedContext",
   ): ReadonlyArray<ExtensionName> => {
     const names: Array<ExtensionName> = [];
     for (const pack of packs) {
@@ -292,11 +292,11 @@ export const makeReadModelRecordReaders = (args: {
               ),
             });
           }
-          case "file": {
-            const installed = yield* scoped.files.installed;
-            const resolved = yield* scoped.files.resolved;
+          case "context": {
+            const installed = yield* scoped.context.installed;
+            const resolved = yield* scoped.context.resolved;
             const packs = yield* scoped.packs.resolved;
-            const unmanaged = yield* scoped.files.unmanaged;
+            const unmanaged = yield* scoped.context.unmanaged;
             return collectReadModelRecordRows({
               type,
               installed,
@@ -305,7 +305,7 @@ export const makeReadModelRecordReaders = (args: {
               ignored: [],
               packMemberNames: packMemberNames(
                 Option.getOrElse(packs, () => []),
-                "resolvedFiles",
+                "resolvedContext",
               ),
             });
           }

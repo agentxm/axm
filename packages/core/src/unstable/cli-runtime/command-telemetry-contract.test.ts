@@ -100,6 +100,7 @@ describe("command_completed telemetry contract", () => {
       const types = [
         "skill",
         "command",
+        "context",
         "subagent",
         "pack",
         "mcp-server",

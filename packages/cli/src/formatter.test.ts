@@ -105,17 +105,14 @@ describe("makeAxmFormatter", () => {
       const annotations = ServiceMap.make(
         LearnMore,
         formatLearnMore([
-          [
-            "axm context-files install @acme/files/workspace-baseline",
-            "Install a context files package",
-          ],
+          ["axm context install @acme/context/workspace-baseline", "Install a context package"],
         ]),
       );
       const doc = makeHelpDoc({ annotations });
       const output = formatter.formatHelpDoc(doc);
 
       expect(output).toContain(
-        "LEARN MORE\n  axm context-files install @acme/files/workspace-baseline\n    Install a context files package",
+        "LEARN MORE\n  axm context install @acme/context/workspace-baseline\n    Install a context package",
       );
     });
   });
@@ -129,9 +126,9 @@ describe("makeAxmFormatter", () => {
             group: "EXTENSIONS",
             commands: [
               {
-                name: "context-files",
-                alias: "files",
-                shortDescription: "Context files",
+                name: "context",
+                alias: undefined,
+                shortDescription: "context",
                 description: "",
               },
               {
@@ -162,7 +159,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
       expect(output).toMatch(/CORE\n {2}skills\s+Manage agent skills/);
-      expect(output).toMatch(/ {2}context-files, files\s+Manage context files/);
+      expect(output).toMatch(/ {2}context\s+Manage context/);
       expect(output).toMatch(/ {2}mcp-servers, mcps\s+Manage MCP server extensions/);
       expect(output).toMatch(/ {2}agents\s+Configure coding-agent targets/);
       expect(output).toContain("START HERE\n  help, setup");
@@ -206,7 +203,7 @@ describe("makeAxmFormatter", () => {
 
     it("adds a section break before subcommand examples", () => {
       const doc = makeHelpDoc({
-        usage: "axm context-files <subcommand> [flags]",
+        usage: "axm context <subcommand> [flags]",
         subcommands: [
           {
             group: undefined,
@@ -214,8 +211,7 @@ describe("makeAxmFormatter", () => {
               {
                 name: "disable",
                 alias: undefined,
-                shortDescription:
-                  "Disable a context files package without removing sync-once targets",
+                shortDescription: "Disable a context package without removing sync-once targets",
                 description: "",
               },
             ],
@@ -223,8 +219,8 @@ describe("makeAxmFormatter", () => {
         ],
         examples: [
           {
-            command: "axm context-files install @acme/files/workspace-baseline",
-            description: "Install a context files package",
+            command: "axm context install @acme/context/workspace-baseline",
+            description: "Install a context package",
           },
         ],
       });

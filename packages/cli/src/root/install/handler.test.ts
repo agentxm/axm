@@ -12,9 +12,9 @@ import {
   type InstallCommandHandlerArgs,
 } from "../commands/install/command-actions.js";
 import {
-  InstallContextFilesCommandWorkflowActions,
-  type InstallContextFilesHandlerArgs,
-} from "../context-files/install/command-actions.js";
+  InstallContextCommandWorkflowActions,
+  type InstallContextHandlerArgs,
+} from "../context/install/command-actions.js";
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
@@ -138,11 +138,11 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("mcp-server")),
     };
 
-    const contextFilesActions = {
-      parseArgs: (args: InstallContextFilesHandlerArgs) =>
+    const contextActions = {
+      parseArgs: (args: InstallContextHandlerArgs) =>
         Effect.sync(() => {
           calls.push({
-            type: "context-files",
+            type: "context",
             source: args.source,
             yes: false,
             force: false,
@@ -153,7 +153,7 @@ describe("root install handler", () => {
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
       finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("context-files")),
+      buildPlan: () => Effect.succeed(makePlan("context")),
     };
 
     const subagentActions = {
@@ -217,9 +217,9 @@ describe("root install handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
-        InstallContextFilesCommandWorkflowActions,
-        contextFilesActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallContextFilesCommandWorkflowActions
+        InstallContextCommandWorkflowActions,
+        contextActions as unknown as ServiceMap.Service.Shape<
+          typeof InstallContextCommandWorkflowActions
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -259,7 +259,7 @@ describe("root install handler", () => {
         "@acme/skills/code-review",
         "@acme/commands/release-notes",
         "@acme/mcp-servers/dev-server",
-        "@acme/files/workspace-baseline",
+        "@acme/context/workspace-baseline",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
       ] as const;
@@ -272,7 +272,7 @@ describe("root install handler", () => {
         { type: "skill", source: "@acme/skills/code-review", ...flags },
         { type: "command", source: "@acme/commands/release-notes", ...flags },
         { type: "mcp-server", source: "@acme/mcp-servers/dev-server", ...flags },
-        { type: "context-files", source: "@acme/files/workspace-baseline", ...flags },
+        { type: "context", source: "@acme/context/workspace-baseline", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);

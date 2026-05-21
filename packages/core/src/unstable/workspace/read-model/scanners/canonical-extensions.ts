@@ -111,8 +111,8 @@ const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
       return "mcp-server";
     case "subagents":
       return "subagent";
-    case "context-files":
-      return "file";
+    case "context":
+      return "context";
     case "rules":
       return "rule";
     case "packs":

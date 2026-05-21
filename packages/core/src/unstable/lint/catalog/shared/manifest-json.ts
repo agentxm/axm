@@ -44,8 +44,8 @@ const describeManifest = (file: string): string => {
   switch (file) {
     case "command.json":
       return "Command manifest";
-    case "context-files.json":
-      return "Context files manifest";
+    case "context.json":
+      return "context manifest";
     case "mcp-server.json":
       return "MCP server manifest";
     case "pack.json":

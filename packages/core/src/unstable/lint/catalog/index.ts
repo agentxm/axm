@@ -19,7 +19,7 @@ import { packRules } from "./pack.js";
 import { commandRules } from "./command.js";
 import { subagentRules } from "./subagent.js";
 import { mcpServerRules } from "./mcp-server.js";
-import { contextFilesRules } from "./context-files.js";
+import { contextRules } from "./context.js";
 import { workspaceRules } from "./workspace.js";
 
 export { skillRules } from "./skill.js";
@@ -27,7 +27,7 @@ export { packRules } from "./pack.js";
 export { commandRules } from "./command.js";
 export { subagentRules } from "./subagent.js";
 export { mcpServerRules } from "./mcp-server.js";
-export { contextFilesRules } from "./context-files.js";
+export { contextRules } from "./context.js";
 export { workspaceRules } from "./workspace.js";
 
 // Phase 3a accessor + context-builder helpers.
@@ -51,17 +51,14 @@ export {
 export { buildPackRuleContexts, type InstalledPackInfo } from "./pack-accessor/contexts.js";
 
 export {
-  makePlatformContextFilesAccessor,
-  type ContextFilesAccessorPlatform,
-} from "./context-files-accessor/platform.js";
+  makePlatformContextAccessor,
+  type ContextAccessorPlatform,
+} from "./context-accessor/platform.js";
+export { makeVftContextAccessor, type ContextVFTNode } from "./context-accessor/vft.js";
 export {
-  makeVftContextFilesAccessor,
-  type ContextFilesVFTNode,
-} from "./context-files-accessor/vft.js";
-export {
-  buildContextFilesRuleContexts,
-  type InstalledContextFilesInfo,
-} from "./context-files-accessor/contexts.js";
+  buildContextRuleContexts,
+  type InstalledContextInfo,
+} from "./context-accessor/contexts.js";
 
 // Phase 3c workspace read-model builder helpers.
 export {
@@ -101,6 +98,6 @@ export const allCatalogRuleIds: ReadonlyArray<string> = [
   ...commandRules.map((r) => r.id),
   ...subagentRules.map((r) => r.id),
   ...mcpServerRules.map((r) => r.id),
-  ...contextFilesRules.map((r) => r.id),
+  ...contextRules.map((r) => r.id),
   ...workspaceRules.map((r) => r.id),
 ];

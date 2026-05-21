@@ -455,7 +455,7 @@ export type ExtensionType =
   | "command"
   | "mcp-server"
   | "subagent"
-  | "file"
+  | "context"
   | "rule"
   | "pack";
 export const ExtensionType = Schema.Literals([
@@ -463,13 +463,13 @@ export const ExtensionType = Schema.Literals([
   "command",
   "mcp-server",
   "subagent",
-  "file",
+  "context",
   "rule",
   "pack",
 ]).annotate({
   title: "Extension Type",
   description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack.",
+    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, or pack.",
 });
 export type ExtensionName = string;
 export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(

@@ -164,7 +164,7 @@ export const extensionTypes = [
   "command",
   "mcp-server",
   "subagent",
-  "file",
+  "context",
   "rule",
   "pack",
 ] as const;
@@ -181,7 +181,7 @@ export const extensionTypePluralSegments = [
   "commands",
   "mcp-servers",
   "subagents",
-  "files",
+  "context",
   "rules",
   "packs",
 ] as const;
@@ -198,7 +198,7 @@ export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType>
   commands: "command",
   "mcp-servers": "mcp-server",
   subagents: "subagent",
-  files: "file",
+  context: "context",
   rules: "rule",
   packs: "pack",
 };
@@ -208,7 +208,7 @@ export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> =
   command: "commands",
   "mcp-server": "mcp-servers",
   subagent: "subagents",
-  file: "files",
+  context: "context",
   rule: "rules",
   pack: "packs",
 };
@@ -224,7 +224,7 @@ export const extensionTypeLabels: Record<ExtensionType, string> = {
   command: "Command",
   "mcp-server": "MCP Server",
   subagent: "Subagent",
-  file: "File",
+  context: "Context",
   rule: "Rule",
   pack: "Pack",
 };
@@ -234,7 +234,7 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
   commands: "Commands",
   "mcp-servers": "MCP Servers",
   subagents: "Subagents",
-  files: "Files",
+  context: "Context",
   rules: "Rules",
   packs: "Packs",
 };
@@ -244,7 +244,7 @@ export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
   command: "command",
   "mcp-server": "MCP server",
   subagent: "subagent",
-  file: "file",
+  context: "context",
   rule: "rule",
   pack: "pack",
 };
@@ -254,7 +254,7 @@ export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, stri
   commands: "commands",
   "mcp-servers": "MCP servers",
   subagents: "subagents",
-  files: "files",
+  context: "context",
   rules: "rules",
   packs: "packs",
 };
@@ -272,7 +272,7 @@ export const nonPackExtensionTypePluralSegments = [
   "commands",
   "mcp-servers",
   "subagents",
-  "files",
+  "context",
   "rules",
 ] as const satisfies ReadonlyArray<Exclude<ExtensionTypePlural, "packs">>;
 
@@ -363,7 +363,7 @@ export const ExtensionTypeSchema = Schema.Literals(extensionTypes).annotate({
   identifier: "ExtensionType",
   title: "Extension Type",
   description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack.",
+    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, or pack.",
 });
 
 /**
@@ -441,7 +441,7 @@ export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | unde
 };
 
 const INVALID_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|files|rules|packs)/name form";
+  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|context|rules|packs)/name form";
 
 /**
  * Fully qualified name string schema validated against the composed handle,
@@ -470,7 +470,7 @@ export const ExtensionFqnSchema = Schema.String.pipe(
 export type ExtensionFqn = Schema.Schema.Type<typeof ExtensionFqnSchema>;
 
 const INVALID_NON_PACK_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|files|rules)/name form (packs are not allowed)";
+  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|context|rules)/name form (packs are not allowed)";
 
 /**
  * Fully qualified name string schema restricted to non-pack extension types.
@@ -487,7 +487,7 @@ export const NonPackExtensionFqnSchema = Schema.String.pipe(
     identifier: "NonPackExtensionFqn",
     title: "Non-Pack Extension FQN",
     description:
-      "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, files, rules).",
+      "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, context, rules).",
     examples: ["@acme/skills/code-review", "@my-org/commands/format"],
     message: INVALID_NON_PACK_EXTENSION_FQN_MESSAGE,
   }),

@@ -27,7 +27,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { ContextFilesManagerLive } from "@agentxm/client-core/unstable/context-files";
+import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
@@ -37,7 +37,7 @@ import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/wo
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 
 import { InstallCommandCommandWorkflowActionsLive } from "../commands/install/command-actions.js";
-import { InstallContextFilesCommandWorkflowActionsLive } from "../context-files/install/command-actions.js";
+import { InstallContextCommandWorkflowActionsLive } from "../context/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "../mcp-servers/install/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
@@ -89,9 +89,9 @@ describe("axm lint handler", () => {
       InstallMcpServerCommandWorkflowActionsLive,
       McpServerManagerLive,
     );
-    const contextFilesLayer = Layer.provideMerge(
-      InstallContextFilesCommandWorkflowActionsLive,
-      ContextFilesManagerLive,
+    const contextLayer = Layer.provideMerge(
+      InstallContextCommandWorkflowActionsLive,
+      ContextManagerLive,
     );
     const skillsLayer = Layer.provideMerge(
       InstallSkillCommandWorkflowActionsLive,
@@ -104,7 +104,7 @@ describe("axm lint handler", () => {
     const packsLayer = Layer.provideMerge(InstallPackCommandWorkflowActionsLive, PackManagerLive);
     const coreExtensions = Layer.mergeAll(
       commandsLayer,
-      contextFilesLayer,
+      contextLayer,
       mcpServersLayer,
       skillsLayer,
       subagentsLayer,

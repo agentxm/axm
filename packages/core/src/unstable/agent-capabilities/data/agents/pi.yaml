@@ -66,7 +66,7 @@ instructions:
     - AGENTS.md
   nestedDiscovery: true
   notes: >
-    AGENTS.md and CLAUDE.md context files load at startup from the global directory (~/.pi/agent),
+    AGENTS.md and CLAUDE.md context load at startup from the global directory (~/.pi/agent),
     parent directories, and the current directory; all matching files are concatenated.
   sources:
     - https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md

@@ -104,27 +104,27 @@ export {
 } from "./subagent.js";
 
 // ---------------------------------------------------------------------------
-// Context files subject
+// context subject
 // ---------------------------------------------------------------------------
 
 export {
-  makeContextFilesExtensionsApi,
-  type ActualContextFilesPackage,
-  type ActualContextFiles,
-  type DeclaredContextFilesPackage,
-  type DeclaredContextFiles,
-  type ContextFilesDetectionOrigin,
-  type ContextFilesExtensionsApi,
-  type ContextFilesExtensionsApiDeps,
-  type ContextFilesPackMember,
-  type ContextFilesScanners,
-  type IgnoredContextFilesCandidate,
-  type InstalledContextFilesPackage,
-  type InstalledPackForContextFiles,
-  type ResolvedContextFilesPackage,
-  type ResolvedContextFiles,
-  type UnmanagedContextFilesPackage,
-} from "./context-files.js";
+  makeContextExtensionsApi,
+  type ActualContextPackage,
+  type ActualContext,
+  type DeclaredContextPackage,
+  type DeclaredContext,
+  type ContextDetectionOrigin,
+  type ContextExtensionsApi,
+  type ContextExtensionsApiDeps,
+  type ContextPackMember,
+  type ContextScanners,
+  type IgnoredContextCandidate,
+  type InstalledContextPackage,
+  type InstalledPackForContext,
+  type ResolvedContextPackage,
+  type ResolvedContext,
+  type UnmanagedContextPackage,
+} from "./context.js";
 
 // ---------------------------------------------------------------------------
 // Rule subject

@@ -41,6 +41,28 @@ const insertMarkdownBanner = (content: string, options: ManagedFileBannerOptions
   return `${content.slice(0, insertAt)}${banner}${content.slice(insertAt)}`;
 };
 
+const stripMarkdownBanner = (content: string): string => {
+  const parsed = parseFrontmatterSync(content);
+  const insertAt = parsed.frontmatter === undefined ? 0 : content.length - parsed.body.length;
+  const prefix = content.slice(0, insertAt);
+  const body = content.slice(insertAt);
+  if (!body.startsWith(`<!-- ${MANAGED_FILE_BANNER_MARKER}`)) return content;
+
+  const end = body.indexOf("-->");
+  if (end < 0) return content;
+
+  return `${prefix}${body.slice(end + "-->".length).replace(/^(?:\r?\n){1,2}/, "")}`;
+};
+
+const stripTomlBanner = (content: string): string => {
+  if (!content.startsWith(`# ${MANAGED_FILE_BANNER_MARKER}`)) return content;
+
+  const end = content.search(/\r?\n\r?\n/);
+  if (end < 0) return content;
+
+  return content.slice(end).replace(/^(?:\r?\n){1,2}/, "");
+};
+
 export const insertManagedFileBanner = (
   content: string,
   options: ManagedFileBannerOptions,
@@ -52,5 +74,14 @@ export const insertManagedFileBanner = (
       return insertMarkdownBanner(content, options);
     case "toml":
       return `${makeTomlBanner(options)}\n\n${content}`;
+  }
+};
+
+export const stripManagedFileBanner = (content: string, format: ManagedFileFormat): string => {
+  switch (format) {
+    case "markdown":
+      return stripMarkdownBanner(content);
+    case "toml":
+      return stripTomlBanner(content);
   }
 };

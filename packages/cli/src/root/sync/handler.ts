@@ -306,6 +306,9 @@ const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function
   yield* renderer.success(`Updated ${result.written.length} instruction file(s)`);
 });
 
+// Context-files materialization owns the canonical AGENTS.md content; instruction
+// aliases are synced only after that phase has finished.
+
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
   const renderer = yield* CliRenderer;
   const { steps, expectedSubagentNames } = yield* collectMaterializeSteps();

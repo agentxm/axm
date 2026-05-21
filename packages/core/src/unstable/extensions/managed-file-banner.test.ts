@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
-import { insertManagedFileBanner, managedFileFormatForPath } from "./managed-file-banner.js";
+import {
+  insertManagedFileBanner,
+  managedFileFormatForPath,
+  stripManagedFileBanner,
+} from "./managed-file-banner.js";
 
 describe("managedFileFormatForPath", () => {
   it("detects markdown and TOML commentable files", () => {
@@ -86,5 +90,15 @@ prompt = "Review code."
     });
 
     expect(second).toBe(first);
+  });
+
+  it("strips an existing markdown banner", () => {
+    const content = insertManagedFileBanner("# Workspace\n", {
+      editPath: "AGENTS.md",
+      helpTopic: "context-files",
+      format: "markdown",
+    });
+
+    expect(stripManagedFileBanner(content, "markdown")).toBe("# Workspace\n");
   });
 });

@@ -7,10 +7,12 @@ import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
   getInstructionsStatus,
+  listInstructionAliases,
   normalizeMarkdownBody,
   resolveInstructionMechanism,
   syncInstructions,
 } from "./instructions.js";
+import { AGENTS } from "./registry.js";
 
 describe("agent instructions", () => {
   let tempDir: string;
@@ -37,13 +39,22 @@ describe("agent instructions", () => {
         { kind: "own-file", file: "CLAUDE.md", importSyntax: "at-path" },
         false,
       ),
-    ).toBe("pointer");
+    ).toBe("copy");
     expect(resolveInstructionMechanism({ kind: "own-file", file: "GEMINI.md" }, false)).toBe(
       "copy",
     );
   });
 
-  it.effect("syncs configured own-file agents from AGENTS.md", () =>
+  it("lists per-agent instruction aliases from agent descriptors", () => {
+    expect(
+      listInstructionAliases(
+        [AGENTS["claude-code"], AGENTS["gemini-cli"], AGENTS.codex],
+        "AGENTS.md",
+      ),
+    ).toEqual(["CLAUDE.md", "GEMINI.md"]);
+  });
+
+  it.effect("syncs configured own-file agents from AGENTS.md as symlinks", () =>
     run(
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
@@ -65,9 +76,52 @@ describe("agent instructions", () => {
         );
         expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe("# Workspace\n");
         expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toBe("# Workspace\n");
+        expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(true);
+        expect(fs.lstatSync(path.join(tempDir, "GEMINI.md")).isSymbolicLink()).toBe(true);
+        expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
+        expect(fs.readlinkSync(path.join(tempDir, "GEMINI.md"))).toBe("AGENTS.md");
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
           "**/CLAUDE.md",
         );
+      }),
+    ),
+  );
+
+  it.effect("writes idempotent managed copies when symlinks are unavailable", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+        yield* syncInstructions({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code", "gemini-cli"],
+          config: { fileName: "AGENTS.md", gitignore: "off" },
+          force: false,
+          dryRun: false,
+          symlinkSupported: false,
+        });
+
+        const first = fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8");
+
+        const secondResult = yield* syncInstructions({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code", "gemini-cli"],
+          config: { fileName: "AGENTS.md", gitignore: "off" },
+          force: false,
+          dryRun: false,
+          symlinkSupported: false,
+        });
+
+        const second = fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8");
+
+        expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(false);
+        expect(first).toContain("AXM managed file");
+        expect(first).toContain("Edit: AGENTS.md");
+        expect(first).toContain("# Workspace\n");
+        expect(second).toBe(first);
+        expect(second.match(/AXM managed file/g)?.length).toBe(1);
+        expect(secondResult.written).toEqual([]);
+        expect(secondResult.status.items.every((item) => item.health === "ok")).toBe(true);
       }),
     ),
   );

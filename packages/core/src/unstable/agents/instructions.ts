@@ -3,6 +3,11 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  insertManagedFileBanner,
+  managedFileFormatForPath,
+  stripManagedFileBanner,
+} from "../extensions/index.js";
 import { type InstructionsConfig } from "../settings/index.js";
 import { createSymlink } from "../utils/create-symlink.js";
 import { AGENTS } from "./registry.js";
@@ -15,7 +20,7 @@ export interface ResolvedInstructionsConfig {
   readonly gitignore: InstructionGitignoreMode;
 }
 
-export type InstructionMechanism = "native" | "symlink" | "pointer" | "copy" | "adapter";
+export type InstructionMechanism = "native" | "symlink" | "copy" | "adapter";
 
 export type InstructionHealth =
   | "ok"
@@ -71,7 +76,7 @@ export const resolveInstructionMechanism = (
       return "native";
     case "own-file":
       if (symlinkSupported) return "symlink";
-      return descriptor.importSyntax === "at-path" ? "pointer" : "copy";
+      return "copy";
     case "rules-dir":
       return "adapter";
   }
@@ -92,6 +97,9 @@ export const normalizeMarkdownBody = (content: string): string => {
     .join("\n")
     .trim();
 };
+
+const normalizeInstructionFileBody = (content: string): string =>
+  normalizeMarkdownBody(stripManagedFileBanner(content, "markdown"));
 
 const toInstructionHealth = (args: {
   readonly sourceExists: boolean;
@@ -173,6 +181,26 @@ const readFileOption = (filePath: string) =>
 const findAgentDescriptor = (agentId: string): AgentDescriptor | undefined =>
   Object.values(AGENTS).find((descriptor) => descriptor.id === agentId);
 
+export const listInstructionAliases = (
+  agents: ReadonlyArray<AgentDescriptor>,
+  sourceFileName: string,
+): ReadonlyArray<string> =>
+  [
+    ...new Set(
+      agents.flatMap((agent) => {
+        if (agent.instructions?.kind !== "own-file") return [];
+        if (agent.instructions.file === sourceFileName) return [];
+        return [agent.instructions.file];
+      }),
+    ),
+  ].sort();
+
+const findAgentDescriptors = (agentIds: ReadonlyArray<string>): ReadonlyArray<AgentDescriptor> =>
+  agentIds.flatMap((agentId) => {
+    const descriptor = findAgentDescriptor(agentId);
+    return descriptor === undefined ? [] : [descriptor];
+  });
+
 const fileExists = (filePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -199,14 +227,10 @@ const targetForDescriptor = (
     }
   });
 
-const pointerContent = (sourceFile: string): string => `@${sourceFile}\n`;
-
 const inspectTarget = (args: {
-  readonly sourcePath: string;
   readonly sourceContent: Option.Option<string>;
   readonly targetPath: string;
   readonly mechanism: InstructionMechanism;
-  readonly sourceFileName: string;
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -221,15 +245,11 @@ const inspectTarget = (args: {
     const contentDrift =
       Option.isSome(args.sourceContent) &&
       Option.isSome(targetContent) &&
-      normalizeMarkdownBody(args.sourceContent.value) !==
-        normalizeMarkdownBody(targetContent.value);
-    const pointerDrift =
-      args.mechanism === "pointer" &&
-      Option.isSome(targetContent) &&
-      targetContent.value !== pointerContent(args.sourceFileName);
+      normalizeInstructionFileBody(args.sourceContent.value) !==
+        normalizeInstructionFileBody(targetContent.value);
     const symlinkDrift =
       args.mechanism === "symlink" && targetExists && Option.isNone(linkTarget) && contentDrift;
-    const drift = args.mechanism === "copy" ? contentDrift : pointerDrift || symlinkDrift;
+    const drift = args.mechanism === "copy" ? contentDrift : symlinkDrift;
     return {
       sourceExists,
       targetExists,
@@ -242,11 +262,13 @@ export const getInstructionsStatus = (args: {
   readonly workspaceRoot: string;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
+  readonly symlinkSupported?: boolean;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName);
-    const symlinkSupported = yield* probeSymlinkSupport(args.workspaceRoot);
+    const symlinkSupported =
+      args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
     const items = yield* Effect.forEach(
       roots,
       (root) =>
@@ -292,11 +314,9 @@ export const getInstructionsStatus = (args: {
               );
               const sourceContent = yield* readFileOption(sourcePath);
               const inspected = yield* inspectTarget({
-                sourcePath,
                 sourceContent,
                 targetPath,
                 mechanism,
-                sourceFileName: args.config.fileName,
               });
               const health = toInstructionHealth({ ...inspected, mechanism });
               return {
@@ -357,7 +377,22 @@ const canReplaceTarget = (args: {
 }): boolean =>
   args.force ||
   Option.isNone(args.targetContent) ||
-  normalizeMarkdownBody(args.sourceContent) === normalizeMarkdownBody(args.targetContent.value);
+  normalizeInstructionFileBody(args.sourceContent) ===
+    normalizeInstructionFileBody(args.targetContent.value);
+
+const withManagedCopyBanner = (args: {
+  readonly targetPath: string;
+  readonly sourceFileName: string;
+  readonly content: string;
+}): string => {
+  const format = managedFileFormatForPath(args.targetPath);
+  if (format === undefined) return args.content;
+  return insertManagedFileBanner(args.content, {
+    editPath: args.sourceFileName,
+    helpTopic: "context-files",
+    format,
+  });
+};
 
 const syncOneTarget = (args: {
   readonly sourcePath: string;
@@ -382,8 +417,14 @@ const syncOneTarget = (args: {
       yield* createSymlink({ target: args.sourcePath, link: args.targetPath });
       return Option.some(args.targetPath);
     }
-    const content =
-      args.mechanism === "pointer" ? pointerContent(args.sourceFileName) : args.sourceContent;
+    const content = withManagedCopyBanner({
+      targetPath: args.targetPath,
+      sourceFileName: args.sourceFileName,
+      content: args.sourceContent,
+    });
+    if (Option.isSome(targetContent) && targetContent.value === content) {
+      return Option.none<string>();
+    }
     yield* writeFile(args.targetPath, content);
     return Option.some(args.targetPath);
   });
@@ -422,14 +463,11 @@ const writeGitignoreRegion = (args: {
   Effect.gen(function* () {
     if (args.mode === "off") return Option.none<string>();
     const filePath = yield* gitignorePath(args.workspaceRoot, args.mode);
-    const patterns = args.configuredAgents.flatMap((agentId) => {
-      const descriptor = findAgentDescriptor(agentId);
-      if (descriptor === undefined) return [];
-      if (descriptor.instructions?.kind !== "own-file") return [];
-      if (descriptor.instructions.file === args.sourceFileName) return [];
-      return [`**/${descriptor.instructions.file}`];
-    });
-    const region = managedRegion([...new Set(patterns)].sort());
+    const patterns = listInstructionAliases(
+      findAgentDescriptors(args.configuredAgents),
+      args.sourceFileName,
+    ).map((alias) => `**/${alias}`);
+    const region = managedRegion(patterns);
     const current = yield* readFileOption(filePath);
     const next = replaceManagedRegion(
       Option.getOrElse(current, () => ""),
@@ -446,11 +484,13 @@ export const syncInstructions = (args: {
   readonly config: ResolvedInstructionsConfig;
   readonly force: boolean;
   readonly dryRun: boolean;
+  readonly symlinkSupported?: boolean;
 }): Effect.Effect<InstructionsSyncResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName);
-    const symlinkSupported = yield* probeSymlinkSupport(args.workspaceRoot);
+    const symlinkSupported =
+      args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
     const writtenNested = yield* Effect.forEach(
       roots,
       (root) =>
@@ -502,6 +542,7 @@ export const syncInstructions = (args: {
       workspaceRoot: args.workspaceRoot,
       configuredAgents: args.configuredAgents,
       config: args.config,
+      symlinkSupported,
     });
     return {
       status,

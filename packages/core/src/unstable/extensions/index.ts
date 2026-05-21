@@ -192,6 +192,7 @@ export {
 export {
   insertManagedFileBanner,
   managedFileFormatForPath,
+  stripManagedFileBanner,
   type ManagedFileBannerOptions,
   type ManagedFileFormat,
 } from "./managed-file-banner.js";

@@ -30,6 +30,7 @@ export type {
 
 export {
   getInstructionsStatus,
+  listInstructionAliases,
   normalizeMarkdownBody,
   probeSymlinkSupport,
   resolveInstructionMechanism,

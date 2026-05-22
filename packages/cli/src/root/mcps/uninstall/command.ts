@@ -25,22 +25,22 @@ export const uninstallCommand = Command.make(
   ({ name, yes, force, preview }) =>
     handleUninstallMcpServer({ serverName: name }, { yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime("mcp-servers uninstall"),
+      withRuntime("mcps uninstall"),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall an MCP server"),
   Command.withExamples([
     {
-      command: "axm mcp-servers uninstall my-server",
+      command: "axm mcps uninstall my-server",
       description: "Remove an MCP server you no longer need",
     },
     {
-      command: "axm mcp-servers uninstall my-server --preview",
+      command: "axm mcps uninstall my-server --preview",
       description: "Check what would be removed first",
     },
     {
-      command: "axm mcp-servers uninstall my-server --yes",
+      command: "axm mcps uninstall my-server --yes",
       description: "Remove without confirmation (scripts/CI)",
     },
   ]),

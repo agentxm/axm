@@ -34,7 +34,7 @@ const initWorkspace = (
   options: {
     skills?: Record<string, unknown>;
     commands?: Record<string, unknown>;
-    "mcp-servers"?: Record<string, unknown>;
+    mcps?: Record<string, unknown>;
     packs?: Record<string, unknown>;
     lockSkills?: Record<string, unknown>;
     lockCommands?: Record<string, unknown>;
@@ -51,7 +51,7 @@ const initWorkspace = (
       sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
       ...(options.skills ? { skills: options.skills } : {}),
       ...(options.commands ? { commands: options.commands } : {}),
-      ...(options["mcp-servers"] ? { "mcp-servers": options["mcp-servers"] } : {}),
+      ...(options["mcps"] ? { mcps: options["mcps"] } : {}),
       ...(options.packs ? { packs: options.packs } : {}),
     }),
   );
@@ -61,7 +61,7 @@ const initWorkspace = (
       lockfileVersion: 1,
       skills: options.lockSkills ?? {},
       ...(options.lockCommands ? { commands: options.lockCommands } : {}),
-      ...(options.lockMcpServers ? { "mcp-servers": options.lockMcpServers } : {}),
+      ...(options.lockMcpServers ? { mcps: options.lockMcpServers } : {}),
       ...(options.lockPacks ? { packs: options.lockPacks } : {}),
     }),
   );
@@ -95,7 +95,7 @@ const createCanonicalDirs = (
     fs.writeFileSync(path.join(cmdDir, "run.sh"), "#!/bin/bash");
   }
   for (const srv of opts.mcpServers ?? []) {
-    const srvDir = path.join(baseDir, ".axm", "extensions", srv.owner, "mcp-servers", srv.name);
+    const srvDir = path.join(baseDir, ".axm", "extensions", srv.owner, "mcps", srv.name);
     fs.mkdirSync(srvDir, { recursive: true });
     fs.writeFileSync(path.join(srvDir, "server.js"), "module.exports = {}");
   }

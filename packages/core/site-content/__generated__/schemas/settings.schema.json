@@ -550,7 +550,7 @@
                   "minLength": 1,
                   "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
                   "examples": [
-                    "@acme/mcp-servers/code-review@^1.0.0",
+                    "@acme/mcps/code-review@^1.0.0",
                     "github:acme/agent-extensions",
                     "./extensions/code-review"
                   ]
@@ -582,7 +582,7 @@
       "title": "MCP Server Entry",
       "description": "An MCP server entry: a source string, or an object with source plus optional enabled/authored/env fields.",
       "examples": [
-        "@acme/mcp-servers/context@^1.0.0",
+        "@acme/mcps/context@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false }
       ]
     },

@@ -32,7 +32,7 @@ import { decodeVersionSync } from "../version-constraints/version-constraints.js
 export class McpServerManager extends ServiceMap.Service<
   McpServerManager,
   ExtensionManager<McpServerExtensionRef>
->()("@agentxm/client-core/unstable/mcp-servers/manager/McpServerManager") {}
+>()("@agentxm/client-core/unstable/mcps/manager/McpServerManager") {}
 
 // Build lock entry from registry ref
 const buildMcpServerLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntry => ({
@@ -67,7 +67,7 @@ const checkInstalledOnDisk = (
       scopeDirs,
       (scopeDir) => {
         if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        const serverPath = pathService.join(extensionsDir, scopeDir, "mcp-servers", serverName);
+        const serverPath = pathService.join(extensionsDir, scopeDir, "mcps", serverName);
         return fsService.exists(serverPath).pipe(Effect.catch(() => Effect.succeed(false)));
       },
       { concurrency: "unbounded" },
@@ -111,7 +111,7 @@ export const McpServerManagerLive = Layer.effect(
           baseDir,
           REGISTRY_EXTENSIONS_DIR,
           registryRef.owner,
-          "mcp-servers",
+          "mcps",
           registryRef.name,
         );
 
@@ -219,7 +219,7 @@ export const McpServerManagerLive = Layer.effect(
           scopeDirs,
           (scopeDir) => {
             if (!scopeDir.startsWith("@")) return Effect.void;
-            const serverPath = path.join(extensionsDir, scopeDir, "mcp-servers", target.name);
+            const serverPath = path.join(extensionsDir, scopeDir, "mcps", target.name);
             return fs.remove(serverPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
           },
           { concurrency: "unbounded" },

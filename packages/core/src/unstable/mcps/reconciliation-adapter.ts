@@ -29,7 +29,7 @@ const parseRegistryMcpSource = (
   }
 
   const parsed = parseRegistrySourceRef(source);
-  if (parsed === undefined || parsed.type !== "mcp-servers") {
+  if (parsed === undefined || parsed.type !== "mcps") {
     return Option.none();
   }
 
@@ -41,7 +41,7 @@ const parseRegistryMcpSource = (
 };
 
 export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
-  type: "mcp-servers",
+  type: "mcps",
   scanDeclarations: (context) => {
     const declarations: ReconciliationDeclaration[] = [];
     const warnings: string[] = [];
@@ -61,7 +61,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
       }
 
       declarations.push({
-        type: "mcp-servers",
+        type: "mcps",
         owner,
         name: Option.match(parsed, {
           onNone: () => decodeExtensionNameSync(name),
@@ -104,7 +104,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         context.baseDir,
         REGISTRY_EXTENSIONS_DIR,
         owner,
-        "mcp-servers",
+        "mcps",
         diskName,
       );
 
@@ -179,7 +179,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
       return {
         _tag: "Compatible",
         reconstructed: {
-          type: "mcp-servers",
+          type: "mcps",
           name: declaration.name,
           entry: {
             type: "registry",

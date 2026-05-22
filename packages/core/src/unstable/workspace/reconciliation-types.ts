@@ -15,7 +15,7 @@ import type { Settings } from "../settings/index.js";
 
 export type ReconcileExtensionType = Extract<
   ExtensionTypePlural,
-  "skills" | "commands" | "mcp-servers" | "subagents" | "packs"
+  "skills" | "commands" | "mcps" | "subagents" | "packs"
 >;
 
 export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
@@ -67,7 +67,7 @@ export type ReconstructedLockEntry =
       readonly entry: CommandLockEntry;
     }
   | {
-      readonly type: "mcp-servers";
+      readonly type: "mcps";
       readonly name: ExtensionName;
       readonly entry: McpServerLockEntry;
     }

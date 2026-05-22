@@ -101,7 +101,7 @@ describe("packs-new.handler", () => {
           expect(manifest.dependencies).toEqual({});
           expect(manifest.skills).toBeUndefined();
           expect(manifest.commands).toBeUndefined();
-          expect(manifest["mcp-servers"]).toBeUndefined();
+          expect(manifest["mcps"]).toBeUndefined();
 
           // Verify registered in settings
           const settingsPath = path.join(tempDir, ".axm", "settings.json");

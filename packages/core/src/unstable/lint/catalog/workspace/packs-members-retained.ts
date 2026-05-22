@@ -141,7 +141,7 @@ const typeSegment = (memberType: MemberEntry["memberType"]): string => {
     case "subagent":
       return "subagents";
     case "mcp-server":
-      return "mcp-servers";
+      return "mcps";
   }
 };
 

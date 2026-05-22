@@ -1006,7 +1006,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: { "@acme/skills/code-review": "^1.2.0" },
         resolvedCommands: { "@acme/commands/formatter": "~1.0.0" },
-        resolvedMcpServers: { "@acme/mcp-servers/local-tools": ">=1.0.0 <2.0.0" },
+        resolvedMcpServers: { "@acme/mcps/local-tools": ">=1.0.0 <2.0.0" },
         resolvedSubagents: {},
       };
 

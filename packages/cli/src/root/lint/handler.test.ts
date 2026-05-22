@@ -28,7 +28,7 @@ import {
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
@@ -38,7 +38,7 @@ import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/works
 
 import { InstallCommandCommandWorkflowActionsLive } from "../commands/install/command-actions.js";
 import { InstallContextCommandWorkflowActionsLive } from "../context/install/command-actions.js";
-import { InstallMcpServerCommandWorkflowActionsLive } from "../mcp-servers/install/command-actions.js";
+import { InstallMcpServerCommandWorkflowActionsLive } from "../mcps/install/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
 import { InstallSubagentCommandWorkflowActionsLive } from "../subagents/install/command-actions.js";

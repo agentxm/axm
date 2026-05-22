@@ -67,7 +67,7 @@ import { makePlatformContextAccessor } from "../context-accessor/platform.js";
 import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
 import { COMMAND_MANIFEST_FILENAME } from "../../../commands/manifest-schema.js";
 import { CONTEXT_MANIFEST_FILENAME } from "../../../context/manifest-schema.js";
-import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcp-servers/manifest-schema.js";
+import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "../../../skills/manifest-schema.js";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "../../../subagents/manifest-schema.js";
@@ -646,16 +646,16 @@ const mcpServerPackageRoot = (
   if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
     return args.platform.path.resolve(
       args.workspaceRoot,
-      `.axm/extensions/${resolved.value.lockEntry.owner}/mcp-servers/${mcpServer.key.name}`,
+      `.axm/extensions/${resolved.value.lockEntry.owner}/mcps/${mcpServer.key.name}`,
     );
   }
 
   if (mcpServer.installationOrigin._tag === "direct") {
     const parsed = parseRegistrySource(mcpServer.installationOrigin.declared.entry.source);
-    if (parsed !== undefined && parsed.type === "mcp-servers") {
+    if (parsed !== undefined && parsed.type === "mcps") {
       return args.platform.path.resolve(
         args.workspaceRoot,
-        `.axm/extensions/${parsed.owner}/mcp-servers/${mcpServer.key.name}`,
+        `.axm/extensions/${parsed.owner}/mcps/${mcpServer.key.name}`,
       );
     }
   }

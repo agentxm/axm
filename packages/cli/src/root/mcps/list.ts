@@ -79,15 +79,15 @@ const listConfig = {
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleListMcpServers().pipe(withWorkspace(scope), withRuntime("mcp-servers list")),
+  handleListMcpServers().pipe(withWorkspace(scope), withRuntime("mcps list")),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),
   Command.withDescription("List installed MCP servers"),
   Command.withExamples([
-    { command: "axm mcp-servers list", description: "See installed MCP servers" },
+    { command: "axm mcps list", description: "See installed MCP servers" },
     {
-      command: "axm mcp-servers list --scope user",
+      command: "axm mcps list --scope user",
       description: "Check user-level MCP servers",
     },
   ]),

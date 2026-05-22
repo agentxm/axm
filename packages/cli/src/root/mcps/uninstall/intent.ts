@@ -1,7 +1,7 @@
 /**
  * Uninstall MCP server intent type.
  *
- * Immutable intent payload for the `axm mcp-servers uninstall` workflow.
+ * Immutable intent payload for the `axm mcps uninstall` workflow.
  *
  * @experimental This API is unstable and may change without notice.
  */

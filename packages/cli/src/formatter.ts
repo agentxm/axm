@@ -211,15 +211,7 @@ const groupLabel = (group: string | undefined): string => {
 };
 
 /** Core capability commands, rendered with descriptions at the top of root help. */
-const CORE_COMMANDS = [
-  "skills",
-  "commands",
-  "context",
-  "mcp-servers",
-  "subagents",
-  "packs",
-  "agents",
-];
+const CORE_COMMANDS = ["skills", "commands", "context", "mcps", "subagents", "packs", "agents"];
 const CORE_GROUP_LABEL = "CORE";
 
 /** Compact group that should render above the descriptive Core block. */
@@ -291,7 +283,7 @@ const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
   lint: "Check workspace configuration",
   login: "Sign in to a registry",
   logout: "Sign out of a registry",
-  "mcp-servers": "Manage MCP server extensions",
+  mcps: "Manage MCP server extensions",
   outdated: "Show extensions with updates",
   packs: "Manage extension bundles",
   prune: "Remove unmanaged extension files",

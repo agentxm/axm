@@ -32,8 +32,8 @@ import {
   toStepKey,
   type ExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
-import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
-import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcp-servers";
+import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcps";
+import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import {
   ContextManager,
   renderWorkspaceGeneratorRegions,
@@ -190,7 +190,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           env,
           Object.assign(
             {},
-            ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "mcp-servers")),
+            ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "mcps")),
           ),
         ),
         configuredSubagentsToDiskRefs(

@@ -30,8 +30,8 @@ import { InstallCommandCommandWorkflowActions } from "../commands/install/comman
 import type { InstallCommandCommandIntent } from "../commands/install/intent.js";
 import { InstallContextCommandWorkflowActions } from "../context/install/command-actions.js";
 import type { InstallContextCommandIntent } from "../context/install/intent.js";
-import { InstallMcpServerCommandWorkflowActions } from "../mcp-servers/install/command-actions.js";
-import type { InstallMcpServerCommandIntent } from "../mcp-servers/install/intent.js";
+import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
+import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
 import type { InstallPackCommandIntent } from "../packs/install/intent.js";
 import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";

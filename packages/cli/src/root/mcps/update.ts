@@ -27,24 +27,24 @@ export const updateCommand = Command.make(
     (Option.isSome(source)
       ? handleUpdate({ source, yes, force, preview })
       : handleWorkspaceUpdate({
-          command: "mcp-servers.update",
+          command: "mcps.update",
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),
           flags: { yes, force, preview },
         })
-    ).pipe(withWorkspace(scope), withRuntime("mcp-servers update")),
+    ).pipe(withWorkspace(scope), withRuntime("mcps update")),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update MCP servers"),
   Command.withExamples([
-    { command: "axm mcp-servers update", description: "Update configured MCP servers" },
+    { command: "axm mcps update", description: "Update configured MCP servers" },
     {
-      command: "axm mcp-servers update @acme/mcp-servers/context",
+      command: "axm mcps update @acme/mcps/context",
       description: "Update one MCP server by registry name",
     },
     {
-      command: "axm mcp-servers update --preview",
+      command: "axm mcps update --preview",
       description: "Preview MCP server updates",
     },
   ]),

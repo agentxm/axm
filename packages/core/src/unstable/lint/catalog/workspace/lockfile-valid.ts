@@ -5,7 +5,7 @@
  * Cascade per `docs/design/lint-engine.md §10.workspace`:
  *
  * 1. `.axm/axm-lock.yaml` exists when settings declares any extension
- *    (skills, packs, commands, subagents, mcp-servers). **Missing arm is
+ *    (skills, packs, commands, subagents, mcps). **Missing arm is
  *    autofixing** — `fix` returns `install-{type}` Operations for every
  *    declared extension; each handler writes its lockfile entry as a side
  *    effect, recreating the lockfile.
@@ -21,7 +21,7 @@
  * recreate the file deterministically.
  *
  * Early-return: workspaces with no declared extensions (no skills, no
- * packs, no commands, no subagents, no mcp-servers) don't require a
+ * packs, no commands, no subagents, no mcps) don't require a
  * lockfile — this rule emits zero findings.
  *
  * @experimental This API is unstable and may change without notice.

@@ -14,7 +14,7 @@ import {
   type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
 import { COMMAND_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/commands";
-import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcp-servers";
+import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcps";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";

@@ -104,7 +104,7 @@ describe("pluralizeType", () => {
   });
 
   it("pluralizes mcp-server", () => {
-    expect(pluralizeType("mcp-server")).toBe("mcp-servers");
+    expect(pluralizeType("mcp-server")).toBe("mcps");
   });
 });
 
@@ -122,7 +122,7 @@ describe("extensionDir", () => {
 
   it("builds path for mcp-server", () => {
     const result = extensionDir("/registry", handle("@acme"), "mcp-server", "my-server", join);
-    expect(result).toBe("/registry/extensions/@acme/mcp-servers/my-server");
+    expect(result).toBe("/registry/extensions/@acme/mcps/my-server");
   });
 
   it("builds path for pack", () => {

@@ -226,7 +226,7 @@ export const uninstallMcpServer: (
         base,
         REGISTRY_EXTENSIONS_DIR,
         lockEntry.owner,
-        "mcp-servers",
+        "mcps",
         lockEntry.name,
       );
       yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
@@ -277,7 +277,7 @@ const checkInstalledOnDisk = (
       scopeDirs,
       (scopeDir) => {
         if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        const serverPath = pathService.join(extensionsDir, scopeDir, "mcp-servers", serverName);
+        const serverPath = pathService.join(extensionsDir, scopeDir, "mcps", serverName);
         return fsService.exists(serverPath).pipe(Effect.catch(() => Effect.succeed(false)));
       },
       { concurrency: "unbounded" },
@@ -308,7 +308,7 @@ const removeFromAllMcpServerLocations = (
       scopeDirs,
       (scopeDir) => {
         if (!scopeDir.startsWith("@")) return Effect.void;
-        const serverPath = pathService.join(extensionsDir, scopeDir, "mcp-servers", serverName);
+        const serverPath = pathService.join(extensionsDir, scopeDir, "mcps", serverName);
         return fsService
           .remove(serverPath, { recursive: true })
           .pipe(Effect.catch(() => Effect.void));

@@ -48,20 +48,17 @@ describe("configured extensions to disk refs", () => {
         name: "deploy",
         version: "1.0.0",
       });
-      writeJson(
-        nodePath.join(tempDir, ".axm/extensions/@acme/mcp-servers/browser/mcp-server.json"),
-        {
-          owner: "@acme",
-          type: "mcp-server",
-          name: "browser",
+      writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp-server.json"), {
+        owner: "@acme",
+        type: "mcp-server",
+        name: "browser",
+        version: "1.0.0",
+        server: {
+          name: "io.github.acme/browser",
+          description: "Browser MCP server",
           version: "1.0.0",
-          server: {
-            name: "io.github.acme/browser",
-            description: "Browser MCP server",
-            version: "1.0.0",
-          },
         },
-      );
+      });
       writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/subagents/planner/subagent.json"), {
         owner: "@acme",
         type: "subagent",
@@ -86,7 +83,7 @@ describe("configured extensions to disk refs", () => {
         }),
         configuredMcpServersToDiskRefs(env, {
           browser: {
-            source: "@acme/mcp-servers/browser",
+            source: "@acme/mcps/browser",
             enabled: true,
             packagingKind: "native",
           },

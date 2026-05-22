@@ -44,7 +44,7 @@ const makeWorkspaceMock = (
 // -----------------------------------------------------------------------------
 
 describe("unpackPack", () => {
-  it.effect("promotes resolved commands and mcp-servers (not just skills)", () => {
+  it.effect("promotes resolved commands and mcps (not just skills)", () => {
     const setCommand = vi.fn(() => Effect.void);
     const setMcpServer = vi.fn(() => Effect.void);
     const setSkill = vi.fn(() => Effect.void);
@@ -63,7 +63,7 @@ describe("unpackPack", () => {
               updatedAt: new Date(),
               resolvedSkills: { "@acme/skills/my-skill": exactVersion("1.0.0") },
               resolvedCommands: { "@acme/commands/my-cmd": exactVersion("2.0.0") },
-              resolvedMcpServers: { "@acme/mcp-servers/my-server": exactVersion("3.0.0") },
+              resolvedMcpServers: { "@acme/mcps/my-server": exactVersion("3.0.0") },
               resolvedSubagents: {},
             }),
           ),

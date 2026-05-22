@@ -40,7 +40,7 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
  * Args for the publish-mcp-server operation.
  */
 export type PublishMcpServerOperationArgs = {
-  /** Extension identity in `@owner/mcp-servers/name` FQN format. */
+  /** Extension identity in `@owner/mcps/name` FQN format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
   readonly registryName: string;
@@ -85,13 +85,7 @@ export const publishMcpServer: (
     const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
 
     // Locate the extension directory
-    const extensionDir = path.join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      fqn.owner,
-      "mcp-servers",
-      fqn.name,
-    );
+    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "mcps", fqn.name);
     const extensionDirExists = yield* fs
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));

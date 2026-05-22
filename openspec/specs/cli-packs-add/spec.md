@@ -40,7 +40,7 @@ The default version specifier SHALL be `*` (stay current). Authors SHALL specify
 
 - **WHEN** user runs `axm packs add frontend-tools @acme/db-browser`
 - **AND** `@acme/db-browser` is a managed, registry-sourced MCP server
-- **THEN** `pack.json` gains dependency entry `"@acme/mcp-servers/db-browser": "*"`
+- **THEN** `pack.json` gains dependency entry `"@acme/mcps/db-browser": "*"`
 
 #### Scenario: Extension already in pack
 

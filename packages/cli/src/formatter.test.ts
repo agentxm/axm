@@ -132,7 +132,7 @@ describe("makeAxmFormatter", () => {
                 description: "",
               },
               {
-                name: "mcp-servers",
+                name: "mcps",
                 alias: "mcps",
                 shortDescription: "MCP servers",
                 description: "",
@@ -160,7 +160,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("USAGE\n  axm <command> [flags]");
       expect(output).toMatch(/CORE\n {2}skills\s+Manage agent skills/);
       expect(output).toMatch(/ {2}context\s+Manage context/);
-      expect(output).toMatch(/ {2}mcp-servers, mcps\s+Manage MCP server extensions/);
+      expect(output).toMatch(/ {2}mcps, mcps\s+Manage MCP server extensions/);
       expect(output).toMatch(/ {2}agents\s+Configure coding-agent targets/);
       expect(output).toContain("START HERE\n  help, setup");
       expect(output).toContain("AUTH\n  login");

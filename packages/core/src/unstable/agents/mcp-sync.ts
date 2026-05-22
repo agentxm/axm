@@ -20,9 +20,9 @@ import {
   MCP_SERVER_MANIFEST_FILENAME,
   McpServerManifestSchema,
   type McpServerManifest,
-} from "../mcp-servers/manifest-schema.js";
-import { resolveMcpServer } from "../mcp-servers/resolution.js";
-import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcp-servers/config-writer.js";
+} from "../mcps/manifest-schema.js";
+import { resolveMcpServer } from "../mcps/resolution.js";
+import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,

@@ -14,7 +14,7 @@ import { LockfileSchema } from "../lockfile/index.js";
 import { SettingsSchema } from "../settings/index.js";
 import { SkillManifestSchema } from "../skills/manifest-schema.js";
 import { CommandManifestSchema } from "../commands/manifest-schema.js";
-import { McpServerManifestSchema } from "../mcp-servers/manifest-schema.js";
+import { McpServerManifestSchema } from "../mcps/manifest-schema.js";
 import { PackManifestSchema } from "../packs/manifest-schema.js";
 import { ContextManifestSchema } from "../context/manifest-schema.js";
 
@@ -68,7 +68,7 @@ describe("example files", () => {
   });
 
   it("mcp-server.example.json conforms to McpServerManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "mcp-servers/mcp-server.example.json"));
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "mcps/mcp-server.example.json"));
     const result = Schema.decodeUnknownSync(McpServerManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");

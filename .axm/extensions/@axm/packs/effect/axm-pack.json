@@ -15,7 +15,7 @@
     "@axm/skills/effect-stream": "^0.1.0"
   },
   "commands": {},
-  "mcp-servers": {},
+  "mcps": {},
   "profile": "@axm",
   "type": "pack"
 }

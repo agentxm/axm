@@ -12,7 +12,7 @@ import {
 import {
   buildRegistryMcpServerRef,
   type InstallMcpServerOperation,
-} from "@agentxm/client-core/unstable/mcp-servers";
+} from "@agentxm/client-core/unstable/mcps";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import { parseFqnOrThrow } from "@agentxm/client-core/unstable/extensions";
 import { buildUnpackPlan } from "./plan.js";

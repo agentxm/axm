@@ -754,13 +754,13 @@ describe("Settings schema", () => {
 
     it("accepts valid mcpServers at root", () => {
       const input = {
-        mcpServers: { batcomputer: "@wayne/mcp-servers/batcomputer" },
+        mcpServers: { batcomputer: "@wayne/mcps/batcomputer" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.mcpServers).toEqual({
         batcomputer: {
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: false,
           enabled: true,
           env: {},
@@ -773,7 +773,7 @@ describe("Settings schema", () => {
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
         commands: { "batcomputer-sync": "@wayne/commands/batcomputer-sync" },
         packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
-        mcpServers: { batcomputer: "@wayne/mcp-servers/batcomputer" },
+        mcpServers: { batcomputer: "@wayne/mcps/batcomputer" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
@@ -796,7 +796,7 @@ describe("Settings schema", () => {
       });
       expect(result.mcpServers).toEqual({
         batcomputer: {
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: false,
           enabled: true,
           env: {},
@@ -945,12 +945,12 @@ describe("Settings schema", () => {
 
   describe("McpServersMap schema (MCP server name validation)", () => {
     it("accepts valid MCP server name", () => {
-      const input = { batcomputer: "@wayne/mcp-servers/batcomputer" };
+      const input = { batcomputer: "@wayne/mcps/batcomputer" };
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
       expect(result).toEqual({
         batcomputer: {
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: false,
           enabled: true,
           env: {},
@@ -959,12 +959,12 @@ describe("Settings schema", () => {
     });
 
     it("accepts MCP server object entry with source", () => {
-      const input = { batcomputer: { source: "@wayne/mcp-servers/batcomputer" } };
+      const input = { batcomputer: { source: "@wayne/mcps/batcomputer" } };
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
       expect(result).toEqual({
         batcomputer: {
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: false,
           enabled: true,
           env: {},
@@ -973,7 +973,7 @@ describe("Settings schema", () => {
     });
 
     it("rejects MCP server names with underscores", () => {
-      const input = { bat_computer: "@wayne/mcp-servers/reference" };
+      const input = { bat_computer: "@wayne/mcps/reference" };
 
       expect(() => Schema.decodeUnknownSync(McpServersMapSchema)(input)).toThrow();
     });
@@ -982,12 +982,10 @@ describe("Settings schema", () => {
   describe("McpServerEntrySchema", () => {
     describe("decode", () => {
       it("decodes a plain string to normalized entry", () => {
-        const result = Schema.decodeUnknownSync(McpServerEntrySchema)(
-          "@wayne/mcp-servers/batcomputer",
-        );
+        const result = Schema.decodeUnknownSync(McpServerEntrySchema)("@wayne/mcps/batcomputer");
 
         expect(result).toEqual({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: false,
           enabled: true,
           env: {},
@@ -996,11 +994,11 @@ describe("Settings schema", () => {
 
       it("decodes an object with source", () => {
         const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
         });
 
         expect(result).toEqual({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: false,
           enabled: true,
           env: {},
@@ -1009,12 +1007,12 @@ describe("Settings schema", () => {
 
       it("decodes an object with authored true", () => {
         const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: true,
         });
 
         expect(result).toEqual({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: true,
           enabled: true,
           env: {},
@@ -1029,23 +1027,23 @@ describe("Settings schema", () => {
     describe("encode", () => {
       it("encodes non-authored entry to string", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           enabled: true,
           authored: false,
           env: {},
         });
-        expect(result).toBe("@wayne/mcp-servers/batcomputer");
+        expect(result).toBe("@wayne/mcps/batcomputer");
       });
 
       it("encodes authored entry to object", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           enabled: true,
           authored: true,
           env: {},
         });
         expect(result).toEqual({
-          source: "@wayne/mcp-servers/batcomputer",
+          source: "@wayne/mcps/batcomputer",
           authored: true,
         });
       });
@@ -1055,10 +1053,10 @@ describe("Settings schema", () => {
   describe("McpServerEntryObjectSchema", () => {
     it("accepts an object with source", () => {
       const result = Schema.decodeUnknownSync(McpServerEntryObjectSchema)({
-        source: "@wayne/mcp-servers/batcomputer",
+        source: "@wayne/mcps/batcomputer",
       });
 
-      expect(result).toEqual({ source: "@wayne/mcp-servers/batcomputer" });
+      expect(result).toEqual({ source: "@wayne/mcps/batcomputer" });
     });
   });
 
@@ -1219,7 +1217,7 @@ describe("Settings schema", () => {
           "utility-belt": "@wayne/packs/utility-belt@^1.0.0",
         },
         mcpServers: {
-          batcomputer: "@wayne/mcp-servers/batcomputer",
+          batcomputer: "@wayne/mcps/batcomputer",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);

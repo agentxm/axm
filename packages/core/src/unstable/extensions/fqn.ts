@@ -51,7 +51,7 @@ export const fqnInvalidErrorToAppError = (error: FqnInvalidError): AppError =>
     suggestions: [
       {
         description:
-          "Use the 3-segment format: @handle/(skills|commands|mcp-servers|subagents|context|rules|packs)/name",
+          "Use the 3-segment format: @handle/(skills|commands|mcps|subagents|context|rules|packs)/name",
       },
     ],
     cause: error,

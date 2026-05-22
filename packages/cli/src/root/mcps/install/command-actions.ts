@@ -25,10 +25,7 @@ import {
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import {
-  installMcpServer,
-  type McpServerExtensionRef,
-} from "@agentxm/client-core/unstable/mcp-servers";
+import { installMcpServer, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
@@ -105,7 +102,7 @@ export class InstallMcpServerCommandWorkflowActions extends ServiceMap.Service<
     McpServerExtensionRef,
     InstallMcpServerCommandIntent
   >
->()("axm.sh/root/mcp-servers/install/command-actions/InstallMcpServerCommandWorkflowActions") {}
+>()("axm.sh/root/mcps/install/command-actions/InstallMcpServerCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -173,7 +170,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                       suggestions: [
                         {
                           description:
-                            "Use the fully-qualified `@owner/mcp-servers/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
+                            "Use the fully-qualified `@owner/mcps/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
                         },
                       ],
                     }),
@@ -186,7 +183,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             owner,
             serverName: parsed.success.name,
             versionRange: Option.none<string>(),
-            resolvedInput: `${owner}/mcp-servers/${parsed.success.name}`,
+            resolvedInput: `${owner}/mcps/${parsed.success.name}`,
             force: false,
             env,
             nonInteractive: args.nonInteractive ?? false,
@@ -197,14 +194,14 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           case "wrong-type":
             return yield* makeAppError({
               code: "validation",
-              detail: "MCP server source must include /mcp-servers/ segment",
-              suggestions: [{ description: "Use @owner/mcp-servers/server-name format." }],
+              detail: "MCP server source must include /mcps/ segment",
+              suggestions: [{ description: "Use @owner/mcps/server-name format." }],
             });
           case "missing-name":
             return yield* makeAppError({
               code: "not_found",
               detail: "MCP server source must include a server name",
-              suggestions: [{ description: "Use @owner/mcp-servers/server-name format." }],
+              suggestions: [{ description: "Use @owner/mcps/server-name format." }],
             });
           default:
             return yield* makeAppError({
@@ -212,7 +209,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               detail: "MCP servers can only be installed from a registry",
               suggestions: [
                 {
-                  description: "Use @owner/mcp-servers/server-name or just server-name.",
+                  description: "Use @owner/mcps/server-name or just server-name.",
                 },
               ],
             });
@@ -231,7 +228,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 detail: `Invalid source: ${error.message}`,
                 suggestions: [
                   {
-                    description: "Use @owner/mcp-servers/server-name or just server-name.",
+                    description: "Use @owner/mcps/server-name or just server-name.",
                   },
                 ],
                 cause: error,
@@ -245,7 +242,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               detail: "MCP servers can only be installed from a registry",
               suggestions: [
                 {
-                  description: "Use a registry source: @owner/mcp-servers/server-name",
+                  description: "Use a registry source: @owner/mcps/server-name",
                 },
               ],
             });

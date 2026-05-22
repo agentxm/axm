@@ -32,8 +32,8 @@ const canonicalPathFor = (
   lockEntry: McpServerLockEntry,
 ): string =>
   lockEntry.type === "registry"
-    ? path.join(base, REGISTRY_EXTENSIONS_DIR, lockEntry.owner, "mcp-servers", lockEntry.name)
-    : path.join(base, EXTERNAL_EXTENSIONS_DIR, "mcp-servers", name);
+    ? path.join(base, REGISTRY_EXTENSIONS_DIR, lockEntry.owner, "mcps", lockEntry.name)
+    : path.join(base, EXTERNAL_EXTENSIONS_DIR, "mcps", name);
 
 export const enableMcpServer = (
   op: EnableMcpServerOperation,

@@ -330,13 +330,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
 
   it.effect("finds mcp-server extensions", () => {
     const registryRoot = makeRegistryDir();
-    const serverDir = nodePath.join(
-      registryRoot,
-      "extensions",
-      "@test",
-      "mcp-servers",
-      "my-server",
-    );
+    const serverDir = nodePath.join(registryRoot, "extensions", "@test", "mcps", "my-server");
 
     return Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

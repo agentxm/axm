@@ -145,7 +145,7 @@ displayed.
   "version": "1.0.0",
   "description": "Complete crime-fighting toolkit",
   "skills": ["@wayne/grappling-hook"],
-  "mcp-servers": ["@wayne/batcomputer"],
+  "mcps": ["@wayne/batcomputer"],
   "packs": ["@wayne/base-toolkit"],
   "commands": []
 }
@@ -242,7 +242,7 @@ For fully qualified names (`@<profile>/<name>`), check levels in order:
 3. **Registry** — Remote AXM registry
 
 At each level, search all type directories in parallel: `skills`, `commands`,
-`packs`, `mcp-servers`. If `types` is provided, only search matching type
+`packs`, `mcps`. If `types` is provided, only search matching type
 directories.
 
 Stop at first level with matches. Return all matches found at that level.
@@ -366,7 +366,7 @@ Settings are configured at the project level (`.axm/settings.json`).
     "packs": {
       "@wayne/utility-belt": "^1.0.0",
     },
-    "mcp-servers": {
+    "mcps": {
       "@wayne/batcomputer": "^2.0.0",
     },
   },
@@ -526,7 +526,7 @@ extensions:
       gitTreeFolderHash: def456ghi789...
       installedAt: "2025-01-15T10:30:00Z"
       updatedAt: "2025-01-15T10:30:00Z"
-  mcp-servers:
+  mcps:
     "@wayne/batcomputer":
       source: github:wayne-industries/batcomputer
       origin: https://github.com/wayne-industries/batcomputer
@@ -646,7 +646,7 @@ A manifest describing multiple extensions in a directory structure.
     }
   ],
   "packs": [],
-  "mcp-servers": []
+  "mcps": []
 }
 ```
 
@@ -680,7 +680,7 @@ project/
 │       └── batcomputer-sync/
 │           └── bin/
 │               └── sync.js
-└── mcp-servers/
+└── mcps/
     └── @wayne/
         └── batcave-mcp/
             └── server.py

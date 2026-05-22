@@ -35,7 +35,7 @@ import {
 import {
   publishMcpServer,
   type PublishMcpServerOperation,
-} from "@agentxm/client-core/unstable/mcp-servers";
+} from "@agentxm/client-core/unstable/mcps";
 import {
   publishSubagent,
   type PublishSubagentOperation,

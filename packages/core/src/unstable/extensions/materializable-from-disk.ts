@@ -13,11 +13,8 @@ import type {
   ConfiguredSubagent,
 } from "../workspace/read-model-record-types.js";
 import { parseRegistrySourceRef } from "./registry-source.js";
-import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
-import {
-  MCP_SERVER_MANIFEST_FILENAME,
-  McpServerManifestSchema,
-} from "../mcp-servers/manifest-schema.js";
+import type { McpServerExtensionRef } from "../mcps/refs.js";
+import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "../mcps/manifest-schema.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
@@ -48,14 +45,14 @@ const syntheticRegistrySource = (owner: Handle): RegistrySource => ({
 const canonicalExtensionPath = (
   env: DiskRefEnv,
   owner: string,
-  kind: "commands" | "mcp-servers" | "skills" | "subagents",
+  kind: "commands" | "mcps" | "skills" | "subagents",
   name: string,
 ) => env.path.join(env.baseDir, REGISTRY_EXTENSIONS_DIR, owner, kind, name);
 
 const resolveRegistryDiskLocation = (
   env: DiskRefEnv,
   source: string,
-  expectedKind: "commands" | "mcp-servers" | "skills" | "subagents",
+  expectedKind: "commands" | "mcps" | "skills" | "subagents",
   settingsName: string,
 ) =>
   Effect.gen(function* () {
@@ -222,7 +219,7 @@ export const configuredMcpServersToDiskRefs = (
         const location = yield* resolveRegistryDiskLocation(
           env,
           entry.source,
-          "mcp-servers",
+          "mcps",
           settingsName,
         );
         if (Option.isNone(location)) return Option.none<McpServerExtensionRef>();

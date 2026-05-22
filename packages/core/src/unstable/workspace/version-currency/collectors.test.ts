@@ -162,13 +162,13 @@ describe("collectCommandCurrency", () => {
 });
 
 describe("collectMcpServerCurrency", () => {
-  it.effect("returns currency entries for registry-sourced mcp-servers", () =>
+  it.effect("returns currency entries for registry-sourced mcps", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
         getConfiguredMcpServers: () =>
           Effect.succeed({
             "my-server": {
-              source: "@acme/mcp-servers/my-server@^1.0.0",
+              source: "@acme/mcps/my-server@^1.0.0",
               enabled: true,
               packagingKind: "non-native" as const,
             },
@@ -190,7 +190,7 @@ describe("collectMcpServerCurrency", () => {
       const entries = yield* collectMcpServerCurrency(client).pipe(Effect.provide(layer));
 
       expect(entries).toHaveLength(1);
-      expect(entries[0]?.ref).toBe("@acme/mcp-servers/my-server");
+      expect(entries[0]?.ref).toBe("@acme/mcps/my-server");
       expect(entries[0]?.type).toBe("mcp-server");
       expect(entries[0]?.currency.status).toBe("update-available");
     }),

@@ -1,6 +1,6 @@
 import type { McpServerRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
-import { McpServerManifestSchema } from "../../../mcp-servers/manifest-schema.js";
+import { McpServerManifestSchema } from "../../../mcps/manifest-schema.js";
 import { schemaDecodeFindings } from "../shared/schema-rule.js";
 
 const RULE_ID = "mcp-server/manifest-schema-valid";

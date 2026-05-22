@@ -611,7 +611,7 @@ export type ContextMap = Schema.Schema.Type<typeof ContextMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("MCP server", "mcp-servers"),
+  source: entrySourceFieldSchema("MCP server", "mcps"),
   enabled: enabledFieldSchema,
   authored: authoredFieldSchema,
   env: Schema.optionalKey(
@@ -673,7 +673,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
     description:
       "An MCP server entry: a source string, or an object with source plus optional enabled/authored/env fields.",
     examples: [
-      "@acme/mcp-servers/context@^1.0.0",
+      "@acme/mcps/context@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
     ],
   },

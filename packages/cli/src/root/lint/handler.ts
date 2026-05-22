@@ -42,7 +42,7 @@ import {
 import { disableSkill, enableSkill, SkillManager } from "@agentxm/client-core/unstable/skills";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
+import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import {
   buildLintWorkspace,
   buildPackRuleContexts,

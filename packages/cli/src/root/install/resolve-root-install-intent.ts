@@ -45,7 +45,7 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
       return `Root install only accepts registry FQNs. Use \`axm skills install ${source}\` or \`axm subagents install ${source}\` instead.`;
     case "name-input":
     case "glob-input":
-      return `Root install only accepts registry FQNs. Use the matching per-type command instead: \`axm skills install ${source}\`, \`axm commands install ${source}\`, \`axm subagents install ${source}\`, \`axm packs install ${source}\`, or \`axm mcp-servers install ${source}\`.`;
+      return `Root install only accepts registry FQNs. Use the matching per-type command instead: \`axm skills install ${source}\`, \`axm commands install ${source}\`, \`axm subagents install ${source}\`, \`axm packs install ${source}\`, or \`axm mcps install ${source}\`.`;
     case "registry-pattern-input":
       return "Use `axm install @<handle>/<plural-type>/<name>[@<version>]`.";
   }

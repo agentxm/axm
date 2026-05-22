@@ -36,10 +36,10 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("classifies @owner/mcp-servers/name@constraint as registry-pattern-input", () => {
-      expectSome("@myorg/mcp-servers/server-a@^1.2.3", {
+    it("classifies @owner/mcps/name@constraint as registry-pattern-input", () => {
+      expectSome("@myorg/mcps/server-a@^1.2.3", {
         pattern: "registry-pattern-input",
-        type: Option.some("mcp-servers"),
+        type: Option.some("mcps"),
         owner: handle("@myorg"),
         name: Option.some(extensionName("server-a")),
         versionRange: Option.some(versionRange("^1.2.3")),

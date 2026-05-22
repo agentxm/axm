@@ -87,7 +87,7 @@ const createManagedPack = (
 const createManagedExtension = (
   tempDir: string,
   owner: string,
-  type: "skills" | "commands" | "mcp-servers",
+  type: "skills" | "commands" | "mcps",
   name: string,
   manifest: Record<string, unknown>,
 ) => {
@@ -462,7 +462,7 @@ describe("packs publish.handler", () => {
         dependencies: {
           "@acme/skills/code-review": "^1.0.0",
           "@acme/commands/formatter": "^1.5.0",
-          "@acme/mcp-servers/db": "*",
+          "@acme/mcps/db": "*",
         },
       });
 
@@ -486,7 +486,7 @@ describe("packs publish.handler", () => {
           expect(indexContent.versions[0].dependencies).toEqual({
             "@acme/skills/code-review": "^1.0.0",
             "@acme/commands/formatter": "^1.5.0",
-            "@acme/mcp-servers/db": "*",
+            "@acme/mcps/db": "*",
           });
         }),
       );

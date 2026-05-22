@@ -33,7 +33,7 @@ import {
 } from "../workspace/read-model/service.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
-import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
+import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
 import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";

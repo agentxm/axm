@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { enableMcpServer } from "@agentxm/client-core/unstable/mcp-servers";
+import { enableMcpServer } from "@agentxm/client-core/unstable/mcps";
 import {
   previewOrApplyPlan,
   type Plan,
@@ -48,7 +48,7 @@ export const handleEnableMcpServer = Effect.fn("EnableMcpServer.handle")(functio
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
   const resolution = yield* previewOrApplyPlan(plan, args);
-  yield* emitPlanResolutionResult("mcp-servers.enable", resolution);
+  yield* emitPlanResolutionResult("mcps.enable", resolution);
 });
 
 const enableConfig = {
@@ -67,15 +67,15 @@ export const enableCommand = Command.make(
   ({ name, scope, yes, force, preview }) =>
     handleEnableMcpServer({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRuntime("mcp-servers enable"),
+      withRuntime("mcps enable"),
     ),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a disabled MCP server"),
   Command.withExamples([
-    { command: "axm mcp-servers enable context", description: "Enable an MCP server" },
+    { command: "axm mcps enable context", description: "Enable an MCP server" },
     {
-      command: "axm mcp-servers enable context --preview",
+      command: "axm mcps enable context --preview",
       description: "Preview enabling an MCP server",
     },
   ]),

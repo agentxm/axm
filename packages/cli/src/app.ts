@@ -27,7 +27,7 @@ import { skillsCommand } from "./root/skills/_skills.js";
 import { packsCommand } from "./root/packs/_packs.js";
 import { commandsCommand } from "./root/commands/_commands.js";
 import { contextCommand } from "./root/context/_context.js";
-import { mcpServersCommand } from "./root/mcp-servers/_mcp-servers.js";
+import { mcpsCommand } from "./root/mcps/_mcps.js";
 import { subagentsCommand } from "./root/subagents/_subagents.js";
 import { authCommand } from "./root/auth/_auth.js";
 import { loginCommand } from "./root/auth/login.js";
@@ -81,7 +81,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         skillsCommand,
         commandsCommand,
         contextCommand,
-        mcpServersCommand,
+        mcpsCommand,
         subagentsCommand,
         packsCommand,
         installCommand,

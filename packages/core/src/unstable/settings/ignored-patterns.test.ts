@@ -72,12 +72,12 @@ describe("SettingsSchema feature config ignore fields", () => {
 describe("SettingsSchema mcpServers (camelCase)", () => {
   it("accepts mcpServers key (camelCase)", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      mcpServers: { batcomputer: "@wayne/mcp-servers/batcomputer" },
+      mcpServers: { batcomputer: "@wayne/mcps/batcomputer" },
     });
 
     expect(result.mcpServers).toEqual({
       batcomputer: {
-        source: "@wayne/mcp-servers/batcomputer",
+        source: "@wayne/mcps/batcomputer",
         authored: false,
         enabled: true,
         env: {},

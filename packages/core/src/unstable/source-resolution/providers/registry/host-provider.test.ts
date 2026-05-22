@@ -28,7 +28,7 @@ import type {
 import type { ExtensionRef } from "../../../extensions/index.js";
 import type { RegistrySkillRef } from "../../../skills/index.js";
 import type { RegistryCommandRef } from "../../../commands/index.js";
-import type { RegistryMcpServerRef } from "../../../mcp-servers/index.js";
+import type { RegistryMcpServerRef } from "../../../mcps/index.js";
 import type { RegistryPackRef } from "../../../packs/index.js";
 import type { RegistrySubagentRef } from "../../../subagents/index.js";
 import type { RegistrySource, FindOptions } from "../../../sources/index.js";
@@ -495,7 +495,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
           "@acme/commands/formatter": "^1.5.0",
-          "@acme/mcp-servers/db": "^3.0.0",
+          "@acme/mcps/db": "^3.0.0",
         },
         integrity: "sha512-mixed",
       }),
@@ -520,7 +520,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
           "@acme/commands/formatter": "^1.5.0",
-          "@acme/mcp-servers/db": "^3.0.0",
+          "@acme/mcps/db": "^3.0.0",
         });
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );

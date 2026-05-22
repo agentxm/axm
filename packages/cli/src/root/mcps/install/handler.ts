@@ -28,7 +28,7 @@ export const handleInstallMcpServer = (
   Effect.gen(function* () {
     if (Option.isNone(args.source)) {
       return yield* handleWorkspaceInstall({
-        command: "mcp-servers.install",
+        command: "mcps.install",
         type: Option.some("mcp-server"),
         planName: "Install MCP server(s)",
         planDescription: Option.some("Install configured MCP servers"),
@@ -43,5 +43,5 @@ export const handleInstallMcpServer = (
       nonInteractive: args.nonInteractive,
     };
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, flags);
-    yield* emitPlanResolutionResult("mcp-servers.install", resolution);
+    yield* emitPlanResolutionResult("mcps.install", resolution);
   });

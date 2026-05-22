@@ -13,7 +13,7 @@ import {
 import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
-} from "../mcp-servers/uninstall/command-actions.js";
+} from "../mcps/uninstall/command-actions.js";
 import {
   UninstallContextCommandWorkflowActions,
   type UninstallContextHandlerArgs,

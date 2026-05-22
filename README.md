@@ -97,11 +97,11 @@ axm install @acme/skills/code-review
 | **Skills**      | Context-triggered agent capabilities per the [agentskills.io](https://agentskills.io) spec | `@acme/skills/code-review` — apply team review standards on every diff           |
 | **Commands**    | User-invokable prompts (slash commands, saved prompts)                                     | `@acme/commands/release-notes` — draft release notes from recent commits         |
 | **Subagents**   | Task-specialized agents the main agent delegates to                                        | `@acme/subagents/researcher` — delegate doc-reading to a cheaper model           |
-| **MCP servers** | Model Context Protocol servers exposing tools, data, and integrations                      | `@acme/mcp-servers/linear` — tools for reading and updating Linear issues        |
+| **MCP servers** | Model Context Protocol servers exposing tools, data, and integrations                      | `@acme/mcps/linear` — tools for reading and updating Linear issues               |
 | **Packs**       | Curated bundles teams install and keep in sync                                             | `@acme/packs/frontend-tools` — the frontend guild's standard skills and commands |
 
 Every type has its own subcommand namespace (`axm skills`, `axm commands`,
-`axm subagents`, `axm mcp-servers`, `axm packs`) sharing a common shape:
+`axm subagents`, `axm mcps`, `axm packs`) sharing a common shape:
 `install`, `uninstall`, `list`, `update`, `new`, `publish`, plus
 `enable`/`disable` where it applies.
 

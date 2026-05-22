@@ -3,7 +3,7 @@
  *
  * Diffs UninstallPackOperations against lockfile state to produce a Plan with
  * inline run closures. Installed packs become ready steps; missing packs become
- * no-op success steps. Removable skills/commands/mcp-servers (orphaned by the
+ * no-op success steps. Removable skills/commands/mcps (orphaned by the
  * uninstall) become ready uninstall steps.
  *
  * @experimental This API is unstable and may change without notice.
@@ -26,7 +26,7 @@ import {
 import {
   uninstallMcpServer,
   type UninstallMcpServerOperation,
-} from "@agentxm/client-core/unstable/mcp-servers";
+} from "@agentxm/client-core/unstable/mcps";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 

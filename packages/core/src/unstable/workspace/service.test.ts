@@ -3101,7 +3101,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.setMcpServerLock(makeSampleSetMcpServerArgs());
 
-        // Settings should NOT have mcp-servers
+        // Settings should NOT have mcps
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).toBeUndefined();
@@ -3681,7 +3681,7 @@ describe("WorkspaceMutationsService", () => {
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedCommands: {},
-              resolvedMcpServers: { "@acme/mcp-servers/my-mcp": "1.0.0" },
+              resolvedMcpServers: { "@acme/mcps/my-mcp": "1.0.0" },
               resolvedSubagents: {},
             },
           },

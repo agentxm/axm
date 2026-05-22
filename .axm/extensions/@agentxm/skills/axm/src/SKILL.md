@@ -34,7 +34,7 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 `--json` for machine-readable output. `--scope user` targets `$HOME/.axm` instead of the project workspace. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
-`<type>` ∈ {`skills`, `subagents`, `commands`, `mcp-servers`, `context`, `packs`}.
+`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `context`, `packs`}.
 
 ### Workspace setup & discovery
 

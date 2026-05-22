@@ -4,7 +4,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../extensions/index.js";
 import type { ContextExtensionRef } from "../../context/index.js";
-import type { McpServerExtensionRef } from "../../mcp-servers/index.js";
+import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
@@ -293,11 +293,11 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
   Effect.gen(function* () {
     const parsed = parseRegistrySourceRef(source);
 
-    if (parsed === undefined || parsed.type !== "mcp-servers" || parsed.name !== name) {
+    if (parsed === undefined || parsed.type !== "mcps" || parsed.name !== name) {
       return yield* makeAppError({
         code: "validation",
         detail: `The configured MCP server entry "${name}" is invalid.`,
-        suggestions: [{ description: `Use a name like "@owner/mcp-servers/name".` }],
+        suggestions: [{ description: `Use a name like "@owner/mcps/name".` }],
       });
     }
 

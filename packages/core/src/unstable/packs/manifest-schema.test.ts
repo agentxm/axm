@@ -26,14 +26,14 @@ describe("PackManifestSchema", () => {
       version: "1.0.0",
       dependencies: {
         "@wayne/skills/grappling-hook": "^1.0.0",
-        "@wayne/mcp-servers/batcomputer": "^3.0.0",
+        "@wayne/mcps/batcomputer": "^3.0.0",
       },
     };
     const result = decode(input);
     expect(result.name).toBe("utility-belt");
     expect(result.dependencies).toEqual({
       "@wayne/skills/grappling-hook": "^1.0.0",
-      "@wayne/mcp-servers/batcomputer": "^3.0.0",
+      "@wayne/mcps/batcomputer": "^3.0.0",
     });
   });
 
@@ -47,7 +47,7 @@ describe("PackManifestSchema", () => {
         "@wayne/skills/grappling-hook": "^1.0.0",
         "@wayne/skills/batarang": "~2.0.0",
         "@wayne/commands/batcomputer-sync": "^1.0.0",
-        "@wayne/mcp-servers/batcomputer": "^3.0.0",
+        "@wayne/mcps/batcomputer": "^3.0.0",
         "@wayne/subagents/robin": "^1.0.0",
         "@acme/context/workspace-baseline": "^1.0.0",
       },

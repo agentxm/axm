@@ -24,7 +24,7 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A namespaced registry source: `@owner/(skills|commands|mcp-servers|packs)/name`. */
+/** A namespaced registry source: `@owner/(skills|commands|mcps|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
   readonly type: Option.Option<ExtensionTypePlural>;

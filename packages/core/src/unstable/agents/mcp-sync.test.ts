@@ -12,7 +12,7 @@ import { addMcpServerMixed, removeMcpServerMixed, runCliInvocation } from "./mcp
 const addArgs = (workspaceRoot: string) => ({
   workspaceRoot,
   serverName: "chrome-devtools-mcp",
-  canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
+  canonicalPath: `${workspaceRoot}/.axm/mcps/chrome-devtools-mcp`,
   owner: handle("@mcp"),
   resolvedVersion: "1.0.0",
 });

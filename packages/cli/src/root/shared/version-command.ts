@@ -165,7 +165,7 @@ const makeVersionCommand = (type: VersionableExtensionType) => {
 export const commandsVersionCommand = makeVersionCommand("command");
 export const skillsVersionCommand = makeVersionCommand("skill");
 export const subagentsVersionCommand = makeVersionCommand("subagent");
-export const mcpServersVersionCommand = makeVersionCommand("mcp-server");
+export const mcpsVersionCommand = makeVersionCommand("mcp-server");
 export const packsVersionCommand = makeVersionCommand("pack");
 
 export interface RootVersionHandlerArgs {
@@ -241,7 +241,7 @@ export const versionCommand = Command.make(
       description: "Bump a subagent's patch version",
     },
     {
-      command: "axm version @acme/mcp-servers/my-server minor",
+      command: "axm version @acme/mcps/my-server minor",
       description: "Bump an MCP server's minor version",
     },
     {

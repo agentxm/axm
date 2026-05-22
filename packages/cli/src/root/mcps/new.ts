@@ -23,7 +23,7 @@ import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
-} from "@agentxm/client-core/unstable/mcp-servers";
+} from "@agentxm/client-core/unstable/mcps";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
@@ -59,13 +59,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     });
   }
 
-  const targetDir = path.join(
-    path.resolve("."),
-    REGISTRY_EXTENSIONS_DIR,
-    owner,
-    "mcp-servers",
-    args.name,
-  );
+  const targetDir = path.join(path.resolve("."), REGISTRY_EXTENSIONS_DIR, owner, "mcps", args.name);
   const manifestPath = path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME);
   const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
   if (exists && !args.force) {
@@ -101,7 +95,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: `${owner}/mcp-servers/${args.name}`,
+    label: `${owner}/mcps/${args.name}`,
     run: Effect.gen(function* () {
       yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
         Effect.mapError((error) =>
@@ -127,7 +121,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   const plan: Plan = {
     _tag: "Plan",
     name: "New MCP server",
-    description: Option.some(`Create ${owner}/mcp-servers/${args.name}`),
+    description: Option.some(`Create ${owner}/mcps/${args.name}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
   const resolution = yield* previewOrApplyPlan(plan, {
@@ -135,9 +129,9 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     force: args.force,
     preview: args.preview,
   });
-  yield* emitPlanResolutionResult("mcp-servers.new", resolution);
+  yield* emitPlanResolutionResult("mcps.new", resolution);
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created ${owner}/mcp-servers/${args.name}`);
+    yield* renderer.success(`Created ${owner}/mcps/${args.name}`);
   }
 });
 
@@ -167,18 +161,18 @@ export const newCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("mcp-servers new")),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("mcps new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new MCP server"),
   Command.withExamples([
-    { command: "axm mcp-servers new context", description: "Create a new MCP server manifest" },
+    { command: "axm mcps new context", description: "Create a new MCP server manifest" },
     {
-      command: "axm mcp-servers new context --owner @acme",
+      command: "axm mcps new context --owner @acme",
       description: "Create under a specific owner",
     },
     {
-      command: "axm mcp-servers new context --preview",
+      command: "axm mcps new context --preview",
       description: "Preview the files that would be created",
     },
   ]),

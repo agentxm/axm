@@ -65,7 +65,7 @@ const settings = {
   skills: { "bad-skill": "@acme/skills/bad-skill@1.0.0" },
   commands: { "bad-command": "@acme/commands/bad-command@1.0.0" },
   subagents: { "bad-subagent": "@acme/subagents/bad-subagent@1.0.0" },
-  mcpServers: { "bad-mcp": "@acme/mcp-servers/bad-mcp@1.0.0" },
+  mcpServers: { "bad-mcp": "@acme/mcps/bad-mcp@1.0.0" },
   packs: { "bad-pack": "@acme/packs/bad-pack@1.0.0" },
 };
 
@@ -118,7 +118,7 @@ const fixture = (packJson: object | string): FixtureSpec => ({
         _tag: "valid",
         contents: manifestFixtures.subagent,
       },
-      "@acme/mcp-servers/bad-mcp/mcp-server.json": {
+      "@acme/mcps/bad-mcp/mcp-server.json": {
         _tag: "valid",
         contents: manifestFixtures.mcpServer,
       },

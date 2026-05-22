@@ -3,7 +3,7 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { publishMcpServer } from "@agentxm/client-core/unstable/mcp-servers";
+import { publishMcpServer } from "@agentxm/client-core/unstable/mcps";
 import {
   previewOrApplyPlan,
   type Plan,
@@ -48,13 +48,11 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
     force: false,
     preview: args.preview,
   });
-  yield* emitPlanResolutionResult("mcp-servers.publish", resolution);
+  yield* emitPlanResolutionResult("mcps.publish", resolution);
 });
 
 const publishConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("MCP server FQN (@owner/mcp-servers/name)"),
-  ),
+  name: Argument.string("name").pipe(Argument.withDescription("MCP server FQN (@owner/mcps/name)")),
   registry: Flag.string("registry").pipe(
     Flag.withDescription("Registry source name"),
     Flag.withDefault("default"),
@@ -70,18 +68,18 @@ export const publishCommand = Command.make(
   ({ name, registry, scope, yes, preview }) =>
     handlePublishMcpServer({ name, registry, yes, preview }).pipe(
       withWorkspace(scope),
-      withAuthRuntime("mcp-servers publish"),
+      withAuthRuntime("mcps publish"),
     ),
 ).pipe(
   withArgvTracking(publishConfig),
   Command.withDescription("Publish an MCP server"),
   Command.withExamples([
     {
-      command: "axm mcp-servers publish @acme/mcp-servers/context",
+      command: "axm mcps publish @acme/mcps/context",
       description: "Publish an MCP server",
     },
     {
-      command: "axm mcp-servers publish @acme/mcp-servers/context --preview",
+      command: "axm mcps publish @acme/mcps/context --preview",
       description: "Preview publishing an MCP server",
     },
   ]),

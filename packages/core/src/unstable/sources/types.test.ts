@@ -25,7 +25,7 @@ import type {
 } from "../extensions/ref-base.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
-import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
+import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { PackRef } from "../packs/refs.js";
 import { extensionName, exactVersion, handle } from "../test-helpers.js";
 

@@ -8,9 +8,7 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
-    Argument.withDescription(
-      "Registry MCP server reference (@owner/mcp-servers/name or bare name)",
-    ),
+    Argument.withDescription("Registry MCP server reference (@owner/mcps/name or bare name)"),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(
@@ -36,7 +34,7 @@ export const installCommand = Command.make(
   ({ source, scope, yes, force, preview, env, nonInteractive }) =>
     handleInstallMcpServer({ source, env, nonInteractive }, { yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRuntime("mcp-servers install"),
+      withRuntime("mcps install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
@@ -45,19 +43,19 @@ export const installCommand = Command.make(
   ),
   Command.withExamples([
     {
-      command: "axm mcp-servers install",
+      command: "axm mcps install",
       description: "Reinstall all configured MCP servers from their sources",
     },
     {
-      command: "axm mcp-servers install @acme/mcp-servers/my-server",
+      command: "axm mcps install @acme/mcps/my-server",
       description: "Add an MCP server from the registry",
     },
     {
-      command: "axm mcp-servers install my-server",
+      command: "axm mcps install my-server",
       description: "Install using your default owner",
     },
     {
-      command: "axm mcp-servers install @acme/mcp-servers/my-server --preview",
+      command: "axm mcps install @acme/mcps/my-server --preview",
       description: "See what would be installed first",
     },
   ]),

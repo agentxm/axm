@@ -21,7 +21,7 @@ import type {
 import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandExtensionRef } from "../commands/refs.js";
 import type { PackRef } from "../packs/refs.js";
-import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
+import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
@@ -333,7 +333,7 @@ export const mcpServerLockEntryToRef = (
               type: "mcp-server" as const,
               refType: "git-hosted" as const,
               source,
-              location: lockEntryLocation(deps.baseDir, "mcp-servers", extensionName),
+              location: lockEntryLocation(deps.baseDir, "mcps", extensionName),
               gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
               server: { name: extensionName },
             }),

@@ -22,7 +22,7 @@ import type { Lockfile } from "@agentxm/client-core/unstable/lockfile";
 import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
-import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcp-servers";
+import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcps";
 import type { RegistryPackRef } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
@@ -640,7 +640,7 @@ describe("buildInstallPlan", () => {
     }),
   );
 
-  it.effect("marks already-installed mcp-servers as ready no-op", () =>
+  it.effect("marks already-installed mcps as ready no-op", () =>
     Effect.gen(function* () {
       const plan = yield* runBuild({
         ref: makePackRef("my-pack"),
@@ -662,7 +662,7 @@ describe("buildInstallPlan", () => {
   // Mixed: all extension types
   // ---------------------------------------------------------------------------
 
-  it.effect("orders steps: pack, skills, commands, mcp-servers", () =>
+  it.effect("orders steps: pack, skills, commands, mcps", () =>
     Effect.gen(function* () {
       const plan = yield* runBuild({
         ref: makePackRef("my-pack"),

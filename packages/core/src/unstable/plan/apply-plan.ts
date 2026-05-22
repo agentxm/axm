@@ -11,7 +11,7 @@
  * `uninstall-pack`, `install-command`, `uninstall-command`, `enable-command`,
  * `disable-command`, `install-mcp-server`, `uninstall-mcp-server`,
  * `enable-subagent`, `disable-subagent`) live in their domain packages under
- * `../{skills,packs,commands,mcp-servers,subagents}/operations/*` and resolve
+ * `../{skills,packs,commands,mcps,subagents}/operations/*` and resolve
  * from this location.
  *
  * @experimental This API is unstable and may change without notice.

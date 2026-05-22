@@ -44,7 +44,7 @@ const makeOp = (
 ): PublishMcpServerOperation => ({
   name: "publish-mcp-server",
   args: {
-    name: overrides.name ?? "@community/mcp-servers/my-mcp",
+    name: overrides.name ?? "@community/mcps/my-mcp",
     registryName: overrides.registryName ?? "local",
   },
 });
@@ -64,7 +64,7 @@ describe("publishMcpServer", () => {
   const setup = (owner = "@community", name = "my-mcp", manifest: Record<string, unknown> = {}) => {
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
-    const extensionDir = path.join(base, ".axm", "extensions", owner, "mcp-servers", name);
+    const extensionDir = path.join(base, ".axm", "extensions", owner, "mcps", name);
     const registryRoot = path.join(tmpDir, "registry");
 
     const srcDir = path.join(extensionDir, "src");
@@ -106,17 +106,17 @@ describe("publishMcpServer", () => {
       const { axmDir, registryRoot } = setup();
 
       const result = yield* publishMcpServer(
-        makeOp({ name: "@community/mcp-servers/my-mcp", registryName: "local" }),
+        makeOp({ name: "@community/mcps/my-mcp", registryName: "local" }),
       ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
       expect(result.result).toBe("success");
-      expect(result.message).toContain("@community/mcp-servers/my-mcp@0.1.0");
+      expect(result.message).toContain("@community/mcps/my-mcp@0.1.0");
 
       const indexPath = path.join(
         registryRoot,
         "extensions",
         "@community",
-        "mcp-servers",
+        "mcps",
         "my-mcp",
         "index.json",
       );
@@ -137,7 +137,7 @@ describe("publishMcpServer", () => {
       });
 
       const result = yield* publishMcpServer(
-        makeOp({ name: "@community/mcp-servers/bad-keys", registryName: "local" }),
+        makeOp({ name: "@community/mcps/bad-keys", registryName: "local" }),
       ).pipe(
         Effect.provide(withServices(axmDir, registryRoot)),
         Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
@@ -157,14 +157,14 @@ describe("publishMcpServer", () => {
         });
 
         yield* publishMcpServer(
-          makeOp({ name: "@community/mcp-servers/compat-mcp", registryName: "local" }),
+          makeOp({ name: "@community/mcps/compat-mcp", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         const indexPath = path.join(
           registryRoot,
           "extensions",
           "@community",
-          "mcp-servers",
+          "mcps",
           "compat-mcp",
           "index.json",
         );
@@ -181,14 +181,14 @@ describe("publishMcpServer", () => {
         const { axmDir, registryRoot } = setup();
 
         yield* publishMcpServer(
-          makeOp({ name: "@community/mcp-servers/my-mcp", registryName: "local" }),
+          makeOp({ name: "@community/mcps/my-mcp", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         const indexPath = path.join(
           registryRoot,
           "extensions",
           "@community",
-          "mcp-servers",
+          "mcps",
           "my-mcp",
           "index.json",
         );
@@ -207,7 +207,7 @@ describe("publishMcpServer", () => {
       fs.mkdirSync(registryRoot, { recursive: true });
 
       const result = yield* publishMcpServer(
-        makeOp({ name: "@community/mcp-servers/nonexistent", registryName: "local" }),
+        makeOp({ name: "@community/mcps/nonexistent", registryName: "local" }),
       ).pipe(
         Effect.provide(withServices(axmDir, registryRoot)),
         Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
@@ -225,11 +225,11 @@ describe("publishMcpServer", () => {
       const layer = withServices(axmDir, registryRoot);
 
       yield* publishMcpServer(
-        makeOp({ name: "@community/mcp-servers/idem-mcp", registryName: "local" }),
+        makeOp({ name: "@community/mcps/idem-mcp", registryName: "local" }),
       ).pipe(Effect.provide(layer));
 
       const result = yield* publishMcpServer(
-        makeOp({ name: "@community/mcp-servers/idem-mcp", registryName: "local" }),
+        makeOp({ name: "@community/mcps/idem-mcp", registryName: "local" }),
       ).pipe(Effect.provide(layer));
 
       expect(result.result).toBe("success");
@@ -238,7 +238,7 @@ describe("publishMcpServer", () => {
         registryRoot,
         "extensions",
         "@community",
-        "mcp-servers",
+        "mcps",
         "idem-mcp",
         "index.json",
       );

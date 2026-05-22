@@ -643,19 +643,16 @@ describe("buildUninstallPlan", () => {
         "my-pack",
         makePackLockEntry("my-pack", {
           resolvedMcpServers: resolved({
-            "@acme/mcp-servers/srv-a": "1.0.0",
-            "@acme/mcp-servers/srv-b": "1.0.0",
+            "@acme/mcps/srv-a": "1.0.0",
+            "@acme/mcps/srv-b": "1.0.0",
           }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-      const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+      const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcps/"));
       expect(mcpSteps).toHaveLength(2);
-      expect(mcpSteps.map((s) => s.label).sort()).toEqual([
-        "@acme/mcp-servers/srv-a",
-        "@acme/mcp-servers/srv-b",
-      ]);
+      expect(mcpSteps.map((s) => s.label).sort()).toEqual(["@acme/mcps/srv-a", "@acme/mcps/srv-b"]);
     }),
   );
 
@@ -664,18 +661,18 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedMcpServers: resolved({ "@acme/mcp-servers/srv-a": "1.0.0" }),
+          resolvedMcpServers: resolved({ "@acme/mcps/srv-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
       const mcpStep = findStep(
         getSteps(plan),
-        (step) => step.label.startsWith("@acme/mcp-servers/"),
+        (step) => step.label.startsWith("@acme/mcps/"),
         "mcp-server removal step",
       );
       expect(mcpStep.readiness).toBe("ready");
-      expect(mcpStep.label).toBe("@acme/mcp-servers/srv-a");
+      expect(mcpStep.label).toBe("@acme/mcps/srv-a");
     }),
   );
 
@@ -686,23 +683,23 @@ describe("buildUninstallPlan", () => {
           "removing-pack",
           makePackLockEntry("removing-pack", {
             resolvedMcpServers: resolved({
-              "@acme/mcp-servers/shared": "1.0.0",
-              "@acme/mcp-servers/orphaned": "1.0.0",
+              "@acme/mcps/shared": "1.0.0",
+              "@acme/mcps/orphaned": "1.0.0",
             }),
           }),
         ],
         [
           "staying-pack",
           makePackLockEntry("staying-pack", {
-            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared": "1.0.0" }),
+            resolvedMcpServers: resolved({ "@acme/mcps/shared": "1.0.0" }),
           }),
         ],
       );
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("removing-pack")], lockfile }));
 
-      const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+      const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcps/"));
       expect(mcpSteps).toHaveLength(1);
-      expect(getStep(mcpSteps, 0).label).toBe("@acme/mcp-servers/orphaned");
+      expect(getStep(mcpSteps, 0).label).toBe("@acme/mcps/orphaned");
     }),
   );
 
@@ -712,8 +709,8 @@ describe("buildUninstallPlan", () => {
         "my-pack",
         makePackLockEntry("my-pack", {
           resolvedMcpServers: resolved({
-            "@acme/mcp-servers/direct-srv": "1.0.0",
-            "@acme/mcp-servers/orphaned": "1.0.0",
+            "@acme/mcps/direct-srv": "1.0.0",
+            "@acme/mcps/orphaned": "1.0.0",
           }),
         }),
       ]);
@@ -728,12 +725,12 @@ describe("buildUninstallPlan", () => {
       const steps = getSteps(plan);
       const orphanedStep = findStep(
         steps,
-        (step) => step.label === "@acme/mcp-servers/orphaned",
+        (step) => step.label === "@acme/mcps/orphaned",
         "orphaned mcp-server step",
       );
       const preservedStep = findStep(
         steps,
-        (step) => step.label === "@acme/mcp-servers/direct-srv",
+        (step) => step.label === "@acme/mcps/direct-srv",
         "preserved mcp-server step",
       );
       expect(orphanedStep.readiness).toBe("ready");
@@ -748,13 +745,13 @@ describe("buildUninstallPlan", () => {
         [
           "pack-a",
           makePackLockEntry("pack-a", {
-            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared-srv": "1.0.0" }),
+            resolvedMcpServers: resolved({ "@acme/mcps/shared-srv": "1.0.0" }),
           }),
         ],
         [
           "pack-b",
           makePackLockEntry("pack-b", {
-            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared-srv": "1.0.0" }),
+            resolvedMcpServers: resolved({ "@acme/mcps/shared-srv": "1.0.0" }),
           }),
         ],
       );
@@ -766,9 +763,9 @@ describe("buildUninstallPlan", () => {
         }),
       );
 
-      const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+      const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcps/"));
       expect(mcpSteps).toHaveLength(1);
-      expect(getStep(mcpSteps, 0).label).toBe("@acme/mcp-servers/shared-srv");
+      expect(getStep(mcpSteps, 0).label).toBe("@acme/mcps/shared-srv");
     }),
   );
 
@@ -783,7 +780,7 @@ describe("buildUninstallPlan", () => {
         makePackLockEntry("my-pack", {
           resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
           resolvedCommands: resolved({ "@acme/commands/cmd-a": "1.0.0" }),
-          resolvedMcpServers: resolved({ "@acme/mcp-servers/srv-a": "1.0.0" }),
+          resolvedMcpServers: resolved({ "@acme/mcps/srv-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -796,7 +793,7 @@ describe("buildUninstallPlan", () => {
       const extensionLabels = steps.slice(1).map((s) => s.label);
       expect(extensionLabels).toContain("@acme/skills/skill-a");
       expect(extensionLabels).toContain("@acme/commands/cmd-a");
-      expect(extensionLabels).toContain("@acme/mcp-servers/srv-a");
+      expect(extensionLabels).toContain("@acme/mcps/srv-a");
     }),
   );
 
@@ -807,7 +804,7 @@ describe("buildUninstallPlan", () => {
         makePackLockEntry("my-pack", {
           resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
           resolvedCommands: resolved({ "@acme/commands/cmd-a": "1.0.0" }),
-          resolvedMcpServers: resolved({ "@acme/mcp-servers/srv-a": "1.0.0" }),
+          resolvedMcpServers: resolved({ "@acme/mcps/srv-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -816,7 +813,7 @@ describe("buildUninstallPlan", () => {
       expect(labels).toContain("my-pack");
       expect(labels.some((l) => l.startsWith("@acme/skills/"))).toBe(true);
       expect(labels.some((l) => l.startsWith("@acme/commands/"))).toBe(true);
-      expect(labels.some((l) => l.startsWith("@acme/mcp-servers/"))).toBe(true);
+      expect(labels.some((l) => l.startsWith("@acme/mcps/"))).toBe(true);
     }),
   );
 
@@ -831,7 +828,7 @@ describe("buildUninstallPlan", () => {
               "@acme/commands/shared": "1.0.0",
               "@acme/commands/only-a": "1.0.0",
             }),
-            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared": "1.0.0" }),
+            resolvedMcpServers: resolved({ "@acme/mcps/shared": "1.0.0" }),
           }),
         ],
         [
@@ -843,8 +840,8 @@ describe("buildUninstallPlan", () => {
             }),
             resolvedCommands: resolved({ "@acme/commands/shared": "1.0.0" }),
             resolvedMcpServers: resolved({
-              "@acme/mcp-servers/shared": "1.0.0",
-              "@acme/mcp-servers/only-b": "1.0.0",
+              "@acme/mcps/shared": "1.0.0",
+              "@acme/mcps/only-b": "1.0.0",
             }),
           }),
         ],
@@ -860,7 +857,7 @@ describe("buildUninstallPlan", () => {
       const steps = getSteps(plan);
       const skillSteps = steps.filter((s) => s.label.startsWith("@acme/skills/"));
       const commandSteps = steps.filter((s) => s.label.startsWith("@acme/commands/"));
-      const mcpSteps = steps.filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+      const mcpSteps = steps.filter((s) => s.label.startsWith("@acme/mcps/"));
 
       // All shared extensions are removable since both packs are being removed
       expect(skillSteps).toHaveLength(2); // shared + only-b

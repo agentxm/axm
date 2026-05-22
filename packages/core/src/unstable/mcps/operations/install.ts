@@ -156,7 +156,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
       ws.baseDir,
       REGISTRY_EXTENSIONS_DIR,
       ref.owner,
-      "mcp-servers",
+      "mcps",
       ref.name,
     );
 

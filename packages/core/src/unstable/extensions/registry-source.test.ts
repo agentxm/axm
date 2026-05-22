@@ -69,13 +69,13 @@ describe("registry-source", () => {
   describe("schemas", () => {
     it("decodes registry source patterns", () => {
       const result = Schema.decodeUnknownResult(RegistrySourcePatternSchema)(
-        "@acme/mcp-servers/devtools@^2.0.0",
+        "@acme/mcps/devtools@^2.0.0",
       );
 
       expect(Result.isSuccess(result)).toBe(true);
       if (Result.isSuccess(result)) {
         expect(result.success.owner).toBe("@acme");
-        expect(result.success.type).toBe("mcp-servers");
+        expect(result.success.type).toBe("mcps");
         expect(result.success.name).toBe("devtools");
         expect(result.success.versionRange).toBe("^2.0.0");
       }

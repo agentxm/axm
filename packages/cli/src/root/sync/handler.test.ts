@@ -8,7 +8,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";

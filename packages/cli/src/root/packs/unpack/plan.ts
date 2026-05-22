@@ -29,7 +29,7 @@ import {
 import {
   installMcpServer,
   type InstallMcpServerOperation,
-} from "@agentxm/client-core/unstable/mcp-servers";
+} from "@agentxm/client-core/unstable/mcps";
 import { uninstallPack, type UninstallPackOperation } from "@agentxm/client-core/unstable/packs";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -72,7 +72,7 @@ export interface BuildUnpackPlanArgs {
  * Build a plan for unpacking a pack into direct settings entries.
  *
  * Captures workspace services and constructs inline run closures.
- * Order: install ops first (skills, commands, mcp-servers), uninstall-pack last.
+ * Order: install ops first (skills, commands, mcps), uninstall-pack last.
  * Extensions already directly configured become no-op steps.
  */
 export const buildUnpackPlan = (args: BuildUnpackPlanArgs) =>

@@ -31,10 +31,7 @@ import {
 } from "../skills/manifest-schema.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../commands/manifest-schema.js";
-import {
-  MCP_SERVER_MANIFEST_FILENAME,
-  McpServerManifestSchema,
-} from "../mcp-servers/manifest-schema.js";
+import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "../mcps/manifest-schema.js";
 import {
   MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
   SubagentManifestSchema,
@@ -104,7 +101,7 @@ const parsePackDependency = (
       });
     case "mcp-server":
       return Option.some({
-        type: "mcp-servers",
+        type: "mcps",
         owner: parsed.owner,
         name: parsed.name,
         source: fqn,
@@ -189,7 +186,7 @@ const decodeMcpServerManifest = makeManifestDecoder(McpServerManifestSchema);
 const decodeSubagentManifest = makeManifestDecoder(SubagentManifestSchema);
 
 const readInstalledDependencyVersion = (
-  type: "skills" | "commands" | "mcp-servers" | "subagents",
+  type: "skills" | "commands" | "mcps" | "subagents",
   fqn: string,
   constraint: VersionRange,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
@@ -244,7 +241,7 @@ const readInstalledDependencyVersion = (
               "command",
               env,
             )
-          : type === "mcp-servers"
+          : type === "mcps"
             ? yield* readAndDecodeManifest(
                 dependencyDeclaration,
                 canonicalPath,
@@ -291,7 +288,7 @@ const readInstalledDependencyVersion = (
   });
 
 const resolveInstalledDependencyMap = (
-  type: "skills" | "commands" | "mcp-servers" | "subagents",
+  type: "skills" | "commands" | "mcps" | "subagents",
   dependencies: ExtensionDependencyConstraintMap | undefined,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
   env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
@@ -327,7 +324,7 @@ const resolveInstalledDependencyMap = (
 
 const filterDependenciesByType = (
   dependencies: ExtensionDependencyConstraintMap,
-  type: "skills" | "commands" | "mcp-servers" | "subagents",
+  type: "skills" | "commands" | "mcps" | "subagents",
 ): ExtensionDependencyConstraintMap =>
   Object.fromEntries(
     Object.entries(dependencies).filter(
@@ -380,8 +377,8 @@ const resolveInstalledDependencyMaps = (
     }
 
     const resolvedMcpServers = yield* resolveInstalledDependencyMap(
-      "mcp-servers",
-      filterDependenciesByType(dependencies, "mcp-servers"),
+      "mcps",
+      filterDependenciesByType(dependencies, "mcps"),
       context,
       env,
     );

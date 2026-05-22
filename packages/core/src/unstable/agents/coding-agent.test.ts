@@ -51,7 +51,7 @@ describe("coding-agent services", () => {
         Effect.gen(function* () {
           const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-opencode-test-"));
           try {
-            const canonicalPath = `${workspaceRoot}/.axm/extensions/mcp/mcp-servers/chrome-devtools-mcp`;
+            const canonicalPath = `${workspaceRoot}/.axm/extensions/mcp/mcps/chrome-devtools-mcp`;
             mkdirSync(canonicalPath, { recursive: true });
             writeFileSync(
               `${canonicalPath}/mcp-server.json`,

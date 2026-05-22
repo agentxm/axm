@@ -10,7 +10,7 @@ import type { PackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
 import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
-import { buildRegistryMcpServerRef } from "../mcp-servers/registry-ref-builder.js";
+import { buildRegistryMcpServerRef } from "../mcps/registry-ref-builder.js";
 import { buildRegistrySubagentRef } from "../subagents/registry-ref-builder.js";
 import {
   decodeVersionSync,

@@ -107,7 +107,7 @@ const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
       return "skill";
     case "commands":
       return "command";
-    case "mcp-servers":
+    case "mcps":
       return "mcp-server";
     case "subagents":
       return "subagent";

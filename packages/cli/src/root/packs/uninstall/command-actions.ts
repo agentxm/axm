@@ -21,10 +21,7 @@ import {
 } from "@agentxm/client-core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { ContextManager, type ContextExtensionRef } from "@agentxm/client-core/unstable/context";
-import {
-  McpServerManager,
-  type McpServerExtensionRef,
-} from "@agentxm/client-core/unstable/mcp-servers";
+import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import {
   SubagentManager,
   type SubagentExtensionRef,

@@ -103,10 +103,8 @@ describe("common schemas", () => {
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("accepts mcp-servers type segment", () => {
-      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)(
-        "@wayne/mcp-servers/bat-signal",
-      );
+    it("accepts mcps type segment", () => {
+      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/mcps/bat-signal");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
@@ -216,7 +214,7 @@ describe("common schemas", () => {
     });
 
     it("accepts FQN with range constraint", () => {
-      const result = decode("@wayne/mcp-servers/bat-signal@>=1.0.0 <3.0.0");
+      const result = decode("@wayne/mcps/bat-signal@>=1.0.0 <3.0.0");
 
       expect(Result.isSuccess(result)).toBe(true);
     });
@@ -320,7 +318,7 @@ describe("common schemas", () => {
     });
 
     it("rejects mcp-server spec", () => {
-      const result = decode("@wayne/mcp-servers/bat-signal@^1.0.0");
+      const result = decode("@wayne/mcps/bat-signal@^1.0.0");
 
       expect(Result.isFailure(result)).toBe(true);
     });
@@ -680,7 +678,7 @@ describe("common schemas", () => {
 
     it("provides canonical plural display labels", () => {
       expect(extensionTypePluralLabels.skills).toBe("Skills");
-      expect(extensionTypePluralLabels["mcp-servers"]).toBe("MCP Servers");
+      expect(extensionTypePluralLabels["mcps"]).toBe("MCP Servers");
       expect(extensionTypePluralLabels.packs).toBe("Packs");
     });
 
@@ -692,7 +690,7 @@ describe("common schemas", () => {
 
     it("provides sentence-case plural display labels", () => {
       expect(extensionTypePluralSentenceLabels.skills).toBe("skills");
-      expect(extensionTypePluralSentenceLabels["mcp-servers"]).toBe("MCP servers");
+      expect(extensionTypePluralSentenceLabels["mcps"]).toBe("MCP servers");
       expect(extensionTypePluralSentenceLabels.packs).toBe("packs");
     });
   });

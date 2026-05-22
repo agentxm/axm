@@ -105,7 +105,7 @@ describe("canonical-extensions scanner", () => {
         project: {
           axmExtensions: {
             "external/skills/external-skill/SKILL.md": "# external\n",
-            "external/mcp-servers/external-mcp/server.json": "{}",
+            "external/mcps/external-mcp/server.json": "{}",
           },
         },
       });
@@ -162,7 +162,7 @@ describe("canonical-extensions scanner", () => {
       const types = [
         "skills",
         "commands",
-        "mcp-servers",
+        "mcps",
         "subagents",
         "context",
         "rules",

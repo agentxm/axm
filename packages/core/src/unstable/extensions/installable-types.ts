@@ -22,7 +22,7 @@ export const isInstallableExtensionType = (
 export const installableExtensionTypePluralSegments = [
   "skills",
   "commands",
-  "mcp-servers",
+  "mcps",
   "subagents",
   "context",
   "packs",
@@ -44,7 +44,7 @@ const installableExtensionTypeFromPlural: Record<
 > = {
   skills: "skill",
   commands: "command",
-  "mcp-servers": "mcp-server",
+  mcps: "mcp-server",
   subagents: "subagent",
   context: "context",
   packs: "pack",
@@ -56,7 +56,7 @@ const installableExtensionTypeToPlural: Record<
 > = {
   skill: "skills",
   command: "commands",
-  "mcp-server": "mcp-servers",
+  "mcp-server": "mcps",
   subagent: "subagents",
   context: "context",
   pack: "packs",

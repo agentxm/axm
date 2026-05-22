@@ -14,5 +14,5 @@ export const handleUninstallMcpServer = (
   Effect.gen(function* () {
     const actions = yield* UninstallMcpServerCommandWorkflowActions;
     const resolution = yield* runUninstallCommandWorkflow(args, actions, flags);
-    yield* emitPlanResolutionResult("mcp-servers.uninstall", resolution);
+    yield* emitPlanResolutionResult("mcps.uninstall", resolution);
   });

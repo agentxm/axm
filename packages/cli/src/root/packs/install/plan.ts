@@ -27,7 +27,7 @@ import {
 import {
   installMcpServer,
   type InstallMcpServerOperation,
-} from "@agentxm/client-core/unstable/mcp-servers";
+} from "@agentxm/client-core/unstable/mcps";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -196,7 +196,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       );
     };
 
-    // Combine: pack first, then skills, commands, mcp-servers
+    // Combine: pack first, then skills, commands, mcps
     const ops: ReadonlyArray<PackInstallOp> = [packOp, ...skillOps, ...commandOps, ...mcpServerOps];
 
     const steps: PlannedJobStep[] = ops.map((op): PlannedJobStep => {

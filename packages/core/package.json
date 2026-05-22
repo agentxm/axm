@@ -151,9 +151,9 @@
       "types": "./dist/src/unstable/commands/index.d.ts",
       "default": "./dist/src/unstable/commands/index.js"
     },
-    "./unstable/mcp-servers": {
-      "types": "./dist/src/unstable/mcp-servers/index.d.ts",
-      "default": "./dist/src/unstable/mcp-servers/index.js"
+    "./unstable/mcps": {
+      "types": "./dist/src/unstable/mcps/index.d.ts",
+      "default": "./dist/src/unstable/mcps/index.js"
     },
     "./unstable/workflows": {
       "types": "./dist/src/unstable/workflows/index.d.ts",

@@ -24,7 +24,7 @@ import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { exactVersion, extensionName, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
-import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcp-servers";
+import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcps";
 import type { UninstallPackOperation } from "@agentxm/client-core/unstable/packs";
 import { buildUnpackPlan } from "./plan.js";
 
@@ -276,7 +276,7 @@ describe("buildUnpackPlan", () => {
     }),
   );
 
-  it.effect("marks already directly installed mcp-servers as no-op", () =>
+  it.effect("marks already directly installed mcps as no-op", () =>
     Effect.gen(function* () {
       const plan = yield* runBuild({
         skillOps: [],

@@ -13,7 +13,7 @@ import type { Settings } from "../settings/index.js";
 import { extensionName, handle } from "../test-helpers.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
-import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
+import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
 import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import {

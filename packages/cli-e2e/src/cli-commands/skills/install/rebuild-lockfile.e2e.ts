@@ -27,7 +27,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
   };
   settings.mcpServers = {
     ...(settings.mcpServers ?? {}),
-    "managed-mcp": `${TEST_NAMESPACE}/mcp-servers/managed-mcp@^1.0.0`,
+    "managed-mcp": `${TEST_NAMESPACE}/mcps/managed-mcp@^1.0.0`,
   };
   settings.packs = {
     ...(settings.packs ?? {}),
@@ -78,7 +78,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       ".axm",
       "extensions",
       TEST_NAMESPACE,
-      "mcp-servers",
+      "mcps",
       "managed-mcp",
       "mcp-server.json",
     ),

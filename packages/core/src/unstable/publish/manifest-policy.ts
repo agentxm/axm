@@ -12,10 +12,7 @@ import {
 } from "../extensions/common.js";
 import { ContextManifestSchema, CONTEXT_MANIFEST_FILENAME } from "../context/manifest-schema.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
-import {
-  McpServerManifestSchema,
-  MCP_SERVER_MANIFEST_FILENAME,
-} from "../mcp-servers/manifest-schema.js";
+import { McpServerManifestSchema, MCP_SERVER_MANIFEST_FILENAME } from "../mcps/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
 import {
   SkillManifestSchema,

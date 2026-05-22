@@ -90,7 +90,7 @@ describe("main CLI help", () => {
     expect(output).toContain("skills");
     expect(output).toContain("packs");
     expect(output).toContain("commands");
-    expect(output).toContain("mcp-servers");
+    expect(output).toContain("mcps");
     expect(output).toContain("agents");
   });
 
@@ -98,7 +98,7 @@ describe("main CLI help", () => {
     { args: ["skills"], expected: ["install", "list", "publish"] },
     { args: ["packs"], expected: ["install", "publish", "unpack"] },
     { args: ["commands"], expected: ["install", "uninstall"] },
-    { args: ["mcp-servers"], expected: ["install", "uninstall"] },
+    { args: ["mcps"], expected: ["install", "uninstall"] },
     { args: ["auth"], expected: ["login", "whoami", "token"] },
   ])("shows group help for $args", async ({ args, expected }) => {
     const result = await runCli(args);
@@ -118,7 +118,7 @@ describe("main CLI help", () => {
     { args: ["skills", "ls", "--help"], expected: ["List installed skills"] },
     { args: ["packs", "unpack", "--help"], expected: ["--strict-agent-sync"] },
     { args: ["commands", "install", "--help"], expected: ["--scope"] },
-    { args: ["mcp-servers", "install", "--help"], expected: ["--scope"] },
+    { args: ["mcps", "install", "--help"], expected: ["--scope"] },
   ])("shows leaf help for $args", async ({ args, expected }) => {
     const result = await runCli(args);
     const output = getOutput(result);

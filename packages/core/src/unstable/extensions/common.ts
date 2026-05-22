@@ -179,7 +179,7 @@ export const isExtensionType = (value: string | undefined): value is ExtensionTy
 export const extensionTypePluralSegments = [
   "skills",
   "commands",
-  "mcp-servers",
+  "mcps",
   "subagents",
   "context",
   "rules",
@@ -196,7 +196,7 @@ export const isExtensionTypePlural = (value: string | undefined): value is Exten
 export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType> = {
   skills: "skill",
   commands: "command",
-  "mcp-servers": "mcp-server",
+  mcps: "mcp-server",
   subagents: "subagent",
   context: "context",
   rules: "rule",
@@ -206,7 +206,7 @@ export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType>
 export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> = {
   skill: "skills",
   command: "commands",
-  "mcp-server": "mcp-servers",
+  "mcp-server": "mcps",
   subagent: "subagents",
   context: "context",
   rule: "rules",
@@ -232,7 +232,7 @@ export const extensionTypeLabels: Record<ExtensionType, string> = {
 export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
   skills: "Skills",
   commands: "Commands",
-  "mcp-servers": "MCP Servers",
+  mcps: "MCP Servers",
   subagents: "Subagents",
   context: "Context",
   rules: "Rules",
@@ -252,7 +252,7 @@ export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
 export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, string> = {
   skills: "skills",
   commands: "commands",
-  "mcp-servers": "MCP servers",
+  mcps: "MCP servers",
   subagents: "subagents",
   context: "context",
   rules: "rules",
@@ -270,7 +270,7 @@ const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|
 export const nonPackExtensionTypePluralSegments = [
   "skills",
   "commands",
-  "mcp-servers",
+  "mcps",
   "subagents",
   "context",
   "rules",
@@ -441,7 +441,7 @@ export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | unde
 };
 
 const INVALID_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|context|rules|packs)/name form";
+  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|context|rules|packs)/name form";
 
 /**
  * Fully qualified name string schema validated against the composed handle,
@@ -470,7 +470,7 @@ export const ExtensionFqnSchema = Schema.String.pipe(
 export type ExtensionFqn = Schema.Schema.Type<typeof ExtensionFqnSchema>;
 
 const INVALID_NON_PACK_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcp-servers|subagents|context|rules)/name form (packs are not allowed)";
+  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|context|rules)/name form (packs are not allowed)";
 
 /**
  * Fully qualified name string schema restricted to non-pack extension types.
@@ -487,7 +487,7 @@ export const NonPackExtensionFqnSchema = Schema.String.pipe(
     identifier: "NonPackExtensionFqn",
     title: "Non-Pack Extension FQN",
     description:
-      "Extension identifier restricted to non-pack types (skills, commands, mcp-servers, subagents, context, rules).",
+      "Extension identifier restricted to non-pack types (skills, commands, mcps, subagents, context, rules).",
     examples: ["@acme/skills/code-review", "@my-org/commands/format"],
     message: INVALID_NON_PACK_EXTENSION_FQN_MESSAGE,
   }),

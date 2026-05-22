@@ -748,7 +748,7 @@ export type ExtensionFqn = string;
 export const ExtensionFqn = Schema.String.check(
   Schema.isPattern(
     new RegExp(
-      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcp-servers|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
     ),
     {
       title: "Extension FQN",

@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } from "prettier";
 import { SkillManifestSchema } from "../../core/src/unstable/skills/index.js";
 import { CommandManifestSchema } from "../../core/src/unstable/commands/index.js";
-import { McpServerManifestSchema } from "../../core/src/unstable/mcp-servers/index.js";
+import { McpServerManifestSchema } from "../../core/src/unstable/mcps/index.js";
 import { SubagentManifestSchema } from "../../core/src/unstable/subagents/index.js";
 import { PackManifestSchema } from "../../core/src/unstable/packs/index.js";
 import { ContextManifestSchema } from "../../core/src/unstable/context/index.js";

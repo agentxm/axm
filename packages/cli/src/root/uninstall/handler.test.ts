@@ -14,7 +14,7 @@ import {
 import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
-} from "../mcp-servers/uninstall/command-actions.js";
+} from "../mcps/uninstall/command-actions.js";
 import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,
@@ -191,7 +191,7 @@ describe("root uninstall handler", () => {
         const sources = [
           "@acme/skills/code-review",
           "@acme/commands/release-notes@^1.2.0",
-          "@acme/mcp-servers/dev-server",
+          "@acme/mcps/dev-server",
           "@acme/subagents/researcher",
           "@acme/packs/frontend-tools",
         ] as const;

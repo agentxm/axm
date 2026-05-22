@@ -19,7 +19,7 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcp-servers";
+import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   InstallMcpServerCommandWorkflowActions,
@@ -74,25 +74,25 @@ const runWithActions = <A, E>(
   }).pipe(Effect.provide(actionsLayer));
 
 describe("parseMcpServerInstallArgs", () => {
-  it.effect("parses @owner/mcp-servers/name registry pattern", () =>
+  it.effect("parses @owner/mcps/name registry pattern", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
-          source: "@acme/mcp-servers/my-server",
+          source: "@acme/mcps/my-server",
         }),
       );
       expect(result.owner).toBe("@acme");
       expect(result.serverName).toBe("my-server");
       expect(Option.isNone(result.versionRange)).toBe(true);
-      expect(result.resolvedInput).toBe("@acme/mcp-servers/my-server");
+      expect(result.resolvedInput).toBe("@acme/mcps/my-server");
     }),
   );
 
-  it.effect("parses @owner/mcp-servers/name@version with constraint", () =>
+  it.effect("parses @owner/mcps/name@version with constraint", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
-          source: "@acme/mcp-servers/my-server@^2.0.0",
+          source: "@acme/mcps/my-server@^2.0.0",
         }),
       );
       expect(result.owner).toBe("@acme");
@@ -110,11 +110,11 @@ describe("parseMcpServerInstallArgs", () => {
       );
       expect(result.owner).toBe("@test-ns");
       expect(result.serverName).toBe("my-server");
-      expect(result.resolvedInput).toBe("@test-ns/mcp-servers/my-server");
+      expect(result.resolvedInput).toBe("@test-ns/mcps/my-server");
     }),
   );
 
-  it.effect("rejects non-mcp-servers registry type", () =>
+  it.effect("rejects non-mcps registry type", () =>
     Effect.gen(function* () {
       const error = yield* runWithActions((actions) =>
         actions.parseArgs({

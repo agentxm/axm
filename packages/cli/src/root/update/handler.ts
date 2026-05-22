@@ -14,7 +14,7 @@ import {
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
-} from "../mcp-servers/install/command-actions.js";
+} from "../mcps/install/command-actions.js";
 import {
   InstallContextCommandWorkflowActions,
   type InstallContextHandlerArgs,

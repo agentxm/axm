@@ -29,7 +29,7 @@ const MANIFEST_FILES = {
   commands: { filename: "command.json", type: "command" },
   skills: { filename: "skill.json", type: "skill" },
   subagents: { filename: "subagent.json", type: "subagent" },
-  "mcp-servers": { filename: "mcp-server.json", type: "mcp-server" },
+  mcps: { filename: "mcp-server.json", type: "mcp-server" },
   packs: { filename: "pack.json", type: "pack" },
 } as const;
 
@@ -205,13 +205,13 @@ describe("root version command handler", () => {
   });
 
   it.effect("infers mcp-server type from FQN and bumps minor", () => {
-    const manifestPath = writeManifest(tempDir, "mcp-servers", "my-server", "1.0.0");
+    const manifestPath = writeManifest(tempDir, "mcps", "my-server", "1.0.0");
     const { provide, logs } = makeWorkspaceHandlerTestContext();
 
     return provide(
       Effect.gen(function* () {
         yield* handleRootVersion({
-          handle: "@test/mcp-servers/my-server",
+          handle: "@test/mcps/my-server",
           bump: "minor",
           targetVersion: Option.none(),
           preview: false,

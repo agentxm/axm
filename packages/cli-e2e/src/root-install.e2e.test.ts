@@ -8,7 +8,7 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 const OWNER = "@test";
 const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
 
-type InstallSurface = "skills" | "commands" | "subagents" | "packs" | "mcp-servers";
+type InstallSurface = "skills" | "commands" | "subagents" | "packs" | "mcps";
 type SettingsKey = "skills" | "commands" | "subagents" | "packs" | "mcpServers";
 
 interface InstallCase {
@@ -40,7 +40,7 @@ interface JsonCommandResult {
 }
 
 const settingsKeyForSurface = (surface: InstallSurface): SettingsKey =>
-  surface === "mcp-servers" ? "mcpServers" : surface;
+  surface === "mcps" ? "mcpServers" : surface;
 
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
@@ -150,7 +150,7 @@ const publishSubagentToRegistry = async (registryPath: string, name: string) => 
 
 const publishMcpServerToRegistry = async (registryPath: string, name: string) => {
   const version = "1.0.0";
-  const extensionDir = path.join(registryPath, "extensions", OWNER, "mcp-servers", name);
+  const extensionDir = path.join(registryPath, "extensions", OWNER, "mcps", name);
   const archiveWorkspace = createTempDir("axm-mcp-server-");
 
   try {
@@ -366,7 +366,7 @@ const installCases = [
   },
   {
     label: "MCP server",
-    surface: "mcp-servers",
+    surface: "mcps",
     publishToRegistry: publishMcpServerToRegistry,
   },
   {
@@ -432,8 +432,8 @@ describe("axm install", () => {
       const registryDir = createTempDir("axm-registry-");
       const workspace = createTempDir();
       const names = [
-        `${surface}-one`.replace("mcp-servers", "mcp"),
-        `${surface}-two`.replace("mcp-servers", "mcp"),
+        `${surface}-one`.replace("mcps", "mcp"),
+        `${surface}-two`.replace("mcps", "mcp"),
       ] as const;
       const [firstName, secondName] = names;
 
@@ -473,7 +473,7 @@ describe("axm install", () => {
       await publishPackToRegistry(registryDir.path, "workspace-pack", {
         dependencies: {
           [registryFqn("skills", "workspace-skill")]: "*",
-          [registryFqn("mcp-servers", "pack-mcp")]: "*",
+          [registryFqn("mcps", "pack-mcp")]: "*",
         },
       });
 
@@ -482,7 +482,7 @@ describe("axm install", () => {
         skills: { "workspace-skill": registryFqn("skills", "workspace-skill") },
         commands: { "workspace-command": registryFqn("commands", "workspace-command") },
         subagents: { "workspace-subagent": registryFqn("subagents", "workspace-subagent") },
-        mcpServers: { "workspace-mcp": registryFqn("mcp-servers", "workspace-mcp") },
+        mcpServers: { "workspace-mcp": registryFqn("mcps", "workspace-mcp") },
         packs: { "workspace-pack": registryFqn("packs", "workspace-pack") },
       });
 
@@ -497,16 +497,14 @@ describe("axm install", () => {
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["workspace-skill"]);
       expectConfiguredEntriesInstalled(workspace.path, "commands", ["workspace-command"]);
       expectConfiguredEntriesInstalled(workspace.path, "subagents", ["workspace-subagent"]);
-      expectConfiguredEntriesInstalled(workspace.path, "mcp-servers", ["workspace-mcp"]);
+      expectConfiguredEntriesInstalled(workspace.path, "mcps", ["workspace-mcp"]);
       expectConfiguredEntriesInstalled(workspace.path, "packs", ["workspace-pack"]);
 
       const settings = readSettings(workspace.path);
       const lockfile = readLockfile(workspace.path);
       expect(settings.mcpServers?.["pack-mcp"]).toBeUndefined();
       expect(lockfile.mcpServers?.["pack-mcp"]).toBeDefined();
-      expect(fs.existsSync(extensionDirForSurface(workspace.path, "mcp-servers", "pack-mcp"))).toBe(
-        true,
-      );
+      expect(fs.existsSync(extensionDirForSurface(workspace.path, "mcps", "pack-mcp"))).toBe(true);
     } finally {
       registryDir.cleanup();
       workspace.cleanup();

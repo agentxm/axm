@@ -6,6 +6,6 @@
   "description": "a valid pack with dependencies",
   "dependencies": {
     "@acme/skills/example": "^1.0.0",
-    "@acme/mcp-servers/db": "^2.0.0"
+    "@acme/mcps/db": "^2.0.0"
   }
 }

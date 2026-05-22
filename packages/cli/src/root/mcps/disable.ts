@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { disableMcpServer } from "@agentxm/client-core/unstable/mcp-servers";
+import { disableMcpServer } from "@agentxm/client-core/unstable/mcps";
 import {
   previewOrApplyPlan,
   type Plan,
@@ -48,7 +48,7 @@ export const handleDisableMcpServer = Effect.fn("DisableMcpServer.handle")(funct
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
   const resolution = yield* previewOrApplyPlan(plan, args);
-  yield* emitPlanResolutionResult("mcp-servers.disable", resolution);
+  yield* emitPlanResolutionResult("mcps.disable", resolution);
 });
 
 const disableConfig = {
@@ -67,15 +67,15 @@ export const disableCommand = Command.make(
   ({ name, scope, yes, force, preview }) =>
     handleDisableMcpServer({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRuntime("mcp-servers disable"),
+      withRuntime("mcps disable"),
     ),
 ).pipe(
   withArgvTracking(disableConfig),
   Command.withDescription("Disable an MCP server"),
   Command.withExamples([
-    { command: "axm mcp-servers disable context", description: "Disable an MCP server" },
+    { command: "axm mcps disable context", description: "Disable an MCP server" },
     {
-      command: "axm mcp-servers disable context --preview",
+      command: "axm mcps disable context --preview",
       description: "Preview disabling an MCP server",
     },
   ]),

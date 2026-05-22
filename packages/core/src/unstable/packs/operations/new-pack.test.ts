@@ -118,7 +118,7 @@ describe("newPack", () => {
         expect(manifest.dependencies).toEqual({});
         expect(manifest.skills).toBeUndefined();
         expect(manifest.commands).toBeUndefined();
-        expect(manifest["mcp-servers"]).toBeUndefined();
+        expect(manifest["mcps"]).toBeUndefined();
       }),
     );
 

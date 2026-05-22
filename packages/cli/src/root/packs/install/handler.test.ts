@@ -41,7 +41,7 @@ import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcp-servers";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -1048,7 +1048,7 @@ describe("packs install handler", () => {
       const packRef = makePackRef("multi-pack", {
         skills: constraints({ "@acme/skills/code-review": "1.0.0" }),
         commands: constraints({ "@acme/commands/lint": "2.0.0" }),
-        mcpServers: constraints({ "@acme/mcp-servers/analytics": "3.0.0" }),
+        mcpServers: constraints({ "@acme/mcps/analytics": "3.0.0" }),
       });
 
       const mockService: SourceHostProvidersService = {

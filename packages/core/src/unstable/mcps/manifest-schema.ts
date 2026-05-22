@@ -347,7 +347,7 @@ export const McpServerManifestSchema = Schema.Struct({
     Schema.annotateKey({ messageMissingKey: "MCP server name is required" }),
     Schema.annotate({
       description:
-        "Short name for this MCP server within its owner namespace. Combined with owner, forms the FQN @owner/mcp-servers/<name>.",
+        "Short name for this MCP server within its owner namespace. Combined with owner, forms the FQN @owner/mcps/<name>.",
     }),
   ),
   server: McpRegistryServerDetailSchema.pipe(

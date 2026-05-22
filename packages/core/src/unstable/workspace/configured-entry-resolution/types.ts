@@ -2,7 +2,7 @@ import type * as Option from "effect/Option";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import type { AppError } from "../../app-error/index.js";
 import type { ContextExtensionRef } from "../../context/index.js";
-import type { McpServerExtensionRef } from "../../mcp-servers/index.js";
+import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";

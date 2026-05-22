@@ -65,7 +65,7 @@ const buildInstalledFqnIndex = (lockfile: Lockfile): ReadonlySet<string> => {
   absorb("skills", lockfile.skills);
   absorb("commands", lockfile.commands);
   absorb("subagents", lockfile.subagents);
-  absorb("mcp-servers", lockfile.mcpServers);
+  absorb("mcps", lockfile.mcpServers);
   return set;
 };
 
@@ -77,7 +77,7 @@ const singularDependencyType = (typeSegment: string): string => {
       return "command";
     case "subagents":
       return "subagent";
-    case "mcp-servers":
+    case "mcps":
       return "MCP server";
     default:
       return typeSegment;
@@ -109,7 +109,7 @@ const collectResolved = (
   ...Object.keys(entry.resolvedSkills).map((fqn) => ({ fqn, typeSegment: "skills" })),
   ...Object.keys(entry.resolvedCommands).map((fqn) => ({ fqn, typeSegment: "commands" })),
   ...Object.keys(entry.resolvedSubagents).map((fqn) => ({ fqn, typeSegment: "subagents" })),
-  ...Object.keys(entry.resolvedMcpServers).map((fqn) => ({ fqn, typeSegment: "mcp-servers" })),
+  ...Object.keys(entry.resolvedMcpServers).map((fqn) => ({ fqn, typeSegment: "mcps" })),
 ];
 
 export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> = {

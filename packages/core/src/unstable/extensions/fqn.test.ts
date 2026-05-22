@@ -19,7 +19,7 @@ describe("parseFqn", () => {
       expected: { owner: "@acme", type: "pack", name: "fullstack" },
     },
     {
-      input: "@acme/mcp-servers/database",
+      input: "@acme/mcps/database",
       expected: { owner: "@acme", type: "mcp-server", name: "database" },
     },
     {
@@ -98,7 +98,7 @@ describe("formatFqn", () => {
       "@x/commands/y",
     );
     expect(formatFqn({ owner: handle("@x"), type: "mcp-server", name: extensionName("y") })).toBe(
-      "@x/mcp-servers/y",
+      "@x/mcps/y",
     );
     expect(formatFqn({ owner: handle("@x"), type: "subagent", name: extensionName("y") })).toBe(
       "@x/subagents/y",
@@ -117,7 +117,7 @@ describe("round-trip", () => {
     "@acme/skills/code-review",
     "@acme/packs/fullstack",
     "@acme/commands/deploy",
-    "@acme/mcp-servers/database",
+    "@acme/mcps/database",
     "@acme/subagents/reviewer",
     "@acme/context/project-rules",
     "@acme/rules/review-checklist",

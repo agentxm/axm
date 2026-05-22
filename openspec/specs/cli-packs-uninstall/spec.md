@@ -49,6 +49,6 @@ Pack uninstall SHALL compute orphaned dependencies across all supported extensio
 #### Scenario: Orphaned MCP server dependency removed with pack
 
 - **WHEN** user runs `axm packs uninstall @acme/frontend-pack`
-- **AND** the pack's `resolvedMcpServers` contains `@acme/mcp-servers/db-connector`
+- **AND** the pack's `resolvedMcpServers` contains `@acme/mcps/db-connector`
 - **AND** `db-connector` has no direct settings entry and no other pack references it
 - **THEN** the plan includes an uninstall step for mcp-server `db-connector`

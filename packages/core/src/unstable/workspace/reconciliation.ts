@@ -34,7 +34,7 @@ const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
   commands: 1,
   subagents: 2,
   packs: 3,
-  "mcp-servers": 4,
+  mcps: 4,
 };
 
 const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
@@ -83,7 +83,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
       case "subagents":
         subagents[reconstructed.name] = reconstructed.entry;
         break;
-      case "mcp-servers":
+      case "mcps":
         mcpServers[reconstructed.name] = reconstructed.entry;
         break;
       case "packs":

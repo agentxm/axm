@@ -18,7 +18,7 @@ import {
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
-} from "../mcp-servers/install/command-actions.js";
+} from "../mcps/install/command-actions.js";
 import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
@@ -258,7 +258,7 @@ describe("root update handler", () => {
       const sources = [
         "@acme/skills/code-review",
         "@acme/commands/release-notes",
-        "@acme/mcp-servers/dev-server",
+        "@acme/mcps/dev-server",
         "@acme/context/workspace-baseline",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
@@ -271,7 +271,7 @@ describe("root update handler", () => {
       expect(calls).toEqual([
         { type: "skill", source: "@acme/skills/code-review", ...flags },
         { type: "command", source: "@acme/commands/release-notes", ...flags },
-        { type: "mcp-server", source: "@acme/mcp-servers/dev-server", ...flags },
+        { type: "mcp-server", source: "@acme/mcps/dev-server", ...flags },
         { type: "context", source: "@acme/context/workspace-baseline", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },

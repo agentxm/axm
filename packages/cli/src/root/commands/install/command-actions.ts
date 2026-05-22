@@ -7,7 +7,7 @@
  * so action methods satisfy the `R = never` contract.
  *
  * TODO: (#54) This file shares nearly identical structure with
- * skills/install/command-actions.ts, mcp-servers/install/command-actions.ts,
+ * skills/install/command-actions.ts, mcps/install/command-actions.ts,
  * and skills/uninstall/command-actions.ts (layer construction, provide helper,
  * parseArgs, plan building). Consider a generic factory parameterized by
  * extension type.

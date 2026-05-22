@@ -276,7 +276,7 @@ describe("installMcpServer", () => {
     name = "my-server",
     runnable = true,
   ) => {
-    const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcp-servers", name);
+    const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcps", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "mcp-server.json"),
@@ -313,7 +313,7 @@ describe("installMcpServer", () => {
     const name = opts.name ?? "my-server";
     const version = opts.version ?? "1.0.0";
     const registryRoot = path.join(tmpDir, "local-registry");
-    const extDir = path.join(registryRoot, "extensions", owner, "mcp-servers", name);
+    const extDir = path.join(registryRoot, "extensions", owner, "mcps", name);
     fs.mkdirSync(extDir, { recursive: true });
 
     // Create index.json
@@ -354,7 +354,7 @@ describe("installMcpServer", () => {
           ".axm",
           "extensions",
           "@community",
-          "mcp-servers",
+          "mcps",
           "my-server",
         );
         expect(fs.existsSync(path.join(canonicalPath, "mcp-server.json"))).toBe(true);
@@ -440,7 +440,7 @@ describe("installMcpServer", () => {
           ".axm",
           "extensions",
           "@community",
-          "mcp-servers",
+          "mcps",
           "my-server",
         );
         expect(fs.existsSync(canonicalPath)).toBe(true);

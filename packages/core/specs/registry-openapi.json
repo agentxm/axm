@@ -1869,6 +1869,18 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
             "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
           }
         ],
         "security": [],
@@ -1927,9 +1939,22 @@
                         "required": ["name", "owner", "type", "latestVersion"],
                         "additionalProperties": false
                       }
+                    },
+                    "total": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            { "type": "number" },
+                            { "type": "string", "enum": ["NaN"] },
+                            { "type": "string", "enum": ["Infinity"] },
+                            { "type": "string", "enum": ["-Infinity"] }
+                          ]
+                        },
+                        { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                      ]
                     }
                   },
-                  "required": ["extensions"],
+                  "required": ["extensions", "total"],
                   "additionalProperties": false
                 }
               }
@@ -4874,9 +4899,9 @@
       },
       "ExtensionType": {
         "type": "string",
-        "enum": ["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"],
+        "enum": ["skill", "command", "mcp-server", "subagent", "context", "rule", "pack"],
         "title": "Extension Type",
-        "description": "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack."
+        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, or pack."
       },
       "ExtensionName": {
         "type": "string",
@@ -5083,7 +5108,7 @@
       },
       "ExtensionTypePlural": {
         "type": "string",
-        "enum": ["skills", "commands", "mcps", "subagents", "files", "rules", "packs"],
+        "enum": ["skills", "commands", "mcps", "subagents", "context", "rules", "packs"],
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs)."
       },
@@ -5439,7 +5464,7 @@
         "type": "string",
         "allOf": [
           {
-            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|context|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
             "title": "Extension FQN",
             "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
             "examples": ["@acme/skills/code-review", "@my-org/commands/format"]

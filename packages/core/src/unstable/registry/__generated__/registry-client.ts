@@ -748,7 +748,7 @@ export type ExtensionFqn = string;
 export const ExtensionFqn = Schema.String.check(
   Schema.isPattern(
     new RegExp(
-      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|context|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
     ),
     {
       title: "Extension FQN",
@@ -1831,6 +1831,14 @@ export const ExtensionsListByOwner200 = Schema.Struct({
 });
 export type ExtensionsListByOwner400 = DecodeErrorResponse;
 export const ExtensionsListByOwner400 = DecodeErrorResponse;
+export type ExtensionsListByTypeParams = {
+  readonly limit?: string | null;
+  readonly offset?: string | null;
+};
+export const ExtensionsListByTypeParams = Schema.Struct({
+  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  offset: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
 export type ExtensionsListByType200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: ExtensionName;
@@ -1845,6 +1853,7 @@ export type ExtensionsListByType200 = {
     readonly deprecated_at?: IsoDateTimeString | null;
     readonly deprecation_notice?: string | null;
   }>;
+  readonly total: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
 };
 export const ExtensionsListByType200 = Schema.Struct({
   extensions: Schema.Array(
@@ -1866,6 +1875,15 @@ export const ExtensionsListByType200 = Schema.Struct({
       ),
     }),
   ),
+  total: Schema.Union([
+    Schema.Union([
+      Schema.Number.check(Schema.isFinite()),
+      Schema.Literal("NaN"),
+      Schema.Literal("Infinity"),
+      Schema.Literal("-Infinity"),
+    ]),
+    Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+  ]),
 });
 export type ExtensionsListByType400 = DecodeErrorResponse;
 export const ExtensionsListByType400 = DecodeErrorResponse;
@@ -3010,6 +3028,10 @@ export const make = (
       ),
     ExtensionsListByType: (owner, type, options) =>
       HttpClientRequest.get(`/v1/extensions/${owner}/${type}`).pipe(
+        HttpClientRequest.setUrlParams({
+          limit: options?.params?.["limit"] as any,
+          offset: options?.params?.["offset"] as any,
+        }),
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsListByType200),
@@ -3874,7 +3896,12 @@ export interface RegistryClient {
   readonly ExtensionsListByType: <Config extends OperationConfig>(
     owner: string,
     type: string,
-    options: { readonly config?: Config | undefined } | undefined,
+    options:
+      | {
+          readonly params?: typeof ExtensionsListByTypeParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsListByType200.Type, Config>,
     | HttpClientError.HttpClientError

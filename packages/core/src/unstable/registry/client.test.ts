@@ -1228,6 +1228,7 @@ describe("RemoteRegistryClient", () => {
               extensions: [
                 { owner: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
               ],
+              total: 1,
             }),
             { status: 200 },
           ),
@@ -1242,6 +1243,7 @@ describe("RemoteRegistryClient", () => {
               extensions: [
                 { owner: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
               ],
+              total: 1,
             }),
             { status: 200 },
           ),

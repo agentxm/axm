@@ -112,6 +112,18 @@ export interface DisableSubagentIntent {
   readonly name: string;
 }
 
+/** @experimental */
+export interface SyncInstructionTargetIntent {
+  readonly root: string;
+  readonly agentId: string;
+  readonly force: boolean;
+}
+
+/** @experimental */
+export interface SyncInstructionsGitignoreIntent {
+  readonly desired: boolean;
+}
+
 // -----------------------------------------------------------------------------
 // Emit helpers
 // -----------------------------------------------------------------------------
@@ -214,6 +226,20 @@ export const disableSubagentOp = (
   args: intent,
 });
 
+export const syncInstructionTargetOp = (
+  intent: SyncInstructionTargetIntent,
+): Operation<"sync-instruction-target", SyncInstructionTargetIntent> => ({
+  name: "sync-instruction-target",
+  args: intent,
+});
+
+export const syncInstructionsGitignoreOp = (
+  intent: SyncInstructionsGitignoreIntent,
+): Operation<"sync-instructions-gitignore", SyncInstructionsGitignoreIntent> => ({
+  name: "sync-instructions-gitignore",
+  args: intent,
+});
+
 // -----------------------------------------------------------------------------
 // Vocabulary guard — the canonical 14-operation vocabulary.
 // -----------------------------------------------------------------------------
@@ -243,6 +269,8 @@ export const PER_EXTENSION_OPERATION_NAMES = [
   "uninstall-mcp-server",
   "enable-subagent",
   "disable-subagent",
+  "sync-instruction-target",
+  "sync-instructions-gitignore",
 ] as const;
 
 /** @experimental */

@@ -25,6 +25,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
+import {
+  getInstructionsGitignoreStatus,
+  getInstructionsStatus,
+  resolveInstructionsConfig,
+} from "../../../agents/instructions.js";
 import { AgentRootResolverLive } from "../../../workspace/read-model/agent-root-resolver.js";
 import {
   makeWorkspaceReadModel,
@@ -51,6 +56,7 @@ import type {
   ContextRuleContext,
   McpServerRuleContext,
   SubagentRuleContext,
+  WorkspaceInstructionAccessor,
   WorkspaceRuleContext,
 } from "../../context.js";
 import type { InstalledSkillInfo } from "../skill-accessor/contexts.js";
@@ -162,6 +168,11 @@ export const buildLintWorkspace = (
       subject: { root: args.workspaceRoot, scope: args.scope },
       workspace: readModel,
       axmDirExists: args.platform.fs.exists(axmDir).pipe(Effect.catch(() => Effect.succeed(false))),
+      instructions: makeInstructionAccessor({
+        platform: args.platform,
+        workspaceRoot: args.workspaceRoot,
+        readModel,
+      }),
       displayRoot: args.displayRoot ?? "",
     };
     const view = yield* buildLintWorkspaceView({
@@ -172,6 +183,64 @@ export const buildLintWorkspace = (
     });
     return { rule, view };
   }).pipe(Effect.provide(env));
+};
+
+const makeInstructionAccessor = (args: {
+  readonly platform: {
+    readonly fs: FileSystem.FileSystem;
+    readonly path: Path.Path;
+  };
+  readonly workspaceRoot: string;
+  readonly readModel: WorkspaceReadModel;
+}): WorkspaceInstructionAccessor => {
+  const platformLayer = Layer.mergeAll(
+    Layer.succeed(FileSystem.FileSystem, args.platform.fs),
+    Layer.succeed(Path.Path, args.platform.path),
+  );
+  const load = Effect.gen(function* () {
+    const settings = yield* args.readModel.state.settings.pipe(
+      Effect.catch(() => Effect.succeed(Option.none())),
+    );
+    if (Option.isNone(settings)) {
+      return Option.none<{
+        readonly configuredAgents: ReadonlyArray<string>;
+        readonly config: ReturnType<typeof resolveInstructionsConfig>;
+      }>();
+    }
+    const rawConfig = Option.fromUndefinedOr(settings.value.agentsConfig?.instructions);
+    if (Option.isNone(rawConfig) || rawConfig.value === false) {
+      return Option.none<{
+        readonly configuredAgents: ReadonlyArray<string>;
+        readonly config: ReturnType<typeof resolveInstructionsConfig>;
+      }>();
+    }
+    return Option.some({
+      configuredAgents: settings.value.agents ?? [],
+      config: resolveInstructionsConfig(rawConfig.value),
+    });
+  });
+  return {
+    status: Effect.gen(function* () {
+      const loaded = yield* load;
+      if (Option.isNone(loaded)) return Option.none();
+      const status = yield* getInstructionsStatus({
+        workspaceRoot: args.workspaceRoot,
+        configuredAgents: loaded.value.configuredAgents,
+        config: loaded.value.config,
+      }).pipe(Effect.provide(platformLayer));
+      return Option.some(status);
+    }),
+    gitignore: Effect.gen(function* () {
+      const loaded = yield* load;
+      if (Option.isNone(loaded)) return Option.none();
+      const status = yield* getInstructionsGitignoreStatus({
+        workspaceRoot: args.workspaceRoot,
+        configuredAgents: loaded.value.configuredAgents,
+        config: loaded.value.config,
+      }).pipe(Effect.provide(platformLayer));
+      return Option.some(status);
+    }),
+  };
 };
 
 // -----------------------------------------------------------------------------

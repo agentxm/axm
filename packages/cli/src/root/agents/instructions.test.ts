@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
-import { handleInstructionsEnable, handleInstructionsSync } from "./instructions.js";
+import { handleInstructionsEnable } from "./instructions.js";
 
 const initWorkspace = (baseDir: string, agents: ReadonlyArray<string>) => {
   const axmDir = path.join(baseDir, ".axm");
@@ -52,24 +52,22 @@ describe("agents instructions handler", () => {
     return <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(fullLayer));
   };
 
-  it.effect("enables management and syncs configured agent files", () => {
+  it.effect("enables instruction-file management", () => {
     const provide = makeProvide();
     initWorkspace(tempDir, ["claude-code"]);
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
 
     return provide(
       Effect.gen(function* () {
-        yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: "managed" });
-        yield* handleInstructionsSync({ force: false, dryRun: false });
+        yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: true });
 
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
         expect(settings.agentsConfig.instructions).toEqual({
           fileName: "AGENTS.md",
-          gitignore: "managed",
+          gitignore: true,
         });
-        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe("# Workspace\n");
       }),
     );
   });

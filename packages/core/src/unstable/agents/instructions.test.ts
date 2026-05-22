@@ -62,7 +62,7 @@ describe("agent instructions", () => {
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
           configuredAgents: ["claude-code", "gemini-cli", "codex"],
-          config: { fileName: "AGENTS.md", gitignore: "managed" },
+          config: { fileName: "AGENTS.md", gitignore: true },
           force: false,
           dryRun: false,
         });
@@ -95,7 +95,7 @@ describe("agent instructions", () => {
         yield* syncInstructions({
           workspaceRoot: tempDir,
           configuredAgents: ["claude-code", "gemini-cli"],
-          config: { fileName: "AGENTS.md", gitignore: "off" },
+          config: { fileName: "AGENTS.md", gitignore: false },
           force: false,
           dryRun: false,
           symlinkSupported: false,
@@ -106,7 +106,7 @@ describe("agent instructions", () => {
         const secondResult = yield* syncInstructions({
           workspaceRoot: tempDir,
           configuredAgents: ["claude-code", "gemini-cli"],
-          config: { fileName: "AGENTS.md", gitignore: "off" },
+          config: { fileName: "AGENTS.md", gitignore: false },
           force: false,
           dryRun: false,
           symlinkSupported: false,
@@ -135,18 +135,49 @@ describe("agent instructions", () => {
         yield* syncInstructions({
           workspaceRoot: tempDir,
           configuredAgents: ["gemini-cli"],
-          config: { fileName: "AGENTS.md", gitignore: "off" },
+          config: { fileName: "AGENTS.md", gitignore: false },
           force: false,
           dryRun: false,
         });
         const status = yield* getInstructionsStatus({
           workspaceRoot: tempDir,
           configuredAgents: ["gemini-cli"],
-          config: { fileName: "AGENTS.md", gitignore: "off" },
+          config: { fileName: "AGENTS.md", gitignore: false },
         });
 
         expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toBe("# Local edit\n");
         expect(status.items[0]?.health).toBe("drift");
+      }),
+    ),
+  );
+
+  it.effect("removes the managed gitignore block when gitignore is disabled", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+        yield* syncInstructions({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignore: true },
+          force: false,
+          dryRun: false,
+        });
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
+          "# >>> axm:instructions >>>",
+        );
+
+        yield* syncInstructions({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignore: false },
+          force: false,
+          dryRun: false,
+        });
+
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).not.toContain(
+          "# >>> axm:instructions >>>",
+        );
       }),
     ),
   );

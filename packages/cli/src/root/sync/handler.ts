@@ -11,8 +11,11 @@ import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import {
   CodingAgentRepository,
+  getInstructionsGitignoreStatus,
+  getInstructionsStatus,
   resolveInstructionsConfig,
-  syncInstructions,
+  syncInstructionTarget,
+  syncInstructionsGitignore,
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -39,6 +42,7 @@ import { PackManager } from "@agentxm/client-core/unstable/packs";
 import {
   applyPlan,
   resolvePlan,
+  type Operation,
   type Plan,
   type PlanResolution,
   type PlannedJobStep,
@@ -283,28 +287,193 @@ const reportWorkspaceGeneratorDryRun = Effect.fn("Sync.reportWorkspaceGeneratorD
   );
 });
 
+interface SyncInstructionTargetIntentArgs {
+  readonly root: string;
+  readonly agentId: string;
+  readonly force: boolean;
+}
+
+interface SyncInstructionsGitignoreIntentArgs {
+  readonly desired: boolean;
+}
+
+const collectInstructionOperations = Effect.fn("Sync.collectInstructionOperations")(function* () {
+  const ws = yield* WorkspaceMutations;
+  const config = yield* ws.getInstructionsConfig();
+  if (Option.isNone(config) || config.value === false) return [];
+
+  const configuredAgents = yield* ws.getConfiguredAgents();
+  const resolvedConfig = resolveInstructionsConfig(config.value);
+  const status = yield* getInstructionsStatus({
+    workspaceRoot: ws.baseDir,
+    configuredAgents,
+    config: resolvedConfig,
+  });
+  const operations: Array<Operation<string, unknown>> = [];
+  for (const item of status.items) {
+    const fixableHealth =
+      item.health === "missing-target" || item.health === "drift" || item.health === "broken-link";
+    const fixableMechanism = item.mechanism === "symlink" || item.mechanism === "copy";
+    if (!fixableHealth || !fixableMechanism) continue;
+    operations.push({
+      name: "sync-instruction-target",
+      args: {
+        root: item.root,
+        agentId: item.agentId,
+        force: item.health === "drift",
+      } satisfies SyncInstructionTargetIntentArgs,
+    });
+  }
+
+  const gitignore = yield* getInstructionsGitignoreStatus({
+    workspaceRoot: ws.baseDir,
+    configuredAgents,
+    config: resolvedConfig,
+  });
+  if (!gitignore.current) {
+    operations.push({
+      name: "sync-instructions-gitignore",
+      args: { desired: gitignore.desired } satisfies SyncInstructionsGitignoreIntentArgs,
+    });
+  }
+  return operations;
+});
+
+const buildInstructionStep = (
+  op: Operation<string, unknown>,
+): Effect.Effect<PlannedJobStep, never, WorkspaceMutations | FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const config = yield* ws.getInstructionsConfig().pipe(Effect.orDie);
+    if (Option.isNone(config) || config.value === false) {
+      return {
+        key: op.name,
+        readiness: "error",
+        label: op.name,
+        errorMessage: "Instruction-file management is disabled",
+      };
+    }
+    const resolvedConfig = resolveInstructionsConfig(config.value);
+    switch (op.name) {
+      case "sync-instruction-target": {
+        const args = op.args;
+        if (
+          typeof args !== "object" ||
+          args === null ||
+          !("root" in args) ||
+          !("agentId" in args) ||
+          !("force" in args) ||
+          typeof args.root !== "string" ||
+          typeof args.agentId !== "string" ||
+          typeof args.force !== "boolean"
+        ) {
+          return {
+            key: op.name,
+            readiness: "error",
+            label: op.name,
+            errorMessage: "Instruction target operation is malformed",
+          };
+        }
+        const run = syncInstructionTarget({
+          root: args.root,
+          agentId: args.agentId,
+          config: resolvedConfig,
+          force: args.force,
+          dryRun: false,
+        }).pipe(
+          Effect.map((written) => ({
+            result: "success" as const,
+            message: Option.isSome(written)
+              ? `Updated ${written.value}`
+              : "Instruction target already current",
+          })),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        return args.force
+          ? {
+              key: `instruction:${args.root}:${args.agentId}`,
+              readiness: "warn",
+              warnMessage: `Overwriting drifted instruction file for ${args.agentId}`,
+              label: `${args.agentId} instruction file`,
+              run,
+            }
+          : {
+              key: `instruction:${args.root}:${args.agentId}`,
+              readiness: "ready",
+              label: `${args.agentId} instruction file`,
+              run,
+            };
+      }
+      case "sync-instructions-gitignore": {
+        const args = op.args;
+        if (
+          typeof args !== "object" ||
+          args === null ||
+          !("desired" in args) ||
+          typeof args.desired !== "boolean"
+        ) {
+          return {
+            key: op.name,
+            readiness: "error",
+            label: op.name,
+            errorMessage: "Instruction gitignore operation is malformed",
+          };
+        }
+        const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.orDie);
+        return {
+          key: "instruction:gitignore",
+          readiness: "ready",
+          label: "instruction gitignore entries",
+          run: syncInstructionsGitignore({
+            workspaceRoot: ws.baseDir,
+            configuredAgents,
+            config: resolvedConfig,
+            desired: args.desired,
+            dryRun: false,
+          }).pipe(
+            Effect.map((written) => ({
+              result: "success" as const,
+              message: Option.isSome(written)
+                ? `Updated ${written.value}`
+                : "Instruction gitignore entries already current",
+            })),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+        };
+      }
+      default:
+        return {
+          key: op.name,
+          readiness: "error",
+          label: op.name,
+          errorMessage: `Unknown instruction operation: ${op.name}`,
+        };
+    }
+  });
+
 const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function* (
   dryRun: boolean,
 ) {
-  const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
-  const config = yield* ws.getInstructionsConfig();
-  if (Option.isNone(config) || config.value === false) return;
-
-  const configuredAgents = yield* ws.getConfiguredAgents();
-  const result = yield* syncInstructions({
-    workspaceRoot: ws.baseDir,
-    configuredAgents,
-    config: resolveInstructionsConfig(config.value),
-    force: false,
-    dryRun,
+  const operations = yield* collectInstructionOperations();
+  if (operations.length === 0) return;
+  const steps = yield* Effect.forEach(operations, buildInstructionStep, {
+    concurrency: "unbounded",
   });
-  if (result.written.length === 0) return;
+  const plan = resolvePlan({
+    name: "Sync instruction files",
+    description: "Propagate configured agent instruction files",
+    steps,
+  });
   if (dryRun) {
-    yield* renderer.info(`Would update ${result.written.length} instruction file(s)`);
+    yield* displayPlan(plan);
     return;
   }
-  yield* renderer.success(`Updated ${result.written.length} instruction file(s)`);
+  const executed = yield* applyPlan(plan);
+  yield* displayPlan(executed);
 });
 
 // Context-files materialization owns the canonical AGENTS.md content; instruction

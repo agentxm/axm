@@ -1,8 +1,8 @@
 /**
  * Unit tests for the v1 `workspace/*` rule catalog.
  *
- * The v1 catalog ships exactly 14 rules (foundation 5 + skills-install 6 +
- * packs-install 3). Rule ids and severities are public API (surfaced in
+ * The workspace catalog ships foundation, instruction, skills-install, and
+ * packs-install rules. Rule ids and severities are public API (surfaced in
  * `.axm/settings.json` `lint.rules` and in the registry response bodies) —
  * this test pins both.
  */
@@ -20,6 +20,11 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/lockfile-valid", severity: "error" },
   { id: "workspace/agents-recognized", severity: "error" },
   { id: "workspace/agents-detected-declared", severity: "warning" },
+  // Instruction files.
+  { id: "workspace/instructions-source-present", severity: "error" },
+  { id: "workspace/instructions-target-current", severity: "warning" },
+  { id: "workspace/instructions-agent-supported", severity: "warning" },
+  { id: "workspace/instructions-gitignore-current", severity: "info" },
   // Declaration valid (configured).
   { id: "workspace/skills-declarations-valid", severity: "error" },
   { id: "workspace/packs-declarations-valid", severity: "error" },
@@ -41,7 +46,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
 ];
 
 describe("workspaceRules", () => {
-  it("exports exactly the v1 14-rule set", () => {
+  it("exports exactly the workspace rule set", () => {
     expect(workspaceRules.map((r) => r.id)).toEqual(EXPECTED.map((r) => r.id));
   });
 
@@ -62,6 +67,8 @@ describe("workspaceRules", () => {
     const autofixingIds = workspaceRules.filter((r) => r.kind === "autofixing").map((r) => r.id);
     expect(autofixingIds).toEqual([
       "workspace/lockfile-valid",
+      "workspace/instructions-target-current",
+      "workspace/instructions-gitignore-current",
       "workspace/skills-lockfile-aligned",
       "workspace/skills-integrity-valid",
       "workspace/skills-universal-artifact-present",

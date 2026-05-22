@@ -357,4 +357,30 @@ describe("axm lint handler", () => {
       }),
     );
   });
+
+  it.effect("--fix repairs configured instruction-file drift", () => {
+    const { provide, rendererState } = makeLayers();
+    writeSettings({
+      agents: ["claude-code"],
+      agentsConfig: {
+        instructions: {
+          fileName: "AGENTS.md",
+          gitignore: true,
+        },
+      },
+    });
+    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({ fix: true }).pipe(Effect.exit);
+        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
+        expect(allMessages).toMatch(/Applied \d+ (fix|fixes)/);
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe("# Workspace\n");
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
+          "**/CLAUDE.md",
+        );
+      }),
+    );
+  });
 });

@@ -19,6 +19,8 @@
  */
 
 import type * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
+import type { InstructionsGitignoreStatus, InstructionsStatus } from "../agents/instructions.js";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
 
 // -----------------------------------------------------------------------------
@@ -278,7 +280,13 @@ export interface WorkspaceRuleContext {
   readonly subject: WorkspaceSubject;
   readonly workspace: WorkspaceReadModel;
   readonly axmDirExists: Effect.Effect<boolean>;
+  readonly instructions?: WorkspaceInstructionAccessor;
   readonly displayRoot: string;
+}
+
+export interface WorkspaceInstructionAccessor {
+  readonly status: Effect.Effect<Option.Option<InstructionsStatus>>;
+  readonly gitignore: Effect.Effect<Option.Option<InstructionsGitignoreStatus>>;
 }
 
 /**

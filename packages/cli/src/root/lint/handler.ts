@@ -33,7 +33,12 @@ import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unst
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import {
+  CodingAgentRepository,
+  resolveInstructionsConfig,
+  syncInstructionTarget,
+  syncInstructionsGitignore,
+} from "@agentxm/client-core/unstable/agents";
 import { disableSkill, enableSkill, SkillManager } from "@agentxm/client-core/unstable/skills";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
@@ -208,6 +213,40 @@ const loadLintConfig = (
     });
   });
 
+const loadInstructionsState = (
+  workspaceRoot: string,
+): Effect.Effect<
+  Option.Option<{
+    readonly configuredAgents: ReadonlyArray<string>;
+    readonly config: ReturnType<typeof resolveInstructionsConfig>;
+  }>,
+  never,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const settingsPath = path.join(workspaceRoot, ".axm", "settings.json");
+    const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
+    if (raw.length === 0) return Option.none();
+    const parsed = yield* Effect.try({
+      try: (): unknown => JSON.parse(raw),
+      catch: () => makeAppError({ code: "validation", detail: "" }),
+    }).pipe(
+      Effect.map(Option.some),
+      Effect.catch(() => Effect.succeed(Option.none<unknown>())),
+    );
+    if (Option.isNone(parsed)) return Option.none();
+    const settings = decodeSettings(parsed.value);
+    if (Option.isNone(settings)) return Option.none();
+    const instructions = Option.fromUndefinedOr(settings.value.agentsConfig?.instructions);
+    if (Option.isNone(instructions) || instructions.value === false) return Option.none();
+    return Option.some({
+      configuredAgents: settings.value.agents ?? [],
+      config: resolveInstructionsConfig(instructions.value),
+    });
+  });
+
 // -----------------------------------------------------------------------------
 // Lint-intent → canonical `PlannedJobStep` adapter
 // -----------------------------------------------------------------------------
@@ -241,6 +280,36 @@ const isIntentWithName = (args: unknown): args is IntentArgsNameOnly => {
     return false;
   }
   return typeof args["name"] === "string";
+};
+
+interface SyncInstructionTargetIntentArgs {
+  readonly root: string;
+  readonly agentId: string;
+  readonly force: boolean;
+}
+
+const isSyncInstructionTargetIntent = (args: unknown): args is SyncInstructionTargetIntentArgs => {
+  if (!isRecord(args)) {
+    return false;
+  }
+  return (
+    typeof args["root"] === "string" &&
+    typeof args["agentId"] === "string" &&
+    typeof args["force"] === "boolean"
+  );
+};
+
+interface SyncInstructionsGitignoreIntentArgs {
+  readonly desired: boolean;
+}
+
+const isSyncInstructionsGitignoreIntent = (
+  args: unknown,
+): args is SyncInstructionsGitignoreIntentArgs => {
+  if (!isRecord(args)) {
+    return false;
+  }
+  return typeof args["desired"] === "boolean";
 };
 
 /**
@@ -287,6 +356,7 @@ type AdapterContext =
 
 const adaptIntent = (
   op: Operation<string, unknown>,
+  args: { readonly workspaceRoot: string },
 ): Effect.Effect<AdapterOutput, AppError, AdapterContext> =>
   Effect.gen(function* () {
     switch (op.name) {
@@ -435,6 +505,82 @@ const adaptIntent = (
         };
         return { kind: "step", step };
       }
+      case "sync-instruction-target": {
+        if (!isSyncInstructionTargetIntent(op.args)) {
+          return unmapped(op.name, "missing root/agentId/force args");
+        }
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const state = yield* loadInstructionsState(args.workspaceRoot);
+        if (Option.isNone(state)) {
+          return unmapped(op.name, "instruction-file management is disabled");
+        }
+        const run = syncInstructionTarget({
+          root: op.args.root,
+          agentId: op.args.agentId,
+          config: state.value.config,
+          force: op.args.force,
+          dryRun: false,
+        }).pipe(
+          Effect.map((written) => ({
+            result: "success" as const,
+            message: Option.isSome(written)
+              ? `Updated ${written.value}`
+              : "Instruction target already current or not writable without force",
+          })),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        const step: PlannedJobStep = op.args.force
+          ? {
+              key: `instruction:${op.args.root}:${op.args.agentId}`,
+              readiness: "warn",
+              warnMessage: `Overwriting drifted instruction file for ${op.args.agentId}`,
+              label: `${op.args.agentId} instruction file`,
+              run,
+            }
+          : {
+              key: `instruction:${op.args.root}:${op.args.agentId}`,
+              readiness: "ready",
+              label: `${op.args.agentId} instruction file`,
+              run,
+            };
+        return { kind: "step", step };
+      }
+      case "sync-instructions-gitignore": {
+        if (!isSyncInstructionsGitignoreIntent(op.args)) {
+          return unmapped(op.name, "missing desired arg");
+        }
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const state = yield* loadInstructionsState(args.workspaceRoot);
+        if (Option.isNone(state)) {
+          return unmapped(op.name, "instruction-file management is disabled");
+        }
+        const run = syncInstructionsGitignore({
+          workspaceRoot: args.workspaceRoot,
+          configuredAgents: state.value.configuredAgents,
+          config: state.value.config,
+          desired: op.args.desired,
+          dryRun: false,
+        }).pipe(
+          Effect.map((written) => ({
+            result: "success" as const,
+            message: Option.isSome(written)
+              ? `Updated ${written.value}`
+              : "Instruction gitignore entries already current",
+          })),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        const step: PlannedJobStep = {
+          key: "instruction:gitignore",
+          readiness: "ready",
+          label: "instruction gitignore entries",
+          run,
+        };
+        return { kind: "step", step };
+      }
       case "enable-command":
       case "disable-command":
       case "enable-subagent":
@@ -483,6 +629,7 @@ const makeRetentionPolicy = (): Effect.Effect<
 
 const applyFixes = (args: {
   readonly operations: ReadonlyArray<Operation<string, unknown>>;
+  readonly workspaceRoot: string;
 }): Effect.Effect<
   { readonly summary: FixSummary; readonly executed: ExecutedPlan },
   AppError,
@@ -499,9 +646,13 @@ const applyFixes = (args: {
   | CliRenderer
 > =>
   Effect.gen(function* () {
-    const adapterResults = yield* Effect.forEach(args.operations, adaptIntent, {
-      concurrency: "unbounded",
-    });
+    const adapterResults = yield* Effect.forEach(
+      args.operations,
+      (op) => adaptIntent(op, { workspaceRoot: args.workspaceRoot }),
+      {
+        concurrency: "unbounded",
+      },
+    );
 
     const steps: Array<PlannedJobStep> = [];
     const unmappedWarnings: Array<string> = [];
@@ -784,7 +935,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
         operations.push(op);
       }
     }
-    const { summary: fixResult } = yield* applyFixes({ operations });
+    const { summary: fixResult } = yield* applyFixes({ operations, workspaceRoot });
     fixSummary = Option.some(fixResult);
   }
 

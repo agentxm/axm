@@ -44,6 +44,10 @@ import { settingsSchemaValidRule } from "./workspace/settings-schema-valid.js";
 import { lockfileValidRule } from "./workspace/lockfile-valid.js";
 import { agentsRecognizedRule } from "./workspace/agents-recognized.js";
 import { agentsDetectedDeclaredRule } from "./workspace/agents-detected-declared.js";
+import { instructionsSourcePresentRule } from "./workspace/instructions-source-present.js";
+import { instructionsTargetCurrentRule } from "./workspace/instructions-target-current.js";
+import { instructionsAgentSupportedRule } from "./workspace/instructions-agent-supported.js";
+import { instructionsGitignoreCurrentRule } from "./workspace/instructions-gitignore-current.js";
 import { skillsDeclarationsValidRule } from "./workspace/skills-declarations-valid.js";
 import { skillsLockfileAlignedRule } from "./workspace/skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "./workspace/skills-integrity-valid.js";
@@ -73,6 +77,10 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   lockfileValidRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,
+  instructionsSourcePresentRule,
+  instructionsTargetCurrentRule,
+  instructionsAgentSupportedRule,
+  instructionsGitignoreCurrentRule,
   // Declaration valid (configured).
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,

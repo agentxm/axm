@@ -1,5 +1,9 @@
 ## 0.12.1 (2026-05-21)
 
+### 🚀 Features
+
+- Move agent instruction-file drift checks and repairs into `axm lint` and `axm lint --fix`; remove `axm agents instructions doctor` and `axm agents instructions sync`.
+
 ### 🩹 Fixes
 
 - Rename context files extension type to context. ([09334bd9](https://github.com/agentxm/axm/commit/09334bd9))

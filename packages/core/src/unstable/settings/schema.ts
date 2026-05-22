@@ -1014,11 +1014,10 @@ export const InstructionsConfigSchema = Schema.Struct({
     }),
   ),
   gitignore: Schema.optionalKey(
-    Schema.Literals(["managed", "local", "off"]).annotate({
-      description:
-        "Whether AXM manages propagated instruction-file ignore entries in .gitignore, .git/info/exclude, or neither.",
-      default: "off",
-      examples: ["off", "managed", "local"],
+    Schema.Boolean.annotate({
+      description: "Whether AXM manages propagated instruction-file ignore entries in .gitignore.",
+      default: true,
+      examples: [true, false],
     }),
   ),
 }).annotate({
@@ -1050,7 +1049,7 @@ export const AgentsConfigSchema = Schema.Struct({
     Schema.Union([Schema.Literal(false), InstructionsConfigSchema, Schema.Null]).annotate({
       description:
         "Instruction-file management: false for manual, object for enabled, null or absent for unset.",
-      examples: [false, { fileName: "AGENTS.md", gitignore: "off" }],
+      examples: [false, { fileName: "AGENTS.md", gitignore: true }],
     }),
   ),
 })

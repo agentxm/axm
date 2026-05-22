@@ -172,7 +172,7 @@ describe("Settings schema", () => {
         agentsConfig: {
           instructions: {
             fileName: "AGENTS.md",
-            gitignore: "managed",
+            gitignore: true,
           },
         },
       };
@@ -181,7 +181,7 @@ describe("Settings schema", () => {
 
       expect(result.agentsConfig?.instructions).toEqual({
         fileName: "AGENTS.md",
-        gitignore: "managed",
+        gitignore: true,
       });
     });
 

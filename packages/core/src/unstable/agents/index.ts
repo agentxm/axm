@@ -29,14 +29,17 @@ export type {
 } from "./types.js";
 
 export {
+  getInstructionsGitignoreStatus,
   getInstructionsStatus,
   listInstructionAliases,
   normalizeMarkdownBody,
   probeSymlinkSupport,
   resolveInstructionMechanism,
   resolveInstructionsConfig,
+  syncInstructionTarget,
   syncInstructions,
-  type InstructionGitignoreMode,
+  syncInstructionsGitignore,
+  type InstructionsGitignoreStatus,
   type InstructionHealth,
   type InstructionMechanism,
   type InstructionsStatus,

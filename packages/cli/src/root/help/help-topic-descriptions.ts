@@ -21,6 +21,7 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   packs: "How packs bundle multiple extensions for one-step install.",
   "pack-schema": "JSON Schema for a pack manifest.",
   "package-extensions": "How AXM links registry extensions to ecosystem packages.",
+  instructions: "How AXM propagates one workspace instruction file to every configured agent.",
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
   "settings-schema": "JSON Schema for the .axm/settings.json file.",
   "mcp-server-schema": "JSON Schema for an MCP server manifest.",

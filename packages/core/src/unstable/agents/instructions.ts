@@ -13,11 +13,9 @@ import { createSymlink } from "../utils/create-symlink.js";
 import { AGENTS } from "./registry.js";
 import type { AgentDescriptor, AgentId, AgentInstructionsDescriptor } from "./types.js";
 
-export type InstructionGitignoreMode = "managed" | "local" | "off";
-
 export interface ResolvedInstructionsConfig {
   readonly fileName: string;
-  readonly gitignore: InstructionGitignoreMode;
+  readonly gitignore: boolean;
 }
 
 export type InstructionMechanism = "native" | "symlink" | "copy" | "adapter";
@@ -44,7 +42,7 @@ export interface InstructionStatusItem {
 export interface InstructionsStatus {
   readonly enabled: boolean;
   readonly sourceFileName: string;
-  readonly gitignore: InstructionGitignoreMode;
+  readonly gitignore: boolean;
   readonly roots: ReadonlyArray<string>;
   readonly items: ReadonlyArray<InstructionStatusItem>;
 }
@@ -55,8 +53,14 @@ export interface InstructionsSyncResult {
   readonly skipped: ReadonlyArray<string>;
 }
 
+export interface InstructionsGitignoreStatus {
+  readonly file: string;
+  readonly desired: boolean;
+  readonly current: boolean;
+}
+
 const DEFAULT_SOURCE_FILE = "AGENTS.md";
-const DEFAULT_GITIGNORE: InstructionGitignoreMode = "off";
+const DEFAULT_GITIGNORE = true;
 const START_MARKER = "# >>> axm:instructions >>>";
 const END_MARKER = "# <<< axm:instructions <<<";
 
@@ -432,6 +436,12 @@ const syncOneTarget = (args: {
 const managedRegion = (patterns: ReadonlyArray<string>): string =>
   patterns.length === 0 ? "" : `${START_MARKER}\n${patterns.join("\n")}\n${END_MARKER}\n`;
 
+const hasManagedRegion = (content: string): boolean => {
+  const start = content.indexOf(START_MARKER);
+  const end = content.indexOf(END_MARKER);
+  return start >= 0 && end >= start;
+};
+
 const replaceManagedRegion = (content: string, region: string): string => {
   const start = content.indexOf(START_MARKER);
   const end = content.indexOf(END_MARKER);
@@ -441,34 +451,50 @@ const replaceManagedRegion = (content: string, region: string): string => {
     const suffix = content.slice(after).trimStart();
     return [prefix, region.trimEnd(), suffix].filter((part) => part !== "").join("\n\n") + "\n";
   }
+  if (region.length === 0) return content;
   const prefix = content.trimEnd();
   return [prefix, region.trimEnd()].filter((part) => part !== "").join("\n\n") + "\n";
 };
 
-const gitignorePath = (workspaceRoot: string, mode: InstructionGitignoreMode) =>
+const instructionGitignorePath = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    return mode === "managed"
-      ? path.join(workspaceRoot, ".gitignore")
-      : path.join(workspaceRoot, ".git", "info", "exclude");
+    return path.join(workspaceRoot, ".gitignore");
   });
+
+const desiredGitignoreRegion = (args: {
+  readonly desired: boolean;
+  readonly sourceFileName: string;
+  readonly configuredAgents: ReadonlyArray<string>;
+}): string =>
+  args.desired
+    ? managedRegion(
+        listInstructionAliases(
+          findAgentDescriptors(args.configuredAgents),
+          args.sourceFileName,
+        ).map((alias) => `**/${alias}`),
+      )
+    : "";
 
 const writeGitignoreRegion = (args: {
   readonly workspaceRoot: string;
-  readonly mode: InstructionGitignoreMode;
+  readonly desired: boolean;
   readonly sourceFileName: string;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
-    if (args.mode === "off") return Option.none<string>();
-    const filePath = yield* gitignorePath(args.workspaceRoot, args.mode);
-    const patterns = listInstructionAliases(
-      findAgentDescriptors(args.configuredAgents),
-      args.sourceFileName,
-    ).map((alias) => `**/${alias}`);
-    const region = managedRegion(patterns);
+    const filePath = yield* instructionGitignorePath(args.workspaceRoot);
+    const region = desiredGitignoreRegion({
+      desired: args.desired,
+      sourceFileName: args.sourceFileName,
+      configuredAgents: args.configuredAgents,
+    });
     const current = yield* readFileOption(filePath);
+    if (region.length === 0 && Option.isNone(current)) return Option.none<string>();
+    if (region.length === 0 && Option.isSome(current) && !hasManagedRegion(current.value)) {
+      return Option.none<string>();
+    }
     const next = replaceManagedRegion(
       Option.getOrElse(current, () => ""),
       region,
@@ -476,6 +502,85 @@ const writeGitignoreRegion = (args: {
     if (Option.isSome(current) && current.value === next) return Option.none<string>();
     if (!args.dryRun) yield* writeFile(filePath, next);
     return Option.some(filePath);
+  });
+
+export const getInstructionsGitignoreStatus = (args: {
+  readonly workspaceRoot: string;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly config: ResolvedInstructionsConfig;
+}): Effect.Effect<InstructionsGitignoreStatus, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const file = yield* instructionGitignorePath(args.workspaceRoot);
+    const currentContent = yield* readFileOption(file);
+    const current = Option.isSome(currentContent) && hasManagedRegion(currentContent.value);
+    const region = desiredGitignoreRegion({
+      desired: args.config.gitignore,
+      sourceFileName: args.config.fileName,
+      configuredAgents: args.configuredAgents,
+    });
+    const desired = region.length > 0;
+    const next = replaceManagedRegion(
+      Option.getOrElse(currentContent, () => ""),
+      region,
+    );
+    return {
+      file,
+      desired,
+      current:
+        Option.isSome(currentContent) &&
+        (currentContent.value === next || (region.length === 0 && !current)),
+    };
+  });
+
+export const syncInstructionTarget = (args: {
+  readonly root: string;
+  readonly agentId: string;
+  readonly config: ResolvedInstructionsConfig;
+  readonly force: boolean;
+  readonly dryRun: boolean;
+  readonly symlinkSupported?: boolean;
+}): Effect.Effect<Option.Option<string>, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const descriptor = findAgentDescriptor(args.agentId);
+    if (descriptor === undefined || descriptor.instructions === undefined) {
+      return Option.none<string>();
+    }
+    const sourcePath = path.join(args.root, args.config.fileName);
+    const sourceContent = yield* readFileOption(sourcePath);
+    if (Option.isNone(sourceContent)) return Option.none<string>();
+    const symlinkSupported = args.symlinkSupported ?? (yield* probeSymlinkSupport(args.root));
+    const mechanism = resolveInstructionMechanism(descriptor.instructions, symlinkSupported);
+    const targetPath = yield* targetForDescriptor(
+      args.root,
+      args.config.fileName,
+      descriptor.instructions,
+      mechanism,
+    );
+    return yield* syncOneTarget({
+      sourcePath,
+      targetPath,
+      sourceContent: sourceContent.value,
+      mechanism,
+      force: args.force,
+      dryRun: args.dryRun,
+      sourceFileName: args.config.fileName,
+    });
+  });
+
+export const syncInstructionsGitignore = (args: {
+  readonly workspaceRoot: string;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly config: ResolvedInstructionsConfig;
+  readonly desired: boolean;
+  readonly dryRun: boolean;
+}): Effect.Effect<Option.Option<string>, AppError, FileSystem.FileSystem | Path.Path> =>
+  writeGitignoreRegion({
+    workspaceRoot: args.workspaceRoot,
+    desired: args.desired,
+    sourceFileName: args.config.fileName,
+    configuredAgents: args.configuredAgents,
+    dryRun: args.dryRun,
   });
 
 export const syncInstructions = (args: {
@@ -533,7 +638,7 @@ export const syncInstructions = (args: {
     );
     const gitignoreWrite = yield* writeGitignoreRegion({
       workspaceRoot: args.workspaceRoot,
-      mode: args.config.gitignore,
+      desired: args.config.gitignore,
       sourceFileName: args.config.fileName,
       configuredAgents: args.configuredAgents,
       dryRun: args.dryRun,

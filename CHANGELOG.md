@@ -1,3 +1,13 @@
+## 0.12.2 (2026-05-25)
+
+### 🩹 Fixes
+
+- Publish the `mcps` registry segment rename in the shared kernel. ([9f7df489](https://github.com/agentxm/axm/commit/9f7df489))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.12.1 (2026-05-21)
 
 ### 🚀 Features

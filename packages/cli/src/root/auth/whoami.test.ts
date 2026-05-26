@@ -113,10 +113,9 @@ describe("auth whoami handler", () => {
       Effect.gen(function* () {
         yield* handleWhoami();
 
-        expect(rendererState.details).toHaveLength(1);
-        expect(rendererState.details[0]?.item).toMatchObject({
-          handle: ALICE,
-          registryUrl: REGISTRY_URL,
+        expect(rendererState.logs).toContainEqual({
+          _tag: "message",
+          message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\n`,
         });
       }),
     );
@@ -131,8 +130,8 @@ describe("auth whoami handler", () => {
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
           data: {
-            handle: ALICE,
-            registryUrl: REGISTRY_URL,
+            user: ALICE,
+            registry: REGISTRY_URL,
           },
         });
         expect(rendererState.logs).toHaveLength(0);

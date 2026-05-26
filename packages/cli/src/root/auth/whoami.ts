@@ -4,29 +4,17 @@ import { Command } from "effect/unstable/cli";
 
 import { AuthClient, RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
 import { errAuthRequired } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
 
 const WhoamiDataSchema = Schema.Struct({
-  handle: Schema.String,
-  registryUrl: Schema.String,
+  user: Schema.String,
+  registry: Schema.String,
 });
 const WhoamiDocumentFields = {
   data: WhoamiDataSchema,
 } satisfies Schema.Struct.Fields;
-
-interface WhoamiDetailItem {
-  readonly handle: string;
-  readonly registryUrl: string;
-}
-
-const WhoamiDetail = {
-  fields: {
-    handle: { label: "Identity" },
-    registryUrl: { label: "Registry" },
-  },
-} as const satisfies DetailView<WhoamiDetailItem>;
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   const authClient = yield* AuthClient;
@@ -41,8 +29,8 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   // Step 2: Call whoami
   const identity = yield* authClient.getWhoami(token.token);
   const result = {
-    handle: identity.handle,
-    registryUrl,
+    user: identity.handle,
+    registry: registryUrl,
   };
 
   // Step 3: Display result
@@ -50,11 +38,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
     return;
   }
 
-  const detail: WhoamiDetailItem = {
-    ...result,
-  };
-
-  yield* renderer.detail(detail, WhoamiDetail, "Authenticated identity");
+  yield* renderer.raw(`Authenticated as ${result.user}\nRegistry  ${result.registry}\n`);
 }, Effect.asVoid);
 
 const whoamiConfig = {} as const;

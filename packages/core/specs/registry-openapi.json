@@ -2181,20 +2181,10 @@
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "visibility": { "type": "string" },
-                    "listed": { "type": "boolean" },
                     "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" },
                     "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
-                  "required": [
-                    "id",
-                    "owner",
-                    "type",
-                    "name",
-                    "visibility",
-                    "listed",
-                    "updatedAt",
-                    "links"
-                  ],
+                  "required": ["id", "owner", "type", "name", "visibility", "updatedAt", "links"],
                   "additionalProperties": false
                 }
               }
@@ -2251,7 +2241,7 @@
             }
           }
         },
-        "summary": "Update extension visibility and/or listed flag",
+        "summary": "Update extension visibility",
         "requestBody": {
           "content": {
             "application/json": { "schema": { "$ref": "#/components/schemas/PatchVisibilityBody" } }
@@ -5196,30 +5186,16 @@
         "type": "object",
         "properties": {
           "visibility": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["public", "internal", "private"],
-                "title": "Visibility",
-                "description": "Target visibility tier for the extension."
-              },
-              { "type": "null" }
-            ]
-          },
-          "listed": {
-            "anyOf": [
-              {
-                "type": "boolean",
-                "title": "Listed",
-                "description": "Whether the extension appears on discovery surfaces (search, browse). Independent of visibility."
-              },
-              { "type": "null" }
-            ]
+            "type": "string",
+            "enum": ["public", "internal", "private"],
+            "title": "Visibility",
+            "description": "Target visibility tier for the extension."
           }
         },
+        "required": ["visibility"],
         "additionalProperties": false,
         "title": "Patch Visibility Body",
-        "description": "Request body for updating an extension's visibility and/or listed flag. At least one field is required."
+        "description": "Request body for updating an extension's visibility."
       },
       "ExtensionId": {
         "type": "string",

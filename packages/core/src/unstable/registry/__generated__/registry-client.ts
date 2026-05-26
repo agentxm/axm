@@ -593,34 +593,15 @@ export const PackageIdentityPurl = Schema.String.check(Schema.isMinLength(1)).ch
     examples: ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"],
   }),
 );
-export type PatchVisibilityBody = {
-  readonly visibility?: "public" | "internal" | "private" | null;
-  readonly listed?: boolean | null;
-};
+export type PatchVisibilityBody = { readonly visibility: "public" | "internal" | "private" };
 export const PatchVisibilityBody = Schema.Struct({
-  visibility: Schema.optionalKey(
-    Schema.Union([
-      Schema.Literals(["public", "internal", "private"]).annotate({
-        title: "Visibility",
-        description: "Target visibility tier for the extension.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  listed: Schema.optionalKey(
-    Schema.Union([
-      Schema.Boolean.annotate({
-        title: "Listed",
-        description:
-          "Whether the extension appears on discovery surfaces (search, browse). Independent of visibility.",
-      }),
-      Schema.Null,
-    ]),
-  ),
+  visibility: Schema.Literals(["public", "internal", "private"]).annotate({
+    title: "Visibility",
+    description: "Target visibility tier for the extension.",
+  }),
 }).annotate({
   title: "Patch Visibility Body",
-  description:
-    "Request body for updating an extension's visibility and/or listed flag. At least one field is required.",
+  description: "Request body for updating an extension's visibility.",
 });
 export type ExtensionId = string;
 export const ExtensionId = Schema.String.check(
@@ -1952,7 +1933,6 @@ export type ExtensionsUpdateVisibility200 = {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly visibility: string;
-  readonly listed: boolean;
   readonly updatedAt: string;
   readonly links: ExtensionLinks;
 };
@@ -1962,7 +1942,6 @@ export const ExtensionsUpdateVisibility200 = Schema.Struct({
   type: ExtensionType,
   name: ExtensionName,
   visibility: Schema.String,
-  listed: Schema.Boolean,
   updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
   links: ExtensionLinks,
 });
@@ -3940,7 +3919,7 @@ export interface RegistryClient {
     | RegistryClientError<"500", undefined>
   >;
   /**
-   * Update extension visibility and/or listed flag
+   * Update extension visibility
    */
   readonly ExtensionsUpdateVisibility: <Config extends OperationConfig>(
     owner: string,

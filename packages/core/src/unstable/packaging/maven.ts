@@ -257,6 +257,49 @@ const parseVersionCatalog = (content: string, source: string): ReadonlyArray<Det
 };
 
 /**
+ * Parse deps.edn content and extract Maven dependencies.
+ *
+ * Supports dependencies declared in root `:deps` and alias `:extra-deps` maps.
+ */
+const parseDepsEdn = (content: string, source: string): ReadonlyArray<DetectedPackage> => {
+  const results: Array<DetectedPackage> = [];
+  const withoutComments = content.replace(/;[^\n\r]*/g, "");
+  const depRegex =
+    /(^|[\s{])([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)?)\s*\{[^}]*:mvn\/version\s+"([^"]+)"[^}]*}/g;
+
+  let match: RegExpExecArray | null;
+  while ((match = depRegex.exec(withoutComments)) !== null) {
+    const coordinate = match[2];
+    const version = match[3];
+    if (coordinate === undefined || version === undefined) continue;
+
+    const parts = coordinate.split("/");
+    if (parts.length === 1) {
+      const artifactId = parts[0];
+      if (artifactId !== undefined && artifactId.trim() !== "") {
+        results.push(makeMavenPackage("", artifactId.trim(), version, source));
+      }
+      continue;
+    }
+
+    if (parts.length === 2) {
+      const groupId = parts[0];
+      const artifactId = parts[1];
+      if (
+        groupId !== undefined &&
+        artifactId !== undefined &&
+        groupId.trim() !== "" &&
+        artifactId.trim() !== ""
+      ) {
+        results.push(makeMavenPackage(groupId.trim(), artifactId.trim(), version, source));
+      }
+    }
+  }
+
+  return results;
+};
+
+/**
  * Read a file as string, returning Option.none for NotFound and other errors.
  */
 const readFileOptional = (filePath: string) =>
@@ -390,7 +433,8 @@ const readZipEntry = (zipPath: string, entryName: string) =>
  * Maven package detector.
  *
  * Scans `pom.xml`, `build.gradle`, `build.gradle.kts`, and
- * `gradle/libs.versions.toml` in the project directory.
+ * `gradle/libs.versions.toml` in the project directory. Also detects Clojure
+ * `deps.edn` Maven coordinates declared with `:mvn/version`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -436,6 +480,14 @@ export const mavenDetector: PackageDetector = {
       if (Option.isSome(catalogContent)) {
         const catalogDeps = parseVersionCatalog(catalogContent.value, versionCatalogPath);
         allPackages.push(...catalogDeps);
+      }
+
+      // Parse deps.edn
+      const depsEdnPath = path.join(projectDir, "deps.edn");
+      const depsEdnContent = yield* readFileOptional(depsEdnPath);
+      if (Option.isSome(depsEdnContent)) {
+        const depsEdnDeps = parseDepsEdn(depsEdnContent.value, depsEdnPath);
+        allPackages.push(...depsEdnDeps);
       }
 
       return deduplicatePackages(allPackages);

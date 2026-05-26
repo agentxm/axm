@@ -29,6 +29,30 @@ describe("discover-schema", () => {
     expect(result.official).toBe(true);
   });
 
+  it("accepts registry plural extension type segments", () => {
+    const result = Schema.decodeUnknownSync(DiscoveryExtensionResultSchema)({
+      ...validExtension,
+      extension: {
+        ...validExtension.extension,
+        type: "skills",
+      },
+    });
+
+    expect(result.extension?.type).toBe("skills");
+  });
+
+  it("accepts registry owner slugs", () => {
+    const result = Schema.decodeUnknownSync(DiscoveryExtensionResultSchema)({
+      ...validExtension,
+      extension: {
+        ...validExtension.extension,
+        owner: "acme",
+      },
+    });
+
+    expect(result.extension?.owner).toBe("acme");
+  });
+
   it("accepts an unresolved extension ref", () => {
     const result = Schema.decodeUnknownSync(DiscoveryExtensionResultSchema)({
       ref: "@acme/skills/missing",

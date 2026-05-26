@@ -369,6 +369,62 @@ spring-core = { module = "org.springframework:spring-core", version.ref = "sprin
     );
   });
 
+  describe("deps.edn parsing", () => {
+    it.effect("extracts root :deps Maven dependency", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const depsEdn = `{:deps {ai.agentxm.examples/tinyflags {:mvn/version "0.1.0"}}}
+`;
+          const result = yield* detectInTempDir([{ name: "deps.edn", content: depsEdn }]);
+          expect(result).toHaveLength(1);
+          expect(result[0]?.purl).toEqual(
+            makePurl({
+              type: "maven",
+              namespace: "ai.agentxm.examples",
+              name: "tinyflags",
+              version: "0.1.0",
+            }),
+          );
+        }),
+      ),
+    );
+
+    it.effect("extracts alias :extra-deps Maven dependency", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const depsEdn = `{:deps {}
+ :aliases
+ {:dev
+  {:extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}}}}}
+`;
+          const result = yield* detectInTempDir([{ name: "deps.edn", content: depsEdn }]);
+          expect(result).toHaveLength(1);
+          expect(result[0]?.purl).toEqual(
+            makePurl({
+              type: "maven",
+              namespace: "org.clojure",
+              name: "test.check",
+              version: "1.1.1",
+            }),
+          );
+        }),
+      ),
+    );
+
+    it.effect("ignores deps.edn entries without :mvn/version", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const depsEdn = `{:deps {local/lib {:local/root "../lib"}
+                git/lib {:git/url "https://example.com/lib.git"
+                         :git/sha "abc123"}}}
+`;
+          const result = yield* detectInTempDir([{ name: "deps.edn", content: depsEdn }]);
+          expect(result).toEqual([]);
+        }),
+      ),
+    );
+  });
+
   describe("deduplication across build files", () => {
     it.effect("deduplicates same dependency from pom.xml and build.gradle", () =>
       withNodeContext(

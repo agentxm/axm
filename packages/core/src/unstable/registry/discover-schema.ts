@@ -5,13 +5,20 @@
  */
 
 import * as Schema from "effect/Schema";
-import { ExtensionNameSchema, ExtensionTypeSchema } from "../extensions/common.js";
-import { HandleSchema } from "../extensions/handle.js";
+import {
+  ExtensionNameSchema,
+  extensionTypePluralSegments,
+  extensionTypes,
+} from "../extensions/common.js";
+import { HandleSchema, SlugSchema } from "../extensions/handle.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 
+const discoveryExtensionWireTypes = [...extensionTypes, ...extensionTypePluralSegments] as const;
+const DiscoveryExtensionWireTypeSchema = Schema.Literals(discoveryExtensionWireTypes);
+
 export const DiscoveryResolvedExtensionSchema = Schema.Struct({
-  owner: HandleSchema,
-  type: ExtensionTypeSchema,
+  owner: Schema.Union([HandleSchema, SlugSchema]),
+  type: DiscoveryExtensionWireTypeSchema,
   name: ExtensionNameSchema,
   installVersion: VersionSchema,
 });

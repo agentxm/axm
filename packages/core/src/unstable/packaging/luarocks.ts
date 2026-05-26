@@ -168,7 +168,7 @@ export const luarocksDetector: PackageDetector = {
 /**
  * LuaRocks package reader.
  *
- * Reads `axm.json` sidecar from the LuaRocks install tree.
+ * Reads `axm/axm.json` sidecar from the LuaRocks install tree.
  * Checks system tree (`/usr/local/lib/luarocks/rocks-5.x/`) and
  * user tree (`~/.luarocks/lib/luarocks/rocks-5.x/`).
  *
@@ -195,11 +195,21 @@ export const luarocksReader: PackageReader = {
 
       for (const basePath of basePaths) {
         for (const luaVer of luaVersions) {
-          const axmJsonPath = path.join(basePath, `rocks-${luaVer}`, pkgName, version, "axm.json");
+          const axmJsonPath = path.join(
+            basePath,
+            `rocks-${luaVer}`,
+            pkgName,
+            version,
+            "axm",
+            "axm.json",
+          );
           const content = yield* readFileOptional(axmJsonPath);
           if (Option.isNone(content)) continue;
 
-          const parsed = yield* parseJsonOptional(content.value, `${pkgName}/${version}/axm.json`);
+          const parsed = yield* parseJsonOptional(
+            content.value,
+            `${pkgName}/${version}/axm/axm.json`,
+          );
           if (Option.isNone(parsed)) return Option.none();
 
           const metaResult = decodeAxmMeta(parsed.value);

@@ -197,7 +197,7 @@ describe("luarocksDetector", () => {
 const readInTempLuarocks = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   axmJsonContent?: string,
-  location?: "system" | "user",
+  location?: "root" | "user",
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -217,6 +217,7 @@ const readInTempLuarocks = (
           "rocks-5.4",
           pkgName,
           version,
+          "axm",
         );
         yield* fs.makeDirectory(userTree, { recursive: true });
         yield* fs.writeFileString(path.join(userTree, "axm.json"), axmJsonContent);
@@ -243,7 +244,6 @@ const readInTempLuarocks = (
         );
       }
 
-      // For system location - we can't easily write to /usr/local, so test user tree
       const userTree = path.join(
         tmpDir,
         ".luarocks",
@@ -291,7 +291,7 @@ describe("luarocksReader", () => {
   });
 
   describe("valid axm.json sidecar", () => {
-    it.effect("extracts extensions from axm.json", () =>
+    it.effect("extracts extensions from axm/axm.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
@@ -308,6 +308,22 @@ describe("luarocksReader", () => {
               { ref: "@luarocks/skills/luasocket", versionRange: "^1.0.0" },
             ]);
           }
+        }),
+      ),
+    );
+
+    it.effect("does not read root axm.json", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
+          const result = yield* readInTempLuarocks(
+            purl,
+            JSON.stringify({
+              extensions: [{ ref: "@luarocks/skills/luasocket", versionRange: "^1.0.0" }],
+            }),
+            "root",
+          );
+          expect(Option.isNone(result)).toBe(true);
         }),
       ),
     );

@@ -10,6 +10,7 @@ import { withAuthRuntime } from "../../runtime.js";
 
 const WhoamiDataSchema = Schema.Struct({
   handle: Schema.String,
+  registryUrl: Schema.String,
 });
 const WhoamiDocumentFields = {
   data: WhoamiDataSchema,
@@ -17,11 +18,13 @@ const WhoamiDocumentFields = {
 
 interface WhoamiDetailItem {
   readonly handle: string;
+  readonly registryUrl: string;
 }
 
 const WhoamiDetail = {
   fields: {
-    handle: { label: "Handle" },
+    handle: { label: "Identity" },
+    registryUrl: { label: "Registry" },
   },
 } as const satisfies DetailView<WhoamiDetailItem>;
 
@@ -37,14 +40,18 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
 
   // Step 2: Call whoami
   const identity = yield* authClient.getWhoami(token.token);
+  const result = {
+    handle: identity.handle,
+    registryUrl,
+  };
 
   // Step 3: Display result
-  if (yield* renderer.result({ data: identity }, Schema.Struct(WhoamiDocumentFields))) {
+  if (yield* renderer.result({ data: result }, Schema.Struct(WhoamiDocumentFields))) {
     return;
   }
 
   const detail: WhoamiDetailItem = {
-    handle: identity.handle,
+    ...result,
   };
 
   yield* renderer.detail(detail, WhoamiDetail, "Authenticated identity");

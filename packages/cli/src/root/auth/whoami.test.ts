@@ -116,6 +116,7 @@ describe("auth whoami handler", () => {
         expect(rendererState.details).toHaveLength(1);
         expect(rendererState.details[0]?.item).toMatchObject({
           handle: ALICE,
+          registryUrl: REGISTRY_URL,
         });
       }),
     );
@@ -131,6 +132,7 @@ describe("auth whoami handler", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           data: {
             handle: ALICE,
+            registryUrl: REGISTRY_URL,
           },
         });
         expect(rendererState.logs).toHaveLength(0);

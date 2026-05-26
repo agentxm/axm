@@ -1,3 +1,13 @@
+## 0.12.3 (2026-05-26)
+
+### 🩹 Fixes
+
+- Update registry client for visibility-only extension discovery. ([7a7e0fdb](https://github.com/agentxm/axm/commit/7a7e0fdb))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.12.2 (2026-05-25)
 
 ### 🩹 Fixes

@@ -50,6 +50,7 @@ const encodeSettingsSync = Schema.encodeSync(SettingsSchema);
 const decodeSettingsSync = Schema.decodeUnknownSync(SettingsSchema);
 
 const settingsConfigKeys = new Set([
+  "rulesConfig",
   "skillsConfig",
   "commandsConfig",
   "subagentsConfig",
@@ -62,6 +63,7 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
   if (!settingsConfigKeys.has(key) || !isRecord(value)) return false;
+  if (key === "rulesConfig") return value["instructions"] === undefined;
   const ignore = value["ignore"];
   return ignore === undefined || (Array.isArray(ignore) && ignore.length === 0);
 };

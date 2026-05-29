@@ -102,7 +102,7 @@
       "title": "Instructions Config",
       "description": "Instruction-file management settings for configured agents."
     },
-    "AgentsConfig": {
+    "RulesConfig": {
       "type": "object",
       "properties": {
         "instructions": {
@@ -650,9 +650,9 @@
           "allOf": [{ "uniqueItems": true }],
           "items": { "$ref": "#/definitions/ConfigurableAgentId" }
         },
-        "agentsConfig": {
-          "anyOf": [{ "$ref": "#/definitions/AgentsConfig" }],
-          "description": "Feature-level options for coding-agent harness management."
+        "rulesConfig": {
+          "anyOf": [{ "$ref": "#/definitions/RulesConfig" }],
+          "description": "Feature-level options for rules capabilities."
         },
         "sources": {
           "type": "array",

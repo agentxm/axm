@@ -177,6 +177,11 @@
         "summary": "Configure coding-agent targets."
       },
       {
+        "command": "axm rules",
+        "slug": "cli-reference/rules",
+        "summary": "Manage rules capabilities for configured agents."
+      },
+      {
         "command": "axm lint",
         "slug": "cli-reference/lint",
         "summary": "Validate workspace configuration and extension artifacts."
@@ -10007,7 +10012,7 @@
           {
             "command": "axm agents instructions",
             "slug": "cli-reference/agents-instructions",
-            "summary": "Manage configured agent instruction files"
+            "summary": "Deprecated alias for `axm rules`"
           }
         ],
         "children": [
@@ -10404,8 +10409,8 @@
             "slug": "cli-reference/agents-instructions",
             "category": "workspace",
             "group": "WORKSPACE",
-            "description": "Manage configured agent instruction files",
-            "summary": "Manage configured agent instruction files",
+            "description": "Deprecated alias for `axm rules`",
+            "summary": "Deprecated alias for `axm rules`",
             "usage": "axm agents instructions <subcommand> [flags]",
             "args": [],
             "flags": [
@@ -10478,7 +10483,7 @@
             ],
             "examples": [
               {
-                "command": "axm agents instructions",
+                "command": "axm rules",
                 "description": "Inspect instruction files",
                 "kind": "common"
               },
@@ -10494,12 +10499,12 @@
               {
                 "command": "axm agents instructions enable",
                 "slug": "cli-reference/agents-instructions-enable",
-                "summary": "Enable instruction-file management"
+                "summary": "Deprecated alias for `axm rules enable`"
               },
               {
                 "command": "axm agents instructions disable",
                 "slug": "cli-reference/agents-instructions-disable",
-                "summary": "Disable instruction-file management"
+                "summary": "Deprecated alias for `axm rules disable`"
               }
             ],
             "children": [
@@ -10509,8 +10514,8 @@
                 "slug": "cli-reference/agents-instructions-enable",
                 "category": "workspace",
                 "group": "WORKSPACE",
-                "description": "Enable instruction-file management",
-                "summary": "Enable instruction-file management",
+                "description": "Deprecated alias for `axm rules enable`",
+                "summary": "Deprecated alias for `axm rules enable`",
                 "usage": "axm agents instructions enable [flags]",
                 "args": [],
                 "flags": [
@@ -10599,12 +10604,12 @@
                 ],
                 "examples": [
                   {
-                    "command": "axm agents instructions enable",
+                    "command": "axm rules enable",
                     "description": "Enable instruction files",
                     "kind": "common"
                   },
                   {
-                    "command": "axm agents instructions enable --no-gitignore",
+                    "command": "axm rules enable --no-gitignore",
                     "description": "Enable without writing gitignore entries",
                     "kind": "common"
                   }
@@ -10620,8 +10625,8 @@
                 "slug": "cli-reference/agents-instructions-disable",
                 "category": "workspace",
                 "group": "WORKSPACE",
-                "description": "Disable instruction-file management",
-                "summary": "Disable instruction-file management",
+                "description": "Deprecated alias for `axm rules disable`",
+                "summary": "Deprecated alias for `axm rules disable`",
                 "usage": "axm agents instructions disable [flags]",
                 "args": [],
                 "flags": [
@@ -10694,7 +10699,7 @@
                 ],
                 "examples": [
                   {
-                    "command": "axm agents instructions disable",
+                    "command": "axm rules disable",
                     "description": "Disable instruction files",
                     "kind": "common"
                   }
@@ -10705,6 +10710,313 @@
                 "children": []
               }
             ]
+          }
+        ]
+      },
+      {
+        "path": ["axm", "rules"],
+        "command": "axm rules",
+        "slug": "cli-reference/rules",
+        "category": "workspace",
+        "group": "WORKSPACE",
+        "description": "Manage rules capabilities for configured agents",
+        "summary": "Manage rules capabilities for configured agents.",
+        "whenToUse": "Use this command family when enabling or inspecting workspace instruction files.",
+        "usage": "axm rules <subcommand> [flags]",
+        "args": [],
+        "flags": [
+          {
+            "name": "scope",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Inspect project (default) or user-level configuration (choices: project, user)",
+            "group": "Workspace"
+          }
+        ],
+        "globalFlags": [
+          {
+            "name": "help",
+            "aliases": ["-h"],
+            "type": "boolean",
+            "required": false,
+            "description": "Show help information",
+            "group": "Selection"
+          },
+          {
+            "name": "version",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Show version information",
+            "group": "Selection"
+          },
+          {
+            "name": "non-interactive",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Disable all interactive prompts",
+            "group": "Selection"
+          },
+          {
+            "name": "verbose",
+            "aliases": ["-v"],
+            "type": "boolean",
+            "required": false,
+            "description": "Show additional diagnostic details for errors",
+            "group": "Output"
+          },
+          {
+            "name": "debug",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Show full debug details for errors (implies --verbose)",
+            "group": "Output"
+          },
+          {
+            "name": "quiet",
+            "aliases": ["-q"],
+            "type": "boolean",
+            "required": false,
+            "description": "Suppress non-essential output",
+            "group": "Output"
+          },
+          {
+            "name": "json",
+            "aliases": ["-j"],
+            "type": "boolean",
+            "required": false,
+            "description": "Output machine-readable JSON",
+            "group": "Output"
+          }
+        ],
+        "examples": [
+          { "command": "axm rules", "description": "Inspect instruction files", "kind": "common" },
+          {
+            "command": "axm lint --fix",
+            "description": "Repair instruction-file drift",
+            "kind": "common"
+          }
+        ],
+        "requirements": { "workspace": true },
+        "sideEffects": { "mutatesWorkspace": true, "writesFiles": true },
+        "notes": [],
+        "related": [],
+        "subcommands": [
+          {
+            "command": "axm rules enable",
+            "slug": "cli-reference/rules-enable",
+            "summary": "Enable instruction-file management"
+          },
+          {
+            "command": "axm rules disable",
+            "slug": "cli-reference/rules-disable",
+            "summary": "Disable instruction-file management"
+          }
+        ],
+        "children": [
+          {
+            "path": ["axm", "rules", "enable"],
+            "command": "axm rules enable",
+            "slug": "cli-reference/rules-enable",
+            "category": "workspace",
+            "group": "WORKSPACE",
+            "description": "Enable instruction-file management",
+            "summary": "Enable instruction-file management",
+            "usage": "axm rules enable [flags]",
+            "args": [],
+            "flags": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Enable project (default) or user-level configuration (choices: project, user)",
+                "group": "Workspace"
+              },
+              {
+                "name": "file",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Source-of-truth instruction file",
+                "group": "Selection"
+              },
+              {
+                "name": "gitignore",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Manage propagated files in .gitignore",
+                "group": "Selection"
+              }
+            ],
+            "globalFlags": [
+              {
+                "name": "help",
+                "aliases": ["-h"],
+                "type": "boolean",
+                "required": false,
+                "description": "Show help information",
+                "group": "Selection"
+              },
+              {
+                "name": "version",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show version information",
+                "group": "Selection"
+              },
+              {
+                "name": "non-interactive",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Disable all interactive prompts",
+                "group": "Selection"
+              },
+              {
+                "name": "verbose",
+                "aliases": ["-v"],
+                "type": "boolean",
+                "required": false,
+                "description": "Show additional diagnostic details for errors",
+                "group": "Output"
+              },
+              {
+                "name": "debug",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show full debug details for errors (implies --verbose)",
+                "group": "Output"
+              },
+              {
+                "name": "quiet",
+                "aliases": ["-q"],
+                "type": "boolean",
+                "required": false,
+                "description": "Suppress non-essential output",
+                "group": "Output"
+              },
+              {
+                "name": "json",
+                "aliases": ["-j"],
+                "type": "boolean",
+                "required": false,
+                "description": "Output machine-readable JSON",
+                "group": "Output"
+              }
+            ],
+            "examples": [
+              {
+                "command": "axm rules enable",
+                "description": "Enable instruction files",
+                "kind": "common"
+              },
+              {
+                "command": "axm rules enable --no-gitignore",
+                "description": "Enable without writing gitignore entries",
+                "kind": "common"
+              }
+            ],
+            "notes": [],
+            "related": [],
+            "subcommands": [],
+            "children": []
+          },
+          {
+            "path": ["axm", "rules", "disable"],
+            "command": "axm rules disable",
+            "slug": "cli-reference/rules-disable",
+            "category": "workspace",
+            "group": "WORKSPACE",
+            "description": "Disable instruction-file management",
+            "summary": "Disable instruction-file management",
+            "usage": "axm rules disable [flags]",
+            "args": [],
+            "flags": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Disable project (default) or user-level configuration (choices: project, user)",
+                "group": "Workspace"
+              }
+            ],
+            "globalFlags": [
+              {
+                "name": "help",
+                "aliases": ["-h"],
+                "type": "boolean",
+                "required": false,
+                "description": "Show help information",
+                "group": "Selection"
+              },
+              {
+                "name": "version",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show version information",
+                "group": "Selection"
+              },
+              {
+                "name": "non-interactive",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Disable all interactive prompts",
+                "group": "Selection"
+              },
+              {
+                "name": "verbose",
+                "aliases": ["-v"],
+                "type": "boolean",
+                "required": false,
+                "description": "Show additional diagnostic details for errors",
+                "group": "Output"
+              },
+              {
+                "name": "debug",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show full debug details for errors (implies --verbose)",
+                "group": "Output"
+              },
+              {
+                "name": "quiet",
+                "aliases": ["-q"],
+                "type": "boolean",
+                "required": false,
+                "description": "Suppress non-essential output",
+                "group": "Output"
+              },
+              {
+                "name": "json",
+                "aliases": ["-j"],
+                "type": "boolean",
+                "required": false,
+                "description": "Output machine-readable JSON",
+                "group": "Output"
+              }
+            ],
+            "examples": [
+              {
+                "command": "axm rules disable",
+                "description": "Disable instruction files",
+                "kind": "common"
+              }
+            ],
+            "notes": [],
+            "related": [],
+            "subcommands": [],
+            "children": []
           }
         ]
       },
@@ -30553,7 +30865,7 @@
         {
           "command": "axm agents instructions",
           "slug": "cli-reference/agents-instructions",
-          "summary": "Manage configured agent instruction files"
+          "summary": "Deprecated alias for `axm rules`"
         }
       ],
       "children": [
@@ -30950,8 +31262,8 @@
           "slug": "cli-reference/agents-instructions",
           "category": "workspace",
           "group": "WORKSPACE",
-          "description": "Manage configured agent instruction files",
-          "summary": "Manage configured agent instruction files",
+          "description": "Deprecated alias for `axm rules`",
+          "summary": "Deprecated alias for `axm rules`",
           "usage": "axm agents instructions <subcommand> [flags]",
           "args": [],
           "flags": [
@@ -31024,7 +31336,7 @@
           ],
           "examples": [
             {
-              "command": "axm agents instructions",
+              "command": "axm rules",
               "description": "Inspect instruction files",
               "kind": "common"
             },
@@ -31040,12 +31352,12 @@
             {
               "command": "axm agents instructions enable",
               "slug": "cli-reference/agents-instructions-enable",
-              "summary": "Enable instruction-file management"
+              "summary": "Deprecated alias for `axm rules enable`"
             },
             {
               "command": "axm agents instructions disable",
               "slug": "cli-reference/agents-instructions-disable",
-              "summary": "Disable instruction-file management"
+              "summary": "Deprecated alias for `axm rules disable`"
             }
           ],
           "children": [
@@ -31055,8 +31367,8 @@
               "slug": "cli-reference/agents-instructions-enable",
               "category": "workspace",
               "group": "WORKSPACE",
-              "description": "Enable instruction-file management",
-              "summary": "Enable instruction-file management",
+              "description": "Deprecated alias for `axm rules enable`",
+              "summary": "Deprecated alias for `axm rules enable`",
               "usage": "axm agents instructions enable [flags]",
               "args": [],
               "flags": [
@@ -31145,12 +31457,12 @@
               ],
               "examples": [
                 {
-                  "command": "axm agents instructions enable",
+                  "command": "axm rules enable",
                   "description": "Enable instruction files",
                   "kind": "common"
                 },
                 {
-                  "command": "axm agents instructions enable --no-gitignore",
+                  "command": "axm rules enable --no-gitignore",
                   "description": "Enable without writing gitignore entries",
                   "kind": "common"
                 }
@@ -31166,8 +31478,8 @@
               "slug": "cli-reference/agents-instructions-disable",
               "category": "workspace",
               "group": "WORKSPACE",
-              "description": "Disable instruction-file management",
-              "summary": "Disable instruction-file management",
+              "description": "Deprecated alias for `axm rules disable`",
+              "summary": "Deprecated alias for `axm rules disable`",
               "usage": "axm agents instructions disable [flags]",
               "args": [],
               "flags": [
@@ -31240,7 +31552,7 @@
               ],
               "examples": [
                 {
-                  "command": "axm agents instructions disable",
+                  "command": "axm rules disable",
                   "description": "Disable instruction files",
                   "kind": "common"
                 }
@@ -31647,8 +31959,8 @@
       "slug": "cli-reference/agents-instructions",
       "category": "workspace",
       "group": "WORKSPACE",
-      "description": "Manage configured agent instruction files",
-      "summary": "Manage configured agent instruction files",
+      "description": "Deprecated alias for `axm rules`",
+      "summary": "Deprecated alias for `axm rules`",
       "usage": "axm agents instructions <subcommand> [flags]",
       "args": [],
       "flags": [
@@ -31720,11 +32032,7 @@
         }
       ],
       "examples": [
-        {
-          "command": "axm agents instructions",
-          "description": "Inspect instruction files",
-          "kind": "common"
-        },
+        { "command": "axm rules", "description": "Inspect instruction files", "kind": "common" },
         {
           "command": "axm lint --fix",
           "description": "Repair instruction-file drift",
@@ -31737,12 +32045,12 @@
         {
           "command": "axm agents instructions enable",
           "slug": "cli-reference/agents-instructions-enable",
-          "summary": "Enable instruction-file management"
+          "summary": "Deprecated alias for `axm rules enable`"
         },
         {
           "command": "axm agents instructions disable",
           "slug": "cli-reference/agents-instructions-disable",
-          "summary": "Disable instruction-file management"
+          "summary": "Deprecated alias for `axm rules disable`"
         }
       ],
       "children": [
@@ -31752,8 +32060,8 @@
           "slug": "cli-reference/agents-instructions-enable",
           "category": "workspace",
           "group": "WORKSPACE",
-          "description": "Enable instruction-file management",
-          "summary": "Enable instruction-file management",
+          "description": "Deprecated alias for `axm rules enable`",
+          "summary": "Deprecated alias for `axm rules enable`",
           "usage": "axm agents instructions enable [flags]",
           "args": [],
           "flags": [
@@ -31842,12 +32150,12 @@
           ],
           "examples": [
             {
-              "command": "axm agents instructions enable",
+              "command": "axm rules enable",
               "description": "Enable instruction files",
               "kind": "common"
             },
             {
-              "command": "axm agents instructions enable --no-gitignore",
+              "command": "axm rules enable --no-gitignore",
               "description": "Enable without writing gitignore entries",
               "kind": "common"
             }
@@ -31863,8 +32171,8 @@
           "slug": "cli-reference/agents-instructions-disable",
           "category": "workspace",
           "group": "WORKSPACE",
-          "description": "Disable instruction-file management",
-          "summary": "Disable instruction-file management",
+          "description": "Deprecated alias for `axm rules disable`",
+          "summary": "Deprecated alias for `axm rules disable`",
           "usage": "axm agents instructions disable [flags]",
           "args": [],
           "flags": [
@@ -31937,7 +32245,7 @@
           ],
           "examples": [
             {
-              "command": "axm agents instructions disable",
+              "command": "axm rules disable",
               "description": "Disable instruction files",
               "kind": "common"
             }
@@ -31955,8 +32263,8 @@
       "slug": "cli-reference/agents-instructions-enable",
       "category": "workspace",
       "group": "WORKSPACE",
-      "description": "Enable instruction-file management",
-      "summary": "Enable instruction-file management",
+      "description": "Deprecated alias for `axm rules enable`",
+      "summary": "Deprecated alias for `axm rules enable`",
       "usage": "axm agents instructions enable [flags]",
       "args": [],
       "flags": [
@@ -32045,12 +32353,12 @@
       ],
       "examples": [
         {
-          "command": "axm agents instructions enable",
+          "command": "axm rules enable",
           "description": "Enable instruction files",
           "kind": "common"
         },
         {
-          "command": "axm agents instructions enable --no-gitignore",
+          "command": "axm rules enable --no-gitignore",
           "description": "Enable without writing gitignore entries",
           "kind": "common"
         }
@@ -32066,8 +32374,8 @@
       "slug": "cli-reference/agents-instructions-disable",
       "category": "workspace",
       "group": "WORKSPACE",
-      "description": "Disable instruction-file management",
-      "summary": "Disable instruction-file management",
+      "description": "Deprecated alias for `axm rules disable`",
+      "summary": "Deprecated alias for `axm rules disable`",
       "usage": "axm agents instructions disable [flags]",
       "args": [],
       "flags": [
@@ -32140,7 +32448,515 @@
       ],
       "examples": [
         {
-          "command": "axm agents instructions disable",
+          "command": "axm rules disable",
+          "description": "Disable instruction files",
+          "kind": "common"
+        }
+      ],
+      "notes": [],
+      "related": [],
+      "subcommands": [],
+      "children": []
+    },
+    {
+      "path": ["axm", "rules"],
+      "command": "axm rules",
+      "slug": "cli-reference/rules",
+      "category": "workspace",
+      "group": "WORKSPACE",
+      "description": "Manage rules capabilities for configured agents",
+      "summary": "Manage rules capabilities for configured agents.",
+      "whenToUse": "Use this command family when enabling or inspecting workspace instruction files.",
+      "usage": "axm rules <subcommand> [flags]",
+      "args": [],
+      "flags": [
+        {
+          "name": "scope",
+          "aliases": [],
+          "type": "choice",
+          "required": false,
+          "description": "Inspect project (default) or user-level configuration (choices: project, user)",
+          "group": "Workspace"
+        }
+      ],
+      "globalFlags": [
+        {
+          "name": "help",
+          "aliases": ["-h"],
+          "type": "boolean",
+          "required": false,
+          "description": "Show help information",
+          "group": "Selection"
+        },
+        {
+          "name": "version",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Show version information",
+          "group": "Selection"
+        },
+        {
+          "name": "non-interactive",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Disable all interactive prompts",
+          "group": "Selection"
+        },
+        {
+          "name": "verbose",
+          "aliases": ["-v"],
+          "type": "boolean",
+          "required": false,
+          "description": "Show additional diagnostic details for errors",
+          "group": "Output"
+        },
+        {
+          "name": "debug",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Show full debug details for errors (implies --verbose)",
+          "group": "Output"
+        },
+        {
+          "name": "quiet",
+          "aliases": ["-q"],
+          "type": "boolean",
+          "required": false,
+          "description": "Suppress non-essential output",
+          "group": "Output"
+        },
+        {
+          "name": "json",
+          "aliases": ["-j"],
+          "type": "boolean",
+          "required": false,
+          "description": "Output machine-readable JSON",
+          "group": "Output"
+        }
+      ],
+      "examples": [
+        { "command": "axm rules", "description": "Inspect instruction files", "kind": "common" },
+        {
+          "command": "axm lint --fix",
+          "description": "Repair instruction-file drift",
+          "kind": "common"
+        }
+      ],
+      "requirements": { "workspace": true },
+      "sideEffects": { "mutatesWorkspace": true, "writesFiles": true },
+      "notes": [],
+      "related": [],
+      "subcommands": [
+        {
+          "command": "axm rules enable",
+          "slug": "cli-reference/rules-enable",
+          "summary": "Enable instruction-file management"
+        },
+        {
+          "command": "axm rules disable",
+          "slug": "cli-reference/rules-disable",
+          "summary": "Disable instruction-file management"
+        }
+      ],
+      "children": [
+        {
+          "path": ["axm", "rules", "enable"],
+          "command": "axm rules enable",
+          "slug": "cli-reference/rules-enable",
+          "category": "workspace",
+          "group": "WORKSPACE",
+          "description": "Enable instruction-file management",
+          "summary": "Enable instruction-file management",
+          "usage": "axm rules enable [flags]",
+          "args": [],
+          "flags": [
+            {
+              "name": "scope",
+              "aliases": [],
+              "type": "choice",
+              "required": false,
+              "description": "Enable project (default) or user-level configuration (choices: project, user)",
+              "group": "Workspace"
+            },
+            {
+              "name": "file",
+              "aliases": [],
+              "type": "string",
+              "required": false,
+              "description": "Source-of-truth instruction file",
+              "group": "Selection"
+            },
+            {
+              "name": "gitignore",
+              "aliases": [],
+              "type": "boolean",
+              "required": false,
+              "description": "Manage propagated files in .gitignore",
+              "group": "Selection"
+            }
+          ],
+          "globalFlags": [
+            {
+              "name": "help",
+              "aliases": ["-h"],
+              "type": "boolean",
+              "required": false,
+              "description": "Show help information",
+              "group": "Selection"
+            },
+            {
+              "name": "version",
+              "aliases": [],
+              "type": "boolean",
+              "required": false,
+              "description": "Show version information",
+              "group": "Selection"
+            },
+            {
+              "name": "non-interactive",
+              "aliases": [],
+              "type": "boolean",
+              "required": false,
+              "description": "Disable all interactive prompts",
+              "group": "Selection"
+            },
+            {
+              "name": "verbose",
+              "aliases": ["-v"],
+              "type": "boolean",
+              "required": false,
+              "description": "Show additional diagnostic details for errors",
+              "group": "Output"
+            },
+            {
+              "name": "debug",
+              "aliases": [],
+              "type": "boolean",
+              "required": false,
+              "description": "Show full debug details for errors (implies --verbose)",
+              "group": "Output"
+            },
+            {
+              "name": "quiet",
+              "aliases": ["-q"],
+              "type": "boolean",
+              "required": false,
+              "description": "Suppress non-essential output",
+              "group": "Output"
+            },
+            {
+              "name": "json",
+              "aliases": ["-j"],
+              "type": "boolean",
+              "required": false,
+              "description": "Output machine-readable JSON",
+              "group": "Output"
+            }
+          ],
+          "examples": [
+            {
+              "command": "axm rules enable",
+              "description": "Enable instruction files",
+              "kind": "common"
+            },
+            {
+              "command": "axm rules enable --no-gitignore",
+              "description": "Enable without writing gitignore entries",
+              "kind": "common"
+            }
+          ],
+          "notes": [],
+          "related": [],
+          "subcommands": [],
+          "children": []
+        },
+        {
+          "path": ["axm", "rules", "disable"],
+          "command": "axm rules disable",
+          "slug": "cli-reference/rules-disable",
+          "category": "workspace",
+          "group": "WORKSPACE",
+          "description": "Disable instruction-file management",
+          "summary": "Disable instruction-file management",
+          "usage": "axm rules disable [flags]",
+          "args": [],
+          "flags": [
+            {
+              "name": "scope",
+              "aliases": [],
+              "type": "choice",
+              "required": false,
+              "description": "Disable project (default) or user-level configuration (choices: project, user)",
+              "group": "Workspace"
+            }
+          ],
+          "globalFlags": [
+            {
+              "name": "help",
+              "aliases": ["-h"],
+              "type": "boolean",
+              "required": false,
+              "description": "Show help information",
+              "group": "Selection"
+            },
+            {
+              "name": "version",
+              "aliases": [],
+              "type": "boolean",
+              "required": false,
+              "description": "Show version information",
+              "group": "Selection"
+            },
+            {
+              "name": "non-interactive",
+              "aliases": [],
+              "type": "boolean",
+              "required": false,
+              "description": "Disable all interactive prompts",
+              "group": "Selection"
+            },
+            {
+              "name": "verbose",
+              "aliases": ["-v"],
+              "type": "boolean",
+              "required": false,
+              "description": "Show additional diagnostic details for errors",
+              "group": "Output"
+            },
+            {
+              "name": "debug",
+              "aliases": [],
+              "type": "boolean",
+              "required": false,
+              "description": "Show full debug details for errors (implies --verbose)",
+              "group": "Output"
+            },
+            {
+              "name": "quiet",
+              "aliases": ["-q"],
+              "type": "boolean",
+              "required": false,
+              "description": "Suppress non-essential output",
+              "group": "Output"
+            },
+            {
+              "name": "json",
+              "aliases": ["-j"],
+              "type": "boolean",
+              "required": false,
+              "description": "Output machine-readable JSON",
+              "group": "Output"
+            }
+          ],
+          "examples": [
+            {
+              "command": "axm rules disable",
+              "description": "Disable instruction files",
+              "kind": "common"
+            }
+          ],
+          "notes": [],
+          "related": [],
+          "subcommands": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "path": ["axm", "rules", "enable"],
+      "command": "axm rules enable",
+      "slug": "cli-reference/rules-enable",
+      "category": "workspace",
+      "group": "WORKSPACE",
+      "description": "Enable instruction-file management",
+      "summary": "Enable instruction-file management",
+      "usage": "axm rules enable [flags]",
+      "args": [],
+      "flags": [
+        {
+          "name": "scope",
+          "aliases": [],
+          "type": "choice",
+          "required": false,
+          "description": "Enable project (default) or user-level configuration (choices: project, user)",
+          "group": "Workspace"
+        },
+        {
+          "name": "file",
+          "aliases": [],
+          "type": "string",
+          "required": false,
+          "description": "Source-of-truth instruction file",
+          "group": "Selection"
+        },
+        {
+          "name": "gitignore",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Manage propagated files in .gitignore",
+          "group": "Selection"
+        }
+      ],
+      "globalFlags": [
+        {
+          "name": "help",
+          "aliases": ["-h"],
+          "type": "boolean",
+          "required": false,
+          "description": "Show help information",
+          "group": "Selection"
+        },
+        {
+          "name": "version",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Show version information",
+          "group": "Selection"
+        },
+        {
+          "name": "non-interactive",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Disable all interactive prompts",
+          "group": "Selection"
+        },
+        {
+          "name": "verbose",
+          "aliases": ["-v"],
+          "type": "boolean",
+          "required": false,
+          "description": "Show additional diagnostic details for errors",
+          "group": "Output"
+        },
+        {
+          "name": "debug",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Show full debug details for errors (implies --verbose)",
+          "group": "Output"
+        },
+        {
+          "name": "quiet",
+          "aliases": ["-q"],
+          "type": "boolean",
+          "required": false,
+          "description": "Suppress non-essential output",
+          "group": "Output"
+        },
+        {
+          "name": "json",
+          "aliases": ["-j"],
+          "type": "boolean",
+          "required": false,
+          "description": "Output machine-readable JSON",
+          "group": "Output"
+        }
+      ],
+      "examples": [
+        {
+          "command": "axm rules enable",
+          "description": "Enable instruction files",
+          "kind": "common"
+        },
+        {
+          "command": "axm rules enable --no-gitignore",
+          "description": "Enable without writing gitignore entries",
+          "kind": "common"
+        }
+      ],
+      "notes": [],
+      "related": [],
+      "subcommands": [],
+      "children": []
+    },
+    {
+      "path": ["axm", "rules", "disable"],
+      "command": "axm rules disable",
+      "slug": "cli-reference/rules-disable",
+      "category": "workspace",
+      "group": "WORKSPACE",
+      "description": "Disable instruction-file management",
+      "summary": "Disable instruction-file management",
+      "usage": "axm rules disable [flags]",
+      "args": [],
+      "flags": [
+        {
+          "name": "scope",
+          "aliases": [],
+          "type": "choice",
+          "required": false,
+          "description": "Disable project (default) or user-level configuration (choices: project, user)",
+          "group": "Workspace"
+        }
+      ],
+      "globalFlags": [
+        {
+          "name": "help",
+          "aliases": ["-h"],
+          "type": "boolean",
+          "required": false,
+          "description": "Show help information",
+          "group": "Selection"
+        },
+        {
+          "name": "version",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Show version information",
+          "group": "Selection"
+        },
+        {
+          "name": "non-interactive",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Disable all interactive prompts",
+          "group": "Selection"
+        },
+        {
+          "name": "verbose",
+          "aliases": ["-v"],
+          "type": "boolean",
+          "required": false,
+          "description": "Show additional diagnostic details for errors",
+          "group": "Output"
+        },
+        {
+          "name": "debug",
+          "aliases": [],
+          "type": "boolean",
+          "required": false,
+          "description": "Show full debug details for errors (implies --verbose)",
+          "group": "Output"
+        },
+        {
+          "name": "quiet",
+          "aliases": ["-q"],
+          "type": "boolean",
+          "required": false,
+          "description": "Suppress non-essential output",
+          "group": "Output"
+        },
+        {
+          "name": "json",
+          "aliases": ["-j"],
+          "type": "boolean",
+          "required": false,
+          "description": "Output machine-readable JSON",
+          "group": "Output"
+        }
+      ],
+      "examples": [
+        {
+          "command": "axm rules disable",
           "description": "Disable instruction files",
           "kind": "common"
         }
@@ -35863,6 +36679,7 @@
       "children": [
         { "label": "axm sync", "to": "cli-reference/sync" },
         { "label": "axm agents", "to": "cli-reference/agents" },
+        { "label": "axm rules", "to": "cli-reference/rules" },
         { "label": "axm lint", "to": "cli-reference/lint" },
         { "label": "axm prune", "to": "cli-reference/prune" },
         { "label": "axm upgrade", "to": "cli-reference/upgrade" },

@@ -39,6 +39,7 @@ Use `--json` when a command supports machine-readable output, and use `--preview
 
 - [axm sync](./sync)
 - [axm agents](./agents)
+- [axm rules](./rules)
 - [axm lint](./lint)
 - [axm prune](./prune)
 - [axm upgrade](./upgrade)

@@ -24,6 +24,7 @@ import { loadVersion } from "./version.js";
 import { setupCommand } from "./root/setup.js";
 import { withCommandDocs } from "./root/docs-metadata.js";
 import { agentsCommand } from "./root/agents/_agents.js";
+import { rulesCommand } from "./root/rules/command.js";
 import { skillsCommand } from "./root/skills/_skills.js";
 import { packsCommand } from "./root/packs/_packs.js";
 import { commandsCommand } from "./root/commands/_commands.js";
@@ -173,6 +174,14 @@ const documentedAgentsCommand = withCommandDocs({
   sideEffects: { mutatesWorkspace: true, writesFiles: true },
 })(agentsCommand);
 
+const documentedRulesCommand = withCommandDocs({
+  category: "workspace",
+  summary: "Manage rules capabilities for configured agents.",
+  whenToUse: "Use this command family when enabling or inspecting workspace instruction files.",
+  requirements: { workspace: true },
+  sideEffects: { mutatesWorkspace: true, writesFiles: true },
+})(rulesCommand);
+
 const documentedLintCommand = withCommandDocs({
   category: "workspace",
   summary: "Validate workspace configuration and extension artifacts.",
@@ -301,6 +310,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         documentedSyncCommand,
         documentedAgentsCommand,
+        documentedRulesCommand,
         documentedLintCommand,
         documentedPruneCommand,
         documentedUpgradeCommand,

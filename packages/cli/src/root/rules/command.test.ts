@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
-import { handleInstructionsEnable } from "./instructions.js";
+import { handleRulesEnable } from "./command.js";
 
 const initWorkspace = (baseDir: string, agents: ReadonlyArray<string>) => {
   const axmDir = path.join(baseDir, ".axm");
@@ -18,7 +18,7 @@ const initWorkspace = (baseDir: string, agents: ReadonlyArray<string>) => {
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 };
 
-describe("agents instructions handler", () => {
+describe("rules handler", () => {
   let tempDir: string;
   let homeDir: string;
   let originalCwd: string;
@@ -27,7 +27,7 @@ describe("agents instructions handler", () => {
   beforeEach(() => {
     originalCwd = process.cwd();
     originalHome = process.env["HOME"];
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "agents-instructions-handler-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rules-handler-"));
     homeDir = path.join(tempDir, "home");
     fs.mkdirSync(homeDir, { recursive: true });
     process.chdir(tempDir);
@@ -59,12 +59,12 @@ describe("agents instructions handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: true });
+        yield* handleRulesEnable({ fileName: "AGENTS.md", gitignore: true });
 
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.agentsConfig.instructions).toEqual({
+        expect(settings.rulesConfig.instructions).toEqual({
           fileName: "AGENTS.md",
           gitignore: true,
         });

@@ -60,6 +60,28 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const hasLegacyIgnoredSettings = (value: unknown): boolean =>
   isRecord(value) && Object.hasOwn(value, "ignored");
 
+const liftLegacyAgentsInstructionsConfig = (value: unknown): unknown => {
+  if (!isRecord(value)) return value;
+  const legacyAgentsConfig = value["agentsConfig"];
+  if (!isRecord(legacyAgentsConfig) || !Object.hasOwn(legacyAgentsConfig, "instructions")) {
+    return value;
+  }
+
+  const next: Record<string, unknown> = {};
+  for (const [key, fieldValue] of Object.entries(value)) {
+    if (key !== "agentsConfig") next[key] = fieldValue;
+  }
+
+  const rulesConfig = isRecord(value["rulesConfig"]) ? value["rulesConfig"] : {};
+  if (Object.hasOwn(rulesConfig, "instructions")) return next;
+
+  next["rulesConfig"] = {
+    ...rulesConfig,
+    instructions: legacyAgentsConfig["instructions"],
+  };
+  return next;
+};
+
 // ---------------------------------------------------------------------------
 // Raw bytes loaders (shared by the decoded loaders and the public raw cells)
 // ---------------------------------------------------------------------------
@@ -122,7 +144,8 @@ const loadSettings = (
       });
     }
 
-    const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed).pipe(
+    const normalized = liftLegacyAgentsInstructionsConfig(parsed);
+    const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(normalized).pipe(
       Effect.mapError(
         (error) =>
           new SettingsDecodeError({

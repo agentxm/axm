@@ -362,7 +362,7 @@ describe("axm lint handler", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({
       agents: ["claude-code"],
-      agentsConfig: {
+      rulesConfig: {
         instructions: {
           fileName: "AGENTS.md",
           gitignore: true,

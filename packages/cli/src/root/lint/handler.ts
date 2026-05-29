@@ -239,7 +239,7 @@ const loadInstructionsState = (
     if (Option.isNone(parsed)) return Option.none();
     const settings = decodeSettings(parsed.value);
     if (Option.isNone(settings)) return Option.none();
-    const instructions = Option.fromUndefinedOr(settings.value.agentsConfig?.instructions);
+    const instructions = Option.fromUndefinedOr(settings.value.rulesConfig?.instructions);
     if (Option.isNone(instructions) || instructions.value === false) return Option.none();
     return Option.some({
       configuredAgents: settings.value.agents ?? [],

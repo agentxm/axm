@@ -39,13 +39,13 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 ### Workspace setup & discovery
 
-| Task                                          | Command                                     |
-| --------------------------------------------- | ------------------------------------------- |
-| Detect agents and create `.axm/settings.json` | `axm setup`                                 |
-| Find extensions for the current project       | `axm discover`                              |
-| Add / remove a coding agent harness           | `axm agents <add\|remove> <id>`             |
-| Inspect agent instruction files               | `axm agents instructions [enable\|disable]` |
-| Update AXM itself                             | `axm upgrade`                               |
+| Task                                          | Command                         |
+| --------------------------------------------- | ------------------------------- |
+| Detect agents and create `.axm/settings.json` | `axm setup`                     |
+| Find extensions for the current project       | `axm discover`                  |
+| Add / remove a coding agent harness           | `axm agents <add\|remove> <id>` |
+| Inspect agent instruction files               | `axm rules [enable\|disable]`   |
+| Update AXM itself                             | `axm upgrade`                   |
 
 ### Creating & publishing extensions
 

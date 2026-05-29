@@ -20,7 +20,7 @@ export const agentsCommand = Command.make("agents", {}, () =>
       ["axm agents list", "Show coding-agent harnesses configured for this workspace"],
       ["axm agents add <id>", "Configure another coding-agent harness"],
       ["axm agents remove <id>", "Remove a coding-agent harness from AXM management"],
-      ["axm agents instructions", "Inspect and sync agent instruction files"],
+      ["axm rules", "Inspect and manage workspace instruction files"],
     ]),
   ),
   Command.withExamples([

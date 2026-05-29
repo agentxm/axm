@@ -1032,19 +1032,19 @@ export type InstructionsConfig = Schema.Schema.Type<typeof InstructionsConfigSch
 /** @experimental */
 export type InstructionsConfigValue = false | InstructionsConfig;
 
-type AgentsConfigInput = {
+type RulesConfigInput = {
   readonly instructions?: InstructionsConfigValue | null;
 };
 
 /**
- * Agent harness feature config.
+ * Rules capability feature config.
  *
  * `instructions: null` decodes to an absent key so setup can treat null and
  * unset consistently.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const AgentsConfigSchema = Schema.Struct({
+export const RulesConfigSchema = Schema.Struct({
   instructions: Schema.optionalKey(
     Schema.Union([Schema.Literal(false), InstructionsConfigSchema, Schema.Null]).annotate({
       description:
@@ -1062,7 +1062,7 @@ export const AgentsConfigSchema = Schema.Struct({
       }),
       SchemaTransformation.transform<
         { readonly instructions?: InstructionsConfigValue },
-        AgentsConfigInput
+        RulesConfigInput
       >({
         decode: (config) => {
           if (config.instructions === null || config.instructions === undefined) return {};
@@ -1073,13 +1073,13 @@ export const AgentsConfigSchema = Schema.Struct({
     ),
   )
   .annotate({
-    identifier: "AgentsConfig",
-    title: "Agents Config",
-    description: "Feature-level configuration for coding-agent harness management.",
+    identifier: "RulesConfig",
+    title: "Rules Config",
+    description: "Rules capability settings.",
   });
 
 /** @experimental */
-export type AgentsConfig = Schema.Schema.Type<typeof AgentsConfigSchema>;
+export type RulesConfig = Schema.Schema.Type<typeof RulesConfigSchema>;
 
 /**
  * Canonical key order for settings properties.
@@ -1096,7 +1096,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "sources",
   "vars",
   "agents",
-  "agentsConfig",
+  "rulesConfig",
   "skills",
   "skillsConfig",
   "commands",
@@ -1119,6 +1119,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - sources: Source provider configurations
  * - vars: Scalar workspace variables available to context templates
  * - agents: List of agent IDs to sync extensions to
+ * - rulesConfig: Feature-level configuration for rules capabilities
  * - skills: Desired skills by name to source string
  * - skillsConfig: Feature-level configuration for skills
  * - commands: Desired commands by name to version specifier
@@ -1159,9 +1160,9 @@ export const SettingsSchema = Schema.Struct({
       })
       .check(Schema.isUnique()),
   ),
-  agentsConfig: Schema.optionalKey(
-    Schema.Union([AgentsConfigSchema]).annotate({
-      description: "Feature-level options for coding-agent harness management.",
+  rulesConfig: Schema.optionalKey(
+    Schema.Union([RulesConfigSchema]).annotate({
+      description: "Feature-level options for rules capabilities.",
     }),
   ),
   sources: Schema.optionalKey(

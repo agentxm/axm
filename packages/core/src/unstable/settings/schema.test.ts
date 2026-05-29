@@ -166,10 +166,10 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("agentsConfig.instructions", () => {
+  describe("rulesConfig.instructions", () => {
     it("accepts enabled instruction-file management config", () => {
       const input = {
-        agentsConfig: {
+        rulesConfig: {
           instructions: {
             fileName: "AGENTS.md",
             gitignore: true,
@@ -179,7 +179,7 @@ describe("Settings schema", () => {
 
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.agentsConfig?.instructions).toEqual({
+      expect(result.rulesConfig?.instructions).toEqual({
         fileName: "AGENTS.md",
         gitignore: true,
       });
@@ -187,18 +187,18 @@ describe("Settings schema", () => {
 
     it("accepts explicit manual instruction-file management", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)({
-        agentsConfig: { instructions: false },
+        rulesConfig: { instructions: false },
       });
 
-      expect(result.agentsConfig?.instructions).toBe(false);
+      expect(result.rulesConfig?.instructions).toBe(false);
     });
 
     it("normalizes null instruction-file management to absent", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)({
-        agentsConfig: { instructions: null },
+        rulesConfig: { instructions: null },
       });
 
-      expect(result.agentsConfig).toEqual({});
+      expect(result.rulesConfig).toEqual({});
     });
   });
 

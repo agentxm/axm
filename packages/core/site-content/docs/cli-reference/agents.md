@@ -56,7 +56,7 @@ axm agents remove cursor
 | [axm agents list](#axm-agents-list)                 | List coding-agent harnesses configured for AXM                        |
 | [axm agents add](#axm-agents-add)                   | Configure coding-agent harnesses and materialize installed extensions |
 | [axm agents remove](#axm-agents-remove)             | Remove coding-agent harnesses and clean up AXM-managed artifacts      |
-| [axm agents instructions](#axm-agents-instructions) | Manage configured agent instruction files                             |
+| [axm agents instructions](#axm-agents-instructions) | Deprecated alias for `axm rules`                                      |
 
 ### axm agents list
 
@@ -84,7 +84,7 @@ axm agents remove [flags] <id...>
 
 ### axm agents instructions
 
-Manage configured agent instruction files
+Deprecated alias for `axm rules`
 
 ```bash
 axm agents instructions <subcommand> [flags]

@@ -32,7 +32,7 @@ Prefer the plain source string. Use the object form only when you need to depart
 }
 ```
 
-Feature config lives under `skillsConfig`, `commandsConfig`, `subagentsConfig`, `packsConfig`, and `mcpServersConfig`.
+Feature config lives under `rulesConfig`, `skillsConfig`, `commandsConfig`, `subagentsConfig`, `packsConfig`, and `mcpServersConfig`.
 
 `lint` configures workspace-only severity overrides for `axm lint`.
 

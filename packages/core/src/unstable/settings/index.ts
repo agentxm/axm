@@ -10,7 +10,6 @@
 
 // Schema types and schemas
 export type {
-  AgentsConfig,
   AzureReposSourceHostConfig,
   BitbucketSourceHostConfig,
   CommandsConfig,
@@ -30,6 +29,7 @@ export type {
   PackEntry,
   PacksMap,
   RegistrySourceHostConfig,
+  RulesConfig,
   Settings,
   SkillsConfig,
   SkillEntry,
@@ -41,7 +41,6 @@ export type {
   WorkspaceVarsMap,
 } from "./schema.js";
 export {
-  AgentsConfigSchema,
   CommandEntryObjectSchema,
   CommandEntrySchema,
   CommandsConfigSchema,
@@ -59,6 +58,7 @@ export {
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
+  RulesConfigSchema,
   SETTINGS_KEY_ORDER,
   SettingsSchema,
   SkillsConfigSchema,

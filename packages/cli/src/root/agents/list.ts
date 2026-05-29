@@ -54,7 +54,7 @@ const AgentListTable = {
     name: { header: "Agent" },
     configured: { header: "Configured", render: (value: boolean) => (value ? "yes" : "no") },
     detected: { header: "Detected", render: (value: boolean) => (value ? "yes" : "no") },
-    instructions: { header: "Instructions" },
+    instructions: { header: "Rules" },
   },
 } as const satisfies TableView<AgentListItem>;
 

@@ -29,6 +29,7 @@
           "children": [
             { "label": "axm sync", "to": "cli-reference/sync" },
             { "label": "axm agents", "to": "cli-reference/agents" },
+            { "label": "axm rules", "to": "cli-reference/rules" },
             { "label": "axm lint", "to": "cli-reference/lint" },
             { "label": "axm prune", "to": "cli-reference/prune" },
             { "label": "axm upgrade", "to": "cli-reference/upgrade" },

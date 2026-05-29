@@ -217,6 +217,7 @@ describe("generated schemas", () => {
       "owner",
       "agents",
       "sources",
+      "rulesConfig",
       "skills",
       "skillsConfig",
       "commands",

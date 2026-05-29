@@ -170,6 +170,41 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
+  it.effect("lifts legacy agentsConfig.instructions into rulesConfig.instructions", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const fs = buildFs(
+        {
+          readers: {
+            [SETTINGS_PATH]: () =>
+              Effect.succeed(
+                JSON.stringify({
+                  agents: ["claude-code"],
+                  agentsConfig: {
+                    instructions: {
+                      fileName: "AGENTS.md",
+                      gitignore: true,
+                    },
+                  },
+                }),
+              ),
+          },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const result = yield* api.settings;
+      const value = Option.getOrThrow(result);
+      expect(value.rulesConfig?.instructions).toEqual({
+        fileName: "AGENTS.md",
+        gitignore: true,
+      });
+    }),
+  );
+
   it.effect("fails with SettingsIoError when filesystem read fails", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;

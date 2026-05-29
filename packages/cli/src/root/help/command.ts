@@ -38,6 +38,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "command-schema",
   "context",
   "context-schema",
+  "rules",
   "packs",
   "pack-schema",
   "package-extensions",
@@ -72,6 +73,9 @@ const HelpTopicResultSchema = Schema.Struct({
   topic: Schema.String,
   content: Schema.String,
 });
+
+const resolveHelpTopicAlias = (topic: string): string =>
+  topic === "instructions" ? "rules" : topic;
 
 interface HelpTopicRow {
   readonly topic: HelpTopicName;
@@ -125,7 +129,8 @@ const writeHelpTopic = (name: HelpTopicName) =>
 export const handleHelpTopic = (topic: Option.Option<string>) =>
   Option.match(topic, {
     onNone: () => writeHelpTopicIndex(),
-    onSome: (name) => {
+    onSome: (rawName) => {
+      const name = resolveHelpTopicAlias(rawName);
       if (isHelpTopicName(name)) {
         return writeHelpTopic(name);
       }
@@ -133,7 +138,7 @@ export const handleHelpTopic = (topic: Option.Option<string>) =>
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          detail: `Unknown help topic '${name}'`,
+          detail: `Unknown help topic '${rawName}'`,
           suggestions: [
             {
               description: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",

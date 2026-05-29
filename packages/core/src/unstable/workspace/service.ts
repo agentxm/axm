@@ -470,7 +470,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       getInstructionsConfig: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => Option.fromUndefinedOr(s.agentsConfig?.instructions)),
+          Effect.map((s) => Option.fromUndefinedOr(s.rulesConfig?.instructions)),
           Effect.withSpan("WorkspaceMutations.getInstructionsConfig"),
         ),
 
@@ -478,10 +478,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             const current = yield* readSettingsSafe(workspaceDir);
-            const currentAgentsConfig = current.agentsConfig ?? {};
+            const currentRulesConfig = current.rulesConfig ?? {};
             const updatedSettings: Settings = {
               ...current,
-              agentsConfig: { ...currentAgentsConfig, instructions: config },
+              rulesConfig: { ...currentRulesConfig, instructions: config },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),

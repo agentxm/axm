@@ -46,6 +46,16 @@
   "bin": {
     "axm": "./dist/src/main.js"
   },
+  "exports": {
+    "./app": {
+      "types": "./dist/src/app.d.ts",
+      "default": "./dist/src/app.js"
+    },
+    "./runtime": {
+      "types": "./dist/src/runtime.d.ts",
+      "default": "./dist/src/runtime.js"
+    }
+  },
   "files": [
     "dist/src/",
     "!dist/src/test-helpers.*",

@@ -55,7 +55,7 @@
       }
     },
     "generate": {
-      "dependsOn": ["generate:help-topics", "generate:bundled-axm-skill", "generate:cli-reference"],
+      "dependsOn": ["generate:help-topics", "generate:bundled-axm-skill"],
       "executor": "nx:run-commands",
       "options": {
         "command": "echo cli generated output is up to date"
@@ -87,25 +87,6 @@
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "scripts/generate-bundled-axm-skill.ts"],
-        "cwd": "packages/cli"
-      }
-    },
-    "generate:cli-reference": {
-      "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": [
-        "{projectRoot}/scripts/generate-cli-reference.ts",
-        "{projectRoot}/src/**/*",
-        "{workspaceRoot}/.prettierrc.json"
-      ],
-      "outputs": [
-        "{workspaceRoot}/packages/core/site-content/__generated__/cli-reference",
-        "{workspaceRoot}/packages/core/site-content/__generated__/docs/cli-reference",
-        "{workspaceRoot}/packages/core/site-content/docs/config.json"
-      ],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/generate-cli-reference.ts"],
         "cwd": "packages/cli"
       }
     },

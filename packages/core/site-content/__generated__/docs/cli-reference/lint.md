@@ -34,7 +34,7 @@ axm lint [flags] [<path>]
 | `--strict`  | boolean | No       | Treat warnings as failing for exit code.                                                                             |
 | `--details` | boolean | No       | Show the full human report instead of the grouped summary.                                                           |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -73,10 +73,6 @@ axm lint --details
 ```bash
 axm lint --json
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

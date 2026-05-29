@@ -33,7 +33,7 @@ axm version [flags] <handle> <bump> [<version>]
 | ----------- | ------- | -------- | ------------------------------ |
 | `--preview` | boolean | No       | Print the bump without writing |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -66,10 +66,6 @@ axm version @acme/mcps/my-server minor
 ```bash
 axm version @acme/packs/frontend-tools set 1.2.3
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

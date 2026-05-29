@@ -102,7 +102,7 @@ export interface McpServerFileAccessor {
   readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
 }
 
-export interface ContextAccessor {
+export interface DocsAccessor {
   readonly exists: (path: string) => Effect.Effect<boolean>;
   readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
   readonly listFiles: (path: string) => Effect.Effect<ReadonlyArray<string>, FileAccessError>;
@@ -253,14 +253,14 @@ export interface McpServerContent {
   readonly mcpServerJson: unknown;
 }
 
-export interface ContextRuleContext<S = ContextContent> {
+export interface DocsRuleContext<S = DocsContent> {
   readonly subject: S;
-  readonly files: ContextAccessor;
+  readonly files: DocsAccessor;
   readonly displayRoot: string;
 }
 
-export interface ContextContent {
-  readonly contextJson: unknown;
+export interface DocsContent {
+  readonly docsJson: unknown;
 }
 
 /**

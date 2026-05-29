@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../extensions/index.js";
-import type { ContextExtensionRef } from "../../context/index.js";
+import type { DocsExtensionRef } from "../../docs/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
@@ -218,7 +218,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredContext = (name: string, source: string) =>
+export const resolveConfiguredDocs = (name: string, source: string) =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
@@ -233,35 +233,35 @@ export const resolveConfiguredContext = (name: string, source: string) =>
 
     const parsedPattern = parseRegistrySourcePatternParts(source);
     const requestedOwner =
-      parsedPattern?.type === "context"
+      parsedPattern?.type === "docs"
         ? Option.some(parsedPattern.owner)
         : resolvedSource.type === "registry"
           ? resolvedSource.owner
           : Option.none();
     const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === "context"
+      resolvedSource.type === "registry" && parsedPattern?.type === "docs"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
 
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
-        type: "context",
+        type: "docs",
         owner: requestedOwner,
         versionRange,
       })
       .pipe(
         Effect.map((entries) =>
-          entries.filter((entry): entry is ContextExtensionRef => entry.type === "context"),
+          entries.filter((entry): entry is DocsExtensionRef => entry.type === "docs"),
         ),
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            detail: `Failed to resolve configured context package "${name}"`,
+            detail: `Failed to resolve configured Context docs package "${name}"`,
             suggestions: [
               {
                 description:
-                  "Verify the configured source is reachable and still contains the context package.",
+                  "Verify the configured source is reachable and still contains the Context docs package.",
               },
             ],
             cause,
@@ -273,11 +273,11 @@ export const resolveConfiguredContext = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Configured context package "${name}" could not be found in its source`,
+        detail: `Configured Context docs package "${name}" could not be found in its source`,
         suggestions: [
           {
             description:
-              "Verify the configured source still contains the context package or update settings.json.",
+              "Verify the configured source still contains the Context docs package or update settings.json.",
           },
         ],
       });

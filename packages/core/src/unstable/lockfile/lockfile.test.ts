@@ -111,17 +111,17 @@ describe("lockfile", () => {
       const lockfile: Lockfile = {
         lockfileVersion: 2,
         skills: {},
-        context: {},
+        docs: {},
       };
 
       const updated = applyLockfileUpdates(lockfile, [
         (current) => ({
           ...current,
-          context: {
-            ...current.context,
+          docs: {
+            ...current.docs,
             baseline: {
               type: "local",
-              path: "./context/baseline",
+              path: "./docs/baseline",
               installedAt: new Date("2026-01-28T10:00:00.000Z"),
               updatedAt: new Date("2026-01-28T10:00:00.000Z"),
               materializedTargets: [
@@ -131,12 +131,12 @@ describe("lockfile", () => {
           },
         }),
         (current) => {
-          const baseline = current.context?.["baseline"];
+          const baseline = current.docs?.["baseline"];
           if (baseline === undefined) return current;
           return {
             ...current,
-            context: {
-              ...current.context,
+            docs: {
+              ...current.docs,
               baseline: {
                 ...baseline,
                 materializedTargets: [
@@ -152,7 +152,7 @@ describe("lockfile", () => {
         },
       ]);
 
-      expect(updated.context?.["baseline"]?.materializedTargets?.[0]?.renderHash).toBe("abc123");
+      expect(updated.docs?.["baseline"]?.materializedTargets?.[0]?.renderHash).toBe("abc123");
       expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(false);
     });
 
@@ -162,17 +162,17 @@ describe("lockfile", () => {
           const lockfile: Lockfile = {
             lockfileVersion: 2,
             skills: {},
-            context: {},
+            docs: {},
           };
 
           yield* commitLockfileUpdates(axmDir, lockfile, [
             (current) => ({
               ...current,
-              context: {
-                ...current.context,
+              docs: {
+                ...current.docs,
                 baseline: {
                   type: "local",
-                  path: "./context/baseline",
+                  path: "./docs/baseline",
                   installedAt: new Date("2026-01-28T10:00:00.000Z"),
                   updatedAt: new Date("2026-01-28T10:00:00.000Z"),
                   materializedTargets: [
@@ -188,7 +188,7 @@ describe("lockfile", () => {
           ]);
 
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
-          expect(result.context.baseline.materializedTargets[0].region).toBe("toc");
+          expect(result.docs.baseline.materializedTargets[0].region).toBe("toc");
         }),
       ),
     );

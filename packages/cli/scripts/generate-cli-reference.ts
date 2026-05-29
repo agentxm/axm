@@ -100,8 +100,11 @@ interface CliReferenceNavItem {
 
 interface CliReferenceNavSection {
   readonly label: string;
-  readonly children: ReadonlyArray<CliReferenceNavItem>;
+  readonly to?: string;
+  readonly children: ReadonlyArray<CliReferenceNavEntry>;
 }
+
+type CliReferenceNavEntry = CliReferenceNavItem | CliReferenceNavSection;
 
 interface CliReferenceDocument {
   readonly schemaVersion: 1;
@@ -119,12 +122,34 @@ const formatCommandPath = (tokens: ReadonlyArray<string>): string => tokens.join
 
 const commandSlug = (tokens: ReadonlyArray<string>): string => {
   const [, ...rest] = tokens;
-  return rest.join("-");
+  return rest.join("/");
 };
 
 const docSlug = (tokens: ReadonlyArray<string>): string => {
   const slug = commandSlug(tokens);
   return slug.length === 0 ? "cli-reference" : `cli-reference/${slug}`;
+};
+
+/**
+ * Build a relative link from one doc slug to another so generated pages stay
+ * agnostic of the site's base path. Resolution mirrors the browser: links
+ * resolve against the directory of the current page's URL.
+ */
+const relHref = (fromSlug: string, toSlug: string): string => {
+  const fromDir = fromSlug.split("/").slice(0, -1);
+  const toSegments = toSlug.split("/");
+  let common = 0;
+  while (
+    common < fromDir.length &&
+    common < toSegments.length &&
+    fromDir[common] === toSegments[common]
+  ) {
+    common += 1;
+  }
+  const ups = Array.from({ length: fromDir.length - common }, () => "..");
+  const downs = toSegments.slice(common);
+  const parts = [...ups, ...downs];
+  return parts.length === 0 ? "." : parts.join("/");
 };
 
 const flagGroup = (name: string): string => {
@@ -286,16 +311,24 @@ const validateReference = (nodes: ReadonlyArray<CommandReferenceNode>): void => 
 const topLevelPageNodes = (root: CommandReferenceNode): ReadonlyArray<CommandReferenceNode> =>
   root.children.filter((node) => node.path.length === 2);
 
+const navEntryForNode = (node: CommandReferenceNode): CliReferenceNavEntry => {
+  if (node.children.length === 0) {
+    return { label: node.command, to: node.slug };
+  }
+  return {
+    label: node.command,
+    to: node.slug,
+    children: node.children.map(navEntryForNode),
+  };
+};
+
 const buildNav = (
   topLevelNodes: ReadonlyArray<CommandReferenceNode>,
 ): ReadonlyArray<CliReferenceNavSection> =>
   CATEGORY_ORDER.map((category) => {
     const children = topLevelNodes
       .filter((node) => node.category === category)
-      .map((node) => ({
-        label: node.command,
-        to: node.slug,
-      }));
+      .map(navEntryForNode);
 
     return {
       label: CATEGORY_LABELS[category],
@@ -361,6 +394,21 @@ const renderBooleanList = (
   return enabled.length === 0 ? "None.\n" : `${enabled.join("\n")}\n`;
 };
 
+const renderSubcommandsIndex = (node: CommandReferenceNode): ReadonlyArray<string> => {
+  if (node.children.length === 0) return [];
+  return [
+    "## Subcommands",
+    "",
+    renderTable(
+      ["Command", "Summary"],
+      node.children.map((child) => [
+        `[${child.command}](${relHref(node.slug, child.slug)})`,
+        child.summary,
+      ]),
+    ),
+  ];
+};
+
 const renderCommandPage = (node: CommandReferenceNode): string =>
   [
     "---",
@@ -390,31 +438,13 @@ const renderCommandPage = (node: CommandReferenceNode): string =>
     renderParamsTable(node.flags),
     node.globalFlags.length === 0
       ? ""
-      : "Global flags are documented on [Global flags](./global-flags).",
+      : `Global flags are documented on [Global flags](${relHref(node.slug, "cli-reference/global-flags")}).`,
     "",
     "## Examples",
     "",
     renderExamples(node.examples),
     "",
-    "## Subcommands",
-    "",
-    renderTable(
-      ["Command", "Summary"],
-      node.subcommands.map((subcommand) => [
-        `[${subcommand.command}](#${subcommand.command.replace(/\s+/g, "-").toLowerCase()})`,
-        subcommand.summary,
-      ]),
-    ),
-    ...node.children.flatMap((child) => [
-      `### ${child.command}`,
-      "",
-      child.summary,
-      "",
-      "```bash",
-      child.usage,
-      "```",
-      "",
-    ]),
+    ...renderSubcommandsIndex(node),
     "## Requirements",
     "",
     renderBooleanList(node.requirements),
@@ -423,7 +453,10 @@ const renderCommandPage = (node: CommandReferenceNode): string =>
     renderBooleanList(node.sideEffects),
   ].join("\n");
 
-const renderOverviewPage = (document: CliReferenceDocument): string =>
+const renderOverviewPage = (
+  cliVersion: string,
+  topLevelNodes: ReadonlyArray<CommandReferenceNode>,
+): string =>
   [
     "---",
     "title: CLI Reference",
@@ -432,7 +465,7 @@ const renderOverviewPage = (document: CliReferenceDocument): string =>
     "",
     "# CLI Reference",
     "",
-    `Generated from AXM CLI version ${document.cliVersion}.`,
+    `Generated from AXM CLI version ${cliVersion}.`,
     "",
     "AXM command syntax follows this shape:",
     "",
@@ -444,14 +477,21 @@ const renderOverviewPage = (document: CliReferenceDocument): string =>
     "",
     "## Command Groups",
     "",
-    ...document.nav.flatMap((section) => [
-      `### ${section.label}`,
-      "",
-      ...section.children.map(
-        (item) => `- [${item.label}](./${item.to.replace("cli-reference/", "")})`,
-      ),
-      "",
-    ]),
+    ...CATEGORY_ORDER.flatMap((category) => {
+      const links = topLevelNodes
+        .filter((node) => node.category === category)
+        .map((node) => `- [${node.command}](${relHref("cli-reference", node.slug)})`);
+      const withExtras =
+        category === "help"
+          ? [
+              ...links,
+              `- [Global flags](${relHref("cli-reference", "cli-reference/global-flags")})`,
+            ]
+          : links;
+      return withExtras.length === 0
+        ? []
+        : [`### ${CATEGORY_LABELS[category]}`, "", ...withExtras, ""];
+    }),
   ].join("\n");
 
 const renderGlobalFlagsPage = (root: CommandReferenceNode): string =>
@@ -513,7 +553,7 @@ const main = async () => {
   );
   await writeFormatted(
     path.join(CLI_REFERENCE_DOCS_ROOT, "index.md"),
-    renderOverviewPage(document),
+    renderOverviewPage(TEST_VERSION, topLevelNodes),
     "markdown",
   );
   await writeFormatted(
@@ -522,8 +562,9 @@ const main = async () => {
     "markdown",
   );
 
-  for (const node of topLevelNodes) {
-    const fileName = `${node.slug.replace(/^cli-reference\//u, "")}.md`;
+  for (const node of commands) {
+    const relativeSlug = node.slug.replace(/^cli-reference\//u, "");
+    const fileName = node.children.length > 0 ? `${relativeSlug}/index.md` : `${relativeSlug}.md`;
     await writeFormatted(
       path.join(CLI_REFERENCE_DOCS_ROOT, fileName),
       renderCommandPage(node),
@@ -552,7 +593,7 @@ const main = async () => {
     "json",
   );
 
-  console.log(`\nGenerated ${topLevelNodes.length + 3} CLI reference artifacts`);
+  console.log(`\nGenerated ${commands.length + 3} CLI reference artifacts`);
 };
 
 await main();

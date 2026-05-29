@@ -32,7 +32,7 @@ None.
 | `--no-browser`  | boolean | No       | Do not open a browser; use device-code fallback                |
 | `--scope`       | string  | No       | Registry scope to request; repeatable                          |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -65,10 +65,6 @@ axm auth login --scope extensions:publish:version
 ```bash
 axm auth login --device-code
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

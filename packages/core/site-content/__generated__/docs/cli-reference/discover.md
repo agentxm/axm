@@ -29,7 +29,7 @@ None.
 | -------- | ------ | -------- | ------------------------------------------------------------------- |
 | `--path` | string | No       | Scan a different directory instead of the current working directory |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -50,10 +50,6 @@ axm discover --path ./my-project
 ```bash
 axm discover --json
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

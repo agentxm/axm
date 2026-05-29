@@ -19,7 +19,7 @@ describe("summarizeCommandOutcome", () => {
     const types = [
       "skill",
       "command",
-      "context",
+      "docs",
       "subagent",
       "pack",
       "mcp-server",

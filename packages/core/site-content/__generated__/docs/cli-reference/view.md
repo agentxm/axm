@@ -33,7 +33,7 @@ axm view [flags] <handle> [<field>]
 | `--registry` | string | No       | Target a specific named registry instead of the default                |
 | `--type`     | choice | No       | Resource type for bare-name lookup (choices: skill, command, subagent) |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -54,10 +54,6 @@ axm view @acme/commands/my-cmd version
 ```bash
 axm view @acme/skills/code-review versions --json
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

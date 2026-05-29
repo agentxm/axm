@@ -39,13 +39,13 @@ import {
 import type { WorkspaceRootEscape } from "../../../workspace/read-model/errors.js";
 import type {
   ActualCommand,
-  ActualContextPackage,
+  ActualDocsPackage,
   ActualMcpServer,
   ActualPack,
   ActualSkill,
   ActualSubagent,
   InstalledCommand,
-  InstalledContextPackage,
+  InstalledDocsPackage,
   InstalledMcpServer,
   InstalledPack,
   InstalledSkill,
@@ -53,7 +53,7 @@ import type {
 } from "../../../workspace/read-model/extensions/index.js";
 import type {
   CommandRuleContext,
-  ContextRuleContext,
+  DocsRuleContext,
   McpServerRuleContext,
   SubagentRuleContext,
   WorkspaceInstructionAccessor,
@@ -63,10 +63,10 @@ import type { InstalledSkillInfo } from "../skill-accessor/contexts.js";
 import type { InstalledPackInfo } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
-import { makePlatformContextAccessor } from "../context-accessor/platform.js";
+import { makePlatformDocsAccessor } from "../docs-accessor/platform.js";
 import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
 import { COMMAND_MANIFEST_FILENAME } from "../../../commands/manifest-schema.js";
-import { CONTEXT_MANIFEST_FILENAME } from "../../../context/manifest-schema.js";
+import { DOCS_MANIFEST_FILENAME } from "../../../docs/manifest-schema.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "../../../skills/manifest-schema.js";
@@ -90,7 +90,7 @@ export interface LintWorkspaceView {
   readonly commandContexts: ReadonlyArray<CommandRuleContext>;
   readonly subagentContexts: ReadonlyArray<SubagentRuleContext>;
   readonly mcpServerContexts: ReadonlyArray<McpServerRuleContext>;
-  readonly fileContexts: ReadonlyArray<ContextRuleContext>;
+  readonly fileContexts: ReadonlyArray<DocsRuleContext>;
 }
 
 // -----------------------------------------------------------------------------
@@ -261,14 +261,14 @@ const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
 ): Effect.Effect<LintWorkspaceView> =>
   Effect.gen(function* () {
-    const [skills, packs, commands, subagents, mcpServers, contextPackages] = yield* Effect.all(
+    const [skills, packs, commands, subagents, mcpServers, docsPackages] = yield* Effect.all(
       [
         args.readModel.skills.installed,
         args.readModel.packs.installed,
         args.readModel.commands.installed,
         args.readModel.subagents.installed,
         args.readModel.mcpServers.installed,
-        args.readModel.context.installed,
+        args.readModel.docs.installed,
       ],
       { concurrency: "unbounded" },
     );
@@ -291,8 +291,8 @@ const buildLintWorkspaceView = (
       const context = installedMcpServerToContext(args, mcpServer);
       return context === undefined ? [] : [context];
     });
-    const fileContexts = contextPackages.flatMap((contextPackage) => {
-      const context = installedContextPackageToContext(args, contextPackage);
+    const fileContexts = docsPackages.flatMap((docsPackage) => {
+      const context = installedDocsPackageToContext(args, docsPackage);
       return context === undefined ? [] : [context];
     });
 
@@ -310,7 +310,7 @@ const buildLintWorkspaceView = (
         populateCommandManifestJson(commandContexts),
         populateSubagentManifestJson(subagentContexts),
         populateMcpServerManifestJson(mcpServerContexts),
-        populateContextManifestJson(fileContexts),
+        populateDocsManifestJson(fileContexts),
       ],
       { concurrency: "unbounded" },
     );
@@ -393,15 +393,15 @@ const populateMcpServerManifestJson = (
     { concurrency: "unbounded" },
   );
 
-const populateContextManifestJson = (
-  fileContexts: ReadonlyArray<ContextRuleContext>,
-): Effect.Effect<ReadonlyArray<ContextRuleContext>> =>
+const populateDocsManifestJson = (
+  fileContexts: ReadonlyArray<DocsRuleContext>,
+): Effect.Effect<ReadonlyArray<DocsRuleContext>> =>
   Effect.forEach(
     fileContexts,
     (context) =>
       Effect.gen(function* () {
-        const contextJson = yield* readManifestJson(context.files, CONTEXT_MANIFEST_FILENAME);
-        return { ...context, subject: { contextJson } };
+        const docsJson = yield* readManifestJson(context.files, DOCS_MANIFEST_FILENAME);
+        return { ...context, subject: { docsJson } };
       }),
     { concurrency: "unbounded" },
   );
@@ -539,17 +539,17 @@ const installedMcpServerToContext = (
   };
 };
 
-const installedContextPackageToContext = (
+const installedDocsPackageToContext = (
   args: BuildLintWorkspaceViewArgs,
-  contextPackage: InstalledContextPackage,
-): ContextRuleContext | undefined => {
-  const root = contextPackageRoot(args, contextPackage);
+  docsPackage: InstalledDocsPackage,
+): DocsRuleContext | undefined => {
+  const root = docsPackageRoot(args, docsPackage);
   if (root === undefined) {
     return undefined;
   }
   return {
-    subject: { contextJson: undefined },
-    files: makePlatformContextAccessor(args.platform, root),
+    subject: { docsJson: undefined },
+    files: makePlatformDocsAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
   };
 };
@@ -569,9 +569,9 @@ const chooseMcpServerActual = (
   actual: ReadonlyArray<ActualMcpServer>,
 ): ActualMcpServer | undefined => actual.find((entry) => entry.contentRoot !== null);
 
-const chooseContextActual = (
-  actual: ReadonlyArray<ActualContextPackage>,
-): ActualContextPackage | undefined => actual.find((entry) => entry.packageRoot !== null);
+const chooseDocsActual = (
+  actual: ReadonlyArray<ActualDocsPackage>,
+): ActualDocsPackage | undefined => actual.find((entry) => entry.packageRoot !== null);
 
 const commandPackageRoot = (
   args: BuildLintWorkspaceViewArgs,
@@ -663,18 +663,18 @@ const mcpServerPackageRoot = (
   return undefined;
 };
 
-const contextPackageRoot = (
+const docsPackageRoot = (
   args: BuildLintWorkspaceViewArgs,
-  contextPackage: InstalledContextPackage,
+  docsPackage: InstalledDocsPackage,
 ): string | undefined => {
-  const actual = chooseContextActual(contextPackage.actual);
+  const actual = chooseDocsActual(docsPackage.actual);
   if (actual?.packageRoot !== undefined && actual.packageRoot !== null) {
     return actual.packageRoot;
   }
 
   return args.platform.path.resolve(
     args.workspaceRoot,
-    `.axm/extensions/external/context/${contextPackage.key.name}`,
+    `.axm/extensions/external/docs/${docsPackage.key.name}`,
   );
 };
 

@@ -4,7 +4,7 @@ import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
   LOCKFILE_VERSION,
   CommandLockEntrySchema,
-  ContextLockEntrySchema,
+  DocsLockEntrySchema,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
@@ -153,7 +153,7 @@ describe("lockfile schema", () => {
       const input = {
         lockfileVersion: LOCKFILE_VERSION,
         skills: {},
-        context: {
+        docs: {
           baseline: {
             type: "registry",
             owner: "@acme",
@@ -187,9 +187,9 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
-      expect(result.context?.["baseline"]?.type).toBe("registry");
-      expect(result.context?.["baseline"]?.materializedTargets).toHaveLength(2);
-      expect(result.context?.["baseline"]?.resolvedInputs).toEqual({
+      expect(result.docs?.["baseline"]?.type).toBe("registry");
+      expect(result.docs?.["baseline"]?.materializedTargets).toHaveLength(2);
+      expect(result.docs?.["baseline"]?.resolvedInputs).toEqual({
         projectName: "AgentXM",
         strict: true,
         maxDepth: 3,
@@ -199,7 +199,7 @@ describe("lockfile schema", () => {
     it("rejects context lock entries with absolute target paths", () => {
       const input = {
         type: "local",
-        path: "./context/baseline",
+        path: "./docs/baseline",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         materializedTargets: [
@@ -211,7 +211,7 @@ describe("lockfile schema", () => {
         ],
       };
 
-      expect(() => Schema.decodeUnknownSync(ContextLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(DocsLockEntrySchema)(input)).toThrow();
     });
 
     it("accepts valid skill lock entry with GitHub source", () => {

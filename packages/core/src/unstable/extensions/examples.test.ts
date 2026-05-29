@@ -16,7 +16,7 @@ import { SkillManifestSchema } from "../skills/manifest-schema.js";
 import { CommandManifestSchema } from "../commands/manifest-schema.js";
 import { McpServerManifestSchema } from "../mcps/manifest-schema.js";
 import { PackManifestSchema } from "../packs/manifest-schema.js";
-import { ContextManifestSchema } from "../context/manifest-schema.js";
+import { DocsManifestSchema } from "../docs/manifest-schema.js";
 
 const CORE_UNSTABLE = path.join(import.meta.dirname, "..");
 
@@ -87,12 +87,12 @@ describe("example files", () => {
     expect(result.dependencies["@acme/skills/code-review"]).toBe("^1.0.0");
   });
 
-  it("context.example.json conforms to ContextManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "context/context.example.json"));
-    const result = Schema.decodeUnknownSync(ContextManifestSchema)(example);
+  it("docs.example.json conforms to DocsManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "docs/docs.example.json"));
+    const result = Schema.decodeUnknownSync(DocsManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");
-    expect(result.type).toBe("context");
+    expect(result.type).toBe("docs");
     expect(result.name).toBe("workspace-baseline");
     expect(result.contents).toHaveLength(2);
   });

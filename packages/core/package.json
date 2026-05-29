@@ -32,8 +32,12 @@
       "default": "./dist/src/unstable/package-urls/index.js"
     },
     "./unstable/branding": {
-      "types": "./dist/src/unstable/branding.d.ts",
-      "default": "./dist/src/unstable/branding.js"
+      "types": "./dist/src/unstable/branding/index.d.ts",
+      "default": "./dist/src/unstable/branding/index.js"
+    },
+    "./unstable/branding/naming": {
+      "types": "./dist/src/unstable/branding/naming.d.ts",
+      "default": "./dist/src/unstable/branding/naming.js"
     },
     "./unstable/date-time": {
       "types": "./dist/src/unstable/date-time.d.ts",
@@ -143,9 +147,9 @@
       "types": "./dist/src/unstable/packs/index.d.ts",
       "default": "./dist/src/unstable/packs/index.js"
     },
-    "./unstable/context": {
-      "types": "./dist/src/unstable/context/index.d.ts",
-      "default": "./dist/src/unstable/context/index.js"
+    "./unstable/docs": {
+      "types": "./dist/src/unstable/docs/index.d.ts",
+      "default": "./dist/src/unstable/docs/index.js"
     },
     "./unstable/commands": {
       "types": "./dist/src/unstable/commands/index.d.ts",

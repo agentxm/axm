@@ -133,7 +133,7 @@ describe("workspace-root escape fails the factory", () => {
           expect(Exit.isSuccess(mcpExit)).toBe(true);
           const subagentsExit = yield* Effect.exit(project.subagents.actual);
           expect(Exit.isSuccess(subagentsExit)).toBe(true);
-          const filesExit = yield* Effect.exit(project.context.actual);
+          const filesExit = yield* Effect.exit(project.docs.actual);
           expect(Exit.isSuccess(filesExit)).toBe(true);
           const rulesExit = yield* Effect.exit(project.rules.actual);
           expect(Exit.isSuccess(rulesExit)).toBe(true);

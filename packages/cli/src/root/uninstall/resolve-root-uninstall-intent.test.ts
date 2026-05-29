@@ -12,7 +12,7 @@ describe("resolveRootUninstallIntent", () => {
         { source: "@acme/commands/release-notes@^1.2.0", type: "command", name: "release-notes" },
         { source: "@acme/mcps/dev-server", type: "mcp-server", name: "dev-server" },
         { source: "@acme/subagents/researcher", type: "subagent", name: "researcher" },
-        { source: "@acme/context/policy", type: "context", name: "policy" },
+        { source: "@ac/docs/policy", type: "docs", name: "policy" },
         { source: "@acme/packs/frontend-tools@1.2.3", type: "pack", name: "frontend-tools" },
       ] as const;
 
@@ -75,7 +75,7 @@ describe("resolveRootUninstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcps, subagents, context, packs");
+      ).toContain("skills, commands, mcps, subagents, docs, packs");
     }),
   );
 });

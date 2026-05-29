@@ -211,7 +211,7 @@ const groupLabel = (group: string | undefined): string => {
 };
 
 /** Core capability commands, rendered with descriptions at the top of root help. */
-const CORE_COMMANDS = ["skills", "commands", "context", "mcps", "subagents", "packs", "agents"];
+const CORE_COMMANDS = ["skills", "commands", "docs", "mcps", "subagents", "packs", "agents"];
 const CORE_GROUP_LABEL = "CORE";
 
 /** Compact group that should render above the descriptive Core block. */
@@ -277,7 +277,7 @@ const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
   auth: "Manage registry authentication",
   commands: "Manage slash-command extensions",
   discover: "Find extensions for this project",
-  context: "Manage context",
+  docs: "Manage docs docs",
   help: "Show topic and command help",
   install: "Install extensions from the registry",
   lint: "Check workspace configuration",

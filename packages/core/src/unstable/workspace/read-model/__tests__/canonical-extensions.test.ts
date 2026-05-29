@@ -159,15 +159,7 @@ describe("canonical-extensions scanner", () => {
 
   it.effect("covers all seven extension types under one owner", () =>
     Effect.gen(function* () {
-      const types = [
-        "skills",
-        "commands",
-        "mcps",
-        "subagents",
-        "context",
-        "rules",
-        "packs",
-      ] as const;
+      const types = ["skills", "commands", "mcps", "subagents", "docs", "rules", "packs"] as const;
       const project: FixtureSpec["project"] = {
         axmExtensions: Object.fromEntries(
           types.map((t) => [`@owner/${t}/src/sample/marker`, "ok\n"]),

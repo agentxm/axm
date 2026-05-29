@@ -33,7 +33,7 @@ import {
   type PackRef,
 } from "@agentxm/client-core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
-import { ContextManager, type ContextExtensionRef } from "@agentxm/client-core/unstable/context";
+import { DocsManager, type DocsExtensionRef } from "@agentxm/client-core/unstable/docs";
 import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import {
   SubagentManager,
@@ -51,7 +51,7 @@ import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-cor
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type {
   CommandExtensionTarget,
-  ContextExtensionTarget,
+  DocsExtensionTarget,
   McpServerExtensionTarget,
   SkillExtensionTarget,
   SubagentExtensionTarget,
@@ -130,7 +130,7 @@ type PackDependencyNameSets = {
   readonly command: Set<string>;
   readonly "mcp-server": Set<string>;
   readonly subagent: Set<string>;
-  readonly context: Set<string>;
+  readonly docs: Set<string>;
 };
 
 type DroppedPackDependencyTarget =
@@ -138,14 +138,14 @@ type DroppedPackDependencyTarget =
   | CommandExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
-  | ContextExtensionTarget;
+  | DocsExtensionTarget;
 
 const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   skill: new Set<string>(),
   command: new Set<string>(),
   "mcp-server": new Set<string>(),
   subagent: new Set<string>(),
-  context: new Set<string>(),
+  docs: new Set<string>(),
 });
 
 const nameFromFqn = (fqn: string): string => parseExtensionFqnParts(fqn)?.name ?? fqn;
@@ -171,8 +171,8 @@ const collectResolvedDependencyNames = (
       case "subagent":
         names.subagent.add(ref.subagent.name);
         break;
-      case "context":
-        names.context.add(ref.file.name);
+      case "docs":
+        names.docs.add(ref.file.name);
         break;
     }
   }
@@ -185,13 +185,13 @@ const collectDirectlyConfiguredNames = (args: {
   readonly commands: Readonly<Record<string, unknown>>;
   readonly mcpServers: Readonly<Record<string, unknown>>;
   readonly subagents: Readonly<Record<string, unknown>>;
-  readonly context: Readonly<Record<string, unknown>>;
+  readonly docs: Readonly<Record<string, unknown>>;
 }): PackDependencyNameSets => ({
   skill: new Set(Object.keys(args.skills)),
   command: new Set(Object.keys(args.commands)),
   "mcp-server": new Set(Object.keys(args.mcpServers)),
   subagent: new Set(Object.keys(args.subagents)),
-  context: new Set(Object.keys(args.context)),
+  docs: new Set(Object.keys(args.docs)),
 });
 
 const collectDroppedPackDependencyTargets = (args: {
@@ -200,7 +200,7 @@ const collectDroppedPackDependencyTargets = (args: {
     readonly resolvedCommands: Readonly<Record<string, string>>;
     readonly resolvedMcpServers: Readonly<Record<string, string>>;
     readonly resolvedSubagents: Readonly<Record<string, string>>;
-    readonly resolvedContext?: Readonly<Record<string, string>> | undefined;
+    readonly resolvedDocs?: Readonly<Record<string, string>> | undefined;
   };
   readonly nextDependencies: PackDependencyNameSets;
   readonly directlyConfigured: PackDependencyNameSets;
@@ -238,10 +238,10 @@ const collectDroppedPackDependencyTargets = (args: {
     }
   }
 
-  for (const fqn of Object.keys(args.lockedPack.resolvedContext ?? {})) {
+  for (const fqn of Object.keys(args.lockedPack.resolvedDocs ?? {})) {
     const name = nameFromFqn(fqn);
-    if (!args.nextDependencies.context.has(name) && !args.directlyConfigured.context.has(name)) {
-      droppedTargets.push({ type: "context", name });
+    if (!args.nextDependencies.docs.has(name) && !args.directlyConfigured.docs.has(name)) {
+      droppedTargets.push({ type: "docs", name });
     }
   }
 
@@ -313,7 +313,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const pathSvc = yield* Path.Path;
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
-    const contextManager = yield* ContextManager;
+    const contextManager = yield* DocsManager;
     const mcpServerMgr = yield* McpServerManager;
     const subagentMgr = yield* SubagentManager;
 
@@ -647,7 +647,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const refs = yield* expandPackInstallRefs({
           pack: intent.packToInstall,
-          supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent", "context"],
+          supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent", "docs"],
           sources,
         });
         const lockedPack = yield* ws.getLockedPack(intent.packToInstall.pack.name);
@@ -663,7 +663,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             ws.records.getConfiguredCommands(),
             ws.records.getConfiguredMcpServers(),
             ws.records.getConfiguredSubagents(),
-            ws.getConfiguredContextEntries(),
+            ws.getConfiguredDocsEntries(),
           ],
           { concurrency: "unbounded" },
         );
@@ -717,8 +717,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          if (ref.type === "context") {
-            return buildInstallOperation<ContextExtensionRef>(contextManager, {
+          if (ref.type === "docs") {
+            return buildInstallOperation<DocsExtensionRef>(contextManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
@@ -738,7 +738,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           commands: configuredCommands,
           mcpServers: configuredMcpServers,
           subagents: configuredSubagents,
-          context: configuredFiles,
+          docs: configuredFiles,
         });
         const nextDependencies = collectResolvedDependencyNames(refs);
         const droppedTargets = Option.match(lockedPack, {
@@ -775,8 +775,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          if (target.type === "context") {
-            return buildUninstallOperation<ContextExtensionRef>(contextManager, retentionPolicy, {
+          if (target.type === "docs") {
+            return buildUninstallOperation<DocsExtensionRef>(contextManager, retentionPolicy, {
               target,
             });
           }

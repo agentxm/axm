@@ -27,7 +27,7 @@ None.
 
 None.
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -48,10 +48,6 @@ axm whoami
 ```bash
 axm auth whoami --json
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

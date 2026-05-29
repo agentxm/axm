@@ -25,12 +25,12 @@ None.
 
 ## Flags
 
-| Name      | Type   | Required | Description                                                                                         |
-| --------- | ------ | -------- | --------------------------------------------------------------------------------------------------- |
-| `--scope` | choice | No       | Check project (default) or user-level configuration (choices: project, user)                        |
-| `--type`  | choice | No       | Only check a specific extension type (choices: skill, command, mcp-server, subagent, context, pack) |
+| Name      | Type   | Required | Description                                                                                      |
+| --------- | ------ | -------- | ------------------------------------------------------------------------------------------------ |
+| `--scope` | choice | No       | Check project (default) or user-level configuration (choices: project, user)                     |
+| `--type`  | choice | No       | Only check a specific extension type (choices: skill, command, mcp-server, subagent, docs, pack) |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -57,10 +57,6 @@ axm outdated --json
 ```bash
 axm outdated --scope user
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

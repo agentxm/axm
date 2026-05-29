@@ -199,7 +199,7 @@
       "title": "Source Host Config",
       "description": "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
     },
-    "ContextInputValue": {
+    "DocsInputValue": {
       "anyOf": [
         { "type": "string" },
         {
@@ -212,14 +212,14 @@
         },
         { "type": "boolean" }
       ],
-      "title": "Context Input Value",
-      "description": "Scalar value used to render context templates."
+      "title": "Docs Input Value",
+      "description": "Scalar value used to render docs templates."
     },
     "WorkspaceVarsMap": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/ContextInputValue" },
+      "additionalProperties": { "$ref": "#/definitions/DocsInputValue" },
       "title": "Workspace Vars Map",
-      "description": "Scalar workspace variables available to context templates."
+      "description": "Scalar workspace variables available to Context docs templates."
     },
     "SkillEntry": {
       "anyOf": [
@@ -351,13 +351,13 @@
       "title": "Commands Config",
       "description": "Feature-level configuration for commands."
     },
-    "ContextInputValuesMap": {
+    "DocsInputValuesMap": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/ContextInputValue" },
-      "title": "Context Input Values Map",
-      "description": "Scalar values supplied to a context package entry."
+      "additionalProperties": { "$ref": "#/definitions/DocsInputValue" },
+      "title": "Docs Input Values Map",
+      "description": "Scalar values supplied to a Context docs package entry."
     },
-    "ContextEntry": {
+    "DocsEntry": {
       "anyOf": [
         { "type": "string" },
         {
@@ -370,7 +370,7 @@
                   "minLength": 1,
                   "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
                   "examples": [
-                    "@acme/context/code-review@^1.0.0",
+                    "@acme/docs/code-review@^1.0.0",
                     "github:acme/agent-extensions",
                     "./extensions/code-review"
                   ]
@@ -387,30 +387,27 @@
               "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
             },
-            "inputs": { "$ref": "#/definitions/ContextInputValuesMap" }
+            "inputs": { "$ref": "#/definitions/DocsInputValuesMap" }
           },
           "required": ["source"],
           "additionalProperties": false,
-          "title": "Context Entry Object",
-          "description": "A context package entry with source, optional flags, and scalar input values."
+          "title": "Docs Entry Object",
+          "description": "A Context docs package entry with source, optional flags, and scalar input values."
         }
       ],
-      "title": "Context Entry",
-      "description": "A context package entry: a source string, or an object with source plus optional flags and inputs.",
+      "title": "Docs Entry",
+      "description": "A Context docs package entry: a source string, or an object with source plus optional flags and inputs.",
       "examples": [
-        "@acme/context/workspace-baseline@^1.0.0",
-        {
-          "source": "@acme/context/workspace-baseline@^1.0.0",
-          "inputs": { "projectName": "agentxm" }
-        }
+        "@ac/docs/workspace-baseline@^1.0.0",
+        { "source": "@ac/docs/workspace-baseline@^1.0.0", "inputs": { "projectName": "agentxm" } }
       ]
     },
-    "ContextMap": {
+    "DocsMap": {
       "type": "object",
-      "title": "Context Map",
-      "description": "A map of context package names to context package entries.",
+      "title": "Docs Map",
+      "description": "A map of Context docs package names to Context docs package entries.",
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/ContextEntry" }
+      "additionalProperties": { "$ref": "#/definitions/DocsEntry" }
     },
     "SubagentEntry": {
       "anyOf": [
@@ -661,7 +658,7 @@
         },
         "vars": {
           "anyOf": [{ "$ref": "#/definitions/WorkspaceVarsMap" }],
-          "description": "Scalar workspace variables available to context templates."
+          "description": "Scalar workspace variables available to Context docs templates."
         },
         "skills": {
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
@@ -679,9 +676,9 @@
           "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }],
           "description": "Feature-level options for command management."
         },
-        "context": {
-          "anyOf": [{ "$ref": "#/definitions/ContextMap" }],
-          "description": "Your installed context packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or scalar `inputs`."
+        "docs": {
+          "anyOf": [{ "$ref": "#/definitions/DocsMap" }],
+          "description": "Your installed Context docs packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or scalar `inputs`."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
@@ -724,9 +721,9 @@
             "legacy-rules": { "source": "@acme/skills/legacy-rules@^1.0.0", "enabled": false }
           },
           "vars": { "projectName": "agentxm" },
-          "context": {
+          "docs": {
             "workspace-baseline": {
-              "source": "@acme/context/workspace-baseline@^1.0.0",
+              "source": "@ac/docs/workspace-baseline@^1.0.0",
               "inputs": { "projectName": "AgentXM" }
             }
           },

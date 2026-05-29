@@ -16,7 +16,7 @@ import {
   SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
-import { FileInputValueSchema, FileMaterializationModeSchema } from "../context/manifest-schema.js";
+import { FileInputValueSchema, FileMaterializationModeSchema } from "../docs/manifest-schema.js";
 import { RelativePathSchema } from "../utils/path-types.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 import { SourceRefSchema, SourceSegmentSchema, SourceSubPathSchema } from "../sources/types.js";
@@ -322,25 +322,25 @@ export const McpServersLockMapSchema = Schema.Record(Schema.String, McpServerLoc
 export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchema>;
 
 // =============================================================================
-// Context Lock Entry (union of all source types, no agents)
+// Docs Lock Entry (union of all source types, no agents)
 // =============================================================================
 
 /**
- * Resolved scalar input values captured for a context package install.
+ * Resolved scalar input values captured for a Context docs package install.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ContextResolvedInputsMapSchema = Schema.Record(
+export const DocsResolvedInputsMapSchema = Schema.Record(
   Schema.String,
   FileInputValueSchema,
 ).annotate({
-  identifier: "ContextResolvedInputsMap",
-  title: "Context Resolved Inputs Map",
-  description: "Scalar input values resolved for a context package lock entry.",
+  identifier: "DocsResolvedInputsMap",
+  title: "Docs Resolved Inputs Map",
+  description: "Scalar input values resolved for a Context docs package lock entry.",
 });
 
 /** @experimental */
-export type ContextResolvedInputsMap = Schema.Schema.Type<typeof ContextResolvedInputsMapSchema>;
+export type DocsResolvedInputsMap = Schema.Schema.Type<typeof DocsResolvedInputsMapSchema>;
 
 /**
  * Materialized file target recorded for sync and uninstall decisions.
@@ -356,38 +356,38 @@ export const MaterializedFileTargetSchema = Schema.Struct({
   identifier: "MaterializedFileTarget",
   title: "Materialized File Target",
   description:
-    "A workspace target written by a context package, plus optional region and render hash.",
+    "A workspace target written by a Context docs package, plus optional region and render hash.",
 });
 
 /** @experimental */
 export type MaterializedFileTarget = Schema.Schema.Type<typeof MaterializedFileTargetSchema>;
 
-const ContextCommonFields = {
+const DocsCommonFields = {
   ...BaseCommonFields,
-  resolvedInputs: Schema.optional(ContextResolvedInputsMapSchema),
+  resolvedInputs: Schema.optional(DocsResolvedInputsMapSchema),
   materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
 };
 
 /**
- * Lock entry for a single installed context package.
+ * Lock entry for a single installed Context docs package.
  * Discriminated union by the `type` field.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ContextLockEntrySchema = makeSourceLockUnion(ContextCommonFields);
+export const DocsLockEntrySchema = makeSourceLockUnion(DocsCommonFields);
 
 /** @experimental */
-export type ContextLockEntry = Schema.Schema.Type<typeof ContextLockEntrySchema>;
+export type DocsLockEntry = Schema.Schema.Type<typeof DocsLockEntrySchema>;
 
 /**
- * Map of context package names to their lock entries.
+ * Map of Context docs package names to their lock entries.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ContextLockMapSchema = Schema.Record(Schema.String, ContextLockEntrySchema);
+export const DocsLockMapSchema = Schema.Record(Schema.String, DocsLockEntrySchema);
 
 /** @experimental */
-export type ContextLockMap = Schema.Schema.Type<typeof ContextLockMapSchema>;
+export type DocsLockMap = Schema.Schema.Type<typeof DocsLockMapSchema>;
 
 // =============================================================================
 // Pack Lock Entry
@@ -424,7 +424,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
   resolvedSubagents: ResolvedExtensionMapSchema,
-  resolvedContext: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedDocs: Schema.optional(ResolvedExtensionMapSchema),
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",
@@ -525,7 +525,7 @@ export const LockfileSchema = Schema.Struct({
   commands: Schema.optional(CommandsLockMapSchema),
   subagents: Schema.optional(SubagentsLockMapSchema),
   mcpServers: Schema.optional(McpServersLockMapSchema),
-  context: Schema.optional(ContextLockMapSchema),
+  docs: Schema.optional(DocsLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
 }).annotate({
   identifier: "Lockfile",

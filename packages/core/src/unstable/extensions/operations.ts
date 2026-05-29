@@ -38,8 +38,8 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
       return { type: "mcp-server", name: ref.server.name };
     case "subagent":
       return { type: "subagent", name: ref.subagent.name };
-    case "context":
-      return { type: "context", name: ref.file.name };
+    case "docs":
+      return { type: "docs", name: ref.file.name };
   }
 };
 

@@ -33,7 +33,7 @@ axm uninstall [flags] <source>
 | `--force`, `-f` | boolean | No       | Remove even if the extension is referenced by other extensions |
 | `--preview`     | boolean | No       | Show what would be removed without making changes              |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -54,10 +54,6 @@ axm uninstall @acme/commands/release-notes@^1.2.0 --preview
 ```bash
 axm uninstall @acme/packs/frontend-tools --yes
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

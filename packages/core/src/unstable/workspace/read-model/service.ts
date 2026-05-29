@@ -26,16 +26,16 @@ import {
 } from "./errors.js";
 import {
   makeCommandExtensionsApi,
-  makeContextExtensionsApi,
+  makeDocsExtensionsApi,
   makeMcpServerExtensionsApi,
   makePackExtensionsApi,
   makeRuleExtensionsApi,
   makeSkillExtensionsApi,
   makeSubagentExtensionsApi,
   type CommandExtensionsApi,
-  type ContextExtensionsApi,
+  type DocsExtensionsApi,
   type InstalledPackForCommands,
-  type InstalledPackForContext,
+  type InstalledPackForDocs,
   type InstalledPackForMcpServers,
   type InstalledPackForRules,
   type InstalledPackForSkills,
@@ -102,7 +102,7 @@ export interface WorkspaceReadModel {
   readonly commands: CommandExtensionsApi;
   readonly mcpServers: McpServerExtensionsApi;
   readonly subagents: SubagentExtensionsApi;
-  readonly context: ContextExtensionsApi;
+  readonly docs: DocsExtensionsApi;
   readonly rules: RuleExtensionsApi;
   readonly packs: PackExtensionsApi;
   readonly agents: ScopedAgentsApi;
@@ -380,8 +380,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       ),
     );
 
-  const contextInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForContext>> =
-    Effect.succeed([]);
+  const docsInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForDocs>> = Effect.succeed([]);
   const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> = Effect.succeed(
     [],
   );
@@ -422,10 +421,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     diagnostics,
   });
 
-  const context = yield* makeContextExtensionsApi({
+  const docs = yield* makeDocsExtensionsApi({
     scope,
     scanners: { canonical: canonicalScanner },
-    installedPacks: contextInstalledPacks,
+    installedPacks: docsInstalledPacks,
     ignoredNames: new Set<string>(),
     diagnostics,
   });
@@ -511,7 +510,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     commands,
     mcpServers,
     subagents,
-    context,
+    docs,
     rules,
     packs: packsApi,
     agents,

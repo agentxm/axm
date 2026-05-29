@@ -30,7 +30,7 @@ None.
 | `--scope`   | choice  | No       | Sync project (default) or user-level configuration (choices: project, user) |
 | `--dry-run` | boolean | No       | Preview the materialization plan without applying it                        |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -57,10 +57,6 @@ axm sync --scope user
 ```bash
 axm sync --json
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

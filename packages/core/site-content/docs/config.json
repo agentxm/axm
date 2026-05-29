@@ -9,18 +9,102 @@
         {
           "label": "Extensions",
           "children": [
-            { "label": "axm skills", "to": "cli-reference/skills" },
-            { "label": "axm commands", "to": "cli-reference/commands" },
-            { "label": "axm context", "to": "cli-reference/context" },
-            { "label": "axm mcps", "to": "cli-reference/mcps" },
-            { "label": "axm subagents", "to": "cli-reference/subagents" },
-            { "label": "axm packs", "to": "cli-reference/packs" },
+            {
+              "label": "axm skills",
+              "to": "cli-reference/skills",
+              "children": [
+                { "label": "axm skills install", "to": "cli-reference/skills/install" },
+                { "label": "axm skills uninstall", "to": "cli-reference/skills/uninstall" },
+                { "label": "axm skills list", "to": "cli-reference/skills/list" },
+                { "label": "axm skills update", "to": "cli-reference/skills/update" },
+                { "label": "axm skills new", "to": "cli-reference/skills/new" },
+                { "label": "axm skills enable", "to": "cli-reference/skills/enable" },
+                { "label": "axm skills disable", "to": "cli-reference/skills/disable" },
+                { "label": "axm skills version", "to": "cli-reference/skills/version" },
+                { "label": "axm skills publish", "to": "cli-reference/skills/publish" },
+                { "label": "axm skills prune", "to": "cli-reference/skills/prune" }
+              ]
+            },
+            {
+              "label": "axm commands",
+              "to": "cli-reference/commands",
+              "children": [
+                { "label": "axm commands install", "to": "cli-reference/commands/install" },
+                { "label": "axm commands uninstall", "to": "cli-reference/commands/uninstall" },
+                { "label": "axm commands list", "to": "cli-reference/commands/list" },
+                { "label": "axm commands enable", "to": "cli-reference/commands/enable" },
+                { "label": "axm commands disable", "to": "cli-reference/commands/disable" },
+                { "label": "axm commands update", "to": "cli-reference/commands/update" },
+                { "label": "axm commands new", "to": "cli-reference/commands/new" },
+                { "label": "axm commands version", "to": "cli-reference/commands/version" },
+                { "label": "axm commands publish", "to": "cli-reference/commands/publish" }
+              ]
+            },
+            {
+              "label": "axm docs",
+              "to": "cli-reference/docs",
+              "children": [
+                { "label": "axm docs install", "to": "cli-reference/docs/install" },
+                { "label": "axm docs uninstall", "to": "cli-reference/docs/uninstall" },
+                { "label": "axm docs list", "to": "cli-reference/docs/list" },
+                { "label": "axm docs enable", "to": "cli-reference/docs/enable" },
+                { "label": "axm docs disable", "to": "cli-reference/docs/disable" },
+                { "label": "axm docs update", "to": "cli-reference/docs/update" },
+                { "label": "axm docs new", "to": "cli-reference/docs/new" },
+                { "label": "axm docs publish", "to": "cli-reference/docs/publish" },
+                { "label": "axm docs prune", "to": "cli-reference/docs/prune" }
+              ]
+            },
+            {
+              "label": "axm mcps",
+              "to": "cli-reference/mcps",
+              "children": [
+                { "label": "axm mcps install", "to": "cli-reference/mcps/install" },
+                { "label": "axm mcps uninstall", "to": "cli-reference/mcps/uninstall" },
+                { "label": "axm mcps list", "to": "cli-reference/mcps/list" },
+                { "label": "axm mcps enable", "to": "cli-reference/mcps/enable" },
+                { "label": "axm mcps disable", "to": "cli-reference/mcps/disable" },
+                { "label": "axm mcps update", "to": "cli-reference/mcps/update" },
+                { "label": "axm mcps new", "to": "cli-reference/mcps/new" },
+                { "label": "axm mcps publish", "to": "cli-reference/mcps/publish" },
+                { "label": "axm mcps version", "to": "cli-reference/mcps/version" }
+              ]
+            },
+            {
+              "label": "axm subagents",
+              "to": "cli-reference/subagents",
+              "children": [
+                { "label": "axm subagents install", "to": "cli-reference/subagents/install" },
+                { "label": "axm subagents uninstall", "to": "cli-reference/subagents/uninstall" },
+                { "label": "axm subagents list", "to": "cli-reference/subagents/list" },
+                { "label": "axm subagents update", "to": "cli-reference/subagents/update" },
+                { "label": "axm subagents new", "to": "cli-reference/subagents/new" },
+                { "label": "axm subagents publish", "to": "cli-reference/subagents/publish" },
+                { "label": "axm subagents enable", "to": "cli-reference/subagents/enable" },
+                { "label": "axm subagents disable", "to": "cli-reference/subagents/disable" },
+                { "label": "axm subagents version", "to": "cli-reference/subagents/version" }
+              ]
+            },
+            {
+              "label": "axm packs",
+              "to": "cli-reference/packs",
+              "children": [
+                { "label": "axm packs list", "to": "cli-reference/packs/list" },
+                { "label": "axm packs install", "to": "cli-reference/packs/install" },
+                { "label": "axm packs uninstall", "to": "cli-reference/packs/uninstall" },
+                { "label": "axm packs new", "to": "cli-reference/packs/new" },
+                { "label": "axm packs add", "to": "cli-reference/packs/add" },
+                { "label": "axm packs remove", "to": "cli-reference/packs/remove" },
+                { "label": "axm packs publish", "to": "cli-reference/packs/publish" },
+                { "label": "axm packs unpack", "to": "cli-reference/packs/unpack" },
+                { "label": "axm packs version", "to": "cli-reference/packs/version" }
+              ]
+            },
             { "label": "axm install", "to": "cli-reference/install" },
             { "label": "axm update", "to": "cli-reference/update" },
             { "label": "axm uninstall", "to": "cli-reference/uninstall" },
             { "label": "axm outdated", "to": "cli-reference/outdated" },
             { "label": "axm view", "to": "cli-reference/view" },
-            { "label": "axm lists", "to": "cli-reference/lists" },
             { "label": "axm version", "to": "cli-reference/version" }
           ]
         },
@@ -28,8 +112,37 @@
           "label": "Workspace",
           "children": [
             { "label": "axm sync", "to": "cli-reference/sync" },
-            { "label": "axm agents", "to": "cli-reference/agents" },
-            { "label": "axm rules", "to": "cli-reference/rules" },
+            {
+              "label": "axm agents",
+              "to": "cli-reference/agents",
+              "children": [
+                { "label": "axm agents list", "to": "cli-reference/agents/list" },
+                { "label": "axm agents add", "to": "cli-reference/agents/add" },
+                { "label": "axm agents remove", "to": "cli-reference/agents/remove" },
+                {
+                  "label": "axm agents instructions",
+                  "to": "cli-reference/agents/instructions",
+                  "children": [
+                    {
+                      "label": "axm agents instructions enable",
+                      "to": "cli-reference/agents/instructions/enable"
+                    },
+                    {
+                      "label": "axm agents instructions disable",
+                      "to": "cli-reference/agents/instructions/disable"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "axm rules",
+              "to": "cli-reference/rules",
+              "children": [
+                { "label": "axm rules enable", "to": "cli-reference/rules/enable" },
+                { "label": "axm rules disable", "to": "cli-reference/rules/disable" }
+              ]
+            },
             { "label": "axm lint", "to": "cli-reference/lint" },
             { "label": "axm prune", "to": "cli-reference/prune" },
             { "label": "axm upgrade", "to": "cli-reference/upgrade" },
@@ -40,11 +153,36 @@
         {
           "label": "Authentication",
           "children": [
-            { "label": "axm auth", "to": "cli-reference/auth" },
+            {
+              "label": "axm auth",
+              "to": "cli-reference/auth",
+              "children": [
+                { "label": "axm auth login", "to": "cli-reference/auth/login" },
+                { "label": "axm auth logout", "to": "cli-reference/auth/logout" },
+                { "label": "axm auth whoami", "to": "cli-reference/auth/whoami" },
+                {
+                  "label": "axm auth token",
+                  "to": "cli-reference/auth/token",
+                  "children": [
+                    { "label": "axm auth token create", "to": "cli-reference/auth/token/create" },
+                    { "label": "axm auth token list", "to": "cli-reference/auth/token/list" },
+                    { "label": "axm auth token revoke", "to": "cli-reference/auth/token/revoke" }
+                  ]
+                }
+              ]
+            },
             { "label": "axm login", "to": "cli-reference/login" },
             { "label": "axm logout", "to": "cli-reference/logout" },
             { "label": "axm whoami", "to": "cli-reference/whoami" },
-            { "label": "axm token", "to": "cli-reference/token" }
+            {
+              "label": "axm token",
+              "to": "cli-reference/token",
+              "children": [
+                { "label": "axm token create", "to": "cli-reference/token/create" },
+                { "label": "axm token list", "to": "cli-reference/token/list" },
+                { "label": "axm token revoke", "to": "cli-reference/token/revoke" }
+              ]
+            }
           ]
         },
         {

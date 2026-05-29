@@ -29,7 +29,7 @@ axm help [flags] [<topic>]
 
 None.
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -74,10 +74,6 @@ axm help skill-schema
 ```bash
 axm help exit-codes
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

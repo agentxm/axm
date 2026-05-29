@@ -7,7 +7,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
+import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
@@ -97,7 +97,7 @@ describe("root sync handler", () => {
     const managersLayer = Layer.provide(
       Layer.mergeAll(
         CommandManagerLive,
-        ContextManagerLive,
+        DocsManagerLive,
         McpServerManagerLive,
         SkillManagerLive,
         SubagentManagerLive,
@@ -217,19 +217,19 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("renders settings-owned context packages", () =>
+  it.effect("renders settings-owned Context docs packages", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: [],
-        context: {
+        docs: {
           "context-kit": "./extensions/context-kit",
         },
       });
       const fileDir = path.join(tempDir, "extensions", "context-kit");
-      writeJson(path.join(fileDir, "context.json"), {
+      writeJson(path.join(fileDir, "docs.json"), {
         owner: "@acme",
-        type: "context",
+        type: "docs",
         name: "context-kit",
         version: "1.0.0",
         contents: [

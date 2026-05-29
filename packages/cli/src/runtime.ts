@@ -27,7 +27,7 @@ import {
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
+import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
@@ -42,8 +42,8 @@ import {
 } from "@agentxm/client-core/unstable/auth";
 import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
-import { InstallContextCommandWorkflowActionsLive } from "./root/context/install/command-actions.js";
-import { UninstallContextCommandWorkflowActionsLive } from "./root/context/uninstall/command-actions.js";
+import { InstallDocsCommandWorkflowActionsLive } from "./root/docs/install/command-actions.js";
+import { UninstallDocsCommandWorkflowActionsLive } from "./root/docs/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -208,12 +208,9 @@ const makeWorkspaceProgramLayer = (
     ),
     CommandManagerLive,
   );
-  const filesLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallContextCommandWorkflowActionsLive,
-      UninstallContextCommandWorkflowActionsLive,
-    ),
-    ContextManagerLive,
+  const docsLayer = Layer.provideMerge(
+    Layer.mergeAll(InstallDocsCommandWorkflowActionsLive, UninstallDocsCommandWorkflowActionsLive),
+    DocsManagerLive,
   );
   const mcpServersLayer = Layer.provideMerge(
     Layer.mergeAll(
@@ -242,7 +239,7 @@ const makeWorkspaceProgramLayer = (
   );
   const coreExtensions = Layer.mergeAll(
     commandsLayer,
-    filesLayer,
+    docsLayer,
     mcpServersLayer,
     skillsLayer,
     subagentsLayer,

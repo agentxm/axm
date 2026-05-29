@@ -80,10 +80,9 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 | Reconcile workspace configuration             | `axm lint --fix` |
 | Remove unmanaged extension artifacts          | `axm prune`      |
 
-### Curated lists & auth
+### Auth
 
-| Task                                    | Command                                                       |
-| --------------------------------------- | ------------------------------------------------------------- |
-| Browse / manage curated extension lists | `axm lists <list\|view\|create\|update\|delete\|add\|remove>` |
-| Sign in / out / identity                | `axm <login\|logout\|whoami>`                                 |
-| Manage granular access tokens           | `axm token [create\|list\|revoke]`                            |
+| Task                          | Command                            |
+| ----------------------------- | ---------------------------------- |
+| Sign in / out / identity      | `axm <login\|logout\|whoami>`      |
+| Manage granular access tokens | `axm token [create\|list\|revoke]` |

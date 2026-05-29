@@ -39,7 +39,7 @@
         }
       ]
     },
-    "ContextInputValue": {
+    "DocsInputValue": {
       "anyOf": [
         { "type": "string" },
         {
@@ -52,26 +52,26 @@
         },
         { "type": "boolean" }
       ],
-      "title": "Context Input Value",
-      "description": "Scalar value used to render context templates."
+      "title": "Docs Input Value",
+      "description": "Scalar value used to render docs templates."
     },
-    "ContextResolvedInputsMap": {
+    "DocsResolvedInputsMap": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/ContextInputValue" },
-      "title": "Context Resolved Inputs Map",
-      "description": "Scalar input values resolved for a context package lock entry."
+      "additionalProperties": { "$ref": "#/definitions/DocsInputValue" },
+      "title": "Docs Resolved Inputs Map",
+      "description": "Scalar input values resolved for a Context docs package lock entry."
     },
-    "ContextMaterializationMode": {
+    "DocsMaterializationMode": {
       "type": "string",
       "enum": ["sync-once", "sync-always", "managed-region"],
-      "title": "Context Materialization Mode",
+      "title": "Docs Materialization Mode",
       "description": "How AXM owns or preserves the materialized target."
     },
     "MaterializedFileTarget": {
       "type": "object",
       "properties": {
         "target": { "type": "string" },
-        "mode": { "$ref": "#/definitions/ContextMaterializationMode" },
+        "mode": { "$ref": "#/definitions/DocsMaterializationMode" },
         "region": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
@@ -80,13 +80,13 @@
       "required": ["target", "mode"],
       "additionalProperties": false,
       "title": "Materialized File Target",
-      "description": "A workspace target written by a context package, plus optional region and render hash."
+      "description": "A workspace target written by a Context docs package, plus optional region and render hash."
     },
     "ExtensionFqn": {
       "type": "string",
       "allOf": [
         {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|context|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|docs|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Extension FQN",
           "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
@@ -124,7 +124,7 @@
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
           "additionalProperties": { "$ref": "#/definitions/Version" }
         },
-        "resolvedContext": {
+        "resolvedDocs": {
           "anyOf": [
             {
               "type": "object",
@@ -1314,7 +1314,7 @@
             { "type": "null" }
           ]
         },
-        "context": {
+        "docs": {
           "anyOf": [
             {
               "type": "object",
@@ -1344,7 +1344,7 @@
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "resolvedInputs": {
                         "anyOf": [
-                          { "$ref": "#/definitions/ContextResolvedInputsMap" },
+                          { "$ref": "#/definitions/DocsResolvedInputsMap" },
                           { "type": "null" }
                         ]
                       },
@@ -1385,7 +1385,7 @@
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "resolvedInputs": {
                         "anyOf": [
-                          { "$ref": "#/definitions/ContextResolvedInputsMap" },
+                          { "$ref": "#/definitions/DocsResolvedInputsMap" },
                           { "type": "null" }
                         ]
                       },
@@ -1426,7 +1426,7 @@
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "resolvedInputs": {
                         "anyOf": [
-                          { "$ref": "#/definitions/ContextResolvedInputsMap" },
+                          { "$ref": "#/definitions/DocsResolvedInputsMap" },
                           { "type": "null" }
                         ]
                       },
@@ -1468,7 +1468,7 @@
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "resolvedInputs": {
                         "anyOf": [
-                          { "$ref": "#/definitions/ContextResolvedInputsMap" },
+                          { "$ref": "#/definitions/DocsResolvedInputsMap" },
                           { "type": "null" }
                         ]
                       },
@@ -1515,7 +1515,7 @@
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "resolvedInputs": {
                         "anyOf": [
-                          { "$ref": "#/definitions/ContextResolvedInputsMap" },
+                          { "$ref": "#/definitions/DocsResolvedInputsMap" },
                           { "type": "null" }
                         ]
                       },
@@ -1543,7 +1543,7 @@
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "resolvedInputs": {
                         "anyOf": [
-                          { "$ref": "#/definitions/ContextResolvedInputsMap" },
+                          { "$ref": "#/definitions/DocsResolvedInputsMap" },
                           { "type": "null" }
                         ]
                       },
@@ -1575,7 +1575,7 @@
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "resolvedInputs": {
                         "anyOf": [
-                          { "$ref": "#/definitions/ContextResolvedInputsMap" },
+                          { "$ref": "#/definitions/DocsResolvedInputsMap" },
                           { "type": "null" }
                         ]
                       },

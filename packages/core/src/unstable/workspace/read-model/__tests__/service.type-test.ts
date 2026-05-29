@@ -32,9 +32,9 @@ const _program = Effect.gen(function* () {
   yield* p.subagents.installed;
   yield* p.subagents.byName("example");
   yield* p.subagents.declaredByName("example");
-  yield* p.context.installed;
-  yield* p.context.byName("example");
-  yield* p.context.declaredByName("example");
+  yield* p.docs.installed;
+  yield* p.docs.byName("example");
+  yield* p.docs.declaredByName("example");
   yield* p.rules.installed;
   yield* p.rules.byName("example");
   yield* p.rules.declaredByName("example");

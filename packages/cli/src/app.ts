@@ -28,7 +28,7 @@ import { rulesCommand } from "./root/rules/command.js";
 import { skillsCommand } from "./root/skills/_skills.js";
 import { packsCommand } from "./root/packs/_packs.js";
 import { commandsCommand } from "./root/commands/_commands.js";
-import { contextCommand } from "./root/context/_context.js";
+import { docsCommand } from "./root/docs/_docs.js";
 import { mcpsCommand } from "./root/mcps/_mcps.js";
 import { subagentsCommand } from "./root/subagents/_subagents.js";
 import { authCommand } from "./root/auth/_auth.js";
@@ -47,7 +47,6 @@ import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
 import { helpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
-import { listsCommand } from "./root/lists/command.js";
 import { versionCommand } from "./root/shared/version-command.js";
 
 const ROOT_COMMAND = "axm";
@@ -72,13 +71,13 @@ const documentedCommandsCommand = withCommandDocs({
   requirements: { workspace: true },
 })(commandsCommand);
 
-const documentedContextCommand = withCommandDocs({
+const documentedDocsCommand = withCommandDocs({
   category: "extensions",
-  summary: "Manage context package extensions.",
+  summary: "Manage Context docs package extensions.",
   whenToUse:
     "Use this command family when installing or publishing reusable files and project context.",
   requirements: { workspace: true },
-})(contextCommand);
+})(docsCommand);
 
 const documentedMcpsCommand = withCommandDocs({
   category: "extensions",
@@ -141,13 +140,6 @@ const documentedViewCommand = withCommandDocs({
   whenToUse: "Use this when inspecting a published extension before installing or updating it.",
   requirements: { registry: true, network: true },
 })(viewCommand);
-
-const documentedListsCommand = withCommandDocs({
-  category: "extensions",
-  summary: "Browse curated registry extension lists.",
-  whenToUse: "Use this when discovering grouped extension recommendations from the registry.",
-  requirements: { registry: true, network: true },
-})(listsCommand);
 
 const documentedVersionCommand = withCommandDocs({
   category: "extensions",
@@ -261,7 +253,7 @@ const documentedHelpCommand = withCommandDocs({
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
-    "Open extension manager for AI coding agents.\n  Manage skills, commands, context packages, MCP servers, and packs across your AI coding agents from a single CLI.",
+    "Open extension manager for AI coding agents.\n  Manage skills, commands, Context docs packages, MCP servers, and packs across your AI coding agents from a single CLI.",
   ),
   Command.withExamples([
     { command: "axm setup", description: "Start managing extensions in your project" },
@@ -292,7 +284,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         documentedSkillsCommand,
         documentedCommandsCommand,
-        documentedContextCommand,
+        documentedDocsCommand,
         documentedMcpsCommand,
         documentedSubagentsCommand,
         documentedPacksCommand,
@@ -301,7 +293,6 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         documentedUninstallCommand,
         documentedOutdatedCommand,
         documentedViewCommand,
-        documentedListsCommand,
         documentedVersionCommand,
       ],
     },

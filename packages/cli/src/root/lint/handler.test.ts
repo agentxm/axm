@@ -27,7 +27,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { ContextManagerLive } from "@agentxm/client-core/unstable/context";
+import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
@@ -37,7 +37,7 @@ import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/wo
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 
 import { InstallCommandCommandWorkflowActionsLive } from "../commands/install/command-actions.js";
-import { InstallContextCommandWorkflowActionsLive } from "../context/install/command-actions.js";
+import { InstallDocsCommandWorkflowActionsLive } from "../docs/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "../mcps/install/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
@@ -89,10 +89,7 @@ describe("axm lint handler", () => {
       InstallMcpServerCommandWorkflowActionsLive,
       McpServerManagerLive,
     );
-    const contextLayer = Layer.provideMerge(
-      InstallContextCommandWorkflowActionsLive,
-      ContextManagerLive,
-    );
+    const contextLayer = Layer.provideMerge(InstallDocsCommandWorkflowActionsLive, DocsManagerLive);
     const skillsLayer = Layer.provideMerge(
       InstallSkillCommandWorkflowActionsLive,
       SkillManagerLive,

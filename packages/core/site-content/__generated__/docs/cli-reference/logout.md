@@ -27,7 +27,7 @@ None.
 
 None.
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -42,10 +42,6 @@ axm auth logout
 ```bash
 axm logout
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

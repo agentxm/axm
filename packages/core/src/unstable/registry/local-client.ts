@@ -51,19 +51,6 @@ const encodeExtensionIndexToJsonString = Schema.encodeSync(
 );
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 
-const unsupportedListOperation = (operation: string) =>
-  Effect.fail(
-    makeAppError({
-      code: "usage",
-      detail: `List ${operation} requires an HTTP registry source.`,
-      suggestions: [
-        {
-          description: "Run the command against AgentXM.ai or a local registry service.",
-        },
-      ],
-    }),
-  );
-
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -624,11 +611,4 @@ export const createLocalRegistryClient = (
 
       return { results } satisfies DiscoverPackagesResponse;
     }),
-  listLists: () => unsupportedListOperation("listing"),
-  getList: () => unsupportedListOperation("lookup"),
-  createList: () => unsupportedListOperation("creation"),
-  updateList: () => unsupportedListOperation("update"),
-  deleteList: () => unsupportedListOperation("deletion"),
-  addListItem: () => unsupportedListOperation("item addition"),
-  removeListItem: () => unsupportedListOperation("item removal"),
 });

@@ -29,7 +29,7 @@ None.
 | --------------- | ------- | -------- | ------------------------------------ |
 | `--force`, `-f` | boolean | No       | Reinstall even if already up to date |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -44,10 +44,6 @@ axm upgrade
 ```bash
 axm upgrade --force
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

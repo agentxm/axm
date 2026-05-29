@@ -7,7 +7,7 @@ export const installableExtensionTypes = [
   "command",
   "mcp-server",
   "subagent",
-  "context",
+  "docs",
   "pack",
 ] as const satisfies ReadonlyArray<ExtensionType>;
 
@@ -24,7 +24,7 @@ export const installableExtensionTypePluralSegments = [
   "commands",
   "mcps",
   "subagents",
-  "context",
+  "docs",
   "packs",
 ] as const satisfies ReadonlyArray<ExtensionTypePlural>;
 
@@ -46,7 +46,7 @@ const installableExtensionTypeFromPlural: Record<
   commands: "command",
   mcps: "mcp-server",
   subagents: "subagent",
-  context: "context",
+  docs: "docs",
   packs: "pack",
 };
 
@@ -58,7 +58,7 @@ const installableExtensionTypeToPlural: Record<
   command: "commands",
   "mcp-server": "mcps",
   subagent: "subagents",
-  context: "context",
+  docs: "docs",
   pack: "packs",
 };
 

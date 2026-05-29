@@ -42,15 +42,6 @@ export type {
   OwnerExistsResponse,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
-  AddRegistryListItemArgs,
-  CreateRegistryListArgs,
-  RegistryList,
-  RegistryListCollection,
-  RegistryListDetail,
-  RegistryListItem,
-  RegistryListRef,
-  RemoveRegistryListItemArgs,
-  UpdateRegistryListArgs,
 } from "./client.js";
 export { createRegistryClient } from "./client.js";
 

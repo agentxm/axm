@@ -31,15 +31,6 @@ import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
-import type {
-  AddListItemBody,
-  CreateListBody,
-  List,
-  ListCollection,
-  ListDetail,
-  ListItem,
-  UpdateListBody,
-} from "./__generated__/registry-client.js";
 
 // -----------------------------------------------------------------------------
 // Search Options
@@ -199,41 +190,6 @@ export interface ExtensionExistsResponse {
   readonly exists: boolean;
 }
 
-export type RegistryList = List;
-export type RegistryListCollection = ListCollection;
-export type RegistryListDetail = ListDetail;
-export type RegistryListItem = ListItem;
-
-export interface CreateRegistryListArgs {
-  readonly owner: Handle;
-  readonly payload: CreateListBody;
-}
-
-export interface UpdateRegistryListArgs {
-  readonly owner: Handle;
-  readonly name: string;
-  readonly payload: UpdateListBody;
-}
-
-export interface RegistryListRef {
-  readonly owner: Handle;
-  readonly name: string;
-}
-
-export interface AddRegistryListItemArgs {
-  readonly owner: Handle;
-  readonly name: string;
-  readonly payload: AddListItemBody;
-}
-
-export interface RemoveRegistryListItemArgs {
-  readonly owner: Handle;
-  readonly name: string;
-  readonly extensionOwner: Handle;
-  readonly extensionType: ExtensionType;
-  readonly extensionName: ExtensionName;
-}
-
 // -----------------------------------------------------------------------------
 // Discover Extensions Args
 // -----------------------------------------------------------------------------
@@ -312,15 +268,6 @@ export interface RegistryClient {
   readonly discoverPackages: (
     args: DiscoverPackagesArgs,
   ) => Effect.Effect<DiscoverPackagesResponse, AppError>;
-  readonly listLists: (owner: Handle) => Effect.Effect<RegistryListCollection, AppError>;
-  readonly getList: (args: RegistryListRef) => Effect.Effect<RegistryListDetail, AppError>;
-  readonly createList: (args: CreateRegistryListArgs) => Effect.Effect<RegistryList, AppError>;
-  readonly updateList: (args: UpdateRegistryListArgs) => Effect.Effect<RegistryList, AppError>;
-  readonly deleteList: (args: RegistryListRef) => Effect.Effect<void, AppError>;
-  readonly addListItem: (
-    args: AddRegistryListItemArgs,
-  ) => Effect.Effect<RegistryListItem, AppError>;
-  readonly removeListItem: (args: RemoveRegistryListItemArgs) => Effect.Effect<void, AppError>;
 }
 
 // -----------------------------------------------------------------------------

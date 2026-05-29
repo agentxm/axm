@@ -105,14 +105,14 @@ describe("makeAxmFormatter", () => {
       const annotations = ServiceMap.make(
         LearnMore,
         formatLearnMore([
-          ["axm context install @acme/context/workspace-baseline", "Install a context package"],
+          ["axm docs install @ac/docs/workspace-baseline", "Install a Context docs package"],
         ]),
       );
       const doc = makeHelpDoc({ annotations });
       const output = formatter.formatHelpDoc(doc);
 
       expect(output).toContain(
-        "LEARN MORE\n  axm context install @acme/context/workspace-baseline\n    Install a context package",
+        "LEARN MORE\n  axm docs install @ac/docs/workspace-baseline\n    Install a Context docs package",
       );
     });
   });
@@ -126,9 +126,9 @@ describe("makeAxmFormatter", () => {
             group: "EXTENSIONS",
             commands: [
               {
-                name: "context",
+                name: "docs",
                 alias: undefined,
-                shortDescription: "context",
+                shortDescription: "docs",
                 description: "",
               },
               {
@@ -159,7 +159,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
       expect(output).toMatch(/CORE\n {2}skills\s+Manage agent skills/);
-      expect(output).toMatch(/ {2}context\s+Manage context/);
+      expect(output).toMatch(/ {2}docs\s+Manage docs docs/);
       expect(output).toMatch(/ {2}mcps, mcps\s+Manage MCP server extensions/);
       expect(output).toMatch(/ {2}agents\s+Configure coding-agent targets/);
       expect(output).toContain("START HERE\n  help, setup");
@@ -203,7 +203,7 @@ describe("makeAxmFormatter", () => {
 
     it("adds a section break before subcommand examples", () => {
       const doc = makeHelpDoc({
-        usage: "axm context <subcommand> [flags]",
+        usage: "axm docs <subcommand> [flags]",
         subcommands: [
           {
             group: undefined,
@@ -211,7 +211,8 @@ describe("makeAxmFormatter", () => {
               {
                 name: "disable",
                 alias: undefined,
-                shortDescription: "Disable a context package without removing sync-once targets",
+                shortDescription:
+                  "Disable a Context docs package without removing sync-once targets",
                 description: "",
               },
             ],
@@ -219,8 +220,8 @@ describe("makeAxmFormatter", () => {
         ],
         examples: [
           {
-            command: "axm context install @acme/context/workspace-baseline",
-            description: "Install a context package",
+            command: "axm docs install @ac/docs/workspace-baseline",
+            description: "Install a Context docs package",
           },
         ],
       });

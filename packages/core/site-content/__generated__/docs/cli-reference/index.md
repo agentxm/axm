@@ -21,40 +21,39 @@ Use `--json` when a command supports machine-readable output, and use `--preview
 
 ### Extensions
 
-- [axm skills](./skills)
-- [axm commands](./commands)
-- [axm context](./context)
-- [axm mcps](./mcps)
-- [axm subagents](./subagents)
-- [axm packs](./packs)
-- [axm install](./install)
-- [axm update](./update)
-- [axm uninstall](./uninstall)
-- [axm outdated](./outdated)
-- [axm view](./view)
-- [axm lists](./lists)
-- [axm version](./version)
+- [axm skills](cli-reference/skills)
+- [axm commands](cli-reference/commands)
+- [axm docs](cli-reference/docs)
+- [axm mcps](cli-reference/mcps)
+- [axm subagents](cli-reference/subagents)
+- [axm packs](cli-reference/packs)
+- [axm install](cli-reference/install)
+- [axm update](cli-reference/update)
+- [axm uninstall](cli-reference/uninstall)
+- [axm outdated](cli-reference/outdated)
+- [axm view](cli-reference/view)
+- [axm version](cli-reference/version)
 
 ### Workspace
 
-- [axm sync](./sync)
-- [axm agents](./agents)
-- [axm rules](./rules)
-- [axm lint](./lint)
-- [axm prune](./prune)
-- [axm upgrade](./upgrade)
-- [axm setup](./setup)
-- [axm discover](./discover)
+- [axm sync](cli-reference/sync)
+- [axm agents](cli-reference/agents)
+- [axm rules](cli-reference/rules)
+- [axm lint](cli-reference/lint)
+- [axm prune](cli-reference/prune)
+- [axm upgrade](cli-reference/upgrade)
+- [axm setup](cli-reference/setup)
+- [axm discover](cli-reference/discover)
 
 ### Authentication
 
-- [axm auth](./auth)
-- [axm login](./login)
-- [axm logout](./logout)
-- [axm whoami](./whoami)
-- [axm token](./token)
+- [axm auth](cli-reference/auth)
+- [axm login](cli-reference/login)
+- [axm logout](cli-reference/logout)
+- [axm whoami](cli-reference/whoami)
+- [axm token](cli-reference/token)
 
 ### Help
 
-- [axm help](./help)
-- [Global flags](./global-flags)
+- [axm help](cli-reference/help)
+- [Global flags](cli-reference/global-flags)

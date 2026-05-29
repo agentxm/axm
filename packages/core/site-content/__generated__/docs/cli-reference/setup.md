@@ -33,7 +33,7 @@ None.
 | `--force`, `-f` | boolean | No       | Override constraints that would cause failure                           |
 | `--preview`     | boolean | No       | Display plan without applying                                           |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -60,10 +60,6 @@ axm setup --scope user
 ```bash
 axm setup --agent claude-code --agent cursor
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

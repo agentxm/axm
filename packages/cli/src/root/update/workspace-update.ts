@@ -13,7 +13,7 @@ import {
 import {
   WorkspaceMutations,
   resolveConfiguredCommand,
-  resolveConfiguredContext,
+  resolveConfiguredDocs,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredSkill,
@@ -28,8 +28,8 @@ import {
 
 import { InstallCommandCommandWorkflowActions } from "../commands/install/command-actions.js";
 import type { InstallCommandCommandIntent } from "../commands/install/intent.js";
-import { InstallContextCommandWorkflowActions } from "../context/install/command-actions.js";
-import type { InstallContextCommandIntent } from "../context/install/intent.js";
+import { InstallDocsCommandWorkflowActions } from "../docs/install/command-actions.js";
+import type { InstallDocsCommandIntent } from "../docs/install/intent.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
@@ -62,7 +62,7 @@ type WorkspaceUpdateCollectorContext =
   | SourceHostProviders
   | InstallSkillCommandWorkflowActions
   | InstallCommandCommandWorkflowActions
-  | InstallContextCommandWorkflowActions
+  | InstallDocsCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
   | InstallPackCommandWorkflowActions;
@@ -201,12 +201,12 @@ const resolveCommandIntent = (name: string, source: string) =>
   );
 
 const resolveFileIntent = (name: string, source: string) =>
-  resolveConfiguredContext(name, source).pipe(
+  resolveConfiguredDocs(name, source).pipe(
     Effect.map(
       ({ ref, versionRange }) =>
         ({
           refs: [{ ref, versionRange }],
-        }) satisfies InstallContextCommandIntent,
+        }) satisfies InstallDocsCommandIntent,
     ),
   );
 
@@ -274,8 +274,8 @@ const collectCommandPlans = () =>
 const collectFilePlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallContextCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredContextEntries();
+    const actions = yield* InstallDocsCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredDocsEntries();
     const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
 
     const plans = yield* Effect.forEach(
@@ -353,7 +353,7 @@ const collectPackPlans = () =>
 const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> = [
   { type: "skill" as const, collect: collectSkillPlans },
   { type: "command" as const, collect: collectCommandPlans },
-  { type: "context" as const, collect: collectFilePlans },
+  { type: "docs" as const, collect: collectFilePlans },
   { type: "subagent" as const, collect: collectSubagentPlans },
   { type: "mcp-server" as const, collect: collectMcpServerPlans },
   { type: "pack" as const, collect: collectPackPlans },

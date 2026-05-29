@@ -250,7 +250,7 @@ describe("root version command handler", () => {
     return provide(
       Effect.gen(function* () {
         const result = yield* handleRootVersion({
-          handle: "@test/context/my-file",
+          handle: "@te/docs/my-file",
           bump: "patch",
           targetVersion: Option.none(),
           preview: false,

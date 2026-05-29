@@ -164,7 +164,7 @@ export const extensionTypes = [
   "command",
   "mcp-server",
   "subagent",
-  "context",
+  "docs",
   "rule",
   "pack",
 ] as const;
@@ -181,7 +181,7 @@ export const extensionTypePluralSegments = [
   "commands",
   "mcps",
   "subagents",
-  "context",
+  "docs",
   "rules",
   "packs",
 ] as const;
@@ -198,7 +198,7 @@ export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType>
   commands: "command",
   mcps: "mcp-server",
   subagents: "subagent",
-  context: "context",
+  docs: "docs",
   rules: "rule",
   packs: "pack",
 };
@@ -208,7 +208,7 @@ export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> =
   command: "commands",
   "mcp-server": "mcps",
   subagent: "subagents",
-  context: "context",
+  docs: "docs",
   rule: "rules",
   pack: "packs",
 };
@@ -224,7 +224,7 @@ export const extensionTypeLabels: Record<ExtensionType, string> = {
   command: "Command",
   "mcp-server": "MCP Server",
   subagent: "Subagent",
-  context: "Context",
+  docs: "Context docs",
   rule: "Rule",
   pack: "Pack",
 };
@@ -234,7 +234,7 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
   commands: "Commands",
   mcps: "MCP Servers",
   subagents: "Subagents",
-  context: "Context",
+  docs: "Context docs",
   rules: "Rules",
   packs: "Packs",
 };
@@ -244,7 +244,7 @@ export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
   command: "command",
   "mcp-server": "MCP server",
   subagent: "subagent",
-  context: "context",
+  docs: "context docs",
   rule: "rule",
   pack: "pack",
 };
@@ -254,7 +254,7 @@ export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, stri
   commands: "commands",
   mcps: "MCP servers",
   subagents: "subagents",
-  context: "context",
+  docs: "context docs",
   rules: "rules",
   packs: "packs",
 };
@@ -272,7 +272,7 @@ export const nonPackExtensionTypePluralSegments = [
   "commands",
   "mcps",
   "subagents",
-  "context",
+  "docs",
   "rules",
 ] as const satisfies ReadonlyArray<Exclude<ExtensionTypePlural, "packs">>;
 
@@ -441,7 +441,7 @@ export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | unde
 };
 
 const INVALID_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|context|rules|packs)/name form";
+  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|docs|rules|packs)/name form";
 
 /**
  * Fully qualified name string schema validated against the composed handle,
@@ -470,7 +470,7 @@ export const ExtensionFqnSchema = Schema.String.pipe(
 export type ExtensionFqn = Schema.Schema.Type<typeof ExtensionFqnSchema>;
 
 const INVALID_NON_PACK_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|context|rules)/name form (packs are not allowed)";
+  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|docs|rules)/name form (packs are not allowed)";
 
 /**
  * Fully qualified name string schema restricted to non-pack extension types.

@@ -16,7 +16,7 @@ import type * as Scope from "effect/Scope";
 import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
-import { contextPackagesInDir, type ContextExtensionRef } from "../../context/index.js";
+import { docsPackagesInDir, type DocsExtensionRef } from "../../docs/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
@@ -84,7 +84,7 @@ export const createGitHostingSourceHostProvider = <
       yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(ref));
 
       const refs =
-        options.type === "context"
+        options.type === "docs"
           ? []
           : yield* skillsInDir(tempDir, subPath, {
               fullDepth: false,
@@ -129,10 +129,10 @@ export const createGitHostingSourceHostProvider = <
         onSome: (value) => path.join(tempDir, value),
       });
 
-      const fileRefs =
-        options.type !== "context" && options.type !== "*"
+      const docsRefs =
+        options.type !== "docs" && options.type !== "*"
           ? []
-          : yield* contextPackagesInDir(fileSearchRoot, {
+          : yield* docsPackagesInDir(fileSearchRoot, {
               fullDepth: false,
             }).pipe(
               Effect.flatMap((discovered) =>
@@ -143,8 +143,8 @@ export const createGitHostingSourceHostProvider = <
                       const filePath = fileUrlToPath(d.location);
                       const relativeDir = path.relative(tempDir, filePath);
                       const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-                      const ref: ContextExtensionRef = {
-                        type: "context" as const,
+                      const ref: DocsExtensionRef = {
+                        type: "docs" as const,
                         refType: "git-hosted" as const,
                         file: { name: d.manifest.name },
                         source,
@@ -158,14 +158,14 @@ export const createGitHostingSourceHostProvider = <
               ),
             );
 
-      const allRefs = [...refs, ...fileRefs];
+      const allRefs = [...refs, ...docsRefs];
       if (options.names.length === 0) return allRefs;
       const nameSet = new Set(options.names);
       return allRefs.filter((r) => {
         switch (r.type) {
           case "skill":
             return nameSet.has(r.skill.name);
-          case "context":
+          case "docs":
             return nameSet.has(r.file.name);
           default:
             return false;

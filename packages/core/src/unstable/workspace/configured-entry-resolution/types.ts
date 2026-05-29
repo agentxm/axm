@@ -1,7 +1,7 @@
 import type * as Option from "effect/Option";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import type { AppError } from "../../app-error/index.js";
-import type { ContextExtensionRef } from "../../context/index.js";
+import type { DocsExtensionRef } from "../../docs/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
@@ -23,7 +23,7 @@ export interface ResolvedConfiguredEntry<TRef> {
 export type ResolvedConfiguredSkill = ResolvedConfiguredEntry<SkillExtensionRef>;
 export type ResolvedConfiguredSubagent = ResolvedConfiguredEntry<SubagentExtensionRef>;
 export type ResolvedConfiguredCommand = ResolvedConfiguredEntry<CommandExtensionRef>;
-export type ResolvedConfiguredContext = ResolvedConfiguredEntry<ContextExtensionRef>;
+export type ResolvedConfiguredDocs = ResolvedConfiguredEntry<DocsExtensionRef>;
 export type ResolvedConfiguredMcpServer = ResolvedConfiguredEntry<McpServerExtensionRef>;
 export type ResolvedConfiguredPack = ResolvedConfiguredEntry<PackRef>;
 

@@ -15,9 +15,9 @@ import {
   type UninstallMcpServerHandlerArgs,
 } from "../mcps/uninstall/command-actions.js";
 import {
-  UninstallContextCommandWorkflowActions,
-  type UninstallContextHandlerArgs,
-} from "../context/uninstall/command-actions.js";
+  UninstallDocsCommandWorkflowActions,
+  type UninstallDocsHandlerArgs,
+} from "../docs/uninstall/command-actions.js";
 import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,
@@ -63,9 +63,9 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallMcpServerHandlerArgs = { serverName: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
         }
-        case "context": {
-          const actions = yield* UninstallContextCommandWorkflowActions;
-          const uninstallArgs: UninstallContextHandlerArgs = { name: intent.name };
+        case "docs": {
+          const actions = yield* UninstallDocsCommandWorkflowActions;
+          const uninstallArgs: UninstallDocsHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
         }
         case "subagent": {

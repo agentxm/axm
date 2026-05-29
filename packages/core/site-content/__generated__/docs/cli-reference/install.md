@@ -34,7 +34,7 @@ axm install [flags] [<source>]
 | `--force`, `-f` | boolean | No       | Reinstall even if the extension already exists                                    |
 | `--preview`     | boolean | No       | Show what would be installed without making changes                               |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -61,10 +61,6 @@ axm install @acme/commands/release-notes@^1.2.0
 ```bash
 axm install @acme/packs/frontend-tools --preview
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

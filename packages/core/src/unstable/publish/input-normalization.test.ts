@@ -137,11 +137,11 @@ describe("normalizePublishInput", () => {
     Effect.gen(function* () {
       const zip = buildZip([
         {
-          fileName: "context.json",
+          fileName: "docs.json",
           content: textContent(
             JSON.stringify({
               owner: "@acme",
-              type: "context",
+              type: "docs",
               name: "baseline-docs",
               version: "1.0.0",
               contents: [
@@ -159,14 +159,14 @@ describe("normalizePublishInput", () => {
 
       const result = yield* normalizePublishInput({
         declaredIdentity: makeDeclaredIdentity({
-          type: "context",
+          type: "docs",
           name: extensionName("baseline-docs"),
         }),
         archive: makeBody(zip),
       });
 
-      expect(result.type).toBe("context");
-      expect(result.manifest.fileName).toBe("context.json");
+      expect(result.type).toBe("docs");
+      expect(result.manifest.fileName).toBe("docs.json");
     }),
   );
 });

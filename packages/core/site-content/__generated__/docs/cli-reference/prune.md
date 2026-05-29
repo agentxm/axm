@@ -32,7 +32,7 @@ axm prune [flags] <patterns...>
 | `--scope`     | choice  | No       | Prune in project (default) or user-level configuration (choices: project, user) |
 | `--yes`, `-y` | boolean | No       | Remove artifacts without confirmation                                           |
 
-Global flags are documented on [Global flags](./global-flags).
+Global flags are documented on [Global flags](global-flags).
 
 ## Examples
 
@@ -65,10 +65,6 @@ axm prune --json
 ```bash
 axm prune --yes --json
 ```
-
-## Subcommands
-
-None.
 
 ## Requirements
 

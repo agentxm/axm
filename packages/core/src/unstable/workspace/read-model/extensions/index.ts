@@ -108,23 +108,23 @@ export {
 // ---------------------------------------------------------------------------
 
 export {
-  makeContextExtensionsApi,
-  type ActualContextPackage,
-  type ActualContext,
-  type DeclaredContextPackage,
-  type DeclaredContext,
-  type ContextDetectionOrigin,
-  type ContextExtensionsApi,
-  type ContextExtensionsApiDeps,
-  type ContextPackMember,
-  type ContextScanners,
-  type IgnoredContextCandidate,
-  type InstalledContextPackage,
-  type InstalledPackForContext,
-  type ResolvedContextPackage,
-  type ResolvedContext,
-  type UnmanagedContextPackage,
-} from "./context.js";
+  makeDocsExtensionsApi,
+  type ActualDocsPackage,
+  type ActualDocs,
+  type DeclaredDocsPackage,
+  type DeclaredDocs,
+  type DocsDetectionOrigin,
+  type DocsExtensionsApi,
+  type DocsExtensionsApiDeps,
+  type DocsPackMember,
+  type DocsScanners,
+  type IgnoredDocsCandidate,
+  type InstalledDocsPackage,
+  type InstalledPackForDocs,
+  type ResolvedDocsPackage,
+  type ResolvedDocs,
+  type UnmanagedDocsPackage,
+} from "./docs.js";
 
 // ---------------------------------------------------------------------------
 // Rule subject

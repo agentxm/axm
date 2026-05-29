@@ -20,7 +20,7 @@ describe("installable extension types", () => {
       "command",
       "mcp-server",
       "subagent",
-      "context",
+      "docs",
       "pack",
     ]);
   });
@@ -31,7 +31,7 @@ describe("installable extension types", () => {
       "commands",
       "mcps",
       "subagents",
-      "context",
+      "docs",
       "packs",
     ]);
   });
@@ -39,14 +39,14 @@ describe("installable extension types", () => {
   it("guards installable singular types", () => {
     expect(isInstallableExtensionType("skill")).toBe(true);
     expect(isInstallableExtensionType("mcp-server")).toBe(true);
-    expect(isInstallableExtensionType("context")).toBe(true);
+    expect(isInstallableExtensionType("docs")).toBe(true);
     expect(isInstallableExtensionType("rule")).toBe(false);
   });
 
   it("guards installable plural segments", () => {
     expect(isInstallableExtensionTypePlural("skills")).toBe(true);
     expect(isInstallableExtensionTypePlural("mcps")).toBe(true);
-    expect(isInstallableExtensionTypePlural("context")).toBe(true);
+    expect(isInstallableExtensionTypePlural("docs")).toBe(true);
     expect(isInstallableExtensionTypePlural("rules")).toBe(false);
     expect(isInstallableExtensionTypePlural(undefined)).toBe(false);
   });
@@ -54,10 +54,10 @@ describe("installable extension types", () => {
   it("maps between singular and plural installable types", () => {
     expect(toInstallableExtensionType("skills")).toBe("skill");
     expect(toInstallableExtensionType("packs")).toBe("pack");
-    expect(toInstallableExtensionType("context")).toBe("context");
+    expect(toInstallableExtensionType("docs")).toBe("docs");
     expect(toInstallableExtensionTypePlural("command")).toBe("commands");
     expect(toInstallableExtensionTypePlural("subagent")).toBe("subagents");
-    expect(toInstallableExtensionTypePlural("context")).toBe("context");
+    expect(toInstallableExtensionTypePlural("docs")).toBe("docs");
   });
 
   it("exposes installable type schemas", () => {
@@ -65,7 +65,7 @@ describe("installable extension types", () => {
       Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("skill")),
     ).toBe(true);
     expect(
-      Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("context")),
+      Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("docs")),
     ).toBe(true);
     expect(
       Result.isFailure(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("file")),

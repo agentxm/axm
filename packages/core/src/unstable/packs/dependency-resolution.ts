@@ -30,11 +30,11 @@ export interface ResolvedPackDependencies {
   readonly resolvedCommands: ResolvedExtensionMap;
   readonly resolvedMcpServers: ResolvedExtensionMap;
   readonly resolvedSubagents: ResolvedExtensionMap;
-  readonly resolvedContext: ResolvedExtensionMap;
+  readonly resolvedDocs: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
 
-type SupportedPackDependencyType = "skill" | "command" | "mcp-server" | "subagent" | "context";
+type SupportedPackDependencyType = "skill" | "command" | "mcp-server" | "subagent" | "docs";
 
 const registrySourceForDependency = (
   pack: PackRef,
@@ -134,7 +134,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
   const commands: Array<readonly [string, VersionRange]> = [];
   const mcpServers: Array<readonly [string, VersionRange]> = [];
   const subagents: Array<readonly [string, VersionRange]> = [];
-  const context: Array<readonly [string, VersionRange]> = [];
+  const docs: Array<readonly [string, VersionRange]> = [];
   const unsupported: string[] = [];
 
   for (const [fqn, constraint] of Object.entries(dependencies)) {
@@ -152,8 +152,8 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
       case "subagent":
         subagents.push([fqn, constraint]);
         break;
-      case "context":
-        context.push([fqn, constraint]);
+      case "docs":
+        docs.push([fqn, constraint]);
         break;
       case "rule":
       case "pack":
@@ -162,7 +162,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
     }
   }
 
-  return { skills, commands, mcpServers, subagents, context, unsupported };
+  return { skills, commands, mcpServers, subagents, docs, unsupported };
 };
 
 export const resolvePackDependencies = (
@@ -202,19 +202,14 @@ export const resolvePackDependencies = (
       "subagent",
       sources,
     );
-    const resolvedContext = yield* resolveDependencyGroup(
-      pack,
-      dependencies.context,
-      "context",
-      sources,
-    );
+    const resolvedDocs = yield* resolveDependencyGroup(pack, dependencies.docs, "docs", sources);
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),
       resolvedCommands: toResolvedMap(resolvedCommands),
       resolvedMcpServers: toResolvedMap(resolvedMcpServers),
       resolvedSubagents: toResolvedMap(resolvedSubagents),
-      resolvedContext: toResolvedMap(resolvedContext),
+      resolvedDocs: toResolvedMap(resolvedDocs),
       dependencyRefs: [
         ...resolvedSkills.map((dependency) =>
           buildRegistrySkillRef(
@@ -252,7 +247,7 @@ export const resolvePackDependencies = (
             dependency.ref.packages,
           ),
         ),
-        ...resolvedContext.map((dependency) => dependency.ref),
+        ...resolvedDocs.map((dependency) => dependency.ref),
       ],
     };
   });

@@ -42,7 +42,7 @@ export const PackManifestSchema = Schema.Struct({
   identifier: "PackManifest",
   title: "Pack Manifest",
   description:
-    "Extension manifest file for extension packs. Bundles a curated set of skills, commands, MCP servers, subagents, context packages, and rules into a single installable unit.",
+    "Extension manifest file for extension packs. Bundles a curated set of skills, commands, MCP servers, subagents, Context docs packages, and rules into a single installable unit.",
 });
 
 /**

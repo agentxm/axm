@@ -435,24 +435,13 @@ export const ChangeTeamMemberRoleBody = Schema.Struct({
       "Role within a team — 'admin' manages membership and grants; 'member' inherits grants.",
   }),
 }).annotate({ title: "Change Team Member Role Body" });
-export type ListId = string;
-export const ListId = Schema.String.check(
-  Schema.isPattern(new RegExp("^list_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "List ID",
-    description: "Identifies a handle-scoped curated extension collection in the registry.",
-    examples: ["list_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
-export type ListVisibility = "public" | "internal" | "private";
-export const ListVisibility = Schema.Literals(["public", "internal", "private"]).annotate({
-  title: "List Visibility",
-});
-export type ListItemId = string;
-export const ListItemId = Schema.String.check(
-  Schema.isPattern(new RegExp("^litem_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "List Item ID",
-    description: "Identifies an ordered extension membership inside a curated registry list.",
-    examples: ["litem_01h455vb4pexka56gq5w2r7cpc"],
+export type ExtensionName = string;
+export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
+  Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"), {
+    title: "Extension Name",
+    description:
+      "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+    examples: ["my-skill", "code-review", "prettier"],
   }),
 );
 export type ExtensionType =
@@ -476,15 +465,6 @@ export const ExtensionType = Schema.Literals([
   description:
     "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, or pack.",
 });
-export type ExtensionName = string;
-export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
-  Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"), {
-    title: "Extension Name",
-    description:
-      "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-    examples: ["my-skill", "code-review", "prettier"],
-  }),
-);
 export type Version = string;
 export const Version = Schema.String.check(
   Schema.isPattern(
@@ -720,9 +700,9 @@ export const PublishIdentityMismatchEntry = Schema.Struct({
   title: "Identity Mismatch Entry",
   description: "Single divergent identity field between URL-path and archive.",
 });
-export type PutCollaboratorBody = { readonly role: "admin" | "write" | "read" };
+export type PutCollaboratorBody = { readonly role: "write" | "read" };
 export const PutCollaboratorBody = Schema.Struct({
-  role: Schema.Literals(["admin", "write", "read"]).annotate({
+  role: Schema.Literals(["write", "read"]).annotate({
     title: "Collaborator Role",
     description: "The role to assign to the collaborator.",
   }),
@@ -973,26 +953,76 @@ export const CreateTokenRequest = Schema.Struct({
   title: "Create Token Request",
   description: "Request body for creating a new personal access token.",
 });
-export type UpsertTeamGrantBody = {
-  readonly teamId: TeamId;
-  readonly role: "read" | "write" | "admin";
-};
+export type UpsertTeamGrantBody = { readonly teamId: TeamId; readonly role: "read" | "write" };
 export const UpsertTeamGrantBody = Schema.Struct({
   teamId: TeamId,
-  role: Schema.Literals(["read", "write", "admin"]),
+  role: Schema.Literals(["read", "write"]),
 }).annotate({ title: "Upsert Team Grant Body" });
 export type TeamGrant = {
   readonly teamId: TeamId;
-  readonly role: "read" | "write" | "admin";
+  readonly role: "read" | "write";
   readonly grantedBy: string;
   readonly grantedAt: string;
 };
 export const TeamGrant = Schema.Struct({
   teamId: TeamId,
-  role: Schema.Literals(["read", "write", "admin"]),
+  role: Schema.Literals(["read", "write"]),
   grantedBy: Schema.String,
   grantedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 }).annotate({ title: "Team Grant" });
+export type MaintainerTarget =
+  | { readonly kind: "user"; readonly userId: UserId }
+  | { readonly kind: "team"; readonly teamId: TeamId };
+export const MaintainerTarget = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("user"), userId: UserId }),
+  Schema.Struct({ kind: Schema.Literal("team"), teamId: TeamId }),
+]).annotate({ title: "Maintainer Target" });
+export type Maintainer =
+  | {
+      readonly kind: "user";
+      readonly userId: UserId;
+      readonly assignedAt: string | null;
+      readonly assignedBy: UserId | null;
+    }
+  | {
+      readonly kind: "team";
+      readonly teamId: TeamId;
+      readonly assignedAt: string | null;
+      readonly assignedBy: UserId | null;
+    }
+  | {
+      readonly kind: "none";
+      readonly assignedAt: string | null;
+      readonly assignedBy: UserId | null;
+    };
+export const Maintainer = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("user"),
+    userId: UserId,
+    assignedAt: Schema.Union([
+      Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      Schema.Null,
+    ]),
+    assignedBy: Schema.Union([UserId, Schema.Null]),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("team"),
+    teamId: TeamId,
+    assignedAt: Schema.Union([
+      Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      Schema.Null,
+    ]),
+    assignedBy: Schema.Union([UserId, Schema.Null]),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("none"),
+    assignedAt: Schema.Union([
+      Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      Schema.Null,
+    ]),
+    assignedBy: Schema.Union([UserId, Schema.Null]),
+  }),
+]).annotate({ title: "Maintainer" });
 export type Team = {
   readonly id: TeamId;
   readonly organizationId: OrgId;
@@ -1029,121 +1059,6 @@ export const TeamMembership = Schema.Struct({
   addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
   addedBy: UserIdRef,
 }).annotate({ title: "Team Membership" });
-export type List = {
-  readonly id: ListId;
-  readonly owner: Handle;
-  readonly name: string;
-  readonly title: string;
-  readonly description: string | null;
-  readonly visibility: ListVisibility;
-  readonly listed: boolean;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-};
-export const List = Schema.Struct({
-  id: ListId,
-  owner: Handle,
-  name: Schema.String,
-  title: Schema.String,
-  description: Schema.Union([Schema.String, Schema.Null]),
-  visibility: ListVisibility,
-  listed: Schema.Boolean,
-  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-}).annotate({ title: "List" });
-export type CreateListBody = {
-  readonly name: string;
-  readonly title: string;
-  readonly description?: string | null | null;
-  readonly visibility?: ListVisibility | null;
-  readonly listed?: boolean | null;
-};
-export const CreateListBody = Schema.Struct({
-  name: Schema.String,
-  title: Schema.String,
-  description: Schema.optionalKey(
-    Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null]),
-  ),
-  visibility: Schema.optionalKey(Schema.Union([ListVisibility, Schema.Null])),
-  listed: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Null])),
-}).annotate({ title: "Create List Body" });
-export type UpdateListBody = {
-  readonly name?: string | null;
-  readonly title?: string | null;
-  readonly description?: string | null | null;
-  readonly visibility?: ListVisibility | null;
-  readonly listed?: boolean | null;
-};
-export const UpdateListBody = Schema.Struct({
-  name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  title: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  description: Schema.optionalKey(
-    Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null]),
-  ),
-  visibility: Schema.optionalKey(Schema.Union([ListVisibility, Schema.Null])),
-  listed: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Null])),
-}).annotate({ title: "Update List Body" });
-export type ListItem = {
-  readonly id: ListItemId;
-  readonly extensionOwner: Handle;
-  readonly extensionType: ExtensionType;
-  readonly extensionName: ExtensionName;
-  readonly position: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
-  readonly note: string | null;
-  readonly createdAt: string;
-};
-export const ListItem = Schema.Struct({
-  id: ListItemId,
-  extensionOwner: Handle,
-  extensionType: ExtensionType,
-  extensionName: ExtensionName,
-  position: Schema.Union([
-    Schema.Union([
-      Schema.Number.check(Schema.isFinite()),
-      Schema.Literal("NaN"),
-      Schema.Literal("Infinity"),
-      Schema.Literal("-Infinity"),
-    ]),
-    Schema.Literals(["Infinity", "-Infinity", "NaN"]),
-  ]),
-  note: Schema.Union([Schema.String, Schema.Null]),
-  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-}).annotate({ title: "List Item" });
-export type AddListItemBody = {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly note?: string | null | null;
-  readonly position?:
-    | number
-    | "NaN"
-    | "Infinity"
-    | "-Infinity"
-    | "Infinity"
-    | "-Infinity"
-    | "NaN"
-    | null;
-};
-export const AddListItemBody = Schema.Struct({
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-  note: Schema.optionalKey(Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null])),
-  position: Schema.optionalKey(
-    Schema.Union([
-      Schema.Union([
-        Schema.Union([
-          Schema.Number.check(Schema.isFinite()),
-          Schema.Literal("NaN"),
-          Schema.Literal("Infinity"),
-          Schema.Literal("-Infinity"),
-        ]),
-        Schema.Literals(["Infinity", "-Infinity", "NaN"]),
-      ]),
-      Schema.Null,
-    ]),
-  ),
-}).annotate({ title: "Add List Item Body" });
 export type PublishIdentity = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1271,14 +1186,6 @@ export const TeamMembershipList = Schema.Struct({
   items: Schema.Array(TeamMembership),
   nextCursor: Schema.Union([Schema.String, Schema.Null]),
 }).annotate({ title: "Team Membership List" });
-export type ListCollection = { readonly items: ReadonlyArray<List> };
-export const ListCollection = Schema.Struct({ items: Schema.Array(List) }).annotate({
-  title: "List Collection",
-});
-export type ListDetail = { readonly list: List; readonly items: ReadonlyArray<ListItem> };
-export const ListDetail = Schema.Struct({ list: List, items: Schema.Array(ListItem) }).annotate({
-  title: "List Detail",
-});
 export type ExtensionIdentityMismatchError = {
   readonly kind: "ExtensionIdentityMismatchError";
   readonly type: string;
@@ -1701,84 +1608,6 @@ export type OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
 export const OrgsTeamsChangeTeamMemberRole403 = ForbiddenError;
 export type OrgsTeamsChangeTeamMemberRole404 = ProblemDetails;
 export const OrgsTeamsChangeTeamMemberRole404 = ProblemDetails;
-export type ListsListLists200 = ListCollection;
-export const ListsListLists200 = ListCollection;
-export type ListsListLists400 = DecodeErrorResponse;
-export const ListsListLists400 = DecodeErrorResponse;
-export type ListsListLists404 = ProblemDetails;
-export const ListsListLists404 = ProblemDetails;
-export type ListsCreateListRequestJson = CreateListBody;
-export const ListsCreateListRequestJson = CreateListBody;
-export type ListsCreateList200 = List;
-export const ListsCreateList200 = List;
-export type ListsCreateList400 = ProblemDetails | DecodeErrorResponse;
-export const ListsCreateList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ListsCreateList401 = ProblemDetails;
-export const ListsCreateList401 = ProblemDetails;
-export type ListsCreateList403 = ForbiddenError;
-export const ListsCreateList403 = ForbiddenError;
-export type ListsCreateList404 = ProblemDetails;
-export const ListsCreateList404 = ProblemDetails;
-export type ListsCreateList409 = ProblemDetails;
-export const ListsCreateList409 = ProblemDetails;
-export type ListsCreateList422 = ProblemDetails;
-export const ListsCreateList422 = ProblemDetails;
-export type ListsGetList200 = ListDetail;
-export const ListsGetList200 = ListDetail;
-export type ListsGetList400 = ProblemDetails | DecodeErrorResponse;
-export const ListsGetList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ListsGetList404 = ProblemDetails;
-export const ListsGetList404 = ProblemDetails;
-export type ListsDeleteList400 = ProblemDetails | DecodeErrorResponse;
-export const ListsDeleteList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ListsDeleteList401 = ProblemDetails;
-export const ListsDeleteList401 = ProblemDetails;
-export type ListsDeleteList403 = ForbiddenError;
-export const ListsDeleteList403 = ForbiddenError;
-export type ListsDeleteList404 = ProblemDetails;
-export const ListsDeleteList404 = ProblemDetails;
-export type ListsUpdateListRequestJson = UpdateListBody;
-export const ListsUpdateListRequestJson = UpdateListBody;
-export type ListsUpdateList200 = List;
-export const ListsUpdateList200 = List;
-export type ListsUpdateList400 = ProblemDetails | DecodeErrorResponse;
-export const ListsUpdateList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ListsUpdateList401 = ProblemDetails;
-export const ListsUpdateList401 = ProblemDetails;
-export type ListsUpdateList403 = ForbiddenError;
-export const ListsUpdateList403 = ForbiddenError;
-export type ListsUpdateList404 = ProblemDetails;
-export const ListsUpdateList404 = ProblemDetails;
-export type ListsUpdateList409 = ProblemDetails;
-export const ListsUpdateList409 = ProblemDetails;
-export type ListsUpdateList422 = ProblemDetails;
-export const ListsUpdateList422 = ProblemDetails;
-export type ListsAddListItemRequestJson = AddListItemBody;
-export const ListsAddListItemRequestJson = AddListItemBody;
-export type ListsAddListItem200 = ListItem;
-export const ListsAddListItem200 = ListItem;
-export type ListsAddListItem400 = ProblemDetails | DecodeErrorResponse;
-export const ListsAddListItem400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ListsAddListItem401 = ProblemDetails;
-export const ListsAddListItem401 = ProblemDetails;
-export type ListsAddListItem403 = ForbiddenError;
-export const ListsAddListItem403 = ForbiddenError;
-export type ListsAddListItem404 = ProblemDetails;
-export const ListsAddListItem404 = ProblemDetails;
-export type ListsAddListItem409 = ProblemDetails;
-export const ListsAddListItem409 = ProblemDetails;
-export type ListsRemoveListItemParams = { readonly extensionOwner?: Handle | null };
-export const ListsRemoveListItemParams = Schema.Struct({
-  extensionOwner: Schema.optionalKey(Schema.Union([Handle, Schema.Null])),
-});
-export type ListsRemoveListItem400 = ProblemDetails | DecodeErrorResponse;
-export const ListsRemoveListItem400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ListsRemoveListItem401 = ProblemDetails;
-export const ListsRemoveListItem401 = ProblemDetails;
-export type ListsRemoveListItem403 = ForbiddenError;
-export const ListsRemoveListItem403 = ForbiddenError;
-export type ListsRemoveListItem404 = ProblemDetails;
-export const ListsRemoveListItem404 = ProblemDetails;
 export type ExtensionsListByOwner200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: ExtensionName;
@@ -2237,8 +2066,11 @@ export type TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
 export const TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
 export type TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
 export const TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
-export type TeamGrantsUpsertTeamExtensionGrant400 = DecodeErrorResponse;
-export const TeamGrantsUpsertTeamExtensionGrant400 = DecodeErrorResponse;
+export type TeamGrantsUpsertTeamExtensionGrant400 = ProblemDetails | DecodeErrorResponse;
+export const TeamGrantsUpsertTeamExtensionGrant400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponse,
+]);
 export type TeamGrantsUpsertTeamExtensionGrant401 = ProblemDetails;
 export const TeamGrantsUpsertTeamExtensionGrant401 = ProblemDetails;
 export type TeamGrantsUpsertTeamExtensionGrant403 = ForbiddenError | ForbiddenError;
@@ -2255,6 +2087,32 @@ export type TeamGrantsDeleteTeamExtensionGrant403 = ForbiddenError | ForbiddenEr
 export const TeamGrantsDeleteTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
 export type TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
 export const TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
+export type MaintainerSetMaintainerRequestJson = MaintainerTarget;
+export const MaintainerSetMaintainerRequestJson = MaintainerTarget;
+export type MaintainerSetMaintainer200 = Maintainer;
+export const MaintainerSetMaintainer200 = Maintainer;
+export type MaintainerSetMaintainer400 = DecodeErrorResponse;
+export const MaintainerSetMaintainer400 = DecodeErrorResponse;
+export type MaintainerSetMaintainer401 = ProblemDetails;
+export const MaintainerSetMaintainer401 = ProblemDetails;
+export type MaintainerSetMaintainer403 = ForbiddenError | ForbiddenError;
+export const MaintainerSetMaintainer403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type MaintainerSetMaintainer404 = ProblemDetails;
+export const MaintainerSetMaintainer404 = ProblemDetails;
+export type MaintainerSetMaintainer422 = ProblemDetails;
+export const MaintainerSetMaintainer422 = ProblemDetails;
+export type MaintainerClearMaintainer200 = Maintainer;
+export const MaintainerClearMaintainer200 = Maintainer;
+export type MaintainerClearMaintainer400 = DecodeErrorResponse;
+export const MaintainerClearMaintainer400 = DecodeErrorResponse;
+export type MaintainerClearMaintainer401 = ProblemDetails;
+export const MaintainerClearMaintainer401 = ProblemDetails;
+export type MaintainerClearMaintainer403 = ForbiddenError | ForbiddenError;
+export const MaintainerClearMaintainer403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type MaintainerClearMaintainer404 = ProblemDetails;
+export const MaintainerClearMaintainer404 = ProblemDetails;
+export type MaintainerClearMaintainer422 = ProblemDetails;
+export const MaintainerClearMaintainer422 = ProblemDetails;
 export type DiscoveryPostDiscoveryRequestJson = {
   readonly client: { readonly axmVersion: string };
   readonly packages: ReadonlyArray<{
@@ -2902,104 +2760,6 @@ export const make = (
           }),
         ),
       ),
-    ListsListLists: (owner, options) =>
-      HttpClientRequest.get(`/v1/lists/${owner}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ListsListLists200),
-            "400": decodeError("ListsListLists400", ListsListLists400),
-            "404": decodeError("ListsListLists404", ListsListLists404),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    ListsCreateList: (owner, options) =>
-      HttpClientRequest.post(`/v1/lists/${owner}`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ListsCreateList200),
-            "400": decodeError("ListsCreateList400", ListsCreateList400),
-            "401": decodeError("ListsCreateList401", ListsCreateList401),
-            "403": decodeError("ListsCreateList403", ListsCreateList403),
-            "404": decodeError("ListsCreateList404", ListsCreateList404),
-            "409": decodeError("ListsCreateList409", ListsCreateList409),
-            "422": decodeError("ListsCreateList422", ListsCreateList422),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    ListsGetList: (owner, name, options) =>
-      HttpClientRequest.get(`/v1/lists/${owner}/${name}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ListsGetList200),
-            "400": decodeError("ListsGetList400", ListsGetList400),
-            "404": decodeError("ListsGetList404", ListsGetList404),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    ListsDeleteList: (owner, name, options) =>
-      HttpClientRequest.delete(`/v1/lists/${owner}/${name}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError("ListsDeleteList400", ListsDeleteList400),
-            "401": decodeError("ListsDeleteList401", ListsDeleteList401),
-            "403": decodeError("ListsDeleteList403", ListsDeleteList403),
-            "404": decodeError("ListsDeleteList404", ListsDeleteList404),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    ListsUpdateList: (owner, name, options) =>
-      HttpClientRequest.patch(`/v1/lists/${owner}/${name}`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ListsUpdateList200),
-            "400": decodeError("ListsUpdateList400", ListsUpdateList400),
-            "401": decodeError("ListsUpdateList401", ListsUpdateList401),
-            "403": decodeError("ListsUpdateList403", ListsUpdateList403),
-            "404": decodeError("ListsUpdateList404", ListsUpdateList404),
-            "409": decodeError("ListsUpdateList409", ListsUpdateList409),
-            "422": decodeError("ListsUpdateList422", ListsUpdateList422),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    ListsAddListItem: (owner, name, options) =>
-      HttpClientRequest.post(`/v1/lists/${owner}/${name}/items`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ListsAddListItem200),
-            "400": decodeError("ListsAddListItem400", ListsAddListItem400),
-            "401": decodeError("ListsAddListItem401", ListsAddListItem401),
-            "403": decodeError("ListsAddListItem403", ListsAddListItem403),
-            "404": decodeError("ListsAddListItem404", ListsAddListItem404),
-            "409": decodeError("ListsAddListItem409", ListsAddListItem409),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    ListsRemoveListItem: (owner, name, type, extensionName, options) =>
-      HttpClientRequest.delete(`/v1/lists/${owner}/${name}/items/${type}/${extensionName}`).pipe(
-        HttpClientRequest.setUrlParams({
-          extensionOwner: options?.params?.["extensionOwner"] as any,
-        }),
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError("ListsRemoveListItem400", ListsRemoveListItem400),
-            "401": decodeError("ListsRemoveListItem401", ListsRemoveListItem401),
-            "403": decodeError("ListsRemoveListItem403", ListsRemoveListItem403),
-            "404": decodeError("ListsRemoveListItem404", ListsRemoveListItem404),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
     ExtensionsListByOwner: (owner, options) =>
       HttpClientRequest.get(`/v1/extensions/${owner}`).pipe(
         withResponse(options?.config)(
@@ -3310,6 +3070,35 @@ export const make = (
               TeamGrantsDeleteTeamExtensionGrant404,
             ),
             "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    MaintainerSetMaintainer: (owner, type, name, options) =>
+      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/maintainer`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(MaintainerSetMaintainer200),
+            "400": decodeError("MaintainerSetMaintainer400", MaintainerSetMaintainer400),
+            "401": decodeError("MaintainerSetMaintainer401", MaintainerSetMaintainer401),
+            "403": decodeError("MaintainerSetMaintainer403", MaintainerSetMaintainer403),
+            "404": decodeError("MaintainerSetMaintainer404", MaintainerSetMaintainer404),
+            "422": decodeError("MaintainerSetMaintainer422", MaintainerSetMaintainer422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    MaintainerClearMaintainer: (owner, type, name, options) =>
+      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/maintainer`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(MaintainerClearMaintainer200),
+            "400": decodeError("MaintainerClearMaintainer400", MaintainerClearMaintainer400),
+            "401": decodeError("MaintainerClearMaintainer401", MaintainerClearMaintainer401),
+            "403": decodeError("MaintainerClearMaintainer403", MaintainerClearMaintainer403),
+            "404": decodeError("MaintainerClearMaintainer404", MaintainerClearMaintainer404),
+            "422": decodeError("MaintainerClearMaintainer422", MaintainerClearMaintainer422),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3736,133 +3525,6 @@ export interface RegistryClient {
       >
   >;
   /**
-   * Returns the public listed lists for an owner, widened by caller visibility when authenticated.
-   */
-  readonly ListsListLists: <Config extends OperationConfig>(
-    owner: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ListsListLists200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ListsListLists400", typeof ListsListLists400.Type>
-    | RegistryClientError<"ListsListLists404", typeof ListsListLists404.Type>
-  >;
-  /**
-   * Creates a list under a user or organization handle.
-   */
-  readonly ListsCreateList: <Config extends OperationConfig>(
-    owner: string,
-    options: {
-      readonly payload: typeof ListsCreateListRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ListsCreateList200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ListsCreateList400", typeof ListsCreateList400.Type>
-    | RegistryClientError<"ListsCreateList401", typeof ListsCreateList401.Type>
-    | RegistryClientError<"ListsCreateList403", typeof ListsCreateList403.Type>
-    | RegistryClientError<"ListsCreateList404", typeof ListsCreateList404.Type>
-    | RegistryClientError<"ListsCreateList409", typeof ListsCreateList409.Type>
-    | RegistryClientError<"ListsCreateList422", typeof ListsCreateList422.Type>
-  >;
-  /**
-   * Returns a list and its items. Items are filtered by extension visibility for the caller.
-   */
-  readonly ListsGetList: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ListsGetList200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ListsGetList400", typeof ListsGetList400.Type>
-    | RegistryClientError<"ListsGetList404", typeof ListsGetList404.Type>
-  >;
-  /**
-   * Deletes a list and its items.
-   */
-  readonly ListsDeleteList: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ListsDeleteList400", typeof ListsDeleteList400.Type>
-    | RegistryClientError<"ListsDeleteList401", typeof ListsDeleteList401.Type>
-    | RegistryClientError<"ListsDeleteList403", typeof ListsDeleteList403.Type>
-    | RegistryClientError<"ListsDeleteList404", typeof ListsDeleteList404.Type>
-  >;
-  /**
-   * Updates list metadata, visibility, listed state, or name.
-   */
-  readonly ListsUpdateList: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    options: {
-      readonly payload: typeof ListsUpdateListRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ListsUpdateList200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ListsUpdateList400", typeof ListsUpdateList400.Type>
-    | RegistryClientError<"ListsUpdateList401", typeof ListsUpdateList401.Type>
-    | RegistryClientError<"ListsUpdateList403", typeof ListsUpdateList403.Type>
-    | RegistryClientError<"ListsUpdateList404", typeof ListsUpdateList404.Type>
-    | RegistryClientError<"ListsUpdateList409", typeof ListsUpdateList409.Type>
-    | RegistryClientError<"ListsUpdateList422", typeof ListsUpdateList422.Type>
-  >;
-  /**
-   * Adds an extension reference to a list with an optional curator note.
-   */
-  readonly ListsAddListItem: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    options: {
-      readonly payload: typeof ListsAddListItemRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ListsAddListItem200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ListsAddListItem400", typeof ListsAddListItem400.Type>
-    | RegistryClientError<"ListsAddListItem401", typeof ListsAddListItem401.Type>
-    | RegistryClientError<"ListsAddListItem403", typeof ListsAddListItem403.Type>
-    | RegistryClientError<"ListsAddListItem404", typeof ListsAddListItem404.Type>
-    | RegistryClientError<"ListsAddListItem409", typeof ListsAddListItem409.Type>
-  >;
-  /**
-   * Removes an extension reference from a list. When extensionOwner is omitted, the list owner is used.
-   */
-  readonly ListsRemoveListItem: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    type: string,
-    extensionName: string,
-    options:
-      | {
-          readonly params?: typeof ListsRemoveListItemParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ListsRemoveListItem400", typeof ListsRemoveListItem400.Type>
-    | RegistryClientError<"ListsRemoveListItem401", typeof ListsRemoveListItem401.Type>
-    | RegistryClientError<"ListsRemoveListItem403", typeof ListsRemoveListItem403.Type>
-    | RegistryClientError<"ListsRemoveListItem404", typeof ListsRemoveListItem404.Type>
-  >;
-  /**
    * List owner extensions
    */
   readonly ExtensionsListByOwner: <Config extends OperationConfig>(
@@ -4281,6 +3943,45 @@ export interface RegistryClient {
         "TeamGrantsDeleteTeamExtensionGrant404",
         typeof TeamGrantsDeleteTeamExtensionGrant404.Type
       >
+  >;
+  /**
+   * Sets or transfers the apex maintainer for an extension to an eligible user or team.
+   */
+  readonly MaintainerSetMaintainer: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: {
+      readonly payload: typeof MaintainerSetMaintainerRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof MaintainerSetMaintainer200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"MaintainerSetMaintainer400", typeof MaintainerSetMaintainer400.Type>
+    | RegistryClientError<"MaintainerSetMaintainer401", typeof MaintainerSetMaintainer401.Type>
+    | RegistryClientError<"MaintainerSetMaintainer403", typeof MaintainerSetMaintainer403.Type>
+    | RegistryClientError<"MaintainerSetMaintainer404", typeof MaintainerSetMaintainer404.Type>
+    | RegistryClientError<"MaintainerSetMaintainer422", typeof MaintainerSetMaintainer422.Type>
+  >;
+  /**
+   * Clears the extension maintainer so org-owner fallback is the only admin path.
+   */
+  readonly MaintainerClearMaintainer: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof MaintainerClearMaintainer200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"MaintainerClearMaintainer400", typeof MaintainerClearMaintainer400.Type>
+    | RegistryClientError<"MaintainerClearMaintainer401", typeof MaintainerClearMaintainer401.Type>
+    | RegistryClientError<"MaintainerClearMaintainer403", typeof MaintainerClearMaintainer403.Type>
+    | RegistryClientError<"MaintainerClearMaintainer404", typeof MaintainerClearMaintainer404.Type>
+    | RegistryClientError<"MaintainerClearMaintainer422", typeof MaintainerClearMaintainer422.Type>
   >;
   /**
    * Persists submitted package metadata and resolves package and extension attestations.

@@ -34,10 +34,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import {
-  ContextManager,
-  renderWorkspaceGeneratorRegions,
-} from "@agentxm/client-core/unstable/context";
+import { DocsManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-core/unstable/docs";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import {
   applyPlan,
@@ -53,7 +50,7 @@ import {
   cleanupStaleManagedSubagentFiles,
   displayPlan,
   WorkspaceMutations,
-  resolveConfiguredContext,
+  resolveConfiguredDocs,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 
@@ -132,13 +129,12 @@ const buildMcpServerSyncOperation = ({
   };
 };
 
-const configuredFilesToRefs = (
+const configuredDocsToRefs = (
   entries: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
 ) =>
   Effect.forEach(
     Object.entries(entries).filter(([, entry]) => entry.enabled !== false),
-    ([name, entry]) =>
-      resolveConfiguredContext(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
+    ([name, entry]) => resolveConfiguredDocs(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
     { concurrency: "unbounded" },
   );
 
@@ -147,7 +143,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
-  const fileManager = yield* ContextManager;
+  const fileManager = yield* DocsManager;
   const packManager = yield* PackManager;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
@@ -156,7 +152,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const path = yield* Path.Path;
   const env = { fs, path, baseDir: ws.baseDir };
 
-  const [skillRefs, commandRefs, mcpServerRefs, subagentRefs, fileRefs, packRefs] =
+  const [skillRefs, commandRefs, mcpServerRefs, subagentRefs, docsRefs, packRefs] =
     yield* Effect.all(
       [
         skillManager.listMaterializable(),
@@ -200,10 +196,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "subagents")),
           ),
         ),
-        configuredFilesToRefs(
+        configuredDocsToRefs(
           Object.assign(
             {},
-            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "context")),
+            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "docs")),
           ),
         ),
       ],
@@ -214,7 +210,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const directCommandNames = new Set(commandRefs.map((ref) => ref.command.name));
   const directMcpServerNames = new Set(mcpServerRefs.map((ref) => ref.server.name));
   const directSubagentNames = new Set(subagentRefs.map((ref) => ref.subagent.name));
-  const directFileNames = new Set(fileRefs.map((ref) => ref.file.name));
+  const directDocsNames = new Set(docsRefs.map((ref) => ref.file.name));
 
   const materializedSubagentRefs = [
     ...subagentRefs,
@@ -239,9 +235,9 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         .filter((ref) => !directMcpServerNames.has(ref.server.name))
         .map((ref) => buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo })),
       ...materializedSubagentRefs.map((ref) => buildMaterializeOperation(subagentManager, { ref })),
-      ...fileRefs.map((ref) => buildMaterializeOperation(fileManager, { ref })),
+      ...docsRefs.map((ref) => buildMaterializeOperation(fileManager, { ref })),
       ...packFileRefs
-        .filter((ref) => !directFileNames.has(ref.file.name))
+        .filter((ref) => !directDocsNames.has(ref.file.name))
         .map((ref) => buildMaterializeOperation(fileManager, { ref })),
     ] satisfies ReadonlyArray<PlannedJobStep>,
   };

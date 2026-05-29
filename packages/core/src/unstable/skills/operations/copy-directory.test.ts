@@ -40,75 +40,6 @@ describe("copyExtensionDirectory", () => {
     ),
   );
 
-  it.effect("excludes README.md", () =>
-    withPlatform(
-      Effect.gen(function* () {
-        const src = path.join(tmpDir, "src");
-        const dest = path.join(tmpDir, "dest");
-        fs.mkdirSync(src);
-        fs.writeFileSync(path.join(src, "SKILL.md"), "content");
-        fs.writeFileSync(path.join(src, "README.md"), "readme");
-
-        yield* copyExtensionDirectory(src, dest);
-
-        expect(fs.existsSync(path.join(dest, "SKILL.md"))).toBe(true);
-        expect(fs.existsSync(path.join(dest, "README.md"))).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("excludes metadata.json", () =>
-    withPlatform(
-      Effect.gen(function* () {
-        const src = path.join(tmpDir, "src");
-        const dest = path.join(tmpDir, "dest");
-        fs.mkdirSync(src);
-        fs.writeFileSync(path.join(src, "SKILL.md"), "content");
-        fs.writeFileSync(path.join(src, "metadata.json"), "{}");
-
-        yield* copyExtensionDirectory(src, dest);
-
-        expect(fs.existsSync(path.join(dest, "metadata.json"))).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("excludes _-prefixed entries", () =>
-    withPlatform(
-      Effect.gen(function* () {
-        const src = path.join(tmpDir, "src");
-        const dest = path.join(tmpDir, "dest");
-        fs.mkdirSync(src);
-        fs.writeFileSync(path.join(src, "SKILL.md"), "content");
-        fs.mkdirSync(path.join(src, "_private"));
-        fs.writeFileSync(path.join(src, "_private", "secret.txt"), "secret");
-        fs.writeFileSync(path.join(src, "_hidden.txt"), "hidden");
-
-        yield* copyExtensionDirectory(src, dest);
-
-        expect(fs.existsSync(path.join(dest, "_private"))).toBe(false);
-        expect(fs.existsSync(path.join(dest, "_hidden.txt"))).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("excludes .git directory", () =>
-    withPlatform(
-      Effect.gen(function* () {
-        const src = path.join(tmpDir, "src");
-        const dest = path.join(tmpDir, "dest");
-        fs.mkdirSync(src);
-        fs.writeFileSync(path.join(src, "SKILL.md"), "content");
-        fs.mkdirSync(path.join(src, ".git"));
-        fs.writeFileSync(path.join(src, ".git", "HEAD"), "ref");
-
-        yield* copyExtensionDirectory(src, dest);
-
-        expect(fs.existsSync(path.join(dest, ".git"))).toBe(false);
-      }),
-    ),
-  );
-
   it.effect("copies nested directories recursively", () =>
     withPlatform(
       Effect.gen(function* () {
@@ -167,4 +98,137 @@ describe("copyExtensionDirectory", () => {
       }),
     ),
   );
+
+  // Regression: canonical materialization must faithfully reproduce the
+  // published package. A lockfile realignment (`axm lint --fix`) pre-cleans the
+  // canonical directory and re-copies from the package archive; if README.md
+  // (which `publish` includes in the archive) were stripped on copy, it would be
+  // permanently deleted. The default copy must include it.
+  describe("default (faithful) copy", () => {
+    it.effect("includes README.md", () =>
+      withPlatform(
+        Effect.gen(function* () {
+          const src = path.join(tmpDir, "src");
+          const dest = path.join(tmpDir, "dest");
+          fs.mkdirSync(src);
+          fs.writeFileSync(path.join(src, "SKILL.md"), "content");
+          fs.writeFileSync(path.join(src, "README.md"), "readme");
+
+          yield* copyExtensionDirectory(src, dest);
+
+          expect(fs.readFileSync(path.join(dest, "README.md"), "utf-8")).toBe("readme");
+        }),
+      ),
+    );
+
+    it.effect("includes metadata.json and _-prefixed entries", () =>
+      withPlatform(
+        Effect.gen(function* () {
+          const src = path.join(tmpDir, "src");
+          const dest = path.join(tmpDir, "dest");
+          fs.mkdirSync(src);
+          fs.writeFileSync(path.join(src, "SKILL.md"), "content");
+          fs.writeFileSync(path.join(src, "metadata.json"), "{}");
+          fs.writeFileSync(path.join(src, "_helper.txt"), "helper");
+
+          yield* copyExtensionDirectory(src, dest);
+
+          expect(fs.existsSync(path.join(dest, "metadata.json"))).toBe(true);
+          expect(fs.existsSync(path.join(dest, "_helper.txt"))).toBe(true);
+        }),
+      ),
+    );
+
+    // `.git` is never a published package entry; copying a VCS dir from a
+    // git-hosted/local source would only bloat the canonical copy.
+    it.effect("excludes .git even on a faithful copy", () =>
+      withPlatform(
+        Effect.gen(function* () {
+          const src = path.join(tmpDir, "src");
+          const dest = path.join(tmpDir, "dest");
+          fs.mkdirSync(src);
+          fs.writeFileSync(path.join(src, "SKILL.md"), "content");
+          fs.mkdirSync(path.join(src, ".git"));
+          fs.writeFileSync(path.join(src, ".git", "HEAD"), "ref");
+
+          yield* copyExtensionDirectory(src, dest);
+
+          expect(fs.existsSync(path.join(dest, ".git"))).toBe(false);
+        }),
+      ),
+    );
+  });
+
+  // The agent artifact fan-out (canonical → `.claude/skills/<name>`) omits
+  // human docs and authoring-private files.
+  describe("forAgentArtifact copy", () => {
+    it.effect("excludes README.md", () =>
+      withPlatform(
+        Effect.gen(function* () {
+          const src = path.join(tmpDir, "src");
+          const dest = path.join(tmpDir, "dest");
+          fs.mkdirSync(src);
+          fs.writeFileSync(path.join(src, "SKILL.md"), "content");
+          fs.writeFileSync(path.join(src, "README.md"), "readme");
+
+          yield* copyExtensionDirectory(src, dest, { forAgentArtifact: true });
+
+          expect(fs.existsSync(path.join(dest, "SKILL.md"))).toBe(true);
+          expect(fs.existsSync(path.join(dest, "README.md"))).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("excludes metadata.json", () =>
+      withPlatform(
+        Effect.gen(function* () {
+          const src = path.join(tmpDir, "src");
+          const dest = path.join(tmpDir, "dest");
+          fs.mkdirSync(src);
+          fs.writeFileSync(path.join(src, "SKILL.md"), "content");
+          fs.writeFileSync(path.join(src, "metadata.json"), "{}");
+
+          yield* copyExtensionDirectory(src, dest, { forAgentArtifact: true });
+
+          expect(fs.existsSync(path.join(dest, "metadata.json"))).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("excludes _-prefixed entries", () =>
+      withPlatform(
+        Effect.gen(function* () {
+          const src = path.join(tmpDir, "src");
+          const dest = path.join(tmpDir, "dest");
+          fs.mkdirSync(src);
+          fs.writeFileSync(path.join(src, "SKILL.md"), "content");
+          fs.mkdirSync(path.join(src, "_private"));
+          fs.writeFileSync(path.join(src, "_private", "secret.txt"), "secret");
+          fs.writeFileSync(path.join(src, "_hidden.txt"), "hidden");
+
+          yield* copyExtensionDirectory(src, dest, { forAgentArtifact: true });
+
+          expect(fs.existsSync(path.join(dest, "_private"))).toBe(false);
+          expect(fs.existsSync(path.join(dest, "_hidden.txt"))).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("excludes .git directory", () =>
+      withPlatform(
+        Effect.gen(function* () {
+          const src = path.join(tmpDir, "src");
+          const dest = path.join(tmpDir, "dest");
+          fs.mkdirSync(src);
+          fs.writeFileSync(path.join(src, "SKILL.md"), "content");
+          fs.mkdirSync(path.join(src, ".git"));
+          fs.writeFileSync(path.join(src, ".git", "HEAD"), "ref");
+
+          yield* copyExtensionDirectory(src, dest, { forAgentArtifact: true });
+
+          expect(fs.existsSync(path.join(dest, ".git"))).toBe(false);
+        }),
+      ),
+    );
+  });
 });

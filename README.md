@@ -63,10 +63,10 @@ curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd
 brew install agentxm/tap/axm
 ```
 
-**npx (no install, for agents and CI):**
+**npm:**
 
 ```bash
-npx axm.sh --version
+npm install -g axm.sh
 ```
 
 ## Getting started

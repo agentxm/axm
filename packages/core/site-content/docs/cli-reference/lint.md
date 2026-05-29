@@ -1,0 +1,85 @@
+---
+title: axm lint
+description: Validate workspace configuration and extension artifacts.
+---
+
+# axm lint
+
+Validate workspace configuration and extension artifacts.
+
+## When to use
+
+Use this in local development and CI to find invalid manifests, missing files, or drift.
+
+## Usage
+
+```bash
+axm lint [flags] [<path>]
+```
+
+## Arguments
+
+| Name   | Type   | Required | Description                                                              |
+| ------ | ------ | -------- | ------------------------------------------------------------------------ |
+| `path` | string | No       | Workspace directory to lint (defaults to the current working directory). |
+
+## Flags
+
+| Name        | Type    | Required | Description                                                                                                          |
+| ----------- | ------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--scope`   | choice  | No       | Scope of the lint run: project (default) or user (lints $AXM_USER_HOME/.axm or $HOME/.axm). (choices: project, user) |
+| `--fix`     | boolean | No       | Apply every autofixable finding non-interactively via the plan pipeline.                                             |
+| `--strict`  | boolean | No       | Treat warnings as failing for exit code.                                                                             |
+| `--details` | boolean | No       | Show the full human report instead of the grouped summary.                                                           |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Lint the current project workspace**
+
+```bash
+axm lint
+```
+
+**Lint, then apply every autofixable finding non-interactively**
+
+```bash
+axm lint --fix
+```
+
+**Lint the user-scope workspace under $HOME/.axm**
+
+```bash
+axm lint --scope user
+```
+
+**Treat warnings as failing for exit code**
+
+```bash
+axm lint --strict
+```
+
+**Show the detailed path-by-path report**
+
+```bash
+axm lint --details
+```
+
+**Emit findings as a structured JSON document**
+
+```bash
+axm lint --json
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- workspace
+
+## Side effects
+
+None.

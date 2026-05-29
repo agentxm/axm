@@ -21,8 +21,6 @@ export const checkPublishVersionPreflight = (args: {
   readonly force: boolean;
 }) =>
   Effect.gen(function* () {
-    if (args.force) return;
-
     const local = yield* resolveManifestVersionInfo(args.fqn, args.type);
     const fqn = yield* Result.mapError(parseFqn(args.fqn), fqnInvalidErrorToAppError);
     const client = yield* createRegistryClient(args.registryUrl);
@@ -34,17 +32,37 @@ export const checkPublishVersionPreflight = (args: {
 
     if (Option.isNone(indexOption)) return;
 
+    const existingVersion = indexOption.value.versions.find(
+      (entry) => entry.version === local.version,
+    );
+    if (existingVersion !== undefined) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Cannot publish: version ${local.version} is already published for ${local.fqn}. Published versions are immutable.`,
+        suggestions: [
+          {
+            description: `Bump the version with \`axm version ${local.fqn} patch\``,
+            cmd: `axm version ${local.fqn} patch`,
+          },
+        ],
+      });
+    }
+
     const latest = indexOption.value.versions[0]?.version;
     if (latest === undefined || semver.gt(local.version, latest)) return;
+    if (args.force) return;
 
     const plural = extensionTypeToPlural[args.type];
     return yield* makeAppError({
-      code: "internal",
+      code: "conflict",
       detail: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
       suggestions: [
         {
-          description: `Bump the version first:\n  axm ${plural} version ${local.fqn} patch\n\nOverride with --force.`,
-          cmd: `axm ${plural} version ${local.fqn} patch`,
+          description: `Bump the version with \`axm version ${local.fqn} patch\``,
+          cmd: `axm version ${local.fqn} patch`,
+        },
+        {
+          description: `Re-run with --force only if publishing an older unpublished ${plural} version is intentional`,
         },
       ],
     });

@@ -1,0 +1,77 @@
+---
+title: axm login
+description: Sign in to the registry.
+---
+
+# axm login
+
+Sign in to the registry.
+
+## When to use
+
+Use this before commands that need authenticated registry access.
+
+## Usage
+
+```bash
+axm login [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+| Name            | Type    | Required | Description                                                    |
+| --------------- | ------- | -------- | -------------------------------------------------------------- |
+| `--yes`, `-y`   | boolean | No       | Skip the browser-open confirmation and launch immediately      |
+| `--device-code` | boolean | No       | Use the device-code fallback instead of loopback browser login |
+| `--no-browser`  | boolean | No       | Do not open a browser; use device-code fallback                |
+| `--scope`       | string  | No       | Registry scope to request; repeatable                          |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Sign in to the default registry**
+
+```bash
+axm auth login
+```
+
+**Same command via shortcut**
+
+```bash
+axm login
+```
+
+**Skip the browser confirmation**
+
+```bash
+axm auth login --yes
+```
+
+**Request a specific registry scope**
+
+```bash
+axm auth login --scope extensions:publish:version
+```
+
+**Sign in with device code fallback**
+
+```bash
+axm auth login --device-code
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- network
+
+## Side effects
+
+None.

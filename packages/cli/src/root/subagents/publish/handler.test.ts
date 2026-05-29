@@ -284,7 +284,7 @@ describe("subagents-publish.handler", () => {
       );
     });
 
-    it.effect("previews against a remote registry without requiring auth", () => {
+    it.effect("previews against a registry without requiring auth", () => {
       const { provide } = makeLayers({ authCredentials: null });
       const registryRoot = path.join(tempDir, "registry");
 
@@ -294,13 +294,7 @@ describe("subagents-publish.handler", () => {
         agents: ["claude-code"],
       });
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
-        {
-          name: "remote",
-          type: "registry",
-          location: new URL("https://registry.example.test"),
-        },
-      ]);
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
       return provide(
         Effect.gen(function* () {

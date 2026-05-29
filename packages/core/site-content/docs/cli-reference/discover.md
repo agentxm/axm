@@ -1,0 +1,62 @@
+---
+title: axm discover
+description: Discover applicable extensions for the current workspace.
+---
+
+# axm discover
+
+Discover applicable extensions for the current workspace.
+
+## When to use
+
+Use this to inspect extension opportunities before installing anything.
+
+## Usage
+
+```bash
+axm discover [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+| Name     | Type   | Required | Description                                                         |
+| -------- | ------ | -------- | ------------------------------------------------------------------- |
+| `--path` | string | No       | Scan a different directory instead of the current working directory |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Discover extensions for the current project**
+
+```bash
+axm discover
+```
+
+**Discover extensions for a specific directory**
+
+```bash
+axm discover --path ./my-project
+```
+
+**Emit { command, items, count, totalDetected, registryAvailable }**
+
+```bash
+axm discover --json
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- workspace
+
+## Side effects
+
+None.

@@ -307,25 +307,23 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     { successMessage: `Validated ${extensionNames.length} extension(s)` },
   );
 
-  if (!args.preview) {
-    yield* renderer.withSpinner(
-      "Checking published versions...",
-      () =>
-        Effect.forEach(
-          extensionNames,
-          (extName) =>
-            checkPublishVersionPreflight({
-              fqn: extName,
-              type: "command",
-              registryName: targetRegistry.registryName,
-              registryUrl: targetRegistry.registryUrl,
-              force: args.force,
-            }),
-          { concurrency: "unbounded" },
-        ),
-      { successMessage: "Version check complete" },
-    );
-  }
+  yield* renderer.withSpinner(
+    "Checking published versions...",
+    () =>
+      Effect.forEach(
+        extensionNames,
+        (extName) =>
+          checkPublishVersionPreflight({
+            fqn: extName,
+            type: "command",
+            registryName: targetRegistry.registryName,
+            registryUrl: targetRegistry.registryUrl,
+            force: args.force,
+          }),
+        { concurrency: "unbounded" },
+      ),
+    { successMessage: "Version check complete" },
+  );
 
   // Step 4: Build multi-step plan with inline run closures
   const steps: ReadonlyArray<PlannedJobStep> = extensionNames.map((extName): PlannedJobStep => {
@@ -418,7 +416,7 @@ const publishConfig = {
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
   force: forceFlag.pipe(
-    Flag.withDescription("Publish even if version already exists in the registry"),
+    Flag.withDescription("Bypass version-order warnings; published versions remain immutable"),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;

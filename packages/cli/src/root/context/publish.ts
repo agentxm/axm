@@ -200,7 +200,11 @@ const publishConfig = {
     Flag.withDescription("Publish from project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Reserved for publish conflict overrides")),
+  force: forceFlag.pipe(
+    Flag.withDescription(
+      "Bypass conflict warnings where supported; published versions remain immutable",
+    ),
+  ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would publish without uploading")),
 } as const;
 

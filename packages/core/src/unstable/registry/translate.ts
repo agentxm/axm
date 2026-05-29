@@ -123,7 +123,10 @@ const scopeDeniedSuggestedAction = (body: unknown): SuggestedAction | undefined 
 
   return requiredScope === undefined
     ? undefined
-    : { description: `Re-authenticate with --scope ${requiredScope}.` };
+    : {
+        description: `Re-authenticate with \`axm login --scope ${requiredScope}\``,
+        cmd: `axm login --scope ${requiredScope}`,
+      };
 };
 
 const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {

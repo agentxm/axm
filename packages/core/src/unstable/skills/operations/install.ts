@@ -286,7 +286,9 @@ const installForDirectory = (opts: {
           }) satisfies InstallResult,
       ),
       Effect.catch(() =>
-        copyExtensionDirectory(opts.canonicalSkillSrcPath, agentSkillPath).pipe(
+        copyExtensionDirectory(opts.canonicalSkillSrcPath, agentSkillPath, {
+          forAgentArtifact: true,
+        }).pipe(
           Effect.map(
             () =>
               ({

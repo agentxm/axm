@@ -1,0 +1,78 @@
+---
+title: axm prune
+description: Remove unmanaged or stale generated artifacts.
+---
+
+# axm prune
+
+Remove unmanaged or stale generated artifacts.
+
+## When to use
+
+Use this when cleaning up files that AXM no longer expects to manage.
+
+## Usage
+
+```bash
+axm prune [flags] <patterns...>
+```
+
+## Arguments
+
+| Name       | Type   | Required | Description                                                 |
+| ---------- | ------ | -------- | ----------------------------------------------------------- |
+| `patterns` | string | Yes      | Glob patterns to filter which unmanaged extensions to prune |
+
+## Flags
+
+| Name          | Type    | Required | Description                                                                     |
+| ------------- | ------- | -------- | ------------------------------------------------------------------------------- |
+| `--scope`     | choice  | No       | Prune in project (default) or user-level configuration (choices: project, user) |
+| `--yes`, `-y` | boolean | No       | Remove artifacts without confirmation                                           |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Preview unmanaged extension artifacts that can be removed**
+
+```bash
+axm prune
+```
+
+**Remove all unmanaged extension artifacts**
+
+```bash
+axm prune --yes
+```
+
+**Preview unmanaged extensions matching a glob pattern**
+
+```bash
+axm prune effect-*
+```
+
+**List prunable artifacts as JSON without removing**
+
+```bash
+axm prune --json
+```
+
+**Remove artifacts and output what was removed as JSON**
+
+```bash
+axm prune --yes --json
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- workspace
+
+## Side effects
+
+- writesFiles
+- destructive

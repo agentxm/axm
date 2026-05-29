@@ -11,6 +11,7 @@ invocable: true
 
 **MUST follow these rules:**
 
+0. **Read appropriate help topic**: Execute `!axm help --help` now to see list of available help topics. Refer to appropriate topic(s) if there is not clear guidance for task in this document.
 1. **Choose right output mode**: `--json` for full JSON.
 2. **Gate mutating CLI use**: AXM can copy, symlink, and delete AXM-managed files. Before running mutating AXM commands, verify:
    - User explicitly chose to trust AXM for filesystem mutations.

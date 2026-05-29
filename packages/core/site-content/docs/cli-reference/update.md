@@ -1,0 +1,77 @@
+---
+title: axm update
+description: Update configured extensions to newer versions.
+---
+
+# axm update
+
+Update configured extensions to newer versions.
+
+## When to use
+
+Use this when refreshing one extension or the full workspace to newer source versions.
+
+## Usage
+
+```bash
+axm update [flags] [<source>]
+```
+
+## Arguments
+
+| Name     | Type   | Required | Description                                          |
+| -------- | ------ | -------- | ---------------------------------------------------- |
+| `source` | string | No       | Registry FQN (@owner/<plural-type>/<name>[@version]) |
+
+## Flags
+
+| Name            | Type    | Required | Description                                                                      |
+| --------------- | ------- | -------- | -------------------------------------------------------------------------------- |
+| `--scope`       | choice  | No       | Update in project (default) or user-level configuration (choices: project, user) |
+| `--yes`, `-y`   | boolean | No       | Skip confirmation after reviewing the update plan                                |
+| `--force`, `-f` | boolean | No       | Update even if already at the latest version                                     |
+| `--preview`     | boolean | No       | Show what would be updated without making changes                                |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Update all configured extensions in the current workspace**
+
+```bash
+axm update
+```
+
+**Update a skill by fully qualified registry name**
+
+```bash
+axm update @acme/skills/code-review
+```
+
+**Update a command with a version constraint**
+
+```bash
+axm update @acme/commands/release-notes@^1.2.0
+```
+
+**Preview updates without applying them**
+
+```bash
+axm update --preview
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- workspace
+- registry
+- network
+
+## Side effects
+
+- mutatesWorkspace
+- writesFiles
+- writesLockfile

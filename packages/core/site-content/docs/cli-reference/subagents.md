@@ -1,0 +1,142 @@
+---
+title: axm subagents
+description: Manage subagent extensions.
+---
+
+# axm subagents
+
+Manage subagent extensions.
+
+## When to use
+
+Use this command family when adding specialized agent personas and workflows.
+
+## Usage
+
+```bash
+axm subagents <subcommand> [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+None.
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Add a subagent from the registry**
+
+```bash
+axm subagents install @acme/subagents/researcher
+```
+
+**See what subagents are installed**
+
+```bash
+axm subagents list
+```
+
+**Bump a subagent version**
+
+```bash
+axm subagents version @acme/subagents/researcher patch
+```
+
+## Subcommands
+
+| Command                                             | Summary                                                                                                        |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [axm subagents install](#axm-subagents-install)     | Reinstall configured subagents from their sources, or install subagents from a registry, GitHub, or local path |
+| [axm subagents uninstall](#axm-subagents-uninstall) | Uninstall a subagent from agents                                                                               |
+| [axm subagents list](#axm-subagents-list)           | List installed subagents                                                                                       |
+| [axm subagents update](#axm-subagents-update)       | Update installed subagents to latest versions                                                                  |
+| [axm subagents new](#axm-subagents-new)             | Create a new subagent                                                                                          |
+| [axm subagents publish](#axm-subagents-publish)     | Publish subagents to a registry                                                                                |
+| [axm subagents enable](#axm-subagents-enable)       | Enable a previously disabled subagent                                                                          |
+| [axm subagents disable](#axm-subagents-disable)     | Disable an installed subagent without removing it                                                              |
+| [axm subagents version](#axm-subagents-version)     | Bump a managed subagent manifest version                                                                       |
+
+### axm subagents install
+
+Reinstall configured subagents from their sources, or install subagents from a registry, GitHub, or local path
+
+```bash
+axm subagents install [flags] [<source>]
+```
+
+### axm subagents uninstall
+
+Uninstall a subagent from agents
+
+```bash
+axm subagents uninstall [flags] <subagent>
+```
+
+### axm subagents list
+
+List installed subagents
+
+```bash
+axm subagents list [flags]
+```
+
+### axm subagents update
+
+Update installed subagents to latest versions
+
+```bash
+axm subagents update [flags] [<source>]
+```
+
+### axm subagents new
+
+Create a new subagent
+
+```bash
+axm subagents new [flags] <name>
+```
+
+### axm subagents publish
+
+Publish subagents to a registry
+
+```bash
+axm subagents publish [flags] <extensions...>
+```
+
+### axm subagents enable
+
+Enable a previously disabled subagent
+
+```bash
+axm subagents enable [flags] <name>
+```
+
+### axm subagents disable
+
+Disable an installed subagent without removing it
+
+```bash
+axm subagents disable [flags] <name>
+```
+
+### axm subagents version
+
+Bump a managed subagent manifest version
+
+```bash
+axm subagents version [flags] <handle> <bump> [<version>]
+```
+
+## Requirements
+
+- workspace
+
+## Side effects
+
+None.

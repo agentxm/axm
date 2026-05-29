@@ -276,7 +276,7 @@ describe("publish.handler", () => {
       );
     });
 
-    it.effect("previews against a remote registry without requiring auth", () => {
+    it.effect("previews against a registry without requiring auth", () => {
       const { provide } = makeLayers({ authCredentials: null });
       const registryRoot = path.join(tempDir, "registry");
 
@@ -286,13 +286,7 @@ describe("publish.handler", () => {
         agents: ["claude-code"],
       });
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
-        {
-          name: "remote",
-          type: "registry",
-          location: new URL("https://registry.example.test"),
-        },
-      ]);
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
       return provide(
         Effect.gen(function* () {
@@ -307,6 +301,96 @@ describe("publish.handler", () => {
               path.join(registryRoot, "extensions", "@test", "skills", "preview-skill"),
             ),
           ).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("blocks preview when the manifest version is already published", () => {
+      const { provide } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "preview-conflict", {
+        name: "@test/skills/preview-conflict",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["@test/skills/preview-conflict"]));
+
+          const error = yield* handlePublish(
+            defaultArgs(["@test/skills/preview-conflict"], { preview: true }),
+          ).pipe(Effect.flip);
+          const appError = getAppError(error);
+
+          expect(appError.code).toBe("conflict");
+          expect(appError.detail).toContain("version 1.0.0 is already published");
+          expect(appError.suggestions).toContainEqual({
+            description: "Bump the version with `axm version @test/skills/preview-conflict patch`",
+            cmd: "axm version @test/skills/preview-conflict patch",
+          });
+        }),
+      );
+    });
+
+    it.effect("does not let --force overwrite an already published version", () => {
+      const { provide } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "force-conflict", {
+        name: "@test/skills/force-conflict",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["@test/skills/force-conflict"]));
+
+          const error = yield* handlePublish(
+            defaultArgs(["@test/skills/force-conflict"], { force: true }),
+          ).pipe(Effect.flip);
+          const appError = getAppError(error);
+
+          expect(appError.code).toBe("conflict");
+          expect(appError.detail).toContain("Published versions are immutable");
+        }),
+      );
+    });
+
+    it.effect("lets --force publish an older unpublished version", () => {
+      const { provide, logs } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+      const extDir = createManagedExtension(tempDir, "@test", "force-older", {
+        name: "@test/skills/force-older",
+        version: "2.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["@test/skills/force-older"]));
+
+          fs.writeFileSync(
+            path.join(extDir, "skill.json"),
+            JSON.stringify({
+              owner: "@test",
+              type: "skill",
+              name: "force-older",
+              version: "1.0.0",
+            }),
+          );
+
+          yield* handlePublish(defaultArgs(["@test/skills/force-older"], { force: true }));
+
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
     });
@@ -753,9 +837,9 @@ describe("publish.handler", () => {
             ),
           );
 
-          expect(result).toMatchObject({ error: true, code: "internal" });
+          expect(result).toMatchObject({ error: true, code: "network" });
           if (result.error) {
-            expect(result.message).toContain("Failed to publish");
+            expect(result.message).toContain("remote registry discovery");
           }
           expect(logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);

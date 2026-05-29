@@ -228,7 +228,7 @@ describe("commands-publish.handler", () => {
       );
     });
 
-    it.effect("refuses publish when local version is not greater than registry latest", () => {
+    it.effect("refuses publish when local version is already published", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -246,10 +246,12 @@ describe("commands-publish.handler", () => {
           ).pipe(Effect.flip);
 
           const error = getAppError(result);
-          expect(error.detail).toContain("local version 1.0.0 is not greater");
-          expect(error.suggestions?.[0]?.description ?? "").toContain(
-            "axm commands version @test/commands/stale-cmd patch",
-          );
+          expect(error.code).toBe("conflict");
+          expect(error.detail).toContain("version 1.0.0 is already published");
+          expect(error.suggestions).toContainEqual({
+            description: "Bump the version with `axm version @test/commands/stale-cmd patch`",
+            cmd: "axm version @test/commands/stale-cmd patch",
+          });
         }),
       );
     });
@@ -348,7 +350,7 @@ describe("commands-publish.handler", () => {
       );
     });
 
-    it.effect("previews against a remote registry without requiring auth", () => {
+    it.effect("previews against a registry without requiring auth", () => {
       const { provide } = makeLayers({ authCredentials: null });
       const registryRoot = path.join(tempDir, "registry");
 
@@ -357,13 +359,7 @@ describe("commands-publish.handler", () => {
         version: "1.0.0",
       });
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
-        {
-          name: "remote",
-          type: "registry",
-          location: new URL("https://registry.example.test"),
-        },
-      ]);
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
       return provide(
         Effect.gen(function* () {

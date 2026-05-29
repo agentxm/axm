@@ -1,0 +1,60 @@
+---
+title: axm whoami
+description: Show the current authenticated registry identity.
+---
+
+# axm whoami
+
+Show the current authenticated registry identity.
+
+## When to use
+
+Use this to verify which account AXM will use for registry operations.
+
+## Usage
+
+```bash
+axm whoami [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+None.
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Check who you're authenticated as**
+
+```bash
+axm auth whoami
+```
+
+**Same command via shortcut**
+
+```bash
+axm whoami
+```
+
+**Get identity as JSON for scripts**
+
+```bash
+axm auth whoami --json
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+None.
+
+## Side effects
+
+None.

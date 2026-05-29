@@ -1,6 +1,59 @@
 {
   "nav": [
     { "label": "Quickstart", "to": "quickstart" },
-    { "label": "Supported Coding Agents", "to": "supported-coding-agents" }
+    { "label": "Supported Coding Agents", "to": "supported-coding-agents" },
+    {
+      "label": "CLI Reference",
+      "children": [
+        { "label": "Overview", "to": "cli-reference" },
+        {
+          "label": "Extensions",
+          "children": [
+            { "label": "axm skills", "to": "cli-reference/skills" },
+            { "label": "axm commands", "to": "cli-reference/commands" },
+            { "label": "axm context", "to": "cli-reference/context" },
+            { "label": "axm mcps", "to": "cli-reference/mcps" },
+            { "label": "axm subagents", "to": "cli-reference/subagents" },
+            { "label": "axm packs", "to": "cli-reference/packs" },
+            { "label": "axm install", "to": "cli-reference/install" },
+            { "label": "axm update", "to": "cli-reference/update" },
+            { "label": "axm uninstall", "to": "cli-reference/uninstall" },
+            { "label": "axm outdated", "to": "cli-reference/outdated" },
+            { "label": "axm view", "to": "cli-reference/view" },
+            { "label": "axm lists", "to": "cli-reference/lists" },
+            { "label": "axm version", "to": "cli-reference/version" }
+          ]
+        },
+        {
+          "label": "Workspace",
+          "children": [
+            { "label": "axm sync", "to": "cli-reference/sync" },
+            { "label": "axm agents", "to": "cli-reference/agents" },
+            { "label": "axm lint", "to": "cli-reference/lint" },
+            { "label": "axm prune", "to": "cli-reference/prune" },
+            { "label": "axm upgrade", "to": "cli-reference/upgrade" },
+            { "label": "axm setup", "to": "cli-reference/setup" },
+            { "label": "axm discover", "to": "cli-reference/discover" }
+          ]
+        },
+        {
+          "label": "Authentication",
+          "children": [
+            { "label": "axm auth", "to": "cli-reference/auth" },
+            { "label": "axm login", "to": "cli-reference/login" },
+            { "label": "axm logout", "to": "cli-reference/logout" },
+            { "label": "axm whoami", "to": "cli-reference/whoami" },
+            { "label": "axm token", "to": "cli-reference/token" }
+          ]
+        },
+        {
+          "label": "Help",
+          "children": [
+            { "label": "axm help", "to": "cli-reference/help" },
+            { "label": "Global flags", "to": "cli-reference/global-flags" }
+          ]
+        }
+      ]
+    }
   ]
 }

@@ -1,0 +1,77 @@
+---
+title: axm install
+description: Install a registry extension or reinstall configured extensions.
+---
+
+# axm install
+
+Install a registry extension or reinstall configured extensions.
+
+## When to use
+
+Use this when adding published extensions to a workspace or rebuilding installed extension files.
+
+## Usage
+
+```bash
+axm install [flags] [<source>]
+```
+
+## Arguments
+
+| Name     | Type   | Required | Description                                          |
+| -------- | ------ | -------- | ---------------------------------------------------- |
+| `source` | string | No       | Registry FQN (@owner/<plural-type>/<name>[@version]) |
+
+## Flags
+
+| Name            | Type    | Required | Description                                                                       |
+| --------------- | ------- | -------- | --------------------------------------------------------------------------------- |
+| `--scope`       | choice  | No       | Install to project (default) or user-level configuration (choices: project, user) |
+| `--yes`, `-y`   | boolean | No       | Skip confirmation after reviewing the install plan                                |
+| `--force`, `-f` | boolean | No       | Reinstall even if the extension already exists                                    |
+| `--preview`     | boolean | No       | Show what would be installed without making changes                               |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Reinstall all configured extensions from their sources**
+
+```bash
+axm install
+```
+
+**Install a skill by fully qualified registry name**
+
+```bash
+axm install @acme/skills/code-review
+```
+
+**Install a command with a version constraint**
+
+```bash
+axm install @acme/commands/release-notes@^1.2.0
+```
+
+**Preview a pack install from the registry**
+
+```bash
+axm install @acme/packs/frontend-tools --preview
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- workspace
+- registry
+- network
+
+## Side effects
+
+- mutatesWorkspace
+- writesFiles
+- writesLockfile

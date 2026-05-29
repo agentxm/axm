@@ -1,0 +1,57 @@
+---
+title: axm upgrade
+description: Upgrade local AXM workspace metadata.
+---
+
+# axm upgrade
+
+Upgrade local AXM workspace metadata.
+
+## When to use
+
+Use this after installing a newer AXM version that includes workspace migrations.
+
+## Usage
+
+```bash
+axm upgrade [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+| Name            | Type    | Required | Description                          |
+| --------------- | ------- | -------- | ------------------------------------ |
+| `--force`, `-f` | boolean | No       | Reinstall even if already up to date |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Download and install the latest version**
+
+```bash
+axm upgrade
+```
+
+**Reinstall even if already up to date**
+
+```bash
+axm upgrade --force
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- workspace
+
+## Side effects
+
+- mutatesWorkspace
+- writesFiles

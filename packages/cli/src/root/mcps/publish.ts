@@ -12,8 +12,11 @@ import {
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
 export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(function* (args: {
@@ -25,6 +28,33 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const renderer = yield* CliRenderer;
+  const target = yield* ws.getConfiguredSourceByName(args.registry);
+  if (Option.isNone(target)) {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Registry source "${args.registry}" not found or not a registry source`,
+    });
+  }
+  const source = target.value;
+  if (source.type !== "registry") {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Registry source "${args.registry}" not found or not a registry source`,
+    });
+  }
+  yield* renderer.withSpinner(
+    "Checking published versions...",
+    () =>
+      checkPublishVersionPreflight({
+        fqn: args.name,
+        type: "mcp-server",
+        registryName: args.registry,
+        registryUrl: source.location.href,
+        force: false,
+      }),
+    { successMessage: "Version check complete" },
+  );
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.name,

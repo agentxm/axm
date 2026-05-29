@@ -56,7 +56,8 @@
     "release:publish:local": "pnpm exec nx run axm:release-publish-local --outputStyle=static",
     "generate": "pnpm exec nx run axm:generate-registry --outputStyle=static && pnpm exec nx run axm:generate-telemetry --outputStyle=static",
     "generate:registry": "pnpm exec nx run axm:generate-registry --outputStyle=static",
-    "generate:telemetry": "pnpm exec nx run axm:generate-telemetry --outputStyle=static"
+    "generate:telemetry": "pnpm exec nx run axm:generate-telemetry --outputStyle=static",
+    "generate:cli-reference": "pnpm exec nx run cli:generate-cli-reference --outputStyle=static"
   },
   "nx": {
     "includedScripts": []

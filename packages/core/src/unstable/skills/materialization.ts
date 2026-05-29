@@ -279,7 +279,9 @@ export const ensureSkillAgentArtifact = (args: {
         link: agentSkillPath,
       }).pipe(
         Effect.catch(() =>
-          copyExtensionDirectory(args.canonicalSkillSrcPath, agentSkillPath).pipe(
+          copyExtensionDirectory(args.canonicalSkillSrcPath, agentSkillPath, {
+            forAgentArtifact: true,
+          }).pipe(
             Effect.flatMap(() =>
               insertSkillCopyFallbackBanner({
                 canonicalSkillSrcPath: args.canonicalSkillSrcPath,

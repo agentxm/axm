@@ -109,9 +109,10 @@ describe("registryErrorToAppError", () => {
     );
 
     expect(error.code).toBe("forbidden");
-    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
-      "Re-authenticate with --scope extensions:publish:version.",
-    );
+    expect(error.suggestions).toContainEqual({
+      description: "Re-authenticate with `axm login --scope extensions:publish:version`",
+      cmd: "axm login --scope extensions:publish:version",
+    });
   });
 
   it("adds lint finding suggestions for publish lint responses", () => {

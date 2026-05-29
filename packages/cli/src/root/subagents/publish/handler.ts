@@ -28,6 +28,7 @@ import {
   emitPlanResolutionResult,
   planResolutionToSummary,
 } from "../../../json-output.js";
+import { checkPublishVersionPreflight } from "../../shared/publish-preflight.js";
 import { publishSuccessRender } from "../../shared/publish-success.js";
 
 export interface PublishHandlerArgs {
@@ -275,6 +276,24 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
         });
       }),
     { successMessage: `Validated ${extensionNames.length} extension(s)` },
+  );
+
+  yield* renderer.withSpinner(
+    "Checking published versions...",
+    () =>
+      Effect.forEach(
+        extensionNames,
+        (extName) =>
+          checkPublishVersionPreflight({
+            fqn: extName,
+            type: "subagent",
+            registryName: targetRegistry.registryName,
+            registryUrl: targetRegistry.registryUrl,
+            force: args.force,
+          }),
+        { concurrency: "unbounded" },
+      ),
+    { successMessage: "Version check complete" },
   );
 
   // Step 4: Build multi-step plan with inline run closures

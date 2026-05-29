@@ -62,7 +62,6 @@ import { agentModule as goose, type GooseNativeConfig } from "./goose.js";
 import { agentModule as grokCli, type GrokCliNativeConfig } from "./grok-cli.js";
 import { agentModule as hermes, type HermesNativeConfig } from "./hermes.js";
 import { agentModule as ibmBob, type IbmBobNativeConfig } from "./ibm-bob.js";
-import { agentModule as iflowCli, type IflowCliNativeConfig } from "./iflow-cli.js";
 import { agentModule as junie, type JunieNativeConfig } from "./junie.js";
 import { agentModule as kilo, type KiloNativeConfig } from "./kilo.js";
 import { agentModule as kimiCli, type KimiCliNativeConfig } from "./kimi-cli.js";
@@ -161,7 +160,8 @@ const registeredAgentModulesById = {
   "grok-cli": grokCli,
   hermes,
   "ibm-bob": ibmBob,
-  "iflow-cli": iflowCli,
+  // iFlow CLI intentionally omitted: the service shut down 2026-04-17 with
+  // guidance to migrate to Qoder (https://qoder.com). Do not re-add.
   junie,
   kilo,
   "kimi-cli": kimiCli,
@@ -241,7 +241,6 @@ export type {
   GrokCliNativeConfig,
   HermesNativeConfig,
   IbmBobNativeConfig,
-  IflowCliNativeConfig,
   JunieNativeConfig,
   KiloNativeConfig,
   KimiCliNativeConfig,

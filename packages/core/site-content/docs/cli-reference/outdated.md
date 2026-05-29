@@ -1,0 +1,71 @@
+---
+title: axm outdated
+description: Check installed extensions for newer versions.
+---
+
+# axm outdated
+
+Check installed extensions for newer versions.
+
+## When to use
+
+Use this before updating to see which configured extensions have newer releases.
+
+## Usage
+
+```bash
+axm outdated [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+| Name      | Type   | Required | Description                                                                                         |
+| --------- | ------ | -------- | --------------------------------------------------------------------------------------------------- |
+| `--scope` | choice | No       | Check project (default) or user-level configuration (choices: project, user)                        |
+| `--type`  | choice | No       | Only check a specific extension type (choices: skill, command, mcp-server, subagent, context, pack) |
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Check all extensions for updates**
+
+```bash
+axm outdated
+```
+
+**Check only skills for updates**
+
+```bash
+axm outdated --type skill
+```
+
+**Emit outdated extensions as JSON**
+
+```bash
+axm outdated --json
+```
+
+**Check user-level extensions for updates**
+
+```bash
+axm outdated --scope user
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+- workspace
+- registry
+- network
+
+## Side effects
+
+None.

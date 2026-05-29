@@ -292,7 +292,7 @@ describe("packs publish.handler", () => {
       );
     });
 
-    it.effect("previews against a remote registry without requiring auth", () => {
+    it.effect("previews against a registry without requiring auth", () => {
       const { provide } = makeLayers({ authCredentials: null });
       const registryRoot = path.join(tempDir, "registry");
 
@@ -302,13 +302,7 @@ describe("packs publish.handler", () => {
         dependencies: {},
       });
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, [
-        {
-          name: "remote",
-          type: "registry",
-          location: new URL("https://registry.example.test"),
-        },
-      ]);
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
       return provide(
         Effect.gen(function* () {
@@ -383,8 +377,8 @@ describe("packs publish.handler", () => {
   });
 
   describe("idempotent publish", () => {
-    it.effect("succeeds when publishing the same version with same content", () => {
-      const { provide, logs } = makeLayers();
+    it.effect("fails before publishing the same version with same content", () => {
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "idempotent-pack", {
@@ -402,12 +396,13 @@ describe("packs publish.handler", () => {
             defaultArgs("@test/packs/idempotent-pack", { registry: Option.some("local") }),
           );
 
-          // Second publish (same content, same version)
-          yield* handlePublishPack(
+          const error = yield* handlePublishPack(
             defaultArgs("@test/packs/idempotent-pack", { registry: Option.some("local") }),
-          );
+          ).pipe(Effect.flip);
+          const appError = getAppError(error);
 
-          expect(logs.success.filter((m) => m.includes("Done"))).toHaveLength(2);
+          expect(appError.code).toBe("conflict");
+          expect(appError.detail).toContain("version 1.0.0 is already published");
         }),
       );
     });

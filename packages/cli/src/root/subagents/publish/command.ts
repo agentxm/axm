@@ -19,7 +19,7 @@ const publishConfig = {
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
   force: forceFlag.pipe(
-    Flag.withDescription("Publish even if version already exists in the registry"),
+    Flag.withDescription("Bypass version-order warnings; published versions remain immutable"),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;

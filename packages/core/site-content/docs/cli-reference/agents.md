@@ -1,0 +1,98 @@
+---
+title: axm agents
+description: Configure coding-agent targets.
+---
+
+# axm agents
+
+Configure coding-agent targets.
+
+## When to use
+
+Use this command family when adding, removing, or inspecting the agents AXM manages.
+
+## Usage
+
+```bash
+axm agents <subcommand> [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+None.
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Show configured and detected coding agents**
+
+```bash
+axm agents
+```
+
+**Add Cursor to a configured workspace**
+
+```bash
+axm agents add cursor
+```
+
+**Stop syncing into Cursor**
+
+```bash
+axm agents remove cursor
+```
+
+## Subcommands
+
+| Command                                             | Summary                                                               |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| [axm agents list](#axm-agents-list)                 | List coding-agent harnesses configured for AXM                        |
+| [axm agents add](#axm-agents-add)                   | Configure coding-agent harnesses and materialize installed extensions |
+| [axm agents remove](#axm-agents-remove)             | Remove coding-agent harnesses and clean up AXM-managed artifacts      |
+| [axm agents instructions](#axm-agents-instructions) | Manage configured agent instruction files                             |
+
+### axm agents list
+
+List coding-agent harnesses configured for AXM
+
+```bash
+axm agents list [flags]
+```
+
+### axm agents add
+
+Configure coding-agent harnesses and materialize installed extensions
+
+```bash
+axm agents add [flags] <id...>
+```
+
+### axm agents remove
+
+Remove coding-agent harnesses and clean up AXM-managed artifacts
+
+```bash
+axm agents remove [flags] <id...>
+```
+
+### axm agents instructions
+
+Manage configured agent instruction files
+
+```bash
+axm agents instructions <subcommand> [flags]
+```
+
+## Requirements
+
+- workspace
+
+## Side effects
+
+- mutatesWorkspace
+- writesFiles

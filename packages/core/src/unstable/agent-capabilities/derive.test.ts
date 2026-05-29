@@ -96,7 +96,6 @@ describe("agent capability derivation", () => {
       "grok-cli",
       "hermes",
       "ibm-bob",
-      "iflow-cli",
       "kilo",
       "kiro-cli",
       "mistral-vibe",

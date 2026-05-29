@@ -1,0 +1,54 @@
+---
+title: axm logout
+description: Remove saved registry credentials.
+---
+
+# axm logout
+
+Remove saved registry credentials.
+
+## When to use
+
+Use this when ending a local authenticated session.
+
+## Usage
+
+```bash
+axm logout [flags]
+```
+
+## Arguments
+
+None.
+
+## Flags
+
+None.
+
+Global flags are documented on [Global flags](./global-flags).
+
+## Examples
+
+**Sign out of the current registry**
+
+```bash
+axm auth logout
+```
+
+**Same command via shortcut**
+
+```bash
+axm logout
+```
+
+## Subcommands
+
+None.
+
+## Requirements
+
+None.
+
+## Side effects
+
+- writesFiles

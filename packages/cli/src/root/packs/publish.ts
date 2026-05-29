@@ -50,6 +50,8 @@ import {
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
+import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
+import type { VersionableExtensionType } from "../shared/extension-version.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 
 export interface PublishPackHandlerArgs {
@@ -74,6 +76,11 @@ export type PackPublishOp =
 interface TargetRegistry {
   readonly registryName: string;
   readonly registryUrl: string;
+}
+
+interface PublishVersionTarget {
+  readonly fqn: string;
+  readonly type: VersionableExtensionType;
 }
 
 const resolveTargetRegistry = (registry: Option.Option<string>) =>
@@ -272,6 +279,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   // Step 3: Discover local dependencies (when --include-dependencies)
   const dependencySteps: PlannedJobStep[] = [];
+  const versionTargets: PublishVersionTarget[] = [{ fqn: packName, type: "pack" }];
 
   if (args.includeDependencies) {
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -325,6 +333,18 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           const exists = yield* fs.exists(depDir).pipe(Effect.orElseSucceed(() => false));
 
           if (exists) {
+            switch (parsed.type) {
+              case "skill":
+              case "command":
+              case "mcp-server":
+              case "subagent":
+                versionTargets.push({ fqn: depFqn, type: parsed.type });
+                break;
+              case "pack":
+              case "context":
+              case "rule":
+                break;
+            }
             const step = yield* makeDependencyStep(
               parsed,
               depFqn,
@@ -340,6 +360,24 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       { concurrency: "unbounded" },
     );
   }
+
+  yield* renderer.withSpinner(
+    "Checking published versions...",
+    () =>
+      Effect.forEach(
+        versionTargets,
+        (target) =>
+          checkPublishVersionPreflight({
+            fqn: target.fqn,
+            type: target.type,
+            registryName: targetRegistry.registryName,
+            registryUrl: targetRegistry.registryUrl,
+            force: args.force,
+          }),
+        { concurrency: "unbounded" },
+      ),
+    { successMessage: "Version check complete" },
+  );
 
   // Step 4: Build plan with inline run closures
   const packOp: PublishPackOperation = {
@@ -509,7 +547,7 @@ const publishConfig = {
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
   force: forceFlag.pipe(
-    Flag.withDescription("Publish even if this version already exists in the registry"),
+    Flag.withDescription("Bypass version-order warnings; published versions remain immutable"),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;

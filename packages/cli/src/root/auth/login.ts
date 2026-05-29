@@ -166,7 +166,7 @@ export const loginCommand = Command.make(
     { command: "axm login", description: "Same command via shortcut" },
     { command: "axm auth login --yes", description: "Skip the browser confirmation" },
     {
-      command: "axm auth login --scope extensions:publish:new",
+      command: "axm auth login --scope extensions:publish:version",
       description: "Request a specific registry scope",
     },
     { command: "axm auth login --device-code", description: "Sign in with device code fallback" },

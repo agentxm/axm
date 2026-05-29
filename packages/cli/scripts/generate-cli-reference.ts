@@ -26,8 +26,9 @@ import {
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const CORE_ROOT = path.join(import.meta.dirname, "../../core");
 const SITE_CONTENT_ROOT = path.join(CORE_ROOT, "site-content");
-const CLI_REFERENCE_ROOT = path.join(SITE_CONTENT_ROOT, "cli-reference");
-const CLI_REFERENCE_DOCS_ROOT = path.join(SITE_CONTENT_ROOT, "docs/cli-reference");
+const GENERATED_ROOT = path.join(SITE_CONTENT_ROOT, "__generated__");
+const CLI_REFERENCE_ROOT = path.join(GENERATED_ROOT, "cli-reference");
+const CLI_REFERENCE_DOCS_ROOT = path.join(GENERATED_ROOT, "docs/cli-reference");
 const DOCS_CONFIG_PATH = path.join(SITE_CONTENT_ROOT, "docs/config.json");
 const GENERATED_AT = "1970-01-01T00:00:00.000Z";
 const TEST_VERSION = loadVersion();
@@ -522,8 +523,9 @@ const main = async () => {
   );
 
   for (const node of topLevelNodes) {
+    const fileName = `${node.slug.replace(/^cli-reference\//u, "")}.md`;
     await writeFormatted(
-      path.join(SITE_CONTENT_ROOT, "docs", `${node.slug}.md`),
+      path.join(CLI_REFERENCE_DOCS_ROOT, fileName),
       renderCommandPage(node),
       "markdown",
     );

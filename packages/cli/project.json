@@ -99,8 +99,8 @@
         "{workspaceRoot}/.prettierrc.json"
       ],
       "outputs": [
-        "{workspaceRoot}/packages/core/site-content/cli-reference",
-        "{workspaceRoot}/packages/core/site-content/docs/cli-reference",
+        "{workspaceRoot}/packages/core/site-content/__generated__/cli-reference",
+        "{workspaceRoot}/packages/core/site-content/__generated__/docs/cli-reference",
         "{workspaceRoot}/packages/core/site-content/docs/config.json"
       ],
       "executor": "nx:run-commands",

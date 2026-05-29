@@ -164,6 +164,8 @@
       "default": "./dist/src/unstable/publish/index.js"
     },
     "./unstable/site-content/schemas/*": "./site-content/__generated__/schemas/*",
+    "./unstable/site-content/docs/cli-reference/*": "./site-content/__generated__/docs/cli-reference/*",
+    "./unstable/site-content/cli-reference/*": "./site-content/__generated__/cli-reference/*",
     "./unstable/site-content/*": "./site-content/*",
     "./unstable/install-method": {
       "types": "./dist/src/unstable/install-method/install-method.d.ts",

@@ -10,7 +10,7 @@ import type {
   AgentInstructionsDescriptor,
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
-import { AGENT_IDS, type AgentId } from "./catalog.generated.js";
+import { AGENT_IDS, type AgentId } from "./__generated__/catalog.js";
 import type { Agent, AgentCapability } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */

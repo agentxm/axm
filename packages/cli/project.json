@@ -8,12 +8,7 @@
   "targets": {
     "build": {
       "cache": true,
-      "dependsOn": [
-        "generate-help-topics",
-        "generate-bundled-axm-skill",
-        "generate-cli-reference",
-        "^build"
-      ],
+      "dependsOn": ["generate", "^build"],
       "executor": "@nx/js:tsc",
       "inputs": [
         "production",
@@ -46,6 +41,7 @@
     },
     "lint": {
       "executor": "@nx/eslint:lint",
+      "dependsOn": ["generate"],
       "options": {
         "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
       }
@@ -58,17 +54,16 @@
         "cwd": "packages/cli"
       }
     },
-    "generate-schemas": {
-      "dependsOn": ["build"],
+    "generate": {
+      "dependsOn": ["generate:help-topics", "generate:bundled-axm-skill", "generate:cli-reference"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "scripts/generate-schemas.ts"],
-        "cwd": "packages/cli"
+        "command": "echo cli generated output is up to date"
       }
     },
-    "generate-help-topics": {
+    "generate:help-topics": {
       "cache": true,
-      "dependsOn": [{ "projects": ["core"], "target": "generate-schemas" }],
+      "dependsOn": [{ "projects": ["core"], "target": "generate:schemas" }],
       "inputs": [
         "{projectRoot}/help/topics/*.md",
         "{projectRoot}/scripts/generate-help-topics.ts",
@@ -81,7 +76,7 @@
         "cwd": "packages/cli"
       }
     },
-    "generate-bundled-axm-skill": {
+    "generate:bundled-axm-skill": {
       "cache": true,
       "inputs": [
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
@@ -95,7 +90,7 @@
         "cwd": "packages/cli"
       }
     },
-    "generate-cli-reference": {
+    "generate:cli-reference": {
       "cache": true,
       "dependsOn": ["^build"],
       "inputs": [

@@ -108,5 +108,5 @@ export {
   AGENT_IDS,
   AgentIdSchema,
   type AgentId,
-} from "./catalog.generated.js";
+} from "./__generated__/catalog.js";
 export { agentById } from "./lookup.js";

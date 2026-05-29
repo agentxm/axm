@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../agent.schema.json
+# yaml-language-server: $schema=../../__generated__/agent.schema.json
 id: firebender
 name: Firebender
 vendor: Firebender

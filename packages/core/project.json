@@ -6,7 +6,19 @@
   "sourceRoot": "packages/core/src",
   "tags": ["type:lib", "scope:core"],
   "targets": {
-    "generate-schemas": {
+    "generate": {
+      "dependsOn": [
+        "generate:schemas",
+        "generate:agent-catalog",
+        "generate:registry-client",
+        "generate:telemetry-client"
+      ],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "echo core generated output is up to date"
+      }
+    },
+    "generate:schemas": {
       "cache": true,
       "inputs": [
         "production",
@@ -21,7 +33,7 @@
         "cwd": "packages/core"
       }
     },
-    "generate-agent-catalog": {
+    "generate:agent-catalog": {
       "cache": true,
       "inputs": [
         "production",
@@ -33,8 +45,8 @@
         "{workspaceRoot}/.prettierrc.json"
       ],
       "outputs": [
-        "{projectRoot}/src/unstable/agent-capabilities/catalog.generated.ts",
-        "{projectRoot}/src/unstable/agent-capabilities/agent.schema.json"
+        "{projectRoot}/src/unstable/agent-capabilities/__generated__/catalog.ts",
+        "{projectRoot}/src/unstable/agent-capabilities/__generated__/agent.schema.json"
       ],
       "executor": "nx:run-commands",
       "options": {
@@ -42,9 +54,53 @@
         "cwd": "packages/core"
       }
     },
+    "generate:registry-client": {
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/scripts/generate-registry-client.ts",
+        "{projectRoot}/specs/registry-openapi.json",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/src/unstable/registry/__generated__/registry-client.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/generate-registry-client.ts"
+      }
+    },
+    "generate:telemetry-client": {
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/scripts/generate-telemetry-client.ts",
+        "{projectRoot}/specs/telemetry-openapi.json",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/src/unstable/telemetry/__generated__/telemetry-client.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/generate-telemetry-client.ts"
+      }
+    },
+    "sync:registry-spec": {
+      "cache": false,
+      "inputs": ["{workspaceRoot}/scripts/sync-registry-spec.ts"],
+      "outputs": ["{projectRoot}/specs/registry-openapi.json"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/sync-registry-spec.ts"
+      }
+    },
+    "sync:telemetry-spec": {
+      "cache": false,
+      "inputs": ["{workspaceRoot}/scripts/sync-telemetry-spec.ts"],
+      "outputs": ["{projectRoot}/specs/telemetry-openapi.json"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/sync-telemetry-spec.ts"
+      }
+    },
     "build": {
       "cache": true,
-      "dependsOn": ["generate-agent-catalog", "generate-schemas", "^build"],
+      "dependsOn": ["generate", "^build"],
       "executor": "@nx/js:tsc",
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"],
@@ -58,6 +114,7 @@
     },
     "lint": {
       "executor": "@nx/eslint:lint",
+      "dependsOn": ["generate"],
       "options": {
         "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
       }

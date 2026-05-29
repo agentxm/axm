@@ -27,6 +27,7 @@
     "scripts-typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
+      "dependsOn": ["utils:build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "options": {
         "command": "pnpm scripts-typecheck",
@@ -179,6 +180,9 @@
         "parallel": false,
         "commands": [
           {
+            "command": "pnpm run generate:check"
+          },
+          {
             "command": "pnpm exec nx sync:check"
           },
           {
@@ -195,6 +199,9 @@
       "options": {
         "parallel": false,
         "commands": [
+          {
+            "command": "pnpm run generate:check"
+          },
           {
             "command": "pnpm exec nx sync:check"
           },

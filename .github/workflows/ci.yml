@@ -15,6 +15,11 @@ permissions:
   checks: write
   contents: read
 
+env:
+  NX_TUI: "false"
+  NX_DEFAULT_OUTPUT_STYLE: static
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
+
 jobs:
   verify:
     name: Verify Workspace
@@ -44,6 +49,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check generated output is up to date
+        run: pnpm run generate:check
 
       - name: Create local main ref for affected/base diff
         if: github.event_name == 'pull_request'

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../agent.schema.json
+# yaml-language-server: $schema=../../__generated__/agent.schema.json
 id: kiro-cli
 name: Kiro CLI
 vendor: AWS

@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
-import { AgentIdSchema, AGENTS } from "./catalog.generated.js";
+import { AgentIdSchema, AGENTS } from "./__generated__/catalog.js";
 import { AgentSchema, type Agent } from "./schema.js";
 import { validateCatalogSources, type CatalogSource } from "./validate.js";
 

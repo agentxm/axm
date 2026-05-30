@@ -1,3 +1,14 @@
+## 0.13.0 (2026-05-30)
+
+### 🚀 Features
+
+- Remove the `axm lists` command and its registry list endpoints. Curated lists remain available on the web app; only the CLI command and registry HTTP surface are retired. ([a0866cb7](https://github.com/agentxm/axm/commit/a0866cb7))
+
+### ❤️ Thank You
+
+- Claude Opus 4.7 (1M context)
+- Craig Smitham
+
 ## 0.12.3 (2026-05-26)
 
 ### 🩹 Fixes

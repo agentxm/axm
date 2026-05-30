@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/client-utils",
-  "version": "0.12.3",
+  "version": "0.13.0",
   "description": "Shared primitive utilities for axm workspaces. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "MIT",

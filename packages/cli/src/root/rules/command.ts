@@ -67,7 +67,7 @@ const currentInstructionsConfig = Effect.fn("Rules.instructions.currentConfig")(
   return Option.some(resolveInstructionsConfig(config.value));
 });
 
-export const handleRulesStatus = Effect.fn("Rules.status")(function* () {
+const handleRulesStatus = Effect.fn("Rules.status")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   const config = yield* currentInstructionsConfig();
@@ -122,20 +122,20 @@ export const handleRulesEnable = Effect.fn("Rules.enable")(function* (args: {
   yield* renderer.success("Instruction-file management enabled.");
 });
 
-export const handleRulesDisable = Effect.fn("Rules.disable")(function* () {
+const handleRulesDisable = Effect.fn("Rules.disable")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   yield* ws.setInstructionsConfig(false);
   yield* renderer.success("Instruction-file management disabled.");
 });
 
-export const rulesStatusConfig = {
+const rulesStatusConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Inspect project (default) or user-level configuration"),
   ),
 } as const;
 
-export const rulesEnableConfig = {
+const rulesEnableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable project (default) or user-level configuration"),
   ),
@@ -149,13 +149,13 @@ export const rulesEnableConfig = {
   ),
 } as const;
 
-export const rulesDisableConfig = {
+const rulesDisableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable project (default) or user-level configuration"),
   ),
 } as const;
 
-export const rulesEnableCommand = Command.make(
+const rulesEnableCommand = Command.make(
   "enable",
   rulesEnableConfig,
   ({ scope, fileName, gitignore }) =>
@@ -175,7 +175,7 @@ export const rulesEnableCommand = Command.make(
   ]),
 );
 
-export const rulesDisableCommand = Command.make("disable", rulesDisableConfig, ({ scope }) =>
+const rulesDisableCommand = Command.make("disable", rulesDisableConfig, ({ scope }) =>
   handleRulesDisable().pipe(withWorkspace(scope), withRuntime("rules disable")),
 ).pipe(
   withArgvTracking(rulesDisableConfig),

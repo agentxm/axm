@@ -223,4 +223,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full development workflow.
 
 ## License
 
+AXM is licensed under the [Functional Source License](https://fsl.software/) (FSL), a [Fair Source](https://fair.io) license that converts to a MIT license after two years.
+
 FSL-1.1-MIT © 2025-2026 AgentXM, Inc. — see [LICENSE](./LICENSE).

@@ -1,3 +1,13 @@
+## 0.13.1 (2026-06-01)
+
+### 🩹 Fixes
+
+- Document FSL license terms. ([56d0d8f1](https://github.com/agentxm/axm/commit/56d0d8f1))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.13.0 (2026-05-30)
 
 ### 🚀 Features

@@ -9,7 +9,7 @@
 ![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)
 [![npm version](https://img.shields.io/npm/v/axm.sh.svg)](https://www.npmjs.com/package/axm.sh)
 [![CI](https://img.shields.io/github/actions/workflow/status/agentxm/axm/ci.yml?branch=main&label=CI)](https://github.com/agentxm/axm/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agentxm/axm/blob/main/LICENSE)
+[![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue.svg)](https://github.com/agentxm/axm/blob/main/LICENSE)
 
 # AXM — Extension manager for coding agents and AI assistants
 
@@ -205,5 +205,7 @@ for the development workflow.
 
 ## License
 
-MIT © 2025-2026 AgentXM, Inc. — see
+AXM is licensed under the [Functional Source License](https://fsl.software/) (FSL), a [Fair Source](https://fair.io) license that converts to a MIT license after two years.
+
+FSL-1.1-MIT © 2025-2026 AgentXM, Inc. — see
 [LICENSE](https://github.com/agentxm/axm/blob/main/LICENSE).

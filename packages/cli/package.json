@@ -3,7 +3,7 @@
   "version": "0.13.0",
   "description": "Extension manager for AI coding agents — install skills, subagents, slash commands, and MCP servers across Claude Code, Codex, Cursor, Copilot, and more.",
   "type": "module",
-  "license": "MIT",
+  "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
   "bugs": {
     "url": "https://github.com/agentxm/axm/issues"

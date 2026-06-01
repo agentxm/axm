@@ -9,7 +9,7 @@
 ![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)
 [![npm version](https://img.shields.io/npm/v/axm.sh.svg)](https://www.npmjs.com/package/axm.sh)
 [![CI](https://img.shields.io/github/actions/workflow/status/agentxm/axm/ci.yml?branch=main&label=CI)](https://github.com/agentxm/axm/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue.svg)](./LICENSE)
 
 # Extension manager for coding agents and AI assistants
 
@@ -223,4 +223,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full development workflow.
 
 ## License
 
-MIT © 2025-2026 AgentXM, Inc. — see [LICENSE](./LICENSE).
+FSL-1.1-MIT © 2025-2026 AgentXM, Inc. — see [LICENSE](./LICENSE).

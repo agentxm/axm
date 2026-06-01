@@ -3,7 +3,7 @@
   "version": "0.13.0",
   "description": "Shared primitive utilities for axm workspaces. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
-  "license": "MIT",
+  "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
   "bugs": {
     "url": "https://github.com/agentxm/axm/issues"

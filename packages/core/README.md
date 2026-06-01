@@ -13,4 +13,4 @@
 `VersRangeSchema` currently targets `package-url/vers-spec` commit
 `ee7d8b44f22f1517c75f7229b57b79374c8d34e5`.
 
-MIT © 2025-2026 AgentXM, Inc.
+FSL-1.1-MIT © 2025-2026 AgentXM, Inc.

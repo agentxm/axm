@@ -72,4 +72,4 @@ Releases are published from GitHub Actions. `pnpm release:prepare` is the only s
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing, you agree that your contributions will be licensed under the [Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)](LICENSE).
